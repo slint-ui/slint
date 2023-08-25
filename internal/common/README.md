@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial -->
 This crate contains internal data structures and code that is shared between
 the i-slint-core and the i-slint-compiler crates.
 

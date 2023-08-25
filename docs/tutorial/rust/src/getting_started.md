@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Getting Started
 
 We assume that you are a somewhat familiar with Rust, and that you know how to create a Rust application with

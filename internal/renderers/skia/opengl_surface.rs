@@ -207,7 +207,7 @@ impl OpenGLSurface {
         cfg_if::cfg_if! {
             if #[cfg(target_os = "macos")] {
                 let prefs = [glutin::display::DisplayApiPreference::Cgl];
-            } else if #[cfg(all(feature = "x11", not(target_family = "windows")))] {
+            } else if #[cfg(all(feature = "x11", not(target_family = "windows"), not(target_os = "android")))] {
                 let mut prefs = vec![glutin::display::DisplayApiPreference::Egl];
                 // GLX can only be supported with xlib, not xcb.
                 if matches!(_window_handle.raw_window_handle(), raw_window_handle::RawWindowHandle::Xlib(..)) {
@@ -226,7 +226,14 @@ impl OpenGLSurface {
                     glutin::display::Display::new(
                         _display_handle.raw_display_handle(),
                         display_api_preference,
-                    )?
+                    )
+                    .map_err(|glutin_error| {
+                        format!(
+                            "Error creating glutin display for native display {:#?}: {}",
+                            _display_handle.raw_display_handle(),
+                            glutin_error
+                        )
+                    })?
                 };
 
                 let config_template_builder = glutin::config::ConfigTemplateBuilder::new();

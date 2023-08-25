@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # From One To Multiple Tiles
 
 After modeling a single tile, let's create a grid of them. For the grid to be our game board, we need two features:

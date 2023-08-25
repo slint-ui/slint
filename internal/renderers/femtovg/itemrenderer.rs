@@ -1308,9 +1308,8 @@ impl<'a> GLItemRenderer<'a> {
                     if image_size.is_empty() {
                         return None;
                     }
-                    let scale_factor = ScaleFactor::new(self.window.scale_factor());
                     let t = LogicalSize::from_lengths(target_width.get(), target_height.get())
-                        * scale_factor;
+                        * self.scale_factor;
 
                     Some(i_slint_core::graphics::fit_size(image_fit, t, image_size).cast())
                 } else {

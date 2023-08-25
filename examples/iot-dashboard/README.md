@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # iot-dashboard
 
 This example is a clone of https://github.com/uwerat/qskinny/tree/master/examples/iotdashboard from

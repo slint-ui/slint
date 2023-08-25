@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Slide Puzzle
 
 Example based on the flutter slide_puzzle example:

@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 The icons originate from Font-Awesome font ( http://fontawesome.io ) and licensed under the CC BY 4.0 (SVG download)
 
     https://fontawesome.com/license/free

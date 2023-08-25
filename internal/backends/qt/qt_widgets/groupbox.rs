@@ -222,8 +222,13 @@ impl Item for NativeGroupBox {
             dpr as "float",
             initial_state as "int"
         ] {
+            if (auto groupbox = qobject_cast<QGroupBox *>(widget)) {
+                // If not set, the style may render incorrectly
+                // https://github.com/qt/qtbase/blob/5be45ff6a6e157d45b0010a4f09d3a11e62fddce/src/widgets/styles/qfusionstyle.cpp#L441
+                groupbox->setTitle(text);
+            }
             QStyleOptionGroupBox option;
-            option.initFrom(widget);
+            option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             if (enabled) {
                 option.state |= QStyle::State_Enabled;

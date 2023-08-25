@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Virtual Keyboard Example
 
 This example application demonstrates how to implement and display a custom virtual keyboard in Slint.

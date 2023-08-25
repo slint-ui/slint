@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-03 03:03+0000\n"
+"POT-Creation-Date: 2023-08-22 03:04+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: French (https://app.transifex.com/slint/teams/170022/fr/)\n"
@@ -21,35 +21,49 @@ msgstr ""
 "1000000 == 0 ? 1 : 2;\n"
 "X-Generator: Lokalize 22.12.3\n"
 
-#: gallery.slint:14 gallery.slint:19
-msgctxt "App"
-msgid "Slint Widgets Gallery"
-msgstr "Gallerie de widgets "
-
-#: gallery.slint:20
-msgctxt "Menu"
-msgid "Controls"
-msgstr "Contrôles"
-
-#: gallery.slint:20
-msgctxt "Menu"
-msgid "ListView"
-msgstr "ListView"
-
-#: gallery.slint:20
-msgctxt "Menu"
+#: ui/pages/table_view_page.slint:22
+msgctxt "TableViewPage"
 msgid "TableView"
 msgstr "TableView"
 
-#: gallery.slint:20
-msgctxt "Menu"
-msgid "TextEdit"
-msgstr "TextEdit"
+#: ui/pages/table_view_page.slint:23
+msgctxt "TableViewPage"
+msgid ""
+"StandardTableView can be used to display a list of text elements in columns "
+"and rows. It can be imported from \"std-widgets.slint\""
+msgstr ""
+"StandardTableView peut être utilisé pour afficher une liste d'éléments et "
+"colonnes"
 
-#: gallery.slint:20
-msgctxt "Menu"
-msgid "About"
-msgstr "À Propos"
+#: ui/pages/table_view_page.slint:29
+msgctxt "TableViewPage"
+msgid "StandardTableView"
+msgstr "StandardTableView"
+
+#: ui/pages/table_view_page.slint:42
+msgctxt "TableViewPage"
+msgid "Header 1"
+msgstr "En-tête 1"
+
+#: ui/pages/table_view_page.slint:43
+msgctxt "TableViewPage"
+msgid "Header 2"
+msgstr "En-tête 2"
+
+#: ui/pages/table_view_page.slint:44
+msgctxt "TableViewPage"
+msgid "Header 3"
+msgstr "En-tête 3"
+
+#: ui/pages/table_view_page.slint:45
+msgctxt "TableViewPage"
+msgid "Header 4"
+msgstr "En-tête 4"
+
+#: ui/pages/page.slint:25
+msgctxt "Page"
+msgid "Widgets enabled"
+msgstr "Widgets activés"
 
 #: ui/pages/controls_page.slint:10
 msgctxt "ControlsPage"
@@ -198,11 +212,6 @@ msgctxt "ControlsPage"
 msgid "Content of tab 3"
 msgstr "Contenu du 3ᵉ conglet"
 
-#: ui/pages/page.slint:25
-msgctxt "Page"
-msgid "Widgets enabled"
-msgstr "Widgets activés"
-
 #: ui/pages/list_view_page.slint:9
 msgctxt "ListViewPage"
 msgid "ListView"
@@ -272,45 +281,6 @@ msgctxt "ListViewPage"
 msgid "consetetur"
 msgstr "consetetur"
 
-#: ui/pages/table_view_page.slint:22
-msgctxt "TableViewPage"
-msgid "TableView"
-msgstr "TableView"
-
-#: ui/pages/table_view_page.slint:23
-msgctxt "TableViewPage"
-msgid ""
-"StandardTableView can be used to display a list of text elements in columns "
-"and rows. It can be imported from \"std-widgets.slint\""
-msgstr ""
-"StandardTableView peut être utilisé pour afficher une liste d'éléments et "
-"colonnes"
-
-#: ui/pages/table_view_page.slint:29
-msgctxt "TableViewPage"
-msgid "StandardTableView"
-msgstr "StandardTableView"
-
-#: ui/pages/table_view_page.slint:42
-msgctxt "TableViewPage"
-msgid "Header 1"
-msgstr "En-tête 1"
-
-#: ui/pages/table_view_page.slint:43
-msgctxt "TableViewPage"
-msgid "Header 2"
-msgstr "En-tête 2"
-
-#: ui/pages/table_view_page.slint:44
-msgctxt "TableViewPage"
-msgid "Header 3"
-msgstr "En-tête 3"
-
-#: ui/pages/table_view_page.slint:45
-msgctxt "TableViewPage"
-msgid "Header 4"
-msgstr "En-tête 4"
-
 #: ui/pages/text_edit_page.slint:9
 msgctxt "TextEditPage"
 msgid "TextEdit"
@@ -354,3 +324,33 @@ msgstr ""
 msgctxt "TextEditPage"
 msgid "No-Wrap"
 msgstr "Pas de retour à la ligne"
+
+#: gallery.slint:14 gallery.slint:19
+msgctxt "App"
+msgid "Slint Widgets Gallery"
+msgstr "Gallerie de widgets "
+
+#: gallery.slint:20
+msgctxt "Menu"
+msgid "Controls"
+msgstr "Contrôles"
+
+#: gallery.slint:20
+msgctxt "Menu"
+msgid "ListView"
+msgstr "ListView"
+
+#: gallery.slint:20
+msgctxt "Menu"
+msgid "TableView"
+msgstr "TableView"
+
+#: gallery.slint:20
+msgctxt "Menu"
+msgid "TextEdit"
+msgstr "TextEdit"
+
+#: gallery.slint:20
+msgctxt "Menu"
+msgid "About"
+msgstr "À Propos"

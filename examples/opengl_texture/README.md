@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # OpenGL Texture Import Example
 
 This example application demonstrates how import an OpenGL texture into a Sline scene:

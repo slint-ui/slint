@@ -14,6 +14,7 @@ use crate::item_tree::{
 use crate::lengths::{
     LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize, LogicalVector,
 };
+use crate::properties::PropertyTracker;
 use crate::Coord;
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
@@ -72,11 +73,20 @@ impl CachedRenderingData {
 /// [`ItemCache::component_destroyed`] must be called to clear the cache for that
 /// component.
 #[cfg(feature = "std")]
-#[derive(Default)]
 pub struct ItemCache<T> {
     /// The pointer is a pointer to a component
     map: RefCell<HashMap<*const vtable::Dyn, HashMap<usize, CachedGraphicsData<T>>>>,
+    /// Track if the window scale factor changes; used to clear the cache if necessary.
+    window_scale_factor_tracker: Pin<Box<PropertyTracker>>,
 }
+
+#[cfg(feature = "std")]
+impl<T> Default for ItemCache<T> {
+    fn default() -> Self {
+        Self { map: Default::default(), window_scale_factor_tracker: Box::pin(Default::default()) }
+    }
+}
+
 #[cfg(feature = "std")]
 impl<T: Clone> ItemCache<T> {
     /// Returns the cached value associated to the `item_rc` if it is still valid.
@@ -130,6 +140,16 @@ impl<T: Clone> ItemCache<T> {
             .get(&component)
             .and_then(|per_component_entries| per_component_entries.get(&item_rc.index()))
             .and_then(|entry| callback(&entry.data))
+    }
+
+    /// Clears the cache if the window's scale factor has changed since the last call.
+    pub fn clear_cache_if_scale_factor_changed(&self, window: &crate::api::Window) {
+        if self.window_scale_factor_tracker.is_dirty() {
+            self.window_scale_factor_tracker
+                .as_ref()
+                .evaluate_as_dependency_root(|| window.scale_factor());
+            self.clear_all();
+        }
     }
 
     /// free the whole cache
@@ -550,7 +570,7 @@ impl<'a, T> PartialRenderer<'a, T> {
         if let Some(entry) = rendering_data.get_entry(&mut cache.borrow_mut()) {
             entry
                 .dependency_tracker
-                .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
+                .get_or_insert_with(|| Box::pin(PropertyTracker::default()))
                 .as_ref()
                 .evaluate(render_fn);
         } else {
@@ -595,7 +615,7 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
         let item_geometry = match rendering_data.get_entry(&mut cache) {
             Some(CachedGraphicsData { data, dependency_tracker }) => {
                 dependency_tracker
-                    .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
+                    .get_or_insert_with(|| Box::pin(PropertyTracker::default()))
                     .as_ref()
                     .evaluate_if_dirty(|| *data = eval());
                 *data

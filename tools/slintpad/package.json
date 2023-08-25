@@ -5,13 +5,12 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "build": "rimraf dist dev-dist pkg && npx vite build",
-        "build:wasm_lsp": "wasm-pack build --dev --target web ../lsp -- --no-default-features --features preview-api",
-        "build:wasm_lsp-release": "wasm-pack build --release --target web ../lsp -- --no-default-features --features preview-api",
-        "build:wasm_preview": "wasm-pack build --dev --target web ../../api/wasm-interpreter -- --features console_error_panic_hook,highlight",
-        "build:wasm_preview-release": "wasm-pack build --release --target web ../../api/wasm-interpreter -- --features console_error_panic_hook,highlight",
+        "build": "npm run clean && npx vite build",
+        "build:wasm_lsp": "wasm-pack build --dev --target web ../lsp -- --no-default-features --features backend-winit,renderer-femtovg,preview",
+        "build:wasm_lsp-release": "wasm-pack build --release --target web ../lsp -- --no-default-features --features backend-winit,renderer-femtovg,preview",
         "lint": "eslint src",
-        "start": "rimraf dist dev-dist pkg && npm run build:wasm_lsp && npm run build:wasm_preview && npm run start:vite",
+        "clean": "rimraf dist dev-dist pkg",
+        "start": "npm run clean && npm run build:wasm_lsp && npm run start:vite",
         "start:vite": "vite --open",
         "start:vite_cypress": "vite --port=3001",
         "start:vite_cypress-preview": "vite preview --port=3001",
@@ -20,7 +19,7 @@
         "test:cypress_open-chromium": "cypress open --browser=chromium --e2e",
         "test:cypress_run-ff": "cypress run --browser=firefox --e2e",
         "test:cypress_open-ff": "cypress open --browser=firefox --e2e",
-        "slintpad:prepublish": "npm run build:wasm_lsp-release && npm run build:wasm_preview-release"
+        "slintpad:prepublish": "npm run clean && npm run build:wasm_lsp-release"
     },
     "keywords": [],
     "author": "",

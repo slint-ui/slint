@@ -62,7 +62,7 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
 
     let root = super::root_dir();
 
-    let docs_source_dir = root.join("docs/language");
+    let docs_source_dir = root.join("docs/reference");
     let docs_build_dir = root.join("target/slintdocs");
     let html_static_dir = docs_build_dir.join("_static");
 
@@ -73,7 +73,7 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     symlink_files_in_dir(
         &docs_source_dir,
         &docs_build_dir,
-        ["..", "..", "docs", "language"].iter().collect::<PathBuf>(),
+        ["..", "..", "docs", "reference"].iter().collect::<PathBuf>(),
     )
     .context(format!("Error creating symlinks from docs source {docs_source_dir:?} to docs build dir {docs_build_dir:?}"))?;
 
@@ -141,7 +141,7 @@ pub fn generate_enum_docs() -> Result<(), Box<dyn std::error::Error>> {
 
     let root = super::root_dir();
 
-    let path = root.join("docs/language/src/builtins/enums.md");
+    let path = root.join("docs/reference/src/language/builtins/enums.md");
     let mut file = std::fs::File::create(&path).context(format!("error creating {path:?}"))?;
 
     file.write_all(
@@ -225,7 +225,7 @@ This structure represents a point with x and y coordinate\n
 
     let root = super::root_dir();
 
-    let path = root.join("docs/language/src/builtins/structs.md");
+    let path = root.join("docs/reference/src/language/builtins/structs.md");
     let mut file = std::fs::File::create(&path).context(format!("error creating {path:?}"))?;
 
     file.write_all(

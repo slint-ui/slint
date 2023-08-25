@@ -4,8 +4,14 @@
 [package]
 edition = "2021"
 name = "slint-napi"
-version = "0.0.1"
+version = "1.2.0"
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial"
+homepage = "https://slint.dev"
+description = "Internal Slint Runtime Library for NodeJS API."
+repository = "https://github.com/slint-ui/slint"
+categories = ["gui", "development-tools"]
+keywords = ["gui", "ui", "toolkit", "graphics", "design"]
+rust-version.workspace = true
 
 [lib]
 crate-type = ["cdylib"]

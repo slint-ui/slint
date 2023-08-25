@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Slint MCU backend
 
 See also the [MCU docs](../../api/rs/slint/mcu.md)

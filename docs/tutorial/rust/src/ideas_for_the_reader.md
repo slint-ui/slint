@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Ideas For The Reader
 
 The game is visually a little bare. Here are some ideas how you could make further changes to enhance it:

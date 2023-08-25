@@ -3,6 +3,7 @@
 
 #![cfg(target_arch = "wasm32")]
 
+mod common;
 mod completion;
 mod goto;
 mod lsp_ext;
@@ -10,7 +11,10 @@ mod properties;
 mod semantic_tokens;
 mod server_loop;
 mod util;
+#[cfg(feature = "preview")]
+mod wasm_preview;
 
+use common::PreviewApi;
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
 use serde::Serialize;
@@ -18,6 +22,7 @@ pub use server_loop::{Context, DocumentCache, Error, RequestHandler};
 use std::cell::RefCell;
 use std::future::Future;
 use std::io::ErrorKind;
+use std::path::PathBuf;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
@@ -36,6 +41,48 @@ pub mod wasm_prelude {
         fn from_file_path<P: AsRef<Path>>(path: P) -> Result<Self, ()> {
             Self::parse(path.as_ref().to_str().ok_or(())?).map_err(|_| ())
         }
+    }
+}
+
+struct Previewer {
+    highlight_in_preview: Function,
+}
+
+impl PreviewApi for Previewer {
+    fn set_design_mode(&self, _enable: bool) {
+        // do nothing!
+    }
+
+    fn design_mode(&self) -> bool {
+        // do nothing!
+        false
+    }
+
+    fn set_contents(&self, _path: &std::path::Path, _contents: &str) {
+        // do nothing!
+    }
+
+    fn load_preview(
+        &self,
+        _component: common::PreviewComponent,
+        _behavior: common::PostLoadBehavior,
+    ) {
+        // do nothing!
+    }
+
+    fn config_changed(&self, _style: &str, _include_paths: &[PathBuf]) {
+        // do nothing!
+    }
+
+    fn highlight(
+        &self,
+        path: Option<std::path::PathBuf>,
+        offset: u32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.highlight_in_preview
+            .call2(&JsValue::UNDEFINED, &to_value(&path.unwrap_or_default())?, &offset.into())
+            .map_err(|x| std::io::Error::new(ErrorKind::Other, format!("{x:?}")))?;
+        Ok(())
     }
 }
 
@@ -66,24 +113,6 @@ impl ServerNotifier {
                 serde_wasm_bindgen::from_value(v).map_err(|e| format!("{e:?}").into())
             })
         })
-    }
-
-    pub async fn progress_reporter(
-        &self,
-        token: lsp_types::ProgressToken,
-        title: String,
-        message: Option<String>,
-        percentage: Option<u32>,
-        cancellable: Option<bool>,
-    ) -> Result<server_loop::ProgressReporter, Error> {
-        server_loop::ProgressReporter::new(
-            self.clone(),
-            token,
-            title,
-            message,
-            percentage,
-            cancellable,
-        )
     }
 }
 
@@ -196,7 +225,7 @@ pub fn create(
 
     let document_cache = RefCell::new(DocumentCache::new(compiler_config));
     let send_request = Function::from(send_request.clone());
-    let _highlight_in_preview = Function::from(highlight_in_preview.clone());
+    let highlight_in_preview = Function::from(highlight_in_preview.clone());
     let reentry_guard = Rc::new(RefCell::new(ReentryGuard::default()));
 
     let mut rh = RequestHandler::default();
@@ -207,22 +236,7 @@ pub fn create(
             document_cache,
             init_param,
             server_notifier: ServerNotifier { send_notification, send_request },
-            #[cfg(feature = "preview-api")]
-            preview: server_loop::PreviewApi {
-                highlight: Box::new(
-                    #[allow(unused_variables)]
-                    move |ctx: &Rc<Context>, path: Option<std::path::PathBuf>, offset: u32| {
-                        _highlight_in_preview
-                            .call2(
-                                &JsValue::UNDEFINED,
-                                &to_value(&path.unwrap_or_default())?,
-                                &offset.into(),
-                            )
-                            .map_err(|x| std::io::Error::new(ErrorKind::Other, format!("{x:?}")))?;
-                        Ok(())
-                    },
-                ),
-            },
+            preview: Box::new(Previewer { highlight_in_preview }),
         }),
         reentry_guard,
         rh: Rc::new(rh),
@@ -244,7 +258,7 @@ impl SlintServer {
             let _lock = ReentryGuard::lock(guard).await;
             let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
             server_loop::reload_document(
-                &ctx.server_notifier,
+                &ctx,
                 content,
                 uri.clone(),
                 version,

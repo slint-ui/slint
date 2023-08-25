@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
 # ESP32-S3-Box Printer Demo with ESP-IDF
 

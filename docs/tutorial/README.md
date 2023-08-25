@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Tutorials
 
 The source code for the Rust and C++ versions of the Memory Game tutorial are located in

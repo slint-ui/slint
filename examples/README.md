@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Examples
 
 These examples demonstrate the main features of Slint and how to use them in different language environments.

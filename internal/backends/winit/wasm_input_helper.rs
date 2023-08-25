@@ -147,10 +147,8 @@ impl WasmInputHelper {
         h.add_event_listener("blur", move |_: web_sys::Event| {
             // Make sure that the window gets marked as unfocused when the focus leaves the input
             if let Some(window_adapter) = win.upgrade() {
-                let window_inner = WindowInner::from_pub(window_adapter.window());
                 if !canvas.matches(":focus").unwrap_or(false) {
-                    window_inner.set_active(false);
-                    window_inner.set_focus(false);
+                    window_adapter.window().dispatch_event(WindowEvent::WindowActiveChanged(false));
                 }
             }
         });

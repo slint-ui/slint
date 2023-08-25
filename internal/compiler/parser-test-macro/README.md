@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial -->
 parser_test: a proc macro attribute that generate tests for the parser functions
 
 The parser_test macro will look at the documentation of a function for a

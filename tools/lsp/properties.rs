@@ -4,7 +4,7 @@
 use crate::server_loop::DocumentCache;
 use crate::Error;
 
-use crate::util::{map_node, map_node_and_url, map_position, map_range};
+use crate::util::{map_node, map_node_and_url, map_position, map_range, ExpressionContextInfo};
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
@@ -659,7 +659,9 @@ pub(crate) fn set_binding(
     let new_expression_type = {
         let element = element.borrow();
         if let Some(node) = element.node.as_ref() {
-            crate::util::with_property_lookup_ctx(document_cache, node, property_name, |ctx| {
+            let expr_context_info =
+                ExpressionContextInfo::new(node.clone(), property_name.to_string(), false);
+            crate::util::with_property_lookup_ctx(document_cache, &expr_context_info, |ctx| {
                 let expression =
                     i_slint_compiler::expression_tree::Expression::from_binding_expression_node(
                         expression_node,

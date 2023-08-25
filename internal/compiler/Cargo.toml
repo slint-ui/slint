@@ -33,7 +33,7 @@ software-renderer = ["image", "dep:resvg", "fontdue", "i-slint-common/shared-fon
 [dependencies]
 i-slint-common = { version = "=1.2.0", path = "../common" }
 
-num_enum = "0.6.1"
+num_enum = "0.7"
 strum = { version = "0.25.0", default-features = false, features = ["derive"] }
 rowan = "0.15.5"
 smol_str = "0.2.0"

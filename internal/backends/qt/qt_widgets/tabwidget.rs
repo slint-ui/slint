@@ -290,7 +290,7 @@ impl Item for NativeTabWidget {
             initial_state as "int"
         ] {
             QStyleOptionTabWidgetFrame option;
-            option.initFrom(widget);
+            option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             auto style = qApp->style();
             option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, widget);
@@ -517,7 +517,7 @@ impl Item for NativeTab {
         ] {
             ensure_initialized();
             QStyleOptionTab option;
-            option.initFrom(widget);
+            option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);;
             option.text = text;

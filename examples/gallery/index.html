@@ -11,6 +11,7 @@
      - Run in this directory:
          SLINT_STYLE=fluent wasm-pack build --release --out-dir pkg/fluent --target web
          SLINT_STYLE=material wasm-pack build --release --out-dir pkg/material --target web
+         SLINT_STYLE=cupertino wasm-pack build --release --out-dir pkg/cupertino --target web
   -->
 
 <head>
@@ -31,8 +32,9 @@
   </div>
   <p>Select style
     <select id="style-selection">
-      <option value="">fluent</option>
-      <option value="">material</option>
+      <option value="./pkg/fluent/gallery.js">Fluent</option>
+      <option value="./pkg/material/gallery.js">Material</option>
+      <option value="./pkg/cupertino/gallery.js">Cupertino (Experimental)</option>
     </select>
   </p>
   <div id="canvas-parent" width="640" height="480"></div>
@@ -44,9 +46,6 @@
     </a>
   </p>
   <script type="module">
-    const fluent = "./pkg/fluent/gallery.js";
-    const material = "./pkg/material/gallery.js";
-
     function initGallery(gallery) {
       document.getElementById("spinner").hidden = false;
 
@@ -69,23 +68,15 @@
       })
     }
 
-    initGallery(fluent);
-
     var styleSelection = document.getElementById("style-selection");
-    styleSelection.onchange = function (ev) {
-      var selectedStyle = styleSelection[styleSelection.selectedIndex].innerText;
 
-      switch (selectedStyle) {
-        case "fluent":
-          initGallery(fluent);
-          break;
-        case "material":
-          initGallery(material);
-          break;
-        default:
-          break;
-      }
-    };
+    function loadGallery() {
+      var selectedStyle = styleSelection[styleSelection.selectedIndex].value;
+      initGallery(selectedStyle);
+    }
+
+    styleSelection.onchange = loadGallery;
+    loadGallery()
   </script>
 </body>
 

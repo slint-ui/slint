@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Overview
 
 The following sections explain how to integrate your `.slint` designs into your

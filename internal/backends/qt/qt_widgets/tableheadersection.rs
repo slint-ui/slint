@@ -142,7 +142,7 @@ impl Item for NativeTableHeaderSection {
             #endif
 
             QStyleOptionHeader option;
-            option.initFrom(widget);
+            option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.state |= QStyle::State_Horizontal;
             option.rect = QRect(QPoint(), size / dpr);

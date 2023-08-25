@@ -1,0 +1,19 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+sphinx = "==7.1.2"
+myst_parser = ">=0.17.2"
+sphinx-markdown-tables = ">=0.0.15"
+furo = ">=2022.12.7"
+sphinxcontrib-jquery = ">=4.1"
+
+[requires]
+python_version = "3"

@@ -5,6 +5,7 @@
 
 import { defineConfig, UserConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { resolve } from "path";
 
 export default defineConfig(() => {
     const base_config: UserConfig = {
@@ -27,8 +28,7 @@ export default defineConfig(() => {
         },
         resolve: {
             alias: {
-                "@lsp/": "../../../lsp/pkg/",
-                "@preview/": "../../../api/wasm-interpreter/pkg/",
+                "@lsp": resolve(__dirname, "../lsp/pkg"),
                 "~@lumino": "node_modules/@lumino/", // work around strange defaults in @lumino
                 path: "path-browserify", // To make path.sep available to monaco
             },

@@ -3,8 +3,8 @@
 
 // cSpell: ignore rfind
 
-use super::util::{lookup_current_element_type, map_position};
-use super::DocumentCache;
+use crate::server_loop::DocumentCache;
+use crate::util::{lookup_current_element_type, map_position};
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
@@ -346,6 +346,23 @@ pub(crate) fn completion_at(
                 with_insert_text(c, ins_tex, snippet_support)
             })
             .collect();
+        return Some(r);
+    } else if node.kind() == SyntaxKind::PropertyAnimation {
+        let global_tr = document_cache.documents.global_type_registry.borrow();
+        let r = global_tr
+            .property_animation_type_for_property(Type::Float32)
+            .property_list()
+            .into_iter()
+            .map(|(k, t)| {
+                let mut c = CompletionItem::new_simple(k, t.to_string());
+                c.kind = Some(CompletionItemKind::PROPERTY);
+                if snippet_support {
+                    c.insert_text_format = Some(InsertTextFormat::SNIPPET);
+                    c.insert_text = Some(format!("{}: $1;", c.label));
+                }
+                c
+            })
+            .collect::<Vec<_>>();
         return Some(r);
     }
     None
@@ -822,5 +839,45 @@ mod tests {
         "#;
         let res = get_completions(source).unwrap();
         res.iter().find(|ci| ci.label == "TextEdit").unwrap();
+    }
+
+    #[test]
+    fn animation_completion() {
+        let source = r#"
+            component Foo {
+                Text {
+                    width: 20px;
+                    animate width {
+                        🔺
+                    }
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "delay").unwrap();
+        res.iter().find(|ci| ci.label == "duration").unwrap();
+        res.iter().find(|ci| ci.label == "iteration-count").unwrap();
+        res.iter().find(|ci| ci.label == "easing").unwrap();
+    }
+
+    #[test]
+    fn animation_easing_completion() {
+        let source = r#"
+            component Foo {
+                Text {
+                    width: 20px;
+                    animate width {
+                        easing: 🔺;
+                    }
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "ease").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in").unwrap();
+        res.iter().find(|ci| ci.label == "ease-out").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-out").unwrap();
+        res.iter().find(|ci| ci.label == "linear").unwrap();
+        res.iter().find(|ci| ci.label == "cubic-bezier").unwrap();
     }
 }

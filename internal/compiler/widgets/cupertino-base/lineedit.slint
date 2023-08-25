@@ -1,0 +1,128 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { Typography, Palette } from "styling.slint";
+import { FocusBorder } from "components.slint";
+
+export component LineEdit {
+    callback accepted(string /* text */);
+    callback edited(string /* text */);
+
+    in property <bool> enabled <=> i-text-input.enabled;
+    in property <InputType> input-type <=> i-text-input.input-type;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> i-text-input.horizontal-alignment;
+    in property <bool> read-only <=> i-text-input.read-only;
+    in property <length> font-size <=> i-text-input.font-size;
+    in property <string> placeholder-text <=> i-placeholder.text;
+    out property <bool> has-focus <=> i-text-input.has-focus;
+    in-out property <string> text <=> i-text-input.text;
+
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+    min-width: max(160px, i-layout.min-width);
+    min-height: max(22px, i-layout.min-height);
+    forward-focus: i-text-input;
+
+    FocusBorder {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        has-focus: root.has-focus;
+    }
+
+    i-shadow := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: parent.width + 2 * self.border-width;
+        height: parent.height + 2 * self.border-width;
+        border-width: 1px;
+        border-color: Palette.fake-shadow;
+    }
+
+    i-background := Rectangle {
+        background: Palette.surface;
+    }
+
+    i-layout := HorizontalLayout {
+        padding-left: 7px;
+        padding-right: 7px;
+
+        Rectangle {
+            clip: true;
+
+            i-placeholder := Text {
+                width: 100%;
+                height: 100%;
+                color: Palette.foreground-disabled;
+                font-size: Typography.body.font-size;
+                font-weight: Typography.body.font-weight;
+                visible: root.text == "";
+                vertical-alignment: center;
+            }
+
+            i-text-input := TextInput {
+                property <length> computed_x;
+                property <length> padding-outer: i-layout.padding-left + i-layout.padding-right;
+
+                x: min(0px, max(parent.width - self.width, self.computed_x));
+                width: max(parent.width, self.preferred-width);
+                height: 100%;
+                color: Palette.foreground;
+                vertical-alignment: center;
+                font-size: Typography.body.font-size;
+                font-weight: Typography.body.font-weight;
+                selection-background-color: Palette.cup-accent-quaternary;
+                selection-foreground-color: self.color;
+
+                accepted => {
+                    root.accepted(self.text);
+                }
+
+                edited => {
+                    root.edited(self.text);
+                }
+
+                cursor-position-changed(cpos) => {
+                    if (cpos.x + self.computed_x < self.padding-outer) {
+                        self.computed_x = - cpos.x + self.padding-outer;
+                    } else if (cpos.x + self.computed_x > parent.width - self.padding-outer) {
+                        self.computed_x = parent.width - cpos.x - self.padding-outer;
+                    }
+                }
+            }
+        }
+    }
+
+
+    public function select-all() {
+        i-text-input.select-all();
+    }
+
+    public function clear-selection() {
+        i-text-input.clear-selection();
+    }
+
+    public function cut() {
+        i-text-input.cut();
+    }
+
+    public function copy() {
+        i-text-input.copy();
+    }
+
+    public function paste() {
+        i-text-input.paste();
+    }
+
+    states [
+        disabled when !root.enabled : {
+            i-text-input.color: Palette.foreground-disabled;
+            i-placeholder.color: Palette.foreground-disabled;
+            i-background.background: Palette.surface-disabled;
+            i-shadow.border-color: Palette.fake-disabled-shadow;
+        }
+        focused when root.has-focus : {
+        }
+    ]
+}

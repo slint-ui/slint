@@ -8,13 +8,15 @@ import { Palette, Elevation } from "styling.slint";
 export component Slider {
     callback changed(float /* value */);
 
+    in property<bool> vertical: false;
     in property <float> maximum: 100;
     in property <bool> enabled <=> i-touch-area.enabled;
     in property <float> minimum: 0;
     out property <bool> has-focus: i-focus-scope.has-focus;
     in-out property <float> value;
 
-    min-height: 20px;
+    min-width: vertical ? 20px : 0px;
+    min-height: vertical ? 0px : 20px;
 
     accessible-role: slider;
     accessible-value: root.value;
@@ -25,26 +27,27 @@ export component Slider {
     i-background := Rectangle {
         background: Palette.surface-variant;
         opacity: 0.38;
+        x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
-        width: 100%;
-        height: 4px;
+        width: vertical ? 4px : parent.width;
+        height: vertical ? parent.height : 4px;
         border-radius: 2px;
     }
 
     i-track := Rectangle {
         background: Palette.primary;
-        x: i-background.x;
-        y: (parent.height - self.height) / 2;
-        width: i-handle.x + (i-handle.width / 2);
-        height: i-background.height;
+        x: vertical ? (parent.width - self.width) / 2 : i-background.x;
+        y: vertical ? i-background.y : (parent.height - self.height) / 2;
+        width: vertical? i-background.width : i-handle.x + (i-handle.width / 2);
+        height: vertical? i-handle.y + (i-handle.height / 2) : i-background.height;
         border-radius: i-background.border-radius;
     }
 
     i-state-layer := Rectangle {
         opacity: 0;
         background: Palette.primary;
-        x: i-handle.x - (self.width - i-handle.width) / 2;
-        y: (parent.height - self.height) / 2;
+        x: vertical ? (parent.width - self.width) / 2 : i-handle.x - (self.width - i-handle.width) / 2;
+        y: vertical ? i-handle.y - (self.height - i-handle.height) / 2 : (parent.height - self.height) / 2;
         width: 40px;
         height: 40px;
         border-radius: max(self.width, self.height) / 2;
@@ -54,10 +57,10 @@ export component Slider {
 
     i-handle := Rectangle {
         background: Palette.primary;
-        x: (parent.width - i-handle.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
-        y: (parent.height - self.height) / 2;
-        width: root.height;
-        height: root.height;
+        x: vertical ? (parent.width - self.width) / 2 : (parent.width - i-handle.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
+        y: vertical ? (parent.height - i-handle.height) * (root.value - root.minimum) / (root.maximum - root.minimum) : (parent.height - self.height) / 2;
+        width: vertical ? root.width : root.height;
+        height: vertical ? root.width : root.height;
         border-radius: max(self.width, self.height) / 2;
         drop-shadow-color: Palette.shadow;
         drop-shadow-blur: Elevation.level1;
@@ -70,15 +73,22 @@ export component Slider {
         property <float> pressed-value;
         property <bool> i-handle-hover: self.has-hover && self.mouse-x >= i-handle.x && self.mouse-x <= i-handle.x + i-handle.width
             && self.mouse-y >= i-handle.y && self.mouse-y <= i-handle.y + i-handle.height;
+
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
                 self.pressed-value = root.value;
             }
         }
+
         moved => {
-            if (self.enabled && self.pressed) {
+            if (!vertical && self.enabled && self.pressed) {
                 root.value = max(root.minimum, min(root.maximum,
                     self.pressed-value + (i-touch-area.mouse-x - i-touch-area.pressed-x) * (root.maximum - root.minimum) / (root.width - i-handle.width)));
+                root.changed(root.value);
+            }
+            if (vertical && self.enabled && self.pressed) {
+                root.value = max(root.minimum, min(root.maximum,
+                    self.pressed-value + (i-touch-area.mouse-y - i-touch-area.pressed-y) * (root.maximum - root.minimum) / (root.height - i-handle.height)));
                 root.changed(root.value);
             }
         }
@@ -86,13 +96,21 @@ export component Slider {
 
     i-focus-scope := FocusScope {
         x: 0;
+        y: 0;
         width: 0px;
+        height: 0px;
 
         key-pressed(event) => {
-            if (self.enabled && event.text == Key.RightArrow) {
+            if (!vertical && self.enabled && event.text == Key.RightArrow) {
                 root.value = Math.min(root.value + 1, root.maximum);
                 accept
-            } else if (self.enabled && event.text == Key.LeftArrow) {
+            } else if (!vertical && self.enabled && event.text == Key.LeftArrow) {
+                root.value = Math.max(root.value - 1, root.minimum);
+                accept
+            } else if (vertical && self.enabled && event.text == Key.DownArrow) {
+                root.value = Math.min(root.value + 1, root.maximum);
+                accept
+            } else if (vertical && self.enabled && event.text == Key.UpArrow) {
                 root.value = Math.max(root.value - 1, root.minimum);
                 accept
             } else {

@@ -71,7 +71,7 @@ jobs:
         level: error
         fail_on_error: true
     - name: Check license headers
-      run: cargo xtask check_license_headers --fix-it || echo "License information needs an update"
+      run: cargo xtask check_license_headers --fix-it
     - name: Suggest license header changes
       uses: reviewdog/action-suggester@v1
       with:

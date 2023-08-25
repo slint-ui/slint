@@ -19,7 +19,7 @@ regex = "1.4"
 toml_edit = "0.19"
 xshell = "0.2.1"
 serde_json = "1.0"
-cbindgen = "0.24"
+cbindgen = { workspace = true }
 proc-macro2 = "1.0.11"
 which = "4.2.4"
-i-slint-common = { version = "=1.2.0", path="../internal/common" }
+i-slint-common = { version = "=1.2.0", path = "../internal/common" }

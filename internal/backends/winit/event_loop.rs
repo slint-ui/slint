@@ -271,9 +271,7 @@ fn process_window_event(
             window.resize_event(size)?;
         }
         WindowEvent::CloseRequested => {
-            if runtime_window.request_close() {
-                window.set_visible(false)?;
-            }
+            window.window().dispatch_event(corelib::platform::WindowEvent::CloseRequested);
         }
         WindowEvent::ReceivedCharacter(ch) => {
             // On Windows, X11 and Wayland sequences like Ctrl+C will send a ReceivedCharacter after the pressed keyboard input event,
@@ -307,8 +305,9 @@ fn process_window_event(
             // We don't render popups as separate windows yet, so treat
             // focus to be the same as being active.
             if have_focus != runtime_window.active() {
-                runtime_window.set_active(have_focus);
-                runtime_window.set_focus(have_focus);
+                window.window().dispatch_event(
+                    corelib::platform::WindowEvent::WindowActiveChanged(have_focus),
+                );
             }
         }
         WindowEvent::KeyboardInput { ref input, .. } => {

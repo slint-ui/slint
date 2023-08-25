@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { Typography, Palette } from "styling.slint";
+
+export component GroupBox {
+    in property <string> title <=> label.text;
+    in property<bool> enabled: true;
+
+    VerticalLayout {
+        spacing: 6px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+
+        label := Text {
+            vertical-stretch: 0;
+            color: !root.enabled ? Palette.foreground-disabled : Palette.foreground;
+            font-size: Typography.body-strong.font-size;
+            font-weight: Typography.body-strong.font-weight;
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+            border-radius: 6px;
+            background: Palette.background-alt;
+            border-width: 1px;
+            border-color: Palette.border;
+
+            GridLayout {
+                padding: 8px;
+
+                @children
+            }
+        }
+    }
+}

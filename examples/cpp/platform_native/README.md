@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 This shows how one can use the Slint C++ platform API to integrate into any Windows application
 
  - main.cpp is basically a shell of an application written using the native WIN32 api.

@@ -77,11 +77,6 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     .context("Error creating symlinks from docs source to docs build dir")?;
 
     symlink_file(
-        ["..", "..", "docs", "debugging_techniques.md"].iter().collect::<PathBuf>(),
-        docs_build_dir.join("debugging_techniques.md"),
-    )?;
-
-    symlink_file(
         ["..", "..", "api", "cpp", "README.md"].iter().collect::<PathBuf>(),
         docs_build_dir.join("README.md"),
     )?;
@@ -90,7 +85,7 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     let enabled_features = cbindgen::EnabledFeatures {
         interpreter: true,
         backend_qt: false,
-        std: true,
+        freestanding: false,
         renderer_software: true,
         renderer_skia: true,
     };

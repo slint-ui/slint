@@ -142,7 +142,7 @@ impl Item for NativeStandardListViewItem {
             if (combobox && qApp->style()->styleHint(QStyle::SH_ComboBox_Popup, &cb_opt, widget)) {
                 widget->setProperty("_q_isComboBoxPopupItem", true);
                 QStyleOptionMenuItem option;
-                option.initFrom(widget);
+                option.styleObject = widget;
                 option.state |= QStyle::State(initial_state);
                 option.rect = QRect(QPoint(), size / dpr);
                 option.menuRect = QRect(QPoint(), size / dpr);
@@ -162,7 +162,7 @@ impl Item for NativeStandardListViewItem {
                 widget->setProperty("_q_isComboBoxPopupItem", {});
             } else {
                 QStyleOptionViewItem option;
-                option.initFrom(widget);
+                option.styleObject = widget;
                 option.state |= QStyle::State(initial_state);
                 option.rect = QRect(QPoint(), size / dpr);
                 option.state = QStyle::State_Enabled;

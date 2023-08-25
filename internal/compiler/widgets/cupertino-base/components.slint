@@ -1,0 +1,104 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { Palette, Typography, Icons } from "styling.slint";
+
+export component FocusBorder inherits Rectangle {
+    in property <bool> has-focus;
+
+    background: Palette.cup-accent-tertiary;
+    opacity: 0;
+
+    animate opacity { duration: 150ms; }
+
+    states [
+        focused when root.has-focus : {
+            opacity: 1;
+        }
+     ]
+}
+
+export component MenuBorder inherits Rectangle {
+    border-radius: 5px;
+    drop-shadow-blur: 1px;
+    drop-shadow-color: Palette.popup-drop-shadow-1;
+    background: Palette.background;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: parent.border-radius;
+        drop-shadow-blur: 2px;
+        drop-shadow-color: Palette.popup-drop-shadow-2;
+
+        Rectangle {
+            width: 100%;
+            height: 100%;
+            border-radius: parent.border-radius;
+            drop-shadow-blur: 22px;
+            drop-shadow-color: Palette.popup-drop-shadow-3;
+            drop-shadow-offset-y: 7px;
+            background: Palette.popup-background;
+
+            @children
+        }
+    }
+}
+
+export component ListItem {
+    callback clicked <=> i-touch-area.clicked;
+    callback pointer-event <=> i-touch-area.pointer-event;
+
+    in property <bool> selected;
+    in property <string> text <=> i-text.text;
+    out property <length> mouse-x <=> i-touch-area.mouse-x;
+    out property <length> mouse-y <=> i-touch-area.mouse-y;
+
+    min-width: i-layout.min-width;
+    min-height: max(22px, i-layout.min-height);
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+
+    i-background := Rectangle {
+        background: transparent;
+        border-radius: 5px;
+
+        i-layout := HorizontalLayout {
+            padding-left: 7px;
+            padding-right: 7px;
+            spacing: 2px;
+
+            i-icon := Image {
+                image-fit: contain;
+                source: Icons.check-mark;
+                colorize: Palette.foreground;
+                visible: root.selected;
+                width: 10px;
+            }
+
+            i-text := Text {
+                color: Palette.foreground;
+                font-size: Typography.body.font-size;
+                font-weight: Typography.body.font-weight;
+                vertical-alignment: center;
+                horizontal-alignment: left;
+                overflow: elide;
+            }
+        }
+    }
+
+    i-touch-area := TouchArea {}
+
+    states [
+        pressed when i-touch-area.pressed : {
+        }
+        hover when i-touch-area.has-hover : {
+            i-background.background: Palette.primary;
+            i-text.color: Palette.on-primary;
+            i-icon.colorize: Palette.on-primary;
+        }
+        selected when root.selected : {
+
+        }
+    ]
+}

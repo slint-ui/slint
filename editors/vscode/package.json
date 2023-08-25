@@ -18,7 +18,6 @@
     ],
     "activationEvents": [
         "onCommand:slint.showPreview",
-        "onCommand:slint.showWelcome",
         "onCommand:slint.reload",
         "onLanguage:slint",
         "onLanguage:rust",
@@ -63,12 +62,8 @@
             {
                 "command": "slint.showPreview",
                 "title": "Show Preview",
-                "category": "Slint"
-            },
-            {
-                "command": "slint.showWelcome",
-                "title": "Show Welcome Page",
-                "category": "Slint"
+                "category": "Slint",
+                "icon": "$(preview)"
             },
             {
                 "command": "slint.toggleDesignMode",
@@ -78,7 +73,8 @@
             {
                 "command": "slint.reload",
                 "title": "Restart server",
-                "category": "Slint"
+                "category": "Slint",
+                "icon": "$(debug-restart)"
             }
         ],
         "menus": {
@@ -117,11 +113,6 @@
                         "type": "string"
                     },
                     "description": "List of paths in which the `import` statement and `@image-url` are looked up"
-                },
-                "slint.showWelcomeOnActivation": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Open the Slint Welcome page when the Plugin gets activated (\"always\", \"never\")"
                 }
             }
         },
@@ -134,7 +125,55 @@
                     "contextualTitle": "Slint Properties"
                 }
             ]
-        }
+        },
+        "walkthroughs": [
+            {
+                "id": "slint.welcomeWalkthrough",
+                "title": "Getting Started with Slint",
+                "description": "Dive into VSCode's rich Slint development experience",
+                "steps": [
+                    {
+                        "id": "create_slint_file",
+                        "title": "Create a .slint File",
+                        "description": "[Open](command:toSide:workbench.action.files.openFile) or [create](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22slint%22%7D) a `.slint` file. Be sure to save it with the \".slint\" extension, such as \"helloworld.slint\". \n[Create a .slint File](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22slint%22%7D)",
+                        "media": {
+                            "markdown": "static/walkthroughs/welcome/create_slint_file.md"
+                        }
+                    },
+                    {
+                        "id": "live_preview",
+                        "title": "Live Preview your UI",
+                        "description": "Click on $(play) Show Preview above any component in your editor showing a .slint file to a preview of your user interface. Keep the preview open: It updates as you type.",
+                        "media": {
+                            "image": "static/walkthroughs/welcome/show_preview.png",
+                            "altText": "live preview in action"
+                        },
+                        "completionEvents": [
+                            "onCommand:slint.showPreview"
+                        ]
+                    },
+                    {
+                        "id": "property_editor",
+                        "title": "Edit Properties",
+                        "description": "When your cursor is on an Slint element in your editor, the property editor shows all possible properties defined on the Element.\n[Open Properties Editor](command:slint.propertiesView.focus)",
+                        "media": {
+                            "markdown": "static/walkthroughs/welcome/properties_editor.md"
+                        },
+                        "completionEvents": [
+                            "onView:slint.propertiesView"
+                        ]
+                    },
+                    {
+                        "id": "get_help",
+                        "title": "Learn More",
+                        "description": "Well done! You've completed Getting Started with Slint.",
+                        "media": {
+                            "markdown": "static/walkthroughs/welcome/get_help.md"
+                        }
+                    }
+                ]
+            }
+        ]
     },
     "dependencies": {
         "@vscode/codicons": "0.0.32",
@@ -145,9 +184,9 @@
         "bin/slint-lsp-*"
     ],
     "scripts": {
-        "vscode:prepublish": "npm run build:wasm_lsp && npm run build:wasm_preview && npm run compile && shx echo \"GPL-3.0-only OR LicenseRef-Slint-commercial\" > LICENSE.txt",
-        "build:wasm_lsp": "wasm-pack build --target web --out-name index ../../tools/lsp --no-default-features --features preview-lense,preview-api",
-        "build:wasm_preview": "env-var wasm-pack build --release --target web --out-dir {{npm_config_local_prefix}}/out ../../api/wasm-interpreter --features highlight",
+        "vscode:prepublish": "npm run build:wasm_lsp-release && npm run compile && shx echo \"GPL-3.0-only OR LicenseRef-Slint-commercial\" > LICENSE.txt",
+        "build:wasm_lsp": "env-var wasm-pack build --dev     --target web ../../tools/lsp --out-dir {{npm_config_local_prefix}}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
+        "build:wasm_lsp-release": "env-var wasm-pack build --release --target web ../../tools/lsp --out-dir {{npm_config_local_prefix}}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
         "compile": "node ./esbuild.js",
         "local-package": "shx mkdir -p bin && shx cp ../../target/debug/slint-lsp* bin/ && npx vsce package",
         "watch": "tsc -watch -p ./",

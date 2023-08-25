@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Creating The Tiles From Rust
 
 The tiles in the game should have a random placement. We'll need to add the `rand` dependency to

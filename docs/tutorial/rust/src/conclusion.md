@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Conclusion
 
 In this tutorial, we have demonstrated how to combine some built-in Slint elements with Rust code to build a little

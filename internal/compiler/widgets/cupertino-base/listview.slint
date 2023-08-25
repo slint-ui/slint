@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { ScrollView } from "scrollview.slint";
+import { ListItem } from "components.slint";
+
+export component ListView inherits ScrollView {
+    @children
+}
+
+component StandardListViewBase inherits ListView {
+    private property <length> item-height: self.viewport-height / self.model.length;
+    private property <length> current-item-y: self.viewport-y + current-item * item-height;
+
+    callback current-item-changed(int /* current-item */);
+    callback item-pointer-event(int /* item-index */, PointerEvent /* event */, Point /* absolute mouse position */);
+
+    in property<[StandardListViewItem]> model;
+    in-out property<int> current-item: -1;
+
+    for item[index] in root.model : ListItem {
+        height: self.min-height;
+        text: item.text;
+        selected: index == root.current-item;
+
+        clicked => {
+            root.set-current-item(index);
+        }
+
+        pointer-event(pe) => {
+            root.item-pointer-event(index, pe, {
+                x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
+                y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
+            });
+        }
+    }
+
+    public function set-current-item(index: int) {
+        if(index < 0 || index >= model.length) {
+            return;
+        }
+
+        current-item = index;
+        current-item-changed(current-item);
+
+        if(current-item-y < 0) {
+            self.viewport-y += 0 - current-item-y;
+        }
+
+        if(current-item-y + item-height > self.visible-height) {
+            self.viewport-y -= current-item-y + item-height - self.visible-height;
+        }
+    }
+}
+
+export component StandardListView inherits StandardListViewBase {
+    FocusScope {
+        x: 0;
+        width: 0;  // Do not react on clicks
+        key-pressed(event) => {
+            if (event.text == Key.UpArrow) {
+                root.set-current-item(root.current-item - 1);
+                return accept;
+            } else if (event.text == Key.DownArrow) {
+                root.set-current-item(root.current-item + 1);
+                return accept;
+            }
+            reject
+        }
+    }
+}

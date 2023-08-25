@@ -472,6 +472,7 @@ fn gen_corelib(
             "slint_windowrc_dark_color_scheme",
             "slint_windowrc_dispatch_pointer_event",
             "slint_windowrc_dispatch_key_event",
+            "slint_windowrc_dispatch_event",
             "slint_new_path_elements",
             "slint_new_path_events",
             "slint_color_brighter",
@@ -605,11 +606,18 @@ fn gen_corelib(
     friend inline LayoutInfo operator+(const LayoutInfo &a, const LayoutInfo &b) { return a.merge(b); }
     friend bool operator==(const LayoutInfo&, const LayoutInfo&) = default;".into(),
     );
+    config.export.body.insert(
+        "WindowEvent".to_owned(),
+        "/* Some members of the WindowEvent enum have destructors (with SharedString), but thankfully we don't use these so we can have an empty constructor */
+    ~WindowEvent() {}"
+            .into(),
+    );
     config
         .export
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
+
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("lib.rs"))
@@ -723,7 +731,7 @@ fn gen_backend_qt(
     Ok(())
 }
 
-fn gen_backend(
+fn gen_platform(
     root_dir: &Path,
     include_dir: &Path,
     dependencies: &mut Vec<PathBuf>,
@@ -739,9 +747,15 @@ fn gen_backend(
         .with_crate(crate_dir)
         .with_include("slint_image_internal.h")
         .with_include("slint_internal.h")
+        .with_after_include(
+            r"
+namespace slint::platform { struct WindowProperties; }
+namespace slint::cbindgen_private { using platform::WindowProperties; }
+",
+        )
         .generate()
-        .context("Unable to generate bindings for slint_backend_internal.h")?
-        .write_to_file(include_dir.join("slint_backend_internal.h"));
+        .context("Unable to generate bindings for slint_platform_internal.h")?
+        .write_to_file(include_dir.join("slint_platform_internal.h"));
 
     Ok(())
 }
@@ -845,7 +859,7 @@ macro_rules! declare_features {
     };
 }
 
-declare_features! {interpreter backend_qt std renderer_software renderer_skia}
+declare_features! {interpreter backend_qt freestanding renderer_software renderer_skia}
 
 /// Generate the headers.
 /// `root_dir` is the root directory of the slint git repo
@@ -864,7 +878,7 @@ pub fn gen_all(
     builtin_structs(include_dir)?;
     gen_corelib(root_dir, include_dir, &mut deps, enabled_features)?;
     gen_backend_qt(root_dir, include_dir, &mut deps)?;
-    gen_backend(root_dir, include_dir, &mut deps)?;
+    gen_platform(root_dir, include_dir, &mut deps)?;
     if enabled_features.interpreter {
         gen_interpreter(root_dir, include_dir, &mut deps)?;
     }

@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export component TestCase  {
+    VerticalLayout {
+        t := Text {
+            text: "Hello World";
+        }
+    }
+    out property <int> t-width: t.width / 1px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.window().set_size(slint::PhysicalSize::new(300, 500));
+assert_eq!(instance.get_t_width(), 300);
+
+```
+*/

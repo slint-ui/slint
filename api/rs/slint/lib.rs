@@ -16,8 +16,8 @@ This crate is the main entry point for embedding user interfaces designed with
 
 */
 #![doc = concat!("* [The Slint Language Documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint)")]
+#![doc = concat!("* [Platform Backends](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/advanced/backends.html)")]
 /*! * [Slint on Microcontrollers](docs::mcu)
- * [Debugging Techniques](docs::debugging_techniques)
 
 ## How to use this crate:
 

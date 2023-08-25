@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # FFmpeg Example
 
 This example application demonstrates the use of ffmpeg with Rust to play back video.

@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # OpenGL Underlay Example
 
 This example application demonstrates how layer two scenes together in a window:

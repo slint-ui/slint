@@ -89,6 +89,9 @@ impl WindowAdapter for TestingWindow {
     }
 
     fn set_size(&self, size: i_slint_core::api::WindowSize) {
+        self.window.dispatch_event(i_slint_core::platform::WindowEvent::Resized {
+            size: size.to_logical(1.),
+        });
         self.size.set(size.to_physical(1.))
     }
 

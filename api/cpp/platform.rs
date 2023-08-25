@@ -4,12 +4,12 @@
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::ffi::c_void;
-use i_slint_core::api::{PhysicalSize, Window};
+use i_slint_core::api::{LogicalSize, PhysicalSize, Window};
 use i_slint_core::graphics::IntSize;
 use i_slint_core::platform::{Clipboard, Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
-use i_slint_core::window::WindowAdapter;
+use i_slint_core::window::{WindowAdapter, WindowProperties};
 use i_slint_core::SharedString;
 
 type WindowAdapterUserData = *mut c_void;
@@ -30,6 +30,7 @@ pub struct CppWindowAdapter {
     set_visible: unsafe extern "C" fn(WindowAdapterUserData, bool),
     request_redraw: unsafe extern "C" fn(WindowAdapterUserData),
     size: unsafe extern "C" fn(WindowAdapterUserData) -> IntSize,
+    update_window_properties: unsafe extern "C" fn(WindowAdapterUserData, &WindowProperties),
 }
 
 impl Drop for CppWindowAdapter {
@@ -60,6 +61,51 @@ impl WindowAdapter for CppWindowAdapter {
     fn request_redraw(&self) {
         unsafe { (self.request_redraw)(self.user_data) }
     }
+
+    fn update_window_properties(&self, properties: WindowProperties<'_>) {
+        unsafe { (self.update_window_properties)(self.user_data, &properties) }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn slint_window_properties_get_title(wp: &WindowProperties, out: &mut SharedString) {
+    *out = wp.title();
+}
+
+#[no_mangle]
+pub extern "C" fn slint_window_properties_get_background(
+    wp: &WindowProperties,
+    out: &mut i_slint_core::Brush,
+) {
+    *out = wp.background();
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+/// a Repr(C) variant of slint::platform::LayoutConstraints
+pub struct LayoutConstraintsReprC {
+    pub min: i_slint_core::graphics::Size,
+    pub max: i_slint_core::graphics::Size,
+    pub preferred: i_slint_core::graphics::Size,
+    pub has_min: bool,
+    pub has_max: bool,
+}
+
+#[no_mangle]
+pub extern "C" fn slint_window_properties_get_layout_constraints(
+    wp: &WindowProperties,
+) -> LayoutConstraintsReprC {
+    let c = wp.layout_constraints();
+    LayoutConstraintsReprC {
+        min: i_slint_core::lengths::logical_size_from_api(c.min.unwrap_or_default()).to_untyped(),
+        max: i_slint_core::lengths::logical_size_from_api(
+            c.max.unwrap_or(LogicalSize { width: f32::MAX, height: f32::MAX }),
+        )
+        .to_untyped(),
+        preferred: i_slint_core::lengths::logical_size_from_api(c.preferred).to_untyped(),
+        has_min: c.min.is_some(),
+        has_max: c.max.is_some(),
+    }
 }
 
 #[no_mangle]
@@ -70,6 +116,7 @@ pub unsafe extern "C" fn slint_window_adapter_new(
     set_visible: unsafe extern "C" fn(WindowAdapterUserData, bool),
     request_redraw: unsafe extern "C" fn(WindowAdapterUserData),
     size: unsafe extern "C" fn(WindowAdapterUserData) -> IntSize,
+    update_window_properties: unsafe extern "C" fn(WindowAdapterUserData, &WindowProperties),
     target: *mut WindowAdapterRcOpaque,
 ) {
     let window = Rc::<CppWindowAdapter>::new_cyclic(|w| CppWindowAdapter {
@@ -80,6 +127,7 @@ pub unsafe extern "C" fn slint_window_adapter_new(
         set_visible,
         request_redraw,
         size,
+        update_window_properties,
     });
 
     core::ptr::write(target as *mut Rc<dyn WindowAdapter>, window);
@@ -221,31 +269,6 @@ pub unsafe extern "C" fn slint_windowrc_has_active_animations(
 ) -> bool {
     let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
     window_adapter.window().has_active_animations()
-}
-
-/// Dispatch resize event
-#[no_mangle]
-pub unsafe extern "C" fn slint_windowrc_dispatch_resize_event(
-    handle: *const WindowAdapterRcOpaque,
-    width: f32,
-    height: f32,
-) {
-    let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-    window_adapter.window().dispatch_event(i_slint_core::platform::WindowEvent::Resized {
-        size: i_slint_core::api::LogicalSize { width, height },
-    });
-}
-
-/// Dispatch scale factor change event
-#[no_mangle]
-pub unsafe extern "C" fn slint_windowrc_dispatch_scale_factor_change_event(
-    handle: *const WindowAdapterRcOpaque,
-    scale_factor: f32,
-) {
-    let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-    window_adapter
-        .window()
-        .dispatch_event(i_slint_core::platform::WindowEvent::ScaleFactorChanged { scale_factor });
 }
 
 #[no_mangle]

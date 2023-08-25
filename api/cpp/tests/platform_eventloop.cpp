@@ -72,7 +72,7 @@ struct TestPlatform : slint::platform::Platform
         cv.notify_all();
     }
 
-#ifndef SLINT_FEATURE_STD
+#ifdef SLINT_FEATURE_FREESTANDING
     virtual std::chrono::milliseconds duration_since_start() const override
     {
         return std::chrono::duration_cast<std::chrono::milliseconds>(

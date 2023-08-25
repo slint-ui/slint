@@ -99,6 +99,7 @@ rust-version = "1.66"
 resvg = { version= "0.34.0", default-features = false, features = ["text"] }
 fontdb = { version = "0.14.1", default-features = false }
 send_wrapper = { version = "0.6.0" }
+cbindgen = { version = "0.24", default-features = false }
 
 [profile.release]
 lto = true

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
+import slint_init, * as slint from "@lsp/slint_lsp_wasm.js";
 
 (async function () {
     await slint_init();

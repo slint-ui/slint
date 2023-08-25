@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Creating The Tiles From JavaScript
 
 What we'll do is take the list of tiles declared in the .slint language, duplicate it, and shuffle it.

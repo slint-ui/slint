@@ -5,8 +5,8 @@
 
 #include "slint.h"
 
-#include <utility>
 #include <cassert>
+#include <utility>
 
 struct xcb_connection_t;
 struct wl_surface;
@@ -24,13 +24,88 @@ typedef struct objc_object NSWindow;
 
 namespace slint {
 
-/// Namespace to be used when you implement your own Platform
+/// Use the types in this namespace when implementing a custom Slint platform.
+///
+/// Slint comes with built-in support for different windowing systems, called backends. A backend
+/// is a module that implements the Platform interface in this namespace, interacts with a
+/// windowing system, and uses one of Slint's renderers to display a scene to the windowing system.
+/// A typical Slint application uses one of the built-in backends. Implement your own Platform if
+/// you're using Slint in an environment without a windowing system, such as with microcontrollers,
+/// or you're embedding a Slint UI as plugin in other applications.
+///
+/// Examples of custom platform implementation can be found in the Slint repository:
+///  - https://github.com/slint-ui/slint/tree/master/examples/cpp/platform_native
+///  - https://github.com/slint-ui/slint/tree/master/examples/cpp/platform_qt
+///  - https://github.com/slint-ui/slint/blob/master/api/cpp/esp-idf/slint/src/slint-esp.cpp
+///
+/// The entry point to re-implement a platform is the Platform class. Derive
+/// from slint::platform::Platform, and call slint::platform::set_platform
+/// to set it as the Slint platform.
+///
+/// Another important class to subclass is the WindowAdapter.
 namespace platform {
+
+/// This struct contains getters that provide access to properties of the Window
+/// element, and is used with WindowAdapter::update_window_properties().
+struct WindowProperties
+{
+    /// Returns the title of the window.
+    SharedString title() const
+    {
+        SharedString out;
+        cbindgen_private::slint_window_properties_get_title(this, &out);
+        return out;
+    }
+
+    /// Returns the background brush of the window.
+    Brush background() const
+    {
+        Brush out;
+        cbindgen_private::slint_window_properties_get_background(this, &out);
+        return out;
+    }
+
+    /// This struct describes the layout constraints of a window.
+    ///
+    /// It is the return value of WindowProperties::layout_constraints().
+    struct LayoutConstraints
+    {
+        /// This represents the minimum size the window can be. If this is set, the window should
+        /// not be able to be resized smaller than this size. If it is left unset, there is no
+        /// minimum size.
+        std::optional<LogicalSize> min;
+        // This represents the maximum size the window can be. If this is set, the window should
+        /// not be able to be resized larger than this size. If it is left unset, there is no
+        /// maximum size.
+        std::optional<LogicalSize> max;
+        /// This represents the preferred size of the window. This is the size the window
+        /// should have by default
+        LogicalSize preferred;
+    };
+
+    /// Returns the layout constraints of the window
+    LayoutConstraints layout_constraints() const
+    {
+        auto lc = cbindgen_private::slint_window_properties_get_layout_constraints(this);
+        return LayoutConstraints {
+            .min = lc.has_min ? std::optional(LogicalSize(lc.min)) : std::nullopt,
+            .max = lc.has_max ? std::optional(LogicalSize(lc.max)) : std::nullopt,
+            .preferred = LogicalSize(lc.preferred)
+        };
+    }
+
+private:
+    /// This struct is opaque and cannot be constructed by C++
+    WindowProperties() = delete;
+    ~WindowProperties() = delete;
+    WindowProperties(const WindowProperties &) = delete;
+    WindowProperties &operator=(const WindowProperties &) = delete;
+};
 
 /// Internal interface for a renderer for use with the WindowAdapter.
 ///
-/// You are not supposed to re-implement this class, but you can use one of the provided one
-/// such as SoftwareRenderer or SkiaRenderer.
+/// This class is not intended to be re-implemented. In places where this class is required, use
+/// of one the existing implementations such as SoftwareRenderer or SkiaRenderer.
 class AbstractRenderer
 {
 private:
@@ -46,10 +121,49 @@ private:
     friend class SkiaRenderer;
 };
 
-/// Base class for the layer between a slint::Window and the internal window from the platform
+/// Base class for the layer between a slint::Window and the windowing system specific window type,
+/// such as a Win32 `HWND` handle or a `wayland_surface_t`.
 ///
-/// Re-implement this class to do the link between the two.
+/// Re-implement this class to establish the link between the two.
 ///
+/// Your WindowAdapter subclass must hold a renderer (either a SoftwareRenderer or a SkiaRenderer).
+/// In the renderer() method, you must return a
+/// reference to it.
+///
+/// # Example
+/// ```cpp
+/// class MyWindowAdapter : public slint::platform::WindowAdapter {
+///     slint::platform::SoftwareRenderer m_renderer;
+///     NativeHandle m_native_window; // a handle to the native window
+/// public:
+///     void request_redraw() override { m_native_window.refresh(); }
+///     slint::PhysicalSize physical_size() const override {
+///        return slint::PhysicalSize({m_native_window.width, m_native_window.height});
+///     }
+///     slint::platform::AbstractRenderer &renderer() override { return m_renderer; }
+///     void set_visible(bool v) override {
+///         if (v) {
+///             m_native_window.show();
+///         } else {
+///             m_native_window.hide();
+///         }
+///     }
+///     // ...
+///     void repaint_callback();
+/// }
+/// ```
+///
+/// Rendering is typically asynchronous, and your windowing system or event loop would invoke
+/// a callback when it is time to render.
+/// ```cpp
+/// void MyWindowAdapter::repaint_callback()
+/// {
+///     slint::platform::update_timers_and_animations();
+///     m_renderer.render(m_native_window.buffer(), m_native_window.width);
+///     // if animations are running, schedule the next frame
+///     if (window().has_active_animations())  m_native_window.refresh();
+/// }
+/// ```
 class WindowAdapter
 {
     // This is a pointer to the rust window that own us.
@@ -73,6 +187,9 @@ class WindowAdapter
                 [](void *wa) -> cbindgen_private::IntSize {
                     return reinterpret_cast<const WindowAdapter *>(wa)->physical_size();
                 },
+                [](void *wa, const WindowProperties *p) {
+                    reinterpret_cast<WindowAdapter *>(wa)->update_window_properties(*p);
+                },
                 &self);
         was_initialized = true;
         return self;
@@ -88,6 +205,9 @@ public:
     /// This function is called by Slint when the slint window is shown or hidden.
     ///
     /// Re-implement this function to forward the call to show/hide the native window
+    ///
+    /// When the window becomes visible, this is a good time to call
+    /// slint::Window::dispatch_scale_factor_change_event to initialise the scale factor.
     virtual void set_visible(bool) { }
 
     /// This function is called when Slint detects that the window need to be repainted.
@@ -100,6 +220,14 @@ public:
 
     /// Returns the actual physical size of the window
     virtual slint::PhysicalSize physical_size() const = 0;
+
+    /// Re-implement this function to update the properties such as window title or layout
+    /// constraints.
+    ///
+    /// This function is called before `set_visible(true)`, and will be called again when the
+    /// properties that were queried on the last call are changed. If you do not query any
+    /// properties, it may not be called again.
+    virtual void update_window_properties(const WindowProperties &) { }
 
     /// Re-implement this function to provide a reference to the renderer for use with the window
     /// adapter.
@@ -132,11 +260,10 @@ public:
     }
 };
 
-/// The platform is acting like a factory to create a WindowAdapter
+/// The platform acts as a factory to create WindowAdapter instances.
 ///
-/// slint::platform::set_platform() need to be called before any other Slint handle
-/// are created, and if it is called, it will use the WindowAdapter provided by the
-/// create_window_adapter function.
+/// Call slint::platform::set_platform() before creating any other Slint handles. Any subsequently
+/// created Slint windows will use the WindowAdapter provided by the create_window_adapter function.
 class Platform
 {
 public:
@@ -149,10 +276,11 @@ public:
     /// Returns a new WindowAdapter
     virtual std::unique_ptr<WindowAdapter> create_window_adapter() = 0;
 
-#ifndef SLINT_FEATURE_STD
+#ifdef SLINT_FEATURE_FREESTANDING
     /// Returns the amount of milliseconds since start of the application.
     ///
-    /// This function should only be implemented  if the runtime is compiled with no_std
+    /// This function should only be implemented  if the runtime is compiled with
+    /// SLINT_FEATURE_FREESTANDING
     virtual std::chrono::milliseconds duration_since_start() const
     {
         return {};
@@ -244,7 +372,7 @@ inline void set_platform(std::unique_ptr<Platform> platform)
                 (void)w.release();
             },
             []([[maybe_unused]] void *p) -> uint64_t {
-#ifdef SLINT_FEATURE_STD
+#ifndef SLINT_FEATURE_FREESTANDING
                 return 0;
 #else
                 return reinterpret_cast<const Platform *>(p)->duration_since_start().count();
@@ -293,19 +421,19 @@ private:
 /// A 16bit pixel that has 5 red bits, 6 green bits and 5 blue bits
 struct Rgb565Pixel
 {
-    /// The red component, encoded in 5 bits.
-    uint16_t r : 5;
-    /// The green component, encoded in 6 bits.
-    uint16_t g : 6;
     /// The blue component, encoded in 5 bits.
     uint16_t b : 5;
+    /// The green component, encoded in 6 bits.
+    uint16_t g : 6;
+    /// The red component, encoded in 5 bits.
+    uint16_t r : 5;
 
     /// Default constructor.
-    constexpr Rgb565Pixel() : r(0), g(0), b(0) { }
+    constexpr Rgb565Pixel() : b(0), g(0), r(0) { }
 
     /// \brief Constructor that constructs from an Rgb8Pixel.
     explicit constexpr Rgb565Pixel(const Rgb8Pixel &pixel)
-        : r(pixel.r >> 3), g(pixel.g >> 2), b(pixel.b >> 3)
+        : b(pixel.b >> 3), g(pixel.g >> 2), r(pixel.r >> 3)
     {
     }
 

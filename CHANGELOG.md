@@ -1,3 +1,5 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial -->
+
 # Changelog
 All notable changes to this project are documented in this file.
 
@@ -22,6 +24,8 @@ All notable changes to this project are documented in this file.
  - Added `current-item-changed` to `StandardListView`
  - Added `current-row-changed` to `StandardTableView`
  - Added `item-pointer-event` to `StandardListView`
+ - Added `vertical` property to `Slider`
+ - Added `cupertino` style`
 
 ### Rust API
 

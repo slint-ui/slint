@@ -18,6 +18,7 @@ use alloc::string::String;
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
+#[repr(C)]
 pub struct LogicalPosition {
     /// The x coordinate.
     pub x: f32,
@@ -109,6 +110,7 @@ impl WindowPosition {
 
 /// A size represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.
+#[repr(C)]
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct LogicalSize {
     /// The width in logical pixels.
@@ -332,8 +334,7 @@ pub enum CloseRequestResponse {
 impl Window {
     /// Create a new window from a window adapter
     ///
-    /// You only need to create the window yourself when you create a
-    /// [`WindowAdapter`](crate::platform::WindowAdapter) from
+    /// You only need to create the window yourself when you create a [`WindowAdapter`] from
     /// [`Platform::create_window_adapter`](crate::platform::Platform::create_window_adapter)
     ///
     /// Since the window adapter must own the Window, this function is meant to be used with
@@ -494,6 +495,12 @@ impl Window {
                     .resize(size.to_physical(self.scale_factor()))
                     .unwrap()
             }
+            crate::platform::WindowEvent::CloseRequested => {
+                if self.0.request_close() {
+                    self.hide().unwrap();
+                }
+            }
+            crate::platform::WindowEvent::WindowActiveChanged(bool) => self.0.set_active(bool),
         }
     }
 

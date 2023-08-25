@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## Introduction
 
 This document will outline the process of triaging GitHub issues and provide an explanation of GitHub labels.

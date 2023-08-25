@@ -121,7 +121,7 @@ public:
 
     Image() : data(Data::ImageInner_None()) { }
 
-#ifdef SLINT_FEATURE_STD
+#ifndef SLINT_FEATURE_FREESTANDING
     /// Load an image from an image file
     [[nodiscard]] static Image load_from_path(const SharedString &file_path)
     {

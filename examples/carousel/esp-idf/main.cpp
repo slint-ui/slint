@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-#include "esp_slint.h"
+#include "slint-esp.h"
 #include "carousel_demo.h"
 #include <ctime>
 #include <memory>
@@ -49,9 +49,8 @@ extern "C" void app_main(void)
 
     static std::vector<slint::platform::Rgb565Pixel> buffer(BSP_LCD_H_RES * BSP_LCD_V_RES);
 
-    slint::platform::set_platform(
-            std::make_unique<EspPlatform>(slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }),
-                                          panel_handle, touch_handle, buffer));
+    slint_esp_init(slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }), panel_handle,
+                   touch_handle, buffer);
 
     auto carousel_demo = MainWindow::create();
 
