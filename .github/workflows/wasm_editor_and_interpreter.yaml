@@ -36,11 +36,13 @@ jobs:
         run: npm run build:wasm_lsp-release
         working-directory: tools/slintpad
 
-      - name: "Upload wasm_lsp Artifacts"
+      - name: "Upload wasm Artifacts"
         uses: actions/upload-artifact@v3
         with:
-          name: wasm_lsp
-          path: tools/lsp/pkg/
+          name: wasm
+          path: |
+            api/wasm-interpreter/pkg/
+            tools/lsp/pkg/
 
   build-slintpad:
     needs: [wasm]
@@ -51,8 +53,7 @@ jobs:
       - name: Download wasm_lsp Artifacts
         uses: actions/download-artifact@v3
         with:
-          name: wasm_lsp
-          path: tools/lsp/pkg
+          name: wasm
       - uses: actions/cache@v3
         with:
           path: ~/.npm
@@ -83,8 +84,7 @@ jobs:
       - name: Download wasm_lsp Artifacts
         uses: actions/download-artifact@v3
         with:
-          name: wasm_lsp
-          path: tools/lsp/pkg
+          name: wasm
       - uses: actions/cache@v3
         with:
           path: ~/.npm
