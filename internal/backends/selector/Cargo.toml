@@ -22,8 +22,8 @@ backend-linuxkms = ["i-slint-backend-linuxkms"]
 
 renderer-femtovg = ["i-slint-backend-winit?/renderer-femtovg", "i-slint-backend-linuxkms?/renderer-femtovg"]
 renderer-skia = ["i-slint-backend-winit?/renderer-skia", "i-slint-backend-linuxkms?/renderer-skia"]
-renderer-skia-opengl = ["i-slint-backend-winit?/renderer-skia-opengl", "i-slint-backend-linuxkms?/renderer-skia-opengl"]
-renderer-skia-vulkan = ["i-slint-backend-winit?/renderer-skia-vulkan", "i-slint-backend-linuxkms?/renderer-skia-vulkan"]
+renderer-skia-opengl = ["i-slint-backend-winit?/renderer-skia-opengl", "i-slint-backend-linuxkms?/renderer-skia-opengl", "i-slint-renderer-skia/opengl"]
+renderer-skia-vulkan = ["i-slint-backend-winit?/renderer-skia-vulkan", "i-slint-backend-linuxkms?/renderer-skia-vulkan", "i-slint-renderer-skia/vulkan"]
 renderer-software = ["i-slint-backend-winit?/renderer-software", "i-slint-core/software-renderer"]
 
 rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
@@ -34,5 +34,6 @@ i-slint-core = { version = "=1.2.0", path = "../../../internal/core", default-fe
 i-slint-backend-winit = { version = "=1.2.0", path = "../winit", optional = true }
 i-slint-backend-qt = { version = "=1.2.0", path = "../qt", optional = true }
 i-slint-backend-linuxkms = { version = "=1.2.0", path = "../linuxkms", optional = true }
+i-slint-renderer-skia = { version = "=1.2.0", path="../../renderers/skia", optional = true, default-features = false }
 
 cfg-if = "1"
