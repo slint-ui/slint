@@ -3,8 +3,9 @@
 
 // cSpell: ignore rfind
 
-use crate::server_loop::DocumentCache;
-use crate::util::{lookup_current_element_type, map_position};
+use super::DocumentCache;
+use crate::util::{lookup_current_element_type, map_position, with_lookup_ctx};
+
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
@@ -131,7 +132,7 @@ pub(crate) fn completion_at(
     } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
         if let Some(colon) = n.child_token(SyntaxKind::Colon) {
             if offset >= colon.text_range().end().into() {
-                return crate::util::with_lookup_ctx(document_cache, node, |ctx| {
+                return with_lookup_ctx(document_cache, node, |ctx| {
                     resolve_expression_scope(ctx).map(Into::into)
                 })?;
             }
@@ -218,7 +219,7 @@ pub(crate) fn completion_at(
             );
         }
 
-        return crate::util::with_lookup_ctx(document_cache, node, |ctx| {
+        return with_lookup_ctx(document_cache, node, |ctx| {
             resolve_expression_scope(ctx).map(Into::into)
         })?;
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
@@ -260,7 +261,7 @@ pub(crate) fn completion_at(
                 return resolve_type_scope(token, document_cache).map(Into::into);
             }
             SyntaxKind::Expression => {
-                return crate::util::with_lookup_ctx(document_cache, node, |ctx| {
+                return with_lookup_ctx(document_cache, node, |ctx| {
                     let it = q.children_with_tokens().filter_map(|t| t.into_token());
                     let mut it = it.skip_while(|t| {
                         t.kind() != SyntaxKind::Identifier && t.token != token.token
@@ -679,15 +680,16 @@ fn add_components_to_import(
 #[cfg(test)]
 mod tests {
     use super::*;
+
     /// Given a source text containing the unicode emoji `🔺`, the emoji will be removed and then an autocompletion request will be done as if the cursor was there
     fn get_completions(file: &str) -> Option<Vec<CompletionItem>> {
         const CURSOR_EMOJI: char = '🔺';
         let offset = file.find(CURSOR_EMOJI).unwrap() as u32;
         let source = file.replace(CURSOR_EMOJI, "");
-        let (mut dc, uri, _) = crate::test::loaded_document_cache(source);
+        let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source);
 
         let doc = dc.documents.get_document(&uri.to_file_path().unwrap()).unwrap();
-        let token = crate::server_loop::token_at_offset(doc.node.as_ref().unwrap(), offset)?;
+        let token = crate::language::token_at_offset(doc.node.as_ref().unwrap(), offset)?;
 
         completion_at(&mut dc, token, offset, None)
     }

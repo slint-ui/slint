@@ -4,21 +4,17 @@
 #![cfg(target_arch = "wasm32")]
 
 mod common;
-mod completion;
-mod goto;
-mod lsp_ext;
-mod properties;
-mod semantic_tokens;
-mod server_loop;
-mod util;
+mod language;
+pub mod lsp_ext;
 #[cfg(feature = "preview")]
-mod wasm_preview;
+mod preview;
+pub mod util;
 
 use common::PreviewApi;
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
+pub use language::{Context, DocumentCache, Error, RequestHandler};
 use serde::Serialize;
-pub use server_loop::{Context, DocumentCache, Error, RequestHandler};
 use std::cell::RefCell;
 use std::future::Future;
 use std::io::ErrorKind;
@@ -229,7 +225,7 @@ pub fn create(
     let reentry_guard = Rc::new(RefCell::new(ReentryGuard::default()));
 
     let mut rh = RequestHandler::default();
-    server_loop::register_request_handlers(&mut rh);
+    language::register_request_handlers(&mut rh);
 
     Ok(SlintServer {
         ctx: Rc::new(Context {
@@ -247,7 +243,7 @@ pub fn create(
 impl SlintServer {
     #[wasm_bindgen]
     pub fn server_initialize_result(&self, cap: JsValue) -> Result<JsValue, JsError> {
-        Ok(to_value(&server_loop::server_initialize_result(&serde_wasm_bindgen::from_value(cap)?))?)
+        Ok(to_value(&language::server_initialize_result(&serde_wasm_bindgen::from_value(cap)?))?)
     }
 
     #[wasm_bindgen]
@@ -257,7 +253,7 @@ impl SlintServer {
         wasm_bindgen_futures::future_to_promise(async move {
             let _lock = ReentryGuard::lock(guard).await;
             let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
-            server_loop::reload_document(
+            language::reload_document(
                 &ctx,
                 content,
                 uri.clone(),
@@ -272,7 +268,7 @@ impl SlintServer {
 
     /*  #[wasm_bindgen]
     pub fn show_preview(&self, params: JsValue) -> Result<(), JsError> {
-        server_loop::show_preview_command(
+        language::show_preview_command(
             &serde_wasm_bindgen::from_value(params)?,
             &ServerNotifier,
             &mut self.0.borrow_mut(),
@@ -296,7 +292,7 @@ impl SlintServer {
     pub async fn reload_config(&self) -> Result<(), JsError> {
         let guard = self.reentry_guard.clone();
         let _lock = ReentryGuard::lock(guard).await;
-        server_loop::load_configuration(&self.ctx).await.map_err(|e| JsError::new(&e.to_string()))
+        language::load_configuration(&self.ctx).await.map_err(|e| JsError::new(&e.to_string()))
     }
 }
 

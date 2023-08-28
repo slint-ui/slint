@@ -3,11 +3,18 @@
 
 // cSpell: ignore descr rfind
 
+mod completion;
+mod goto;
+mod properties;
+mod semantic_tokens;
+#[cfg(test)]
+mod test;
+
 use crate::common::PreviewApi;
-use crate::util::{map_node, map_range, map_token};
+use crate::util::{map_node, map_range, map_token, to_lsp_diag};
+
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
-use crate::{completion, goto, semantic_tokens, util};
 
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken};
@@ -432,8 +439,6 @@ pub fn query_properties_command(
 ) -> Result<serde_json::Value, Error> {
     let document_cache = &mut ctx.document_cache.borrow_mut();
 
-    use crate::properties;
-
     let text_document_uri = serde_json::from_value::<lsp_types::TextDocumentIdentifier>(
         params.get(0).ok_or("No text document provided")?.clone(),
     )?
@@ -468,8 +473,6 @@ pub async fn set_binding_command(
     params: &[serde_json::Value],
     ctx: &Rc<Context>,
 ) -> Result<serde_json::Value, Error> {
-    use crate::properties;
-
     let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
         params.get(0).ok_or("No text document provided")?.clone(),
     )?;
@@ -561,8 +564,6 @@ pub async fn remove_binding_command(
     params: &[serde_json::Value],
     ctx: &Rc<Context>,
 ) -> Result<serde_json::Value, Error> {
-    use crate::properties;
-
     let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
         params.get(0).ok_or("No text document provided")?.clone(),
     )?;
@@ -679,7 +680,7 @@ pub(crate) async fn reload_document_impl(
             continue;
         }
         let uri = Url::from_file_path(d.source_file().unwrap()).unwrap();
-        lsp_diags.entry(uri).or_default().push(util::to_lsp_diag(&d));
+        lsp_diags.entry(uri).or_default().push(to_lsp_diag(&d));
     }
 
     lsp_diags
@@ -1113,7 +1114,7 @@ pub async fn load_configuration(ctx: &Context) -> Result<(), Error> {
 mod tests {
     use super::*;
 
-    use crate::test::{complex_document_cache, loaded_document_cache};
+    use test::{complex_document_cache, loaded_document_cache};
 
     #[test]
     fn test_reload_document_invalid_contents() {
