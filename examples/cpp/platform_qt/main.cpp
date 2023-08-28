@@ -192,6 +192,7 @@ static slint::SharedString key_event_text(QKeyEvent *e)
 class MyWindow : public QWindow, public slint::platform::WindowAdapter
 {
     std::optional<slint::platform::SkiaRenderer> m_renderer;
+    bool m_visible = false;
 
 public:
     MyWindow(QWindow *parentWindow = nullptr) : QWindow(parentWindow)
@@ -216,8 +217,10 @@ public:
 
     void closeEvent(QCloseEvent *event) override
     {
-        window().dispatch_close_requested_event();
-        event->ignore();
+        if (m_visible) {
+            event->ignore();
+            window().dispatch_close_requested_event();
+        }
     }
 
     bool event(QEvent *e) override
@@ -244,10 +247,13 @@ public:
 
     void set_visible(bool visible) override
     {
+        m_visible = visible;
         if (visible) {
             window().dispatch_scale_factor_change_event(devicePixelRatio());
+            QWindow::show();
+        } else {
+            QWindow::close();
         }
-        this->QWindow::setVisible(visible);
     }
 
     slint::PhysicalSize physical_size() const override
