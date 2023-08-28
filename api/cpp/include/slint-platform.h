@@ -267,7 +267,6 @@ public:
 class Platform
 {
 public:
-    using Clipboard = cbindgen_private::Clipboard;
     virtual ~Platform() = default;
     Platform(const Platform &) = delete;
     Platform &operator=(const Platform &) = delete;
@@ -276,7 +275,7 @@ public:
     /// Returns a new WindowAdapter
     virtual std::unique_ptr<WindowAdapter> create_window_adapter() = 0;
 
-#ifdef SLINT_FEATURE_FREESTANDING
+#if defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
     /// Returns the amount of milliseconds since start of the application.
     ///
     /// This function should only be implemented  if the runtime is compiled with
@@ -286,6 +285,18 @@ public:
         return {};
     }
 #endif
+
+    /// The type of clipboard used in Platform::clipboard_text and PLatform::set_clipboard_text.
+    enum class Clipboard {
+        /// This is the default clipboard used for text action for Ctrl+V,  Ctrl+C.
+        /// Corresponds to the secondary selection on X11.
+        DefaultClipboard = static_cast<uint8_t>(cbindgen_private::Clipboard::DefaultClipboard),
+        /// This is the clipboard that is used when text is selected
+        /// Corresponds to the primary selection on X11.
+        /// The Platform implementation should do nothing if copy on select is not supported on that
+        /// platform.
+        SelectionClipboard = static_cast<uint8_t>(cbindgen_private::Clipboard::SelectionClipboard),
+    };
 
     /// Sends the given text into the system clipboard.
     ///
@@ -378,13 +389,13 @@ inline void set_platform(std::unique_ptr<Platform> platform)
                 return reinterpret_cast<const Platform *>(p)->duration_since_start().count();
 #endif
             },
-            [](void *p, const SharedString *text, uint8_t clipboard) {
-                reinterpret_cast<Platform *>(p)->set_clipboard_text(*text,
-                                                                    Platform::Clipboard(clipboard));
+            [](void *p, const SharedString *text, cbindgen_private::Clipboard clipboard) {
+                reinterpret_cast<Platform *>(p)->set_clipboard_text(
+                        *text, static_cast<Platform::Clipboard>(clipboard));
             },
-            [](void *p, SharedString *out_text, uint8_t clipboard) -> bool {
+            [](void *p, SharedString *out_text, cbindgen_private::Clipboard clipboard) -> bool {
                 auto maybe_clipboard = reinterpret_cast<Platform *>(p)->clipboard_text(
-                        Platform::Clipboard(clipboard));
+                        static_cast<Platform::Clipboard>(clipboard));
 
                 bool status = maybe_clipboard.has_value();
                 if (status)
