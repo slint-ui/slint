@@ -1,0 +1,21 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "slint-tao"
+version = "1.2.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2021"
+license = "MIT"
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "tao"
+
+[dependencies]
+slint = { path = "../../api/rs/slint" }
+glutin = { version = "0.30.9", features = ["egl"] }
+raw-window-handle = "0.5.2"
+scoped-tls-hkt = "0.1.2"
+tao = "0.21.0"

@@ -29,6 +29,7 @@ members = [
     'examples/energy-monitor',
     'examples/mcu-board-support',
     'examples/uefi-demo',
+    'examples/tao',
     'helper_crates/const-field-offset',
     'helper_crates/vtable',
     'helper_crates/vtable/macro',
