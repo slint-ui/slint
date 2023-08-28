@@ -15,9 +15,6 @@ homepage = "https://slint.dev"
 [lib]
 crate-type = ["cdylib"]
 
-[features]
-highlight = ["slint-interpreter/highlight"]
-
 [dependencies]
 slint-interpreter = { path = "../../internal/interpreter", default-features = false, features = ["std", "backend-winit", "renderer-femtovg", "compat-1-2"] }
 send_wrapper = { workspace = true }
