@@ -21,11 +21,11 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-11, windows-2022]
+        os: [ubuntu-22.04, macos-11] # windows-2022 disabled due to https://github.com/actions/runner-images/issues/8125
         rust_version: [stable, "1.66"]
         include:
-          - os: windows-2022
-            extra_args: "--exclude ffmpeg"
+#          - os: windows-2022
+#            extra_args: "--exclude ffmpeg"
           - os: macos-11
             extra_args: "--exclude ffmpeg"
         exclude:
