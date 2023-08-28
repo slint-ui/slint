@@ -17,7 +17,7 @@ use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
-use i_slint_core::platform::{OpenGLInterface, PlatformError};
+use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Brush;
@@ -32,6 +32,37 @@ use self::itemrenderer::CanvasRc;
 mod fonts;
 mod images;
 mod itemrenderer;
+
+/// This trait describes the interface GPU accelerated renderers in Slint require to render with OpenGL.
+///
+/// It serves the purpose to ensure that the OpenGL context is current before running any OpenGL
+/// commands, as well as providing access to the OpenGL implementation by function pointers.
+///
+/// # Safety
+///
+/// This trait is unsafe because an implementation of get_proc_address could return dangling
+/// pointers. In practice an implementation of this trait should just forward to the EGL/WGL/CGL
+/// C library that implements EGL/CGL/WGL.
+#[allow(unsafe_code)]
+pub unsafe trait OpenGLInterface {
+    /// Ensures that the OpenGL context is current when returning from this function.
+    fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error>>;
+    /// This function is called by the renderers when all OpenGL commands have been issued and
+    /// the back buffer is reading for on-screen presentation. Typically implementations forward
+    /// this to platform specific APIs such as eglSwapBuffers.
+    fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error>>;
+    /// This function is called by the renderers when the surface needs to be resized, typically
+    /// in response to the windowing system notifying of a change in the window system.
+    /// For most implementations this is a no-op, with the exception for wayland for example.
+    fn resize(
+        &self,
+        width: NonZeroU32,
+        height: NonZeroU32,
+    ) -> Result<(), Box<dyn std::error::Error>>;
+    /// Returns the address of the OpenGL function specified by name, or a null pointer if the
+    /// function does not exist.
+    fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void;
+}
 
 #[cfg(target_arch = "wasm32")]
 struct WebGLNeedsNoCurrentContext;
