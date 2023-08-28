@@ -41,7 +41,7 @@ mod renderer {
         Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>,
         i_slint_core::platform::PlatformError,
     > {
-        #[allow(unused_assignments)]
+        #[allow(unused_mut, unused_assignments)]
         let mut result = Err(format!("No renderer configured").into());
 
         #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]

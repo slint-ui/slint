@@ -5,7 +5,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::os::fd::OwnedFd;
+use std::os::fd::{AsFd, OwnedFd};
 use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::path::Path;
 use std::pin::Pin;
@@ -22,7 +22,7 @@ use xkbcommon::*;
 
 struct SeatWrap {
     seat: Rc<RefCell<libseat::Seat>>,
-    device_for_fd: HashMap<RawFd, i32>,
+    device_for_fd: HashMap<RawFd, libseat::Device>,
 }
 
 impl<'a> LibinputInterface for SeatWrap {
@@ -30,9 +30,9 @@ impl<'a> LibinputInterface for SeatWrap {
         self.seat
             .borrow_mut()
             .open_device(&path)
-            .map(|(device, fd)| {
-                // Safety: Trust libinput to provide reasonable flags.
-                let flags = unsafe { nix::fcntl::OFlag::from_bits_unchecked(flags) };
+            .map(|device| {
+                let flags = nix::fcntl::OFlag::from_bits_retain(flags);
+                let fd = device.as_fd().as_raw_fd();
                 nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_SETFL(flags))
                     .map_err(|e| format!("Error applying libinput provided open fd flags: {e}"))
                     .unwrap();
@@ -194,8 +194,8 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                     }
                 }
                 input::Event::Keyboard(input::event::KeyboardEvent::Key(key_event)) => {
-                    // On Linux key codes have a fixed offset of 8: https://docs.rs/xkbcommon/0.5.0/xkbcommon/xkb/type.Keycode.html
-                    let key_code = key_event.key() + 8;
+                    // On Linux key codes have a fixed offset of 8: https://docs.rs/xkbcommon/0.6.0/xkbcommon/xkb/struct.Keycode.html
+                    let key_code = xkb::Keycode::new(key_event.key() + 8);
                     let state = key_event.key_state();
 
                     let sym = self.keystate.key_get_one_sym(key_code);
@@ -221,12 +221,12 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                         //key_code, state, sym
                         //);
 
-                        if control && alt && sym == xkb::KEY_BackSpace
-                            || control && alt && sym == xkb::KEY_Delete
+                        if control && alt && sym == xkb::Keysym::BackSpace
+                            || control && alt && sym == xkb::Keysym::Delete
                         {
                             i_slint_core::api::quit_event_loop()
                                 .expect("Unable to quit event loop multiple times");
-                        } else if (xkb::KEY_XF86Switch_VT_1..=xkb::KEY_XF86Switch_VT_12)
+                        } else if (xkb::Keysym::XF86_Switch_VT_1..=xkb::Keysym::XF86_Switch_VT_12)
                             .contains(&sym)
                         {
                             // let target_vt = (sym - xkb::KEY_XF86Switch_VT_1 + 1) as i32;
@@ -257,7 +257,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
     ) -> calloop::Result<()> {
         self.token = Some(token_factory.token());
         poll.register(
-            self.libinput.as_raw_fd(),
+            &self.libinput,
             calloop::Interest::READ,
             calloop::Mode::Level,
             self.token.unwrap(),
@@ -271,7 +271,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
     ) -> calloop::Result<()> {
         self.token = Some(token_factory.token());
         poll.reregister(
-            self.libinput.as_raw_fd(),
+            &self.libinput,
             calloop::Interest::READ,
             calloop::Mode::Level,
             self.token.unwrap(),
@@ -280,15 +280,15 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
 
     fn unregister(&mut self, poll: &mut calloop::Poll) -> calloop::Result<()> {
         self.token = None;
-        poll.unregister(self.libinput.as_raw_fd())
+        poll.unregister(&self.libinput)
     }
 }
 
-fn map_key_sym(sym: u32) -> Option<SharedString> {
+fn map_key_sym(sym: xkb::Keysym) -> Option<SharedString> {
     macro_rules! keysym_to_string {
         ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|* # $($xkb:ident)|*;)*) => {
             match(sym) {
-                $($(xkb::$xkb => $char,)*)*
+                $($(xkb::Keysym::$xkb => $char,)*)*
                 _ => std::char::from_u32(xkbcommon::xkb::keysym_to_utf32(sym))?,
             }
         };
