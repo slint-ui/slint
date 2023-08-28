@@ -141,9 +141,11 @@ struct CppPlatform {
     window_factory: unsafe extern "C" fn(PlatformUserData, *mut WindowAdapterRcOpaque),
     #[cfg(not(feature = "std"))]
     duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
-    set_clipboard_text: unsafe extern "C" fn(PlatformUserData, &SharedString, _clipboard: u8),
-    clipboard_text:
-        unsafe extern "C" fn(PlatformUserData, &mut SharedString, _clipboard: u8) -> bool,
+    // silent the warning depite `Clipboard` is a `#[non_exhaustive]` enum from another crate.
+    #[allow(improper_ctypes_definitions)]
+    set_clipboard_text: unsafe extern "C" fn(PlatformUserData, &SharedString, Clipboard),
+    #[allow(improper_ctypes_definitions)]
+    clipboard_text: unsafe extern "C" fn(PlatformUserData, &mut SharedString, Clipboard) -> bool,
     run_event_loop: unsafe extern "C" fn(PlatformUserData),
     quit_event_loop: unsafe extern "C" fn(PlatformUserData),
     invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformTaskOpaque),
@@ -185,21 +187,15 @@ impl Platform for CppPlatform {
         }))
     }
 
-    fn set_clipboard_text(&self, _text: &str, _clipboard: Clipboard) {
-        let shared_text = SharedString::from(_text);
-        unsafe { (self.set_clipboard_text)(self.user_data, &shared_text, _clipboard as u8) }
+    fn set_clipboard_text(&self, text: &str, clipboard: Clipboard) {
+        let shared_text = SharedString::from(text);
+        unsafe { (self.set_clipboard_text)(self.user_data, &shared_text, clipboard) }
     }
 
-    fn clipboard_text(&self, _clipboard: Clipboard) -> Option<String> {
+    fn clipboard_text(&self, clipboard: Clipboard) -> Option<String> {
         let mut out_text = SharedString::new();
-        let status =
-            unsafe { (self.clipboard_text)(self.user_data, &mut out_text, _clipboard as u8) };
-
-        if !status {
-            None
-        } else {
-            String::from(out_text).into()
-        }
+        let status = unsafe { (self.clipboard_text)(self.user_data, &mut out_text, clipboard) };
+        status.then(|| out_text.into())
     }
 }
 
@@ -232,18 +228,16 @@ impl i_slint_core::platform::EventLoopProxy for CppEventLoopProxy {
 unsafe impl Send for CppEventLoopProxy {}
 unsafe impl Sync for CppEventLoopProxy {}
 
+// silent the warning depite `Clipboard` is a `#[non_exhaustive]` enum from another crate.
+#[allow(improper_ctypes_definitions)]
 #[no_mangle]
 pub unsafe extern "C" fn slint_platform_register(
     user_data: PlatformUserData,
     drop: unsafe extern "C" fn(PlatformUserData),
     window_factory: unsafe extern "C" fn(PlatformUserData, *mut WindowAdapterRcOpaque),
     #[allow(unused)] duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
-    set_clipboard_text: unsafe extern "C" fn(PlatformUserData, &SharedString, _clipboard: u8),
-    clipboard_text: unsafe extern "C" fn(
-        PlatformUserData,
-        &mut SharedString,
-        _clipboard: u8,
-    ) -> bool,
+    set_clipboard_text: unsafe extern "C" fn(PlatformUserData, &SharedString, Clipboard),
+    clipboard_text: unsafe extern "C" fn(PlatformUserData, &mut SharedString, Clipboard) -> bool,
     run_event_loop: unsafe extern "C" fn(PlatformUserData),
     quit_event_loop: unsafe extern "C" fn(PlatformUserData),
     invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformTaskOpaque),
