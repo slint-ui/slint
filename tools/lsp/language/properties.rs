@@ -1,10 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use crate::server_loop::DocumentCache;
+use super::DocumentCache;
+use crate::util::{
+    map_node, map_node_and_url, map_position, map_range, to_lsp_diag, with_property_lookup_ctx,
+    ExpressionContextInfo,
+};
 use crate::Error;
 
-use crate::util::{map_node, map_node_and_url, map_position, map_range, ExpressionContextInfo};
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
@@ -492,9 +495,7 @@ fn set_binding_on_existing_property(
         .flatten();
 
     Ok((
-        SetBindingResponse {
-            diagnostics: diag.iter().map(crate::util::to_lsp_diag).collect::<Vec<_>>(),
-        },
+        SetBindingResponse { diagnostics: diag.iter().map(to_lsp_diag).collect::<Vec<_>>() },
         workspace_edit,
     ))
 }
@@ -613,9 +614,7 @@ fn set_binding_on_known_property(
         .flatten();
 
     Ok((
-        SetBindingResponse {
-            diagnostics: diag.iter().map(crate::util::to_lsp_diag).collect::<Vec<_>>(),
-        },
+        SetBindingResponse { diagnostics: diag.iter().map(to_lsp_diag).collect::<Vec<_>>() },
         workspace_edit,
     ))
 }
@@ -661,7 +660,7 @@ pub(crate) fn set_binding(
         if let Some(node) = element.node.as_ref() {
             let expr_context_info =
                 ExpressionContextInfo::new(node.clone(), property_name.to_string(), false);
-            crate::util::with_property_lookup_ctx(document_cache, &expr_context_info, |ctx| {
+            with_property_lookup_ctx(document_cache, &expr_context_info, |ctx| {
                 let expression =
                     i_slint_compiler::expression_tree::Expression::from_binding_expression_node(
                         expression_node,
@@ -688,7 +687,7 @@ pub(crate) fn set_binding(
             );
             return Ok((
                 SetBindingResponse {
-                    diagnostics: diag.iter().map(crate::util::to_lsp_diag).collect::<Vec<_>>(),
+                    diagnostics: diag.iter().map(to_lsp_diag).collect::<Vec<_>>(),
                 },
                 None,
             ));
@@ -808,9 +807,8 @@ pub(crate) fn remove_binding(
 mod tests {
     use super::*;
 
-    use crate::server_loop;
-
-    use crate::test::{complex_document_cache, loaded_document_cache};
+    use crate::language;
+    use crate::language::test::{complex_document_cache, loaded_document_cache};
 
     fn find_property<'a>(
         properties: &'a [PropertyInformation],
@@ -826,7 +824,7 @@ mod tests {
         url: &lsp_types::Url,
     ) -> Option<(ElementRc, Vec<PropertyInformation>)> {
         let element =
-            server_loop::element_at_position(dc, url, &lsp_types::Position { line, character })?;
+            language::element_at_position(dc, url, &lsp_types::Position { line, character })?;
         Some((element.clone(), get_properties(&element)))
     }
 
@@ -874,8 +872,7 @@ mod tests {
     fn test_element_information() {
         let (mut dc, url, _) = complex_document_cache();
         let element =
-            server_loop::element_at_position(&mut dc, &url, &lsp_types::Position::new(33, 4))
-                .unwrap();
+            language::element_at_position(&mut dc, &url, &lsp_types::Position::new(33, 4)).unwrap();
 
         let result = get_element_information(&element);
 

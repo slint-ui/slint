@@ -1,11 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use crate::util::map_node_and_url;
-
-use std::path::Path;
-
-use crate::server_loop::DocumentCache;
+use super::DocumentCache;
+use crate::util::{lookup_current_element_type, map_node_and_url, with_lookup_ctx};
 
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::Expression;
@@ -14,6 +11,7 @@ use i_slint_compiler::lookup::{LookupObject, LookupResult};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 
 use lsp_types::{GotoDefinitionResponse, LocationLink, Range};
+use std::path::Path;
 
 pub fn goto_definition(
     document_cache: &mut DocumentCache,
@@ -47,7 +45,7 @@ pub fn goto_definition(
                     if token.kind() != SyntaxKind::Identifier {
                         return None;
                     }
-                    let lr = crate::util::with_lookup_ctx(document_cache, node, |ctx| {
+                    let lr = with_lookup_ctx(document_cache, node, |ctx| {
                         let mut it = n
                             .children_with_tokens()
                             .filter_map(|t| t.into_token())
@@ -191,7 +189,7 @@ fn find_property_declaration_in_base(
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
 
-    let mut element_type = crate::util::lookup_current_element_type((*element).clone(), tr)?;
+    let mut element_type = lookup_current_element_type((*element).clone(), tr)?;
     while let ElementType::Component(com) = element_type {
         if let Some(p) = com.root_element.borrow().property_declarations.get(prop_name) {
             return p.node.clone();

@@ -4,25 +4,20 @@
 #![cfg(not(target_arch = "wasm32"))]
 
 mod common;
-mod completion;
-mod goto;
-mod lsp_ext;
+mod language;
+pub mod lsp_ext;
 #[cfg(feature = "preview")]
 mod preview;
-mod properties;
-mod semantic_tokens;
-mod server_loop;
-#[cfg(test)]
-mod test;
-mod util;
+pub mod util;
 
 use common::PreviewApi;
+use language::*;
+
 use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::{
     DidChangeConfiguration, DidChangeTextDocument, DidOpenTextDocument, Notification,
 };
 use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams};
-use server_loop::*;
 
 use clap::Parser;
 use lsp_server::{Connection, ErrorCode, Message, RequestId, Response};
@@ -230,7 +225,7 @@ pub fn run_lsp_server() -> Result<(), Error> {
 
     let init_param: InitializeParams = serde_json::from_value(params).unwrap();
     let initialize_result =
-        serde_json::to_value(server_loop::server_initialize_result(&init_param.capabilities))?;
+        serde_json::to_value(language::server_initialize_result(&init_param.capabilities))?;
     connection.initialize_finish(id, initialize_result)?;
 
     main_loop(connection, init_param)?;

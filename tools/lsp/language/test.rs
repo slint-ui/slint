@@ -7,7 +7,7 @@ use lsp_types::{Diagnostic, Url};
 
 use std::collections::HashMap;
 
-use crate::server_loop::{reload_document_impl, DocumentCache};
+use crate::language::{reload_document_impl, DocumentCache};
 
 /// Create an empty `DocumentCache`
 pub fn empty_document_cache() -> DocumentCache {
