@@ -86,6 +86,11 @@ impl PhysicalPosition {
     pub(crate) fn to_euclid(&self) -> crate::graphics::euclid::default::Point2D<i32> {
         [self.x, self.y].into()
     }
+
+    #[cfg(feature = "ffi")]
+    pub(crate) fn from_euclid(p: crate::graphics::euclid::default::Point2D<i32>) -> Self {
+        Self::new(p.x as _, p.y as _)
+    }
 }
 
 /// The position of the window in either physical or logical pixels. This is used
