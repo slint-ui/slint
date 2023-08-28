@@ -119,7 +119,7 @@ impl GlContextWrapper {
     }
 }
 
-unsafe impl i_slint_core::platform::OpenGLInterface for GlContextWrapper {
+unsafe impl i_slint_renderer_femtovg::OpenGLInterface for GlContextWrapper {
     fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error>> {
         if !self.glutin_context.is_current() {
             self.glutin_context.make_current(&self.glutin_surface).map_err(
