@@ -258,6 +258,7 @@ fn gen_corelib(
     ];
 
     config.export.include = [
+        "Clipboard",
         "ComponentVTable",
         "Slice",
         "WindowAdapterRcOpaque",

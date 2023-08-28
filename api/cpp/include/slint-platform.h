@@ -267,6 +267,7 @@ public:
 class Platform
 {
 public:
+    using Clipboard = cbindgen_private::Clipboard;
     virtual ~Platform() = default;
     Platform(const Platform &) = delete;
     Platform &operator=(const Platform &) = delete;
@@ -285,6 +286,19 @@ public:
         return {};
     }
 #endif
+
+    /// Sends the given text into the system clipboard.
+    ///
+    /// If the platform doesn't support the specified clipboard, this function should do nothing
+    virtual void set_clipboard_text(const SharedString &, Clipboard) { }
+
+    /// Returns a copy of text stored in the system clipboard, if any.
+    ///
+    /// If the platform doesn't support the specified clipboard, the function should return nullopt
+    virtual std::optional<SharedString> clipboard_text(Clipboard)
+    {
+        return {};
+    }
 
     /// Spins an event loop and renders the visible windows.
     virtual void run_event_loop() { }
@@ -363,6 +377,19 @@ inline void set_platform(std::unique_ptr<Platform> platform)
 #else
                 return reinterpret_cast<const Platform *>(p)->duration_since_start().count();
 #endif
+            },
+            [](void *p, const SharedString *text, uint8_t clipboard) {
+                reinterpret_cast<Platform *>(p)->set_clipboard_text(*text,
+                                                                    Platform::Clipboard(clipboard));
+            },
+            [](void *p, SharedString *out_text, uint8_t clipboard) -> bool {
+                auto maybe_clipboard = reinterpret_cast<Platform *>(p)->clipboard_text(
+                        Platform::Clipboard(clipboard));
+
+                bool status = maybe_clipboard.has_value();
+                if (status)
+                    *out_text = maybe_clipboard.value();
+                return status;
             },
             [](void *p) { return reinterpret_cast<Platform *>(p)->run_event_loop(); },
             [](void *p) { return reinterpret_cast<Platform *>(p)->quit_event_loop(); },
