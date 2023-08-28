@@ -371,7 +371,7 @@ impl Window {
     /// Shows the window on the screen. An additional strong reference on the
     /// associated component is maintained while the window is visible.
     ///
-    /// Call [`self::hide()`] to make the window invisible again, and drop the additional
+    /// Call [`Self::hide()`] to make the window invisible again, and drop the additional
     /// strong reference.
     pub fn show(&self) -> Result<(), PlatformError> {
         self.0.show()
