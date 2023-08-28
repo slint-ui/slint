@@ -208,7 +208,7 @@ class WindowAdapter
                 [](void *wa, const WindowProperties *p) {
                     reinterpret_cast<WindowAdapter *>(wa)->update_window_properties(*p);
                 },
-                [](void *wa, cbindgen_private::Point2D<int> *point) -> bool {
+                [](void *wa, cbindgen_private::Point2D<int32_t> *point) -> bool {
                     if (auto pos = reinterpret_cast<const WindowAdapter *>(wa)->position()) {
                         *point = *pos;
                         return true;
@@ -216,7 +216,7 @@ class WindowAdapter
                         return false;
                     }
                 },
-                [](void *wa, cbindgen_private::Point2D<int> point) {
+                [](void *wa, cbindgen_private::Point2D<int32_t> point) {
                     reinterpret_cast<WindowAdapter *>(wa)->set_position(
                             slint::PhysicalPosition({ point.x, point.y }));
                 },
