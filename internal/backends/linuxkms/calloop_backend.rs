@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use std::cell::RefCell;
-use std::os::fd::{AsFd, BorrowedFd, RawFd};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, RawFd};
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -107,17 +107,14 @@ impl Backend {
 
         let mut seat = {
             let seat_active = seat_active.clone();
-            libseat::Seat::open(
-                move |_seat, event| match event {
-                    libseat::SeatEvent::Enable => {
-                        *seat_active.borrow_mut() = true;
-                    }
-                    libseat::SeatEvent::Disable => {
-                        unimplemented!("Seat deactivation is not implemented");
-                    }
-                },
-                None,
-            )
+            libseat::Seat::open(move |_seat, event| match event {
+                libseat::SeatEvent::Enable => {
+                    *seat_active.borrow_mut() = true;
+                }
+                libseat::SeatEvent::Disable => {
+                    unimplemented!("Seat deactivation is not implemented");
+                }
+            })
             .map_err(|e| format!("Error opening session with libseat: {e}"))?
         };
 
@@ -149,23 +146,22 @@ impl i_slint_core::platform::Platform for Backend {
         i_slint_core::platform::PlatformError,
     > {
         let renderer = (self.renderer_factory)(&|device: &std::path::Path| {
-            let (_, fd) = self
+            let device = self
                 .seat
                 .borrow_mut()
                 .open_device(&device)
                 .map_err(|e| format!("Error opening device: {e}"))?;
 
             // For polling for drm::control::Event::PageFlip we need a blocking FD. Would be better to do this non-blocking
+            let fd = device.as_fd().as_raw_fd();
             let flags = nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_GETFL)
                 .map_err(|e| format!("Error getting file descriptor flags: {e}"))?;
-            // Safetly: We only remove a bit, don't care about the others
-            let mut flags = unsafe { nix::fcntl::OFlag::from_bits_unchecked(flags) };
+            let mut flags = nix::fcntl::OFlag::from_bits_retain(flags);
             flags.remove(nix::fcntl::OFlag::O_NONBLOCK);
             nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_SETFL(flags))
                 .map_err(|e| format!("Error making device fd non-blocking: {e}"))?;
 
             // Safety: We take ownership of the now shared FD, ... although we should be using libseat's close_device....
-            use std::os::fd::FromRawFd;
             Ok(Arc::new(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd) }))
         })?;
         let adapter = FullscreenWindowAdapter::new(renderer)?;
