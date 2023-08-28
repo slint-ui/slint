@@ -315,6 +315,39 @@ struct MyPlatform : public slint::platform::Platform
     {
         return std::make_unique<MyWindow>(parentWindow.get());
     }
+
+    void set_clipboard_text(const slint::SharedString &str,
+                            slint::platform::Platform::Clipboard clipboard) override
+    {
+        switch (clipboard) {
+        case slint::platform::Platform::Clipboard::DefaultClipboard:
+            qApp->clipboard()->setText(QString::fromUtf8(str.data()), QClipboard::Clipboard);
+            break;
+        case slint::platform::Platform::Clipboard::SelectionClipboard:
+            qApp->clipboard()->setText(QString::fromUtf8(str.data()), QClipboard::Selection);
+            break;
+        }
+    }
+
+    std::optional<slint::SharedString> clipboard_text(Clipboard clipboard) override
+    {
+        QString text;
+        switch (clipboard) {
+        case slint::platform::Platform::Clipboard::DefaultClipboard:
+            text = qApp->clipboard()->text(QClipboard::Clipboard);
+            break;
+        case slint::platform::Platform::Clipboard::SelectionClipboard:
+            text = qApp->clipboard()->text(QClipboard::Selection);
+            break;
+        default:
+            return {};
+        }
+        if (text.isNull()) {
+            return {};
+        } else {
+            return slint::SharedString(text.toUtf8().data());
+        }
+    }
 };
 
 int main(int argc, char **argv)
