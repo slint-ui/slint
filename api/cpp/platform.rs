@@ -3,6 +3,7 @@
 
 use alloc::boxed::Box;
 use alloc::rc::Rc;
+use alloc::string::String;
 use core::ffi::c_void;
 use i_slint_core::api::{LogicalSize, PhysicalSize, Window};
 use i_slint_core::graphics::IntSize;
