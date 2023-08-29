@@ -134,7 +134,7 @@ private:
 ///   Window::dispatch_close_requested_event().
 ///
 /// - Slint sends requests to change visibility, position, size, etc. via virtual functions such as
-///   set_visible(), set_size(), set_position(), or update_window_properties().
+///   set_visible(), set_physical_size(), set_position(), or update_window_properties().
 ///   Re-implement these functions and delegate the requests to the windowing system.
 ///
 /// If the implementation of this bi-directional message passing protocol is incomplete, the user
