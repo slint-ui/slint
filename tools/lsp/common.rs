@@ -5,6 +5,9 @@
 
 use std::path::{Path, PathBuf};
 
+pub type Error = Box<dyn std::error::Error>;
+pub type Result<T> = std::result::Result<T, Error>;
+
 /// API used by the LSP to talk to the Preview. The other direction uses the
 /// ServerNotifier
 pub trait PreviewApi {
@@ -13,11 +16,7 @@ pub trait PreviewApi {
     fn set_contents(&self, path: &Path, contents: &str);
     fn load_preview(&self, component: PreviewComponent, behavior: PostLoadBehavior);
     fn config_changed(&self, style: &str, include_paths: &[PathBuf]);
-    fn highlight(
-        &self,
-        path: Option<PathBuf>,
-        offset: u32,
-    ) -> Result<(), Box<dyn std::error::Error>>;
+    fn highlight(&self, path: Option<PathBuf>, offset: u32) -> Result<()>;
 }
 
 /// The Component to preview

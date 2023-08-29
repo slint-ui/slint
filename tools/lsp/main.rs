@@ -10,7 +10,7 @@ pub mod lsp_ext;
 mod preview;
 pub mod util;
 
-use common::PreviewApi;
+use common::{PreviewApi, Result};
 use language::*;
 
 use i_slint_compiler::CompilerConfiguration;
@@ -67,11 +67,7 @@ impl PreviewApi for Previewer {
         preview::config_changed(_style, _include_paths);
     }
 
-    fn highlight(
-        &self,
-        _path: Option<std::path::PathBuf>,
-        _offset: u32,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn highlight(&self, _path: Option<std::path::PathBuf>, _offset: u32) -> Result<()> {
         #[cfg(feature = "preview")]
         preview::highlight(_path, _offset);
         Ok(())
@@ -111,11 +107,7 @@ type OutgoingRequestQueue = Arc<Mutex<HashMap<RequestId, OutgoingRequest>>>;
 #[derive(Clone)]
 pub struct ServerNotifier(crossbeam_channel::Sender<Message>, OutgoingRequestQueue);
 impl ServerNotifier {
-    pub fn send_notification(
-        &self,
-        method: String,
-        params: impl serde::Serialize,
-    ) -> Result<(), Error> {
+    pub fn send_notification(&self, method: String, params: impl serde::Serialize) -> Result<()> {
         self.0.send(Message::Notification(lsp_server::Notification::new(method, params)))?;
         Ok(())
     }
@@ -123,7 +115,7 @@ impl ServerNotifier {
     pub fn send_request<T: lsp_types::request::Request>(
         &self,
         request: T::Params,
-    ) -> Result<impl Future<Output = Result<T::Result, Error>>, Error> {
+    ) -> Result<impl Future<Output = Result<T::Result>>> {
         static REQ_ID: atomic::AtomicI32 = atomic::AtomicI32::new(0);
         let id = RequestId::from(REQ_ID.fetch_add(1, atomic::Ordering::Relaxed));
         let msg =
@@ -153,11 +145,7 @@ impl ServerNotifier {
 }
 
 impl RequestHandler {
-    async fn handle_request(
-        &self,
-        request: lsp_server::Request,
-        ctx: &Rc<Context>,
-    ) -> Result<(), Error> {
+    async fn handle_request(&self, request: lsp_server::Request, ctx: &Rc<Context>) -> Result<()> {
         if let Some(x) = self.0.get(&request.method.as_str()) {
             match x(request.params, ctx.clone()).await {
                 Ok(r) => ctx
@@ -219,7 +207,7 @@ fn main() {
     }
 }
 
-pub fn run_lsp_server() -> Result<(), Error> {
+pub fn run_lsp_server() -> Result<()> {
     let (connection, io_threads) = Connection::stdio();
     let (id, params) = connection.initialize_start()?;
 
@@ -233,7 +221,7 @@ pub fn run_lsp_server() -> Result<(), Error> {
     Ok(())
 }
 
-fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<(), Error> {
+fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<()> {
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
 
@@ -254,7 +242,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<(),
         preview: Box::new(Previewer { server_notifier }),
     });
 
-    let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<(), Error>>>>>::new();
+    let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();
     let mut first_future = Box::pin(load_configuration(&ctx));
 
     // We are waiting in this loop for two kind of futures:
@@ -317,10 +305,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<(),
     Ok(())
 }
 
-async fn handle_notification(
-    req: lsp_server::Notification,
-    ctx: &Rc<Context>,
-) -> Result<(), Error> {
+async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -> Result<()> {
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;

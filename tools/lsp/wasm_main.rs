@@ -11,9 +11,10 @@ mod preview;
 pub mod util;
 
 use common::PreviewApi;
+use common::{Error, Result};
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
-pub use language::{Context, DocumentCache, Error, RequestHandler};
+pub use language::{Context, DocumentCache, RequestHandler};
 use serde::Serialize;
 use std::cell::RefCell;
 use std::future::Future;
@@ -21,6 +22,8 @@ use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
+
+type JsResult<T> = std::result::Result<T, JsError>;
 
 pub mod wasm_prelude {
     use std::path::{Path, PathBuf};
@@ -70,14 +73,10 @@ impl PreviewApi for Previewer {
         // do nothing!
     }
 
-    fn highlight(
-        &self,
-        path: Option<std::path::PathBuf>,
-        offset: u32,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn highlight(&self, path: Option<std::path::PathBuf>, offset: u32) -> Result<()> {
         self.highlight_in_preview
             .call2(&JsValue::UNDEFINED, &to_value(&path.unwrap_or_default())?, &offset.into())
-            .map_err(|x| std::io::Error::new(ErrorKind::Other, format!("{x:?}")))?;
+            .map_err(|x| format!("{x:?}"))?;
         Ok(())
     }
 }
@@ -88,7 +87,7 @@ pub struct ServerNotifier {
     send_request: Function,
 }
 impl ServerNotifier {
-    pub fn send_notification(&self, method: String, params: impl Serialize) -> Result<(), Error> {
+    pub fn send_notification(&self, method: String, params: impl Serialize) -> Result<()> {
         self.send_notification
             .call2(&JsValue::UNDEFINED, &method.into(), &to_value(&params)?)
             .map_err(|x| format!("Error calling send_notification: {x:?}"))?;
@@ -98,7 +97,7 @@ impl ServerNotifier {
     pub fn send_request<T: lsp_types::request::Request>(
         &self,
         request: T::Params,
-    ) -> Result<impl Future<Output = Result<T::Result, Error>>, Error> {
+    ) -> Result<impl Future<Output = Result<T::Result>>> {
         let promise = self
             .send_request
             .call2(&JsValue::UNDEFINED, &T::METHOD.into(), &to_value(&request)?)
@@ -118,7 +117,7 @@ impl RequestHandler {
         method: String,
         params: JsValue,
         ctx: Rc<Context>,
-    ) -> Result<JsValue, Error> {
+    ) -> Result<JsValue> {
         if let Some(f) = self.0.get(&method.as_str()) {
             let param = serde_wasm_bindgen::from_value(params)
                 .map_err(|x| format!("invalid param to handle_request: {x:?}"))?;
@@ -207,7 +206,7 @@ pub fn create(
     send_request: SendRequestFunction,
     load_file: ImportCallbackFunction,
     highlight_in_preview: HighlightInPreviewFunction,
-) -> Result<SlintServer, JsError> {
+) -> JsResult<SlintServer> {
     console_error_panic_hook::set_once();
 
     let init_param = serde_wasm_bindgen::from_value(init_param)?;
@@ -242,7 +241,7 @@ pub fn create(
 #[wasm_bindgen]
 impl SlintServer {
     #[wasm_bindgen]
-    pub fn server_initialize_result(&self, cap: JsValue) -> Result<JsValue, JsError> {
+    pub fn server_initialize_result(&self, cap: JsValue) -> JsResult<JsValue> {
         Ok(to_value(&language::server_initialize_result(&serde_wasm_bindgen::from_value(cap)?))?)
     }
 
@@ -267,7 +266,7 @@ impl SlintServer {
     }
 
     /*  #[wasm_bindgen]
-    pub fn show_preview(&self, params: JsValue) -> Result<(), JsError> {
+    pub fn show_preview(&self, params: JsValue) -> JsResult<()> {
         language::show_preview_command(
             &serde_wasm_bindgen::from_value(params)?,
             &ServerNotifier,
@@ -289,7 +288,7 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
-    pub async fn reload_config(&self) -> Result<(), JsError> {
+    pub async fn reload_config(&self) -> JsResult<()> {
         let guard = self.reentry_guard.clone();
         let _lock = ReentryGuard::lock(guard).await;
         language::load_configuration(&self.ctx).await.map_err(|e| JsError::new(&e.to_string()))
@@ -309,6 +308,6 @@ async fn load_file(path: String, load_file: &Function) -> std::io::Result<String
 // Use a JSON friendly representation to avoid using ES maps instead of JS objects.
 fn to_value<T: serde::Serialize + ?Sized>(
     value: &T,
-) -> Result<wasm_bindgen::JsValue, serde_wasm_bindgen::Error> {
+) -> std::result::Result<wasm_bindgen::JsValue, serde_wasm_bindgen::Error> {
     value.serialize(&serde_wasm_bindgen::Serializer::json_compatible())
 }
