@@ -9,9 +9,11 @@ use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
 use lsp_types::notification::Notification;
 use once_cell::sync::Lazy;
 use slint_interpreter::ComponentHandle;
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::sync::{Condvar, Mutex};
 
 #[derive(PartialEq)]
@@ -104,6 +106,48 @@ pub fn quit_ui_event_loop() {
     };
 }
 
+pub fn show_ui() {
+    // Wake up the main thread to start the event loop, if possible
+    {
+        let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
+        if *state_request == RequestedGuiEventLoopState::Uninitialized {
+            *state_request = RequestedGuiEventLoopState::StartLoop;
+            GUI_EVENT_LOOP_NOTIFIER.notify_one();
+        }
+        // We don't want to call post_event before the loop is properly initialized
+        while *state_request == RequestedGuiEventLoopState::StartLoop {
+            state_request = GUI_EVENT_LOOP_NOTIFIER.wait(state_request).unwrap();
+        }
+    }
+    let r = i_slint_core::api::invoke_from_event_loop(move || {
+        PREVIEW_STATE.with(|preview_state| {
+            let mut preview_state = preview_state.borrow_mut();
+            show_ui_impl(&mut preview_state)
+        });
+    });
+    r.unwrap();
+}
+
+fn show_ui_impl(preview_state: &mut PreviewState) {
+    // TODO: Handle Error!
+    let ui = preview_state.ui.get_or_insert_with(|| super::ui::PreviewUi::new().unwrap());
+    ui.show().unwrap();
+}
+
+pub fn hide_ui() {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        PREVIEW_STATE.with(move |preview_state| {
+            let mut preview_state = preview_state.borrow_mut();
+            hide_ui_impl(&mut preview_state)
+        });
+    })
+    .unwrap(); // TODO: Handle Error
+}
+
+fn hide_ui_impl(preview_state: &mut PreviewState) {
+    preview_state.ui.as_ref().and_then(|ui| Some(ui.hide().unwrap())); // TODO: Handle errors!
+}
+
 pub fn load_preview(
     sender: crate::ServerNotifier,
     component: PreviewComponent,
@@ -183,7 +227,8 @@ fn get_file_from_cache(path: PathBuf) -> Option<String> {
 
 #[derive(Default)]
 struct PreviewState {
-    handle: Option<slint_interpreter::ComponentInstance>,
+    ui: Option<super::ui::PreviewUi>,
+    handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -231,7 +276,8 @@ fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
     run_in_ui_thread(move || async move {
         PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow();
-            if let Some(handle) = &preview_state.handle {
+            let handle = preview_state.handle.borrow();
+            if let Some(handle) = &*handle {
                 handle.set_design_mode(enabled);
 
                 handle.on_element_selected(Box::new(
@@ -240,6 +286,9 @@ fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
                           start_column: u32,
                           end_line: u32,
                           end_column: u32| {
+                        if file.is_empty() || start_column == 0 || end_column == 0 {
+                            return;
+                        }
                         let Some(params) = show_document_request_from_element_callback(
                             file,
                             start_line,
@@ -265,7 +314,7 @@ fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
 async fn reload_preview(
     sender: crate::ServerNotifier,
     preview_component: PreviewComponent,
-    post_load_behavior: PostLoadBehavior,
+    _post_load_behavior: PostLoadBehavior,
 ) {
     send_notification(&sender, "Loading Preview…", Health::Ok);
 
@@ -307,25 +356,23 @@ async fn reload_preview(
     if let Some(compiled) = compiled {
         PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
-            let handle = if let Some(handle) = preview_state.handle.take() {
-                let window = handle.window();
-                let handle = compiled.create_with_existing_window(window).unwrap();
-                match post_load_behavior {
-                    PostLoadBehavior::ShowAfterLoad => handle.show().unwrap(),
-                    PostLoadBehavior::DoNothing => {}
+            show_ui_impl(&mut preview_state);
+
+            let shared_handle = preview_state.handle.clone();
+
+            let factory = slint::ComponentFactory::new(move |ctx| {
+                let instance = compiled.create_embedded(ctx).unwrap(); // TODO: Handle Error!
+                if let Some((path, offset)) =
+                    CONTENT_CACHE.get().and_then(|c| c.lock().unwrap().highlight.clone())
+                {
+                    instance.highlight(path, offset);
                 }
-                handle
-            } else {
-                let handle = compiled.create().unwrap();
-                handle.show().unwrap();
-                handle
-            };
-            if let Some((path, offset)) =
-                CONTENT_CACHE.get().and_then(|c| c.lock().unwrap().highlight.clone())
-            {
-                handle.highlight(path, offset);
-            }
-            preview_state.handle = Some(handle);
+
+                shared_handle.replace(Some(instance.clone_strong()));
+
+                Some(instance)
+            });
+            preview_state.ui.as_ref().unwrap().set_preview_area(factory);
         });
         send_notification(&sender, "Preview Loaded", Health::Ok);
     } else {
@@ -385,9 +432,8 @@ pub fn highlight(path: Option<PathBuf>, offset: u32) {
         run_in_ui_thread(move || async move {
             PREVIEW_STATE.with(|preview_state| {
                 let preview_state = preview_state.borrow();
-                if let (Some(cache), Some(handle)) =
-                    (CONTENT_CACHE.get(), preview_state.handle.as_ref())
-                {
+                let handle = preview_state.handle.borrow();
+                if let (Some(cache), Some(handle)) = (CONTENT_CACHE.get(), &*handle) {
                     if let Some((path, offset)) = cache.lock().unwrap().highlight.clone() {
                         handle.highlight(path, offset);
                     } else {
