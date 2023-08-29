@@ -14,6 +14,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// API used by the LSP to talk to the Preview. The other direction uses the
 /// ServerNotifier
 pub trait PreviewApi {
+    fn show_ui(&self);
+    fn hide_ui(&self);
     fn set_design_mode(&self, enable: bool);
     fn design_mode(&self) -> bool;
     fn set_contents(&self, path: &Path, contents: &str);
