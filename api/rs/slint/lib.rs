@@ -353,7 +353,11 @@ pub mod platform {
     /// This module contains the [`skia_renderer::SkiaRenderer`] and related types.
     ///
     /// It is only enabled when the `renderer-skia` Slint feature is enabled.
-    #[cfg(any(feature = "renderer-skia", feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
+    #[cfg(any(
+        feature = "renderer-skia",
+        feature = "renderer-skia-opengl",
+        feature = "renderer-skia-vulkan"
+    ))]
     pub mod skia_renderer {
         pub use i_slint_renderer_skia::SkiaRenderer;
     }
