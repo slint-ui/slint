@@ -70,7 +70,7 @@ pub struct SkiaRenderer {
 impl SkiaRenderer {
     /// Creates a new renderer for the given window/display handle. The provided size
     /// must match the size of the underlying native window.
-    /// 
+    ///
     /// Subsequent calls to [`Self::render()`] will render into the window.
     /// 
     /// Safety: It is the caller's responsibility to ensure that the underlying native
