@@ -32,18 +32,18 @@ path = "wasm_main.rs"
 name = "slint_lsp_wasm"
 
 [features]
-backend-qt = ["slint-interpreter/backend-qt", "preview"]
+backend-qt = ["slint/backend-qt", "preview"]
 
-backend-winit = ["slint-interpreter/backend-winit", "preview"]
-backend-winit-x11 = ["slint-interpreter/backend-winit-x11", "preview"]
-backend-winit-wayland = ["slint-interpreter/backend-winit-wayland", "preview"]
-backend-linuxkms = ["slint-interpreter/backend-linuxkms", "preview"]
+backend-winit = ["slint/backend-winit", "preview"]
+backend-winit-x11 = ["slint/backend-winit-x11", "preview"]
+backend-winit-wayland = ["slint/backend-winit-wayland", "preview"]
+backend-linuxkms = ["slint/backend-linuxkms", "preview"]
 
-renderer-femtovg = ["slint-interpreter/renderer-femtovg", "preview"]
-renderer-skia = ["slint-interpreter/renderer-skia", "preview"]
-renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl", "preview"]
-renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan", "preview"]
-renderer-software = ["slint-interpreter/renderer-software", "preview"]
+renderer-femtovg = ["slint/renderer-femtovg", "preview"]
+renderer-skia = ["slint/renderer-skia", "preview"]
+renderer-skia-opengl = ["slint/renderer-skia-opengl", "preview"]
+renderer-skia-vulkan = ["slint/renderer-skia-vulkan", "preview"]
+renderer-software = ["slint/renderer-software", "preview"]
 
 # Compat
 backend-gl-all = ["backend-winit", "renderer-femtovg"]
@@ -58,7 +58,7 @@ renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
 ## Enable the built-in preview, that will popup in a native window
-preview = ["slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:image", "preview-lense", "preview-api"]
+preview = ["dep:slint", "dep:slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:image", "preview-lense", "preview-api"]
 ## Enable the "Show Preview" lenses and action on components.
 ## When this feature is enabled without the "preview" feature, the lenses do nothing, but the client can still interpret the command
 ## to show the actual preview
@@ -78,6 +78,7 @@ serde_json = "1.0.60"
 rowan = "0.15.5"
 
 # for the preview
+slint = { version = "=1.3.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"], optional = true }
 i-slint-core = { version = "=1.3.0", path = "../../internal/core", optional = true }
 slint-interpreter = { version = "=1.3.0", path = "../../internal/interpreter", default-features = false, features = ["compat-1-2", "highlight"], optional = true  }
 i-slint-backend-selector = { version = "=1.3.0", path="../../internal/backends/selector", optional = true }
