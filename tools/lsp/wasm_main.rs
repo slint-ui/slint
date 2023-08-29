@@ -10,8 +10,7 @@ pub mod lsp_ext;
 mod preview;
 pub mod util;
 
-use common::PreviewApi;
-use common::Result;
+use common::{PreviewApi, Result};
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
 pub use language::{Context, DocumentCache, RequestHandler};
@@ -48,6 +47,14 @@ struct Previewer {
 }
 
 impl PreviewApi for Previewer {
+    fn show_ui(&self) {
+        // do nothing!
+    }
+
+    fn hide_ui(&self) {
+        // do nothing!
+    }
+
     fn set_design_mode(&self, _enable: bool) {
         // do nothing!
     }
