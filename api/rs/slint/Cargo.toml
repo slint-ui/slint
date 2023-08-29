@@ -131,7 +131,7 @@ renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
 ## Render using the [femtovg](https://crates.io/crates/femtovg) crate.
-renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "i-slint-renderer-femtovg", "std"]
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "dep:i-slint-renderer-femtovg", "std"]
 
 ## Render using [Skia](https://skia.org/).
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
