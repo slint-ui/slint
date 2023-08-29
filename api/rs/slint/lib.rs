@@ -349,6 +349,14 @@ macro_rules! init_translations {
 /// The [Slint on Microcontrollers](crate::docs::mcu) documentation has additional examples.
 pub mod platform {
     pub use i_slint_core::platform::*;
+
+    /// This module contains the [`skia_renderer::SkiaRenderer`] and related types.
+    ///
+    /// It is only enabled when the `renderer-skia` Slint feature is enabled.
+    #[cfg(any(feature = "renderer-skia", feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
+    pub mod skia_renderer {
+        pub use i_slint_renderer_skia::SkiaRenderer;
+    }
 }
 
 /// Helper type that helps checking that the generated code is generated for the right version
