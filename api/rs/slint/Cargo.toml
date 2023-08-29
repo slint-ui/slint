@@ -131,7 +131,7 @@ renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
 ## Render using the [femtovg](https://crates.io/crates/femtovg) crate.
-renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "i-slint-renderer-femtovg", "std"]
 
 ## Render using [Skia](https://skia.org/).
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
@@ -153,6 +153,7 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 i-slint-core = { version = "=1.2.0", path = "../../../internal/core", default-features = false }
 slint-macros = { version = "=1.2.0", path = "../macros" }
 i-slint-backend-selector = { version = "=1.2.0", path = "../../../internal/backends/selector" }
+i-slint-renderer-femtovg = { version = "=1.2.0", path = "../../../internal/renderers/femtovg", optional = true, default-features = false }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }
