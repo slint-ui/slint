@@ -21,15 +21,11 @@ function(SLINT_TARGET_SOURCES target)
         set(embed "$<IF:$<STREQUAL:${t_prop},>,${global_fallback},${t_prop}>")
 
         if(CMAKE_GENERATOR STREQUAL "Ninja")
-            # this code is inspired from the llvm source
-            # https://github.com/llvm/llvm-project/blob/a00290ed10a6b4e9f6e9be44ceec367562f270c6/llvm/cmake/modules/TableGen.cmake#L13
-
-            file(RELATIVE_PATH _SLINT_BASE_NAME_REL ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME})
-
             add_custom_command(
                 OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
                 COMMAND Slint::slint-compiler ${_SLINT_ABSOLUTE}
-                    -o ${_SLINT_BASE_NAME_REL}.h  --depfile ${_SLINT_BASE_NAME_REL}.d
+                    -o ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
+                    --depfile ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
                     --style ${_SLINT_STYLE}
                     --embed-resources=${embed}
                     --translation-domain="${target}"

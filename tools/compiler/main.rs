@@ -97,7 +97,7 @@ fn main() -> std::io::Result<()> {
 
     if let Some(depfile) = args.depfile {
         let mut f = std::fs::File::create(depfile)?;
-        write!(f, "{}:", args.output.display())?;
+        write!(f, "{}: {}", args.output.display(), args.path.display())?;
         for x in &diag.all_loaded_files {
             if x.is_absolute() {
                 write!(f, " {}", x.display())?;
