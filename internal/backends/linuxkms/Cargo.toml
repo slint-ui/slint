@@ -33,8 +33,6 @@ i-slint-renderer-femtovg = { version = "=1.2.0", path = "../../renderers/femtovg
 input = { version = "0.8.2" }
 xkbcommon = { version = "0.6.0" }
 calloop = { version = "0.11.0" }
-# nix broke semver that broke calloop https://github.com/nix-rust/nix/issues/2112
-pin_nix26 = { package="nix", version = "=0.26.2", default-features = false }
 libseat = { version = "0.2.1" }
 nix = { version = "0.27.0", features=["fs"] }
 vulkano = { version = "0.33.0", optional = true, default-features = false }
