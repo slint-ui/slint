@@ -134,13 +134,13 @@ renderer-winit-software = ["renderer-software"]
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
 
 ## Render using [Skia](https://skia.org/).
-renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
+renderer-skia = ["i-slint-backend-selector/renderer-skia", "dep:i-slint-renderer-skia", "std"]
 
 ## Same as `renderer-skia`, but Skia will always use OpenGL.
-renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "std"]
+renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "dep:i-slint-renderer-skia", "std"]
 
 ## Same as `renderer-skia`, but Skia will always use Vulkan.
-renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
+renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "dep:i-slint-renderer-skia", "std"]
 
 ## Render using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software", "i-slint-core/software-renderer"]
@@ -153,6 +153,7 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 i-slint-core = { version = "=1.2.0", path = "../../../internal/core", default-features = false }
 slint-macros = { version = "=1.2.0", path = "../macros" }
 i-slint-backend-selector = { version = "=1.2.0", path = "../../../internal/backends/selector" }
+i-slint-renderer-skia = { version = "=1.2.0", path = "../../../internal/renderers/skia", optional = true, default-features = false }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }
@@ -177,4 +178,4 @@ rustdoc-args = [
   "--html-in-header",
   "docs/resources/slint-docs-highlight.html",
 ]
-features = ["document-features", "log", "gettext", "renderer-software", "renderer-femtovg"]
+features = ["document-features", "log", "gettext", "renderer-software", "renderer-femtovg", "renderer-skia"]

@@ -68,7 +68,13 @@ pub struct SkiaRenderer {
 }
 
 impl SkiaRenderer {
-    /// Creates a new renderer is associated with the provided window adapter.
+    /// Creates a new renderer for the given window/display handle. The provided size
+    /// must match the size of the underlying native window.
+    /// 
+    /// Subsequent calls to [`Self::render()`] will render into the window.
+    /// 
+    /// Safety: It is the caller's responsibility to ensure that the underlying native
+    /// window exists and remains valid for the life-time of the SkiaRenderer.
     pub fn new(
         window_handle: raw_window_handle::WindowHandle<'_>,
         display_handle: raw_window_handle::DisplayHandle<'_>,
@@ -79,20 +85,7 @@ impl SkiaRenderer {
         Ok(Self::new_with_surface(surface))
     }
 
-    /// Creates a new renderer with the given surface trait implementation.
-    pub fn new_with_surface(surface: impl Surface + 'static) -> Self {
-        Self {
-            maybe_window_adapter: Default::default(),
-            rendering_notifier: Default::default(),
-            image_cache: Default::default(),
-            path_cache: Default::default(),
-            rendering_metrics_collector: Default::default(),
-            rendering_first_time: Cell::new(true),
-            surface: Box::new(surface),
-        }
-    }
-
-    /// Render the scene in the previously associated window.
+    /// Render the scene to the window.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         self.internal_render_with_post_callback(None)
     }
@@ -436,6 +429,8 @@ pub trait Surface {
 }
 
 pub trait SkiaRendererExt {
+    fn new_with_surface(surface: impl Surface + 'static) -> Self;
+
     fn render_with_post_callback(
         &self,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
@@ -443,6 +438,19 @@ pub trait SkiaRendererExt {
 }
 
 impl SkiaRendererExt for SkiaRenderer {
+    /// Creates a new renderer with the given surface trait implementation.
+    fn new_with_surface(surface: impl Surface + 'static) -> Self {
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            image_cache: Default::default(),
+            path_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Cell::new(true),
+            surface: Box::new(surface),
+        }
+    }
+
     fn render_with_post_callback(
         &self,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
