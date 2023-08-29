@@ -20,34 +20,19 @@ function(SLINT_TARGET_SOURCES target)
         set(global_fallback "${DEFAULT_SLINT_EMBED_RESOURCES}")
         set(embed "$<IF:$<STREQUAL:${t_prop},>,${global_fallback},${t_prop}>")
 
-        if(CMAKE_GENERATOR STREQUAL "Ninja")
-            add_custom_command(
-                OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
-                COMMAND Slint::slint-compiler ${_SLINT_ABSOLUTE}
-                    -o ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
-                    --depfile ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
-                    --style ${_SLINT_STYLE}
-                    --embed-resources=${embed}
-                    --translation-domain="${target}"
-                DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE}
-                COMMENT "Generating ${_SLINT_BASE_NAME}.h"
-                DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
-                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-            )
-        else(CMAKE_GENERATOR STREQUAL "Ninja")
-            get_filename_component(_SLINT_DIR ${_SLINT_ABSOLUTE} DIRECTORY )
-            file(GLOB ALL_SLINTS "${_SLINT_DIR}/*.slint")
-            add_custom_command(
-                OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
-                COMMAND Slint::slint-compiler ${_SLINT_ABSOLUTE}
-                    -o ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
-                    --style ${_SLINT_STYLE}
-                    --embed-resources=${embed}
-                    --translation-domain="${target}"
-                DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE} ${ALL_SLINTS}
-                COMMENT "Generating ${_SLINT_BASE_NAME}.h"
-            )
-        endif(CMAKE_GENERATOR STREQUAL "Ninja")
+        add_custom_command(
+            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
+            COMMAND Slint::slint-compiler ${_SLINT_ABSOLUTE}
+                -o ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
+                --depfile ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
+                --style ${_SLINT_STYLE}
+                --embed-resources=${embed}
+                --translation-domain="${target}"
+            DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE}
+            COMMENT "Generating ${_SLINT_BASE_NAME}.h"
+            DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        )
 
         target_sources(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h)
     endforeach()
