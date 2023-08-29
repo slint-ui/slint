@@ -349,6 +349,15 @@ macro_rules! init_translations {
 /// The [Slint on Microcontrollers](crate::docs::mcu) documentation has additional examples.
 pub mod platform {
     pub use i_slint_core::platform::*;
+
+    /// This module contains the [`femtovg_renderer::FemtoVGRenderer`] and related types.
+    ///
+    /// It is only enabled when the `renderer-femtovg` Slint feature is enabled.
+    #[cfg(feature = "renderer-femtovg")]
+    pub mod femtovg_renderer {
+        pub use i_slint_renderer_femtovg::FemtoVGRenderer;
+        pub use i_slint_renderer_femtovg::OpenGLInterface;
+    }
 }
 
 /// Helper type that helps checking that the generated code is generated for the right version
