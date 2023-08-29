@@ -324,6 +324,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(semantic_tokens::get_semantic_tokens(document_cache, &params.text_document))
     });
     rh.register::<DocumentHighlightRequest, _>(|_params, ctx| async move {
+        eprintln!("DOCUMENTHIGHLIGHTREQUEST RECEIVED");
         let document_cache = &mut ctx.document_cache.borrow_mut();
         let uri = _params.text_document_position_params.text_document.uri;
         if let Some((tk, _off)) =
