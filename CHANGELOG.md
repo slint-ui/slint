@@ -48,6 +48,7 @@ All notable changes to this project are documented in this file.
  - The features `SLINT_FEATURE_RENDERER_WINIT_*` were renamed to `SLINT_FEATURE_RENDERER_*`.
  - Extended `slint::Image::create_from_borrowed_gl_2d_rgba_texture` with an option to configure more aspects
    of texture rendering.
+ - Fixed cmake dependencies of the generated header so it is generated if and only if the .slint files have changed
 
 ### LSP
 
