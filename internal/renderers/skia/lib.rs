@@ -72,7 +72,7 @@ impl SkiaRenderer {
     /// must match the size of the underlying native window.
     ///
     /// Subsequent calls to [`Self::render()`] will render into the window.
-    /// 
+    ///
     /// Safety: It is the caller's responsibility to ensure that the underlying native
     /// window exists and remains valid for the life-time of the SkiaRenderer.
     pub fn new(
