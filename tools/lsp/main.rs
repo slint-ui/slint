@@ -36,6 +36,14 @@ struct Previewer {
 }
 
 impl PreviewApi for Previewer {
+    fn show_ui(&self) {
+        #[cfg(feature = "preview")]
+        preview::show_ui();
+    }
+    fn hide_ui(&self) {
+        #[cfg(feature = "preview")]
+        preview::hide_ui();
+    }
     fn set_design_mode(&self, _enable: bool) {
         #[cfg(feature = "preview")]
         preview::set_design_mode(self.server_notifier.clone(), _enable);
@@ -73,6 +81,7 @@ impl PreviewApi for Previewer {
     }
 
     fn highlight(&self, _path: Option<std::path::PathBuf>, _offset: u32) -> Result<()> {
+        eprintln!("Main::PreviewApi::highlight {_path:?}:{_offset}");
         #[cfg(feature = "preview")]
         preview::highlight(_path, _offset);
         Ok(())
