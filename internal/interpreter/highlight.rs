@@ -16,6 +16,7 @@ use i_slint_compiler::object_tree::{
     PropertyVisibility, RepeatedElementInfo,
 };
 use i_slint_compiler::parser::TextRange;
+use i_slint_core::component::ComponentRc;
 use i_slint_core::item_tree::ItemWeak;
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::LogicalPoint;
@@ -30,13 +31,12 @@ const CURRENT_ELEMENT_CALLBACK_PROP: &str = "$currentElementCallback";
 const DESIGN_MODE_PROP: &str = "$designMode";
 
 /// We do a depth-first walk of the tree.
-fn next_item(item: &ItemRc) -> ItemRc {
+fn next_item(item: &ItemRc, root_component: &ComponentRc) -> ItemRc {
     // We have a sibling, so find the "deepest first_child"
     if let Some(s) = item.next_sibling() {
         next_item_down(&s)
-    } else if let Some(p) = item.parent_item() {
-        // Walk further up the tree once out of siblings...
-        p
+    } else if !item.is_root_item_of(root_component) {
+        item.parent_item().unwrap() // We are not at this component's root!
     } else {
         // We are at the root of the tree: Start over, going for the
         // deepest first child again!
@@ -96,17 +96,18 @@ fn find_start_item(
     component: &DynamicComponentVRc,
     position: &LogicalPoint,
 ) -> ItemRc {
+    let component_rc = VRc::into_dyn(component.clone());
     state
         .try_borrow()
         .ok()
         .and_then(|s| s.current_item.clone())
         .and_then(|i| i.upgrade())
-        .filter(|i| item_contains(i, position))
-        .unwrap_or_else(|| ItemRc::new(VRc::into_dyn(component.clone()), 0))
+        .filter(|i| item_contains(i, position, &component_rc))
+        .unwrap_or_else(|| ItemRc::new(component_rc, 0))
 }
 
-fn item_contains(item: &ItemRc, position: &LogicalPoint) -> bool {
-    let offset = item.map_to_window(LogicalPoint::default());
+fn item_contains(item: &ItemRc, position: &LogicalPoint, component: &ComponentRc) -> bool {
+    let offset = item.map_to_component(LogicalPoint::default(), component);
     let geometry = item.geometry().translate(offset.to_vector());
 
     geometry.contains(*position)
@@ -137,18 +138,22 @@ pub fn on_element_selected(
             };
 
             let start_item = find_start_item(&state, &c, &position);
+            let component_rc = {
+                let component = c.clone();
+                VRc::into_dyn(component)
+            };
 
             let stop_at_item = start_item.clone();
             let mut i = start_item;
             let (f, sl, sc, el, ec) = loop {
-                i = next_item(&i);
+                i = next_item(&i, &component_rc);
 
                 if i == stop_at_item {
                     // Break out: We went round once.
                     break (String::new(), 0, 0, 0, 0);
                 }
 
-                if !item_contains(&i, &position) {
+                if !item_contains(&i, &position, &component_rc) {
                     continue; // wrong position
                 }
 
@@ -275,10 +280,10 @@ fn fill_model(
             component_instance.borrow_instance().self_weak().get().unwrap().upgrade().unwrap(),
         );
         let index = element.borrow().item_index.get().copied().unwrap();
-        let item_rc = ItemRc::new(vrc, index);
+        let item_rc = ItemRc::new(vrc.clone(), index);
 
         let geom = item_rc.geometry();
-        let position = item_rc.map_to_window(geom.origin);
+        let position = item_rc.map_to_component(geom.origin, &vrc);
 
         values.push(Value::Struct(
             [
