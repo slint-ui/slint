@@ -7,45 +7,45 @@ All notable changes to this project are documented in this file.
 
 ### General
 
- - Fixed accessibility tree on Linux when UI has no repeaters
- - Fixed native style animations
- - Fixed setting rotation-angle and opacity from a callback
- - Fixed touch in the Flickable not resulting in a click
+ - Fixed accessibility tree on Linux when UI has no repeaters.
+ - Fixed native style animations.
+ - Fixed setting rotation-angle and opacity from a callback.
+ - Fixed touch in the `Flickable` not resulting in a click.
  - Added support for a new experimental backend that renders fullscreen on Linux using KMS (`backend-linuxkms`).
  - Calling `show()` on a component (or its window) now keeps the component alive for as long as the window
    is visible.
 
-### Slint language
+### Slint Language
 
- - In case of error, still attempt to run more pass to report more diagnostics
- - Fixed compiler panic when an unresolved alias has a binding
- - Added `edited` callback to `SpinBox`
- - Added `row-pointer-event` callback to `StandardTableView`
- - Fixed enabled does not work properly on `fluent` `ComboBox`
+ - Improve reporting of diagnostics when there are errors, by attempting to run more passes.
+ - Fixed compiler panic when an unresolved alias has a binding.
+ - Added `edited` callback to `SpinBox`.
+ - Added `row-pointer-event` callback to `StandardTableView`.
+ - Fixed enabled property with `ComboBox` in Fluent Design style.
  - Fixed duplicated import when importing file relative to the project instead of the current path. Deprecated importing files relative to the project path.
- - Added `current-item-changed` to `StandardListView`
- - Added `current-row-changed` to `StandardTableView`
- - Added `item-pointer-event` to `StandardListView`
- - Added `vertical` property to `Slider`
- - Added `cupertino` style`
+ - Added `current-item-changed` to `StandardListView`.
+ - Added `current-row-changed` to `StandardTableView`.
+ - Added `item-pointer-event` to `StandardListView`.
+ - Added `vertical` property to `Slider`.
+ - Added experimental `cupertino` style.
 
 ### Rust API
 
- - Implemented `Default` for `slint::Weak`
- - Added `ReverseModel` and `ModelExt::reverse`
+ - Implemented `Default` for `slint::Weak`.
+ - Added `ReverseModel` and `ModelExt::reverse`.
  - Added `fn set_visible(&self, _visible: bool)` to the `slint::platform::WindowAdapter` trait.
- - Added ways to create a `SoftwareRenderer` without a `MinimalSoftwareWindow`
- - The features `renderer-winit-*` were renamed to `renderer-*`
+ - Added ways to create a `SoftwareRenderer` without a `MinimalSoftwareWindow`.
+ - The features `renderer-winit-*` were renamed to `renderer-*`.
  - Added `BorrowedOpenGLTextureBuilder` to configure more aspects of borrowed OpenGL textures.
 
 ### C++
 
  - Added Platform API to write your own platform that drives its own event loop.
- - Added `SLINT_TARGET_CARGO_FLAGS` cmake variable
- - Added `ReverseModel`
- - Added functions in Window to dispatch pointer events
- - The `slint_interpreter.h` file was renamed `slint-interpreter.h`, a deprecated header was added
- - The features `SLINT_FEATURE_RENDERER_WINIT_*` were renamed to `SLINT_FEATURE_RENDERER_*`
+ - Added `SLINT_TARGET_CARGO_FLAGS` cmake variable.
+ - Added `ReverseModel`.
+ - Added functions in Window to dispatch pointer events.
+ - The `slint_interpreter.h` file was renamed `slint-interpreter.h`, a deprecated header was added.
+ - The features `SLINT_FEATURE_RENDERER_WINIT_*` were renamed to `SLINT_FEATURE_RENDERER_*`.
  - Extended `slint::Image::create_from_borrowed_gl_2d_rgba_texture` with an option to configure more aspects
    of texture rendering.
 
