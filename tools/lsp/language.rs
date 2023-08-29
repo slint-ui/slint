@@ -10,7 +10,7 @@ mod semantic_tokens;
 #[cfg(test)]
 mod test;
 
-use crate::common::PreviewApi;
+use crate::common::{PreviewApi, Result};
 use crate::util::{map_node, map_range, map_token, to_lsp_diag};
 
 #[cfg(target_arch = "wasm32")]
@@ -39,8 +39,6 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
-
-pub type Error = Box<dyn std::error::Error>;
 
 const QUERY_PROPERTIES_COMMAND: &str = "slint/queryProperties";
 const REMOVE_BINDING_COMMAND: &str = "slint/removeBinding";
@@ -109,7 +107,7 @@ pub struct RequestHandler(
             dyn Fn(
                 serde_json::Value,
                 Rc<Context>,
-            ) -> Pin<Box<dyn Future<Output = Result<serde_json::Value, Error>>>>,
+            ) -> Pin<Box<dyn Future<Output = Result<serde_json::Value>>>>,
         >,
     >,
 );
@@ -117,7 +115,7 @@ pub struct RequestHandler(
 impl RequestHandler {
     pub fn register<
         R: lsp_types::request::Request,
-        Fut: Future<Output = Result<R::Result, Error>> + 'static,
+        Fut: Future<Output = Result<R::Result>> + 'static,
     >(
         &mut self,
         handler: fn(R::Params, Rc<Context>) -> Fut,
@@ -386,7 +384,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 }
 
 #[cfg(feature = "preview")]
-pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<(), Error> {
+pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<()> {
     let document_cache = &mut ctx.document_cache.borrow_mut();
     let config = &document_cache.documents.compiler_config;
 
@@ -415,7 +413,7 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
 }
 
 #[cfg(feature = "preview")]
-pub fn set_design_mode(params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<(), Error> {
+pub fn set_design_mode(params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<()> {
     let e = || "InvalidParameter";
     let enable = if let serde_json::Value::Bool(b) = params.get(0).ok_or_else(e)? {
         b
@@ -428,7 +426,7 @@ pub fn set_design_mode(params: &[serde_json::Value], ctx: &Rc<Context>) -> Resul
 }
 
 #[cfg(feature = "preview")]
-pub fn toggle_design_mode(_params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<(), Error> {
+pub fn toggle_design_mode(_params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<()> {
     ctx.preview.set_design_mode(!ctx.preview.design_mode());
     Ok(())
 }
@@ -436,7 +434,7 @@ pub fn toggle_design_mode(_params: &[serde_json::Value], ctx: &Rc<Context>) -> R
 pub fn query_properties_command(
     params: &[serde_json::Value],
     ctx: &Rc<Context>,
-) -> Result<serde_json::Value, Error> {
+) -> Result<serde_json::Value> {
     let document_cache = &mut ctx.document_cache.borrow_mut();
 
     let text_document_uri = serde_json::from_value::<lsp_types::TextDocumentIdentifier>(
@@ -472,7 +470,7 @@ pub fn query_properties_command(
 pub async fn set_binding_command(
     params: &[serde_json::Value],
     ctx: &Rc<Context>,
-) -> Result<serde_json::Value, Error> {
+) -> Result<serde_json::Value> {
     let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
         params.get(0).ok_or("No text document provided")?.clone(),
     )?;
@@ -563,7 +561,7 @@ pub async fn set_binding_command(
 pub async fn remove_binding_command(
     params: &[serde_json::Value],
     ctx: &Rc<Context>,
-) -> Result<serde_json::Value, Error> {
+) -> Result<serde_json::Value> {
     let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
         params.get(0).ok_or("No text document provided")?.clone(),
     )?;
@@ -692,7 +690,7 @@ pub async fn reload_document(
     uri: lsp_types::Url,
     version: i32,
     document_cache: &mut DocumentCache,
-) -> Result<(), Error> {
+) -> Result<()> {
     let lsp_diags = reload_document_impl(Some(ctx), content, uri, version, document_cache).await;
 
     for (uri, diagnostics) in lsp_diags {
@@ -1053,7 +1051,7 @@ fn find_element_id_for_highlight(
     None
 }
 
-pub async fn load_configuration(ctx: &Context) -> Result<(), Error> {
+pub async fn load_configuration(ctx: &Context) -> Result<()> {
     if !ctx
         .init_param
         .capabilities

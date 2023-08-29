@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use super::DocumentCache;
+use crate::common::{Error, Result};
 use crate::util::{
     map_node, map_node_and_url, map_position, map_range, to_lsp_diag, with_property_lookup_ctx,
     ExpressionContextInfo,
 };
-use crate::Error;
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
@@ -410,7 +410,7 @@ pub(crate) fn query_properties(
     uri: &lsp_types::Url,
     source_version: i32,
     element: &ElementRc,
-) -> Result<QueryPropertyResponse, crate::Error> {
+) -> Result<QueryPropertyResponse> {
     Ok(QueryPropertyResponse {
         properties: get_properties(element),
         element: Some(get_element_information(element)),
@@ -422,7 +422,7 @@ pub(crate) fn query_properties(
 fn get_property_information(
     properties: &[PropertyInformation],
     property_name: &str,
-) -> Result<PropertyInformation, Error> {
+) -> Result<PropertyInformation> {
     if let Some(property) = properties.iter().find(|pi| pi.name == property_name) {
         Ok(property.clone())
     } else {
@@ -482,7 +482,7 @@ fn set_binding_on_existing_property(
     property: &PropertyInformation,
     new_expression: String,
     diag: &mut BuildDiagnostics,
-) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>), Error> {
+) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
     let workspace_edit = (!diag.has_error())
         .then(|| {
             create_workspace_edit_for_set_binding_on_existing_property(
@@ -599,7 +599,7 @@ fn set_binding_on_known_property(
     property_name: &str,
     new_expression: &str,
     diag: &mut BuildDiagnostics,
-) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>), Error> {
+) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
     let workspace_edit = (!diag.has_error())
         .then(|| {
             create_workspace_edit_for_set_binding_on_known_property(
@@ -643,7 +643,7 @@ pub(crate) fn set_binding(
     element: &ElementRc,
     property_name: &str,
     new_expression: String,
-) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>), Error> {
+) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
     let (mut diag, expression_node) = {
         let mut diagnostics = BuildDiagnostics::default();
 
@@ -737,7 +737,7 @@ pub(crate) fn remove_binding(
     uri: &lsp_types::Url,
     element: &ElementRc,
     property_name: &str,
-) -> Result<lsp_types::WorkspaceEdit, Error> {
+) -> Result<lsp_types::WorkspaceEdit> {
     let element = element.borrow();
     let source_file = element.node.as_ref().and_then(|n| n.source_file());
 
