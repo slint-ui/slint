@@ -1,7 +1,8 @@
 .. Copyright © SixtyFPS GmbH <info@slint.dev>
 .. SPDX-License-Identifier: MIT
 
-.. include:: src/introduction/index.rst
+.. include:: src/introduction/index.md
+   :parser: myst_parser.sphinx_
 
 .. toctree::
    :hidden:

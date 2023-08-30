@@ -95,6 +95,13 @@ myst_enable_extensions = [
     "html_image",
 ]
 
+myst_url_schemes = {
+    "slint-cpp": f"https://slint.dev/releases/{version}/docs/cpp/{{{{path}}}}",
+    "slint-rust": f"https://slint.dev/releases/{version}/docs/rust/slint/{{{{path}}}}",
+    "slint-node": f"https://slint.dev/releases/{version}/docs/node/{{{{path}}}}",
+    'http': None, 'https': None, 'mailto': None,
+}
+
 # Annotate h1/h2 elements with anchors
 myst_heading_anchors = 4
 
