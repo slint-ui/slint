@@ -680,6 +680,7 @@ fn add_components_to_import(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::language::uri_to_file;
 
     /// Given a source text containing the unicode emoji `🔺`, the emoji will be removed and then an autocompletion request will be done as if the cursor was there
     fn get_completions(file: &str) -> Option<Vec<CompletionItem>> {
@@ -688,7 +689,7 @@ mod tests {
         let source = file.replace(CURSOR_EMOJI, "");
         let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source);
 
-        let doc = dc.documents.get_document(&uri.to_file_path().unwrap()).unwrap();
+        let doc = dc.documents.get_document(&uri_to_file(&uri).unwrap()).unwrap();
         let token = crate::language::token_at_offset(doc.node.as_ref().unwrap(), offset)?;
 
         completion_at(&mut dc, token, offset, None)
