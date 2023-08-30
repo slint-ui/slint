@@ -116,6 +116,7 @@ myst_heading_anchors = 2
 
 myst_url_schemes = {
     "slint-reference": f"https://slint.dev/releases/{version}/docs/slint/{{{{path}}}}",
+    'http': None, 'https': None, 'mailto': None,
 }
 
 rst_epilog = """
