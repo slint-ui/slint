@@ -6,7 +6,8 @@ import { Palette } from "styling.slint";
 export component Slider {
     callback changed(float /* value */);
 
-    in property<bool> vertical: false;
+    in property <Orientation> orientation: horizontal;
+    private property<bool> vertical: orientation == Orientation.vertical;
     in property<float> maximum: 100;
     in property<float> minimum: 0;
     in property<bool> enabled <=> i-touch-area.enabled;

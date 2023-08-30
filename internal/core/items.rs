@@ -27,7 +27,7 @@ use crate::input::{
 };
 use crate::item_rendering::CachedRenderingData;
 pub use crate::item_tree::ItemRc;
-use crate::layout::{LayoutInfo, Orientation};
+use crate::layout::LayoutInfo;
 use crate::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths,
 };

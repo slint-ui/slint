@@ -9,13 +9,7 @@ use crate::items::{DialogButtonRole, LayoutAlignment};
 use crate::{slice::Slice, Coord, SharedVector};
 use alloc::vec::Vec;
 
-/// Vertical or Horizontal orientation
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-#[repr(u8)]
-pub enum Orientation {
-    Horizontal,
-    Vertical,
-}
+pub use crate::items::Orientation;
 
 /// The constraint that applies to an item
 // Also, the field needs to be in alphabetical order because how the generated code sort fields for struct

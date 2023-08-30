@@ -8,7 +8,7 @@
 -   **`value`** (_in-out_ _float_): The value.
 -   **`minimum`** (_in_ _float_): The minimum value (default: 0)
 -   **`maximum`** (_in_ _float_): The maximum value (default: 100)
--   **`vertical`** (_in_ _bool_): If set to true the Slider is displayed vertical (default: false).
+-   **`orientation`** (_in_ _enum [`Orientation`](../builtins/enums.md#orientation)_): If set to true the Slider is displayed vertical (default: horizontal).
 
 ### Callbacks
 
