@@ -105,7 +105,7 @@ This works when compiling Slint as a package, using `cmake --build` and
 
 Slint uses [Corrosion](https://github.com/corrosion-rs/corrosion) to build Slint, which is developed in Rust. You can utilize [Corrosion's global CMake variables](https://corrosion-rs.github.io/corrosion/usage.html#global-corrosion-options) to control certain aspects of the Rust build process.
 
-Furthermore, you can set the `SLINT_TARGET_CARGO_FLAGS` cache variable to specify additional flags for the Slint runtime during the build.
+Furthermore, you can set the `SLINT_LIBRARY_CARGO_FLAGS` cache variable to specify additional flags for the Slint runtime during the build.
 
 ### Platform Backends
 
