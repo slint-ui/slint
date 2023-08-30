@@ -51,7 +51,7 @@ callback. These will be shell escaped.
 Example: Imagine we have a myfile.slint looking like this:
 
 ```slint
-MyApp := Window {
+export component MyApp inherits Window {
   callback open-url(string);
   //...
 }
