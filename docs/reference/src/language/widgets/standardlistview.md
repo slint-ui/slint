@@ -13,12 +13,12 @@ Same as [`ListView`](#listview), and in addition:
 
 ### Functions
 
--   **`set-current-item(`_`index: int`_`)`**: Sets the current item and brings it into view
+-   **`set-current-item(int)`**: Sets the current item by the specified index and brings it into view.
 
 ### Callbacks
 
--   **`current-item-changed(`_`int`_`)`**: Emitted when the current item has changed because the user modified it
--   **`item-pointer-event(`_`index: int`_`, `_`event: PointerEvent`_`, `_`pos: Point`_`)`**: Emitted on any mouse pointer event similar to `TouchArea`. Arguments are item index associated with the event, the `PointerEvent` itself and the mouse position within the listview.
+-   **`current-item-changed(int)`**: Emitted when the current item has changed because the user modified it
+-   **`item-pointer-event(int, PointerEvent, Point)`**: Emitted on any mouse pointer event similar to `TouchArea`. Arguments are item index associated with the event, the `PointerEvent` itself and the mouse position within the listview.
 
 ### Example
 

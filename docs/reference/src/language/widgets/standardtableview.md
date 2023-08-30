@@ -16,14 +16,14 @@ Same as [`ListView`](#listview), and in addition:
 
 ### Callbacks
 
--   **`sort-ascending(`_`int`_`)`**: Emitted if the model should be sorted by the given column in ascending order.
--   **`sort-descending(`_`int`_`)`**: Emitted if the model should be sorted by the given column in descending order.
--   **`row-pointer-event(`_`index: int`_`, `_`event: PointerEvent`_`, `_`pos: Point`_`)`**: Emitted on any mouse pointer event similar to `TouchArea`. Arguments are row index associated with the event, the `PointerEvent` itself and the mouse position within the tableview.
--   **`current-row-changed(`_`int`_`)`**: Emitted when the current row has changed because the user modified it
+-   **`sort-ascending(int)`**: Emitted if the model should be sorted by the given column in ascending order.
+-   **`sort-descending(int)`**: Emitted if the model should be sorted by the given column in descending order.
+-   **`row-pointer-event(int, PointerEvent, Point)`**: Emitted on any mouse pointer event similar to `TouchArea`. Arguments are row index associated with the event, the `PointerEvent` itself and the mouse position within the tableview.
+-   **`current-row-changed(int)`**: Emitted when the current row has changed because the user modified it
 
 ### Functions
 
--   **`set-current-row(index: int)`: Sets the current row and brings it into view
+-   **`set-current-row(int)`: Sets the current row by index and brings it into view.
 
 ### Example
 
