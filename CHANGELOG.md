@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
 
 ### Slint Language
 
+ - Added `Number`, `Decimal` variant to enum `InputType`
+
 ### Rust API
 
 ### C++

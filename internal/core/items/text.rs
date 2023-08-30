@@ -479,6 +479,7 @@ impl Item for TextInput {
                 {
                     return KeyEventResult::EventIgnored;
                 }
+
                 if let Some(shortcut) = event.shortcut() {
                     match shortcut {
                         StandardShortcut::SelectAll => {
@@ -503,6 +504,21 @@ impl Item for TextInput {
                         _ => (),
                     }
                 }
+
+                let input_type = self.input_type();
+                if input_type == InputType::Number
+                    && !event.text.as_str().chars().all(|ch| ch.is_ascii_digit())
+                {
+                    return KeyEventResult::EventIgnored;
+                }
+                if input_type == InputType::Decimal {
+                    let text = self.text().clone() + event.text.as_str();
+                    if text.as_str() != "." && text.as_str() != "-" && text.parse::<f64>().is_err()
+                    {
+                        return KeyEventResult::EventIgnored;
+                    }
+                }
+
                 if self.read_only() || event.modifiers.control {
                     return KeyEventResult::EventIgnored;
                 }
