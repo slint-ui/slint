@@ -691,6 +691,7 @@ impl Image {
 /// Use this with [`BorrowedOpenGLTextureBuilder::origin`].
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 #[repr(C)]
+#[non_exhaustive]
 pub enum BorrowedOpenGLTextureOrigin {
     /// The top-left of the texture is the top-left of the texture drawn on the screen.
     #[default]
@@ -712,10 +713,10 @@ pub enum BorrowedOpenGLTextureOrigin {
 /// # use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, Image, IntSize, BorrowedOpenGLTextureOrigin};
 /// # let texture_id = core::num::NonZeroU32::new(1).unwrap();
 /// # let size = IntSize::new(100, 100);
-/// let builder = BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(texture_id, size)
+/// let builder = unsafe { BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(texture_id, size) }
 ///              .origin(BorrowedOpenGLTextureOrigin::TopLeft);
 ///
-/// let image: slint::Image = unsafe { builder.build() };
+/// let image: slint::Image = builder.build();
 /// ```
 #[cfg(not(target_arch = "wasm32"))]
 pub struct BorrowedOpenGLTextureBuilder(BorrowedOpenGLTexture);
@@ -731,7 +732,16 @@ impl BorrowedOpenGLTextureBuilder {
     /// This is different from the default OpenGL coordinate system. Use the `mirror_vertically` function
     /// to reconfigure this.
     ///
-    pub fn new_gl_2d_rgba_texture(texture_id: core::num::NonZeroU32, size: IntSize) -> Self {
+    /// # Safety
+    ///
+    /// This function is unsafe because invalid texture ids may lead to undefind behavior in OpenGL
+    /// drivers. A valid texture id is one that was created by the same OpenGL context that is
+    /// current during any of the invocations of the callback set on [`Window::set_rendering_notifier()`](crate::api::Window::set_rendering_notifier).
+    /// OpenGL contexts between instances of [`slint::Window`](crate::api::Window) are not sharing resources. Consequently
+    /// [`slint::Image`](Self) objects created from borrowed OpenGL textures cannot be shared between
+    /// different windows.
+    #[allow(unsafe_code)]
+    pub unsafe fn new_gl_2d_rgba_texture(texture_id: core::num::NonZeroU32, size: IntSize) -> Self {
         Self(BorrowedOpenGLTexture { texture_id, size, origin: Default::default() })
     }
 
@@ -742,17 +752,7 @@ impl BorrowedOpenGLTextureBuilder {
     }
 
     /// Completes the process of building a slint::Image that holds a borrowed OpenGL texture.
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe because invalid texture ids may lead to undefind behavior in OpenGL
-    /// drivers. A valid texture id is one that was created by the same OpenGL context that is
-    /// current during any of the invocations of the callback set on [`Window::set_rendering_notifier()`](crate::api::Window::set_rendering_notifier).
-    /// OpenGL contexts between instances of [`slint::Window`](crate::api::Window) are not sharing resources. Consequently
-    /// [`slint::Image`](Self) objects created from borrowed OpenGL textures cannot be shared between
-    /// different windows.
-    #[allow(unsafe_code)]
-    pub unsafe fn build(self) -> Image {
+    pub fn build(self) -> Image {
         Image(ImageInner::BorrowedOpenGLTexture(self.0))
     }
 }
