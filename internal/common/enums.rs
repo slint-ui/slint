@@ -318,6 +318,14 @@ macro_rules! for_each_enums {
                 /// The column is sorted in descending order.
                 Descending,
             }
+
+            /// Represents the orientation of an element or widget such as the [`Slider`](../widgets/slider.md).
+            enum Orientation {
+                /// Element is oriented horizontally.
+                Horizontal,
+                /// Element is oriented vertically.
+                Vertical,
+            }
         ];
     };
 }

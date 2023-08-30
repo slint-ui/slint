@@ -26,7 +26,7 @@ pub struct NativeSlider {
     pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub vertical: Property<bool>,
+    pub orientation: Property<Orientation>,
     pub enabled: Property<bool>,
     pub value: Property<f32>,
     pub minimum: Property<f32>,
@@ -93,7 +93,7 @@ impl Item for NativeSlider {
         let data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
-        let vertical = self.vertical();
+        let vertical = self.orientation() == Orientation::Vertical;
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let size = cpp!(unsafe [
@@ -163,7 +163,7 @@ impl Item for NativeSlider {
         let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed: bool = data.pressed != 0;
-        let vertical = self.vertical();
+        let vertical = self.orientation() == Orientation::Vertical;
         let pos = event
             .position()
             .map(|p| qttypes::QPoint { x: p.x as _, y: p.y as _ })
@@ -267,7 +267,7 @@ impl Item for NativeSlider {
         let data = this.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
-        let vertical = this.vertical();
+        let vertical = this.orientation() == Orientation::Vertical;
 
         cpp!(unsafe [
             painter as "QPainterPtr*",
