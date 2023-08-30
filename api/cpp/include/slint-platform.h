@@ -470,24 +470,6 @@ inline void set_platform(std::unique_ptr<Platform> platform)
 }
 
 #ifdef SLINT_FEATURE_RENDERER_SOFTWARE
-/// Represents a region on the screen, used for partial rendering.
-///
-/// The region may be composed of multiple sub-regions.
-struct PhysicalRegion
-{
-    /// Returns the size of the bounding box of this region.
-    PhysicalSize bounding_box_size() const
-    {
-        return PhysicalSize({ uint32_t(inner.width), uint32_t(inner.height) });
-    }
-    /// Returns the origin of the bounding box of this region.
-    PhysicalPosition bounding_box_origin() const { return PhysicalPosition({ inner.x, inner.y }); }
-
-private:
-    cbindgen_private::types::IntRect inner;
-    friend class SoftwareRenderer;
-    PhysicalRegion(cbindgen_private::types::IntRect inner) : inner(inner) { }
-};
 
 /// A 16bit pixel that has 5 red bits, 6 green bits and 5 blue bits
 struct Rgb565Pixel
@@ -549,6 +531,28 @@ class SoftwareRenderer : public AbstractRenderer
     }
 
 public:
+    /// Represents a region on the screen, used for partial rendering.
+    ///
+    /// The region may be composed of multiple sub-regions.
+    struct PhysicalRegion
+    {
+        /// Returns the size of the bounding box of this region.
+        PhysicalSize bounding_box_size() const
+        {
+            return PhysicalSize({ uint32_t(inner.width), uint32_t(inner.height) });
+        }
+        /// Returns the origin of the bounding box of this region.
+        PhysicalPosition bounding_box_origin() const
+        {
+            return PhysicalPosition({ inner.x, inner.y });
+        }
+
+    private:
+        cbindgen_private::types::IntRect inner;
+        friend class SoftwareRenderer;
+        PhysicalRegion(cbindgen_private::types::IntRect inner) : inner(inner) { }
+    };
+
     /// This enum describes which parts of the buffer passed to the SoftwareRenderer may be
     /// re-used to speed up painting.
     enum class RepaintBufferType : uint32_t {
