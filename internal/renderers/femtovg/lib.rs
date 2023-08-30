@@ -342,6 +342,7 @@ impl FemtoVGRenderer {
     }
 }
 
+#[doc(hidden)]
 impl RendererSealed for FemtoVGRenderer {
     fn text_size(
         &self,
