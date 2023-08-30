@@ -129,6 +129,9 @@ impl Texture {
                     i_slint_core::graphics::BorrowedOpenGLTextureOrigin::BottomLeft => {
                         image_flags | femtovg::ImageFlags::FLIP_Y
                     }
+                    _ => unimplemented!(
+                        "internal error: missing implementation for BorrowedOpenGLTextureOrigin"
+                    ),
                 };
                 canvas
                     .borrow_mut()

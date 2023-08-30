@@ -106,6 +106,9 @@ pub(crate) fn as_skia_image(
                     i_slint_core::graphics::BorrowedOpenGLTextureOrigin::BottomLeft => {
                         skia_safe::gpu::SurfaceOrigin::BottomLeft
                     }
+                    _ => unimplemented!(
+                        "internal error: missing implementation for BorrowedOpenGLTextureOrigin"
+                    ),
                 },
                 skia_safe::ColorType::RGBA8888,
                 skia_safe::AlphaType::Unpremul,
