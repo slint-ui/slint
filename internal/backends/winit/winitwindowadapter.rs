@@ -662,10 +662,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             .get()
     }
 
-    fn is_visible(&self) -> bool {
-        self.winit_window().is_visible().unwrap_or(true)
-    }
-
     #[cfg(enable_accesskit)]
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {
         self.accesskit_adapter.handle_focus_item_change();
