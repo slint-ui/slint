@@ -13,7 +13,7 @@ A button that, when clicked, opens a popup to select a value.
 
 ### Callbacks
 
--   **`selected(`_`string`_`)`**: A value was selected from the combo box. The argument is the currently selected value.
+-   **`selected(string)`**: A value was selected from the combo box. The argument is the currently selected value.
 
 ### Example
 

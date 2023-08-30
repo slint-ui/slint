@@ -186,8 +186,10 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
 
 ### Callbacks
 
--   **`key-pressed(`_[`KeyEvent`](structs.md#keyevent)_`) -> `[`EventResult`](enums.md#eventresult)**: Invoked when a key is pressed, the argument is a [`KeyEvent`](structs.md#keyevent) struct.
--   **`key-released(`_[`KeyEvent`](structs.md#keyevent)_`) -> `[`EventResult`](enums.md#eventresult)**: Invoked when a key is released, the argument is a [`KeyEvent`](structs.md#keyevent) struct.
+-   **`key-pressed(KeyEvent) -> EventResult`**: Invoked when a key is pressed, the argument is a [`KeyEvent`](structs.md#keyevent) struct. The returned [`EventResult`](enums.md#eventresult) indicates whether to accept or ignore the event. Ignored events are
+    forwarded to the parent element.
+-   **`key-released(KeyEvent) -> EventResult`**: Invoked when a key is released, the argument is a [`KeyEvent`](structs.md#keyevent) struct. The returned [`EventResult`](enums.md#eventresult) indicates whether to accept or ignore the event. Ignored events are
+    forwarded to the parent element.
 
 ### Example
 
@@ -630,7 +632,8 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Callbacks
 
 -   **`accepted()`**: Invoked when enter key is pressed.
--   **`cursor-position-changed(`[_`Point`_](structs.md#point)`)`**: The cursor was moved to the new (x, y) position.
+-   **`cursor-position-changed(Point)`**: The cursor was moved to the new (x, y) position
+    described by the [_`Point`_](structs.md#point) argument.
 -   **`edited()`**: Invoked when the text has changed because the user modified it.
 
 ### Example
@@ -725,7 +728,8 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 -   **`clicked()`**: Invoked when clicked: The mouse is pressed, then released on this element.
 -   **`moved()`**: The mouse has been moved. This will only be called if the mouse is also pressed.
--   **`pointer-event(`[_`PointerEvent`_](structs.md#pointerevent)`)`**: Invoked when a button was pressed or released.
+-   **`pointer-event(PointerEvent)`**: Invoked when a button was pressed or released The [_`PointerEvent`_](structs.md#pointerevent)
+    argument contains information such which button was pressed and any active keyboard modifiers.
 
 ### Example
 

@@ -11,7 +11,7 @@
 
 ### Callbacks
 
-- **`edited(`_`int`_`)`**: Emitted when the value has changed because the user modified it
+- **`edited(int)`**: Emitted when the value has changed because the user modified it
 
 ### Example
 

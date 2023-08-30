@@ -26,8 +26,8 @@ a widget able to handle several lines of text.
 
 ### Callbacks
 
--   **`accepted(`_`string`_`)`**: Enter was pressed
--   **`edited(`_`string`_`)`**: Emitted when the text has changed because the user modified it
+-   **`accepted(string)`**: Enter was pressed
+-   **`edited(string)`**: Emitted when the text has changed because the user modified it
 
 ### Example
 
