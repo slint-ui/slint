@@ -37,6 +37,7 @@ use lsp_types::{
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -46,6 +47,12 @@ const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
 const SET_BINDING_COMMAND: &str = "slint/setBinding";
 const SET_DESIGN_MODE_COMMAND: &str = "slint/setDesignMode";
 const TOGGLE_DESIGN_MODE_COMMAND: &str = "slint/toggleDesignMode";
+
+pub fn uri_to_file(uri: &lsp_types::Url) -> Option<PathBuf> {
+    let Ok(path) = uri.to_file_path() else { return None };
+    let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
+    Some(path_canon)
+}
 
 fn command_list() -> Vec<String> {
     vec![
@@ -327,7 +334,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
             {
                 if let Some(range) = map_node(&p) {
-                    ctx.preview.highlight(uri.to_file_path().ok(), _off)?;
+                    ctx.preview.highlight(uri_to_file(&uri), _off)?;
                     return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
                 }
             }
@@ -396,13 +403,11 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
         return Err(e().into());
     };
     let component = params.get(1).and_then(|v| v.as_str()).map(|v| v.to_string());
-
-    let path = url.to_file_path().unwrap_or_default();
-    let path_canon = dunce::canonicalize(&path).unwrap_or(path);
+    let path = uri_to_file(&url).unwrap_or_default();
 
     ctx.preview.load_preview(
         crate::common::PreviewComponent {
-            path: path_canon,
+            path,
             component,
             include_paths: config.include_paths.clone(),
             style: config.style.clone().unwrap_or_default(),
@@ -645,7 +650,7 @@ pub(crate) async fn reload_document_impl(
     version: i32,
     document_cache: &mut DocumentCache,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
-    let Ok(path) = uri.to_file_path() else { return Default::default() };
+    let Some(path) = uri_to_file(&uri) else { return Default::default() };
     if path.extension().map_or(false, |e| e == "rs") {
         content = match i_slint_compiler::lexer::extract_rust_macro(content) {
             Some(content) => content,
@@ -656,12 +661,11 @@ pub(crate) async fn reload_document_impl(
 
     document_cache.versions.insert(uri.clone(), version);
 
-    let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
     if let Some(ctx) = ctx {
-        ctx.preview.set_contents(&path_canon, &content);
+        ctx.preview.set_contents(&path, &content);
     }
     let mut diag = BuildDiagnostics::default();
-    document_cache.documents.load_file(&path_canon, &path, content, false, &mut diag).await;
+    document_cache.documents.load_file(&path, &path, content, false, &mut diag).await;
 
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
     let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = core::iter::once(&path)
@@ -707,7 +711,8 @@ fn get_document_and_offset<'a>(
     text_document_uri: &'a Url,
     pos: &'a Position,
 ) -> Option<(&'a i_slint_compiler::object_tree::Document, u32)> {
-    let doc = document_cache.documents.get_document(&text_document_uri.to_file_path().ok()?)?;
+    let path = uri_to_file(&text_document_uri)?;
+    let doc = document_cache.documents.get_document(&path)?;
     let o = doc.node.as_ref()?.source_file.offset(pos.line as usize + 1, pos.character as usize + 1)
         as u32;
     doc.node.as_ref()?.text_range().contains_inclusive(o.into()).then_some((doc, o))
@@ -835,8 +840,8 @@ fn get_document_color(
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<ColorInformation>> {
     let mut result = Vec::new();
-    let uri = &text_document.uri;
-    let doc = document_cache.documents.get_document(&uri.to_file_path().ok()?)?;
+    let uri_path = uri_to_file(&text_document.uri)?;
+    let doc = document_cache.documents.get_document(&uri_path)?;
     let root_node = doc.node.as_ref()?;
     let mut token = root_node.first_token()?;
     loop {
@@ -868,8 +873,8 @@ fn get_document_symbols(
     document_cache: &mut DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<DocumentSymbolResponse> {
-    let uri = &text_document.uri;
-    let doc = document_cache.documents.get_document(&uri.to_file_path().ok()?)?;
+    let uri_path = uri_to_file(&text_document.uri)?;
+    let doc = document_cache.documents.get_document(&uri_path)?;
 
     // DocumentSymbol doesn't implement default and some field depends on features or are deprecated
     let ds: DocumentSymbol = serde_json::from_value(
@@ -962,8 +967,7 @@ fn get_code_lenses(
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<CodeLens>> {
     if cfg!(feature = "preview-lense") {
-        let uri = &text_document.uri;
-        let filepath = uri.to_file_path().ok()?;
+        let filepath = uri_to_file(&text_document.uri)?;
         let doc = document_cache.documents.get_document(&filepath)?;
 
         let inner_components = doc.inner_components.clone();
@@ -974,7 +978,7 @@ fn get_code_lenses(
         r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
                 range: map_node(c.root_element.borrow().node.as_ref()?)?,
-                command: Some(create_show_preview_command(true, uri, c.id.as_str())),
+                command: Some(create_show_preview_command(true, &text_document.uri, c.id.as_str())),
                 data: None,
             })
         }));
@@ -1080,11 +1084,8 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
         if let Some(o) = v.as_object() {
             if let Some(ip) = o.get("includePath").and_then(|v| v.as_array()) {
                 if !ip.is_empty() {
-                    document_cache.documents.compiler_config.include_paths = ip
-                        .iter()
-                        .filter_map(|x| x.as_str())
-                        .map(std::path::PathBuf::from)
-                        .collect();
+                    document_cache.documents.compiler_config.include_paths =
+                        ip.iter().filter_map(|x| x.as_str()).map(PathBuf::from).collect();
                 }
             }
             if let Some(style) =

@@ -32,8 +32,7 @@ pub fn get_semantic_tokens(
     document_cache: &mut DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<SemanticTokensResult> {
-    let uri = &text_document.uri;
-    let filepath = uri.to_file_path().ok()?;
+    let filepath = super::uri_to_file(&text_document.uri)?;
     let doc = document_cache.documents.get_document(&filepath)?;
     let doc_node = doc.node.as_ref()?;
     let mut token = doc_node.first_token()?;
