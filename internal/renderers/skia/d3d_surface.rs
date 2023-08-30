@@ -162,8 +162,11 @@ impl SwapChain {
         let result = callback(surface, &mut self.gr_context);
 
         let info = Default::default();
-        surface.flush_with_access_info(skia_safe::surface::BackendSurfaceAccess::Present, &info);
-
+        self.gr_context.flush_surface_with_access(
+            surface,
+            skia_safe::surface::BackendSurfaceAccess::Present,
+            &info,
+        );
         self.gr_context.submit(None);
 
         let present_result = unsafe { self.swap_chain.Present(1, 0) };
