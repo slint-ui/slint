@@ -73,7 +73,7 @@ struct TestPlatform : slint::platform::Platform
     }
 
 #ifdef SLINT_FEATURE_FREESTANDING
-    virtual std::chrono::milliseconds duration_since_start() const override
+    virtual std::chrono::milliseconds duration_since_start() override
     {
         return std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - start);

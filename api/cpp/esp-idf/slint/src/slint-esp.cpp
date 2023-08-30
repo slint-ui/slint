@@ -24,7 +24,7 @@ struct EspPlatform : public slint::platform::Platform
 
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override;
 
-    std::chrono::milliseconds duration_since_start() const override;
+    std::chrono::milliseconds duration_since_start() override;
     void run_event_loop() override;
     void quit_event_loop() override;
     void run_in_event_loop(Task) override;
@@ -77,7 +77,7 @@ std::unique_ptr<slint::platform::WindowAdapter> EspPlatform::create_window_adapt
     return window;
 }
 
-std::chrono::milliseconds EspPlatform::duration_since_start() const
+std::chrono::milliseconds EspPlatform::duration_since_start()
 {
     auto ticks = xTaskGetTickCount();
     return std::chrono::milliseconds(pdTICKS_TO_MS(ticks));
