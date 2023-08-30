@@ -164,8 +164,10 @@ where
     F: Fn(T) -> U,
     M: Model<Data = T>,
 {
-    pub fn new(model: M, map_function: F) -> Self {
-        Self { wrapped_model: model, map_function }
+    /// Creates a new MapModel based on the given `wrapped_model` and `map_function`.
+    /// Alternativly you can use [`ModelExt::map`] on your Model.
+    pub fn new(wrapped_model: M, map_function: F) -> Self {
+        Self { wrapped_model, map_function }
     }
 }
 
@@ -1055,15 +1057,13 @@ impl<M> ReverseModel<M>
 where
     M: Model + 'static,
 {
+    /// Creates a new ReverseModel based on the given `wrapped_model`.
+    /// Alternativly you can use [`ModelExt::reverse`] on your Model.
     pub fn new(wrapped_model: M) -> Self {
         let inner = ReverseModelInner { wrapped_model, notify: Default::default() };
         let container = Box::pin(ModelChangeListenerContainer::new(inner));
         container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
         Self(container)
-    }
-
-    pub fn inner_model(&self) -> &M {
-        &self.0.wrapped_model
     }
 }
 
