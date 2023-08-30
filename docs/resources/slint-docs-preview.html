@@ -39,11 +39,6 @@
     }
 
     function should_show_automatic_preview(element) {
-        // Safari blocks quite heavily when creating many WebGL contexts, slowing down loading of the docs
-        // significantly. For now, don't do automatic previews:
-        if (navigator.userAgent.indexOf('Safari') != -1 && navigator.userAgent.indexOf('Chrome') == -1) {
-            return false;
-        }
         // The `no-auto-preview` doesn't map directly to a dedicated class but it's mangled differently
         // between rustdoc and sphinx, so match fuzzy on the entire class list:
         return !element.className.includes("no-auto-preview");
