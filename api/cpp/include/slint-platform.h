@@ -343,10 +343,7 @@ public:
     ///
     /// This function should only be implemented  if the runtime is compiled with
     /// SLINT_FEATURE_FREESTANDING
-    virtual std::chrono::milliseconds duration_since_start() const
-    {
-        return {};
-    }
+    virtual std::chrono::milliseconds duration_since_start() = 0;
 #endif
 
     /// The type of clipboard used in Platform::clipboard_text and PLatform::set_clipboard_text.
@@ -449,7 +446,7 @@ inline void set_platform(std::unique_ptr<Platform> platform)
 #ifndef SLINT_FEATURE_FREESTANDING
                 return 0;
 #else
-                return reinterpret_cast<const Platform *>(p)->duration_since_start().count();
+                return reinterpret_cast<Platform *>(p)->duration_since_start().count();
 #endif
             },
             [](void *p, const SharedString *text, cbindgen_private::Clipboard clipboard) {
