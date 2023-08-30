@@ -561,7 +561,10 @@ pub extern "C" fn slint_interpreter_component_instance_show(
 ) {
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
-    comp.borrow_instance().window_adapter().set_visible(is_visible).unwrap();
+    match is_visible {
+        true => comp.borrow_instance().window_adapter().window().show().unwrap(),
+        false => comp.borrow_instance().window_adapter().window().hide().unwrap(),
+    }
 }
 
 /// Return a window for the component

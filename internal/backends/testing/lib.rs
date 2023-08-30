@@ -28,8 +28,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
     ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::platform::PlatformError> {
         Ok(Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
-            shown: false.into(),
-            size: Default::default(),
+            size: PhysicalSize::new(600, 800).into(),
             ime_requests: Default::default(),
         }))
     }
@@ -78,7 +77,6 @@ impl i_slint_core::platform::Platform for TestingBackend {
 
 pub struct TestingWindow {
     window: i_slint_core::api::Window,
-    shown: core::cell::Cell<bool>,
     size: core::cell::Cell<PhysicalSize>,
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
 }
@@ -86,10 +84,6 @@ pub struct TestingWindow {
 impl WindowAdapterInternal for TestingWindow {
     fn as_any(&self) -> &dyn std::any::Any {
         self
-    }
-
-    fn is_visible(&self) -> bool {
-        self.shown.get()
     }
 
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
@@ -100,11 +94,6 @@ impl WindowAdapterInternal for TestingWindow {
 impl WindowAdapter for TestingWindow {
     fn window(&self) -> &i_slint_core::api::Window {
         &self.window
-    }
-
-    fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
-        self.shown.set(visible);
-        Ok(())
     }
 
     fn size(&self) -> PhysicalSize {

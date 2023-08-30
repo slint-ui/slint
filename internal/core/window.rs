@@ -200,12 +200,6 @@ pub trait WindowAdapterInternal {
     fn dark_color_scheme(&self) -> bool {
         false
     }
-
-    /// Get the visibility of the window
-    // todo: replace with WindowEvent::VisibilityChanged and require backend to dispatch event
-    fn is_visible(&self) -> bool {
-        false
-    }
 }
 
 /// This is the parameter from [`WindowAdapterInternal::input_method_request()`] which lets the editable text input field
@@ -349,7 +343,8 @@ struct WindowPinnedFields {
 pub struct WindowInner {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     component: RefCell<ComponentWeak>,
-    strong_component_ref: RefCell<Option<ComponentRc>>, // When the window is visible, keep a strong reference
+    /// When the window is visible, keep a strong reference
+    strong_component_ref: RefCell<Option<ComponentRc>>,
     mouse_input_state: Cell<MouseInputState>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
 
@@ -782,10 +777,9 @@ impl WindowInner {
         self.window_adapter().set_visible(true)?;
         // Make sure that the window's inner size is in sync with the root window item's
         // width/height.
-        self.set_window_item_geometry(
-            self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-        );
-
+        let size = self.window_adapter().size();
+        self.set_window_item_geometry(size.to_logical(self.scale_factor()).to_euclid());
+        self.window_adapter().renderer().resize(size).unwrap();
         Ok(())
     }
 
@@ -919,6 +913,11 @@ impl WindowInner {
         self.pinned_fields.text_input_focused.set(value)
     }
 
+    /// Returns true if the window is visible
+    pub fn is_visible(&self) -> bool {
+        self.strong_component_ref.borrow().is_some()
+    }
+
     /// Returns the window item that is the first item in the component.
     pub fn window_item(&self) -> Option<VRcMapped<ComponentVTable, crate::items::WindowItem>> {
         self.try_component().and_then(|component_rc| {
@@ -1025,14 +1024,14 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
 
-        window_adapter.set_visible(true).unwrap();
+        window_adapter.window().show().unwrap();
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_hide(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.set_visible(false).unwrap();
+        window_adapter.window().hide().unwrap();
     }
 
     /// Returns the visibility state of the window. This function can return false even if you previously called show()
@@ -1042,7 +1041,7 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
         let window = &*(handle as *const Rc<dyn WindowAdapter>);
-        window.internal(crate::InternalToken).map_or(false, |w| w.is_visible())
+        window.window().is_visible()
     }
 
     /// Returns the window scale factor.

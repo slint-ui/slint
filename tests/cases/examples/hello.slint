@@ -169,6 +169,7 @@ Hello := Rectangle {
 
     property <string> arrow_down_commands: "M21.8,311.1l84.2-82.1c15.7-15.2,41-15.2,56.7,0l341.1,304.1l333.7-297.5c15.5-15.2,41-15.2,56.6,0l84.3,82.1c15.6,15.2,15.6,40,0,55.2L531.7,771c-15.7,15.3-41,15.3-56.7,0l-6.9-6.7L21.8,366.3C6.1,351,6.1,326.3,21.8,311.1z";
     property <string> funky_shape_commands: "M 100 300 Q 150 50 250 150 C 250 300 300 300 300 450 A 50 50 0 1 0 450 450 L 550 300";
+    property <length> width2 <=> root.width;
 }
 
 /*
@@ -177,8 +178,12 @@ Hello := Rectangle {
 auto handle = Hello::create();
 const Hello &instance = *handle;
 assert(!instance.window().is_visible());
+assert_eq(instance.get_width2(), 0); //Before it is shown, no size is set
 instance.window().show();
 assert(instance.window().is_visible());
+assert(instance.get_width2() > 0); // default size from the backend
+instance.window().set_size(slint::LogicalSize({123., 456.}));
+assert_eq(instance.get_width2(), 123.);
 instance.window().hide();
 assert(!instance.window().is_visible());
 ```
@@ -187,8 +192,12 @@ assert(!instance.window().is_visible());
 ```rust
 let instance = Hello::new().unwrap();
 assert!(!instance.window().is_visible());
+assert_eq!(instance.get_width2(), 0.);
 instance.window().show().unwrap();
 assert!(instance.window().is_visible());
+assert!(instance.get_width2() > 0.); // default size from the backend
+instance.window().set_size(slint::LogicalSize::new(123., 456.));
+assert_eq!(instance.get_width2(), 123.);
 instance.window().hide().unwrap();
 assert!(!instance.window().is_visible());
 ```
