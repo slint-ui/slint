@@ -13,7 +13,7 @@ Same as [`ListView`](#listview), and in addition:
 
 ### Functions
 
--   **`set-current-item(_index: int_)`**: Sets the current item and brings it into view
+-   **`set-current-item(`_`index: int`_`)`**: Sets the current item and brings it into view
 
 ### Callbacks
 
