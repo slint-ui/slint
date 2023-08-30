@@ -62,7 +62,7 @@ struct MyWindowAdapter : public slint::platform::WindowAdapter
 
     slint::platform::AbstractRenderer &renderer() override { return m_renderer.value(); }
 
-    slint::PhysicalSize physical_size() const override
+    slint::PhysicalSize size() override
     {
         RECT r;
         GetWindowRect(hwnd, &r);

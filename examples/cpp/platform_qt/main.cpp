@@ -198,7 +198,7 @@ public:
     MyWindow(QWindow *parentWindow = nullptr) : QWindow(parentWindow)
     {
         resize(640, 480);
-        m_renderer.emplace(window_handle_for_qt_window(this), physical_size());
+        m_renderer.emplace(window_handle_for_qt_window(this), size());
     }
 
     slint::platform::AbstractRenderer &renderer() override { return m_renderer.value(); }
@@ -256,13 +256,13 @@ public:
         }
     }
 
-    void set_physical_size(slint::PhysicalSize size) override
+    void set_size(slint::PhysicalSize size) override
     {
         float scale_factor = devicePixelRatio();
         resize(size.width / scale_factor, size.height / scale_factor);
     }
 
-    slint::PhysicalSize physical_size() const override
+    slint::PhysicalSize size() override
     {
         auto windowSize = slint::LogicalSize({ float(width()), float(height()) });
         float scale_factor = devicePixelRatio();
@@ -276,7 +276,7 @@ public:
         setFramePosition(QPointF(position.x / scale_factor, position.y / scale_factor).toPoint());
     }
 
-    std::optional<slint::PhysicalPosition> position() const override
+    std::optional<slint::PhysicalPosition> position() override
     {
         auto pos = framePosition();
         float scale_factor = devicePixelRatio();
@@ -286,7 +286,7 @@ public:
 
     void request_redraw() override { requestUpdate(); }
 
-    void update_window_properties(const slint::platform::WindowProperties &props) override
+    void update_window_properties(const WindowProperties &props) override
     {
         QWindow::setTitle(QString::fromUtf8(props.title().data()));
         auto c = props.layout_constraints();

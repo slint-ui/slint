@@ -49,26 +49,18 @@ class EspWindowAdapter : public slint::platform::WindowAdapter
 public:
     slint::platform::SoftwareRenderer m_renderer;
     bool needs_redraw = true;
-    const slint::PhysicalSize size;
+    const slint::PhysicalSize m_size;
 
     explicit EspWindowAdapter(RepaintBufferType buffer_type, slint::PhysicalSize size)
-        : m_renderer(buffer_type), size(size)
+        : m_renderer(buffer_type), m_size(size)
     {
     }
 
     slint::platform::AbstractRenderer &renderer() override { return m_renderer; }
 
-    slint::PhysicalSize physical_size() const override { return size; }
+    slint::PhysicalSize size() override { return m_size; }
 
     void request_redraw() override { needs_redraw = true; }
-
-    void set_visible(bool v) override
-    {
-        if (v) {
-            window().dispatch_resize_event(
-                    slint::LogicalSize({ float(size.width), float(size.height) }));
-        }
-    }
 };
 
 std::unique_ptr<slint::platform::WindowAdapter> EspPlatform::create_window_adapter()
