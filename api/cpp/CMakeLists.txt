@@ -38,10 +38,10 @@ endif()
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
     CRATES slint-cpp ${slint_compiler_crate} CRATE_TYPES bin ${rustc_lib_type})
 
-set(SLINT_TARGET_CARGO_FLAGS "" CACHE STRING
+set(SLINT_LIBRARY_CARGO_FLAGS "" CACHE STRING
     "Flags to pass to cargo when building the Slint runtime library")
-if(SLINT_TARGET_CARGO_FLAGS)
-    corrosion_set_cargo_flags(slint-cpp ${SLINT_TARGET_CARGO_FLAGS})
+if(SLINT_LIBRARY_CARGO_FLAGS)
+    corrosion_set_cargo_flags(slint-cpp ${SLINT_LIBRARY_CARGO_FLAGS})
 endif()
 
 
