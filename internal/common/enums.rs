@@ -234,15 +234,17 @@ macro_rules! for_each_enums {
                 Pixelated,
             }
 
-            /// This enum is used to define the type of the input field. Currently this only differentiates between
-            /// text and password inputs but in the future it could be expanded to also define what type of virtual keyboard
-            /// should be shown, for example.
+            /// This enum is used to define the type of the input field.
             #[non_exhaustive]
             enum InputType {
                 /// The default value. This will render all characters normally
                 Text,
                 /// This will render all characters with a character that defaults to "*"
                 Password,
+                /// This will only accept and render number characters (0-9)
+                Number,
+                /// This will accept and render characters if it's valid part of a decimal
+                Decimal,
             }
 
             /// Enum representing the [alignment](../concepts/layouting.md#alignment) property of a
