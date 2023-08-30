@@ -749,8 +749,7 @@ fn gen_platform(
         .with_include("slint_internal.h")
         .with_after_include(
             r"
-namespace slint::platform { struct WindowProperties; }
-namespace slint::cbindgen_private { using platform::WindowProperties; }
+namespace slint::cbindgen_private { struct WindowProperties; }
 ",
         )
         .generate()

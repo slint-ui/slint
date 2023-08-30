@@ -45,63 +45,6 @@ namespace slint {
 /// Another important class to subclass is the WindowAdapter.
 namespace platform {
 
-/// This struct contains getters that provide access to properties of the Window
-/// element, and is used with WindowAdapter::update_window_properties().
-struct WindowProperties
-{
-    /// Returns the title of the window.
-    SharedString title() const
-    {
-        SharedString out;
-        cbindgen_private::slint_window_properties_get_title(this, &out);
-        return out;
-    }
-
-    /// Returns the background brush of the window.
-    Brush background() const
-    {
-        Brush out;
-        cbindgen_private::slint_window_properties_get_background(this, &out);
-        return out;
-    }
-
-    /// This struct describes the layout constraints of a window.
-    ///
-    /// It is the return value of WindowProperties::layout_constraints().
-    struct LayoutConstraints
-    {
-        /// This represents the minimum size the window can be. If this is set, the window should
-        /// not be able to be resized smaller than this size. If it is left unset, there is no
-        /// minimum size.
-        std::optional<LogicalSize> min;
-        // This represents the maximum size the window can be. If this is set, the window should
-        /// not be able to be resized larger than this size. If it is left unset, there is no
-        /// maximum size.
-        std::optional<LogicalSize> max;
-        /// This represents the preferred size of the window. This is the size the window
-        /// should have by default
-        LogicalSize preferred;
-    };
-
-    /// Returns the layout constraints of the window
-    LayoutConstraints layout_constraints() const
-    {
-        auto lc = cbindgen_private::slint_window_properties_get_layout_constraints(this);
-        return LayoutConstraints {
-            .min = lc.has_min ? std::optional(LogicalSize(lc.min)) : std::nullopt,
-            .max = lc.has_max ? std::optional(LogicalSize(lc.max)) : std::nullopt,
-            .preferred = LogicalSize(lc.preferred)
-        };
-    }
-
-private:
-    /// This struct is opaque and cannot be constructed by C++
-    WindowProperties() = delete;
-    ~WindowProperties() = delete;
-    WindowProperties(const WindowProperties &) = delete;
-    WindowProperties &operator=(const WindowProperties &) = delete;
-};
-
 /// Internal interface for a renderer for use with the WindowAdapter.
 ///
 /// This class is not intended to be re-implemented. In places where this class is required, use
@@ -134,7 +77,7 @@ private:
 ///   Window::dispatch_close_requested_event().
 ///
 /// - Slint sends requests to change visibility, position, size, etc. via virtual functions such as
-///   set_visible(), set_physical_size(), set_position(), or update_window_properties().
+///   set_visible(), set_size(), set_position(), or update_window_properties().
 ///   Re-implement these functions and delegate the requests to the windowing system.
 ///
 /// If the implementation of this bi-directional message passing protocol is incomplete, the user
@@ -151,7 +94,7 @@ private:
 ///     NativeHandle m_native_window; // a handle to the native window
 /// public:
 ///     void request_redraw() override { m_native_window.refresh(); }
-///     slint::PhysicalSize physical_size() const override {
+///     slint::PhysicalSize size() const override {
 ///        return slint::PhysicalSize({m_native_window.width, m_native_window.height});
 ///     }
 ///     slint::platform::AbstractRenderer &renderer() override { return m_renderer; }
@@ -190,7 +133,7 @@ class WindowAdapter
     cbindgen_private::WindowAdapterRcOpaque initialize()
     {
         cbindgen_private::slint_window_adapter_new(
-                this, [](void *wa) { delete reinterpret_cast<const WindowAdapter *>(wa); },
+                this, [](void *wa) { delete reinterpret_cast<WindowAdapter *>(wa); },
                 [](void *wa) {
                     return reinterpret_cast<WindowAdapter *>(wa)->renderer().renderer_handle();
                 },
@@ -199,17 +142,18 @@ class WindowAdapter
                 },
                 [](void *wa) { reinterpret_cast<WindowAdapter *>(wa)->request_redraw(); },
                 [](void *wa) -> cbindgen_private::IntSize {
-                    return reinterpret_cast<const WindowAdapter *>(wa)->physical_size();
+                    return reinterpret_cast<WindowAdapter *>(wa)->size();
                 },
                 [](void *wa, cbindgen_private::IntSize size) {
-                    reinterpret_cast<WindowAdapter *>(wa)->set_physical_size(
+                    reinterpret_cast<WindowAdapter *>(wa)->set_size(
                             slint::PhysicalSize({ size.width, size.height }));
                 },
-                [](void *wa, const WindowProperties *p) {
-                    reinterpret_cast<WindowAdapter *>(wa)->update_window_properties(*p);
+                [](void *wa, const cbindgen_private::WindowProperties *p) {
+                    reinterpret_cast<WindowAdapter *>(wa)->update_window_properties(
+                            *reinterpret_cast<const WindowProperties *>(p));
                 },
                 [](void *wa, cbindgen_private::Point2D<int32_t> *point) -> bool {
-                    if (auto pos = reinterpret_cast<const WindowAdapter *>(wa)->position()) {
+                    if (auto pos = reinterpret_cast<WindowAdapter *>(wa)->position()) {
                         *point = *pos;
                         return true;
                     } else {
@@ -258,10 +202,10 @@ public:
     /// This function should sent the size to the Windowing system. If the window size actually
     /// changes, you should call slint::Window::dispatch_resize_event to propagate the new size
     /// to the slint view.
-    virtual void set_physical_size(slint::PhysicalSize) { }
+    virtual void set_size(slint::PhysicalSize) { }
 
     /// Returns the actual physical size of the window
-    virtual slint::PhysicalSize physical_size() const = 0;
+    virtual slint::PhysicalSize size() = 0;
 
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
@@ -277,7 +221,68 @@ public:
     /// The default implementation returns std::nullopt.
     ///
     /// Called from slint::Window::position().
-    virtual std::optional<slint::PhysicalPosition> position() const { return std::nullopt; }
+    virtual std::optional<slint::PhysicalPosition> position() { return std::nullopt; }
+
+    /// This struct contains getters that provide access to properties of the Window
+    /// element, and is used with WindowAdapter::update_window_properties().
+    struct WindowProperties
+    {
+        /// Returns the title of the window.
+        SharedString title() const
+        {
+            SharedString out;
+            cbindgen_private::slint_window_properties_get_title(inner(), &out);
+            return out;
+        }
+
+        /// Returns the background brush of the window.
+        Brush background() const
+        {
+            Brush out;
+            cbindgen_private::slint_window_properties_get_background(inner(), &out);
+            return out;
+        }
+
+        /// This struct describes the layout constraints of a window.
+        ///
+        /// It is the return value of WindowProperties::layout_constraints().
+        struct LayoutConstraints
+        {
+            /// This represents the minimum size the window can be. If this is set, the window
+            /// should not be able to be resized smaller than this size. If it is left unset, there
+            /// is no minimum size.
+            std::optional<LogicalSize> min;
+            /// This represents the maximum size the window can be. If this is set, the window
+            /// should not be able to be resized larger than this size. If it is left unset, there
+            /// is no maximum size.
+            std::optional<LogicalSize> max;
+            /// This represents the preferred size of the window. This is the size the window
+            /// should have by default
+            LogicalSize preferred;
+        };
+
+        /// Returns the layout constraints of the window
+        LayoutConstraints layout_constraints() const
+        {
+            auto lc = cbindgen_private::slint_window_properties_get_layout_constraints(inner());
+            return LayoutConstraints {
+                .min = lc.has_min ? std::optional(LogicalSize(lc.min)) : std::nullopt,
+                .max = lc.has_max ? std::optional(LogicalSize(lc.max)) : std::nullopt,
+                .preferred = LogicalSize(lc.preferred)
+            };
+        }
+
+    private:
+        /// This struct is opaque and cannot be constructed by C++
+        WindowProperties() = delete;
+        ~WindowProperties() = delete;
+        WindowProperties(const WindowProperties &) = delete;
+        WindowProperties &operator=(const WindowProperties &) = delete;
+        const cbindgen_private::WindowProperties *inner() const
+        {
+            return reinterpret_cast<const cbindgen_private::WindowProperties *>(this);
+        }
+    };
 
     /// Re-implement this function to update the properties such as window title or layout
     /// constraints.
