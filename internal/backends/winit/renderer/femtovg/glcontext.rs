@@ -18,7 +18,7 @@ pub struct OpenGLContext {
 }
 
 unsafe impl i_slint_renderer_femtovg::OpenGLInterface for OpenGLContext {
-    fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if !self.context.is_current() {
             self.context.make_current(&self.surface).map_err(|glutin_error| -> PlatformError {
                 format!("FemtoVG: Error making context current: {glutin_error}").into()
@@ -26,7 +26,7 @@ unsafe impl i_slint_renderer_femtovg::OpenGLInterface for OpenGLContext {
         }
         Ok(())
     }
-    fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.surface.swap_buffers(&self.context).map_err(|glutin_error| -> PlatformError {
             format!("FemtoVG: Error swapping buffers: {glutin_error}").into()
         })?;
@@ -38,7 +38,7 @@ unsafe impl i_slint_renderer_femtovg::OpenGLInterface for OpenGLContext {
         &self,
         width: NonZeroU32,
         height: NonZeroU32,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.ensure_current()?;
         self.surface.resize(&self.context, width, height);
 

@@ -47,7 +47,7 @@ pub struct EglDisplay {
 }
 
 impl super::Presenter for EglDisplay {
-    fn present(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut front_buffer = unsafe {
             self.gbm_surface
                 .lock_front_buffer()
