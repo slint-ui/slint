@@ -85,7 +85,12 @@ pub async fn run_passes(
     for component in (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))
     {
-        compile_paths::compile_paths(component, &doc.local_registry, diag);
+        compile_paths::compile_paths(
+            component,
+            &doc.local_registry,
+            compiler_config.embed_resources,
+            diag,
+        );
         lower_tabwidget::lower_tabwidget(component, type_loader, diag).await;
         apply_default_properties_from_style::apply_default_properties_from_style(
             component,
