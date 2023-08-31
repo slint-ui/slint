@@ -131,7 +131,7 @@ export async function showPreview(
 
 async function getDocumentSource(url: Uri): Promise<string> {
     // FIXME: is there a faster way to get the document
-    let x = vscode.workspace.textDocuments.find((d) => d.uri === url);
+    let x = vscode.workspace.textDocuments.find((d) => d.uri.toString() === url.toString());
     let source;
     if (x) {
         source = x.getText();
@@ -259,7 +259,7 @@ function getPreviewHtml(slint_wasm_preview_url: Uri): string {
 
     window.addEventListener('message', async event => {
         if (event.data.command === "preview") {
-            design_mode = event.data.design_mode;
+            design_mode = !!event.data.design_mode;
             vscode.setState({base_url: event.data.base_url, component: event.data.component});
             await render(event.data.content, event.data.webview_uri, event.data.style);
         } else if (event.data.command === "file_loaded") {
