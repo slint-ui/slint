@@ -11,7 +11,7 @@ mod preview;
 pub mod util;
 
 use common::PreviewApi;
-use common::{Error, Result};
+use common::Result;
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
 pub use language::{Context, DocumentCache, RequestHandler};
