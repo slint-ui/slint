@@ -18,7 +18,7 @@ type DeviceOpener<'a> = dyn Fn(&std::path::Path) -> Result<std::sync::Arc<dyn As
 mod display {
     pub trait Presenter {
         // Present updated front-buffer to the screen
-        fn present(&self) -> Result<(), Box<dyn std::error::Error>>;
+        fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
     }
 
     #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg"))]

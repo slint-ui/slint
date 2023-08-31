@@ -46,11 +46,11 @@ mod itemrenderer;
 #[allow(unsafe_code)]
 pub unsafe trait OpenGLInterface {
     /// Ensures that the OpenGL context is current when returning from this function.
-    fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error>>;
+    fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
     /// This function is called by the renderers when all OpenGL commands have been issued and
     /// the back buffer is reading for on-screen presentation. Typically implementations forward
     /// this to platform specific APIs such as eglSwapBuffers.
-    fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error>>;
+    fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
     /// This function is called by the renderers when the surface needs to be resized, typically
     /// in response to the windowing system notifying of a change in the window system.
     /// For most implementations this is a no-op, with the exception for wayland for example.
@@ -58,7 +58,7 @@ pub unsafe trait OpenGLInterface {
         &self,
         width: NonZeroU32,
         height: NonZeroU32,
-    ) -> Result<(), Box<dyn std::error::Error>>;
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
     /// Returns the address of the OpenGL function specified by name, or a null pointer if the
     /// function does not exist.
     fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void;
@@ -68,11 +68,11 @@ pub unsafe trait OpenGLInterface {
 struct WebGLNeedsNoCurrentContext;
 #[cfg(target_arch = "wasm32")]
 unsafe impl OpenGLInterface for WebGLNeedsNoCurrentContext {
-    fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }
 
-    fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error>> {
+    fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }
 
@@ -80,7 +80,7 @@ unsafe impl OpenGLInterface for WebGLNeedsNoCurrentContext {
         &self,
         _width: NonZeroU32,
         _height: NonZeroU32,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }
 
