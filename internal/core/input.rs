@@ -80,7 +80,7 @@ impl MouseEvent {
 /// to notify the run-time about how the event was handled and
 /// what the next steps are.
 /// See [`crate::items::ItemVTable::input_event`].
-#[repr(C)]
+#[repr(u8)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
 pub enum InputEventResult {
     /// The event was accepted. This may result in additional events, for example
@@ -133,7 +133,6 @@ pub mod key_codes {
             #[allow(missing_docs)]
             #[derive(Debug, Copy, Clone, PartialEq)]
             #[non_exhaustive]
-            #[repr(C)]
             /// The `Key` enum is used to map a specific key by name e.g. `Key::Control` to an
             /// internal used unicode representation. The enum is convertible to [`std::char`] and [`slint::SharedString`](`crate::SharedString`).
             /// Use this with [`slint::platform::WindowEvent`](`crate::platform::WindowEvent`) to supply key events to Slint's platform abstraction.
@@ -255,7 +254,7 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
 
 /// This enum defines the different kinds of key events that can happen.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
-#[repr(C)]
+#[repr(u8)]
 pub enum KeyEventType {
     /// A key on a keyboard was pressed.
     #[default]
@@ -444,7 +443,7 @@ pub enum TextShortcut {
 
 /// Represents how an item's key_event handler dealt with a key event.
 /// An accepted event results in no further event propagation.
-#[repr(C)]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum KeyEventResult {
     /// The event was handled.
@@ -455,7 +454,7 @@ pub enum KeyEventResult {
 
 /// Represents how an item's focus_event handler dealt with a focus event.
 /// An accepted event results in no further event propagation.
-#[repr(C)]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FocusEventResult {
     /// The event was handled.
@@ -467,7 +466,7 @@ pub enum FocusEventResult {
 /// This event is sent to a component and items when they receive or loose
 /// the keyboard focus.
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[repr(C)]
+#[repr(u8)]
 pub enum FocusEvent {
     /// This event is sent when an item receives the focus.
     FocusIn,

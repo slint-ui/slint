@@ -690,7 +690,7 @@ impl Image {
 /// This enum describes the origin to use when rendering a borrowed OpenGL texture.
 /// Use this with [`BorrowedOpenGLTextureBuilder::origin`].
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
-#[repr(C)]
+#[repr(u8)]
 #[non_exhaustive]
 pub enum BorrowedOpenGLTextureOrigin {
     /// The top-left of the texture is the top-left of the texture drawn on the screen.

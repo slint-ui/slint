@@ -701,7 +701,7 @@ pub unsafe extern "C" fn slint_interpreter_model_notify_row_removed(
 // FIXME: Figure out how to re-export the one from compilerlib
 /// DiagnosticLevel describes the severity of a diagnostic.
 #[derive(Clone)]
-#[repr(C)]
+#[repr(u8)]
 pub enum DiagnosticLevel {
     /// The diagnostic belongs to an error.
     Error,

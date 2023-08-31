@@ -982,7 +982,7 @@ pub mod ffi {
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
-    #[repr(C)]
+    #[repr(u8)]
     pub enum GraphicsAPI {
         /// The rendering is done using OpenGL.
         NativeOpenGL,
