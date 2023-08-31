@@ -131,18 +131,19 @@ pub fn open_ui(sender: &ServerNotifier) {
         cache.sender = Some(sender.clone());
     }
 
-    let r = i_slint_core::api::invoke_from_event_loop(move || {
+    i_slint_core::api::invoke_from_event_loop(move || {
         PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
             open_ui_impl(&mut preview_state)
         });
-    });
-    r.unwrap();
+    })
+    .unwrap();
 }
 
 fn open_ui_impl(preview_state: &mut PreviewState) {
     // TODO: Handle Error!
     let ui = preview_state.ui.get_or_insert_with(|| super::ui::PreviewUi::new().unwrap());
+    ui.on_design_mode_changed(|design_mode| set_design_mode(design_mode));
     ui.show().unwrap();
 }
 
@@ -255,12 +256,7 @@ struct PreviewState {
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
-pub fn design_mode() -> bool {
-    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    cache.design_mode
-}
-
-pub fn set_design_mode(enable: bool) {
+fn set_design_mode(enable: bool) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let Some(sender) = cache.sender.clone() else {
         return;
