@@ -239,6 +239,10 @@ impl ItemRc {
         Self { item_tree, index }
     }
 
+    pub fn is_root_item_of(&self, item_tree: &VRc<ItemTreeVTable>) -> bool {
+        self.index == 0 && VRc::ptr_eq(&self.item_tree, item_tree)
+    }
+
     /// Return a `Pin<ItemRef<'a>>`
     pub fn borrow<'a>(&'a self) -> Pin<ItemRef<'a>> {
         #![allow(unsafe_code)]
@@ -341,6 +345,26 @@ impl ItemRc {
         let mut current = self.clone();
         let mut result = p;
         while let Some(parent) = current.parent_item() {
+            let geometry = parent.geometry();
+            result += geometry.origin.to_vector();
+            current = parent.clone();
+        }
+        result
+    }
+
+    /// Returns an absolute position of `p` in the `ItemTree`'s coordinate system
+    /// (does not add this item's x and y)
+    pub fn map_to_item_tree(
+        &self,
+        p: LogicalPoint,
+        item_tree: &vtable::VRc<ItemTreeVTable>,
+    ) -> LogicalPoint {
+        let mut current = self.clone();
+        let mut result = p;
+        while let Some(parent) = current.parent_item() {
+            if parent.is_root_item_of(item_tree) {
+                break;
+            }
             let geometry = parent.geometry();
             result += geometry.origin.to_vector();
             current = parent.clone();
