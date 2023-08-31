@@ -21,7 +21,7 @@ type SingleShotTimerCallback = Box<dyn FnOnce()>;
 ///
 /// Used by the [`Timer::start()`] function.
 #[derive(Copy, Clone)]
-#[repr(C)]
+#[repr(u8)]
 #[non_exhaustive]
 pub enum TimerMode {
     /// A SingleShot timer is fired only once.

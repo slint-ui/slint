@@ -275,7 +275,7 @@ impl<'a> core::fmt::Debug for GraphicsAPI<'a> {
 /// This enum describes the different rendering states, that will be provided
 /// to the parameter of the callback for `set_rendering_notifier` on the `slint::Window`.
 #[derive(Debug, Clone)]
-#[repr(C)]
+#[repr(u8)]
 #[non_exhaustive]
 pub enum RenderingState {
     /// The window has been created and the graphics adapter/context initialized. When OpenGL
@@ -309,7 +309,7 @@ impl<F: FnMut(RenderingState, &GraphicsAPI)> RenderingNotifier for F {
 /// This enum describes the different error scenarios that may occur when the application
 /// registers a rendering notifier on a `slint::Window`.
 #[derive(Debug, Clone)]
-#[repr(C)]
+#[repr(u8)]
 #[non_exhaustive]
 pub enum SetRenderingNotifierError {
     /// The rendering backend does not support rendering notifiers.
@@ -327,7 +327,7 @@ pub struct Window(pub(crate) WindowInner);
 /// This enum describes whether a Window is allowed to be hidden when the user tries to close the window.
 /// It is the return type of the callback provided to [Window::on_close_requested].
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
-#[repr(C)]
+#[repr(u8)]
 pub enum CloseRequestResponse {
     /// The Window will be hidden (default action)
     #[default]

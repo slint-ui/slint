@@ -94,7 +94,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"slint_builtin_structs.h\"")?;
     writeln!(structs_priv, "#include \"slint_enums_internal.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
-    writeln!(structs_priv, "enum class KeyEventType;")?;
+    writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
     macro_rules! struct_file {
         (StandardListViewItem) => {{
             writeln!(structs_priv, "using slint::StandardListViewItem;")?;
