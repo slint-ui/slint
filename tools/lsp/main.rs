@@ -36,18 +36,6 @@ struct Previewer {
 }
 
 impl PreviewApi for Previewer {
-    fn set_design_mode(&self, _enable: bool) {
-        #[cfg(feature = "preview")]
-        preview::set_design_mode(_enable);
-    }
-
-    fn design_mode(&self) -> bool {
-        #[cfg(not(feature = "preview"))]
-        return false;
-        #[cfg(feature = "preview")]
-        return preview::design_mode();
-    }
-
     fn set_contents(&self, _path: &std::path::Path, _contents: &str) {
         #[cfg(feature = "preview")]
         preview::set_contents(_path, _contents.to_string());
