@@ -85,6 +85,10 @@ impl ItemRc {
         Self { component, index }
     }
 
+    pub fn is_root_item_of(&self, component: &ComponentRc) -> bool {
+        self.index == 0 && VRc::ptr_eq(&self.component, component)
+    }
+
     /// Return a `Pin<ItemRef<'a>>`
     pub fn borrow<'a>(&'a self) -> Pin<ItemRef<'a>> {
         #![allow(unsafe_code)]
@@ -189,6 +193,22 @@ impl ItemRc {
         let mut current = self.clone();
         let mut result = p;
         while let Some(parent) = current.parent_item() {
+            let geometry = parent.geometry();
+            result += geometry.origin.to_vector();
+            current = parent.clone();
+        }
+        result
+    }
+
+    /// Returns an absolute position of `p` in the `component`s coordinate system
+    /// (does not add this item's x and y)
+    pub fn map_to_component(&self, p: LogicalPoint, component: &ComponentRc) -> LogicalPoint {
+        let mut current = self.clone();
+        let mut result = p;
+        while let Some(parent) = current.parent_item() {
+            if parent.is_root_item_of(component) {
+                break;
+            }
             let geometry = parent.geometry();
             result += geometry.origin.to_vector();
             current = parent.clone();
