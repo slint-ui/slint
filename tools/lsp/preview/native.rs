@@ -205,8 +205,8 @@ fn show_document_request_from_element_callback(
 ) -> Option<lsp_types::ShowDocumentParams> {
     use lsp_types::{Position, Range, ShowDocumentParams, Url};
 
-    let start_pos = Position::new(start_line - 1, start_column);
-    // let end_pos = Position::new(end_line - 1, end_column);
+    let start_pos = Position::new(start_line.saturating_sub(1), start_column.saturating_sub(1));
+    // let end_pos = Position::new(end_line.saturating_sub(1), end_column.saturating_sub(1));
     // Place the cursor at the start of the range and do not mark up the entire range!
     let selection = Some(Range::new(start_pos, start_pos));
 
@@ -235,9 +235,9 @@ fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
                         let Some(params) = show_document_request_from_element_callback(
                             file,
                             start_line,
-                            start_column - 1,
+                            start_column,
                             end_line,
-                            end_column - 1,
+                            end_column,
                         ) else {
                             return;
                         };
