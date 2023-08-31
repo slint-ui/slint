@@ -855,7 +855,7 @@ pub enum PlatformError {
     Other(String),
     /// Another platform-specific error occurred.
     #[cfg(feature = "std")]
-    OtherError(Box<dyn std::error::Error>),
+    OtherError(Box<dyn std::error::Error + Send>),
 }
 
 impl core::fmt::Display for PlatformError {
@@ -889,8 +889,8 @@ impl From<&str> for PlatformError {
 }
 
 #[cfg(feature = "std")]
-impl From<Box<dyn std::error::Error>> for PlatformError {
-    fn from(error: Box<dyn std::error::Error>) -> Self {
+impl From<Box<dyn std::error::Error + Send>> for PlatformError {
+    fn from(error: Box<dyn std::error::Error + Send>) -> Self {
         Self::OtherError(error)
     }
 }
