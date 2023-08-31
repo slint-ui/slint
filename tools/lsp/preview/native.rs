@@ -5,6 +5,7 @@
 
 use crate::common::{PostLoadBehavior, PreviewComponent};
 use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
+use crate::ServerNotifier;
 
 use lsp_types::notification::Notification;
 use once_cell::sync::Lazy;
@@ -97,6 +98,8 @@ pub fn quit_ui_event_loop() {
         GUI_EVENT_LOOP_NOTIFIER.notify_one();
     }
 
+    close_ui();
+
     let _ = i_slint_core::api::quit_event_loop();
 
     // Make sure then sender channel gets dropped
@@ -106,7 +109,7 @@ pub fn quit_ui_event_loop() {
     };
 }
 
-pub fn show_ui() {
+pub fn open_ui(sender: &ServerNotifier) {
     // Wake up the main thread to start the event loop, if possible
     {
         let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
@@ -119,40 +122,56 @@ pub fn show_ui() {
             state_request = GUI_EVENT_LOOP_NOTIFIER.wait(state_request).unwrap();
         }
     }
+
+    {
+        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        if cache.sender.is_some() {
+            return; // UI is already up!
+        }
+        cache.sender = Some(sender.clone());
+    }
+
     let r = i_slint_core::api::invoke_from_event_loop(move || {
         PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
-            show_ui_impl(&mut preview_state)
+            open_ui_impl(&mut preview_state)
         });
     });
     r.unwrap();
 }
 
-fn show_ui_impl(preview_state: &mut PreviewState) {
+fn open_ui_impl(preview_state: &mut PreviewState) {
     // TODO: Handle Error!
     let ui = preview_state.ui.get_or_insert_with(|| super::ui::PreviewUi::new().unwrap());
     ui.show().unwrap();
 }
 
-pub fn hide_ui() {
+pub fn close_ui() {
+    {
+        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        if cache.sender.is_none() {
+            return; // UI is already up!
+        }
+        cache.sender = None;
+    }
+
     i_slint_core::api::invoke_from_event_loop(move || {
         PREVIEW_STATE.with(move |preview_state| {
             let mut preview_state = preview_state.borrow_mut();
-            hide_ui_impl(&mut preview_state)
+            close_ui_impl(&mut preview_state)
         });
     })
     .unwrap(); // TODO: Handle Error
 }
 
-fn hide_ui_impl(preview_state: &mut PreviewState) {
-    preview_state.ui.as_ref().and_then(|ui| Some(ui.hide().unwrap())); // TODO: Handle errors!
+fn close_ui_impl(preview_state: &mut PreviewState) {
+    let ui = preview_state.ui.take();
+    if let Some(ui) = ui {
+        ui.hide().unwrap();
+    }
 }
 
-pub fn load_preview(
-    sender: crate::ServerNotifier,
-    component: PreviewComponent,
-    post_load_behavior: PostLoadBehavior,
-) {
+pub fn load_preview(component: PreviewComponent, post_load_behavior: PostLoadBehavior) {
     use std::sync::atomic::{AtomicU32, Ordering};
     static PENDING_EVENTS: AtomicU32 = AtomicU32::new(0);
     if PENDING_EVENTS.load(Ordering::SeqCst) > 0 {
@@ -161,7 +180,7 @@ pub fn load_preview(
     PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
     run_in_ui_thread(move || async move {
         PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);
-        reload_preview(sender, component, post_load_behavior).await
+        reload_preview(component, post_load_behavior).await
     });
 }
 
@@ -170,7 +189,7 @@ struct ContentCache {
     source_code: HashMap<PathBuf, String>,
     dependency: HashSet<PathBuf>,
     current: PreviewComponent,
-    sender: Option<crate::ServerNotifier>,
+    sender: Option<crate::ServerNotifier>, // Set while a UI is up!
     highlight: Option<(PathBuf, u32)>,
     design_mode: bool,
 }
@@ -185,9 +204,11 @@ pub fn set_contents(path: &Path, content: String) {
         let current = cache.current.clone();
         let sender = cache.sender.clone();
         drop(cache);
-        if let Some(sender) = sender {
-            load_preview(sender, current, PostLoadBehavior::DoNothing);
-        }
+
+        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        cache.sender = sender.clone();
+
+        load_preview(current, PostLoadBehavior::DoNothing);
     }
 }
 
@@ -201,9 +222,11 @@ pub fn config_changed(style: &str, include_paths: &[PathBuf]) {
             let current = cache.current.clone();
             let sender = cache.sender.clone();
             drop(cache);
-            if let Some(sender) = sender {
-                load_preview(sender, current, PostLoadBehavior::DoNothing);
-            }
+
+            let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+            cache.sender = sender.clone();
+
+            load_preview(current, PostLoadBehavior::DoNothing);
         }
     };
 }
@@ -229,8 +252,12 @@ pub fn design_mode() -> bool {
     cache.design_mode
 }
 
-pub fn set_design_mode(sender: crate::ServerNotifier, enable: bool) {
+pub fn set_design_mode(enable: bool) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    let Some(sender) = cache.sender.clone() else {
+        return;
+    };
+
     cache.design_mode = enable;
 
     configure_design_mode(enable, &sender);
@@ -304,20 +331,20 @@ fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
 }
 
 async fn reload_preview(
-    sender: crate::ServerNotifier,
     preview_component: PreviewComponent,
     _post_load_behavior: PostLoadBehavior,
 ) {
-    send_notification(&sender, "Loading Preview…", Health::Ok);
-
-    let design_mode;
-
-    {
+    let (design_mode, sender) = {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.dependency.clear();
         cache.current = preview_component.clone();
-        design_mode = cache.design_mode;
-    }
+        (cache.design_mode, cache.sender.clone())
+    };
+    let Some(sender) = sender else {
+        return;
+    };
+
+    send_notification(&sender, "Loading Preview…", Health::Ok);
 
     let mut builder = slint_interpreter::ComponentCompiler::default();
 
@@ -347,7 +374,7 @@ async fn reload_preview(
     if let Some(compiled) = compiled {
         PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
-            show_ui_impl(&mut preview_state);
+            open_ui_impl(&mut preview_state);
 
             let shared_handle = preview_state.handle.clone();
 
