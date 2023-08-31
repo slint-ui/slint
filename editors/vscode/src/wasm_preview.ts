@@ -286,7 +286,7 @@ function getPreviewHtml(slint_wasm_preview_url: Uri): string {
 </head>
 <body>
   <div id="slint_error_div"></div>
-  <canvas id="slint_canvas"></canvas>
+  <canvas style="margin-top: 10px;" id="slint_canvas"></canvas>
 </body>
 </html>`;
 }
