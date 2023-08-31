@@ -92,7 +92,7 @@ html_show_sourcelink = False
 html_logo = "https://slint.dev/logo/slint-logo-small-light.svg"
 
 myst_enable_extensions = [
-    "html_image",
+    "html_image", "colon_fence"
 ]
 
 myst_url_schemes = {

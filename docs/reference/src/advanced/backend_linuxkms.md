@@ -18,6 +18,11 @@ The LinuxKMS backend supports different renderers. They can be explicitly select
 | FemtoVG       | OpenGL                              | `linuxkms-femtovg`                               |
 | Skia          | OpenGL, Vulkan                      | `linuxkms-skia-opengl` or `linuxkms-skia-vulkan` |
 
+:::{note}
+This backend is still experimental. The backend has not undergone a great variety of testing on different devices
+and there are [known issues](https://github.com/slint-ui/slint/labels/a%3Abackend-linuxkms).
+:::
+
 ## Display Selection with OpenGL
 
 FemtoVG uses OpenGL, and Skia - unless Vulkan is enabled - uses OpenGL, too. Linux's direct rendering manager
