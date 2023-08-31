@@ -48,14 +48,6 @@ struct Previewer {
 }
 
 impl PreviewApi for Previewer {
-    fn show_ui(&self) {
-        // do nothing!
-    }
-
-    fn hide_ui(&self) {
-        // do nothing!
-    }
-
     fn set_design_mode(&self, _enable: bool) {
         // do nothing!
     }
