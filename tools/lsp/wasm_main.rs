@@ -47,15 +47,6 @@ struct Previewer {
 }
 
 impl PreviewApi for Previewer {
-    fn set_design_mode(&self, _enable: bool) {
-        // do nothing!
-    }
-
-    fn design_mode(&self) -> bool {
-        // do nothing!
-        false
-    }
-
     fn set_contents(&self, _path: &std::path::Path, _contents: &str) {
         // do nothing!
     }
