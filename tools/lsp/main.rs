@@ -41,15 +41,11 @@ impl PreviewApi for Previewer {
         preview::set_contents(_path, _contents.to_string());
     }
 
-    fn load_preview(
-        &self,
-        _component: common::PreviewComponent,
-        _behavior: common::PostLoadBehavior,
-    ) {
+    fn load_preview(&self, _component: common::PreviewComponent) {
         #[cfg(feature = "preview")]
         {
             preview::open_ui(&self.server_notifier);
-            preview::load_preview(_component, _behavior);
+            preview::load_preview(_component);
         }
     }
 
