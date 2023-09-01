@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [1.2.0] - 2023-09-04
+
 ### General
 
  - Fixed accessibility tree on Linux when UI has no repeaters.
@@ -939,3 +941,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.0.2]: https://github.com/slint-ui/slint/releases/tag/v1.0.2
 [1.1.0]: https://github.com/slint-ui/slint/releases/tag/v1.1.0
 [1.1.1]: https://github.com/slint-ui/slint/releases/tag/v1.1.1
+[1.2.0]: https://github.com/slint-ui/slint/releases/tag/v1.2.0
