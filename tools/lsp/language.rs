@@ -394,16 +394,13 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
     let path = uri_to_file(&url).unwrap_or_default();
 
-    ctx.preview.load_preview(
-        crate::common::PreviewComponent {
-            path,
-            component,
-            include_paths: config.include_paths.clone(),
-            library_paths: config.library_paths.clone(),
-            style: config.style.clone().unwrap_or_default(),
-        },
-        crate::common::PostLoadBehavior::ShowAfterLoad,
-    );
+    ctx.preview.load_preview(crate::common::PreviewComponent {
+        path,
+        component,
+        include_paths: config.include_paths.clone(),
+        library_paths: config.library_paths.clone(),
+        style: config.style.clone().unwrap_or_default(),
+    });
     Ok(())
 }
 

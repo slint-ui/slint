@@ -3,7 +3,7 @@
 
 // cSpell: ignore condvar
 
-use crate::common::{PostLoadBehavior, PreviewComponent};
+use crate::common::PreviewComponent;
 use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
 use crate::ServerNotifier;
 
@@ -177,7 +177,7 @@ fn close_ui_impl(preview_state: &mut PreviewState) {
     }
 }
 
-pub fn load_preview(component: PreviewComponent, post_load_behavior: PostLoadBehavior) {
+pub fn load_preview(component: PreviewComponent) {
     use std::sync::atomic::{AtomicU32, Ordering};
     static PENDING_EVENTS: AtomicU32 = AtomicU32::new(0);
     if PENDING_EVENTS.load(Ordering::SeqCst) > 0 {
@@ -186,7 +186,7 @@ pub fn load_preview(component: PreviewComponent, post_load_behavior: PostLoadBeh
     PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
     run_in_ui_thread(move || async move {
         PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);
-        reload_preview(component, post_load_behavior).await
+        reload_preview(component).await
     });
 }
 
@@ -212,9 +212,11 @@ pub fn set_contents(path: &Path, content: String) {
         drop(cache);
 
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.sender = sender.clone();
+        cache.sender = sender;
 
-        load_preview(current, PostLoadBehavior::DoNothing);
+        if cache.sender.is_some() {
+            load_preview(current);
+        }
     }
 }
 
@@ -238,9 +240,11 @@ pub fn config_changed(
             drop(cache);
 
             let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-            cache.sender = sender.clone();
+            cache.sender = sender;
 
-            load_preview(current, PostLoadBehavior::DoNothing);
+            if cache.sender.is_some() {
+                load_preview(current);
+            }
         }
     };
 }
@@ -339,10 +343,7 @@ fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
     });
 }
 
-async fn reload_preview(
-    preview_component: PreviewComponent,
-    _post_load_behavior: PostLoadBehavior,
-) {
+async fn reload_preview(preview_component: PreviewComponent) {
     let (design_mode, sender) = {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.dependency.clear();
