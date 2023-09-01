@@ -12,7 +12,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// ServerNotifier
 pub trait PreviewApi {
     fn set_contents(&self, path: &Path, contents: &str);
-    fn load_preview(&self, component: PreviewComponent, behavior: PostLoadBehavior);
+    fn load_preview(&self, component: PreviewComponent);
     fn config_changed(&self, style: &str, include_paths: &[PathBuf]);
     fn highlight(&self, path: Option<PathBuf>, offset: u32) -> Result<()>;
 }
@@ -32,11 +32,4 @@ pub struct PreviewComponent {
 
     /// The style name for the preview
     pub style: String,
-}
-
-/// What to do after a preview is loaded
-#[allow(unused)]
-pub enum PostLoadBehavior {
-    ShowAfterLoad,
-    DoNothing,
 }
