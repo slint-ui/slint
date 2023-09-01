@@ -23,7 +23,7 @@ cfg_if::cfg_if! {
         use i_slint_backend_qt as default_backend;
 
         fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
-            Ok(Box::new(default_backend::Backend))
+            Ok(Box::new(default_backend::Backend::new()))
         }
     } else if #[cfg(feature = "i-slint-backend-winit")] {
         use i_slint_backend_winit as default_backend;
