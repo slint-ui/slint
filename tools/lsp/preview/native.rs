@@ -144,6 +144,11 @@ fn open_ui_impl(preview_state: &mut PreviewState) {
     // TODO: Handle Error!
     let ui = preview_state.ui.get_or_insert_with(|| super::ui::PreviewUi::new().unwrap());
     ui.on_design_mode_changed(|design_mode| set_design_mode(design_mode));
+    ui.window().on_close_requested(|| {
+        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        cache.sender = None;
+        slint::CloseRequestResponse::HideWindow
+    });
     ui.show().unwrap();
 }
 
