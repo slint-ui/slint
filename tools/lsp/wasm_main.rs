@@ -52,11 +52,7 @@ impl PreviewApi for Previewer {
         // do nothing!
     }
 
-    fn load_preview(
-        &self,
-        _component: common::PreviewComponent,
-        _behavior: common::PostLoadBehavior,
-    ) {
+    fn load_preview(&self, _component: common::PreviewComponent) {
         // do nothing!
     }
 
