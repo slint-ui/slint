@@ -149,7 +149,7 @@ fn init_fontdb() -> FontDatabase {
             .is_none()
         {
             panic!(
-                "Unable to determine default font. Failed to locale font for family {}",
+                "Unable to determine default font. Failed to locate font for family {}",
                 font_db.family_name(&fontdb::Family::SansSerif)
             )
         }
