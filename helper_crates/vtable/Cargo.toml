@@ -3,7 +3,7 @@
 
 [package]
 name = "vtable"
-version = "0.1.10"
+version = "0.1.11"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
