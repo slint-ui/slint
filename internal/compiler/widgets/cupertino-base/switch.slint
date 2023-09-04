@@ -5,14 +5,15 @@ import { Typography, Palette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component Switch {
+    private property <brush> background: checked && root.enabled ? Palette.accent : Palette.surface-alt;
     private property <color> text-color: Palette.foreground;
 
     callback toggled;
 
     in property<bool> enabled: true;
     in property <string> text;
-    in-out property <bool> checked: true;
     out property <bool> has-focus: i-focus-scope.has-focus;
+    in-out property <bool> checked: true;
 
     min-width: 26px;
     min-height: 15px;
@@ -33,16 +34,22 @@ export component Switch {
            Rectangle {
                 width: 26px;
                 height: 15px;
+                border-radius: 8px;
 
                 i-rail := Rectangle {
-                    border-radius: 7px;
-                    background: Palette.bar-background;
+                    border-radius: parent.border-radius;
+                    background: root.background;
+                    border-width: 0.5px;
+                    border-color: Palette.border;
+                    clip: true;
 
                     Rectangle {
-                        border-color: Palette.fake-inner-shadow;
-                        border-radius: parent.border-radius;
                         border-width: 1px;
+                        border-color: @radial-gradient(circle, #00000026, #00000000);
+                        border-radius: parent.border-radius;
                     }
+
+                    animate background, border-color { duration: 150ms; easing: linear; }
                 }
 
                 i-thumb := Rectangle {
@@ -51,26 +58,13 @@ export component Switch {
                     height: parent.height - 2px;
                     width: self.height;
                     border-radius: self.height / 2;
+                    background: Palette.surface-thumb;
+                    drop-shadow-blur: 0.5px;
+                    drop-shadow-offset-y: 0.25px;
+                    drop-shadow-color: #0000001F;
 
-                    i-thumb-border := Rectangle {
-                        x: (parent.width - self.width) / 2;
-                        y: (parent.height - self.height) / 2;
-                        width: parent.width + 2px;
-                        height: self.width;
-                        border-radius: parent.border-radius + 1px;
-                        border-width: 1px;
-                        border-color: Palette.fake-shadow;
-                    }
-
-                    i-thumb-background := Rectangle {
-                        background: Palette.thumb-background;
-                        border-radius: parent.border-radius;
-                    }
-
-                    animate background, width { duration: 150ms; easing: linear; }
+                    animate background { duration: 150ms; easing: linear; }
                 }
-
-                animate background, border-color { duration: 150ms; easing: linear; }
 
                 // focus border
                 if (root.has-focus && root.enabled) : FocusBorder {
@@ -125,11 +119,10 @@ export component Switch {
             root.opacity: 0.5;
         }
         pressed when i-touch-area.pressed : {
-        }
-        hover when i-touch-area.has-hover : {
+            root.background: root.checked ? Palette.accent-secondary : Palette.surface-secondary;
         }
         selected when root.checked : {
-            i-rail.background: Palette.primary;
+            i-rail.background: Palette.accent;
         }
     ]
 }

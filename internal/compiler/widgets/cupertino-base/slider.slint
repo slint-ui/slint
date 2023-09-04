@@ -27,13 +27,13 @@ export component Slider {
     i-rail := Rectangle {
         width: vertical ? 4px : parent.width;
         height: vertical ? parent.height : 4px;
-        background: Palette.bar-background;
+        background: Palette.surface-alt;
         border-radius: 2px;
 
         Rectangle {
-            border-color: Palette.fake-inner-shadow;
-            border-radius: parent.border-radius;
             border-width: 1px;
+            border-color: @radial-gradient(circle, #00000026, #00000000);
+            border-radius: parent.border-radius;
         }
     }
 
@@ -42,7 +42,7 @@ export component Slider {
         y: vertical ? 0 : (parent.height - self.height) / 2;
         width: vertical ? i-rail.width : i-thumb.x + (i-thumb.width / 2);
         height: vertical ? i-thumb.y + (i-thumb.height / 2) : i-rail.height;
-        background: Palette.primary;
+        background: Palette.accent;
         border-radius: i-rail.border-radius;
     }
 
@@ -52,21 +52,12 @@ export component Slider {
         width: 20px;
         height: self.width;
         border-radius: 10px;
+        background: Palette.surface-thumb;
+        drop-shadow-blur: 0.5px;
+        drop-shadow-offset-y: 0.25px;
+        drop-shadow-color: #0000001F;
 
-        i-thumb-border := Rectangle {
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-            width: parent.width + 2px;
-            height: self.width;
-            border-radius: parent.border-radius + 1px;
-            border-width: 1px;
-            border-color: Palette.fake-shadow;
-        }
-
-        i-thumb-background := Rectangle {
-            background: Palette.thumb-background;
-            border-radius: parent.border-radius;
-        }
+        animate background { duration: 150ms; easing: linear; }
     }
 
     i-touch-area := TouchArea {
@@ -122,9 +113,8 @@ export component Slider {
         disabled when !root.enabled : {
             root.opacity: 0.5;
         }
-        pressed when ( i-touch-area.pressed &&  i-touch-area.has-hover) || i-focus-scope.has-focus : {
-        }
-        hover when i-touch-area.has-hover : {
+        pressed when (i-touch-area.pressed &&  i-touch-area.has-hover) || i-focus-scope.has-focus : {
+            i-thumb.background: Palette.pressed;
         }
     ]
 }

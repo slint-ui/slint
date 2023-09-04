@@ -5,6 +5,9 @@ import { Palette, Typography, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 component SpinBoxButton {
+    private property <brush> background: Palette.accent;
+    private property <brush> icon-color: Palette.on-surface;
+
     callback clicked <=> i-touch-area.clicked;
 
     in property <image> icon <=> i-icon.source;
@@ -13,47 +16,64 @@ component SpinBoxButton {
     horizontal-stretch: 0;
 
     Rectangle {
+        drop-shadow-blur: 3px;
+        drop-shadow-color: #00000066;
+        drop-shadow-offset-y: 0.5px;
         y: (parent.height - self.height) / 2;
         width: 14px;
         height: self.width;
+        border-radius: 4px;
+        background: root.background;
 
-        i-shadow := Rectangle {
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-            width: parent.width + 2 * self.border-width;
-            height: parent.height + 2 * self.border-width;
-            border-radius: 4px;
-            border-width: 1px;
-            border-color: Palette.fake-primary-shadow;
+        Rectangle {
+            drop-shadow-blur: 2px;
+            drop-shadow-color: #00000026;
+            drop-shadow-offset-y: 1px;
+            border-radius: parent.border-radius;
+            background: root.background;
         }
 
-        i-background := Rectangle {
-            background: Palette.primary;
-            border-radius: 3px;
-
-            i-icon := Image {
-                image-fit: contain;
-                source: Icons.check-mark;
-                colorize: Palette.on-primary;
-                width: 10px;
-
-                animate colorize { duration: 150ms; }
-            }
+        Rectangle {
+            drop-shadow-blur: 1px;
+            drop-shadow-color: #00000026;
+            drop-shadow-offset-y: 0.5px;
+            border-radius: parent.border-radius;
+            background: root.background;
         }
 
-        animate background, border-color { duration: 150ms; }
+        Rectangle {
+            border-radius: parent.border-radius;
+            background: Palette.dimmer;
+            opacity: 0.17;
+        }
+
+        i-icon := Image {
+            image-fit: contain;
+            colorize: root.icon-color;
+            width: 12px;
+
+            animate colorize { duration: 150ms; }
+        }
+
+        animate background { duration: 150ms; }
     }
 
     i-touch-area := TouchArea {}
 
     states [
+        disabled when !i-touch-area.enabled : {
+            opacity: 0.5;
+            icon-color: Palette.foreground;
+        }
         pressed when i-touch-area.pressed : {
-            // i-background.background: Palette.subtle;
+            root.background: Palette.accent-secondary;
         }
     ]
 }
 
 export component SpinBox {
+    private property <brush> background: Palette.surface;
+
     callback edited(int /* value */);
 
     in property <int> minimum;
@@ -77,29 +97,33 @@ export component SpinBox {
         y: (parent.height - self.height) / 2;
         width: parent.width + 6px;
         height: parent.height + 6px;
-        border-radius: 9px;
+        border-radius: 8px;
         has-focus: root.has-focus;
     }
 
-    i-shadow := Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: parent.width + 2 * self.border-width;
-        height: parent.height + 2 * self.border-width;
-        border-radius: 6px;
-        border-width: 1px;
-        border-color: Palette.fake-shadow;
-    }
-
-    i-background := Rectangle {
+    Rectangle {
+        drop-shadow-blur: 0.25px;
+        drop-shadow-color: #00000066;
+        drop-shadow-offset-y: 0.25px;
         border-radius: 5px;
-        background: Palette.surface;
+        background: root.background;
+
+        Rectangle {
+            drop-shadow-blur: 1px;
+            drop-shadow-color: #00000026;
+            drop-shadow-offset-y: 1px;
+            border-radius: parent.border-radius;
+            background: root.background;
+            border-width: 1px;
+            border-color: Palette.decent-border;
+            opacity: root.enabled ? 1 : 0.5;
+        }
     }
 
     i-layout := HorizontalLayout {
         padding-left: 7px;
         padding-right: 2px;
-        spacing: 3px;
+        spacing: 2px;
 
         Rectangle {
             clip: true;
@@ -110,7 +134,7 @@ export component SpinBox {
                 color: Palette.foreground;
                 font-size: Typography.body.font-size;
                 font-weight: Typography.body.font-weight;
-                selection-background-color: Palette.cup-accent-quaternary;
+                selection-background-color: Palette.accent-quaternary;
                 selection-foreground-color: self.color;
                 horizontal-stretch: 1;
                 text: root.value;
@@ -187,9 +211,9 @@ export component SpinBox {
 
     states [
         disabled when !root.enabled : {
-            i-text-input.color: Palette.foreground-disabled;
-            i-background.background: Palette.surface-disabled;
-            i-shadow.border-color: Palette.fake-disabled-shadow;
+            // i-text-input.color: Palette.foreground-disabled;
+            // i-background.background: Palette.surface-disabled;
+            // i-shadow.border-color: Palette.fake-disabled-shadow;
         }
         focused when root.has-focus : {
         }

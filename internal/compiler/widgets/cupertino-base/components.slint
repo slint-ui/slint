@@ -6,7 +6,7 @@ import { Palette, Typography, Icons } from "styling.slint";
 export component FocusBorder inherits Rectangle {
     in property <bool> has-focus;
 
-    background: Palette.cup-accent-tertiary;
+    background: Palette.accent-tertiary;
     opacity: 0;
 
     animate opacity { duration: 150ms; }
@@ -19,29 +19,27 @@ export component FocusBorder inherits Rectangle {
 }
 
 export component MenuBorder inherits Rectangle {
-    border-radius: 5px;
-    drop-shadow-blur: 1px;
-    drop-shadow-color: Palette.popup-drop-shadow-1;
+    drop-shadow-blur: 22px;
+    drop-shadow-color: #00000066;
+    drop-shadow-offset-y: 0.5px;
     background: Palette.background;
+    border-radius: 6px;
 
     Rectangle {
         width: 100%;
         height: 100%;
         border-radius: parent.border-radius;
-        drop-shadow-blur: 2px;
-        drop-shadow-color: Palette.popup-drop-shadow-2;
+        background: Palette.background;
 
-        Rectangle {
-            width: 100%;
-            height: 100%;
-            border-radius: parent.border-radius;
-            drop-shadow-blur: 22px;
-            drop-shadow-color: Palette.popup-drop-shadow-3;
-            drop-shadow-offset-y: 7px;
-            background: Palette.popup-background;
+        @children
+    }
 
-            @children
-        }
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: parent.border-radius;
+        border-width: 1px;
+        border-color: Palette.popup-border;
     }
 }
 
@@ -51,6 +49,7 @@ export component ListItem {
 
     in property <bool> selected;
     in property <string> text <=> i-text.text;
+    in property <length> padding-horizontal: 12px;
     out property <length> mouse-x <=> i-touch-area.mouse-x;
     out property <length> mouse-y <=> i-touch-area.mouse-y;
 
@@ -59,30 +58,35 @@ export component ListItem {
     vertical-stretch: 0;
     horizontal-stretch: 1;
 
-    i-background := Rectangle {
-        background: transparent;
-        border-radius: 5px;
+    i-layout := VerticalLayout {
+        padding-left: root.padding-horizontal;
+        padding-right: root.padding-horizontal;
 
-        i-layout := HorizontalLayout {
-            padding-left: 7px;
-            padding-right: 7px;
-            spacing: 2px;
+        i-background := Rectangle {
+            background: transparent;
+            border-radius: 5px;
 
-            i-icon := Image {
-                image-fit: contain;
-                source: Icons.check-mark;
-                colorize: Palette.foreground;
-                visible: root.selected;
-                width: 10px;
-            }
+            HorizontalLayout {
+                spacing: 4px;
+                padding-left: 4px;
+                padding-right: 4px;
 
-            i-text := Text {
-                color: Palette.foreground;
-                font-size: Typography.body.font-size;
-                font-weight: Typography.body.font-weight;
-                vertical-alignment: center;
-                horizontal-alignment: left;
-                overflow: elide;
+                i-icon := Image {
+                    image-fit: contain;
+                    source: Icons.check-mark;
+                    colorize: Palette.foreground;
+                    visible: root.selected;
+                    width: 10px;
+                }
+
+                i-text := Text {
+                    color: Palette.foreground;
+                    font-size: Typography.body.font-size;
+                    font-weight: Typography.body.font-weight;
+                    vertical-alignment: center;
+                    horizontal-alignment: left;
+                    overflow: elide;
+                }
             }
         }
     }
@@ -90,15 +94,10 @@ export component ListItem {
     i-touch-area := TouchArea {}
 
     states [
-        pressed when i-touch-area.pressed : {
-        }
         hover when i-touch-area.has-hover : {
-            i-background.background: Palette.primary;
-            i-text.color: Palette.on-primary;
-            i-icon.colorize: Palette.on-primary;
-        }
-        selected when root.selected : {
-
+            i-background.background: Palette.accent;
+            i-text.color: Palette.on-surface;
+            i-icon.colorize: Palette.on-surface;
         }
     ]
 }
