@@ -13,10 +13,10 @@ and keyboard input.
 The LinuxKMS backend supports different renderers. They can be explicitly selected for use through the
 `SLINT_BACKEND` environment variable.
 
-| Renderer name | Supported/Required Graphics APIs    | `SLINT_BACKEND` value to select renderer         |
-|---------------|-------------------------------------|--------------------------------------------------|
-| FemtoVG       | OpenGL                              | `linuxkms-femtovg`                               |
-| Skia          | OpenGL, Vulkan                      | `linuxkms-skia-opengl` or `linuxkms-skia-vulkan` |
+| Renderer name | Required Graphics APIs | `SLINT_BACKEND` value to select renderer         |
+|---------------|------------------------|--------------------------------------------------|
+| FemtoVG       | OpenGL                 | `linuxkms-femtovg`                               |
+| Skia          | OpenGL, Vulkan         | `linuxkms-skia-opengl` or `linuxkms-skia-vulkan` |
 
 :::{note}
 This backend is still experimental. The backend has not undergone a great variety of testing on different devices
