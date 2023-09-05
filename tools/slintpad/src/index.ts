@@ -441,43 +441,34 @@ function setup(lsp: Lsp) {
     const editor = new EditorWidget(lsp);
     const dock = new DockPanel();
 
-    lsp.previewer.on_highlight_request = (
-        url: string,
-        start: { line: number; column: number },
-        _end: { line: number; column: number },
-    ) => {
-        if (url === "") {
-            return;
-        }
-
-        editor.goto_position(
-            url,
-            LspRange.create(
-                start.line - 1,
-                start.column - 1,
-                start.line - 1, // Highlight a position, not the entire range
-                start.column - 1,
-            ),
-        );
-    };
+    // lsp.previewer.on_highlight_request = (
+    //     url: string,
+    //     start: { line: number; column: number },
+    //     _end: { line: number; column: number },
+    // ) => {
+    //     if (url === "") {
+    //         return;
+    //     }
+    //
+    //     editor.goto_position(
+    //         url,
+    //         LspRange.create(
+    //             start.line - 1,
+    //             start.column - 1,
+    //             start.line - 1, // Highlight a position, not the entire range
+    //             start.column - 1,
+    //         ),
+    //     );
+    // };
 
     const dock_widgets = new DockWidgets(
         dock,
         [
             () => {
                 const preview = new PreviewWidget(
-                    lsp.previewer,
+                    lsp,
                     editor.internal_url_prefix,
                 );
-                lsp.resource_url_mapper = (url) => editor.map_url(url);
-                editor.onRenderRequest = (
-                    style: string,
-                    source: string,
-                    url: string,
-                    fetcher: (_url: string) => Promise<string>,
-                ) => {
-                    return preview.render(style, source, url, fetcher);
-                };
 
                 commands.execute("slint:compile");
                 return preview;
@@ -521,7 +512,7 @@ function setup(lsp: Lsp) {
 
                 return properties;
             },
-            { mode: "tab-after", ref: "Welcome" },
+            { mode: "tab-after", ref: "welcome" },
         ],
     );
 
