@@ -181,6 +181,9 @@ jobs:
   build_vscode_extension:
     needs: [build_vscode_lsp_linux_windows, build_vscode_lsp_macos_bundle, build_vscode_cross_linux_lsp]
     runs-on: macos-11
+    env: 
+      HAS_VSCODE_MARKETPLACE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT != '' }}
+      HAS_OPENVSX_PAT: ${{ secrets.OPENVSX_PAT != '' }}
     steps:
     - uses: actions/checkout@v3
     - uses: actions/download-artifact@v3
@@ -225,11 +228,11 @@ jobs:
       with:
         pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
         registryUrl: https://marketplace.visualstudio.com
-        dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' }}
+        dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' || env.HAS_VSCODE_MARKETPLACE_PAT != 'true' }}
         packagePath: editors/vscode
     - name: Publish to Open VSX Registry
       continue-on-error: true
-      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' }}
+      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' && env.HAS_OPENVSX_PAT == 'true' }}
       uses: HaaLeo/publish-vscode-extension@v1
       with:
         pat: ${{ secrets.OPENVSX_PAT }}
@@ -254,7 +257,9 @@ jobs:
             path: editors/tree-sitter-slint
 
   publish_artifacts:
-    if: github.event.inputs.private != 'true'
+    env:
+      HAS_WWW_PUBLISH_SSH_KEY: ${{ secrets.WWW_PUBLISH_SSH_KEY != '' }}
+    if: ${{ github.event.inputs.private != 'true' && env.HAS_WWW_PUBLISH_SSH_KEY == 'true' }}
     needs: [docs, wasm_demo, wasm]
     runs-on: ubuntu-20.04
     steps:
