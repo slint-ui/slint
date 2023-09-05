@@ -44,6 +44,7 @@ pub struct RgbaColor<T> {
 /// let new_col = Color::from(RgbaColor{ red: 0.5, green: 0.65, blue: 0.32, alpha: 1.});
 /// ```
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(C)]
 pub struct Color {
     red: u8,
