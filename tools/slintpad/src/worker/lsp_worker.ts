@@ -9,18 +9,8 @@ import {
     BrowserMessageWriter,
 } from "vscode-languageserver/browser";
 
-const port_promise = new Promise<MessagePort>((resolve) => {
-    self.onmessage = (event) => {
-        const port = event.ports?.[0];
-        if (port !== null) {
-            resolve(port);
-        }
-    };
-});
-
 slint_init()
-    .then(() => port_promise)
-    .then((previewer_port) => {
+    .then(() => {
         const reader = new BrowserMessageReader(self);
         const writer = new BrowserMessageWriter(self);
 
@@ -44,13 +34,6 @@ slint_init()
             return await connection.sendRequest("slint/load_file", path);
         }
 
-        function highlight(path: string, offset: number) {
-            previewer_port.postMessage({
-                command: "highlight",
-                data: { path: path, offset: offset },
-            });
-        }
-
         connection.onInitialize(
             (params: InitializeParams): InitializeResult => {
                 the_lsp = slint_lsp.create(
@@ -58,7 +41,6 @@ slint_init()
                     send_notification,
                     send_request,
                     load_file,
-                    highlight,
                 );
                 const response = the_lsp.server_initialize_result(
                     params.capabilities,

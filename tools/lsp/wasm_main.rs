@@ -44,12 +44,18 @@ pub mod wasm_prelude {
 }
 
 struct Previewer {
-    highlight_in_preview: Function,
+    server_notifier: ServerNotifier,
 }
 
 impl PreviewApi for Previewer {
     fn set_contents(&self, _path: &std::path::Path, _contents: &str) {
-        // do nothing!
+        let _ = self.server_notifier.send_notification(
+            "slint/lsp_to_preview".to_string(),
+            crate::common::LspToPreviewMessage::SetContents {
+                path: _path.to_string_lossy().to_string(),
+                contents: _contents.to_string(),
+            },
+        );
     }
 
     fn load_preview(&self, _component: common::PreviewComponent) {
@@ -65,11 +71,12 @@ impl PreviewApi for Previewer {
         // do nothing!
     }
 
-    fn highlight(&self, path: Option<std::path::PathBuf>, offset: u32) -> Result<()> {
-        self.highlight_in_preview
-            .call2(&JsValue::UNDEFINED, &to_value(&path.unwrap_or_default())?, &offset.into())
-            .map_err(|x| format!("{x:?}"))?;
-        Ok(())
+    fn highlight(&self, _path: Option<std::path::PathBuf>, _offset: u32) -> Result<()> {
+        // self.highlight_in_preview
+        //     .call2(&JsValue::UNDEFINED, &to_value(&path.unwrap_or_default())?, &offset.into())
+        //     .map_err(|x| format!("{x:?}"))?;
+        // Ok(())
+        todo!()
     }
 }
 
@@ -197,7 +204,6 @@ pub fn create(
     send_notification: Function,
     send_request: SendRequestFunction,
     load_file: ImportCallbackFunction,
-    highlight_in_preview: HighlightInPreviewFunction,
 ) -> JsResult<SlintServer> {
     console_error_panic_hook::set_once();
 
@@ -211,18 +217,18 @@ pub fn create(
     }));
     let document_cache = RefCell::new(DocumentCache::new(compiler_config));
     let send_request = Function::from(send_request.clone());
-    let highlight_in_preview = Function::from(highlight_in_preview.clone());
     let reentry_guard = Rc::new(RefCell::new(ReentryGuard::default()));
 
     let mut rh = RequestHandler::default();
     language::register_request_handlers(&mut rh);
+    let server_notifier = ServerNotifier { send_notification, send_request };
 
     Ok(SlintServer {
         ctx: Rc::new(Context {
             document_cache,
             init_param,
-            server_notifier: ServerNotifier { send_notification, send_request },
-            preview: Box::new(Previewer { highlight_in_preview }),
+            server_notifier: server_notifier.clone(),
+            preview: Box::new(Previewer { server_notifier }),
         }),
         reentry_guard,
         rh: Rc::new(rh),
