@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-backend-linuxkms"
-version = "1.2.0"
+version = "1.3.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial"
@@ -24,10 +24,10 @@ renderer-femtovg = ["i-slint-renderer-femtovg", "drm", "gbm", "glutin", "raw-win
 #default = ["renderer-skia", "renderer-femtovg"]
 
 [dependencies]
-i-slint-core = { version = "=1.2.0", path = "../../../internal/core", features = ["image-decoders", "svg"] }
-i-slint-common = { version = "=1.2.0", path = "../../../internal/common" }
-i-slint-renderer-skia = { version = "=1.2.0", path = "../../renderers/skia", optional = true }
-i-slint-renderer-femtovg = { version = "=1.2.0", path = "../../renderers/femtovg", optional = true }
+i-slint-core = { version = "=1.3.0", path = "../../../internal/core", features = ["image-decoders", "svg"] }
+i-slint-common = { version = "=1.3.0", path = "../../../internal/common" }
+i-slint-renderer-skia = { version = "=1.3.0", path = "../../renderers/skia", optional = true }
+i-slint-renderer-femtovg = { version = "=1.3.0", path = "../../renderers/femtovg", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 input = { version = "0.8.2" }
