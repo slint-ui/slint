@@ -44,13 +44,6 @@ slint_init()
             return await connection.sendRequest("slint/load_file", path);
         }
 
-        function highlight(path: string, offset: number) {
-            previewer_port.postMessage({
-                command: "highlight",
-                data: { path: path, offset: offset },
-            });
-        }
-
         connection.onInitialize(
             (params: InitializeParams): InitializeResult => {
                 the_lsp = slint_lsp.create(
@@ -58,7 +51,6 @@ slint_init()
                     send_notification,
                     send_request,
                     load_file,
-                    highlight,
                 );
                 const response = the_lsp.server_initialize_result(
                     params.capabilities,
