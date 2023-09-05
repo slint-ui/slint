@@ -30,9 +30,15 @@
     }
 
     async function create_preview(element, source_code) {
+        // Style the preview such that a flexbox lays out the source code box
+        // (which should take up any spare space), followed by the preview canvas.
+        // The latter may wrap into a new row on mobile. The edit/play buttons are
+        // placed last by flexbox order attribute.
         let div = document.createElement("div");
-        div.style = "float: right; padding:0; margin:0;";
-        element.prepend(div);
+        let sourceCodeBox = element.firstElementChild;
+        element.style = "display: flex; flex-wrap: wrap;";
+        sourceCodeBox.style = "flex-grow: 2";
+        element.append(div);
         await render_or_error(source_code, div);
     }
 
@@ -46,6 +52,8 @@
         let source = element.innerText;
 
         let link_section = document.createElement("div");
+        // Ensure the link section is always last and on a row of its own in the flexbox.
+        link_section.style = "order: 100; flex-basis: 100%;";
         element.append(link_section);
 
         let button_style = "text-decoration: none;"
