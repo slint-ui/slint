@@ -33,3 +33,9 @@ pub struct PreviewComponent {
     /// The style name for the preview
     pub style: String,
 }
+
+#[allow(unused)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub enum LspToPreviewMessage {
+    SetContents { path: String, contents: String },
+}
