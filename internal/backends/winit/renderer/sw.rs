@@ -69,9 +69,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                 width.get() as usize * height.get() as usize
             ];
             self.renderer.render(buffer.as_mut_slice(), width.get() as usize);
-
-            for i in 0..target_buffer.len() {
-                let pixel = buffer[i];
+            for (i, pixel) in buffer.into_iter().enumerate() {
                 target_buffer[i] = (pixel.alpha as u32) << 24
                     | ((pixel.red as u32) << 16)
                     | ((pixel.green as u32) << 8)
