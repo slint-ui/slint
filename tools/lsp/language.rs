@@ -11,6 +11,7 @@ mod semantic_tokens;
 mod test;
 
 use crate::common::{PreviewApi, Result};
+use crate::language::properties::find_element_indent;
 use crate::util::{map_node, map_range, map_token, to_lsp_diag};
 
 #[cfg(target_arch = "wasm32")]
@@ -253,7 +254,9 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         let document_cache = &mut ctx.document_cache.borrow_mut();
 
         let result = token_descr(document_cache, &params.text_document.uri, &params.range.start)
-            .and_then(|(token, _)| get_code_actions(document_cache, token));
+            .and_then(|(token, _)| {
+                get_code_actions(document_cache, token, &ctx.init_param.capabilities)
+            });
         Ok(result)
     });
     rh.register::<ExecuteCommand, _>(|params, ctx| async move {
@@ -781,9 +784,18 @@ pub fn token_at_offset(doc: &syntax_nodes::Document, offset: u32) -> Option<Synt
     Some(SyntaxToken { token, source_file: doc.source_file.clone() })
 }
 
+fn has_experimental_client_capability(capabilities: &ClientCapabilities, name: &str) -> bool {
+    capabilities
+        .experimental
+        .as_ref()
+        .and_then(|o| o.get(name).and_then(|v| v.as_bool()))
+        .unwrap_or(false)
+}
+
 fn get_code_actions(
-    _document_cache: &mut DocumentCache,
+    document_cache: &mut DocumentCache,
     token: SyntaxToken,
+    client_capabilities: &ClientCapabilities,
 ) -> Option<Vec<CodeActionOrCommand>> {
     let node = token.parent();
     let uri = Url::from_file_path(token.source_file.path()).ok()?;
@@ -824,6 +836,39 @@ fn get_code_actions(
         ];
         result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
             title: "Wrap in `@tr()`".into(),
+            edit: Some(WorkspaceEdit {
+                changes: Some(std::iter::once((uri, edits)).collect()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }));
+    } else if token.kind() == SyntaxKind::Identifier
+        && node.kind() == SyntaxKind::QualifiedName
+        && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Element)
+        && has_experimental_client_capability(client_capabilities, "snippetTextEdit")
+    {
+        let r = map_range(&token.source_file, node.parent().unwrap().text_range());
+        let element = element_at_position(document_cache, &uri, &r.start);
+        let element_indent = element.as_ref().and_then(find_element_indent);
+        let indented_lines = node
+            .parent()
+            .unwrap()
+            .text()
+            .to_string()
+            .lines()
+            .map(|line| format!("    {}", line))
+            .collect::<Vec<String>>();
+        let edits = vec![TextEdit::new(
+            lsp_types::Range::new(r.start, r.end),
+            format!(
+                "${{0:element}} {{\n{}{}\n}}",
+                element_indent.unwrap_or("".into()),
+                indented_lines.join("\n")
+            ),
+        )];
+        result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+            title: "Wrap in element...".into(),
+            kind: Some(lsp_types::CodeActionKind::REFACTOR),
             edit: Some(WorkspaceEdit {
                 changes: Some(std::iter::once((uri, edits)).collect()),
                 ..Default::default()
@@ -1304,6 +1349,89 @@ component Demo {
             assert_eq!(&first.name, "Demo");
         } else {
             unreachable!();
+        }
+    }
+
+    #[test]
+    fn test_code_actions() {
+        let (mut dc, url, _) = complex_document_cache();
+        let mut capabilities = ClientCapabilities::default();
+
+        let text_literal = lsp_types::Range::new(Position::new(33, 22), Position::new(33, 33));
+        assert_eq!(
+            token_descr(&mut dc, &url, &text_literal.start)
+                .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities)),
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Wrap in `@tr()`".into(),
+                edit: Some(WorkspaceEdit {
+                    changes: Some(
+                        std::iter::once((
+                            url.clone(),
+                            vec![
+                                TextEdit::new(
+                                    lsp_types::Range::new(text_literal.start, text_literal.start),
+                                    "@tr(".into()
+                                ),
+                                TextEdit::new(
+                                    lsp_types::Range::new(text_literal.end, text_literal.end),
+                                    ")".into()
+                                )
+                            ]
+                        ))
+                        .collect()
+                    ),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),])
+        );
+
+        let text_element = lsp_types::Range::new(Position::new(32, 12), Position::new(35, 13));
+        for offset in 0..=4 {
+            let pos = Position::new(text_element.start.line, text_element.start.character + offset);
+
+            capabilities.experimental = None;
+            assert_eq!(
+                token_descr(&mut dc, &url, &pos).and_then(|(token, _)| get_code_actions(
+                    &mut dc,
+                    token,
+                    &capabilities
+                )),
+                None
+            );
+
+            capabilities.experimental = Some(serde_json::json!({"snippetTextEdit": true}));
+            assert_eq!(
+                token_descr(&mut dc, &url, &pos).and_then(|(token, _)| get_code_actions(
+                    &mut dc,
+                    token,
+                    &capabilities
+                )),
+                Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                    title: "Wrap in element...".into(),
+                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
+                    edit: Some(WorkspaceEdit {
+                        changes: Some(
+                            std::iter::once((
+                                url.clone(),
+                                vec![TextEdit::new(
+                                    text_element,
+                                    r#"${0:element} {
+                Text {
+                    text: "Duration:";
+                    vertical-alignment: center;
+                }
+}"#
+                                    .into()
+                                )]
+                            ))
+                            .collect()
+                        ),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),])
+            );
         }
     }
 }

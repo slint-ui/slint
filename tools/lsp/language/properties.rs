@@ -621,7 +621,7 @@ fn set_binding_on_known_property(
 
 // Find the indentation of the element itself as well as the indentation of properties inside the
 // element. Returns the element indent followed by the block indent
-fn find_element_indent(element: &ElementRc) -> Option<String> {
+pub fn find_element_indent(element: &ElementRc) -> Option<String> {
     let mut token =
         element.borrow().node.as_ref().and_then(|n| n.first_token()).and_then(|t| t.prev_token());
     while let Some(t) = token {
