@@ -37,5 +37,22 @@ pub struct PreviewComponent {
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum LspToPreviewMessage {
-    SetContents { path: String, contents: String },
+    SetContents {
+        path: String,
+        contents: String,
+    },
+    SetConfiguration {
+        style: String,
+        include_paths: Vec<String>,
+    },
+    ShowPreview {
+        path: String,
+        component: Option<String>,
+        include_paths: Vec<String>,
+        style: String,
+    },
+    HighlightFromEditor {
+        path: Option<String>,
+        offset: u32,
+    },
 }
