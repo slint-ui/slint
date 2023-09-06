@@ -55,6 +55,7 @@ jobs:
            [ -n "${{ secrets.VSCODE_MARKETPLACE_PAT }}" ] && echo "has-vscode-marketplace-pat=yes" >> "$GITHUB_OUTPUT"
            [ -n "${{ secrets.OPENVSX_PAT }}" ] && echo "has-openvsx-pat=yes" >> "$GITHUB_OUTPUT"
            [ -n "${{ secrets.WWW_PUBLISH_SSH_KEY }}" ] && echo "has-www-publish-secret=yes" >> "$GITHUB_OUTPUT"
+           cat "$GITHUB_OUTPUT"
 
   build_vscode_lsp_linux_windows:
     env:
