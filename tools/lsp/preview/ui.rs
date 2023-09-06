@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use slint_interpreter::PlatformError;
+
 slint::slint!(
 import { Button, VerticalBox } from "std-widgets.slint";
 
@@ -18,3 +20,9 @@ export component PreviewUi inherits Window {
     }
 }
 );
+
+pub fn create_ui() -> Result<PreviewUi, PlatformError> {
+    let ui = PreviewUi::new()?;
+    ui.on_design_mode_changed(|design_mode| super::set_design_mode(design_mode));
+    Ok(ui)
+}
