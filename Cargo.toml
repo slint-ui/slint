@@ -93,7 +93,7 @@ default-members = [
 resolver="2"
 
 [workspace.package]
-rust-version = "1.66"
+rust-version = "1.70"
 
 [workspace.dependencies]
 resvg = { version= "0.34.0", default-features = false, features = ["text"] }
