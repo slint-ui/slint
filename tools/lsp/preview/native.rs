@@ -103,9 +103,9 @@ pub fn quit_ui_event_loop() {
     let _ = i_slint_core::api::quit_event_loop();
 
     // Make sure then sender channel gets dropped
-    if let Some(cache) = CONTENT_CACHE.get() {
-        let mut cache = cache.lock().unwrap();
-        cache.sender = None;
+    if let Some(sender) = SERVER_NOTIFIER.get() {
+        let mut sender = sender.lock().unwrap();
+        *sender = None;
     };
 }
 
@@ -125,10 +125,13 @@ pub fn open_ui(sender: &ServerNotifier) {
 
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        if cache.sender.is_some() {
+        if cache.ui_is_visible {
             return; // UI is already up!
         }
-        cache.sender = Some(sender.clone());
+        cache.ui_is_visible = true;
+
+        let mut s = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap();
+        *s = Some(sender.clone())
     }
 
     i_slint_core::api::invoke_from_event_loop(move || {
@@ -146,7 +149,11 @@ fn open_ui_impl(preview_state: &mut PreviewState) {
     ui.on_design_mode_changed(|design_mode| set_design_mode(design_mode));
     ui.window().on_close_requested(|| {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.sender = None;
+        cache.ui_is_visible = false;
+
+        let mut sender = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap();
+        *sender = None;
+
         slint::CloseRequestResponse::HideWindow
     });
     ui.show().unwrap();
@@ -155,10 +162,13 @@ fn open_ui_impl(preview_state: &mut PreviewState) {
 pub fn close_ui() {
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        if cache.sender.is_none() {
+        if !cache.ui_is_visible {
             return; // UI is already up!
         }
-        cache.sender = None;
+        cache.ui_is_visible = false;
+
+        let mut sender = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap();
+        *sender = None;
     }
 
     i_slint_core::api::invoke_from_event_loop(move || {
@@ -195,12 +205,15 @@ struct ContentCache {
     source_code: HashMap<PathBuf, String>,
     dependency: HashSet<PathBuf>,
     current: PreviewComponent,
-    sender: Option<crate::ServerNotifier>, // Set while a UI is up!
     highlight: Option<(PathBuf, u32)>,
+    ui_is_visible: bool,
     design_mode: bool,
 }
 
 static CONTENT_CACHE: once_cell::sync::OnceCell<Mutex<ContentCache>> =
+    once_cell::sync::OnceCell::new();
+
+static SERVER_NOTIFIER: once_cell::sync::OnceCell<Mutex<Option<ServerNotifier>>> =
     once_cell::sync::OnceCell::new();
 
 pub fn set_contents(path: &Path, content: String) {
@@ -208,13 +221,14 @@ pub fn set_contents(path: &Path, content: String) {
     cache.source_code.insert(path.to_owned(), content);
     if cache.dependency.contains(path) {
         let current = cache.current.clone();
-        let sender = cache.sender.clone();
+        let ui_is_visible = cache.ui_is_visible;
+
         drop(cache);
 
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.sender = sender;
+        cache.ui_is_visible = ui_is_visible;
 
-        if cache.sender.is_some() {
+        if ui_is_visible {
             load_preview(current);
         }
     }
@@ -236,13 +250,14 @@ pub fn config_changed(
             cache.current.include_paths = include_paths.to_vec();
             cache.current.library_paths = library_paths.clone();
             let current = cache.current.clone();
-            let sender = cache.sender.clone();
+            let ui_is_visible = cache.ui_is_visible;
+
             drop(cache);
 
             let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-            cache.sender = sender;
+            cache.ui_is_visible = ui_is_visible;
 
-            if cache.sender.is_some() {
+            if ui_is_visible {
                 load_preview(current);
             }
         }
@@ -274,8 +289,7 @@ fn set_design_mode(enable: bool) {
 }
 
 pub fn send_status(message: &str, health: Health) {
-    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let Some(sender) = cache.sender.clone() else {
+    let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
         return;
     };
 
@@ -294,8 +308,7 @@ pub fn ask_editor_to_show_document(
     end_line: u32,
     end_column: u32,
 ) {
-    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let Some(sender) = cache.sender.clone() else {
+    let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
         return;
     };
 
@@ -369,13 +382,13 @@ fn configure_design_mode(enabled: bool) {
 }
 
 async fn reload_preview(preview_component: PreviewComponent) {
-    let (design_mode, sender) = {
+    let (design_mode, ui_is_visible) = {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.dependency.clear();
         cache.current = preview_component.clone();
-        (cache.design_mode, cache.sender.clone())
+        (cache.design_mode, cache.ui_is_visible)
     };
-    let Some(sender) = sender else {
+    if !ui_is_visible {
         return;
     };
 
@@ -405,7 +418,7 @@ async fn reload_preview(preview_component: PreviewComponent) {
         builder.build_from_path(preview_component.path).await
     };
 
-    notify_diagnostics(builder.diagnostics(), &sender);
+    notify_diagnostics(builder.diagnostics());
 
     if let Some(compiled) = compiled {
         PREVIEW_STATE.with(|preview_state| {
@@ -434,14 +447,13 @@ async fn reload_preview(preview_component: PreviewComponent) {
     }
 
     configure_design_mode(design_mode);
-
-    CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().sender.replace(sender);
 }
 
-pub fn notify_diagnostics(
-    diagnostics: &[slint_interpreter::Diagnostic],
-    sender: &crate::ServerNotifier,
-) -> Option<()> {
+pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Option<()> {
+    let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
+        return Some(());
+    };
+
     let mut lsp_diags: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> = Default::default();
     for d in diagnostics {
         if d.source_file().map_or(true, |f| f.is_relative()) {
