@@ -40,6 +40,7 @@ mod move_declarations;
 mod optimize_useless_rectangles;
 mod purity_check;
 mod remove_aliases;
+mod remove_return;
 mod remove_unused_properties;
 mod repeater_component;
 pub mod resolve_native_classes;
@@ -220,6 +221,8 @@ pub async fn run_passes(
 
     // collect globals once more: After optimizations we might have less globals
     collect_globals::collect_globals(doc, diag);
+
+    remove_return::remove_return(doc);
 
     embed_images::embed_images(
         root_component,

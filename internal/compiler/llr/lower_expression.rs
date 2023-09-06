@@ -185,8 +185,8 @@ pub fn lower_expression(
                 .collect::<_>(),
         },
         tree_Expression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
-        tree_Expression::ReturnStatement(x) => {
-            llr_Expression::ReturnStatement(x.as_ref().map(|e| lower_expression(e, ctx).into()))
+        tree_Expression::ReturnStatement(..) => {
+            panic!("The remove return pass should have removed all return")
         }
         tree_Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
             llr_Expression::LayoutCacheAccess {

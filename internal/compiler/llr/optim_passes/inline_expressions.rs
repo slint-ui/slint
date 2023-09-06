@@ -50,7 +50,6 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::LinearGradient { .. } => ALLOC_COST,
         Expression::RadialGradient { .. } => ALLOC_COST,
         Expression::EnumerationValue(_) => 0,
-        Expression::ReturnStatement(_) => 1,
         Expression::LayoutCacheAccess { .. } => PROPERTY_ACCESS_COST,
         Expression::BoxLayoutFunction { .. } => return isize::MAX,
         Expression::ComputeDialogLayoutCells { .. } => return isize::MAX,
