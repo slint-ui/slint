@@ -402,7 +402,8 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
     } else {
         return Err(e().into());
     };
-    let component = params.get(1).and_then(|v| v.as_str()).map(|v| v.to_string());
+    let component =
+        params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
     let path = uri_to_file(&url).unwrap_or_default();
 
     ctx.preview.load_preview(
