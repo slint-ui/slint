@@ -195,6 +195,7 @@ jobs:
   build_vscode_extension:
     needs: [build_vscode_lsp_linux_windows, build_vscode_lsp_macos_bundle, build_vscode_cross_linux_lsp, check-for-secrets]
     runs-on: macos-11
+    if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
     steps:
     - uses: actions/checkout@v3
     - uses: actions/download-artifact@v3
@@ -239,11 +240,11 @@ jobs:
       with:
         pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
         registryUrl: https://marketplace.visualstudio.com
-        dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' || needs.check-for-secrets.outputs.has-vscode-marketplace-pat != 'yes' }}
+        dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' }}
         packagePath: editors/vscode
     - name: Publish to Open VSX Registry
       continue-on-error: true
-      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' && needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' }}
+      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' }}
       uses: HaaLeo/publish-vscode-extension@v1
       with:
         pat: ${{ secrets.OPENVSX_PAT }}
