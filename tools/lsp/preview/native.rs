@@ -11,9 +11,9 @@ use lsp_types::notification::Notification;
 use once_cell::sync::Lazy;
 use slint_interpreter::ComponentHandle;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::future::Future;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Condvar, Mutex};
 
@@ -124,7 +124,7 @@ pub fn open_ui(sender: &ServerNotifier) {
     }
 
     {
-        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         if cache.ui_is_visible {
             return; // UI is already up!
         }
@@ -146,9 +146,9 @@ pub fn open_ui(sender: &ServerNotifier) {
 fn open_ui_impl(preview_state: &mut PreviewState) {
     // TODO: Handle Error!
     let ui = preview_state.ui.get_or_insert_with(|| super::ui::PreviewUi::new().unwrap());
-    ui.on_design_mode_changed(|design_mode| set_design_mode(design_mode));
+    ui.on_design_mode_changed(|design_mode| super::set_design_mode(design_mode));
     ui.window().on_close_requested(|| {
-        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.ui_is_visible = false;
 
         let mut sender = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap();
@@ -161,7 +161,7 @@ fn open_ui_impl(preview_state: &mut PreviewState) {
 
 pub fn close_ui() {
     {
-        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         if !cache.ui_is_visible {
             return; // UI is already up!
         }
@@ -200,70 +200,8 @@ pub fn load_preview(component: PreviewComponent) {
     });
 }
 
-#[derive(Default)]
-struct ContentCache {
-    source_code: HashMap<PathBuf, String>,
-    dependency: HashSet<PathBuf>,
-    current: PreviewComponent,
-    highlight: Option<(PathBuf, u32)>,
-    ui_is_visible: bool,
-    design_mode: bool,
-}
-
-static CONTENT_CACHE: once_cell::sync::OnceCell<Mutex<ContentCache>> =
-    once_cell::sync::OnceCell::new();
-
 static SERVER_NOTIFIER: once_cell::sync::OnceCell<Mutex<Option<ServerNotifier>>> =
     once_cell::sync::OnceCell::new();
-
-pub fn set_contents(path: &Path, content: String) {
-    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    cache.source_code.insert(path.to_owned(), content);
-    if cache.dependency.contains(path) {
-        let current = cache.current.clone();
-        let ui_is_visible = cache.ui_is_visible;
-
-        drop(cache);
-
-        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.ui_is_visible = ui_is_visible;
-
-        if ui_is_visible {
-            load_preview(current);
-        }
-    }
-}
-
-pub fn config_changed(style: &str, include_paths: &[PathBuf]) {
-    if let Some(cache) = CONTENT_CACHE.get() {
-        let mut cache = cache.lock().unwrap();
-        let style = style.to_string();
-        if cache.current.style != style || cache.current.include_paths != include_paths {
-            cache.current.style = style;
-            cache.current.include_paths = include_paths.to_vec();
-            let current = cache.current.clone();
-            let ui_is_visible = cache.ui_is_visible;
-
-            drop(cache);
-
-            let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-            cache.ui_is_visible = ui_is_visible;
-
-            if ui_is_visible {
-                load_preview(current);
-            }
-        }
-    };
-}
-
-/// If the file is in the cache, returns it.
-/// In any was, register it as a dependency
-fn get_file_from_cache(path: PathBuf) -> Option<String> {
-    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let r = cache.source_code.get(&path).cloned();
-    cache.dependency.insert(path);
-    r
-}
 
 #[derive(Default)]
 struct PreviewState {
@@ -271,14 +209,6 @@ struct PreviewState {
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
-
-fn set_design_mode(enable: bool) {
-    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    cache.design_mode = enable;
-
-    configure_design_mode(enable);
-    send_status(if enable { "Design mode enabled." } else { "Design mode disabled." }, Health::Ok);
-}
 
 pub fn send_status(message: &str, health: Health) {
     let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
@@ -345,7 +275,7 @@ fn show_document_request_from_element_callback(
     })
 }
 
-fn configure_design_mode(enabled: bool) {
+pub fn configure_design_mode(enabled: bool) {
     run_in_ui_thread(move || async move {
         PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow();
@@ -375,7 +305,7 @@ fn configure_design_mode(enabled: bool) {
 
 async fn reload_preview(preview_component: PreviewComponent) {
     let (design_mode, ui_is_visible) = {
-        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.dependency.clear();
         cache.current = preview_component.clone();
         (cache.design_mode, cache.ui_is_visible)
@@ -395,10 +325,11 @@ async fn reload_preview(preview_component: PreviewComponent) {
 
     builder.set_file_loader(|path| {
         let path = path.to_owned();
-        Box::pin(async move { get_file_from_cache(path).map(Result::Ok) })
+        Box::pin(async move { super::get_file_from_cache(path).map(Result::Ok) })
     });
 
-    let compiled = if let Some(mut from_cache) = get_file_from_cache(preview_component.path.clone())
+    let compiled = if let Some(mut from_cache) =
+        super::get_file_from_cache(preview_component.path.clone())
     {
         if let Some(component) = &preview_component.component {
             from_cache =
@@ -421,7 +352,7 @@ async fn reload_preview(preview_component: PreviewComponent) {
             let factory = slint::ComponentFactory::new(move || {
                 let instance = compiled.create().unwrap(); // TODO: Handle Error!
                 if let Some((path, offset)) =
-                    CONTENT_CACHE.get().and_then(|c| c.lock().unwrap().highlight.clone())
+                    super::CONTENT_CACHE.get().and_then(|c| c.lock().unwrap().highlight.clone())
                 {
                     instance.highlight(path, offset);
                 }
@@ -469,7 +400,7 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
 /// When path is None, remove the highlight.
 pub fn highlight(path: Option<PathBuf>, offset: u32) {
     let highlight = path.map(|x| (x, offset));
-    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
 
     if cache.highlight == highlight {
         return;
@@ -481,7 +412,7 @@ pub fn highlight(path: Option<PathBuf>, offset: u32) {
             PREVIEW_STATE.with(|preview_state| {
                 let preview_state = preview_state.borrow();
                 let handle = preview_state.handle.borrow();
-                if let (Some(cache), Some(handle)) = (CONTENT_CACHE.get(), &*handle) {
+                if let (Some(cache), Some(handle)) = (super::CONTENT_CACHE.get(), &*handle) {
                     if let Some((path, offset)) = cache.lock().unwrap().highlight.clone() {
                         handle.highlight(path, offset);
                     } else {
