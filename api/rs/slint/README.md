@@ -61,7 +61,3 @@ You can quickly try out the [examples](/examples) by cloning this repo and runni
 # Runs the "printerdemo" example
 cargo run --release --bin printerdemo
 ```
-
-### Minimum Supported Rust Version
-
- This crate's minimum supported `rustc` version is 1.66.

@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### General
+
+ - Minimum Rust version is now 1.70.
+
+### Slint Language
+
+### Rust API
+
+### C++
+
 ## [1.2.0] - 2023-09-04
 
 ### General
