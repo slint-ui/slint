@@ -43,6 +43,19 @@ jobs:
   cpp_package:
     uses: ./.github/workflows/cpp_package.yaml
 
+  check-for-secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      has-vscode-marketplace-pat: ${{ steps.one.outputs.has-vscode-marketplace-pat }}
+      has-openvsx-pat: ${{ steps.one.outputs.has-openvsx-pat }}
+      has-www-publish-secret: ${{ steps.one.outputs.has-www-publish-secret }}
+    steps:
+      - id: one
+        run: |
+           [ -n "${{ secrets.VSCODE_MARKETPLACE_PAT }}" ] && echo "has-vscode-marketplace-pat=yes" >> $GITHUB_OUTPUT"
+           [ -n "${{ secrets.OPENVSX_PAT }}" ] && echo "has-openvsx-pat=yes" >> $GITHUB_OUTPUT"
+           [ -n "${{ secrets.WWW_PUBLISH_SSH_KEY }}" ] && echo "has-www-publish-secret=yes" >> $GITHUB_OUTPUT"
+
   build_vscode_lsp_linux_windows:
     env:
       SLINT_NO_QT: 1
@@ -179,11 +192,8 @@ jobs:
               bin
 
   build_vscode_extension:
-    needs: [build_vscode_lsp_linux_windows, build_vscode_lsp_macos_bundle, build_vscode_cross_linux_lsp]
+    needs: [build_vscode_lsp_linux_windows, build_vscode_lsp_macos_bundle, build_vscode_cross_linux_lsp, check-for-secrets]
     runs-on: macos-11
-    env: 
-      HAS_VSCODE_MARKETPLACE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT != '' }}
-      HAS_OPENVSX_PAT: ${{ secrets.OPENVSX_PAT != '' }}
     steps:
     - uses: actions/checkout@v3
     - uses: actions/download-artifact@v3
@@ -228,11 +238,11 @@ jobs:
       with:
         pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
         registryUrl: https://marketplace.visualstudio.com
-        dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' || env.HAS_VSCODE_MARKETPLACE_PAT != 'true' }}
+        dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' || needs.check-for-secrets.outputs.has-vscode-marketplace-pat != 'yes' }}
         packagePath: editors/vscode
     - name: Publish to Open VSX Registry
       continue-on-error: true
-      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' && env.HAS_OPENVSX_PAT == 'true' }}
+      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' && needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' }}
       uses: HaaLeo/publish-vscode-extension@v1
       with:
         pat: ${{ secrets.OPENVSX_PAT }}
@@ -257,10 +267,8 @@ jobs:
             path: editors/tree-sitter-slint
 
   publish_artifacts:
-    env:
-      HAS_WWW_PUBLISH_SSH_KEY: ${{ secrets.WWW_PUBLISH_SSH_KEY != '' }}
-    if: ${{ github.event.inputs.private != 'true' && env.HAS_WWW_PUBLISH_SSH_KEY == 'true' }}
-    needs: [docs, wasm_demo, wasm]
+    if: ${{ github.event.inputs.private != 'true' && needs.check-for-secrets.outputs.has-www-publish-secret == 'yes' }}
+    needs: [docs, wasm_demo, wasm, check-for-secrets]
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/download-artifact@v3
