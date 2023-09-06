@@ -267,18 +267,51 @@ thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default:
 
 fn set_design_mode(enable: bool) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    cache.design_mode = enable;
+
+    configure_design_mode(enable);
+    send_status(if enable { "Design mode enabled." } else { "Design mode disabled." }, Health::Ok);
+}
+
+pub fn send_status(message: &str, health: Health) {
+    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let Some(sender) = cache.sender.clone() else {
         return;
     };
 
-    cache.design_mode = enable;
+    sender
+        .send_notification(
+            ServerStatusNotification::METHOD.into(),
+            ServerStatusParams { health, quiescent: false, message: Some(message.into()) },
+        )
+        .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
+}
 
-    configure_design_mode(enable, &sender);
-    send_notification(
-        &sender,
-        if enable { "Design mode enabled." } else { "Design mode disabled." },
-        Health::Ok,
-    );
+pub fn ask_editor_to_show_document(
+    file: &str,
+    start_line: u32,
+    start_column: u32,
+    end_line: u32,
+    end_column: u32,
+) {
+    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    let Some(sender) = cache.sender.clone() else {
+        return;
+    };
+
+    let Some(params) = show_document_request_from_element_callback(
+        file,
+        start_line,
+        start_column,
+        end_line,
+        end_column,
+    ) else {
+        return;
+    };
+    let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
+        return;
+    };
+    i_slint_core::future::spawn_local(fut).unwrap();
 }
 
 fn show_document_request_from_element_callback(
@@ -286,9 +319,13 @@ fn show_document_request_from_element_callback(
     start_line: u32,
     start_column: u32,
     _end_line: u32,
-    _end_column: u32,
+    end_column: u32,
 ) -> Option<lsp_types::ShowDocumentParams> {
     use lsp_types::{Position, Range, ShowDocumentParams, Url};
+
+    if file.is_empty() || start_column == 0 || end_column == 0 {
+        return None;
+    }
 
     let start_pos = Position::new(start_line.saturating_sub(1), start_column.saturating_sub(1));
     // let end_pos = Position::new(end_line.saturating_sub(1), end_column.saturating_sub(1));
@@ -303,8 +340,7 @@ fn show_document_request_from_element_callback(
     })
 }
 
-fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
-    let sender = sender.clone();
+fn configure_design_mode(enabled: bool) {
     run_in_ui_thread(move || async move {
         PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow();
@@ -318,24 +354,13 @@ fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
                           start_column: u32,
                           end_line: u32,
                           end_column: u32| {
-                        if file.is_empty() || start_column == 0 || end_column == 0 {
-                            return;
-                        }
-                        let Some(params) = show_document_request_from_element_callback(
+                        ask_editor_to_show_document(
                             file,
                             start_line,
                             start_column,
                             end_line,
                             end_column,
-                        ) else {
-                            return;
-                        };
-                        let Ok(fut) =
-                            sender.send_request::<lsp_types::request::ShowDocument>(params)
-                        else {
-                            return;
-                        };
-                        i_slint_core::future::spawn_local(fut).unwrap();
+                        );
                     },
                 ));
             }
@@ -354,7 +379,7 @@ async fn reload_preview(preview_component: PreviewComponent) {
         return;
     };
 
-    send_notification(&sender, "Loading Preview…", Health::Ok);
+    send_status("Loading Preview…", Health::Ok);
 
     let mut builder = slint_interpreter::ComponentCompiler::default();
 
@@ -403,17 +428,17 @@ async fn reload_preview(preview_component: PreviewComponent) {
             });
             preview_state.ui.as_ref().unwrap().set_preview_area(factory);
         });
-        send_notification(&sender, "Preview Loaded", Health::Ok);
+        send_status("Preview Loaded", Health::Ok);
     } else {
-        send_notification(&sender, "Preview not updated", Health::Error);
+        send_status("Preview not updated", Health::Error);
     }
 
-    configure_design_mode(design_mode, &sender);
+    configure_design_mode(design_mode);
 
     CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().sender.replace(sender);
 }
 
-fn notify_diagnostics(
+pub fn notify_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
     sender: &crate::ServerNotifier,
 ) -> Option<()> {
@@ -435,15 +460,6 @@ fn notify_diagnostics(
             .ok()?;
     }
     Some(())
-}
-
-fn send_notification(sender: &crate::ServerNotifier, arg: &str, health: Health) {
-    sender
-        .send_notification(
-            ServerStatusNotification::METHOD.into(),
-            ServerStatusParams { health, quiescent: false, message: Some(arg.into()) },
-        )
-        .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
 }
 
 /// Highlight the element pointed at the offset in the path.
