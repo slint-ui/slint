@@ -129,6 +129,10 @@ export class Lsp {
                     const params = notification.params;
 
                     console.log("Got lsp_to_preview communication:", params);
+                    this.#preview_connector?.process_lsp_to_preview_message(
+                        params,
+                    );
+
                     return true;
                 }
                 if ((data as RequestMessage).method == "slint/load_file") {
@@ -212,7 +216,7 @@ export class Lsp {
     async previewer(): Promise<Previewer> {
         console.log("LSP: Grabbing Previewer!");
         if (this.#preview_connector === null) {
-            console.log("LSP: RUnning event loop!");
+            console.log("LSP: Running event loop!");
             try {
                 slint_preview.run_event_loop();
             } catch (e) {

@@ -75,9 +75,9 @@ i-slint-compiler = { workspace = true, features = ["default"] }
 
 euclid = "0.22"
 lsp-types = { version = "0.94.0", features = ["proposed"] }
+rowan = "0.15.5"
 serde = "1.0.118"
 serde_json = "1.0.60"
-rowan = "0.15.5"
 
 # for the preview
 i-slint-backend-selector = { workspace = true, features = ["default"], optional = true }
