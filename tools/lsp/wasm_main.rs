@@ -48,35 +48,67 @@ struct Previewer {
 }
 
 impl PreviewApi for Previewer {
-    fn set_contents(&self, _path: &std::path::Path, _contents: &str) {
+    fn set_contents(&self, path: &std::path::Path, contents: &str) {
         let _ = self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
             crate::common::LspToPreviewMessage::SetContents {
-                path: _path.to_string_lossy().to_string(),
-                contents: _contents.to_string(),
+                path: path.to_string_lossy().to_string(),
+                contents: contents.to_string(),
             },
         );
     }
 
-    fn load_preview(&self, _component: common::PreviewComponent) {
-        // do nothing!
+    fn load_preview(&self, component: common::PreviewComponent) {
+        let _ = self.server_notifier.send_notification(
+            "slint/lsp_to_preview".to_string(),
+            crate::common::LspToPreviewMessage::ShowPreview {
+                path: component.path.to_string_lossy().to_string(),
+                component: component.component,
+                style: component.style.to_string(),
+                include_paths: component
+                    .include_paths
+                    .iter()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .collect(),
+                library_paths: component
+                    .library_paths
+                    .iter()
+                    .map(|(n, p)| (n.clone(), p.to_string_lossy().to_string()))
+                    .collect(),
+            },
+        );
     }
 
     fn config_changed(
         &self,
-        _style: &str,
-        _include_paths: &[PathBuf],
-        _library_paths: &HashMap<String, PathBuf>,
+        style: &str,
+        include_paths: &[PathBuf],
+        library_paths: &HashMap<String, PathBuf>,
     ) {
-        // do nothing!
+        let _ = self.server_notifier.send_notification(
+            "slint/lsp_to_preview".to_string(),
+            crate::common::LspToPreviewMessage::SetConfiguration {
+                style: style.to_string(),
+                include_paths: include_paths
+                    .iter()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .collect(),
+                library_paths: library_paths
+                    .iter()
+                    .map(|(n, p)| (n.clone(), p.to_string_lossy().to_string()))
+                    .collect(),
+            },
+        );
     }
 
-    fn highlight(&self, _path: Option<std::path::PathBuf>, _offset: u32) -> Result<()> {
-        // self.highlight_in_preview
-        //     .call2(&JsValue::UNDEFINED, &to_value(&path.unwrap_or_default())?, &offset.into())
-        //     .map_err(|x| format!("{x:?}"))?;
-        // Ok(())
-        todo!()
+    fn highlight(&self, path: Option<std::path::PathBuf>, offset: u32) -> Result<()> {
+        self.server_notifier.send_notification(
+            "slint/lsp_to_preview".to_string(),
+            crate::common::LspToPreviewMessage::HighlightFromEditor {
+                path: path.map(|p| p.to_string_lossy().to_string()),
+                offset,
+            },
+        )
     }
 }
 

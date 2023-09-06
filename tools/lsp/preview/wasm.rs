@@ -4,10 +4,20 @@
 //! This wasm library can be loaded from JS to load and display the content of .slint files
 #![cfg(target_arch = "wasm32")]
 
-use std::{future::Future, path::Path, pin::Pin, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    future::Future,
+    path::{Path, PathBuf},
+    pin::Pin,
+    rc::Rc,
+};
+
 use wasm_bindgen::prelude::*;
 
 use slint_interpreter::ComponentHandle;
+
+use crate::{common::PreviewComponent, lsp_ext::Health};
 
 #[wasm_bindgen]
 #[allow(dead_code)]
@@ -210,7 +220,7 @@ impl WrappedCompiledComp {
             let comp = send_wrapper::SendWrapper::new(self.0.clone());
             let canvas_id = canvas_id.clone();
             let resolve = send_wrapper::SendWrapper::new(resolve);
-            if let Err(e) = slint_interpreter::invoke_from_event_loop(move || {
+            if let Err(e) = slint::invoke_from_event_loop(move || {
                 let instance =
                     WrappedInstance(comp.take().create_with_canvas_id(&canvas_id).unwrap());
                 resolve.take().call1(&JsValue::UNDEFINED, &JsValue::from(instance)).unwrap_throw();
@@ -385,12 +395,19 @@ impl WrappedInstance {
 /// to ignore.
 #[wasm_bindgen]
 pub fn run_event_loop() -> Result<(), JsValue> {
-    slint_interpreter::run_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })
+    slint::run_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })
 }
+
+#[derive(Default)]
+struct PreviewState {
+    ui: Option<super::ui::PreviewUi>,
+    handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
+}
+thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
 #[wasm_bindgen]
 pub struct PreviewConnector {
-    ui: super::ui::PreviewUi,
+    current_previewed_component: RefCell<Option<PreviewComponent>>,
 }
 
 #[wasm_bindgen]
@@ -403,10 +420,22 @@ impl PreviewConnector {
             let resolve = send_wrapper::SendWrapper::new(resolve);
             let reject_c = send_wrapper::SendWrapper::new(reject.clone());
             if let Err(e) = slint_interpreter::invoke_from_event_loop(move || {
-                match super::ui::PreviewUi::new() {
-                    Ok(ui) => resolve.take().call1(&JsValue::UNDEFINED, &JsValue::from(Self { ui })).unwrap_throw(),
-                    Err(e) => reject_c.take().call1(&JsValue::UNDEFINED, &JsValue::from(format!("Failed to construct Preview UI: {e}"))).unwrap_throw(),
-                };
+                PREVIEW_STATE.with(|preview_state| {
+                    if preview_state.borrow().ui.is_some() {
+                        reject_c.take().call1(&JsValue::UNDEFINED,
+                            &JsValue::from("PreviewConnector already set up.")).unwrap_throw();
+                    } else {
+                        match super::ui::create_ui() {
+                            Ok(ui) => {
+                                preview_state.borrow_mut().ui = Some(ui);
+                                resolve.take().call1(&JsValue::UNDEFINED,
+                                        &JsValue::from(Self { current_previewed_component: RefCell::new(None) })).unwrap_throw()
+                            }
+                            Err(e) => reject_c.take().call1(&JsValue::UNDEFINED,
+                                        &JsValue::from(format!("Failed to construct Preview UI: {e}"))).unwrap_throw(),
+                        };
+                    }
+                })
             }) {
                 reject
                     .call1(
@@ -422,46 +451,89 @@ impl PreviewConnector {
 
     #[wasm_bindgen]
     pub fn show_ui(&self) -> Result<js_sys::Promise, JsValue> {
-        self.invoke_from_event_loop_wrapped_in_promise(|instance| instance.show())
+        {
+            let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+            cache.ui_is_visible = true;
+        }
+        invoke_from_event_loop_wrapped_in_promise(|instance| instance.show())
     }
 
     #[wasm_bindgen]
-    pub fn process_lsp_to_preview_message(value: JsValue) -> Result<js_sys::Promise, JsValue> {
+    pub async fn process_lsp_to_preview_message(&self, value: JsValue) -> Result<(), JsValue> {
         use crate::common::LspToPreviewMessage as M;
 
         let message: M = serde_wasm_bindgen::from_value(value)
             .map_err(|e| -> JsValue { format!("{e:?}").into() })?;
         match message {
-            M::SetContents { path: _path, contents: _contents } => {
-                todo!()
+            M::SetContents { path, contents } => {
+                super::set_contents(&PathBuf::from(&path), contents);
+                if self.current_previewed_component.borrow().is_none() {
+                    let pc = PreviewComponent {
+                        path: PathBuf::from(path),
+                        component: None,
+                        style: Default::default(),
+                        include_paths: Default::default(),
+                        library_paths: Default::default(),
+                    };
+                    *self.current_previewed_component.borrow_mut() = Some(pc.clone());
+                    load_preview(pc);
+                }
+                Ok(())
+            }
+            M::SetConfiguration { style, include_paths, library_paths } => {
+                let ip: Vec<PathBuf> = include_paths.iter().map(|p| PathBuf::from(p)).collect();
+                let lp: HashMap<String, PathBuf> =
+                    library_paths.iter().map(|(n, p)| (n.clone(), PathBuf::from(p))).collect();
+                super::config_changed(&style, &ip, &lp);
+                Ok(())
+            }
+            M::ShowPreview { path, component, style, include_paths, library_paths } => {
+                let pc = PreviewComponent {
+                    path: PathBuf::from(path),
+                    component,
+                    style,
+                    include_paths: include_paths.iter().map(|p| PathBuf::from(p)).collect(),
+                    library_paths: library_paths
+                        .iter()
+                        .map(|(n, p)| (n.clone(), PathBuf::from(p)))
+                        .collect(),
+                };
+                *self.current_previewed_component.borrow_mut() = Some(pc.clone());
+                load_preview(pc);
+                Ok(())
+            }
+            M::HighlightFromEditor { path, offset } => {
+                log(&format!("highlight {path:?}:{offset}"));
+                Ok(())
             }
         }
     }
+}
 
-    fn invoke_from_event_loop_wrapped_in_promise(
-        &self,
-        callback: impl FnOnce(&super::ui::PreviewUi) -> Result<(), slint_interpreter::PlatformError>
-            + 'static,
-    ) -> Result<js_sys::Promise, JsValue> {
-        let callback = std::cell::RefCell::new(Some(callback));
-        Ok(js_sys::Promise::new(&mut |resolve, reject| {
-            let inst_weak = self.ui.as_weak();
+fn invoke_from_event_loop_wrapped_in_promise(
+    callback: impl FnOnce(&super::ui::PreviewUi) -> Result<(), slint_interpreter::PlatformError>
+        + 'static,
+) -> Result<js_sys::Promise, JsValue> {
+    let callback = std::cell::RefCell::new(Some(callback));
+    Ok(js_sys::Promise::new(&mut |resolve, reject| {
+        PREVIEW_STATE.with(|preview_state|{
+        let Some(inst_weak) = preview_state.borrow().ui.as_ref().map(|ui| ui.as_weak()) else {
+            reject.call1(&JsValue::UNDEFINED, &JsValue::from("Ui is not up yet")).unwrap_throw();
+            return;
+        };
 
-            if let Err(e) = slint::invoke_from_event_loop({
-                let params = send_wrapper::SendWrapper::new((
-                    resolve,
-                    reject.clone(),
-                    callback.take().unwrap(),
-                ));
-                move || {
-                    let (resolve, reject, callback) = params.take();
-                    match inst_weak.upgrade() {
-                        Some(instance) => match callback(&instance) {
-                            Ok(()) => {
-                                resolve.call0(&JsValue::UNDEFINED).unwrap_throw();
-                            }
-                            Err(e) => {
-                                reject
+        if let Err(e) = slint::invoke_from_event_loop({
+            let params =
+                send_wrapper::SendWrapper::new((resolve, reject.clone(), callback.take().unwrap()));
+            move || {
+                let (resolve, reject, callback) = params.take();
+                match inst_weak.upgrade() {
+                    Some(instance) => match callback(&instance) {
+                        Ok(()) => {
+                            resolve.call0(&JsValue::UNDEFINED).unwrap_throw();
+                        }
+                        Err(e) => {
+                            reject
                                     .call1(
                                         &JsValue::UNDEFINED,
                                         &JsValue::from(format!(
@@ -469,10 +541,10 @@ impl PreviewConnector {
                                         )),
                                     )
                                     .unwrap_throw();
-                            }
-                        },
-                        None => {
-                            reject
+                        }
+                    },
+                    None => {
+                        reject
                             .call1(
                                 &JsValue::UNDEFINED,
                                 &JsValue::from(format!(
@@ -480,22 +552,98 @@ impl PreviewConnector {
                                 )),
                             )
                             .unwrap_throw();
-                        }
                     }
                 }
-            }) {
-                reject
+            }
+        }) {
+            reject
                 .call1(
                     &JsValue::UNDEFINED,
-                    &JsValue::from(
-                        format!("internal error: Failed to queue closure for event loop invocation: {e}"),
-                    ),
+                    &JsValue::from(format!(
+                        "internal error: Failed to queue closure for event loop invocation: {e}"
+                    )),
                 )
                 .unwrap_throw();
+        }
+
+        })
+    }))
+}
+
+pub fn configure_design_mode(enabled: bool) {
+    slint::invoke_from_event_loop(move || {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow();
+            let handle = preview_state.handle.borrow();
+            if let Some(handle) = &*handle {
+                handle.set_design_mode(enabled);
+
+                handle.on_element_selected(Box::new(
+                    move |file: &str,
+                          start_line: u32,
+                          start_column: u32,
+                          end_line: u32,
+                          end_column: u32| {
+                        ask_editor_to_show_document(
+                            file,
+                            start_line,
+                            start_column,
+                            end_line,
+                            end_column,
+                        );
+                    },
+                ));
             }
-        }))
+        })
+    })
+    .unwrap();
+}
+
+pub fn load_preview(component: PreviewComponent) {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static PENDING_EVENTS: AtomicU32 = AtomicU32::new(0);
+    if PENDING_EVENTS.load(Ordering::SeqCst) > 0 {
+        return;
     }
-    // pub fn canvas(&self) -> web_sys::HtmlCanvasElement {
-    //     self.canvas.clone()
-    // }
+    PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
+    slint::invoke_from_event_loop(move || {
+        PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);
+        i_slint_core::future::spawn_local(super::reload_preview(component)).unwrap();
+    })
+    .unwrap();
+}
+
+pub fn send_status(_message: &str, _health: Health) {
+    // Do nothing for now...
+}
+
+pub fn notify_diagnostics(_diagnostics: &[slint_interpreter::Diagnostic]) -> Option<()> {
+    // Do nothing for now...
+    Some(())
+}
+
+pub fn ask_editor_to_show_document(
+    _file: &str,
+    _start_line: u32,
+    _start_column: u32,
+    _end_line: u32,
+    _end_column: u32,
+) {
+    // Do nothing for now...
+}
+
+pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
+    PREVIEW_STATE.with(|preview_state| {
+        let preview_state = preview_state.borrow_mut();
+
+        let shared_handle = preview_state.handle.clone();
+
+        super::set_preview_factory(
+            preview_state.ui.as_ref().unwrap(),
+            compiled,
+            Box::new(move |instance| {
+                shared_handle.replace(Some(instance));
+            }),
+        );
+    })
 }
