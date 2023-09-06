@@ -18,28 +18,17 @@ export class PreviewWidget extends Widget {
 
     static createNode(): HTMLElement {
         const node = document.createElement("div");
-
-        const content = document.createElement("div");
-        content.className = "preview-container";
+        node.className = "preview-container";
 
         const canvas_id = "canvas";
-
         const canvas = document.createElement("canvas");
 
-        canvas.width = 800;
-        canvas.height = 600;
         canvas.id = canvas_id;
         canvas.className = canvas_id;
-        canvas.style.padding = "0px";
-        canvas.style.margin = "0px";
-        canvas.style.position = "absolute";
-        canvas.style.imageRendering = "pixelated";
 
         canvas.dataset.slintAutoResizeToPreferred = "true";
 
-        content.appendChild(canvas);
-
-        node.appendChild(content);
+        node.appendChild(canvas);
 
         return node;
     }
