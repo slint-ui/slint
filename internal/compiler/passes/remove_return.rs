@@ -304,12 +304,12 @@ impl ExpressionResult {
             ExpressionResult::Just(e) => make_struct(
                 [
                     (FIELD_CONDITION, Type::Bool, Expression::BoolLiteral(true)),
+                    (FIELD_ACTUAL, e.ty(), e),
                     (
                         FIELD_RETURNED.into(),
                         ret_ty.clone(),
                         Expression::default_value_for_type(ret_ty),
                     ),
-                    (FIELD_ACTUAL, e.ty(), e),
                 ]
                 .into_iter(),
             ),
