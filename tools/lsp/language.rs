@@ -867,7 +867,7 @@ fn get_code_actions(
             ),
         )];
         result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-            title: "Wrap in element...".into(),
+            title: "Wrap in element".into(),
             kind: Some(lsp_types::CodeActionKind::REFACTOR),
             edit: Some(WorkspaceEdit {
                 changes: Some(std::iter::once((uri, edits)).collect()),
