@@ -1059,8 +1059,8 @@ impl Expression {
                     op: '*',
                 },
                 (
-                    Type::Struct { fields: ref left, .. },
-                    Type::Struct { fields: right, name, node: n, rust_attributes },
+                    ref from_ty @ Type::Struct { fields: ref left, .. },
+                    Type::Struct { fields: right, .. },
                 ) if left != right => {
                     if let Expression::Struct { mut values, .. } = self {
                         let mut new_values = HashMap::new();
@@ -1080,12 +1080,7 @@ impl Expression {
                             Expression::StructFieldAccess {
                                 base: Box::new(Expression::ReadLocalVariable {
                                     name: var_name.into(),
-                                    ty: Type::Struct {
-                                        fields: left.clone(),
-                                        name: name.clone(),
-                                        node: n.clone(),
-                                        rust_attributes: rust_attributes.clone(),
-                                    },
+                                    ty: from_ty.clone(),
                                 }),
                                 name: key.clone(),
                             }
