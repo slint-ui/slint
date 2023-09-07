@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-// cSpell: ignore descr rfind
+// cSpell: ignore descr rfind unindented
 
 mod completion;
 mod goto;
@@ -801,22 +801,24 @@ fn get_code_actions(
     let node = token.parent();
     let uri = Url::from_file_path(token.source_file.path()).ok()?;
     let mut result = vec![];
+
+    let component = syntax_nodes::Component::new(node.clone())
+        .or_else(|| {
+            syntax_nodes::DeclaredIdentifier::new(node.clone())
+                .and_then(|n| n.parent())
+                .and_then(syntax_nodes::Component::new)
+        })
+        .or_else(|| {
+            syntax_nodes::QualifiedName::new(node.clone())
+                .and_then(|n| n.parent())
+                .and_then(syntax_nodes::Element::new)
+                .and_then(|n| n.parent())
+                .and_then(syntax_nodes::Component::new)
+        });
+
     #[cfg(feature = "preview-lense")]
     {
-        let component = syntax_nodes::Component::new(node.clone())
-            .or_else(|| {
-                syntax_nodes::DeclaredIdentifier::new(node.clone())
-                    .and_then(|n| n.parent())
-                    .and_then(syntax_nodes::Component::new)
-            })
-            .or_else(|| {
-                syntax_nodes::QualifiedName::new(node.clone())
-                    .and_then(|n| n.parent())
-                    .and_then(syntax_nodes::Element::new)
-                    .and_then(|n| n.parent())
-                    .and_then(syntax_nodes::Component::new)
-            });
-        if let Some(component) = component {
+        if let Some(component) = &component {
             if let Some(component_name) =
                 i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())
             {
@@ -857,7 +859,7 @@ fn get_code_actions(
             .text()
             .to_string()
             .lines()
-            .map(|line| format!("    {}", line))
+            .map(|line| if line.is_empty() { line.to_string() } else { format!("    {}", line) })
             .collect::<Vec<String>>();
         let edits = vec![TextEdit::new(
             lsp_types::Range::new(r.start, r.end),
@@ -871,11 +873,80 @@ fn get_code_actions(
             title: "Wrap in element".into(),
             kind: Some(lsp_types::CodeActionKind::REFACTOR),
             edit: Some(WorkspaceEdit {
-                changes: Some(std::iter::once((uri, edits)).collect()),
+                changes: Some(std::iter::once((uri.clone(), edits)).collect()),
                 ..Default::default()
             }),
             ..Default::default()
         }));
+
+        // Collect all normal, repeated, and conditional sub-elements and any
+        // whitespace in between for substituting the parent element with its
+        // sub-elements, dropping its own properties, callbacks etc.
+        fn is_sub_element(kind: SyntaxKind) -> bool {
+            match kind {
+                SyntaxKind::SubElement => true,
+                SyntaxKind::RepeatedElement => true,
+                SyntaxKind::ConditionalElement => true,
+                _ => return false,
+            }
+        }
+        let sub_elements = node
+            .parent()
+            .unwrap()
+            .children_with_tokens()
+            .skip_while(|n| !is_sub_element(n.kind()))
+            .filter(|n| match n {
+                NodeOrToken::Node(_) => is_sub_element(n.kind()),
+                NodeOrToken::Token(t) => {
+                    t.kind() == SyntaxKind::Whitespace
+                        && t.next_sibling_or_token().map_or(false, |n| is_sub_element(n.kind()))
+                }
+            })
+            .collect::<Vec<_>>();
+
+        if match component {
+            // A top-level component element can only be removed if it contains
+            // exactly one sub-element (without any condition or assignment)
+            // that can substitute the component element.
+            Some(_) => {
+                sub_elements.len() == 1
+                    && sub_elements
+                        .first()
+                        .and_then(|n| n.as_node().unwrap().first_child_or_token().map(|n| n.kind()))
+                        == Some(SyntaxKind::Element)
+            }
+            // Any other element can be removed in favor of one or more sub-elements.
+            None => sub_elements.iter().any(|n| n.kind() == SyntaxKind::SubElement),
+        } {
+            let unindented_lines = sub_elements
+                .iter()
+                .map(|n| match n {
+                    NodeOrToken::Node(n) => n
+                        .text()
+                        .to_string()
+                        .lines()
+                        .map(|line| line.strip_prefix("    ").unwrap_or(line).to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                    NodeOrToken::Token(t) => {
+                        t.text().strip_suffix("    ").unwrap_or(t.text()).to_string()
+                    }
+                })
+                .collect::<Vec<String>>();
+            let edits = vec![TextEdit::new(
+                lsp_types::Range::new(r.start, r.end),
+                unindented_lines.concat(),
+            )];
+            result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Remove element".into(),
+                kind: Some(lsp_types::CodeActionKind::REFACTOR),
+                edit: Some(WorkspaceEdit {
+                    changes: Some(std::iter::once((uri, edits)).collect()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }));
+        }
     }
 
     (!result.is_empty()).then_some(result)
@@ -1355,10 +1426,39 @@ component Demo {
 
     #[test]
     fn test_code_actions() {
-        let (mut dc, url, _) = complex_document_cache();
+        let (mut dc, url, _) = loaded_document_cache(
+            r#"import { Button, VerticalBox , LineEdit, HorizontalBox} from "std-widgets.slint";
+
+export component TestWindow inherits Window {
+    VerticalBox {
+        alignment: start;
+
+        Text {
+            text: "Hello World!";
+            font-size: 20px;
+        }
+
+        input := LineEdit {
+            placeholder-text: "Enter your name";
+        }
+
+        if (true): HorizontalBox {
+            alignment: end;
+
+            Button { text: "Cancel"; }
+
+            Button {
+                text: "OK";
+                primary: true;
+            }
+        }
+    }
+}"#
+            .into(),
+        );
         let mut capabilities = ClientCapabilities::default();
 
-        let text_literal = lsp_types::Range::new(Position::new(33, 22), Position::new(33, 33));
+        let text_literal = lsp_types::Range::new(Position::new(7, 18), Position::new(7, 32));
         assert_eq!(
             token_descr(&mut dc, &url, &text_literal.start)
                 .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities)),
@@ -1387,7 +1487,7 @@ component Demo {
             }),])
         );
 
-        let text_element = lsp_types::Range::new(Position::new(32, 12), Position::new(35, 13));
+        let text_element = lsp_types::Range::new(Position::new(6, 8), Position::new(9, 9));
         for offset in 0..=4 {
             let pos = Position::new(text_element.start.line, text_element.start.character + offset);
 
@@ -1418,10 +1518,10 @@ component Demo {
                                 vec![TextEdit::new(
                                     text_element,
                                     r#"${0:element} {
-                Text {
-                    text: "Duration:";
-                    vertical-alignment: center;
-                }
+            Text {
+                text: "Hello World!";
+                font-size: 20px;
+            }
 }"#
                                     .into()
                                 )]
@@ -1434,5 +1534,76 @@ component Demo {
                 }),])
             );
         }
+
+        let horizontal_box = lsp_types::Range::new(Position::new(15, 19), Position::new(24, 9));
+
+        capabilities.experimental = None;
+        assert_eq!(
+            token_descr(&mut dc, &url, &horizontal_box.start)
+                .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities)),
+            None
+        );
+
+        capabilities.experimental = Some(serde_json::json!({"snippetTextEdit": true}));
+        assert_eq!(
+            token_descr(&mut dc, &url, &horizontal_box.start)
+                .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities)),
+            Some(vec![
+                CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                    title: "Wrap in element".into(),
+                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
+                    edit: Some(WorkspaceEdit {
+                        changes: Some(
+                            std::iter::once((
+                                url.clone(),
+                                vec![TextEdit::new(
+                                    horizontal_box,
+                                    r#"${0:element} {
+            HorizontalBox {
+                alignment: end;
+
+                Button { text: "Cancel"; }
+
+                Button {
+                    text: "OK";
+                    primary: true;
+                }
+            }
+}"#
+                                    .into()
+                                )]
+                            ))
+                            .collect()
+                        ),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+                CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                    title: "Remove element".into(),
+                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
+                    edit: Some(WorkspaceEdit {
+                        changes: Some(
+                            std::iter::once((
+                                url.clone(),
+                                vec![TextEdit::new(
+                                    horizontal_box,
+                                    r#"Button { text: "Cancel"; }
+
+        Button {
+            text: "OK";
+            primary: true;
+        }"#
+                                    .into()
+                                )]
+                            ))
+                            .collect()
+                        ),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                })
+            ])
+        );
     }
 }
