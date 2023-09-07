@@ -7,8 +7,13 @@ struct Foo1  { member: int, }
 struct Foo2  { a: Foo1 }
 struct Foo3  { b: int }
 
-
 struct DeleteMe  { c: color }
+
+struct Palette  {
+    menuBar : brush,
+    mainContent : brush,
+    box : brush,
+}
 
 export component TestCase inherits Rectangle {
     pure callback cb1(Foo2) -> Foo3;
@@ -24,6 +29,18 @@ export component TestCase inherits Rectangle {
         property<[DeleteMe]> data;
         for d[i] in self.data: Rectangle { }
     }
+
+    // Bug #2765
+    out property<Palette> palette : xx.a.member > 32 ? {
+       menuBar : #6D7BFB,
+       mainContent :  #fbfbfb,
+       box :   #ffffff,
+    } : {
+       menuBar : #2937A7,
+       mainContent : #040404,
+       box : #000000,
+    };
+
 }
 
 
