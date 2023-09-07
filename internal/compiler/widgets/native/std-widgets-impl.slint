@@ -12,6 +12,14 @@ export component ScrollView {
     out property <length> visible-height <=> fli.height;
     in-out property <bool> has-focus <=> native.has-focus;
     in property <bool> enabled <=> native.enabled;
+
+    // Used by the StandardTableView
+    out property <length> native-padding-left: native.native-padding-left;
+    out property <length> native-padding-right: native.native-padding-right;
+    out property <length> native-padding-top: native.native-padding-top;
+    out property <length> native-padding-bottom: native.native-padding-bottom;
+    in property <length> header-height: 0;
+
     preferred-height: 100%;
     preferred-width: 100%;
     min-height: native.min-height;
@@ -28,8 +36,8 @@ export component ScrollView {
     fli := Flickable {
         x: native.native-padding-left;
         width: root.width - native.native-padding-left - native.native-padding-right;
-        y: native.native-padding-top;
-        height: root.height - native.native-padding-top - native.native-padding-bottom;
+        y: native.native-padding-top + header-height;
+        height: root.height - self.y - native.native-padding-bottom;
 
         @children
         interactive: false;
