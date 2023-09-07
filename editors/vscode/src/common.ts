@@ -8,6 +8,7 @@ import * as vscode from "vscode";
 import { PropertiesViewProvider } from "./properties_webview";
 import * as wasm_preview from "./wasm_preview";
 import * as lsp_commands from "../../../tools/slintpad/src/shared/lsp_commands";
+import * as snippets from "./snippets";
 
 import {
     BaseLanguageClient,
@@ -109,6 +110,19 @@ export function languageClientOptions(
                     }
                 }
                 return next(command, args);
+            },
+            async provideCodeActions(
+                document: vscode.TextDocument,
+                range: vscode.Range,
+                context: vscode.CodeActionContext,
+                token: vscode.CancellationToken,
+                next: any,
+            ) {
+                const actions = await next(document, range, context, token);
+                if (actions) {
+                    snippets.detectSnippetCodeActions(actions);
+                }
+                return actions;
             },
         },
     };

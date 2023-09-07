@@ -12,6 +12,7 @@ import * as vscode from "vscode";
 import { PropertiesViewProvider } from "./properties_webview";
 import * as wasm_preview from "./wasm_preview";
 import * as common from "./common";
+import * as snippets from "./snippets";
 
 import {
     LanguageClient,
@@ -167,6 +168,8 @@ function startClient(context: vscode.ExtensionContext) {
         serverOptions,
         clientOptions,
     );
+
+    cl.registerFeature(new snippets.SnippetTextEditFeature());
 
     cl.onDidChangeState((event) => {
         let properly_stopped = cl.hasOwnProperty("slint_stopped");

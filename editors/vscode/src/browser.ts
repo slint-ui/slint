@@ -10,6 +10,7 @@ import { LanguageClient } from "vscode-languageclient/browser";
 import { PropertiesViewProvider } from "./properties_webview";
 import * as wasm_preview from "./wasm_preview";
 import * as common from "./common";
+import * as snippets from "./snippets";
 
 let client = new common.ClientHandle();
 let statusBar: vscode.StatusBarItem;
@@ -55,6 +56,8 @@ function startClient(context: vscode.ExtensionContext) {
             );
             const disposable = cl.start();
             context.subscriptions.push(disposable);
+
+            cl.registerFeature(new snippets.SnippetTextEditFeature());
 
             cl.onReady().then(() => {
                 client.client = cl;
