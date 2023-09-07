@@ -3,26 +3,26 @@
 
 // Test that structs work if they are only referrenced by callbacks
 
-struct Foo1 := { member: int, }
-struct Foo2 := { a: Foo1 }
-struct Foo3 := { b: int }
+struct Foo1  { member: int, }
+struct Foo2  { a: Foo1 }
+struct Foo3  { b: int }
 
 
-struct DeleteMe := { c: color }
+struct DeleteMe  { c: color }
 
-TestCase := Rectangle {
-    callback cb1(Foo2) -> Foo3;
+export component TestCase inherits Rectangle {
+    pure callback cb1(Foo2) -> Foo3;
     cb1(foo) => { return { b: foo.a.member+1 }; }
 
-    property<Foo2> xx;
+    in-out property<Foo2> xx;
     pure callback cb2(Foo2, Foo2)->Foo2;
-    property<Foo2> xx2: cb2(xx, xx);
+    in-out property<Foo2> xx2: root.cb2(root.xx, root.xx);
 
 
     // Based on Issue #1733
     Rectangle {
         property<[DeleteMe]> data;
-        for d[i] in data: Rectangle { }
+        for d[i] in self.data: Rectangle { }
     }
 }
 
