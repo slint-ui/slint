@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file.
 ### General
 
  - Minimum Rust version is now 1.70.
+ - Fixed generated C++ and Rust code in conversion from unnamed to named struct in complex expressions (#2765)
+ - Improved wasm preview in the documentation (especially on mobile)
 
 ### Slint Language
 
@@ -15,9 +17,16 @@ All notable changes to this project are documented in this file.
 
 ### Rust API
 
+ - derive serde traits for `slint::Color` (when the feature is active)
+
 ### C++
 
  - Removed the need for C++ exceptions in generated code.
+
+### LSP
+
+ - Fixed "Show Preview" command without component selected (#3412)
+ - Added "Wrap in element" code action
 
 ## [1.2.0] - 2023-09-04
 
