@@ -49,6 +49,8 @@ export component InternalScrollView {
     }
 }
 
+// This is an internal ListView, used by the StandardTableView. It needs to be
+// called "ListView", for the compiler to recognize it.
 export component ListView inherits InternalScrollView {
     @children
 }
