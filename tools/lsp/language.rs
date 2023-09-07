@@ -1408,7 +1408,7 @@ component Demo {
                     &capabilities
                 )),
                 Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: "Wrap in element...".into(),
+                    title: "Wrap in element".into(),
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
                     edit: Some(WorkspaceEdit {
                         changes: Some(
