@@ -15,6 +15,8 @@ All notable changes to this project are documented in this file.
 
 ### C++
 
+ - Removed the need for C++ exceptions in generated code.
+
 ## [1.2.0] - 2023-09-04
 
 ### General

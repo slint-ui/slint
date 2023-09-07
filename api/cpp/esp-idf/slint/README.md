@@ -110,10 +110,9 @@ slint_target_sources(${COMPONENT_LIB} appwindow.slint)
 ```
 10. Open the configuration editor with `idf.py menuconfig`:
     1. Change the stack size under `Component config --> ESP System Settings --> Main task stack size` to at least `8192`. You may need to tweak this value in the future if you run into stack overflows.
-    2. Add support for C++ exceptions under `Compiler Options -> Enable C++ exceptions`.
-    3. You may need additional device-specific settings. For example if your device has external SPI RAM,
+    2. You may need additional device-specific settings. For example if your device has external SPI RAM,
        you may need to enable that. For details for ESP32-S3 based devices see how to [Configure the PSRAM](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/flash_psram_config.html#configure-the-psram).
-    4. Quit the editor with `Q` and save the configuration.
+    3. Quit the editor with `Q` and save the configuration.
 11.  Build the project with `idf.py build`.
 12.  Connect your device, then flash and run it with `idf.py flash monitor`.
 13.  Observe Slint rendering "Hello World" on the screen 🎉.
