@@ -1,47 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+import { InternalScrollView } from "internal-scrollview.slint";
+
 export { NativeStyleMetrics as StyleMetrics }
 
 export component ScrollView {
-    in-out property <length> viewport-width <=> fli.viewport-width;
-    in-out property <length> viewport-height <=> fli.viewport-height;
-    in-out property <length> viewport-x <=> fli.viewport-x;
-    in-out property <length> viewport-y <=> fli.viewport-y;
-    out property <length> visible-width <=> fli.width;
-    out property <length> visible-height <=> fli.height;
-    in-out property <bool> has-focus <=> native.has-focus;
-    in property <bool> enabled <=> native.enabled;
+    in-out property <length> viewport-width <=> internal.viewport-width;
+    in-out property <length> viewport-height <=> internal.viewport-height;
+    in-out property <length> viewport-x <=> internal.viewport-x;
+    in-out property <length> viewport-y <=> internal.viewport-y;
+    out property <length> visible-width <=> internal.visible-width;
+    out property <length> visible-height <=> internal.visible-height;
+    in-out property <bool> has-focus <=> internal.has-focus;
+    in property <bool> enabled <=> internal.enabled;
 
-    // Used by the StandardTableView
-    out property <length> native-padding-left: native.native-padding-left;
-    out property <length> native-padding-right: native.native-padding-right;
-    out property <length> native-padding-top: native.native-padding-top;
-    out property <length> native-padding-bottom: native.native-padding-bottom;
-    in property <length> header-height: 0;
-
-    preferred-height: 100%;
-    preferred-width: 100%;
-    min-height: native.min-height;
-    min-width: native.min-width;
-
-    native := NativeScrollView {
-        vertical-max: fli.viewport-height > fli.height ? fli.viewport-height - fli.height : 0phx;
-        vertical-page-size: fli.height;
-
-        horizontal-max: fli.viewport-width > fli.width ? fli.viewport-width - fli.width : 0phx;
-        horizontal-page-size: fli.width;
-    }
-
-    fli := Flickable {
-        x: native.native-padding-left;
-        width: root.width - native.native-padding-left - native.native-padding-right;
-        y: native.native-padding-top + header-height;
-        height: root.height - self.y - native.native-padding-bottom;
-
+    internal := InternalScrollView {
         @children
-        interactive: false;
-        viewport-y <=> native.vertical-value;
-        viewport-x <=> native.horizontal-value;
     }
 }
