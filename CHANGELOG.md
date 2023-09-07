@@ -26,7 +26,7 @@ All notable changes to this project are documented in this file.
 ### LSP
 
  - Fixed "Show Preview" command without component selected (#3412)
- - Added "Wrap in element" code action
+ - Added "Wrap in element" and "Remove element" code actions
 
 ## [1.2.0] - 2023-09-04
 

@@ -762,6 +762,9 @@ impl SyntaxToken {
             })?;
         Some(SyntaxToken { token, source_file: self.source_file.clone() })
     }
+    pub fn text(&self) -> &str {
+        self.token.text()
+    }
 }
 
 impl std::fmt::Display for SyntaxToken {
