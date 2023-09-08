@@ -13,38 +13,34 @@ It is (manually) copied into the website under <https://slint.dev/logo/>
 * When using the logo to refer to Slint from a location not dedicated to Slint,
    use the full versions of the logo with the full tagline ("GUI toolkit").
 
-   ![Slint logo full light](./for_Screen/Slint_logo_full/slint_logo_full_light.svg#gh-light-mode-only)![Slint logo full dark](./for_Screen/Slint_logo_full/slint_logo_full_dark.svg#gh-dark-mode-only)
+   ![Slint logo full light](./slint_logo_full_light.svg#gh-light-mode-only)![Slint logo full dark](./slint_logo_full_dark.svg#gh-dark-mode-only)
 
 * When using the logo to refer to Slint for illustrative purposes, from a place
    where the viewer is expected to already know about Slint (e.g. because it is
    on the Slint website itself) use the simple versions of the logo.
 
-   ![Slint logo simple light](./for_Screen/Slint_logo_simple/slint_logo_simple_light.svg#gh-light-mode-only)![Slint logo simple dark](./for_Screen/Slint_logo_simple/slint_logo_simple_dark.svg#gh-dark-mode-only)
+   ![Slint logo simple light](./slint_logo_simple_light.svg#gh-light-mode-only)![Slint logo simple dark](./slint_logo_simple_dark.svg#gh-dark-mode-only)
 
 * For the cases where a square or circular logo is required (e.g. social media
    avatar), the square versions of the logo can be used. Prefer the version with
    the text.
 
-   ![Slint logo simple square light](./for_Screen/Slint_logo_simple_square/slint_logo_simple_square_light.svg#gh-light-mode-only)![Slint logo square dark](./for_Screen/Slint_logo_simple_square/slint_logo_simple_square_dark.svg#gh-dark-mode-only)
+   ![Slint logo simple square light](./slint_logo_simple_square_light.svg#gh-light-mode-only)![Slint logo square dark](./slint_logo_simple_square_dark.svg#gh-dark-mode-only)
 
 * For a small icon where the text would not be visible otherwise, use the square
    versions of the logo without the text.
 
-   ![Slint logo small light](./for_Screen/Slint_logo_small/slint_logo_small_light_dark.svg#gh-light-mode-only)![Slint logo small dark](./for_Screen/Slint_logo_small/slint_logo_small_light_dark.svg#gh-dark-mode-only)
+   ![Slint logo small light](./slint_logo_small_light_dark.svg#gh-light-mode-only)![Slint logo small dark](./slint_logo_small_light_dark.svg#gh-dark-mode-only)
 
 * Use the #MadeWithSlint logo for attributions to Slint (e.g. when using Slint under the [Royalty-Free License](../LICENSES/LicenseRef-Slint-Royalty-free-1.1.md))
 
-   ![#MadeWithSlint logo light](./for_Screen/MadeWithSlint_logo/blue_black/MadeWithSlint_blue_black.svg#gh-light-mode-only)![#MadeWithSlint logo dark](./for_Screen/MadeWithSlint_logo/blue_white/MadeWithSlint_blue_white.svg#gh-dark-mode-only)
+   ![#MadeWithSlint logo light](./MadeWithSlint_logo_light#gh-light-mode-only)![#MadeWithSlint logo dark](./MadeWithSlint_logo_dark#gh-dark-mode-only)
 
 ### Dark and Light Backgrounds
 
-* For Dark backgrounds, use the versions with ***blue_black***
+* For Dark backgrounds, use the versions with ***dark***
 
-* For Light backgrounds, use the versions with ***blue_white***
-
-* **Exception**: For the Slint small icon, prefer to use ***blue*** version for both
-dark and light backgrounds. If the icon is not visible on a particular background,
-then use the ***white*** version. 
+* For Light backgrounds, use the versions with ***light***
 
 ### Color
 

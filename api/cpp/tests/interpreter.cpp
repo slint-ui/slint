@@ -97,7 +97,7 @@ SCENARIO("Value API")
     {
         REQUIRE(!value.to_image().has_value());
         slint::Image image = slint::Image::load_from_path(
-                SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
+                SOURCE_DIR "/../../../logo/slint_logo_simple_square_light_128x128.png");
         REQUIRE(image.size().width == 128);
         value = Value(image);
         REQUIRE(value.type() == Value::Type::Image);

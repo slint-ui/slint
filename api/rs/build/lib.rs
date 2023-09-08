@@ -41,7 +41,7 @@ fn main() {
 }
 ```
 */
-#![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
+#![doc(html_logo_url = "https://slint.dev/logo/slint_logo_simple_square_light.svg")]
 #![warn(missing_docs)]
 
 #[cfg(not(feature = "default"))]

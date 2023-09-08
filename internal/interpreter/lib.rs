@@ -65,7 +65,7 @@ instance.run().unwrap();
 //! ## Feature flags
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 #![warn(missing_docs)]
-#![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
+#![doc(html_logo_url = "https://slint.dev/logo/slint_logo_simple_square_light.svg")]
 
 #[cfg(not(feature = "compat-1-2"))]
 compile_error!(

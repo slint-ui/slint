@@ -162,7 +162,7 @@ TEST_CASE("Image")
     }
 
 #ifndef SLINT_FEATURE_FREESTANDING
-    img = Image::load_from_path(SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
+    img = Image::load_from_path(SOURCE_DIR "/../../../logo/slint_logo_simple_square_light_128x128.png");
     {
         auto size = img.size();
         REQUIRE(size.width == 128.);
@@ -171,7 +171,7 @@ TEST_CASE("Image")
     {
         auto actual_path = img.path();
         REQUIRE(actual_path.has_value());
-        REQUIRE(*actual_path == SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
+        REQUIRE(*actual_path == SOURCE_DIR "/../../../logo/slint_logo_simple_square_light_128x128.png");
     }
 #endif
 

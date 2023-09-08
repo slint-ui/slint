@@ -22,7 +22,7 @@ export Demo := Window {
     }
     Image {
         y: 50px;
-        source: @image-url("https://slint.dev/logo/slint-logo-full-light.svg");
+        source: @image-url("https://slint.dev/logo/slint_logo_full_light.svg");
     }
 }
 `;

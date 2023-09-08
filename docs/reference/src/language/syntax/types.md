@@ -166,7 +166,7 @@ export component Example inherits Window {
     preferred-width: 150px;
     preferred-height: 50px;
 
-    in property <image> some_image: @image-url("https://slint.dev/logo/slint-logo-full-light.svg");
+    in property <image> some_image: @image-url("https://slint.dev/logo/slint_logo_full_light.svg");
 
     Text {
         text: "The image is " + some_image.width + "x" + some_image.height;
