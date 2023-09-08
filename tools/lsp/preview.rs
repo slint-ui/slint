@@ -170,3 +170,20 @@ pub fn set_preview_factory(
     });
     ui.set_preview_area(factory);
 }
+
+/// Highlight the element pointed at the offset in the path.
+/// When path is None, remove the highlight.
+pub fn highlight(path: Option<PathBuf>, offset: u32) {
+    let highlight = path.clone().map(|x| (x, offset));
+    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+
+    if cache.highlight == highlight {
+        return;
+    }
+    cache.highlight = highlight;
+
+    if cache.highlight.as_ref().map_or(true, |(path, _)| cache.dependency.contains(path)) {
+        let path = path.unwrap_or_default();
+        update_highlight(path, offset);
+    }
+}
