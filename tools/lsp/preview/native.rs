@@ -348,28 +348,15 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
 
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
-pub fn highlight(path: Option<PathBuf>, offset: u32) {
-    let highlight = path.map(|x| (x, offset));
-    let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-
-    if cache.highlight == highlight {
-        return;
-    }
-    cache.highlight = highlight;
-
-    if cache.highlight.as_ref().map_or(true, |(path, _)| cache.dependency.contains(path)) {
-        run_in_ui_thread(move || async move {
-            PREVIEW_STATE.with(|preview_state| {
-                let preview_state = preview_state.borrow();
-                let handle = preview_state.handle.borrow();
-                if let (Some(cache), Some(handle)) = (super::CONTENT_CACHE.get(), &*handle) {
-                    if let Some((path, offset)) = cache.lock().unwrap().highlight.clone() {
-                        handle.highlight(path, offset);
-                    } else {
-                        handle.highlight(PathBuf::default(), 0);
-                    }
-                }
-            })
+pub fn update_highlight(path: PathBuf, offset: u32) {
+    let path = path.to_path_buf();
+    run_in_ui_thread(move || async move {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow();
+            let handle = preview_state.handle.borrow();
+            if let Some(handle) = &*handle {
+                handle.highlight(path, offset);
+            }
         })
-    }
+    })
 }
