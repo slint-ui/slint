@@ -404,17 +404,7 @@ fn process_window_event(
             runtime_window.process_mouse_input(ev);
         }
         WindowEvent::Touch(touch) => {
-            let location = touch.location;
-            // https://github.com/slint-ui/slint/issues/2424: Work around winit reporting absolute coordinates for touch - until https://github.com/rust-windowing/winit/pull/2704 is merged & released.
-            #[cfg(target_family = "wasm")]
-            let location = {
-                let window_pos = window.winit_window().inner_position().unwrap_or_default();
-                winit::dpi::PhysicalPosition::new(
-                    location.x - window_pos.x as f64,
-                    location.y - window_pos.y as f64,
-                )
-            };
-            let location = location.to_logical(runtime_window.scale_factor() as f64);
+            let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
             let position = euclid::point2(location.x, location.y);
             let ev = match touch.phase {
                 winit::event::TouchPhase::Started => {
