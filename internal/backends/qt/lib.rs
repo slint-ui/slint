@@ -4,7 +4,7 @@
 // cSpell: ignore deinit fnbox qsize
 
 #![doc = include_str!("README.md")]
-#![doc(html_logo_url = "https://slint.dev/logo/slint_logo_simple_square_light.svg")]
+#![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![recursion_limit = "2048"]
 
 extern crate alloc;

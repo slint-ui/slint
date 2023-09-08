@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 #![doc = include_str!("README.md")]
-#![doc(html_logo_url = "https://slint.dev/logo/slint_logo_simple_square_light.svg")]
+#![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
 extern crate proc_macro;
 use proc_macro::TokenStream;

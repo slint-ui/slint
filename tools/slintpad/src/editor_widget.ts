@@ -34,7 +34,7 @@ export component Demo {
             horizontal-alignment: center;
         }
         Image {
-            source: @image-url("https://slint.dev/logo/slint_logo_full_light.svg");
+            source: @image-url("https://slint.dev/logo/slint-logo-full-light.svg");
             height: 100px;
         }
         HorizontalLayout { alignment: center; Button { text: "OK!"; } }

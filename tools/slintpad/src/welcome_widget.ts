@@ -15,7 +15,7 @@ export class WelcomeWidget extends Widget {
       <center>
       <h1>Welcome to SlintPad</h1>
 
-      <a href="https://slint.dev/" target="_blank"><img src="https://slint.dev/logo/slint_logo_simple_light.svg"></a>
+      <a href="https://slint.dev/" target="_blank"><img src="https://slint.dev/logo/slint-logo-simple-light.svg"></a>
       </center>
 
       <p>Slint is a toolkit to efficiently develop fluid graphical user interfaces for

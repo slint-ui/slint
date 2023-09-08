@@ -4,7 +4,7 @@
 // cSpell: ignore sharedvector textlayout
 
 #![doc = include_str!("README.md")]
-#![doc(html_logo_url = "https://slint.dev/logo/slint_logo_simple_square_light.svg")]
+#![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![deny(unsafe_code)]
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;

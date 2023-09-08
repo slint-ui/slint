@@ -187,7 +187,7 @@ See the [documentation of the `Global` trait](Global) for an example.
 
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
-#![doc(html_logo_url = "https://slint.dev/logo/slint_logo_simple_square_light.svg")]
+#![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::needless_doctest_main)] // We document how to write a main function
 
