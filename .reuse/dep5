@@ -3,7 +3,7 @@ Upstream-Name: slint
 Upstream-Contact: Slint Developers <info@slint.dev>
 Source: https://slint.dev/
 
-Files: */slint_icon_*.svg */slint_icon_*.png */slint_icon_*.pdf */slint_logo_*.svg */slint_logo_*.png */slint_logo_*.pdf */MadeWithSlint_*.svg */MadeWithSlint_*.png */MadeWithSlint_*.pdf
+Files: */slint-icon-*.svg */slint-icon-*.png */slint-icon-*.pdf */slint-logo-*.svg */slint-logo-*.png */slint-logo-*.pdf */MadeWithSlint-*.svg */MadeWithSlint-*.png */MadeWithSlint-*.pdf
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: CC-BY-ND-4.0
 

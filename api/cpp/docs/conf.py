@@ -105,7 +105,7 @@ html_static_path = ["_static"]
 
 html_show_sourcelink = False
 
-html_logo = "https://slint.dev/logo/slint_logo_small_light.svg"
+html_logo = "https://slint.dev/logo/slint-logo-small-light.svg"
 
 myst_enable_extensions = [
     "html_image",

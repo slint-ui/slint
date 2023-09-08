@@ -16,7 +16,7 @@ rust-version.workspace = true
 
 [package.metadata.bundle]
 name = "Slint Live Preview"
-icon = ["../../logo/slint_logo_small_light.png"]
+icon = ["../../logo/slint-logo-small-light.png"]
 
 [[bin]]
 name = "slint-lsp"
