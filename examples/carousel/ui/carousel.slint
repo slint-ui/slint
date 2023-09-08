@@ -13,7 +13,7 @@ export component Carousel inherits FocusScope {
     in property <length> itemWidth;
     in property <int> count: 0;
     private property <length> center-x: (root.width - Theme.size-big) / 2;
-    private property <duration> duation: Theme.duration-regular;
+    private property <duration> duration: Theme.duration-regular;
 
     forward-focus: focus-scope;
     height: Theme.size-big;
@@ -63,7 +63,7 @@ export component Carousel inherits FocusScope {
 
         Flickable {
             interactive: false;
-            animate viewport-x { duration: root.duation; easing: ease-in; }
+            animate viewport-x { duration: root.duration; easing: ease-in; }
             viewport-x: root.center-x - root.selected-index * (root.itemWidth + root.spacing);
 
             HorizontalLayout {
