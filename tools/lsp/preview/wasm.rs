@@ -503,7 +503,7 @@ impl PreviewConnector {
                 Ok(())
             }
             M::HighlightFromEditor { path, offset } => {
-                log(&format!("highlight {path:?}:{offset}"));
+                super::highlight(path.map(|s| PathBuf::from(s)), offset);
                 Ok(())
             }
         }
@@ -645,4 +645,17 @@ pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
             }),
         );
     })
+}
+
+pub fn update_highlight(path: PathBuf, offset: u32) {
+    slint::invoke_from_event_loop(move || {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow();
+            let handle = preview_state.handle.borrow();
+            if let Some(handle) = &*handle {
+                handle.highlight(path, offset);
+            }
+        })
+    })
+    .unwrap();
 }
