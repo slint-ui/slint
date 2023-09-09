@@ -298,7 +298,7 @@ export component Example inherits Window {
     height: 100px;
     VerticalLayout {
         Image {
-            source: @image-url("https://slint.dev/logo/slint-logo-full-lightt.svg");
+            source: @image-url("https://slint.dev/logo/slint-logo-full-light.svg");
             // image-fit default is `contain` when in layout, preserving aspect ratio
         }
         Image {
