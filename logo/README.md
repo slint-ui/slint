@@ -34,7 +34,7 @@ It is (manually) copied into the website under <https://slint.dev/logo/>
 
 * Use the #MadeWithSlint logo for attributions to Slint (e.g. when using Slint under the [Royalty-Free License](../LICENSES/LicenseRef-Slint-Royalty-free-1.1.md))
 
-   ![#MadeWithSlint logo light](./MadeWithSlint-logo-light#gh-light-mode-only)![#MadeWithSlint logo dark](./MadeWithSlint-logo-dark#gh-dark-mode-only)
+   ![#MadeWithSlint logo light](./MadeWithSlint-logo-light.svg#gh-light-mode-only)![#MadeWithSlint logo dark](./MadeWithSlint-logo-dark.svg#gh-dark-mode-only)
 
 ### Dark and Light Backgrounds
 
