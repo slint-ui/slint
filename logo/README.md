@@ -1,11 +1,11 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial -->
 
+# Branding Guidelines
+
 This directory contains the different versions of the Slint logo.
 It is (manually) copied into the website under <https://slint.dev/logo/>
 
-## Branding Guidelines
-
-### Logo
+## Logo
 
 * Do not modify the logo by changing the colors, changing of the aspect ration,
    or other alterations to the corporate identity.
@@ -42,7 +42,7 @@ It is (manually) copied into the website under <https://slint.dev/logo/>
 
 * For Light backgrounds, use the versions with ***light***
 
-### Color
+## Color
 
 The Slint blue color is:
 
@@ -50,7 +50,7 @@ The Slint blue color is:
 * For Print: CMYK = 75,45,0,0
 * For Spot Color (Pantone): PMS 2727 C
 
-### Name
+## Name
 
 The name of the product is ***Slint***, not ~~*Slint UI*~~.
 
