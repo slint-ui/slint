@@ -3,7 +3,7 @@
 # Branding Guidelines
 
 This directory contains the different versions of the Slint logo.
-It is (manually) copied into the website under <https://slint.dev/logo/>
+It is (manually) copied into the website under <https://slint.dev/logo/>.
 
 ## Logo
 
@@ -32,23 +32,25 @@ It is (manually) copied into the website under <https://slint.dev/logo/>
 
    ![Slint logo small light](./slint-logo-small-light.svg#gh-light-mode-only)![Slint logo small dark](./slint-logo-small-dark.svg#gh-dark-mode-only)
 
-* Use the #MadeWithSlint logo for attributions to Slint (e.g. when using Slint under the [Royalty-Free License](../LICENSES/LicenseRef-Slint-Royalty-free-1.1.md))
+* Use the #MadeWithSlint logo for attributions to Slint (e.g. when using Slint under the [Royalty-Free License](../LICENSES/LicenseRef-Slint-Royalty-free-1.1.md)).
 
    ![#MadeWithSlint logo light](./MadeWithSlint-logo-light.svg#gh-light-mode-only)![#MadeWithSlint logo dark](./MadeWithSlint-logo-dark.svg#gh-dark-mode-only)
 
-### Dark and Light Backgrounds
+### Variations (Dark mode, Light mode)
 
-* For Dark backgrounds, use the versions with ***dark***
+* For Dark mode/backgrounds, use the versions with ***dark***.
 
-* For Light backgrounds, use the versions with ***light***
+* For Light mode/backgrounds, use the versions with ***light***.
+
+* If the background switched between dark and light mode, but only one logo can be shown, use the versions with ***whitebg***.
 
 ## Color
 
 The Slint blue color is:
 
-* For Screen: #2379F4 (Hex), R=35 G=121 B=244, Tint = 100
-* For Print: CMYK = 75,45,0,0
-* For Spot Color (Pantone): PMS 2727 C
+* For Screen: #2379F4 (Hex), R=35 G=121 B=244, Tint = 100,
+* For Print: CMYK = 75,45,0,0,
+* For Spot Color (Pantone): PMS 2727 C.
 
 ## Name
 
@@ -58,4 +60,4 @@ The name of the product is ***Slint***, not ~~*Slint UI*~~.
 
 The company (legal entity) behind Slint is *SixtyFPS GmbH*. That name should only be used to refer to the company,
 including the *GmbH*. (*SixtyFPS* was the former name of the product but should no longer be used.)
-Employees of SixtyFPS GmbH should still use the name *Slint* whenever possible (e.g. on conference badges)
+Employees of SixtyFPS GmbH should still use the name *Slint* whenever possible (e.g. on conference badges).
