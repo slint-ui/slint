@@ -192,7 +192,7 @@ function tabTitleFromURL(url: monaco.Uri): string {
 
 class EditorPaneWidget extends Widget {
     auto_compile = true;
-    #current_style = "fluent-light";
+    #current_style = "";
     #main_uri: monaco.Uri | null = null;
     #editor_view_states: Map<
         monaco.Uri,
@@ -200,7 +200,6 @@ class EditorPaneWidget extends Widget {
     >;
     #editor: monaco.editor.IStandaloneCodeEditor | null = null;
     #client: MonacoLanguageClient | null = null;
-    #keystroke_timeout_handle?: number;
     #url_mapper: UrlMapper | null = null;
     #edit_era: number;
     #disposables: monaco.IDisposable[] = [];
@@ -214,13 +213,6 @@ class EditorPaneWidget extends Widget {
     ) => {
         return;
     };
-
-    #onRenderRequest?: (
-        _style: string,
-        _source: string,
-        _url: string,
-        _fetch: (_url: string) => Promise<string>,
-    ) => Promise<monaco.editor.IMarkerData[]>;
 
     #onModelRemoved?: (_url: monaco.Uri) => void;
     #onModelAdded?: (_url: monaco.Uri) => void;
@@ -403,16 +395,10 @@ class EditorPaneWidget extends Widget {
         return this.#extra_file_urls;
     }
 
-    compile() {
-        this.update_preview();
-    }
-
     async set_style(value: string) {
         this.#current_style = value;
         const config = '{ "slint.preview.style": "' + value + '" }';
         await updateUserConfiguration(config);
-
-        this.update_preview();
     }
 
     style() {
@@ -455,15 +441,11 @@ class EditorPaneWidget extends Widget {
 
     private add_model_listener(model: monaco.editor.ITextModel) {
         const uri = model.uri;
-        model.onDidChangeContent(() => {
-            this.maybe_update_preview_automatically();
-        });
         this.#editor_view_states.set(uri, null);
         this.#onModelAdded?.(uri);
         if (monaco.editor.getModels().length === 1) {
             this.#main_uri = uri;
             this.set_model(uri);
-            this.update_preview();
         }
     }
 
@@ -485,51 +467,6 @@ class EditorPaneWidget extends Widget {
     protected onResize(_msg: LuminoMessage): void {
         if (this.isAttached) {
             this.resize_editor();
-        }
-    }
-
-    protected update_preview() {
-        const model = monaco.editor.getModel(
-            this.#main_uri ?? new monaco.Uri(),
-        );
-        if (model != null) {
-            const source = model.getValue();
-            const era = this.#edit_era;
-
-            setTimeout(() => {
-                if (this.#onRenderRequest != null) {
-                    this.#onRenderRequest(
-                        this.#current_style,
-                        source,
-                        this.#main_uri?.toString() ?? "",
-                        (url: string) => {
-                            return this.handle_lsp_url_request(era, url);
-                        },
-                    ).then((markers: monaco.editor.IMarkerData[]) => {
-                        if (this.#editor != null) {
-                            const model = this.#editor.getModel();
-                            if (model != null) {
-                                monaco.editor.setModelMarkers(
-                                    model,
-                                    "slint",
-                                    markers,
-                                );
-                            }
-                        }
-                    });
-                }
-            }, 1);
-        }
-    }
-
-    protected maybe_update_preview_automatically() {
-        if (this.auto_compile) {
-            if (this.#keystroke_timeout_handle != null) {
-                clearTimeout(this.#keystroke_timeout_handle);
-            }
-            this.#keystroke_timeout_handle = setTimeout(() => {
-                this.update_preview();
-            }, 500);
         }
     }
 
@@ -620,17 +557,6 @@ class EditorPaneWidget extends Widget {
         );
 
         return lsp.language_client;
-    }
-
-    set onRenderRequest(
-        request: (
-            _style: string,
-            _source: string,
-            _url: string,
-            _fetch: (_url: string) => Promise<string>,
-        ) => Promise<monaco.editor.IMarkerData[]>,
-    ) {
-        this.#onRenderRequest = request;
     }
 
     set onModelsCleared(f: () => void) {
@@ -782,6 +708,7 @@ export class EditorWidget extends Widget {
         layout.addWidget(this.#tab_bar);
 
         this.#editor = new EditorPaneWidget(lsp);
+        this.set_style("fluent");
         layout.addWidget(this.#editor);
 
         super.layout = layout;
@@ -856,18 +783,6 @@ export class EditorWidget extends Widget {
         return this.#editor.current_text_document_version;
     }
 
-    compile() {
-        this.#editor.compile();
-    }
-
-    set auto_compile(value: boolean) {
-        this.#editor.auto_compile = value;
-    }
-
-    get auto_compile() {
-        return this.#editor.auto_compile;
-    }
-
     async set_style(value: string) {
         await this.#editor.set_style(value);
     }
@@ -931,17 +846,6 @@ export class EditorWidget extends Widget {
             this.#editor.clear_models();
             createModel(this.#editor.internal_uuid, hello_world);
         }
-    }
-
-    set onRenderRequest(
-        request: (
-            _style: string,
-            _source: string,
-            _url: string,
-            _fetch: (_url: string) => Promise<string>,
-        ) => Promise<monaco.editor.IMarkerData[]>,
-    ) {
-        this.#editor.onRenderRequest = request;
     }
 
     set onPositionChange(cb: PositionChangeCallback) {

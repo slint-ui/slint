@@ -56,3 +56,32 @@ pub enum LspToPreviewMessage {
         offset: u32,
     },
 }
+
+#[allow(unused)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct Diagnostic {
+    pub message: String,
+    pub file: Option<String>,
+    pub line: usize,
+    pub column: usize,
+    pub level: String,
+}
+
+#[allow(unused)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
+pub enum PreviewToLspMessage {
+    Status {
+        message: String,
+        health: crate::lsp_ext::Health,
+    },
+    Diagnostics {
+        diagnostics: Vec<lsp_types::Diagnostic>,
+    },
+    ShowDocument {
+        file: String,
+        start_line: u32,
+        start_column: u32,
+        end_line: u32,
+        end_column: u32,
+    },
+}
