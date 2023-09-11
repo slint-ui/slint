@@ -11,14 +11,19 @@ use crate::{common::PreviewComponent, lsp_ext::Health};
 use i_slint_core::component_factory::FactoryContext;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 
+use lsp_types::notification::Notification;
+
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
+
 mod ui;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 mod wasm;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 pub use wasm::*;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 mod native;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
 #[derive(Default)]
@@ -90,7 +95,7 @@ pub fn config_changed(
 }
 
 /// If the file is in the cache, returns it.
-/// In any was, register it as a dependency
+/// In any way, register it as a dependency
 fn get_file_from_cache(path: PathBuf) -> Option<String> {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let r = cache.source_code.get(&path).cloned();
@@ -112,6 +117,12 @@ async fn reload_preview(preview_component: PreviewComponent) {
     send_status("Loading Preview…", Health::Ok);
 
     let mut builder = slint_interpreter::ComponentCompiler::default();
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        let cc = builder.compiler_configuration(i_slint_core::InternalToken);
+        cc.resource_url_mapper = resource_url_mapper();
+    }
 
     if !preview_component.style.is_empty() {
         builder.set_style(preview_component.style);
@@ -173,7 +184,7 @@ pub fn set_preview_factory(
 
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
-pub fn highlight(path: Option<PathBuf>, offset: u32) {
+pub fn highlight(path: &Option<PathBuf>, offset: u32) {
     let highlight = path.clone().map(|x| (x, offset));
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
 
@@ -183,7 +194,97 @@ pub fn highlight(path: Option<PathBuf>, offset: u32) {
     cache.highlight = highlight;
 
     if cache.highlight.as_ref().map_or(true, |(path, _)| cache.dependency.contains(path)) {
-        let path = path.unwrap_or_default();
+        let path = path.clone().unwrap_or_default();
         update_highlight(path, offset);
     }
+}
+
+pub fn show_document_request_from_element_callback(
+    file: &str,
+    start_line: u32,
+    start_column: u32,
+    _end_line: u32,
+    end_column: u32,
+) -> Option<lsp_types::ShowDocumentParams> {
+    use lsp_types::{Position, Range, ShowDocumentParams, Url};
+
+    if file.is_empty() || start_column == 0 || end_column == 0 {
+        return None;
+    }
+
+    let start_pos = Position::new(start_line.saturating_sub(1), start_column.saturating_sub(1));
+    // let end_pos = Position::new(end_line.saturating_sub(1), end_column.saturating_sub(1));
+    // Place the cursor at the start of the range and do not mark up the entire range!
+    let selection = Some(Range::new(start_pos, start_pos));
+
+    Url::from_file_path(file).ok().map(|uri| ShowDocumentParams {
+        uri,
+        external: Some(false),
+        take_focus: Some(true),
+        selection,
+    })
+}
+
+pub fn convert_diagnostics(
+    diagnostics: &[slint_interpreter::Diagnostic],
+) -> HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> {
+    let mut result: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> = Default::default();
+    for d in diagnostics {
+        if d.source_file().map_or(true, |f| f.is_relative()) {
+            continue;
+        }
+        let uri = lsp_types::Url::from_file_path(d.source_file().unwrap()).unwrap();
+        result.entry(uri).or_default().push(crate::util::to_lsp_diag(d));
+    }
+    result
+}
+
+pub fn notify_lsp_diagnostics(
+    sender: &crate::ServerNotifier,
+    uri: lsp_types::Url,
+    diagnostics: Vec<lsp_types::Diagnostic>,
+) -> Option<()> {
+    sender
+        .send_notification(
+            "textDocument/publishDiagnostics".into(),
+            lsp_types::PublishDiagnosticsParams { uri, diagnostics, version: None },
+        )
+        .ok()
+}
+
+pub fn send_status_notification(sender: &crate::ServerNotifier, message: &str, health: Health) {
+    sender
+        .send_notification(
+            crate::lsp_ext::ServerStatusNotification::METHOD.into(),
+            crate::lsp_ext::ServerStatusParams {
+                health,
+                quiescent: false,
+                message: Some(message.into()),
+            },
+        )
+        .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
+}
+
+#[cfg(feature = "preview-external")]
+pub fn ask_editor_to_show_document(
+    sender: &crate::ServerNotifier,
+    file: &str,
+    start_line: u32,
+    start_column: u32,
+    end_line: u32,
+    end_column: u32,
+) {
+    let Some(params) = crate::preview::show_document_request_from_element_callback(
+        file,
+        start_line,
+        start_column,
+        end_line,
+        end_column,
+    ) else {
+        return;
+    };
+    let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
+        return;
+    };
+    i_slint_core::future::spawn_local(fut).unwrap();
 }

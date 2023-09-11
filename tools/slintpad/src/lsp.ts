@@ -52,15 +52,10 @@ function createLanguageClient(
 export type FileReader = (_url: string) => Promise<string>;
 
 export class LspWaiter {
-    #previewer_port: MessagePort;
     #previewer_promise: Promise<slint_preview.InitOutput> | null;
     #lsp_promise: Promise<Worker> | null;
 
     constructor() {
-        const lsp_previewer_channel = new MessageChannel();
-        const lsp_side = lsp_previewer_channel.port1;
-        this.#previewer_port = lsp_previewer_channel.port2;
-
         const worker = new Worker(
             new URL("worker/lsp_worker.ts", import.meta.url),
             { type: "module" },
@@ -74,7 +69,6 @@ export class LspWaiter {
                 }
             };
         });
-        worker.postMessage(lsp_side, [lsp_side]);
 
         this.#previewer_promise = slint_init();
     }
@@ -97,7 +91,6 @@ export class Previewer {
     #preview_connector: slint_preview.PreviewConnector;
 
     constructor(connector: slint_preview.PreviewConnector) {
-        console.log("LSP/Previewer: Constructor");
         this.#preview_connector = connector;
     }
 
@@ -128,7 +121,6 @@ export class Lsp {
                     const notification = data as NotificationMessage;
                     const params = notification.params;
 
-                    console.log("Got lsp_to_preview communication:", params);
                     this.#preview_connector?.process_lsp_to_preview_message(
                         params,
                     );
@@ -213,20 +205,25 @@ export class Lsp {
         return lsp_client;
     }
 
-    async previewer(): Promise<Previewer> {
-        console.log("LSP: Grabbing Previewer!");
+    async previewer(
+        url_resource_mapper: ResourceUrlMapperFunction,
+    ): Promise<Previewer> {
         if (this.#preview_connector === null) {
-            console.log("LSP: Running event loop!");
             try {
                 slint_preview.run_event_loop();
             } catch (e) {
                 // this is not an error!
             }
-            console.log("LSP: Creating Preview connector");
+
             this.#preview_connector =
-                await slint_preview.PreviewConnector.create();
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await slint_preview.PreviewConnector.create((data: any) => {
+                    this.language_client.sendNotification(
+                        "slint/preview_to_lsp",
+                        data,
+                    );
+                }, resource_url_mapper);
         }
-        console.log("LSP: Got preview connector...", this.#preview_connector);
         return new Previewer(this.#preview_connector);
     }
 }

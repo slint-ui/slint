@@ -3,14 +3,13 @@
 
 // This file is the entry point for the vscode extension (not the browser one)
 
-// cSpell: ignore codespaces gnueabihf vsix
+// cSpell: ignore codespace codespaces gnueabihf vsix
 
 import * as path from "path";
 import { existsSync } from "fs";
 import * as vscode from "vscode";
 
 import { PropertiesViewProvider } from "./properties_webview";
-import * as wasm_preview from "./wasm_preview";
 import * as common from "./common";
 
 import {
@@ -141,36 +140,12 @@ function startClient(
         debug: { command: serverModule, options: options, args: args },
     };
 
-    const clientOptions = common.languageClientOptions(
-        (args: any) => {
-            if (
-                vscode.workspace
-                    .getConfiguration("slint")
-                    .get<boolean>("preview.providedByEditor")
-            ) {
-                wasm_preview.showPreview(
-                    context,
-                    vscode.Uri.parse(args[0], true),
-                    args[1],
-                );
-                return true;
-            }
-            return false;
-        },
-        (_) => {
-            if (
-                vscode.workspace
-                    .getConfiguration("slint")
-                    .get<boolean>("preview.providedByEditor")
-            ) {
-                wasm_preview.toggleDesignMode();
-                return true;
-            }
-            return false;
-        },
-    );
-
+    // Add setup common between native and wasm LSP to common.setup_client_handle!
     client.add_updater((cl) => {
+        cl?.onNotification(common.serverStatus, (params: any) =>
+            common.setServerStatus(params, statusBar),
+        );
+
         cl?.onDidChangeState((event) => {
             let properly_stopped = cl.hasOwnProperty("slint_stopped");
             if (
@@ -194,7 +169,7 @@ function startClient(
         "slint-lsp",
         "Slint LSP",
         serverOptions,
-        clientOptions,
+        common.languageClientOptions(),
     );
 
     common.prepare_client(cl);
@@ -203,6 +178,11 @@ function startClient(
 }
 
 export function activate(context: vscode.ExtensionContext) {
+    // Disable native preview in Codespace.
+    //
+    // We want to have a good default (WASM preview), but we also need to
+    // support users that have special setup in place that allows them to run
+    // the native previewer remotely.
     if (process.env.hasOwnProperty("CODESPACES")) {
         vscode.workspace
             .getConfiguration("slint")
@@ -212,6 +192,7 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.ConfigurationTarget.Global,
             );
     }
+
     [statusBar, properties_provider] = common.activate(context, (cl, ctx) =>
         startClient(cl, ctx),
     );

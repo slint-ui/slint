@@ -23,6 +23,6 @@ export component PreviewUi inherits Window {
 
 pub fn create_ui() -> Result<PreviewUi, PlatformError> {
     let ui = PreviewUi::new()?;
-    ui.on_design_mode_changed(|design_mode| super::set_design_mode(design_mode));
+    ui.on_design_mode_changed(super::set_design_mode);
     Ok(ui)
 }
