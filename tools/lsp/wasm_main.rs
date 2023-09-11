@@ -14,8 +14,10 @@ use common::{PreviewApi, Result};
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
 pub use language::{Context, DocumentCache, RequestHandler};
+use lsp_types::notification::Notification;
 use serde::Serialize;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::future::Future;
 use std::io::ErrorKind;
 use std::path::PathBuf;
@@ -41,6 +43,8 @@ pub mod wasm_prelude {
         }
     }
 }
+
+use wasm_prelude::UrlWasm;
 
 struct Previewer {
     server_notifier: ServerNotifier,
@@ -206,6 +210,11 @@ extern "C" {
 
     #[wasm_bindgen(typescript_type = "HighlightInPreviewFunction")]
     pub type HighlightInPreviewFunction;
+
+    // Make console.log available:
+    #[allow(unused)]
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
 }
 
 #[wasm_bindgen]
@@ -255,6 +264,73 @@ pub fn create(
 
 #[wasm_bindgen]
 impl SlintServer {
+    #[wasm_bindgen]
+    pub async fn process_preview_to_lsp_message(
+        &self,
+        value: JsValue,
+    ) -> std::result::Result<(), JsValue> {
+        use crate::common::PreviewToLspMessage as M;
+
+        let Ok(message) = serde_wasm_bindgen::from_value::<M>(value) else {
+            return Err(JsValue::from("Failed to convert value to PreviewToLspMessage"));
+        };
+
+        match message {
+            M::Status { message, health } => self
+                .ctx
+                .server_notifier
+                .send_notification(
+                    lsp_ext::ServerStatusNotification::METHOD.into(),
+                    lsp_ext::ServerStatusParams {
+                        health,
+                        quiescent: false,
+                        message: Some(message),
+                    },
+                )
+                .map_err(|e| JsValue::from(format!("Error sending notification: {e:?}"))),
+            M::Diagnostics { diagnostics } => {
+                let mut lsp_diags: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> =
+                    Default::default();
+                for d in diagnostics {
+                    if d.source.as_ref().map_or(true, |f| PathBuf::from(f).is_relative()) {
+                        continue;
+                    }
+                    let uri = lsp_types::Url::from_file_path(d.source.as_ref().unwrap()).unwrap();
+                    lsp_diags.entry(uri).or_default().push(d);
+                }
+
+                for (uri, diagnostics) in lsp_diags {
+                    self.ctx
+                        .server_notifier
+                        .send_notification(
+                            "textDocument/publishDiagnostics".into(),
+                            lsp_types::PublishDiagnosticsParams { uri, diagnostics, version: None },
+                        )
+                        .map_err(|e| JsValue::from(format!("{e:?}")))?;
+                }
+                Ok(())
+            }
+            M::ShowDocument { file, start_line, start_column, end_line, end_column } => {
+                let Some(params) = crate::preview::show_document_request_from_element_callback(
+                    &file,
+                    start_line,
+                    start_column,
+                    end_line,
+                    end_column,
+                ) else {
+                    return Ok(());
+                };
+                self.ctx
+                    .server_notifier
+                    .send_request::<lsp_types::request::ShowDocument>(params)
+                    .map_err(|e| JsValue::from(format!("Failed to send request: {e:?}")))?
+                    .await
+                    .map_err(|e| JsValue::from(format!("Request failed: {e:?}")))?;
+                Ok(())
+            }
+        }
+    }
+
     #[wasm_bindgen]
     pub fn server_initialize_result(&self, cap: JsValue) -> JsResult<JsValue> {
         Ok(to_value(&language::server_initialize_result(&serde_wasm_bindgen::from_value(cap)?))?)

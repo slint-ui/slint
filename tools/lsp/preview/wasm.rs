@@ -42,12 +42,15 @@ impl CompilationResult {
 
 #[wasm_bindgen(typescript_custom_section)]
 const CALLBACK_FUNCTION_SECTION: &'static str = r#"
+type SignalLspFunction = (data: any) => void;
 type ImportCallbackFunction = (url: string) => Promise<string>;
 type CurrentElementInformationCallbackFunction = (url: string, start_line: number, start_column: number, end_line: number, end_column: number) => void;
 "#;
 
 #[wasm_bindgen]
 extern "C" {
+    #[wasm_bindgen(typescript_type = "SignalLspFunction")]
+    pub type SignalLspFunction;
     #[wasm_bindgen(typescript_type = "ImportCallbackFunction")]
     pub type ImportCallbackFunction;
 
@@ -57,11 +60,6 @@ extern "C" {
     pub type InstancePromise;
     #[wasm_bindgen(typescript_type = "Promise<PreviewConnector>")]
     pub type PreviewConnectorPromise;
-
-    // Make console.log available:
-    #[allow(unused)]
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
 }
 
 /// Compile the content of a string.
@@ -365,6 +363,7 @@ pub fn run_event_loop() -> Result<(), JsValue> {
 struct PreviewState {
     ui: Option<super::ui::PreviewUi>,
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
+    lsp_notifier: Option<SignalLspFunction>,
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -376,10 +375,14 @@ pub struct PreviewConnector {
 #[wasm_bindgen]
 impl PreviewConnector {
     #[wasm_bindgen]
-    pub fn create() -> Result<PreviewConnectorPromise, JsValue> {
+    pub fn create(lsp_notifier: SignalLspFunction) -> Result<PreviewConnectorPromise, JsValue> {
         console_error_panic_hook::set_once();
 
-        Ok(JsValue::from(js_sys::Promise::new(&mut |resolve, reject| {
+        PREVIEW_STATE.with(|preview_state| {
+            preview_state.borrow_mut().lsp_notifier = Some(lsp_notifier);
+        });
+
+        Ok(JsValue::from(js_sys::Promise::new(&mut move |resolve, reject| {
             let resolve = send_wrapper::SendWrapper::new(resolve);
             let reject_c = send_wrapper::SendWrapper::new(reject.clone());
             if let Err(e) = slint_interpreter::invoke_from_event_loop(move || {
@@ -392,7 +395,10 @@ impl PreviewConnector {
                             Ok(ui) => {
                                 preview_state.borrow_mut().ui = Some(ui);
                                 resolve.take().call1(&JsValue::UNDEFINED,
-                                        &JsValue::from(Self { current_previewed_component: RefCell::new(None) })).unwrap_throw()
+                                    &JsValue::from(
+                                        Self {
+                                            current_previewed_component: RefCell::new(None),
+                                        })).unwrap_throw()
                             }
                             Err(e) => reject_c.take().call1(&JsValue::UNDEFINED,
                                         &JsValue::from(format!("Failed to construct Preview UI: {e}"))).unwrap_throw(),
@@ -569,23 +575,43 @@ pub fn load_preview(component: PreviewComponent) {
     .unwrap();
 }
 
-pub fn send_status(_message: &str, _health: Health) {
-    // Do nothing for now...
+pub fn send_message_to_lsp(message: crate::common::PreviewToLspMessage) {
+    PREVIEW_STATE.with(|preview_state| {
+        if let Some(callback) = &preview_state.borrow().lsp_notifier {
+            let callback = js_sys::Function::from((*callback).clone());
+            let value = serde_wasm_bindgen::to_value(&message).unwrap();
+            let _ = callback.call1(&JsValue::UNDEFINED, &value);
+        }
+    })
+}
+pub fn send_status(message: &str, health: Health) {
+    send_message_to_lsp(crate::common::PreviewToLspMessage::Status {
+        message: message.to_string(),
+        health,
+    });
 }
 
-pub fn notify_diagnostics(_diagnostics: &[slint_interpreter::Diagnostic]) -> Option<()> {
-    // Do nothing for now...
+pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Option<()> {
+    send_message_to_lsp(crate::common::PreviewToLspMessage::Diagnostics {
+        diagnostics: diagnostics.iter().map(|d| crate::util::to_lsp_diag(d)).collect(),
+    });
     Some(())
 }
 
 pub fn ask_editor_to_show_document(
-    _file: &str,
-    _start_line: u32,
-    _start_column: u32,
-    _end_line: u32,
-    _end_column: u32,
+    file: &str,
+    start_line: u32,
+    start_column: u32,
+    end_line: u32,
+    end_column: u32,
 ) {
-    // Do nothing for now...
+    send_message_to_lsp(crate::common::PreviewToLspMessage::ShowDocument {
+        file: file.to_string(),
+        start_line,
+        start_column,
+        end_line,
+        end_column,
+    })
 }
 
 pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
