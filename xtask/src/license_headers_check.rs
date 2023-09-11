@@ -455,6 +455,7 @@ lazy_static! {
         ("\\.license$", LicenseLocation::NoLicense),
         ("\\.md$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
         ("\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.pdf$", LicenseLocation::NoLicense),
         ("\\.png$", LicenseLocation::NoLicense),
         ("\\.mo$", LicenseLocation::NoLicense),
         ("\\.po$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
