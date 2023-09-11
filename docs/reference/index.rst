@@ -37,4 +37,4 @@
 
    src/advanced/debugging_techniques.md
    src/advanced/style.md
-   src/advanced/backends.md
+   src/advanced/backends_and_renderers.md

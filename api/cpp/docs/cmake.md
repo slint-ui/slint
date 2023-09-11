@@ -116,7 +116,7 @@ any built-in backends, and instead develop your own backend by implementing Slin
 abstraction and window adapter interfaces.
 
 For more information about the available backends, their system requirements, and configuration
-options, see the [Platform Backend Documentation](slint-reference:src/advanced/backends.html).
+options, see the [Backend & Renderers Documentation](slint-reference:src/advanced/backends_and_renderers.html).
 
 #### Compile Time Backend Selection
 
