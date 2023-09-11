@@ -1,201 +1,92 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Uri, TextDocumentShowOptions } from "vscode";
+import { Uri } from "vscode";
+
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
 
 let previewPanel: vscode.WebviewPanel | null = null;
-let previewUrl: Uri | null = null;
-let previewAccessedFiles = new Set();
-let previewComponent: string = "";
-let queuedPreviewMsg: any | null = null;
-let previewBusy = false;
-let uriMapping = new Map<string, string>();
+let to_lsp_queue: object[] = [];
+
+let language_client: BaseLanguageClient | null = null;
+
+function use_wasm_preview(): boolean {
+    return vscode.workspace
+        .getConfiguration("slint")
+        .get("preview.providedByEditor", false);
+}
+
+export function update_configuration() {
+    if (language_client) {
+        send_to_lsp({
+            PreviewTypeChanged: {
+                is_external: previewPanel !== null || use_wasm_preview(),
+            },
+        });
+    }
+}
 
 /// Initialize the callback on the client to make the web preview work
-export function initClientForPreview(client: BaseLanguageClient | null) {
-    client?.onRequest("slint/preview_message", async (msg: any) => {
-        if (previewPanel) {
-            // map urls to webview URL
-            if (msg.command === "highlight") {
-                msg.data.path = previewPanel.webview
-                    .asWebviewUri(Uri.parse(msg.data.path, true))
-                    .toString();
-            }
-            previewPanel.webview.postMessage(msg);
-        }
-        return;
-    });
-}
-
-function urlConvertToWebview(webview: vscode.Webview, url: Uri): Uri {
-    let webview_uri = webview.asWebviewUri(url);
-    uriMapping.set(webview_uri.toString(), url.toString());
-    return webview_uri;
-}
-
-function reload_preview(url: Uri, content: string, component: string) {
-    if (!previewPanel) {
-        return;
-    }
-    if (component) {
-        content +=
-            "\nexport component _Preview inherits " + component + " {}\n";
-    }
-    previewAccessedFiles.clear();
-    uriMapping.clear();
-
-    let webview_uri = urlConvertToWebview(previewPanel.webview, url).toString();
-    previewAccessedFiles.add(webview_uri);
-    const style = vscode.workspace
-        .getConfiguration("slint")
-        .get<[string]>("preview.style");
-    const msg = {
-        command: "preview",
-        base_url: url.toString(),
-        webview_uri: webview_uri,
-        component: component,
-        content: content,
-        style: style,
-    };
-    if (previewBusy) {
-        queuedPreviewMsg = msg;
-    } else {
-        previewPanel.webview.postMessage(msg);
-        previewBusy = true;
-    }
-}
-
-export async function refreshPreview(event?: vscode.TextDocumentChangeEvent) {
-    if (!previewPanel || !previewUrl) {
-        return;
-    }
-    if (
-        event &&
-        !previewAccessedFiles.has(
-            urlConvertToWebview(
-                previewPanel.webview,
-                event.document.uri,
-            ).toString(),
-        )
-    ) {
-        return;
-    }
-
-    let content_str;
-    if (event && event.document.uri === previewUrl) {
-        content_str = event.document.getText();
-        if (event.document.languageId === "rust") {
-            content_str = extract_rust_macro(content_str);
-        }
-    } else {
-        content_str = await getDocumentSource(previewUrl);
-    }
-    reload_preview(previewUrl, content_str, previewComponent);
-}
-
-/// Show the preview for the given path and component
-export async function toggleDesignMode() {
-    previewPanel?.webview.postMessage({
-        command: "toggle_design_mode",
-    });
-}
-
-/// Show the preview for the given path and component
-export async function showPreview(
+export function initClientForPreview(
     context: vscode.ExtensionContext,
-    url: Uri,
-    component: string,
+    client: BaseLanguageClient | null,
 ) {
-    previewUrl = url;
-    previewComponent = component;
+    language_client = client;
 
-    if (previewPanel) {
-        previewPanel.reveal(vscode.ViewColumn.Beside);
-    } else {
-        // Create and show a new webview
-        const panel = vscode.window.createWebviewPanel(
-            "slint-preview",
-            "Slint Preview",
-            vscode.ViewColumn.Beside,
-            { enableScripts: true, retainContextWhenHidden: true },
-        );
-        initPreviewPanel(context, panel);
-    }
+    if (client) {
+        update_configuration();
 
-    let content_str = await getDocumentSource(url);
-    reload_preview(url, content_str, previewComponent);
-}
-
-async function getDocumentSource(url: Uri): Promise<string> {
-    // FIXME: is there a faster way to get the document
-    let x = vscode.workspace.textDocuments.find(
-        (d) => d.uri.toString() === url.toString(),
-    );
-    let source;
-    if (x) {
-        source = x.getText();
-        if (x.languageId === "rust") {
-            source = extract_rust_macro(source);
-        }
-    } else {
-        source = new TextDecoder().decode(
-            await vscode.workspace.fs.readFile(url),
-        );
-        if (url.path.endsWith(".rs")) {
-            source = extract_rust_macro(source);
-        }
-    }
-    return source;
-}
-
-function extract_rust_macro(source: string): string {
-    let match;
-    const re = /slint!\s*([\{\(\[])/g;
-
-    let last = 0;
-    let result = "";
-
-    while ((match = re.exec(source)) !== null) {
-        let start = match.index + match[0].length;
-        let end = source.length;
-        let level = 0;
-        let open = match[1];
-        let close;
-        switch (open) {
-            case "(":
-                close = ")";
-                break;
-            case "{":
-                close = "}";
-                break;
-            case "[":
-                close = "]";
-                break;
-        }
-        for (let i = start; i < source.length; i++) {
-            if (source.charAt(i) === open) {
-                level++;
-            } else if (source.charAt(i) === close) {
-                level--;
-                if (level < 0) {
-                    end = i;
-                    break;
+        client.onNotification("slint/lsp_to_preview", async (message: any) => {
+            if ("ShowPreview" in message) {
+                if (open_preview(context)) {
+                    return;
                 }
             }
-        }
 
-        result += source.slice(last, start).replace(/[^\n]/g, " ");
-        result += source.slice(start, end);
-        last = end;
+            previewPanel?.webview.postMessage({
+                command: "slint/lsp_to_preview",
+                params: message,
+            });
+        });
+
+        // Send messages that got queued while LS was down...
+        for (const m of to_lsp_queue) {
+            send_to_lsp(m);
+        }
+        to_lsp_queue = [];
     }
-    result += source.slice(last).replace(/[^\n]/g, " ");
-    return result;
+}
+
+function send_to_lsp(message: any): boolean {
+    if (language_client) {
+        language_client.sendNotification("slint/preview_to_lsp", message);
+    } else {
+        to_lsp_queue.push(message);
+    }
+
+    return language_client !== null;
+}
+
+function open_preview(context: vscode.ExtensionContext): boolean {
+    if (previewPanel !== null) {
+        return false;
+    }
+
+    // Create and show a new webview
+    const panel = vscode.window.createWebviewPanel(
+        "slint-preview",
+        "Slint Preview",
+        vscode.ViewColumn.Beside,
+        { enableScripts: true, retainContextWhenHidden: true },
+    );
+    previewPanel = initPreviewPanel(context, panel);
+
+    return true;
 }
 
 function getPreviewHtml(slint_wasm_preview_url: Uri): string {
-    return `<!DOCTYPE html>
+    const result = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -203,181 +94,72 @@ function getPreviewHtml(slint_wasm_preview_url: Uri): string {
     <title>Slint Preview</title>
     <script type="module">
     "use strict";
-    import * as slint from '${slint_wasm_preview_url}';
-    await slint.default();
+    import * as slint_preview from '${slint_wasm_preview_url}';
+    await slint_preview.default();
 
     const vscode = acquireVsCodeApi();
     let promises = {};
-    let current_instance = null;
-    let design_mode = false;
-
-    async function load_file(url) {
-        let promise = new Promise(resolve => {
-            promises[url] = resolve;
-        });
-        vscode.postMessage({ command: 'load_file', url: url });
-        let from_editor = await promise;
-        return from_editor || await (await fetch(url)).text();
+    try {
+        slint_preview.run_event_loop();
+    } catch (_) {
+        // This is actually not an error:-/
     }
 
-    async function element_selected(url, sl, sc, el, ec) {
-        vscode.postMessage({ command: 'element_selected',  data: { start: { line: sl, column: sc }, end: { line: el, column: ec }, url: url }});
-    }
+    let preview_connector = await slint_preview.PreviewConnector.create(
+        (data) => { vscode.postMessage({ command: "slint/preview_to_lsp", params: data }); }
+    );
 
-    async function render(source, base_url, style) {
-        let { component, error_string } =
-            style ? await slint.compile_from_string_with_style(source, base_url, style, async(url) => Promise.resolve(undefined), async(url) => await load_file(url))
-                  : await slint.compile_from_string(source, base_url, async(url) => Promise.resolve(undefined), async(url) => await load_file(url));
-        if (error_string != "") {
-            var text = document.createTextNode(error_string);
-            var p = document.createElement('pre');
-            p.appendChild(text);
-            document.getElementById("slint_error_div").innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
-        }
-        vscode.postMessage({ command: 'preview_ready' });
-        if (component !== undefined) {
-            document.getElementById("slint_error_div").innerHTML = "";
-            if (current_instance !== null) {
-                current_instance = component.create_with_existing_window(await current_instance);
-            } else {
-                try {
-                    slint.run_event_loop();
-                } catch (e) {
-                    // ignore event loop exception
-                }
-                current_instance = (async () => {
-                    let new_instance = await component.create("slint_canvas");
-                    await new_instance.show();
-                    return new_instance;
-                })();
-            }
-            if (current_instance !== null) {
-                (await current_instance).set_design_mode(design_mode);
-                (await current_instance).on_element_selected(element_selected);
-            }
-        }
-    }
+    window.addEventListener('message', async message => {
+        if (message.data.command === "slint/lsp_to_preview") {
+            preview_connector.process_lsp_to_preview_message(
+                message.data.params,
+            );
 
-    window.addEventListener('message', async event => {
-        if (event.data.command === "preview") {
-            design_mode = !!event.data.design_mode;
-            vscode.setState({base_url: event.data.base_url, component: event.data.component});
-            await render(event.data.content, event.data.webview_uri, event.data.style);
-        } else if (event.data.command === "file_loaded") {
-            let resolve = promises[event.data.url];
-            if (resolve) {
-                delete promises[event.data.url];
-                resolve(event.data.content);
-            }
-        } else if (event.data.command === "highlight") {
-            if (current_instance) {
-                (await current_instance).highlight(event.data.data.path, event.data.data.offset);
-            }
-        } else if (event.data.command === "toggle_design_mode") {
-            design_mode = !design_mode;
-            if (current_instance != null) {
-                (await current_instance).set_design_mode(design_mode);
-                (await current_instance).on_element_selected(element_selected);
-            }
+            return true;
         }
     });
 
-    vscode.postMessage({ command: 'preview_ready' });
+    preview_connector.show_ui().then(() => vscode.postMessage({ command: 'preview_ready' }));
     </script>
 </head>
 <body>
-  <div id="slint_error_div"></div>
-  <canvas style="margin-top: 10px;" id="slint_canvas"></canvas>
+  <canvas style="margin-top: 10px; width: 100%; height:100%" id="canvas"></canvas>
 </body>
 </html>`;
+
+    return result;
 }
 
 export class PreviewSerializer implements vscode.WebviewPanelSerializer {
     context: vscode.ExtensionContext;
+
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
     }
+
     async deserializeWebviewPanel(
         webviewPanel: vscode.WebviewPanel,
-        state: any,
+        _state: any,
     ) {
-        initPreviewPanel(this.context, webviewPanel);
-        if (state) {
-            previewUrl = Uri.parse(state.base_url, true);
-
-            if (previewUrl) {
-                let content_str = await getDocumentSource(previewUrl);
-                previewComponent = state.component ?? "";
-                reload_preview(previewUrl, content_str, previewComponent);
-            }
-        }
+        previewPanel = initPreviewPanel(this.context, webviewPanel);
+        //// How can we load this state? We can not query the necessary data...
     }
 }
 
 function initPreviewPanel(
     context: vscode.ExtensionContext,
     panel: vscode.WebviewPanel,
-) {
-    previewPanel = panel;
+): vscode.WebviewPanel {
     // we will get a preview_ready when the html is loaded and message are ready to be sent
-    previewBusy = true;
     panel.webview.onDidReceiveMessage(
         async (message) => {
             switch (message.command) {
-                case "load_file":
-                    let canonical = Uri.parse(message.url, true).toString();
-                    previewAccessedFiles.add(canonical);
-                    let content_str = undefined;
-                    let x = vscode.workspace.textDocuments.find(
-                        (d) =>
-                            urlConvertToWebview(
-                                panel.webview,
-                                d.uri,
-                            ).toString() === canonical,
-                    );
-                    if (x) {
-                        content_str = x.getText();
-                    }
-                    panel.webview.postMessage({
-                        command: "file_loaded",
-                        url: message.url,
-                        content: content_str,
-                    });
-                    return;
                 case "preview_ready":
-                    if (queuedPreviewMsg) {
-                        panel.webview.postMessage(queuedPreviewMsg);
-                        queuedPreviewMsg = null;
-                    } else {
-                        previewBusy = false;
-                    }
+                    send_to_lsp({ RequestState: { unused: true } });
                     return;
-                case "element_selected": {
-                    const d = message.data;
-
-                    const inside_uri = Uri.parse(d.url);
-                    const range = new vscode.Range(
-                        new vscode.Position(
-                            d.start.line - 1,
-                            d.start.column - 1,
-                        ),
-                        new vscode.Position(
-                            d.start.line - 1,
-                            d.start.column - 1,
-                        ), // Do not use range!
-                    );
-                    const outside_uri = Uri.parse(
-                        uriMapping.get(d.url) ??
-                            Uri.file(inside_uri.fsPath).toString(),
-                    );
-                    if (outside_uri.scheme !== "invalid") {
-                        vscode.window.showTextDocument(outside_uri, {
-                            selection: range,
-                            preserveFocus: false,
-                        } as TextDocumentShowOptions);
-                    }
+                case "slint/preview_to_lsp":
+                    send_to_lsp(message.params);
                     return;
-                }
             }
         },
         undefined,
@@ -393,8 +175,11 @@ function initPreviewPanel(
     panel.onDidDispose(
         () => {
             previewPanel = null;
+            update_configuration();
         },
         undefined,
         context.subscriptions,
     );
+
+    return panel;
 }

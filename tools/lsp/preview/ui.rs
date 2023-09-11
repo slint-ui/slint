@@ -11,11 +11,11 @@ export component PreviewUi inherits Window {
     callback design_mode_changed(bool);
 
     VerticalBox {
-        design_mode_toggle := Button {
-            text: "Design Mode";
-            checkable: true;
-            clicked => { root.design_mode_changed(self.checked); }
-        }
+        // Button {
+        //     text: "Design Mode";
+        //     checkable: true;
+        //     clicked => { root.design_mode_changed(self.checked); }
+        // }
         preview_area_container := ComponentContainer {}
     }
 }
@@ -23,6 +23,6 @@ export component PreviewUi inherits Window {
 
 pub fn create_ui() -> Result<PreviewUi, PlatformError> {
     let ui = PreviewUi::new()?;
-    ui.on_design_mode_changed(|design_mode| super::set_design_mode(design_mode));
+    ui.on_design_mode_changed(super::set_design_mode);
     Ok(ui)
 }
