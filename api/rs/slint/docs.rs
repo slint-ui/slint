@@ -150,8 +150,8 @@ pub mod cargo_features {
     //!
     #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
     //!
-    //! More information about the backends is available in the
-    #![doc = concat!("[Slint Documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/advanced/backends.html)")]
+    //! More information about the backend and renderers is available in the
+    #![doc = concat!("[Slint Documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/advanced/backends_and_renderers.html)")]
     use crate::*;
 }
 
