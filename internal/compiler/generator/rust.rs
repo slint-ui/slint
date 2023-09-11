@@ -673,6 +673,7 @@ fn generate_sub_component(
     let mut repeated_subtree_components: Vec<TokenStream> = vec![];
 
     for (idx, repeated) in component.repeated.iter().enumerate() {
+        let idx = idx as u32;
         extra_components.push(generate_repeated_component(
             repeated,
             root,
@@ -829,7 +830,7 @@ fn generate_sub_component(
         let sub_component_repeater_count = sub.ty.repeater_count();
         if sub_component_repeater_count > 0 {
             let repeater_offset = sub.repeater_offset;
-            let last_repeater: usize = repeater_offset + sub_component_repeater_count - 1;
+            let last_repeater = repeater_offset + sub_component_repeater_count - 1;
             repeated_visit_branch.push(quote!(
                 #repeater_offset..=#last_repeater => {
                     #sub_compo_field.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor)
@@ -848,7 +849,7 @@ fn generate_sub_component(
         }
 
         let sub_items_count = sub.ty.child_item_count();
-        let local_tree_index = local_tree_index as usize;
+        let local_tree_index = local_tree_index;
         accessible_role_branch.push(quote!(
             #local_tree_index => #sub_compo_field.apply_pin(_self).accessible_role(0),
         ));
@@ -856,7 +857,7 @@ fn generate_sub_component(
             (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(0, what),
         ));
         if sub_items_count > 1 {
-            let range_begin = local_index_of_first_child as usize;
+            let range_begin = local_index_of_first_child;
             let range_end = range_begin + sub_items_count - 2;
             accessible_role_branch.push(quote!(
                 #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).accessible_role(index - #range_begin + 1),
@@ -969,7 +970,7 @@ fn generate_sub_component(
 
             fn visit_dynamic_children(
                 self: ::core::pin::Pin<&Self>,
-                dyn_index: usize,
+                dyn_index: u32,
                 order: sp::TraversalOrder,
                 visitor: sp::ItemVisitorRefMut
             ) -> sp::VisitChildrenResult {
@@ -990,7 +991,7 @@ fn generate_sub_component(
                 }
             }
 
-            fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: usize) -> sp::IndexRange {
+            fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
                 #![allow(unused)]
                 let _self = self;
                 match dyn_index {
@@ -999,7 +1000,7 @@ fn generate_sub_component(
                 }
             }
 
-            fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: usize, subtree_index: usize, result: &mut sp::ComponentWeak) {
+            fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ComponentWeak) {
                 #![allow(unused)]
                 let _self = self;
                 match dyn_index {
@@ -1014,7 +1015,7 @@ fn generate_sub_component(
                 #subtree_index_function
             }
 
-            fn accessible_role(self: ::core::pin::Pin<&Self>, index: usize) -> sp::AccessibleRole {
+            fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
                 #![allow(unused)]
                 let _self = self;
                 match index {
@@ -1026,7 +1027,7 @@ fn generate_sub_component(
 
             fn accessible_string_property(
                 self: ::core::pin::Pin<&Self>,
-                index: usize,
+                index: u32,
                 what: sp::AccessibleStringProperty,
             ) -> sp::SharedString {
                 #![allow(unused)]
@@ -1303,7 +1304,7 @@ fn generate_item_tree(
 
     let parent_item_expression = parent_ctx.and_then(|parent| {
         parent.repeater_index.map(|idx| {
-            let sub_component_offset = parent.ctx.current_sub_component.unwrap().repeated[idx].index_in_tree;
+            let sub_component_offset = parent.ctx.current_sub_component.unwrap().repeated[idx as usize].index_in_tree;
 
             quote!(if let Some((parent_component, parent_index)) = self
                 .parent
@@ -1311,7 +1312,7 @@ fn generate_item_tree(
                 .upgrade()
                 .map(|sc| (VRcMapped::origin(&sc), sc.tree_index_of_first_child.get()))
             {
-                *_result = sp::ItemRc::new(parent_component, parent_index as usize + #sub_component_offset - 1)
+                *_result = sp::ItemRc::new(parent_component, parent_index + #sub_component_offset - 1)
                     .downgrade();
             })
         })
@@ -1336,7 +1337,7 @@ fn generate_item_tree(
                 }
             ));
         } else {
-            let item = &component.items[node.item_index];
+            let item = &component.items[node.item_index as usize];
             let flick =
                 item.is_flickable_viewport.then(|| quote!(+ sp::Flickable::FIELD_OFFSETS.viewport));
 
@@ -1414,13 +1415,13 @@ fn generate_item_tree(
             {
                 return sp::visit_item_tree(self, &VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
                 #[allow(unused)]
-                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sp::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
+                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sp::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: u32) -> VisitChildrenResult  {
                     _self.visit_dynamic_children(dyn_index, order, visitor)
                 }
             }
 
-            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: usize) -> ::core::pin::Pin<ItemRef> {
-                match &self.get_item_tree().as_slice()[index] {
+            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<ItemRef> {
+                match &self.get_item_tree().as_slice()[index as usize] {
                     ItemTreeNode::Item { item_array_index, .. } => {
                         Self::item_array()[*item_array_index as usize].apply_pin(self)
                     }
@@ -1436,13 +1437,13 @@ fn generate_item_tree(
             }
 
             fn get_subtree_range(
-                self: ::core::pin::Pin<&Self>, index: usize) -> sp::IndexRange
+                self: ::core::pin::Pin<&Self>, index: u32) -> sp::IndexRange
             {
                 self.subtree_range(index)
             }
 
             fn get_subtree_component(
-                self: ::core::pin::Pin<&Self>, index: usize, subtree_index: usize, result: &mut sp::ComponentWeak)
+                self: ::core::pin::Pin<&Self>, index: u32, subtree_index: usize, result: &mut sp::ComponentWeak)
             {
                 self.subtree_component(index, subtree_index, result);
             }
@@ -1457,7 +1458,7 @@ fn generate_item_tree(
                 #parent_item_expression
             }
 
-            fn embed_component(self: ::core::pin::Pin<&Self>, _parent_component: &sp::ComponentWeak, _item_tree_index: usize) -> bool {
+            fn embed_component(self: ::core::pin::Pin<&Self>, _parent_component: &sp::ComponentWeak, _item_tree_index: u32) -> bool {
                 #embedding_function
             }
 
@@ -1465,13 +1466,13 @@ fn generate_item_tree(
                 self.layout_info(orientation)
             }
 
-            fn accessible_role(self: ::core::pin::Pin<&Self>, index: usize) -> sp::AccessibleRole {
+            fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
                 self.accessible_role(index)
             }
 
             fn accessible_string_property(
                 self: ::core::pin::Pin<&Self>,
-                index: usize,
+                index: u32,
                 what: sp::AccessibleStringProperty,
                 result: &mut sp::SharedString,
             ) {
@@ -1650,22 +1651,22 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
     fn in_native_item(
         ctx: &EvaluationContext,
         sub_component_path: &[usize],
-        item_index: usize,
+        item_index: u32,
         prop_name: &str,
         path: TokenStream,
     ) -> TokenStream {
         let (compo_path, sub_component) =
             follow_sub_component_path(ctx.current_sub_component.unwrap(), sub_component_path);
         let component_id = inner_component_id(sub_component);
-        let item_name = ident(&sub_component.items[item_index].name);
+        let item_name = ident(&sub_component.items[item_index as usize].name);
         let item_field = access_component_field_offset(&component_id, &item_name);
         if prop_name.is_empty() {
             // then this is actually a reference to the element itself
             quote!((#compo_path #item_field).apply_pin(_self))
         } else {
             let property_name = ident(prop_name);
-            let item_ty = ident(&sub_component.items[item_index].ty.class_name);
-            let flick = sub_component.items[item_index]
+            let item_ty = ident(&sub_component.items[item_index as usize].ty.class_name);
+            let flick = sub_component.items[item_index as usize]
                 .is_flickable_viewport
                 .then(|| quote!(+ sp::Flickable::FIELD_OFFSETS.viewport));
             quote!((#compo_path #item_field #flick + #item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path))
@@ -1827,11 +1828,11 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Token
                 sub_component = &sub_component.sub_components[*i].ty;
             }
             let component_rc_tokens = quote!(VRcMapped::origin(&#component_access_tokens.self_weak.get().unwrap().upgrade().unwrap()));
-            let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
+            let item_index_in_tree = sub_component.items[*item_index as usize].index_in_tree;
             let item_index_tokens = if item_index_in_tree == 0 {
-                quote!(#component_access_tokens.tree_index.get() as usize)
+                quote!(#component_access_tokens.tree_index.get())
             } else {
-                quote!(#component_access_tokens.tree_index_of_first_child.get() as usize + #item_index_in_tree - 1)
+                quote!(#component_access_tokens.tree_index_of_first_child.get() + #item_index_in_tree - 1)
             };
 
             quote!(&ItemRc::new(#component_rc_tokens, #item_index_tokens))
@@ -2004,7 +2005,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let repeater_index = repeater_index.unwrap();
             let mut index_prop = llr::PropertyReference::Local {
                 sub_component_path: vec![],
-                property_index: ctx2.current_sub_component.unwrap().repeated[repeater_index]
+                property_index: ctx2.current_sub_component.unwrap().repeated
+                    [repeater_index as usize]
                     .index_prop
                     .unwrap(),
             };
@@ -2496,7 +2498,7 @@ fn struct_name_to_tokens(name: &str) -> TokenStream {
 fn box_layout_function(
     cells_variable: &str,
     repeated_indices: Option<&str>,
-    elements: &[Either<Expression, usize>],
+    elements: &[Either<Expression, u32>],
     orientation: Orientation,
     sub_expression: &Expression,
     ctx: &EvaluationContext,
@@ -2517,7 +2519,7 @@ fn box_layout_function(
             Either::Right(repeater) => {
                 let repeater_id = format_ident!("repeater{}", repeater);
                 let rep_inner_component_id = self::inner_component_id(
-                    &ctx.current_sub_component.unwrap().repeated[*repeater].sub_tree.root,
+                    &ctx.current_sub_component.unwrap().repeated[*repeater as usize].sub_tree.root,
                 );
                 repeated_count = quote!(#repeated_count + _self.#repeater_id.len());
                 let ri = repeated_indices.as_ref().map(|ri| {

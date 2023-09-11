@@ -166,7 +166,7 @@ pub enum Expression {
         /// The name for the local variable that contains the repeater indices
         repeater_indices: Option<String>,
         /// Either an expression of type BoxLayoutCellData, or an index to the repeater
-        elements: Vec<Either<Expression, usize>>,
+        elements: Vec<Either<Expression, u32>>,
         orientation: Orientation,
         sub_expression: Box<Expression>,
     },
@@ -415,7 +415,7 @@ pub trait TypeResolutionContext {
 pub struct ParentCtx<'a, T = ()> {
     pub ctx: &'a EvaluationContext<'a, T>,
     // Index of the repeater within the ctx.current_sub_component
-    pub repeater_index: Option<usize>,
+    pub repeater_index: Option<u32>,
 }
 
 impl<'a, T> Clone for ParentCtx<'a, T> {
@@ -426,7 +426,7 @@ impl<'a, T> Clone for ParentCtx<'a, T> {
 impl<'a, T> Copy for ParentCtx<'a, T> {}
 
 impl<'a, T> ParentCtx<'a, T> {
-    pub fn new(ctx: &'a EvaluationContext<'a, T>, repeater_index: Option<usize>) -> Self {
+    pub fn new(ctx: &'a EvaluationContext<'a, T>, repeater_index: Option<u32>) -> Self {
         Self { ctx, repeater_index }
     }
 }
@@ -504,7 +504,7 @@ impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
                 for i in sub_component_path {
                     sub_component = &sub_component.sub_components[*i].ty;
                 }
-                sub_component.items[*item_index].ty.lookup_property(prop_name).unwrap()
+                sub_component.items[*item_index as usize].ty.lookup_property(prop_name).unwrap()
             }
             PropertyReference::InParent { level, parent_reference } => {
                 let mut ctx = self;

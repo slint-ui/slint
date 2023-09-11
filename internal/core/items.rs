@@ -1482,7 +1482,7 @@ i_slint_common::for_each_builtin_structs!(declare_builtin_structs);
 #[no_mangle]
 pub unsafe extern "C" fn slint_item_absolute_position(
     self_component: &vtable::VRc<crate::component::ComponentVTable>,
-    self_index: usize,
+    self_index: u32,
 ) -> LogicalPoint {
     let self_rc = ItemRc::new(self_component.clone(), self_index);
     self_rc.map_to_window(Default::default())

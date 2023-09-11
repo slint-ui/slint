@@ -72,7 +72,7 @@ pub fn count_property_use(root: &PublicComponent) {
                     root,
                     &r.sub_tree.root,
                     (),
-                    Some(ParentCtx::new(ctx, Some(idx))),
+                    Some(ParentCtx::new(ctx, Some(idx as u32))),
                 );
                 visit_property(&lv.prop_y, &rep_ctx);
                 visit_property(&lv.prop_width, &rep_ctx);

@@ -646,7 +646,7 @@ struct BoxLayoutDataResult {
     cells: llr_Expression,
     /// When there are repeater involved, we need to do a BoxLayoutFunction with the
     /// given cell variable and elements
-    compute_cells: Option<(String, Vec<Either<llr_Expression, usize>>)>,
+    compute_cells: Option<(String, Vec<Either<llr_Expression, u32>>)>,
 }
 
 fn box_layout_data(

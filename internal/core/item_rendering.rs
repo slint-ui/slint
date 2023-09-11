@@ -75,7 +75,7 @@ impl CachedRenderingData {
 #[cfg(feature = "std")]
 pub struct ItemCache<T> {
     /// The pointer is a pointer to a component
-    map: RefCell<HashMap<*const vtable::Dyn, HashMap<usize, CachedGraphicsData<T>>>>,
+    map: RefCell<HashMap<*const vtable::Dyn, HashMap<u32, CachedGraphicsData<T>>>>,
     /// Track if the window scale factor changes; used to clear the cache if necessary.
     window_scale_factor_tracker: Pin<Box<PropertyTracker>>,
 }
@@ -189,7 +189,7 @@ pub fn render_item_children(
     index: isize,
 ) {
     let mut actual_visitor =
-        |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
+        |component: &ComponentRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
             renderer.save_state();
 
             let (do_draw, item_geometry) = renderer.filter_item(item);
@@ -252,7 +252,7 @@ pub fn item_children_bounding_rect(
     let mut bounding_rect = LogicalRect::zero();
 
     let mut actual_visitor =
-        |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
+        |component: &ComponentRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
             let item_geometry = item.as_ref().geometry();
 
             let local_clip_rect = clip_rect.translate(-item_geometry.origin.to_vector());

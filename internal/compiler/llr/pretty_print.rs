@@ -81,7 +81,11 @@ impl<'a> PrettyPrinter<'a> {
         for (idx, r) in sc.repeated.iter().enumerate() {
             self.indent()?;
             write!(self.writer, "for in {} : ", DisplayExpression(&r.model.borrow(), &ctx))?;
-            self.print_component(root, &r.sub_tree.root, Some(ParentCtx::new(&ctx, Some(idx))))?
+            self.print_component(
+                root,
+                &r.sub_tree.root,
+                Some(ParentCtx::new(&ctx, Some(idx as u32))),
+            )?
         }
         for w in &sc.popup_windows {
             self.indent()?;
@@ -123,7 +127,7 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
                     write!(f, "{}.", sc.sub_components[*i].name)?;
                     sc = &sc.sub_components[*i].ty;
                 }
-                let i = &sc.items[*item_index];
+                let i = &sc.items[*item_index as usize];
                 write!(f, "{}.{}", i.name, prop_name)
             }
             PropertyReference::InParent { level, parent_reference } => {

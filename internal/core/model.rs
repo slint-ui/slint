@@ -1163,10 +1163,10 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         mut visitor: crate::item_tree::ItemVisitorRefMut,
     ) -> crate::item_tree::VisitChildrenResult {
         // We can't keep self.inner borrowed because the event might modify the model
-        let count = self.0.inner.borrow().components.len();
+        let count = self.0.inner.borrow().components.len() as u32;
         for i in 0..count {
             let i = if order == TraversalOrder::BackToFront { i } else { count - i - 1 };
-            let c = self.0.inner.borrow().components.get(i).and_then(|c| c.1.clone());
+            let c = self.0.inner.borrow().components.get(i as usize).and_then(|c| c.1.clone());
             if let Some(c) = c {
                 if c.as_pin_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted()
                 {

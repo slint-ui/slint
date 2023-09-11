@@ -61,8 +61,8 @@ pub struct LoweringState {
 #[derive(Debug, Clone)]
 pub enum LoweredElement {
     SubComponent { sub_component_index: usize },
-    NativeItem { item_index: usize },
-    Repeated { repeated_index: usize },
+    NativeItem { item_index: u32 },
+    Repeated { repeated_index: u32 },
     ComponentPlaceholder { component_container_index: ComponentContainerIndex },
 }
 
@@ -270,7 +270,7 @@ fn lower_sub_component(
         if elem.repeated.is_some() {
             mapping.element_mapping.insert(
                 element.clone().into(),
-                LoweredElement::Repeated { repeated_index: repeated.len() },
+                LoweredElement::Repeated { repeated_index: repeated.len() as u32 },
             );
             repeated.push(element.clone());
             return None;
@@ -295,7 +295,7 @@ fn lower_sub_component(
             }
 
             ElementType::Native(n) => {
-                let item_index = sub_component.items.len();
+                let item_index = sub_component.items.len() as u32;
                 mapping
                     .element_mapping
                     .insert(element.clone().into(), LoweredElement::NativeItem { item_index });
@@ -397,7 +397,7 @@ fn lower_sub_component(
     sub_component.repeated =
         repeated.into_iter().map(|elem| lower_repeated_component(&elem, &ctx)).collect();
     for s in &mut sub_component.sub_components {
-        s.repeater_offset += sub_component.repeated.len();
+        s.repeater_offset += sub_component.repeated.len() as u32;
     }
     sub_component.component_containers = component_container_data
         .into_iter()
@@ -539,7 +539,7 @@ fn lower_component_container(
     let component_container_index: ComponentContainerIndex = (*c.item_index.get().unwrap()).into();
     let ti = component_container_index.as_item_tree_index();
     let component_container_items_index =
-        sub_component.items.iter().position(|i| i.index_in_tree == ti).unwrap();
+        sub_component.items.iter().position(|i| i.index_in_tree == ti).unwrap() as u32;
 
     ComponentContainerElement {
         component_container_item_tree_index: component_container_index,
