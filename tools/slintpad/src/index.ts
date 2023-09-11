@@ -101,7 +101,6 @@ function create_settings_menu(): Menu {
     });
 
     menu.addItem({ command: "slint:store_github_token" });
-    menu.addItem({ command: "slint:auto_compile" });
 
     return menu;
 }
@@ -150,8 +149,6 @@ function create_project_menu(editor: EditorWidget): Menu {
 
     menu.addItem({ command: "slint:open_url" });
     menu.addItem({ type: "submenu", submenu: create_demo_menu(editor) });
-    menu.addItem({ type: "separator" });
-    menu.addItem({ command: "slint:compile" });
     menu.addItem({ type: "separator" });
     menu.addItem({ command: "slint:add_file" });
     menu.addItem({ type: "submenu", submenu: create_share_menu(editor) });
@@ -412,54 +409,8 @@ class DockWidgets {
 }
 
 function setup(lsp: Lsp) {
-    commands.addCommand("slint:compile", {
-        label: "Compile",
-        iconClass: "fa fa-magic",
-        mnemonic: 1,
-        execute: () => {
-            editor.compile();
-        },
-    });
-
-    commands.addCommand("slint:auto_compile", {
-        label: "Automatically Compile on Change",
-        mnemonic: 1,
-        isToggled: () => {
-            return editor.auto_compile;
-        },
-        execute: () => {
-            editor.auto_compile = !editor.auto_compile;
-        },
-    });
-
-    commands.addKeyBinding({
-        keys: ["Accel B"],
-        selector: "body",
-        command: "slint:compile",
-    });
-
     const editor = new EditorWidget(lsp);
     const dock = new DockPanel();
-
-    // lsp.previewer.on_highlight_request = (
-    //     url: string,
-    //     start: { line: number; column: number },
-    //     _end: { line: number; column: number },
-    // ) => {
-    //     if (url === "") {
-    //         return;
-    //     }
-    //
-    //     editor.goto_position(
-    //         url,
-    //         LspRange.create(
-    //             start.line - 1,
-    //             start.column - 1,
-    //             start.line - 1, // Highlight a position, not the entire range
-    //             start.column - 1,
-    //         ),
-    //     );
-    // };
 
     const dock_widgets = new DockWidgets(
         dock,
@@ -470,7 +421,6 @@ function setup(lsp: Lsp) {
                     editor.internal_url_prefix,
                 );
 
-                commands.execute("slint:compile");
                 return preview;
             },
             {},

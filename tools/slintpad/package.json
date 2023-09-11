@@ -31,6 +31,7 @@
         "@types/vscode": "~1.82.0",
         "@typescript-eslint/eslint-plugin": "^6.7.0",
         "@typescript-eslint/parser": "^6.7.0",
+        "cross-env": "^7.0.3",
         "eslint": "^8.32.0",
         "monaco-editor": "0.41.0",
         "monaco-languageclient": "6.4.6",

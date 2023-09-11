@@ -42,17 +42,21 @@ slint_init()
                     send_request,
                     load_file,
                 );
-                const response = the_lsp.server_initialize_result(
-                    params.capabilities,
-                );
-                response.capabilities.codeLensProvider = null; // CodeLenses are not relevant for Slintpad
-                return response;
+                return the_lsp.server_initialize_result(params.capabilities);
             },
         );
 
         connection.onRequest(async (method, params, token) => {
             return await the_lsp.handle_request(token, method, params);
         });
+
+        connection.onNotification(
+            "slint/preview_to_lsp",
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            async (params: any) => {
+                await the_lsp.process_preview_to_lsp_message(params);
+            },
+        );
 
         connection.onDidChangeTextDocument(async (param) => {
             await the_lsp.reload_document(
