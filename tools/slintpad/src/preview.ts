@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import slint_init, * as slint from "@lsp/slint_lsp_wasm.js";
+import slint_init, * as slint from "@interpreter/slint_wasm_interpreter.js";
 
 (async function () {
     await slint_init();
@@ -52,7 +52,6 @@ export Demo := Window {
                 source,
                 base_url,
                 style,
-                async (_url: string) => Promise.resolve(undefined),
                 async (url: string): Promise<string> => {
                     const file_source = loaded_documents.get(url);
                     if (file_source === undefined) {

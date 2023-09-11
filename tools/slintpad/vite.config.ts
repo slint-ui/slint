@@ -29,6 +29,10 @@ export default defineConfig(() => {
         resolve: {
             alias: {
                 "@lsp": resolve(__dirname, "../lsp/pkg"),
+                "@interpreter": resolve(
+                    __dirname,
+                    "../../api/wasm-interpreter/pkg",
+                ),
                 "~@lumino": "node_modules/@lumino/", // work around strange defaults in @lumino
                 path: "path-browserify", // To make path.sep available to monaco
             },
