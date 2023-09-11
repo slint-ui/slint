@@ -6,7 +6,7 @@
 mod common;
 mod language;
 pub mod lsp_ext;
-#[cfg(feature = "preview")]
+#[cfg(feature = "preview-engine")]
 mod preview;
 pub mod util;
 
@@ -48,7 +48,32 @@ struct Previewer {
 }
 
 impl PreviewApi for Previewer {
+    fn set_use_external_previewer(&self, _use_external: bool) {
+        // The WASM LSP always needs to use the WASM preview!
+    }
+
+    fn request_state(&self, ctx: &std::rc::Rc<crate::language::Context>) {
+        #[cfg(feature = "preview-external")]
+        {
+            let documents = &ctx.document_cache.borrow().documents;
+
+            for (p, d) in documents.all_file_documents() {
+                let Some(node) = &d.node else {
+                    continue;
+                };
+                self.set_contents(p, &node.text().to_string());
+            }
+            let style = documents.compiler_config.style.clone().unwrap_or_default();
+            self.config_changed(
+                &style,
+                &documents.compiler_config.include_paths,
+                &documents.compiler_config.library_paths,
+            );
+        }
+    }
+
     fn set_contents(&self, path: &std::path::Path, contents: &str) {
+        #[cfg(feature = "preview-external")]
         let _ = self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
             crate::common::LspToPreviewMessage::SetContents {
@@ -59,6 +84,7 @@ impl PreviewApi for Previewer {
     }
 
     fn load_preview(&self, component: common::PreviewComponent) {
+        #[cfg(feature = "preview-external")]
         let _ = self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
             crate::common::LspToPreviewMessage::ShowPreview {
@@ -85,6 +111,7 @@ impl PreviewApi for Previewer {
         include_paths: &[PathBuf],
         library_paths: &HashMap<String, PathBuf>,
     ) {
+        #[cfg(feature = "preview-external")]
         let _ = self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
             crate::common::LspToPreviewMessage::SetConfiguration {
@@ -102,6 +129,7 @@ impl PreviewApi for Previewer {
     }
 
     fn highlight(&self, path: Option<std::path::PathBuf>, offset: u32) -> Result<()> {
+        #[cfg(feature = "preview-external")]
         self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
             crate::common::LspToPreviewMessage::HighlightFromEditor {
@@ -221,6 +249,11 @@ extern "C" {
 
     #[wasm_bindgen(typescript_type = "HighlightInPreviewFunction")]
     pub type HighlightInPreviewFunction;
+
+    // Make console.log available:
+    #[allow(unused)]
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
 }
 
 #[wasm_bindgen]
@@ -269,6 +302,49 @@ pub fn create(
 
 #[wasm_bindgen]
 impl SlintServer {
+    #[cfg(all(feature = "preview-engine", feature = "preview-external"))]
+    #[wasm_bindgen]
+    pub async fn process_preview_to_lsp_message(
+        &self,
+        value: JsValue,
+    ) -> std::result::Result<(), JsValue> {
+        use crate::common::PreviewToLspMessage as M;
+
+        let Ok(message) = serde_wasm_bindgen::from_value::<M>(value) else {
+            return Err(JsValue::from("Failed to convert value to PreviewToLspMessage"));
+        };
+
+        match message {
+            M::Status { message, health } => {
+                crate::preview::send_status_notification(
+                    &self.ctx.server_notifier,
+                    &message,
+                    health,
+                );
+            }
+            M::Diagnostics { diagnostics, uri } => {
+                crate::preview::notify_lsp_diagnostics(&self.ctx.server_notifier, uri, diagnostics);
+            }
+            M::ShowDocument { file, start_line, start_column, end_line, end_column } => {
+                crate::preview::ask_editor_to_show_document(
+                    &self.ctx.server_notifier,
+                    &file,
+                    start_line,
+                    start_column,
+                    end_line,
+                    end_column,
+                )
+            }
+            M::PreviewTypeChanged { is_external: _ } => {
+                // Nothing to do!
+            }
+            M::RequestState { .. } => {
+                // Nothing to do!
+            }
+        }
+        Ok(())
+    }
+
     #[wasm_bindgen]
     pub fn server_initialize_result(&self, cap: JsValue) -> JsResult<JsValue> {
         Ok(to_value(&language::server_initialize_result(&serde_wasm_bindgen::from_value(cap)?))?)
@@ -293,16 +369,6 @@ impl SlintServer {
             Ok(JsValue::UNDEFINED)
         })
     }
-
-    /*  #[wasm_bindgen]
-    pub fn show_preview(&self, params: JsValue) -> JsResult<()> {
-        language::show_preview_command(
-            &serde_wasm_bindgen::from_value(params)?,
-            &ServerNotifier,
-            &mut self.0.borrow_mut(),
-        )
-        .map_err(|e| JsError::new(&e.to_string()));
-    }*/
 
     #[wasm_bindgen]
     pub fn handle_request(&self, _id: JsValue, method: String, params: JsValue) -> js_sys::Promise {
