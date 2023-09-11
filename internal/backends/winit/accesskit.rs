@@ -152,7 +152,7 @@ impl AccessKitAdapter {
 
     fn item_rc_for_node_id(&self, id: NodeId) -> Option<ItemRc> {
         let component_id: usize = (id.0.get() >> usize::BITS) as _;
-        let index: usize = (id.0.get() & usize::MAX as u128) as _;
+        let index: u32 = (id.0.get() & u32::MAX as u128) as _;
         let component = self.components_by_id.borrow().get(&component_id)?.upgrade()?;
         Some(ItemRc::new(component, index))
     }

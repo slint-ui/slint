@@ -52,11 +52,11 @@ fn next_item_down(item: &ItemRc) -> ItemRc {
     }
 }
 
-fn element_providing_item(component: &ErasedComponentBox, index: usize) -> Option<ElementRc> {
+fn element_providing_item(component: &ErasedComponentBox, index: u32) -> Option<ElementRc> {
     generativity::make_guard!(guard);
     let c = component.unerase(guard);
 
-    c.description().original_elements.get(index).cloned()
+    c.description().original_elements.get(index as usize).cloned()
 }
 
 fn find_element_range(element: &ElementRc) -> Option<(Option<SourceFile>, TextRange)> {

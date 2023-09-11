@@ -53,17 +53,17 @@ pub struct ComponentVTable {
     /// Return a reference to an item using the given index
     pub get_item_ref: extern "C" fn(
         core::pin::Pin<VRef<ComponentVTable>>,
-        index: usize,
+        index: u32,
     ) -> core::pin::Pin<VRef<ItemVTable>>,
 
     /// Return the range of indices below the dynamic `ItemTreeNode` at `index`
     pub get_subtree_range:
-        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize) -> IndexRange,
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: u32) -> IndexRange,
 
     /// Return the `ComponentRc` at `subindex` below the dynamic `ItemTreeNode` at `index`
     pub get_subtree_component: extern "C" fn(
         core::pin::Pin<VRef<ComponentVTable>>,
-        index: usize,
+        index: u32,
         subindex: usize,
         result: &mut vtable::VWeak<ComponentVTable, Dyn>,
     ),
@@ -88,7 +88,7 @@ pub struct ComponentVTable {
     pub embed_component: extern "C" fn(
         core::pin::Pin<VRef<ComponentVTable>>,
         parent_component: &VWeak<ComponentVTable>,
-        parent_item_tree_index: usize,
+        parent_item_tree_index: u32,
     ) -> bool,
 
     /// Return the index of the current subtree or usize::MAX if this is not a subtree
@@ -100,12 +100,12 @@ pub struct ComponentVTable {
 
     /// Returns the accessible role for a given item
     pub accessible_role:
-        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, item_index: usize) -> AccessibleRole,
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, item_index: u32) -> AccessibleRole,
 
     /// Returns the accessible property
     pub accessible_string_property: extern "C" fn(
         core::pin::Pin<VRef<ComponentVTable>>,
-        item_index: usize,
+        item_index: u32,
         what: AccessibleStringProperty,
         result: &mut SharedString,
     ),
@@ -143,6 +143,7 @@ pub fn register_component(component_rc: &ComponentRc, window_adapter: Option<Win
     let c = vtable::VRc::borrow_pin(component_rc);
     let item_tree = c.as_ref().get_item_tree();
     item_tree.iter().enumerate().for_each(|(tree_index, node)| {
+        let tree_index = tree_index as u32;
         if let ItemTreeNode::Item { .. } = &node {
             let item = ItemRc::new(component_rc.clone(), tree_index);
             c.as_ref().get_item_ref(tree_index).as_ref().init(&item);

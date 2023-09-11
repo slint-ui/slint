@@ -1248,7 +1248,7 @@ pub unsafe extern "C" fn slint_textinput_select_all(
     text_input: *const TextInput,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
     self_component: &vtable::VRc<crate::component::ComponentVTable>,
-    self_index: usize,
+    self_index: u32,
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     let self_rc = ItemRc::new(self_component.clone(), self_index);
@@ -1261,7 +1261,7 @@ pub unsafe extern "C" fn slint_textinput_clear_selection(
     text_input: *const TextInput,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
     self_component: &vtable::VRc<crate::component::ComponentVTable>,
-    self_index: usize,
+    self_index: u32,
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     let self_rc = ItemRc::new(self_component.clone(), self_index);
@@ -1274,7 +1274,7 @@ pub unsafe extern "C" fn slint_textinput_cut(
     text_input: *const TextInput,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
     self_component: &vtable::VRc<crate::component::ComponentVTable>,
-    self_index: usize,
+    self_index: u32,
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     let self_rc = ItemRc::new(self_component.clone(), self_index);
@@ -1287,7 +1287,7 @@ pub unsafe extern "C" fn slint_textinput_copy(
     text_input: *const TextInput,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
     self_component: &vtable::VRc<crate::component::ComponentVTable>,
-    self_index: usize,
+    self_index: u32,
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     let self_rc = ItemRc::new(self_component.clone(), self_index);
@@ -1300,7 +1300,7 @@ pub unsafe extern "C" fn slint_textinput_paste(
     text_input: *const TextInput,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
     self_component: &vtable::VRc<crate::component::ComponentVTable>,
-    self_index: usize,
+    self_index: u32,
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     let self_rc = ItemRc::new(self_component.clone(), self_index);

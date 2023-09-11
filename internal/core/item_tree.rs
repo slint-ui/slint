@@ -15,8 +15,8 @@ use vtable::*;
 fn find_sibling_outside_repeater(
     component: &crate::component::ComponentRc,
     comp_ref_pin: Pin<VRef<ComponentVTable>>,
-    index: usize,
-    sibling_step: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
+    index: u32,
+    sibling_step: &dyn Fn(&crate::item_tree::ComponentItemTree, u32) -> Option<u32>,
     subtree_child: &dyn Fn(usize, usize) -> usize,
 ) -> Option<ItemRc> {
     assert_ne!(index, 0);
@@ -43,7 +43,7 @@ fn find_sibling_outside_repeater(
 fn step_into_node(
     component: &crate::component::ComponentRc,
     comp_ref_pin: &Pin<VRef<ComponentVTable>>,
-    node_index: usize,
+    node_index: u32,
     item_tree: &crate::item_tree::ComponentItemTree,
     subtree_child: &dyn Fn(usize, usize) -> usize,
     wrap_around: &dyn Fn(ItemRc) -> ItemRc,
@@ -76,12 +76,12 @@ fn step_into_node(
 #[derive(Clone, Debug)]
 pub struct ItemRc {
     component: vtable::VRc<ComponentVTable>,
-    index: usize,
+    index: u32,
 }
 
 impl ItemRc {
     /// Create an ItemRc from a component and an index
-    pub fn new(component: vtable::VRc<ComponentVTable>, index: usize) -> Self {
+    pub fn new(component: vtable::VRc<ComponentVTable>, index: u32) -> Self {
         Self { component, index }
     }
 
@@ -196,7 +196,7 @@ impl ItemRc {
     }
 
     /// Return the index of the item within the component
-    pub fn index(&self) -> usize {
+    pub fn index(&self) -> u32 {
         self.index
     }
     /// Returns a reference to the component holding this item
@@ -206,8 +206,8 @@ impl ItemRc {
 
     fn find_child(
         &self,
-        child_access: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
-        child_step: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
+        child_access: &dyn Fn(&crate::item_tree::ComponentItemTree, u32) -> Option<u32>,
+        child_step: &dyn Fn(&crate::item_tree::ComponentItemTree, u32) -> Option<u32>,
         subtree_child: &dyn Fn(usize, usize) -> usize,
     ) -> Option<Self> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
@@ -249,7 +249,7 @@ impl ItemRc {
 
     fn find_sibling(
         &self,
-        sibling_step: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
+        sibling_step: &dyn Fn(&crate::item_tree::ComponentItemTree, u32) -> Option<u32>,
         subtree_step: &dyn Fn(usize) -> usize,
         subtree_child: &dyn Fn(usize, usize) -> usize,
     ) -> Option<Self> {
@@ -328,11 +328,11 @@ impl ItemRc {
 
     fn move_focus(
         &self,
-        focus_step: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
+        focus_step: &dyn Fn(&crate::item_tree::ComponentItemTree, u32) -> Option<u32>,
         subtree_step: &dyn Fn(ItemRc) -> Option<ItemRc>,
         subtree_child: &dyn Fn(usize, usize) -> usize,
         step_in: &dyn Fn(ItemRc) -> ItemRc,
-        step_out: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
+        step_out: &dyn Fn(&crate::item_tree::ComponentItemTree, u32) -> Option<u32>,
     ) -> Self {
         let mut component = self.component().clone();
         let mut comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
@@ -461,7 +461,7 @@ impl Eq for ItemRc {}
 #[repr(C)]
 pub struct ItemWeak {
     component: crate::component::ComponentWeak,
-    index: usize,
+    index: u32,
 }
 
 impl ItemWeak {
@@ -501,8 +501,7 @@ impl VisitChildrenResult {
     pub const CONTINUE: Self = Self(u64::MAX);
 
     /// Returns a result that means that the visitor must stop, and convey the item that caused the abort
-    pub fn abort(item_index: usize, index_within_repeater: usize) -> Self {
-        assert!(item_index < u32::MAX as usize);
+    pub fn abort(item_index: u32, index_within_repeater: usize) -> Self {
         assert!(index_within_repeater < u32::MAX as usize);
         Self(item_index as u64 | (index_within_repeater as u64) << 32)
     }
@@ -561,7 +560,7 @@ pub enum ItemTreeNode {
     /// are instantiated according to a model.
     DynamicTree {
         /// the index which is passed in the visit_dynamic callback.
-        index: usize,
+        index: u32,
 
         /// The index of the parent item (not valid for the root)
         parent_index: u32,
@@ -569,10 +568,10 @@ pub enum ItemTreeNode {
 }
 
 impl ItemTreeNode {
-    pub fn parent_index(&self) -> usize {
+    pub fn parent_index(&self) -> u32 {
         match self {
-            ItemTreeNode::Item { parent_index, .. } => *parent_index as usize,
-            ItemTreeNode::DynamicTree { parent_index, .. } => *parent_index as usize,
+            ItemTreeNode::Item { parent_index, .. } => *parent_index,
+            ItemTreeNode::DynamicTree { parent_index, .. } => *parent_index,
         }
     }
 }
@@ -590,22 +589,23 @@ impl<'a> ComponentItemTree<'a> {
     }
 
     /// Get a ItemTreeNode
-    pub fn get(&self, index: usize) -> Option<&ItemTreeNode> {
-        self.item_tree.get(index)
+    pub fn get(&self, index: u32) -> Option<&ItemTreeNode> {
+        self.item_tree.get(index as usize)
     }
 
     /// Get the parent of a node, returns `None` if this is the root node of this item tree.
-    pub fn parent(&self, index: usize) -> Option<usize> {
+    pub fn parent(&self, index: u32) -> Option<u32> {
+        let index = index as usize;
         (index < self.item_tree.len() && index != 0).then(|| self.item_tree[index].parent_index())
     }
 
     /// Returns the next sibling or `None` if this is the last sibling.
-    pub fn next_sibling(&self, index: usize) -> Option<usize> {
+    pub fn next_sibling(&self, index: u32) -> Option<u32> {
         if let Some(parent_index) = self.parent(index) {
-            match self.item_tree[parent_index] {
-                ItemTreeNode::Item { children_index, children_count, .. } => (index
-                    < (children_count as usize + children_index as usize - 1))
-                    .then_some(index + 1),
+            match self.item_tree[parent_index as usize] {
+                ItemTreeNode::Item { children_index, children_count, .. } => {
+                    (index < (children_count + children_index - 1)).then_some(index + 1)
+                }
                 ItemTreeNode::DynamicTree { .. } => {
                     unreachable!("Parent in same item tree is a repeater.")
                 }
@@ -616,11 +616,11 @@ impl<'a> ComponentItemTree<'a> {
     }
 
     /// Returns the previous sibling or `None` if this is the first sibling.
-    pub fn previous_sibling(&self, index: usize) -> Option<usize> {
+    pub fn previous_sibling(&self, index: u32) -> Option<u32> {
         if let Some(parent_index) = self.parent(index) {
-            match self.item_tree[parent_index] {
+            match self.item_tree[parent_index as usize] {
                 ItemTreeNode::Item { children_index, .. } => {
-                    (index > children_index as usize).then_some(index - 1)
+                    (index > children_index).then_some(index - 1)
                 }
                 ItemTreeNode::DynamicTree { .. } => {
                     unreachable!("Parent in same item tree is a repeater.")
@@ -633,8 +633,8 @@ impl<'a> ComponentItemTree<'a> {
 
     /// Returns the first child or `None` if this are no children or the `index`
     /// points to a `DynamicTree`.
-    pub fn first_child(&self, index: usize) -> Option<usize> {
-        match self.item_tree.get(index)? {
+    pub fn first_child(&self, index: u32) -> Option<u32> {
+        match self.item_tree.get(index as usize)? {
             ItemTreeNode::Item { children_index, children_count, .. } => {
                 (*children_count != 0).then_some(*children_index as _)
             }
@@ -644,11 +644,11 @@ impl<'a> ComponentItemTree<'a> {
 
     /// Returns the last child or `None` if this are no children or the `index`
     /// points to an `DynamicTree`.
-    pub fn last_child(&self, index: usize) -> Option<usize> {
-        match self.item_tree.get(index)? {
+    pub fn last_child(&self, index: u32) -> Option<u32> {
+        match self.item_tree.get(index as usize)? {
             ItemTreeNode::Item { children_index, children_count, .. } => {
                 if *children_count != 0 {
-                    Some(*children_index as usize + *children_count as usize - 1)
+                    Some(*children_index + *children_count - 1)
                 } else {
                     None
                 }
@@ -682,7 +682,7 @@ pub struct ItemVisitorVTable {
     visit_item: fn(
         VRefMut<ItemVisitorVTable>,
         component: &VRc<ComponentVTable, vtable::Dyn>,
-        index: usize,
+        index: u32,
         item: Pin<VRef<ItemVTable>>,
     ) -> VisitChildrenResult,
     /// Destructor
@@ -692,11 +692,11 @@ pub struct ItemVisitorVTable {
 /// Type alias to `vtable::VRefMut<ItemVisitorVTable>`
 pub type ItemVisitorRefMut<'a> = vtable::VRefMut<'a, ItemVisitorVTable>;
 
-impl<T: FnMut(&ComponentRc, usize, Pin<ItemRef>) -> VisitChildrenResult> ItemVisitor for T {
+impl<T: FnMut(&ComponentRc, u32, Pin<ItemRef>) -> VisitChildrenResult> ItemVisitor for T {
     fn visit_item(
         &mut self,
         component: &ComponentRc,
-        index: usize,
+        index: u32,
         item: Pin<ItemRef>,
     ) -> VisitChildrenResult {
         self(component, index, item)
@@ -715,7 +715,7 @@ pub enum ItemVisitorResult<State> {
 pub fn visit_items<State>(
     component: &ComponentRc,
     order: TraversalOrder,
-    mut visitor: impl FnMut(&ComponentRc, Pin<ItemRef>, usize, &State) -> ItemVisitorResult<State>,
+    mut visitor: impl FnMut(&ComponentRc, Pin<ItemRef>, u32, &State) -> ItemVisitorResult<State>,
     state: State,
 ) -> VisitChildrenResult {
     visit_internal(component, order, &mut visitor, -1, &state)
@@ -724,12 +724,12 @@ pub fn visit_items<State>(
 fn visit_internal<State>(
     component: &ComponentRc,
     order: TraversalOrder,
-    visitor: &mut impl FnMut(&ComponentRc, Pin<ItemRef>, usize, &State) -> ItemVisitorResult<State>,
+    visitor: &mut impl FnMut(&ComponentRc, Pin<ItemRef>, u32, &State) -> ItemVisitorResult<State>,
     index: isize,
     state: &State,
 ) -> VisitChildrenResult {
     let mut actual_visitor =
-        |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
+        |component: &ComponentRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
             match visitor(component, item, index, state) {
                 ItemVisitorResult::Continue(state) => {
                     visit_internal(component, order, visitor, index as isize, &state)
@@ -761,11 +761,11 @@ pub fn visit_item_tree<Base>(
         Pin<&Base>,
         TraversalOrder,
         vtable::VRefMut<ItemVisitorVTable>,
-        usize,
+        u32,
     ) -> VisitChildrenResult,
 ) -> VisitChildrenResult {
-    let mut visit_at_index = |idx: usize| -> VisitChildrenResult {
-        match &item_tree[idx] {
+    let mut visit_at_index = |idx: u32| -> VisitChildrenResult {
+        match &item_tree[idx as usize] {
             ItemTreeNode::Item { .. } => {
                 let item = crate::items::ItemRc::new(component.clone(), idx);
                 visitor.visit_item(component, idx, item.borrow())
@@ -790,7 +790,7 @@ pub fn visit_item_tree<Base>(
                     let idx = match order {
                         TraversalOrder::BackToFront => *children_index + c,
                         TraversalOrder::FrontToBack => *children_index + *children_count - c - 1,
-                    } as usize;
+                    };
                     let maybe_abort_index = visit_at_index(idx);
                     if maybe_abort_index.has_aborted() {
                         return maybe_abort_index;
@@ -824,7 +824,7 @@ pub(crate) mod ffi {
             base: &u8,
             order: TraversalOrder,
             visitor: vtable::VRefMut<ItemVisitorVTable>,
-            dyn_index: usize,
+            dyn_index: u32,
         ) -> VisitChildrenResult,
     ) -> VisitChildrenResult {
         crate::item_tree::visit_item_tree(
@@ -874,7 +874,7 @@ mod tests {
 
         fn get_item_ref(
             self: core::pin::Pin<&Self>,
-            _1: usize,
+            _1: u32,
         ) -> core::pin::Pin<vtable::VRef<super::ItemVTable>> {
             unimplemented!("Not needed for this test")
         }
@@ -893,7 +893,7 @@ mod tests {
         fn embed_component(
             self: core::pin::Pin<&Self>,
             _parent_component: &ComponentWeak,
-            _item_tree_index: usize,
+            _item_tree_index: u32,
         ) -> bool {
             false
         }
@@ -906,28 +906,28 @@ mod tests {
             self.subtree_index
         }
 
-        fn get_subtree_range(self: core::pin::Pin<&Self>, subtree_index: usize) -> IndexRange {
-            (0..self.subtrees.borrow()[subtree_index].len()).into()
+        fn get_subtree_range(self: core::pin::Pin<&Self>, subtree_index: u32) -> IndexRange {
+            (0..self.subtrees.borrow()[subtree_index as usize].len()).into()
         }
 
         fn get_subtree_component(
             self: core::pin::Pin<&Self>,
-            subtree_index: usize,
+            subtree_index: u32,
             component_index: usize,
             result: &mut ComponentWeak,
         ) {
             *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(
-                self.subtrees.borrow()[subtree_index][component_index].clone(),
+                self.subtrees.borrow()[subtree_index as usize][component_index].clone(),
             ))
         }
 
-        fn accessible_role(self: Pin<&Self>, _: usize) -> AccessibleRole {
+        fn accessible_role(self: Pin<&Self>, _: u32) -> AccessibleRole {
             unimplemented!("Not needed for this test")
         }
 
         fn accessible_string_property(
             self: Pin<&Self>,
-            _: usize,
+            _: u32,
             _: AccessibleStringProperty,
             _: &mut SharedString,
         ) {

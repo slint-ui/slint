@@ -42,7 +42,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Strin
                 component_access += &sub_compo_path;
             }
             let component_rc = format!("{component_access}self_weak.lock()->into_dyn()");
-            let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
+            let item_index_in_tree = sub_component.items[*item_index as usize].index_in_tree;
             let item_index = if item_index_in_tree == 0 {
                 format!("{component_access}tree_index")
             } else {
@@ -1095,7 +1095,7 @@ fn generate_item_tree(
                 sub_component = &sub_component.sub_components[*i].ty;
             }
 
-            let item = &sub_component.items[node.item_index];
+            let item = &sub_component.items[node.item_index as usize];
 
             if item.is_flickable_viewport {
                 compo_offset += "offsetof(slint::cbindgen_private::Flickable, viewport) + ";
@@ -1120,7 +1120,7 @@ fn generate_item_tree(
     });
 
     let mut visit_children_statements = vec![
-        "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uintptr_t dyn_index) -> uint64_t {".to_owned(),
+        "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uint32_t dyn_index) -> uint64_t {".to_owned(),
         format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", item_tree_class_name)];
     let mut subtree_range_statement = vec!["    std::abort();".into()];
     let mut subtree_component_statement = vec!["    std::abort();".into()];
@@ -1163,7 +1163,7 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "get_item_ref".into(),
-            signature: "(slint::private_api::ComponentRef component, uintptr_t index) -> slint::private_api::ItemRef".into(),
+            signature: "(slint::private_api::ComponentRef component, uint32_t index) -> slint::private_api::ItemRef".into(),
             is_static: true,
             statements: Some(vec![
                 "return slint::private_api::get_item_ref(component, get_item_tree(component), item_array(), index);".to_owned(),
@@ -1176,7 +1176,7 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "get_subtree_range".into(),
-            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] uintptr_t dyn_index) -> slint::private_api::IndexRange".into(),
+            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] uint32_t dyn_index) -> slint::private_api::IndexRange".into(),
             is_static: true,
             statements: Some(subtree_range_statement),
             ..Default::default()
@@ -1187,7 +1187,7 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "get_subtree_component".into(),
-            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] uintptr_t dyn_index, [[maybe_unused]] uintptr_t subtree_index, [[maybe_unused]] slint::private_api::ComponentWeak *result) -> void".into(),
+            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] uint32_t dyn_index, [[maybe_unused]] uintptr_t subtree_index, [[maybe_unused]] slint::private_api::ComponentWeak *result) -> void".into(),
             is_static: true,
             statements: Some(subtree_component_statement),
             ..Default::default()
@@ -1211,7 +1211,7 @@ fn generate_item_tree(
         .and_then(|parent| {
             parent
                 .repeater_index
-                .map(|idx| parent.ctx.current_sub_component.unwrap().repeated[idx].index_in_tree)
+                .map(|idx| parent.ctx.current_sub_component.unwrap().repeated[idx as usize].index_in_tree)
         }).map(|parent_index|
             vec![
                 format!(
@@ -1239,7 +1239,7 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "embed_component".into(),
-            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] const slint::private_api::ComponentWeak *parent_component, [[maybe_unused]] const uintptr_t parent_index) -> bool".into(),
+            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] const slint::private_api::ComponentWeak *parent_component, [[maybe_unused]] const uint32_t parent_index) -> bool".into(),
             is_static: true,
             statements: Some(vec!["return false; /* todo! */".into()]),
             ..Default::default()
@@ -1312,7 +1312,7 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "accessible_role".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ComponentRef component, uintptr_t index) -> slint::cbindgen_private::AccessibleRole"
+                "([[maybe_unused]] slint::private_api::ComponentRef component, uint32_t index) -> slint::cbindgen_private::AccessibleRole"
                     .into(),
             is_static: true,
             statements: Some(vec![format!(
@@ -1328,7 +1328,7 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "accessible_string_property".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ComponentRef component, uintptr_t index, slint::cbindgen_private::AccessibleStringProperty what, slint::SharedString *result) -> void"
+                "([[maybe_unused]] slint::private_api::ComponentRef component, uint32_t index, slint::cbindgen_private::AccessibleStringProperty what, slint::SharedString *result) -> void"
                     .into(),
             is_static: true,
             statements: Some(vec![format!(
@@ -1464,8 +1464,8 @@ fn generate_sub_component(
     let mut init_parameters = vec![
         format!("{} root", root_ptr_type),
         "slint::cbindgen_private::ComponentWeak enclosing_component".into(),
-        "uintptr_t tree_index".into(),
-        "uintptr_t tree_index_of_first_child".into(),
+        "uint32_t tree_index".into(),
+        "uint32_t tree_index_of_first_child".into(),
     ];
 
     let mut init: Vec<String> =
@@ -1489,7 +1489,7 @@ fn generate_sub_component(
     target_struct.members.push((
         field_access,
         Declaration::Var(Var {
-            ty: "uintptr_t".to_owned(),
+            ty: "uint32_t".to_owned(),
             name: "tree_index_of_first_child".to_owned(),
             ..Default::default()
         }),
@@ -1499,7 +1499,7 @@ fn generate_sub_component(
     target_struct.members.push((
         field_access,
         Declaration::Var(Var {
-            ty: "uintptr_t".to_owned(),
+            ty: "uint32_t".to_owned(),
             name: "tree_index".to_owned(),
             ..Default::default()
         }),
@@ -1672,6 +1672,7 @@ fn generate_sub_component(
     }
 
     for (idx, repeated) in component.repeated.iter().enumerate() {
+        let idx = idx as u32;
         let data_type = if let Some(data_prop) = repeated.data_prop {
             repeated.sub_tree.root.properties[data_prop].ty.clone()
         } else {
@@ -1866,13 +1867,13 @@ fn generate_sub_component(
 
     accessible_function(
         "accessible_role",
-        "(uintptr_t index) const -> slint::cbindgen_private::AccessibleRole",
+        "(uint32_t index) const -> slint::cbindgen_private::AccessibleRole",
         "",
         accessible_role_cases,
     );
     accessible_function(
         "accessible_string_property",
-        "(uintptr_t index, slint::cbindgen_private::AccessibleStringProperty what) const -> slint::SharedString",
+        "(uint32_t index, slint::cbindgen_private::AccessibleStringProperty what) const -> slint::SharedString",
         ", what",
         accessible_string_cases,
     );
@@ -1882,7 +1883,7 @@ fn generate_sub_component(
             field_access,
             Declaration::Function(Function {
                 name: "visit_dynamic_children".into(),
-                signature: "(uintptr_t dyn_index, [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor) const -> uint64_t".into(),
+                signature: "(uint32_t dyn_index, [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor) const -> uint64_t".into(),
                 statements: Some(vec![
                     "    auto self = this;".to_owned(),
                     format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
@@ -2360,19 +2361,19 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
     fn in_native_item(
         ctx: &EvaluationContext,
         sub_component_path: &[usize],
-        item_index: usize,
+        item_index: u32,
         prop_name: &str,
         path: &str,
     ) -> String {
         let (compo_path, sub_component) =
             follow_sub_component_path(ctx.current_sub_component.unwrap(), sub_component_path);
-        let item_name = ident(&sub_component.items[item_index].name);
+        let item_name = ident(&sub_component.items[item_index as usize].name);
         if prop_name.is_empty() {
             // then this is actually a reference to the element itself
             format!("{}->{}{}", path, compo_path, item_name)
         } else {
             let property_name = ident(prop_name);
-            let flick = sub_component.items[item_index]
+            let flick = sub_component.items[item_index as usize]
                 .is_flickable_viewport
                 .then_some("viewport.")
                 .unwrap_or_default();
@@ -2475,7 +2476,7 @@ fn native_item<'a>(
             for i in sub_component_path {
                 sub_component = &sub_component.sub_components[*i].ty;
             }
-            &sub_component.items[*item_index].ty
+            &sub_component.items[*item_index as usize].ty
         }
         llr::PropertyReference::InParent { level, parent_reference } => {
             let mut ctx = ctx;
@@ -2674,7 +2675,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let repeater_index = repeater_index.unwrap();
             let mut index_prop = llr::PropertyReference::Local {
                 sub_component_path: vec![],
-                property_index: ctx2.current_sub_component.unwrap().repeated[repeater_index]
+                property_index: ctx2.current_sub_component.unwrap().repeated[repeater_index as usize]
                     .index_prop
                     .unwrap(),
             };
@@ -3136,7 +3137,7 @@ fn compile_builtin_function_call(
 fn box_layout_function(
     cells_variable: &str,
     repeated_indices: Option<&str>,
-    elements: &[Either<llr::Expression, usize>],
+    elements: &[Either<llr::Expression, u32>],
     orientation: Orientation,
     sub_expression: &llr::Expression,
     ctx: &llr_EvaluationContext<CppGeneratorContext>,

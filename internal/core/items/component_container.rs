@@ -60,7 +60,7 @@ pub struct ComponentContainer {
     component: RefCell<Option<ComponentRc>>,
 
     my_component: OnceCell<ComponentWeak>,
-    embedding_item_tree_index: OnceCell<usize>,
+    embedding_item_tree_index: OnceCell<u32>,
 }
 
 impl ComponentContainer {
@@ -158,12 +158,12 @@ impl Item for ComponentContainer {
         let pin_rc = vtable::VRc::borrow_pin(rc);
         let item_tree = pin_rc.as_ref().get_item_tree();
         let ItemTreeNode::Item { children_index: child_item_tree_index, .. } =
-            item_tree[self_rc.index()]
+            item_tree[self_rc.index() as usize]
         else {
             panic!("Internal compiler error: ComponentContainer had no child.");
         };
 
-        self.embedding_item_tree_index.set(child_item_tree_index as usize).ok().unwrap();
+        self.embedding_item_tree_index.set(child_item_tree_index).ok().unwrap();
 
         self.component_tracker.set(Box::pin(PropertyTracker::default())).ok().unwrap();
     }

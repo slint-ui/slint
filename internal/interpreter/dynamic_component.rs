@@ -87,7 +87,7 @@ impl ItemWithinComponent {
         ))
     }
 
-    pub(crate) fn item_index(&self) -> usize {
+    pub(crate) fn item_index(&self) -> u32 {
         *self.elem.borrow().item_index.get().unwrap()
     }
 }
@@ -175,20 +175,20 @@ impl Component for ErasedComponentBox {
         get_item_tree(self.get_ref().borrow())
     }
 
-    fn get_item_ref(self: Pin<&Self>, index: usize) -> Pin<ItemRef> {
+    fn get_item_ref(self: Pin<&Self>, index: u32) -> Pin<ItemRef> {
         // We're having difficulties transferring the lifetime to a pinned reference
         // to the other ComponentVTable with the same life time. So skip the vtable
         // indirection and call our implementation directly.
         unsafe { get_item_ref(self.get_ref().borrow(), index) }
     }
 
-    fn get_subtree_range(self: Pin<&Self>, index: usize) -> IndexRange {
+    fn get_subtree_range(self: Pin<&Self>, index: u32) -> IndexRange {
         self.borrow().as_ref().get_subtree_range(index)
     }
 
     fn get_subtree_component(
         self: Pin<&Self>,
-        index: usize,
+        index: u32,
         subindex: usize,
         result: &mut ComponentWeak,
     ) {
@@ -202,7 +202,7 @@ impl Component for ErasedComponentBox {
     fn embed_component(
         self: core::pin::Pin<&Self>,
         parent_component: &ComponentWeak,
-        item_tree_index: usize,
+        item_tree_index: u32,
     ) -> bool {
         self.borrow().as_ref().embed_component(parent_component, item_tree_index)
     }
@@ -211,13 +211,13 @@ impl Component for ErasedComponentBox {
         self.borrow().as_ref().subtree_index()
     }
 
-    fn accessible_role(self: Pin<&Self>, index: usize) -> AccessibleRole {
+    fn accessible_role(self: Pin<&Self>, index: u32) -> AccessibleRole {
         self.borrow().as_ref().accessible_role(index)
     }
 
     fn accessible_string_property(
         self: Pin<&Self>,
-        index: usize,
+        index: u32,
         what: AccessibleStringProperty,
         result: &mut SharedString,
     ) {
@@ -254,7 +254,7 @@ pub type DynamicComponentVRc = vtable::VRc<ComponentVTable, ErasedComponentBox>;
 pub(crate) struct ComponentExtraData {
     pub(crate) globals: OnceCell<crate::global_component::GlobalStorage>,
     pub(crate) self_weak: OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>,
-    pub(crate) embedding_position: OnceCell<(ComponentWeak, usize)>,
+    pub(crate) embedding_position: OnceCell<(ComponentWeak, u32)>,
     // resource id -> file path
     pub(crate) embedded_file_resources: OnceCell<HashMap<usize, String>>,
     #[cfg(target_arch = "wasm32")]
@@ -664,7 +664,7 @@ extern "C" fn visit_children_item(
                 // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
                 // Safety: we do not mix the component with other component id in this function
                 let rep_in_comp =
-                    unsafe { instance_ref.component_type.repeater[index].get_untagged() };
+                    unsafe { instance_ref.component_type.repeater[index as usize].get_untagged() };
                 ensure_repeater_updated(instance_ref, rep_in_comp);
                 let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
                 repeater.visit(order, visitor)
@@ -859,8 +859,7 @@ pub(crate) fn generate_component<'id>(
             parent_index: u32,
             _component_state: &Self::SubComponentState,
         ) {
-            self.tree_array
-                .push(ItemTreeNode::DynamicTree { index: repeater_count as usize, parent_index });
+            self.tree_array.push(ItemTreeNode::DynamicTree { index: repeater_count, parent_index });
             self.original_elements.push(item_rc.clone());
             let item = item_rc.borrow();
             let base_component = item.base_type.as_component();
@@ -882,7 +881,7 @@ pub(crate) fn generate_component<'id>(
             parent_index: u32,
             _component_state: &Self::SubComponentState,
         ) {
-            let component_index = ComponentContainerIndex::from(parent_index as usize);
+            let component_index = ComponentContainerIndex::from(parent_index);
             self.tree_array.push(ItemTreeNode::DynamicTree {
                 index: component_index.as_repeater_index(),
                 parent_index,
@@ -1612,9 +1611,9 @@ extern "C" fn layout_info(component: ComponentRefPin, orientation: Orientation) 
     result
 }
 
-unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: usize) -> Pin<ItemRef> {
+unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: u32) -> Pin<ItemRef> {
     let tree = get_item_tree(component);
-    match &tree[index] {
+    match &tree[index as usize] {
         ItemTreeNode::Item { item_array_index, .. } => {
             generativity::make_guard!(guard);
             let instance_ref = InstanceRef::from_pin_ref(component, guard);
@@ -1627,7 +1626,7 @@ unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: usize) -> P
     }
 }
 
-extern "C" fn get_subtree_range(component: ComponentRefPin, index: usize) -> IndexRange {
+extern "C" fn get_subtree_range(component: ComponentRefPin, index: u32) -> IndexRange {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     if let Some(container_index) = ComponentContainerIndex::try_from_repeater_index(index) {
@@ -1639,7 +1638,8 @@ extern "C" fn get_subtree_range(component: ComponentRefPin, index: usize) -> Ind
         container.ensure_updated();
         container.subtree_range()
     } else {
-        let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
+        let rep_in_comp =
+            unsafe { instance_ref.component_type.repeater[index as usize].get_untagged() };
         ensure_repeater_updated(instance_ref, rep_in_comp);
 
         let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
@@ -1649,7 +1649,7 @@ extern "C" fn get_subtree_range(component: ComponentRefPin, index: usize) -> Ind
 
 extern "C" fn get_subtree_component(
     component: ComponentRefPin,
-    index: usize,
+    index: u32,
     subtree_index: usize,
     result: &mut ComponentWeak,
 ) {
@@ -1664,7 +1664,8 @@ extern "C" fn get_subtree_component(
         container.ensure_updated();
         *result = container.subtree_component();
     } else {
-        let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
+        let rep_in_comp =
+            unsafe { instance_ref.component_type.repeater[index as usize].get_untagged() };
         ensure_repeater_updated(instance_ref, rep_in_comp);
 
         let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
@@ -1704,7 +1705,7 @@ unsafe extern "C" fn parent_node(component: ComponentRefPin, result: &mut ItemWe
                 .parent_element
                 .upgrade()
                 .and_then(|e| e.borrow().item_index.get().cloned())
-                .unwrap_or(usize::MAX);
+                .unwrap_or(u32::MAX);
             let parent_component = parent_offset.apply(instance_ref.as_ref()).get().map(|prp| {
                 generativity::make_guard!(new_guard);
                 let instance = InstanceRef::from_pin_ref(*prp, new_guard);
@@ -1720,7 +1721,7 @@ unsafe extern "C" fn parent_node(component: ComponentRefPin, result: &mut ItemWe
         {
             (parent_component.upgrade(), *parent_index)
         } else {
-            (None, usize::MAX)
+            (None, u32::MAX)
         }
     };
 
@@ -1732,7 +1733,7 @@ unsafe extern "C" fn parent_node(component: ComponentRefPin, result: &mut ItemWe
 unsafe extern "C" fn embed_component(
     component: ComponentRefPin,
     parent_component: &ComponentWeak,
-    parent_item_tree_index: usize,
+    parent_item_tree_index: u32,
 ) -> bool {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
@@ -1747,7 +1748,10 @@ unsafe extern "C" fn embed_component(
         let prc = parent_component.upgrade().unwrap();
         let pref = vtable::VRc::borrow_pin(&prc);
         let it = pref.as_ref().get_item_tree();
-        if !matches!(it.get(parent_item_tree_index), Some(ItemTreeNode::DynamicTree { .. })) {
+        if !matches!(
+            it.get(parent_item_tree_index as usize),
+            Some(ItemTreeNode::DynamicTree { .. })
+        ) {
             panic!("Trying to embed into a non-dynamic index in the parents item tree")
         }
     }
@@ -1756,10 +1760,10 @@ unsafe extern "C" fn embed_component(
     extra_data.embedding_position.set((parent_component.clone(), parent_item_tree_index)).is_ok()
 }
 
-extern "C" fn accessible_role(component: ComponentRefPin, item_index: usize) -> AccessibleRole {
+extern "C" fn accessible_role(component: ComponentRefPin, item_index: u32) -> AccessibleRole {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    let nr = instance_ref.component_type.original_elements[item_index]
+    let nr = instance_ref.component_type.original_elements[item_index as usize]
         .borrow()
         .accessibility_props
         .0
@@ -1776,14 +1780,14 @@ extern "C" fn accessible_role(component: ComponentRefPin, item_index: usize) -> 
 
 extern "C" fn accessible_string_property(
     component: ComponentRefPin,
-    item_index: usize,
+    item_index: u32,
     what: AccessibleStringProperty,
     result: &mut SharedString,
 ) {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let prop_name = format!("accessible-{}", what);
-    let nr = instance_ref.component_type.original_elements[item_index]
+    let nr = instance_ref.component_type.original_elements[item_index as usize]
         .borrow()
         .accessibility_props
         .0

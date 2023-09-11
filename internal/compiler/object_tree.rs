@@ -603,9 +603,9 @@ pub struct Element {
 
     /// This is the component-local index of this item in the item tree array.
     /// It is generated after the last pass and before the generators run.
-    pub item_index: once_cell::unsync::OnceCell<usize>,
+    pub item_index: once_cell::unsync::OnceCell<u32>,
     /// the index of the first children in the tree, set with item_index
-    pub item_index_of_first_children: once_cell::unsync::OnceCell<usize>,
+    pub item_index_of_first_children: once_cell::unsync::OnceCell<u32>,
 
     /// True when this element is in a component was declared with the `:=` symbol instead of the `component` keyword
     pub is_legacy_syntax: bool,

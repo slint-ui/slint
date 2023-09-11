@@ -704,7 +704,7 @@ pub(crate) fn process_delayed_event(
     };
 
     let mut actual_visitor =
-        |component: &ComponentRc, index: usize, _: Pin<ItemRef>| -> VisitChildrenResult {
+        |component: &ComponentRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
             send_mouse_event_to_item(
                 event,
                 ItemRc::new(component.clone(), index),
@@ -780,7 +780,7 @@ fn send_mouse_event_to_item(
     result.item_stack.push((item_rc.downgrade(), filter_result));
     if forward_to_children {
         let mut actual_visitor =
-            |component: &ComponentRc, index: usize, _: Pin<ItemRef>| -> VisitChildrenResult {
+            |component: &ComponentRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
                 send_mouse_event_to_item(
                     event_for_children,
                     ItemRc::new(component.clone(), index),

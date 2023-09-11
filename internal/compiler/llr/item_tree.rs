@@ -79,7 +79,7 @@ pub enum PropertyReference {
     /// A property relative to this SubComponent
     Local { sub_component_path: Vec<usize>, property_index: PropertyIndex },
     /// A property in a Native item
-    InNativeItem { sub_component_path: Vec<usize>, item_index: usize, prop_name: String },
+    InNativeItem { sub_component_path: Vec<usize>, item_index: u32, prop_name: String },
     /// The properties is a property relative to a parent ItemTree (`level` level deep)
     InParent { level: NonZeroUsize, parent_reference: Box<PropertyReference> },
     /// The property within a GlobalComponent
@@ -137,16 +137,16 @@ pub struct RepeatedElement {
     pub data_prop: Option<PropertyIndex>,
     pub sub_tree: ItemTree,
     /// The index of the item node in the parent tree
-    pub index_in_tree: usize,
+    pub index_in_tree: u32,
 
     pub listview: Option<ListViewInfo>,
 }
 
 #[derive(Clone, Debug)]
-pub struct ComponentContainerIndex(usize);
+pub struct ComponentContainerIndex(u32);
 
-impl From<usize> for ComponentContainerIndex {
-    fn from(value: usize) -> Self {
+impl From<u32> for ComponentContainerIndex {
+    fn from(value: u32) -> Self {
         assert!(value < ComponentContainerIndex::MAGIC);
         ComponentContainerIndex(value + ComponentContainerIndex::MAGIC)
     }
@@ -158,19 +158,19 @@ impl ComponentContainerIndex {
     // lots of embeddings (which will use item_index + MAGIC as its
     // repeater_index).
     // Also pick a MAGIC that works on 32bit as well as 64bit systems.
-    const MAGIC: usize = (usize::MAX / 2) + 1;
+    const MAGIC: u32 = (u32::MAX / 2) + 1;
 
-    pub fn as_item_tree_index(&self) -> usize {
+    pub fn as_item_tree_index(&self) -> u32 {
         assert!(self.0 >= ComponentContainerIndex::MAGIC);
         self.0 - ComponentContainerIndex::MAGIC
     }
 
-    pub fn as_repeater_index(&self) -> usize {
+    pub fn as_repeater_index(&self) -> u32 {
         assert!(self.0 >= ComponentContainerIndex::MAGIC);
         self.0
     }
 
-    pub fn try_from_repeater_index(index: usize) -> Option<Self> {
+    pub fn try_from_repeater_index(index: u32) -> Option<Self> {
         if index >= ComponentContainerIndex::MAGIC {
             Some(ComponentContainerIndex(index))
         } else {
@@ -184,16 +184,16 @@ pub struct ComponentContainerElement {
     /// The item tree index of the `ComponentContainer` item node, controlling this Placeholder
     pub component_container_item_tree_index: ComponentContainerIndex,
     /// The index of the `ComponentContainer` item in the enclosing components `items` array
-    pub component_container_items_index: usize,
+    pub component_container_items_index: u32,
     /// The index to a dynamic tree node where the component is supposed to be embedded at
-    pub component_placeholder_item_tree_index: usize,
+    pub component_placeholder_item_tree_index: u32,
 }
 
 pub struct Item {
     pub ty: Rc<NativeClass>,
     pub name: String,
     /// Index in the item tree array
-    pub index_in_tree: usize,
+    pub index_in_tree: u32,
     /// When this is true, this item does not need to be created because it is
     /// already in the flickable.
     /// The Item::name is the same as the flickable, and ty is Rectangle
@@ -215,7 +215,7 @@ impl std::fmt::Debug for Item {
 pub struct TreeNode {
     pub sub_component_path: Vec<usize>,
     /// Either an index in the items or repeater, depending on repeated
-    pub item_index: usize,
+    pub item_index: u32,
     pub repeated: bool,
     pub children: Vec<TreeNode>,
     pub is_accessible: bool,
@@ -288,7 +288,7 @@ pub struct SubComponent {
     pub layout_info_v: MutExpression,
 
     /// Maps (item_index, property) to an expression
-    pub accessible_prop: BTreeMap<(usize, String), MutExpression>,
+    pub accessible_prop: BTreeMap<(u32, String), MutExpression>,
 
     pub prop_analysis: HashMap<PropertyReference, PropAnalysis>,
 }
@@ -302,8 +302,8 @@ pub struct PropAnalysis {
 
 impl SubComponent {
     /// total count of repeater, including in sub components
-    pub fn repeater_count(&self) -> usize {
-        let mut count = self.repeated.len();
+    pub fn repeater_count(&self) -> u32 {
+        let mut count = self.repeated.len() as u32;
         for x in self.sub_components.iter() {
             count += x.ty.repeater_count();
         }
@@ -311,8 +311,8 @@ impl SubComponent {
     }
 
     /// total count of items, including in sub components
-    pub fn child_item_count(&self) -> usize {
-        let mut count = self.items.len();
+    pub fn child_item_count(&self) -> u32 {
+        let mut count = self.items.len() as u32;
         for x in self.sub_components.iter() {
             count += x.ty.child_item_count();
         }
@@ -323,9 +323,9 @@ impl SubComponent {
 pub struct SubComponentInstance {
     pub ty: Rc<SubComponent>,
     pub name: String,
-    pub index_in_tree: usize,
-    pub index_of_first_child_in_tree: usize,
-    pub repeater_offset: usize,
+    pub index_in_tree: u32,
+    pub index_of_first_child_in_tree: u32,
+    pub repeater_offset: u32,
 }
 
 impl std::fmt::Debug for SubComponentInstance {
@@ -378,7 +378,7 @@ impl PublicComponent {
                     root,
                     &r.sub_tree.root,
                     visitor,
-                    Some(ParentCtx::new(&ctx, Some(idx))),
+                    Some(ParentCtx::new(&ctx, Some(idx as u32))),
                 );
             }
             for x in &c.popup_windows {

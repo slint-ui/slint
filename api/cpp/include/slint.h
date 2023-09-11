@@ -70,7 +70,7 @@ constexpr inline ItemTreeNode make_item_node(uint32_t child_count, uint32_t chil
                                                     item_array_index } };
 }
 
-constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset, std::uint32_t parent_index)
+constexpr inline ItemTreeNode make_dyn_node(std::uint32_t offset, std::uint32_t parent_index)
 {
     return ItemTreeNode { ItemTreeNode::DynamicTree_Body { ItemTreeNode::Tag::DynamicTree, offset,
                                                            parent_index } };

@@ -90,7 +90,7 @@ public:
                 items, &inner);
     }
 
-    void set_focus_item(const ComponentRc &component_rc, uintptr_t item_index)
+    void set_focus_item(const ComponentRc &component_rc, uint32_t item_index)
     {
         cbindgen_private::ItemRc item_rc { component_rc, item_index };
         cbindgen_private::slint_windowrc_set_focus_item(&inner, &item_rc);

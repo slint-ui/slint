@@ -10,9 +10,9 @@ This module contains the code moving the keyboard focus between items
 use crate::item_tree::ComponentItemTree;
 
 pub fn step_out_of_node(
-    index: usize,
+    index: u32,
     item_tree: &crate::item_tree::ComponentItemTree,
-) -> Option<usize> {
+) -> Option<u32> {
     let mut self_or_ancestor = index;
     loop {
         if let Some(sibling) = item_tree.next_sibling(self_or_ancestor) {
@@ -27,9 +27,9 @@ pub fn step_out_of_node(
 }
 
 pub fn default_next_in_local_focus_chain(
-    index: usize,
+    index: u32,
     item_tree: &crate::item_tree::ComponentItemTree,
-) -> Option<usize> {
+) -> Option<u32> {
     if let Some(child) = item_tree.first_child(index) {
         return Some(child);
     }
@@ -37,7 +37,7 @@ pub fn default_next_in_local_focus_chain(
     step_out_of_node(index, item_tree)
 }
 
-fn step_into_node(item_tree: &ComponentItemTree, index: usize) -> usize {
+fn step_into_node(item_tree: &ComponentItemTree, index: u32) -> u32 {
     let mut node = index;
     loop {
         if let Some(last_child) = item_tree.last_child(node) {
@@ -49,9 +49,9 @@ fn step_into_node(item_tree: &ComponentItemTree, index: usize) -> usize {
 }
 
 pub fn default_previous_in_local_focus_chain(
-    index: usize,
+    index: u32,
     item_tree: &crate::item_tree::ComponentItemTree,
-) -> Option<usize> {
+) -> Option<u32> {
     if let Some(previous) = item_tree.previous_sibling(index) {
         Some(step_into_node(item_tree, previous))
     } else {
