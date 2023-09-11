@@ -818,7 +818,7 @@ impl core::fmt::Display for EventLoopError {
                 f.write_str("The event loop was already terminated")
             }
             EventLoopError::NoEventLoopProvider => {
-                f.write_str("The Slint platform do not provide an event loop")
+                f.write_str("The Slint platform does not provide an event loop")
             }
         }
     }
@@ -865,7 +865,7 @@ impl core::fmt::Display for PlatformError {
                 "No default Slint platform was selected, and no Slint platform was initialized",
             ),
             PlatformError::NoEventLoopProvider => {
-                f.write_str("The Slint platform do not provide an event loop")
+                f.write_str("The Slint platform does not provide an event loop")
             }
             PlatformError::SetPlatformError(_) => {
                 f.write_str("The Slint platform was initialized in another thread")
