@@ -80,3 +80,31 @@ The Qt renderer comes with the [Qt backend](backend_qt.md) and renders using QPa
  - Available in the [Winit backend](backend_winit.md) and [LinuxKMS backend](backend_linuxkms.md).
  - Public [C++](slint-cpp:api/classslint_1_1platform_1_1SkiaRenderer) API.
 
+#### Troubleshooting
+
+You may run into compile issues when enabling the Skia renderer. The following sections track
+issues we're aware of and how to resolve them.
+
+* Compilation error on Windows with messages about multiple source files and unused linker input
+
+  You may see compile errors that contain this error and warning from clang-cl:
+  ```
+   clang-cl: error: cannot specify '/Foobj/src/fonts/fontmgr_win.SkFontMgr_indirect.obj' when compiling multiple source files
+   clang-cl: warning: Hausmann/.cargo/registry/src/index.crates.io-6f17d22bba15001f/skia-bindings-0.66.0/skia: 'linker' input unused [-Wunused-command-line-argument]
+  ```
+
+  The Skia sources are checked out in a path that's managed by Cargo, the Rust package manager.
+  The error happens when that path contains spaces. By default that's in `%HOMEPATH%\.cargo`,
+  which contains spaces if the login name contains spaces. To resolve this issue, set the `CARGO_HOME`
+  environment variable to a path without spaces, such as `c:\cargo_home`.
+
+* Compiler error on Windows with messages about invalid tokens
+
+  You may see compile errors that contain this error:
+  
+  ```
+  ERROR at the command-line "--args":1:823: Invalid token.
+  ```
+
+  This is caused by the `VCINSTALLDIR` environment variable ending with a trailing slash. Edit the environment
+  variable and remove the trailing slash.
