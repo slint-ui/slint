@@ -142,47 +142,10 @@ pub struct RepeatedElement {
     pub listview: Option<ListViewInfo>,
 }
 
-#[derive(Clone, Debug)]
-pub struct ComponentContainerIndex(u32);
-
-impl From<u32> for ComponentContainerIndex {
-    fn from(value: u32) -> Self {
-        assert!(value < ComponentContainerIndex::MAGIC);
-        ComponentContainerIndex(value + ComponentContainerIndex::MAGIC)
-    }
-}
-
-impl ComponentContainerIndex {
-    // Choose a MAGIC value that is big enough so we can have lots of repeaters
-    // (repeater_index must be < MAGIC), but small enough to leave room for
-    // lots of embeddings (which will use item_index + MAGIC as its
-    // repeater_index).
-    // Also pick a MAGIC that works on 32bit as well as 64bit systems.
-    const MAGIC: u32 = (u32::MAX / 2) + 1;
-
-    pub fn as_item_tree_index(&self) -> u32 {
-        assert!(self.0 >= ComponentContainerIndex::MAGIC);
-        self.0 - ComponentContainerIndex::MAGIC
-    }
-
-    pub fn as_repeater_index(&self) -> u32 {
-        assert!(self.0 >= ComponentContainerIndex::MAGIC);
-        self.0
-    }
-
-    pub fn try_from_repeater_index(index: u32) -> Option<Self> {
-        if index >= ComponentContainerIndex::MAGIC {
-            Some(ComponentContainerIndex(index))
-        } else {
-            None
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct ComponentContainerElement {
     /// The item tree index of the `ComponentContainer` item node, controlling this Placeholder
-    pub component_container_item_tree_index: ComponentContainerIndex,
+    pub component_container_item_tree_index: u32,
     /// The index of the `ComponentContainer` item in the enclosing components `items` array
     pub component_container_items_index: u32,
     /// The index to a dynamic tree node where the component is supposed to be embedded at

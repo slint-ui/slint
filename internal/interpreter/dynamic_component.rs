@@ -10,7 +10,6 @@ use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::expression_tree::{Expression, NamedReference};
 use i_slint_compiler::langtype::{ElementType, Type};
-use i_slint_compiler::llr::ComponentContainerIndex;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::*;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
@@ -344,9 +343,10 @@ pub struct ComponentDescription<'id> {
     pub(crate) items: HashMap<String, ItemWithinComponent>,
     pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
     pub(crate) custom_callbacks: HashMap<String, FieldOffset<Instance<'id>, Callback>>,
-    repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
-    /// Map the Element::id of the repeater to the index in the `repeater` vec
-    pub repeater_names: HashMap<String, usize>,
+    /// repeaters by repeater item index
+    repeater: BTreeMap<u32, ErasedRepeaterWithinComponent<'id>>,
+    /// Map the Element::id of the repeater to the repeater index in the `repeater` map
+    pub repeater_names: HashMap<String, u32>,
     /// Offset to a Option<ComponentPinRef>
     pub(crate) parent_component_offset:
         Option<FieldOffset<Instance<'id>, OnceCell<ComponentRefPin<'id>>>>,
@@ -657,17 +657,16 @@ extern "C" fn visit_children_item(
         order,
         v,
         |_, order, visitor, index| {
-            if let Some(_) = ComponentContainerIndex::try_from_repeater_index(index) {
-                // Do nothing: Our parent already did all the work!
-                VisitChildrenResult::CONTINUE
-            } else {
+            if let Some(repeater) = instance_ref.component_type.repeater.get(&index) {
                 // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
                 // Safety: we do not mix the component with other component id in this function
-                let rep_in_comp =
-                    unsafe { instance_ref.component_type.repeater[index as usize].get_untagged() };
+                let rep_in_comp = unsafe { repeater.get_untagged() };
                 ensure_repeater_updated(instance_ref, rep_in_comp);
                 let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
                 repeater.visit(order, visitor)
+            } else {
+                // Do nothing: Our parent already did all the work!
+                VisitChildrenResult::CONTINUE
             }
         },
     )
@@ -845,8 +844,8 @@ pub(crate) fn generate_component<'id>(
         original_elements: Vec<ElementRc>,
         items_types: HashMap<String, ItemWithinComponent>,
         type_builder: dynamic_type::TypeBuilder<'id>,
-        repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
-        repeater_names: HashMap<String, usize>,
+        repeater: BTreeMap<u32, ErasedRepeaterWithinComponent<'id>>,
+        repeater_names: HashMap<String, u32>,
         rtti: Rc<HashMap<&'static str, Rc<ItemRTTI>>>,
     }
     impl<'id> generator::ItemTreeBuilder for TreeBuilder<'id> {
@@ -855,17 +854,19 @@ pub(crate) fn generate_component<'id>(
         fn push_repeated_item(
             &mut self,
             item_rc: &ElementRc,
-            repeater_count: u32,
+            _repeater_count: u32,
             parent_index: u32,
             _component_state: &Self::SubComponentState,
         ) {
-            self.tree_array.push(ItemTreeNode::DynamicTree { index: repeater_count, parent_index });
+            let index = *item_rc.borrow().item_index.get().unwrap();
+            self.tree_array.push(ItemTreeNode::DynamicTree { index, parent_index });
             self.original_elements.push(item_rc.clone());
             let item = item_rc.borrow();
             let base_component = item.base_type.as_component();
-            self.repeater_names.insert(item.id.clone(), self.repeater.len());
+            self.repeater_names.insert(item.id.clone(), index);
             generativity::make_guard!(guard);
-            self.repeater.push(
+            self.repeater.insert(
+                index,
                 RepeaterWithinComponent {
                     component_to_repeat: generate_component(base_component, guard),
                     offset: self.type_builder.add_field_type::<Repeater<ErasedComponentBox>>(),
@@ -881,11 +882,8 @@ pub(crate) fn generate_component<'id>(
             parent_index: u32,
             _component_state: &Self::SubComponentState,
         ) {
-            let component_index = ComponentContainerIndex::from(parent_index);
-            self.tree_array.push(ItemTreeNode::DynamicTree {
-                index: component_index.as_repeater_index(),
-                parent_index,
-            });
+            let index = *item.borrow().item_index.get().unwrap();
+            self.tree_array.push(ItemTreeNode::DynamicTree { index: index, parent_index });
             self.original_elements.push(item.clone());
         }
 
@@ -955,7 +953,7 @@ pub(crate) fn generate_component<'id>(
         original_elements: vec![],
         items_types: HashMap::new(),
         type_builder: dynamic_type::TypeBuilder::new(guard),
-        repeater: vec![],
+        repeater: BTreeMap::new(),
         repeater_names: HashMap::new(),
         rtti: Rc::new(rtti),
     };
@@ -1474,7 +1472,7 @@ pub fn instantiate(
         },
     );
 
-    for rep_in_comp in &component_type.repeater {
+    for rep_in_comp in component_type.repeater.values() {
         generativity::make_guard!(guard);
         let rep_in_comp = rep_in_comp.unerase(guard);
 
@@ -1577,7 +1575,7 @@ pub fn get_repeater_by_name<'a, 'id>(
     guard: generativity::Guard<'id>,
 ) -> (std::pin::Pin<&'a Repeater<ErasedComponentBox>>, Rc<ComponentDescription<'id>>) {
     let rep_index = instance_ref.component_type.repeater_names[name];
-    let rep_in_comp = instance_ref.component_type.repeater[rep_index].unerase(guard);
+    let rep_in_comp = instance_ref.component_type.repeater.get(&rep_index).unwrap().unerase(guard);
     (rep_in_comp.offset.apply_pin(instance_ref.instance), rep_in_comp.component_to_repeat.clone())
 }
 
@@ -1629,21 +1627,21 @@ unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: u32) -> Pin
 extern "C" fn get_subtree_range(component: ComponentRefPin, index: u32) -> IndexRange {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    if let Some(container_index) = ComponentContainerIndex::try_from_repeater_index(index) {
-        let container = component.as_ref().get_item_ref(container_index.as_item_tree_index());
+
+    if let Some(repeater) = instance_ref.component_type.repeater.get(&index) {
+        let rep_in_comp = unsafe { repeater.get_untagged() };
+        ensure_repeater_updated(instance_ref, rep_in_comp);
+
+        let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
+        repeater.range().into()
+    } else {
+        let container = component.as_ref().get_item_ref(index);
         let container = i_slint_core::items::ItemRef::downcast_pin::<
             i_slint_core::items::ComponentContainer,
         >(container)
         .unwrap();
         container.ensure_updated();
         container.subtree_range()
-    } else {
-        let rep_in_comp =
-            unsafe { instance_ref.component_type.repeater[index as usize].get_untagged() };
-        ensure_repeater_updated(instance_ref, rep_in_comp);
-
-        let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
-        repeater.range().into()
     }
 }
 
@@ -1655,23 +1653,23 @@ extern "C" fn get_subtree_component(
 ) {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    if let Some(container_index) = ComponentContainerIndex::try_from_repeater_index(index) {
-        let container = component.as_ref().get_item_ref(container_index.as_item_tree_index());
-        let container = i_slint_core::items::ItemRef::downcast_pin::<
-            i_slint_core::items::ComponentContainer,
-        >(container)
-        .unwrap();
-        container.ensure_updated();
-        *result = container.subtree_component();
-    } else {
-        let rep_in_comp =
-            unsafe { instance_ref.component_type.repeater[index as usize].get_untagged() };
+
+    if let Some(repeater) = instance_ref.component_type.repeater.get(&index) {
+        let rep_in_comp = unsafe { repeater.get_untagged() };
         ensure_repeater_updated(instance_ref, rep_in_comp);
 
         let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
         *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(
             repeater.component_at(subtree_index).unwrap(),
         ))
+    } else {
+        let container = component.as_ref().get_item_ref(index);
+        let container = i_slint_core::items::ItemRef::downcast_pin::<
+            i_slint_core::items::ComponentContainer,
+        >(container)
+        .unwrap();
+        container.ensure_updated();
+        *result = container.subtree_component();
     }
 }
 

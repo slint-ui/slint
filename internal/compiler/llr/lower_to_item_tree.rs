@@ -63,7 +63,7 @@ pub enum LoweredElement {
     SubComponent { sub_component_index: usize },
     NativeItem { item_index: u32 },
     Repeated { repeated_index: u32 },
-    ComponentPlaceholder { component_container_index: ComponentContainerIndex },
+    ComponentPlaceholder { component_container_index: u32 },
 }
 
 #[derive(Default, Debug, Clone)]
@@ -536,13 +536,15 @@ fn lower_component_container(
 ) -> ComponentContainerElement {
     let c = container.borrow();
 
-    let component_container_index: ComponentContainerIndex = (*c.item_index.get().unwrap()).into();
-    let ti = component_container_index.as_item_tree_index();
-    let component_container_items_index =
-        sub_component.items.iter().position(|i| i.index_in_tree == ti).unwrap() as u32;
+    let component_container_item_tree_index = *c.item_index.get().unwrap();
+    let component_container_items_index = sub_component
+        .items
+        .iter()
+        .position(|i| i.index_in_tree == component_container_item_tree_index)
+        .unwrap() as u32;
 
     ComponentContainerElement {
-        component_container_item_tree_index: component_container_index,
+        component_container_item_tree_index,
         component_container_items_index,
         component_placeholder_item_tree_index: *c.item_index_of_first_children.get().unwrap(),
     }
@@ -746,7 +748,7 @@ fn make_tree(
         LoweredElement::ComponentPlaceholder { component_container_index } => TreeNode {
             is_accessible: false,
             sub_component_path: sub_component_path.into(),
-            item_index: component_container_index.as_repeater_index(),
+            item_index: *component_container_index,
             children: vec![],
             repeated: true,
         },

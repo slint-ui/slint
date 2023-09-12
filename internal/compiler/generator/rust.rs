@@ -741,7 +741,7 @@ fn generate_sub_component(
 
     for container in component.component_containers.iter() {
         let items_index = container.component_container_items_index;
-        let repeater_index = container.component_container_item_tree_index.as_repeater_index();
+        let repeater_index = container.component_container_item_tree_index;
 
         let embed_item = access_member(
             &llr::PropertyReference::InNativeItem {
