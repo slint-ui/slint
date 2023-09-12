@@ -22,8 +22,6 @@ use std::rc::{Rc, Weak};
 use crate::winitwindowadapter::WinitWindowAdapter;
 
 use winit::event::WindowEvent;
-#[cfg(not(target_arch = "wasm32"))]
-use winit::platform::run_return::EventLoopExtRunReturn;
 
 use crate::SlintUserEvent;
 
@@ -62,7 +60,7 @@ impl NotRunningEventLoop {
             builder.with_any_thread(true);
         }
 
-        let instance = builder.build();
+        let instance = builder.build().expect("FIXME: handle error");
         let event_loop_proxy = instance.create_proxy();
         let clipboard = RefCell::new(create_clipboard(&instance));
         Self { clipboard, instance, event_loop_proxy }
@@ -243,21 +241,6 @@ impl std::fmt::Debug for CustomEvent {
     }
 }
 
-mod key_codes {
-    macro_rules! winit_key_to_char_fn {
-        ($($char:literal # $name:ident # $($_qt:ident)|* # $($winit:ident)|* # $($_xkb:ident)|*;)*) => {
-            pub fn winit_key_to_char(virtual_keycode: winit::keyboard::KeyCode) -> Option<char> {
-                let char = match(virtual_keycode) {
-                    $($(winit::keyboard::KeyCode::$winit => $char,)*)*
-                    _ => return None,
-                };
-                Some(char)
-            }
-        };
-    }
-    i_slint_common::for_each_special_keys!(winit_key_to_char_fn);
-}
-
 fn process_window_event(
     window: Rc<WinitWindowAdapter>,
     event: WindowEvent,
@@ -272,33 +255,6 @@ fn process_window_event(
         WindowEvent::CloseRequested => {
             window.window().dispatch_event(corelib::platform::WindowEvent::CloseRequested);
         }
-        // WindowEvent::ReceivedCharacter(ch) => {
-        //     // On Windows, X11 and Wayland sequences like Ctrl+C will send a ReceivedCharacter after the pressed keyboard input event,
-        //     // with a control character. We choose not to forward those but try to use the current key code instead.
-        //     //
-        //     // We do not want to change the text to the value of the key press when that was a
-        //     // control key itself: We already sent that event when handling the KeyboardInput.
-        //     let text: SharedString = if ch.is_control() {
-        //         if let Some(ch) = window
-        //             .currently_pressed_key_code()
-        //             .take()
-        //             .and_then(winit_key_code_to_string)
-        //             .filter(|ch| !ch.is_control())
-        //         {
-        //             ch
-        //         } else {
-        //             return Ok(());
-        //         }
-        //     } else {
-        //         ch
-        //     }
-        //     .into();
-        //
-        //     window
-        //         .window()
-        //         .dispatch_event(corelib::platform::WindowEvent::KeyPressed { text: text.clone() });
-        //     window.window().dispatch_event(corelib::platform::WindowEvent::KeyReleased { text });
-        // }
         WindowEvent::Focused(have_focus) => {
             let have_focus = have_focus || window.input_method_focused();
             // We don't render popups as separate windows yet, so treat
@@ -309,34 +265,42 @@ fn process_window_event(
                 );
             }
         }
-        WindowEvent::KeyboardInput { ref event, .. } => {
+
+        WindowEvent::KeyboardInput { event, .. } => {
+            let key_code = event.logical_key;
             // For now: Match Qt's behavior of mapping command to control and control to meta (LWin/RWin).
-            let key_code = match event.physical_key {
-                #[cfg(target_os = "macos")]
-                winit::keyboard::KeyCode::ControlLeft => winit::keyboard::KeyCode::WinLeft,
-                #[cfg(target_os = "macos")]
-                winit::keyboard::KeyCode::ControlRight => winit::keyboard::KeyCode::WinRight,
-                #[cfg(target_os = "macos")]
-                winit::keyboard::KeyCode::WinLeft => winit::keyboard::KeyCode::ControlLeft,
-                #[cfg(target_os = "macos")]
-                winit::keyboard::KeyCode::WinRight => winit::keyboard::KeyCode::ControlRight,
+            #[cfg(target_os = "macos")]
+            let key_code = match key_code {
+                winit::keyboard::Key::Control => winit::keyboard::Key::Super,
+                winit::keyboard::Key::Super => winit::keyboard::Key::Control,
                 code => code,
             };
-            window.currently_pressed_key_code().set(match event.state {
-                winit::event::ElementState::Pressed => Some(key_code),
-                _ => None,
+
+            macro_rules! winit_key_to_char {
+                ($($char:literal # $name:ident # $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|*;)*) => {
+                    match key_code {
+                        $($(winit::keyboard::Key::$winit $(if event.location == winit::keyboard::KeyLocation::$pos)? => $char.into(),)*)*
+                        winit::keyboard::Key::Character(str) => str.as_str().into(),
+                        _ => {
+                            if let Some(text) = &event.text {
+                                text.as_str().into()
+                            } else {
+                                return Ok(())
+                            }
+                        }
+                    }
+                }
+            }
+            let text = i_slint_common::for_each_special_keys!(winit_key_to_char);
+
+            window.window().dispatch_event(match event.state {
+                winit::event::ElementState::Pressed => {
+                    corelib::platform::WindowEvent::KeyPressed { text }
+                }
+                winit::event::ElementState::Released => {
+                    corelib::platform::WindowEvent::KeyReleased { text }
+                }
             });
-            if let Some(text) = &event.text {
-                let text = text.as_str().into();
-                window.window().dispatch_event(match event.state {
-                    winit::event::ElementState::Pressed => {
-                        corelib::platform::WindowEvent::KeyPressed { text }
-                    }
-                    winit::event::ElementState::Released => {
-                        corelib::platform::WindowEvent::KeyReleased { text }
-                    }
-                });
-            };
         }
         WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
             let preedit_selection = preedit_selection.unwrap_or((0, 0));
@@ -427,15 +391,15 @@ fn process_window_event(
             };
             runtime_window.process_mouse_input(ev);
         }
-        WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size } => {
+        WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
             if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                 window.window().dispatch_event(
                     corelib::platform::WindowEvent::ScaleFactorChanged {
                         scale_factor: scale_factor as f32,
                     },
                 );
-                // Resize the underlying graphics surface
-                window.resize_event(*new_inner_size)?;
+                // TODO: send a resize event or try to keep the logical size the same.
+                //window.resize_event(inner_size_writer.???)?;
             }
         }
         WindowEvent::ThemeChanged(theme) => {
@@ -592,7 +556,7 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                 }
             }),
 
-            Event::RedrawEventsCleared => {
+            Event::AboutToWait => {
                 if *control_flow != ControlFlow::Exit
                     && ALL_WINDOWS.with(|windows| {
                         windows.borrow().iter().any(|(_, w)| {
@@ -647,7 +611,9 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        winit_loop.run_return(
+        use winit::platform::pump_events::{EventLoopExtPumpEvents, PumpStatus};
+        while let PumpStatus::Continue = winit_loop.pump_events(
+            None,
             |event: Event<SlintUserEvent>,
              event_loop_target: &EventLoopWindowTarget<SlintUserEvent>,
              control_flow: &mut ControlFlow| {
@@ -658,7 +624,7 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                 };
                 CURRENT_WINDOW_TARGET.set(&running_instance, || run_fn(event, control_flow))
             },
-        );
+        ) {}
 
         *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
 
@@ -720,13 +686,10 @@ fn create_clipboard<T>(_event_loop: &winit::event_loop::EventLoopWindowTarget<T>
             ))
         ))]
         {
+
             #[cfg(feature = "wayland")]
-            if let Some(wayland_display) =
-                winit::platform::wayland::EventLoopWindowTargetExtWayland::wayland_display(_event_loop)
-            {
-                let clipboard = unsafe {
-                    copypasta::wayland_clipboard::create_clipboards_from_external(wayland_display)
-                };
+            if let raw_window_handle::RawDisplayHandle::Wayland(wayland) = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&_event_loop) {
+                let clipboard = unsafe { copypasta::wayland_clipboard::create_clipboards_from_external(wayland.display) };
                 return (Box::new(clipboard.1), Box::new(clipboard.0));
             };
             #[cfg(feature = "x11")]

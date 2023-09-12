@@ -115,7 +115,6 @@ pub struct WinitWindowAdapter {
     window: OnceCell<corelib::api::Window>,
     #[cfg(target_arch = "wasm32")]
     self_weak: Weak<Self>,
-    currently_pressed_key_code: std::cell::Cell<Option<winit::keyboard::KeyCode>>,
     pending_redraw: Cell<bool>,
     dark_color_scheme: OnceCell<Pin<Box<Property<bool>>>>,
     constraints: Cell<corelib::window::LayoutConstraints>,
@@ -160,7 +159,6 @@ impl WinitWindowAdapter {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
             #[cfg(target_arch = "wasm32")]
             self_weak: self_weak.clone(),
-            currently_pressed_key_code: Default::default(),
             pending_redraw: Default::default(),
             dark_color_scheme: Default::default(),
             constraints: Default::default(),
@@ -240,10 +238,6 @@ impl WinitWindowAdapter {
 
     pub fn take_pending_redraw(&self) -> bool {
         self.pending_redraw.take()
-    }
-
-    pub fn currently_pressed_key_code(&self) -> &Cell<Option<winit::keyboard::KeyCode>> {
-        &self.currently_pressed_key_code
     }
 
     /// Draw the items of the specified `component` in the given window.
@@ -367,8 +361,10 @@ impl WindowAdapter for WinitWindowAdapter {
                 && preferred_size.height > 0 as Coord
             {
                 // use the Slint's window Scale factor to take in account the override
-                let size = preferred_size.to_physical::<u32>(scale_factor);
-                winit_window.set_inner_size(size);
+                let mut size = preferred_size.to_physical::<u32>(scale_factor);
+                if let Some(s) = winit_window.request_inner_size(size) {
+                    size = s
+                }
                 self.size.set(physical_size_to_slint(&size));
             };
 
@@ -420,7 +416,9 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 
     fn set_size(&self, size: corelib::api::WindowSize) {
-        self.winit_window().set_inner_size(window_size_to_winit(&size))
+        if let Some(size) = self.winit_window().request_inner_size(window_size_to_winit(&size)) {
+            self.size.set(physical_size_to_slint(&size));
+        }
     }
 
     fn size(&self) -> corelib::api::PhysicalSize {
@@ -484,7 +482,11 @@ impl WindowAdapter for WinitWindowAdapter {
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it
             // when we create a surface that's bigger than the screen due to constraints (#532).
             if winit_window.fullscreen().is_none() {
-                winit_window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
+                if let Some(size) =
+                    winit_window.request_inner_size(winit::dpi::LogicalSize::new(width, height))
+                {
+                    self.size.set(physical_size_to_slint(&size));
+                }
             }
         }
 
@@ -524,11 +526,13 @@ impl WindowAdapter for WinitWindowAdapter {
             winit_window.set_max_inner_size(winit_max_inner);
             winit_window.set_resizable(resizable);
 
-            adjust_window_size_to_satisfy_constraints(
+            if let Some(s) = adjust_window_size_to_satisfy_constraints(
                 winit_window,
                 winit_min_inner,
                 winit_max_inner,
-            );
+            ) {
+                self.size.set(physical_size_to_slint(&s));
+            }
 
             #[cfg(target_arch = "wasm32")]
             if let Some((
@@ -625,9 +629,11 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 corelib::window::InputMethodRequest::Disable { .. } => {
                     winit_window.set_ime_allowed(false)
                 }
-                corelib::window::InputMethodRequest::SetPosition { position, .. } => {
-                    winit_window.set_ime_position(position_to_winit(&position.into()))
-                }
+                corelib::window::InputMethodRequest::SetPosition { position, .. } => winit_window
+                    .set_ime_cursor_area(
+                        position_to_winit(&position.into()),
+                        winit::dpi::LogicalSize::new(1, 1),
+                    ),
                 _ => {}
             };
         });
@@ -712,7 +718,7 @@ fn adjust_window_size_to_satisfy_constraints(
     winit_window: &winit::window::Window,
     min_size: Option<winit::dpi::PhysicalSize<f32>>,
     max_size: Option<winit::dpi::PhysicalSize<f32>>,
-) {
+) -> Option<winit::dpi::PhysicalSize<u32>> {
     let mut window_size = winit_window.inner_size();
 
     if let Some(min_size) = min_size {
@@ -728,6 +734,8 @@ fn adjust_window_size_to_satisfy_constraints(
     }
 
     if window_size != winit_window.inner_size() {
-        winit_window.set_inner_size(window_size);
+        winit_window.request_inner_size(window_size)
+    } else {
+        None
     }
 }

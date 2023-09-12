@@ -47,7 +47,6 @@ glow = { version = "0.12" }
 unicode-segmentation = { version = "1.8.0" }
 
 glutin = { version = "0.30", default-features = false, features = ["egl", "wgl"] }
-winit = { version = "0.28.6", optional = true, default-features = false }
 
 ash = { version = "^0.37.2", optional = true }
 vulkano = { version = "0.33.0", optional = true, default-features = false }
@@ -72,6 +71,9 @@ skia-safe = { version = "0.66.2", features = ["metal"] }
 
 [target.'cfg(not(any(target_os = "macos", target_family = "windows")))'.dependencies]
 skia-safe = { version = "0.66.2", features = ["gl"] }
+
+[target.'cfg(not(any(target_os = "macos", target_family = "windows", target_os = "android")))'.dependencies]
+winit = { version = "0.29.1-beta", optional = true, default-features = false }
 
 [build-dependencies]
 cfg_aliases = "0.1.0"

@@ -223,6 +223,7 @@ pub enum InputMethodRequest {
     #[non_exhaustive]
     SetPosition {
         /// The position of the text cursor in window coordinates.
+        // FIXME: this should be a rectangle
         position: crate::api::LogicalPosition,
     },
 }

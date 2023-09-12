@@ -298,7 +298,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
 
 fn map_key_sym(sym: xkb::Keysym) -> Option<SharedString> {
     macro_rules! keysym_to_string {
-        ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|* # $($xkb:ident)|*;)*) => {
+        ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*;)*) => {
             match(sym) {
                 $($(xkb::Keysym::$xkb => $char,)*)*
                 _ => std::char::from_u32(xkbcommon::xkb::keysym_to_utf32(sym))?,
