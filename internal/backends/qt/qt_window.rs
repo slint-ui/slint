@@ -2074,7 +2074,7 @@ pub(crate) fn timer_event() {
 
 mod key_codes {
     macro_rules! define_qt_key_to_string_fn {
-        ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident)|* # $($_xkb:ident)|*;)*) => {
+        ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*;)*) => {
             use crate::key_generated;
             pub fn qt_key_to_string(key: key_generated::Qt_Key) -> Option<i_slint_core::SharedString> {
 

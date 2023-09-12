@@ -67,7 +67,7 @@ impl OpenGLContext {
         let config_template_builder = config_template_builder.with_transparency(true);
 
         let (window, gl_config) = glutin_winit::DisplayBuilder::new()
-            .with_preference(glutin_winit::ApiPrefence::FallbackEgl)
+            .with_preference(glutin_winit::ApiPreference::FallbackEgl)
             .with_window_builder(Some(window_builder.clone()))
             .build(window_target, config_template_builder, |it| {
                 it.reduce(|accum, config| {

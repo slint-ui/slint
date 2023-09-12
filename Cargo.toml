@@ -137,5 +137,3 @@ panic = "abort"
 
 [profile.dev]
 panic = "abort"
-[patch.crates-io]
-winit = { path = "../winit" }
