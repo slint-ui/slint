@@ -1464,7 +1464,7 @@ pub fn instantiate(
                         }
                     }
                 } else {
-                    panic!("unknown property {}", prop_name);
+                    panic!("unknown property {} in {}", prop_name, elem.id);
                 }
             }
         },

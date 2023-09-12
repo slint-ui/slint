@@ -331,7 +331,11 @@ pub(crate) fn add_highlighting(doc: &Document) {
     add_highlight_items(doc);
     add_current_item_callback(doc);
 
+    i_slint_compiler::passes::materialize_fake_properties::materialize_fake_properties(
+        &doc.root_component,
+    );
     i_slint_compiler::passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
+    i_slint_compiler::passes::move_declarations::move_declarations(&doc.root_component);
 
     // Since we added a child, we must recompute the indices in the root component
     clean_item_indices(&doc.root_component);
@@ -412,17 +416,16 @@ fn add_highlight_items(doc: &Document) {
                 .into(),
             ),
         );
-
         let base = Rc::new_cyclic(|comp| Component {
             id: "$Highlight".into(),
             parent_element: repeated.clone(),
-            root_element: Rc::new(RefCell::new(Element {
+            root_element: Element::make_rc(Element {
                 enclosing_component: comp.clone(),
                 id: "$Highlight".into(),
                 base_type: doc.local_registry.lookup_builtin_element("Rectangle").unwrap(),
                 bindings,
                 ..Default::default()
-            })),
+            }),
             ..Default::default()
         });
 
@@ -495,12 +498,12 @@ fn add_current_item_callback(doc: &Document) {
         },
     );
 
-    let element = Rc::new(RefCell::new(Element {
+    let element = Element::make_rc(Element {
         enclosing_component: Rc::downgrade(&doc.root_component),
         id: "$DesignModeArea".into(),
         base_type: doc.local_registry.lookup_builtin_element("TouchArea").unwrap(),
         ..Default::default()
-    }));
+    });
 
     let callback_prop =
         NamedReference::new(&doc.root_component.root_element, CURRENT_ELEMENT_CALLBACK_PROP);
