@@ -33,8 +33,15 @@ export component TestCase {
             y: 40phx;
         }
     }
+    empty1 := Rectangle {
+        Rectangle {
+            empty2 := Rectangle {
+
+            }
+        }
+    }
     xxx := Issue3148 { width: 50%; }
-    out property <bool> test: simple-inner-ok && xxx.result == 42px;
+    out property <bool> test: simple-inner-ok && xxx.result == 42px && empty1.absolute-position == empty2.absolute-position;
     out property <Point> coords <=> simple-inner.absolute-position;
 }
 
