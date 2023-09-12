@@ -1030,9 +1030,9 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
             // Safety: This is the only 'static Id in scope.
             let static_guard =
                 unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
-            let repeater = crate::dynamic_component::get_repeater_by_name(
+            let repeater = crate::dynamic_component::get_repeater_by_item_index(
                 enclosing_component,
-                element.borrow().id.as_str(),
+                *element.borrow().item_index.get().unwrap(),
                 static_guard,
             );
             repeater.0.model_set_row_data(

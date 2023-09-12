@@ -345,8 +345,6 @@ pub struct ComponentDescription<'id> {
     pub(crate) custom_callbacks: HashMap<String, FieldOffset<Instance<'id>, Callback>>,
     /// repeaters by repeater item index
     repeater: BTreeMap<u32, ErasedRepeaterWithinComponent<'id>>,
-    /// Map the Element::id of the repeater to the repeater index in the `repeater` map
-    pub repeater_names: HashMap<String, u32>,
     /// Offset to a Option<ComponentPinRef>
     pub(crate) parent_component_offset:
         Option<FieldOffset<Instance<'id>, OnceCell<ComponentRefPin<'id>>>>,
@@ -845,7 +843,6 @@ pub(crate) fn generate_component<'id>(
         items_types: HashMap<String, ItemWithinComponent>,
         type_builder: dynamic_type::TypeBuilder<'id>,
         repeater: BTreeMap<u32, ErasedRepeaterWithinComponent<'id>>,
-        repeater_names: HashMap<String, u32>,
         rtti: Rc<HashMap<&'static str, Rc<ItemRTTI>>>,
     }
     impl<'id> generator::ItemTreeBuilder for TreeBuilder<'id> {
@@ -862,7 +859,6 @@ pub(crate) fn generate_component<'id>(
             self.original_elements.push(item_rc.clone());
             let item = item_rc.borrow();
             let base_component = item.base_type.as_component();
-            self.repeater_names.insert(item.id.clone(), index);
             generativity::make_guard!(guard);
             self.repeater.insert(
                 index,
@@ -952,7 +948,6 @@ pub(crate) fn generate_component<'id>(
         items_types: HashMap::new(),
         type_builder: dynamic_type::TypeBuilder::new(guard),
         repeater: BTreeMap::new(),
-        repeater_names: HashMap::new(),
         rtti: Rc::new(rtti),
     };
 
@@ -1146,7 +1141,6 @@ pub(crate) fn generate_component<'id>(
         original: component.clone(),
         original_elements: builder.original_elements,
         repeater: builder.repeater,
-        repeater_names: builder.repeater_names,
         parent_component_offset,
         root_offset,
         window_adapter_offset,
@@ -1567,13 +1561,12 @@ impl<'id> From<ComponentBox<'id>> for ErasedComponentBox {
     }
 }
 
-pub fn get_repeater_by_name<'a, 'id>(
+pub fn get_repeater_by_item_index<'a, 'id>(
     instance_ref: InstanceRef<'a, '_>,
-    name: &str,
+    index: u32,
     guard: generativity::Guard<'id>,
 ) -> (std::pin::Pin<&'a Repeater<ErasedComponentBox>>, Rc<ComponentDescription<'id>>) {
-    let rep_index = instance_ref.component_type.repeater_names[name];
-    let rep_in_comp = instance_ref.component_type.repeater.get(&rep_index).unwrap().unerase(guard);
+    let rep_in_comp = instance_ref.component_type.repeater.get(&index).unwrap().unerase(guard);
     (rep_in_comp.offset.apply_pin(instance_ref.instance), rep_in_comp.component_to_repeat.clone())
 }
 

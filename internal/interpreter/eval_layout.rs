@@ -193,9 +193,9 @@ fn box_layout_data(
     for cell in &box_layout.elems {
         if cell.element.borrow().repeated.is_some() {
             generativity::make_guard!(guard);
-            let rep = crate::dynamic_component::get_repeater_by_name(
+            let rep = crate::dynamic_component::get_repeater_by_item_index(
                 component,
-                cell.element.borrow().id.as_str(),
+                *cell.element.borrow().item_index.get().unwrap(),
                 guard,
             );
             rep.0.as_ref().ensure_updated(|| {

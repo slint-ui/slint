@@ -252,16 +252,16 @@ pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset
 }
 
 fn fill_model(
-    repeater_path: &[String],
+    repeater_path: &[u32],
     element: &ElementRc,
     component_instance: &ComponentBox,
     values: &mut Vec<Value>,
 ) {
     if let [first, rest @ ..] = repeater_path {
         generativity::make_guard!(guard);
-        let rep = crate::dynamic_component::get_repeater_by_name(
+        let rep = crate::dynamic_component::get_repeater_by_item_index(
             component_instance.borrow_instance(),
-            first.as_str(),
+            *first,
             guard,
         );
         for idx in rep.0.range() {
@@ -313,14 +313,14 @@ fn find_element_at_offset(component: &Rc<Component>, path: PathBuf, offset: u32)
     result
 }
 
-fn repeater_path(elem: &ElementRc) -> Option<Vec<String>> {
+fn repeater_path(elem: &ElementRc) -> Option<Vec<u32>> {
     let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
     if let Some(parent) = enclosing.parent_element.upgrade() {
         // This is not a repeater, it might be a popup menu which is not supported ATM
         parent.borrow().repeated.as_ref()?;
 
         let mut r = repeater_path(&parent)?;
-        r.push(parent.borrow().id.clone());
+        r.push(*parent.borrow().item_index.get().unwrap());
         Some(r)
     } else {
         Some(vec![])
