@@ -21,6 +21,10 @@ use alloc::rc::Rc;
 use alloc::string::String;
 #[cfg(feature = "std")]
 use once_cell::sync::OnceCell;
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
+use std::time;
+#[cfg(target_arch = "wasm32")]
+use web_time as time;
 
 /// This trait defines the interface between Slint and platform APIs typically provided by operating and windowing systems.
 pub trait Platform {
@@ -61,8 +65,8 @@ pub trait Platform {
     fn duration_since_start(&self) -> core::time::Duration {
         #[cfg(feature = "std")]
         {
-            let the_beginning = *INITIAL_INSTANT.get_or_init(instant::Instant::now);
-            instant::Instant::now() - the_beginning
+            let the_beginning = *INITIAL_INSTANT.get_or_init(time::Instant::now);
+            time::Instant::now() - the_beginning
         }
         #[cfg(not(feature = "std"))]
         unimplemented!("The platform abstraction must implement `duration_since_start`")
@@ -131,13 +135,12 @@ pub trait EventLoopProxy: Send + Sync {
 }
 
 #[cfg(feature = "std")]
-static INITIAL_INSTANT: once_cell::sync::OnceCell<instant::Instant> =
-    once_cell::sync::OnceCell::new();
+static INITIAL_INSTANT: once_cell::sync::OnceCell<time::Instant> = once_cell::sync::OnceCell::new();
 
 #[cfg(feature = "std")]
-impl std::convert::From<crate::animations::Instant> for instant::Instant {
+impl std::convert::From<crate::animations::Instant> for time::Instant {
     fn from(our_instant: crate::animations::Instant) -> Self {
-        let the_beginning = *INITIAL_INSTANT.get_or_init(instant::Instant::now);
+        let the_beginning = *INITIAL_INSTANT.get_or_init(time::Instant::now);
         the_beginning + core::time::Duration::from_millis(our_instant.0)
     }
 }

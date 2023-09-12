@@ -24,7 +24,7 @@ libm = ["num-traits/libm", "euclid/libm"]
 # Allow the viewer to query at runtime information about item types
 rtti = []
 # Use the standard library
-std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algorithms", "lyon_geom", "lyon_extra", "instant", "image-decoders", "svg"]
+std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algorithms", "lyon_geom", "lyon_extra", "dep:web-time", "image-decoders", "svg"]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
 # from a single core, and not in a interrupt or signal handler.
@@ -58,7 +58,6 @@ auto_enums = "0.8.0"
 cfg-if = "1"
 derive_more = "0.99.5"
 euclid = { version = "0.22.1", default-features = false }
-instant = { version = "0.1", features = [ "now" ], optional = true }
 lyon_algorithms = { version = "1.0", optional = true }
 lyon_geom = { version = "1.0", optional = true  }
 lyon_path = { version = "1.0", optional = true }
@@ -91,7 +90,7 @@ serde = { version = "1.0.163", features = ["derive"], optional = true }
 gettext-rs = { version = "0.7", optional = true, features = ["gettext-system"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
+web-time = { version = "0.2", optional = true }
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = [ "HtmlImageElement" ] }
 

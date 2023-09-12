@@ -151,7 +151,7 @@ struct DemoRenderer {
     vao: glow::VertexArray,
     effect_time_location: glow::UniformLocation,
     selected_light_color_position: glow::UniformLocation,
-    start_time: instant::Instant,
+    start_time: web_time::Instant,
     displayed_texture: DemoTexture,
     next_texture: DemoTexture,
 }
@@ -315,7 +315,7 @@ impl DemoRenderer {
                 selected_light_color_position,
                 vbo,
                 vao,
-                start_time: instant::Instant::now(),
+                start_time: web_time::Instant::now(),
                 displayed_texture,
                 next_texture,
             }

@@ -17,7 +17,7 @@ name = "opengl_texture"
 [dependencies]
 slint = { path = "../../api/rs/slint" }
 glow = { version = "0.12" }
-instant = { version = "0.1", features = [ "now" ] }
+web-time = { version = "0.2" }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }

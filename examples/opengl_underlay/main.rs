@@ -15,7 +15,7 @@ struct EGLUnderlay {
     rotation_time_location: glow::UniformLocation,
     vbo: glow::Buffer,
     vao: glow::VertexArray,
-    start_time: instant::Instant,
+    start_time: web_time::Instant,
 }
 
 impl EGLUnderlay {
@@ -109,7 +109,7 @@ impl EGLUnderlay {
                 rotation_time_location,
                 vbo,
                 vao,
-                start_time: instant::Instant::now(),
+                start_time: web_time::Instant::now(),
             }
         }
     }

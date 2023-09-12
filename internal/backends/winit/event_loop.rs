@@ -7,23 +7,19 @@
     [WindowAdapter] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
+use crate::winitwindowadapter::WinitWindowAdapter;
+use crate::SlintUserEvent;
 use copypasta::ClipboardProvider;
-use corelib::items::PointerEventButton;
-use corelib::lengths::LogicalPoint;
-use i_slint_core as corelib;
-
 use corelib::api::EventLoopError;
 use corelib::graphics::euclid;
 use corelib::input::{KeyEventType, KeyInputEvent, MouseEvent};
+use corelib::items::PointerEventButton;
+use corelib::lengths::LogicalPoint;
 use corelib::window::*;
+use i_slint_core as corelib;
 use std::cell::{RefCell, RefMut};
 use std::rc::{Rc, Weak};
-
-use crate::winitwindowadapter::WinitWindowAdapter;
-
 use winit::event::WindowEvent;
-
-use crate::SlintUserEvent;
 
 pub(crate) static QUIT_ON_LAST_WINDOW_CLOSED: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(true);
@@ -595,8 +591,7 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                 if *control_flow == ControlFlow::Wait {
                     if let Some(next_timer) = corelib::platform::duration_until_next_timer_update()
                     {
-                        *control_flow =
-                            ControlFlow::WaitUntil(instant::Instant::now() + next_timer);
+                        control_flow.set_wait_timeout(next_timer);
                     }
                 }
             }
@@ -632,28 +627,29 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
         // Winit does not support creating multiple instances of the event loop.
         let nre = NotRunningEventLoop { clipboard, instance: winit_loop, event_loop_proxy };
         MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre));
-
-        if let Some(error) = outer_event_loop_error.borrow_mut().take() {
-            return Err(error);
-        }
-        Ok(())
     }
 
     #[cfg(target_arch = "wasm32")]
     {
-        winit_loop.run(
-            move |event: Event<SlintUserEvent>,
-                  event_loop_target: &EventLoopWindowTarget<SlintUserEvent>,
-                  control_flow: &mut ControlFlow| {
-                let running_instance = RunningEventLoop {
-                    event_loop_target,
-                    event_loop_proxy: &event_loop_proxy,
-                    clipboard: &clipboard,
-                };
-                CURRENT_WINDOW_TARGET.set(&running_instance, || run_fn(event, control_flow))
-            },
-        )
+        winit_loop
+            .run(
+                move |event: Event<SlintUserEvent>,
+                      event_loop_target: &EventLoopWindowTarget<SlintUserEvent>,
+                      control_flow: &mut ControlFlow| {
+                    let running_instance = RunningEventLoop {
+                        event_loop_target,
+                        event_loop_proxy: &event_loop_proxy,
+                        clipboard: &clipboard,
+                    };
+                    CURRENT_WINDOW_TARGET.set(&running_instance, || run_fn(event, control_flow))
+                },
+            )
+            .map_err(|e| format!("Error running winit event loop: {e}"))?
     }
+    if let Some(error) = outer_event_loop_error.borrow_mut().take() {
+        return Err(error);
+    }
+    Ok(())
 }
 
 fn create_clipboard<T>(_event_loop: &winit::event_loop::EventLoopWindowTarget<T>) -> ClipboardPair {
