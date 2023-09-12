@@ -16,7 +16,7 @@ use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
     BindingExpression, BuiltinFunction, Expression, MinMaxOp, NamedReference, Unit,
 };
-use crate::langtype::{BuiltinElement, DefaultSizeBinding, PropertyLookupResult, Type};
+use crate::langtype::{BuiltinElement, DefaultSizeBinding, Type};
 use crate::layout::{implicit_layout_info_call, LayoutConstraints, Orientation};
 use crate::object_tree::{Component, ElementRc};
 use std::collections::HashMap;
@@ -282,14 +282,8 @@ fn fix_percent_size(
 /// Generate a size property that covers the parent.
 /// Return true if it was changed
 fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str) -> bool {
-    let PropertyLookupResult { resolved_name, property_type, .. } =
-        parent_element.borrow().lookup_property(property);
-    if property_type != Type::LogicalLength {
-        return false;
-    }
-
-    elem.borrow_mut().set_binding_if_not_set(resolved_name.to_string(), || {
-        Expression::PropertyReference(NamedReference::new(parent_element, resolved_name.as_ref()))
+    elem.borrow_mut().set_binding_if_not_set(property.to_string(), || {
+        Expression::PropertyReference(NamedReference::new(parent_element, property))
     })
 }
 
@@ -384,11 +378,6 @@ fn make_default_aspect_ratio_preserving_binding(
 
 fn maybe_center_in_parent(elem: &ElementRc, parent: &ElementRc, pos_prop: &str, size_prop: &str) {
     if elem.borrow().is_binding_set(pos_prop, false) {
-        return;
-    }
-    if elem.borrow().lookup_property(pos_prop).property_type != Type::LogicalLength
-        || elem.borrow().lookup_property(size_prop).property_type != Type::LogicalLength
-    {
         return;
     }
 
