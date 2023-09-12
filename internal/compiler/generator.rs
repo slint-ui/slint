@@ -159,8 +159,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         );
         build_item_tree::<T>(sub_component, &sub_compo_state, builder);
     } else {
-        let mut repeater_count = 0;
-        visit_item(initial_state, &root_component.root_element, 1, &mut repeater_count, 0, builder);
+        visit_item(initial_state, &root_component.root_element, 1, 0, builder);
 
         visit_children(
             initial_state,
@@ -171,7 +170,6 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
             0,
             1,
             1,
-            &mut repeater_count,
             builder,
         );
     }
@@ -199,7 +197,6 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         relative_parent_index: u32,
         children_offset: u32,
         relative_children_offset: u32,
-        repeater_count: &mut u32,
         builder: &mut T,
     ) {
         debug_assert_eq!(
@@ -237,7 +234,6 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
                     relative_parent_index,
                     children_offset,
                     relative_children_offset,
-                    repeater_count,
                     builder,
                 );
                 return;
@@ -256,13 +252,12 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
                     &sub_component_state,
                     &sub_component.root_element,
                     offset,
-                    repeater_count,
                     parent_index,
                     builder,
                 );
                 sub_component_states.push_back(sub_component_state);
             } else {
-                visit_item(state, child, offset, repeater_count, parent_index, builder);
+                visit_item(state, child, offset, parent_index, builder);
             }
             offset += item_sub_tree_size(child) as u32;
         }
@@ -285,7 +280,6 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
                     0,
                     offset,
                     1,
-                    repeater_count,
                     builder,
                 );
             } else {
@@ -298,7 +292,6 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
                     relative_index,
                     offset,
                     relative_offset,
-                    repeater_count,
                     builder,
                 );
             }
@@ -315,7 +308,6 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         component_state: &T::SubComponentState,
         item: &ElementRc,
         children_offset: u32,
-        repeater_count: &mut u32,
         parent_index: u32,
         builder: &mut T,
     ) {
@@ -323,7 +315,6 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
             builder.push_component_placeholder_item(item, parent_index, component_state);
         } else if item.borrow().repeated.is_some() {
             builder.push_repeated_item(item, parent_index, component_state);
-            *repeater_count += 1;
         } else {
             let mut item = item.clone();
             let mut component_state = component_state.clone();
