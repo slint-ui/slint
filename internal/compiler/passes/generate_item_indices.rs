@@ -53,7 +53,6 @@ impl crate::generator::ItemTreeBuilder for Helper {
     fn push_repeated_item(
         &mut self,
         item: &ElementRc,
-        _repeater_count: u32,
         _parent_index: u32,
         component_state: &Self::SubComponentState,
     ) {
@@ -109,7 +108,6 @@ impl crate::generator::ItemTreeBuilder for Helper {
     fn enter_component_children(
         &mut self,
         _item: &ElementRc,
-        _repeater_count: u32,
         _component_state: &Self::SubComponentState,
         _sub_component_state: &Self::SubComponentState,
     ) {

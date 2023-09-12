@@ -854,7 +854,6 @@ pub(crate) fn generate_component<'id>(
         fn push_repeated_item(
             &mut self,
             item_rc: &ElementRc,
-            _repeater_count: u32,
             parent_index: u32,
             _component_state: &Self::SubComponentState,
         ) {
@@ -939,7 +938,6 @@ pub(crate) fn generate_component<'id>(
         fn enter_component_children(
             &mut self,
             _item: &ElementRc,
-            _repeater_count: u32,
             _component_state: &Self::SubComponentState,
             _sub_component_state: &Self::SubComponentState,
         ) {

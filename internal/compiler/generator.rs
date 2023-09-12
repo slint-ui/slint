@@ -108,7 +108,6 @@ pub trait ItemTreeBuilder {
     fn push_repeated_item(
         &mut self,
         item: &crate::object_tree::ElementRc,
-        repeater_count: u32,
         parent_index: u32,
         component_state: &Self::SubComponentState,
     );
@@ -138,7 +137,6 @@ pub trait ItemTreeBuilder {
     fn enter_component_children(
         &mut self,
         item: &ElementRc,
-        repeater_count: u32,
         component_state: &Self::SubComponentState,
         sub_component_state: &Self::SubComponentState,
     );
@@ -156,7 +154,6 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
             builder.enter_component(&root_component.root_element, sub_component, 1, initial_state);
         builder.enter_component_children(
             &root_component.root_element,
-            0,
             initial_state,
             &sub_compo_state,
         );
@@ -278,7 +275,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         for e in children.iter() {
             if let Some(sub_component) = e.borrow().sub_component() {
                 let sub_tree_state = sub_component_states.pop_front().unwrap();
-                builder.enter_component_children(e, *repeater_count, state, &sub_tree_state);
+                builder.enter_component_children(e, state, &sub_tree_state);
                 visit_children(
                     &sub_tree_state,
                     &sub_component.root_element.borrow().children,
@@ -325,7 +322,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         if item.borrow().is_component_placeholder {
             builder.push_component_placeholder_item(item, parent_index, component_state);
         } else if item.borrow().repeated.is_some() {
-            builder.push_repeated_item(item, *repeater_count, parent_index, component_state);
+            builder.push_repeated_item(item, parent_index, component_state);
             *repeater_count += 1;
         } else {
             let mut item = item.clone();
