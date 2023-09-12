@@ -17,7 +17,7 @@ name = "opengl_underlay"
 [dependencies]
 slint = { path = "../../api/rs/slint" }
 glow = { version = "0.12" }
-instant = { version = "0.1", features = [ "now" ] }
+web-time = { version = "0.2" }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
@@ -34,4 +34,3 @@ slint-build = { path = "../../api/rs/build" }
 #wasm# wasm-bindgen = { version = "0.2" }
 #wasm# web-sys = { version = "0.3", features=["console"] }
 #wasm# console_error_panic_hook = "0.1.5"
-#wasm# instant = { version = "0.1", features = [ "wasm-bindgen" ] }

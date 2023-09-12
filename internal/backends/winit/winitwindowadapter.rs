@@ -333,8 +333,7 @@ impl WindowAdapter for WinitWindowAdapter {
             );
 
             #[cfg(target_arch = "wasm32")]
-            {
-                let html_canvas = winit_window.canvas();
+            if let Some(html_canvas) = winit_window.canvas() {
                 let existing_canvas_size = winit::dpi::LogicalSize::new(
                     html_canvas.client_width() as f32,
                     html_canvas.client_height() as f32,
@@ -544,15 +543,15 @@ impl WindowAdapter for WinitWindowAdapter {
                         existing_size.width.min(max_width).max(min_width),
                         existing_size.height.min(max_height).max(min_height),
                     );
-                    winit_window.set_inner_size(new_size);
+                    if let Some(size) = winit_window.request_inner_size(new_size) {
+                        self.size.set(physical_size_to_slint(&size));
+                    }
                 }
             }
 
             // Auto-resize to the preferred size if users (SlintPad) requests it
             #[cfg(target_arch = "wasm32")]
-            {
-                let canvas = winit_window.canvas();
-
+            if let Some(canvas) = winit_window.canvas() {
                 if canvas
                     .dataset()
                     .get("slintAutoResizeToPreferred")
@@ -562,8 +561,11 @@ impl WindowAdapter for WinitWindowAdapter {
                     let pref_width = new_constraints.preferred.width;
                     let pref_height = new_constraints.preferred.height;
                     if pref_width > 0 as Coord || pref_height > 0 as Coord {
-                        winit_window
-                            .set_inner_size(winit::dpi::LogicalSize::new(pref_width, pref_height));
+                        if let Some(size) = winit_window.request_inner_size(
+                            winit::dpi::LogicalSize::new(pref_width, pref_height),
+                        ) {
+                            self.size.set(physical_size_to_slint(&size));
+                        }
                     };
                 }
             }
@@ -636,8 +638,8 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         match request {
             corelib::window::InputMethodRequest::Enable { .. } => {
                 let mut vkh = self.virtual_keyboard_helper.borrow_mut();
+                let Some(canvas) = self.winit_window().canvas() else { return };
                 let h = vkh.get_or_insert_with(|| {
-                    let canvas = self.winit_window().canvas();
                     super::wasm_input_helper::WasmInputHelper::new(self.self_weak.clone(), canvas)
                 });
                 h.show();

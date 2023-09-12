@@ -356,8 +356,8 @@ mod animation_tests {
         }
     }
 
-    const DURATION: instant::Duration = instant::Duration::from_millis(10000);
-    const DELAY: instant::Duration = instant::Duration::from_millis(800);
+    const DURATION: std::time::Duration = std::time::Duration::from_millis(10000);
+    const DELAY: std::time::Duration = std::time::Duration::from_millis(800);
 
     // Helper just for testing
     fn get_prop_value<T: Clone>(prop: &Property<T>) -> T {

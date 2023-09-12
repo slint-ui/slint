@@ -38,7 +38,9 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
             #[cfg(not(target_arch = "wasm32"))]
             opengl_context,
             #[cfg(target_arch = "wasm32")]
-            winit_window.canvas(),
+            winit_window
+                .canvas()
+                .ok_or_else(|| "FemtoVG Renderer: winit didn't return a canvas")?,
         )?;
 
         Ok((Self { renderer }, winit_window))
