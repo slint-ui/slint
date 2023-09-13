@@ -6,7 +6,7 @@
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
-import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
+import * as monaco from "monaco-editor";
 
 import { Previewer } from "./lsp";
 
