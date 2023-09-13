@@ -453,6 +453,11 @@ pub trait TargetPixel: Sized + Copy {
     }
     /// Create a pixel from the red, gree, blue component in the range 0..=255
     fn from_rgb(red: u8, green: u8, blue: u8) -> Self;
+
+    /// Pixel which will be filled as the background in case the slint view has transparency
+    fn background() -> Self {
+        Self::from_rgb(0, 0, 0)
+    }
 }
 
 impl TargetPixel for crate::graphics::image::Rgb8Pixel {
@@ -480,6 +485,10 @@ impl TargetPixel for PremultipliedRgbaColor {
 
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self { red: r, green: g, blue: b, alpha: 255 }
+    }
+
+    fn background() -> Self {
+        Self { red: 0, green: 0, blue: 0, alpha: 0 }
     }
 }
 

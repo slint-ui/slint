@@ -122,7 +122,7 @@ pub struct WinitWindowAdapter {
     shown: Cell<bool>,
     window_level: Cell<winit::window::WindowLevel>,
 
-    renderer: Box<dyn WinitCompatibleRenderer>,
+    pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
     // We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
     // And we wan see the newer value before the Resized event was received, leading to inconsistencies
     size: Cell<PhysicalSize>,

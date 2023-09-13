@@ -450,6 +450,9 @@ fn process_window_event(
         WindowEvent::ThemeChanged(theme) => {
             window.set_dark_color_scheme(theme == winit::window::Theme::Dark)
         }
+        WindowEvent::Occluded(x) => {
+            window.renderer.occluded(x);
+        }
         _ => {}
     }
     Ok(())

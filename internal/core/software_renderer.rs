@@ -144,8 +144,9 @@ impl SoftwareRenderer {
     ///
     /// This may clear the internal caches
     pub fn set_repaint_buffer_type(&self, repaint_buffer_type: RepaintBufferType) {
-        self.repaint_buffer_type.set(repaint_buffer_type);
-        self.partial_cache.borrow_mut().clear();
+        if self.repaint_buffer_type.replace(repaint_buffer_type) != repaint_buffer_type {
+            self.partial_cache.borrow_mut().clear();
+        }
     }
 
     /// Returns the kind of buffer that must be passed to  [`Self::render`]
@@ -246,13 +247,16 @@ impl SoftwareRenderer {
                     LogicalLength::zero(),
                 );
 
-                if !background.is_transparent() {
-                    // FIXME: gradient
-                    renderer
-                        .actual_renderer
-                        .processor
-                        .process_rectangle(to_draw, background.color().into());
+                let mut bg = TargetPixel::background();
+                // TODO: gradient background
+                TargetPixel::blend(&mut bg, background.color().into());
+                for line in to_draw.min_y()..to_draw.max_y() {
+                    let begin = line as usize * pixel_stride + to_draw.origin.x as usize;
+                    renderer.actual_renderer.processor.buffer
+                        [begin..begin + to_draw.width() as usize]
+                        .fill(bg);
                 }
+
                 for (component, origin) in components {
                     crate::item_rendering::render_component_items(
                         component,
@@ -525,8 +529,9 @@ fn render_window_frame_by_line(
 
     debug_assert!(scene.current_line >= dirty_region.origin.y_length());
 
+    let mut background_color = TargetPixel::background();
     // FIXME gradient
-    let background_color = background.color().into();
+    TargetPixel::blend(&mut background_color, background.color().into());
 
     while scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
         line_buffer.process_line(
@@ -535,7 +540,7 @@ fn render_window_frame_by_line(
             |line_buffer| {
                 let offset = dirty_region.min_x() as usize;
 
-                TargetPixel::blend_slice(line_buffer, background_color);
+                line_buffer.fill(background_color);
                 for span in scene.items[0..scene.current_items_index].iter().rev() {
                     debug_assert!(scene.current_line >= span.pos.y_length());
                     debug_assert!(
