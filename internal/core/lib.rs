@@ -78,6 +78,9 @@ pub use graphics::RgbaColor;
 #[doc(inline)]
 pub use graphics::PathData;
 
+#[doc(inline)]
+pub use graphics::BorderRadius;
+
 pub use context::{with_platform, SlintContext};
 
 #[cfg(not(slint_int_coord))]
