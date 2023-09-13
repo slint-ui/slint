@@ -29,7 +29,8 @@ use crate::item_rendering::CachedRenderingData;
 pub use crate::item_tree::ItemRc;
 use crate::layout::LayoutInfo;
 use crate::lengths::{
-    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths, RectLengths,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PointLengths, RectLengths,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -332,6 +333,10 @@ pub struct BorderRectangle {
     pub background: Property<Brush>,
     pub border_width: Property<LogicalLength>,
     pub border_radius: Property<LogicalLength>,
+    pub border_top_left_radius: Property<LogicalLength>,
+    pub border_top_right_radius: Property<LogicalLength>,
+    pub border_bottom_left_radius: Property<LogicalLength>,
+    pub border_bottom_right_radius: Property<LogicalLength>,
     pub border_color: Property<Brush>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -391,6 +396,17 @@ impl Item for BorderRectangle {
     ) -> RenderingResult {
         (*backend).draw_border_rectangle(self, self_rc, size);
         RenderingResult::ContinueRenderingChildren
+    }
+}
+
+impl BorderRectangle {
+    pub fn logical_border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
+        LogicalBorderRadius::from_lengths(
+            self.border_top_left_radius(),
+            self.border_top_right_radius(),
+            self.border_bottom_right_radius(),
+            self.border_bottom_left_radius(),
+        )
     }
 }
 

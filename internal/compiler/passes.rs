@@ -3,6 +3,7 @@
 
 mod apply_default_properties_from_style;
 mod binding_analysis;
+mod border_radius;
 mod check_expressions;
 mod check_public_api;
 mod check_rotation;
@@ -111,6 +112,7 @@ pub async fn run_passes(
     for component in (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))
     {
+        border_radius::handle_border_radius(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
