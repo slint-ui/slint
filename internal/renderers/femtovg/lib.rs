@@ -11,6 +11,7 @@ use std::rc::{Rc, Weak};
 
 use i_slint_common::sharedfontdb;
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
+use i_slint_core::graphics::BorderRadius;
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::item_rendering::ItemRenderer;
@@ -26,6 +27,7 @@ type PhysicalLength = euclid::Length<f32, PhysicalPx>;
 type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
+type PhysicalBorderRadius = BorderRadius<f32, PhysicalPx>;
 
 use self::itemrenderer::CanvasRc;
 
