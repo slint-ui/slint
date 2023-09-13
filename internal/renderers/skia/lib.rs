@@ -13,6 +13,7 @@ use i_slint_core::api::{
 };
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
+use i_slint_core::graphics::BorderRadius;
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::lengths::{
@@ -26,6 +27,7 @@ type PhysicalLength = euclid::Length<f32, PhysicalPx>;
 type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
+type PhysicalBorderRadius = BorderRadius<f32, PhysicalPx>;
 
 mod cached_image;
 mod itemrenderer;

@@ -1,9 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+// cSpell: ignore rrect
+
 use std::pin::Pin;
 
-use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
+use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
@@ -320,15 +322,11 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
         };
 
         // Radius of rounded rect if we were to just fill the rectangle, without a border.
-        let mut fill_radius = rect.border_radius() * self.scale_factor;
+        let mut fill_radius = rect.logical_border_radius() * self.scale_factor;
         // Skia's border radius on stroke is in the middle of the border. But we want it to be the radius of the rectangle itself.
         // This is incorrect if fill_radius < border_width/2, but this can't be fixed. Better to have a radius a bit too big than no radius at all
-        let stroke_border_radius = if fill_radius.get() > 0. {
-            fill_radius = fill_radius.max(border_width / 2. + PhysicalLength::new(0.01));
-            fill_radius - border_width / 2.
-        } else {
-            fill_radius
-        };
+        fill_radius = fill_radius.outer(border_width / 2. + PhysicalLength::new(0.01));
+        let stroke_border_radius = fill_radius.inner(border_width / 2.);
 
         let (background_rect, border_rect) = if opaque_border {
             // In CSS the border is entirely towards the inside of the boundary
@@ -337,19 +335,11 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             // is adjusted accordingly.
             adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
-            let rounded_rect = skia_safe::RRect::new_rect_xy(
-                to_skia_rect(&geometry),
-                stroke_border_radius.get(),
-                stroke_border_radius.get(),
-            );
+            let rounded_rect = to_skia_rrect(&geometry, &stroke_border_radius);
 
             (rounded_rect.clone(), rounded_rect)
         } else {
-            let background_rect = skia_safe::RRect::new_rect_xy(
-                to_skia_rect(&geometry),
-                fill_radius.get(),
-                fill_radius.get(),
-            );
+            let background_rect = to_skia_rrect(&geometry, &fill_radius);
 
             // In CSS the border is entirely towards the inside of the boundary
             // geometry, while in femtovg the line with for a stroke is 50% in-
@@ -357,11 +347,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             // is adjusted accordingly.
             adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
-            let border_rect = skia_safe::RRect::new_rect_xy(
-                to_skia_rect(&geometry),
-                stroke_border_radius.get(),
-                stroke_border_radius.get(),
-            );
+            let border_rect = to_skia_rrect(&geometry, &stroke_border_radius);
 
             (background_rect, border_rect)
         };
@@ -892,6 +878,22 @@ pub fn from_skia_rect(rect: &skia_safe::Rect) -> PhysicalRect {
 
 pub fn to_skia_rect(rect: &PhysicalRect) -> skia_safe::Rect {
     skia_safe::Rect::from_xywh(rect.origin.x, rect.origin.y, rect.size.width, rect.size.height)
+}
+
+pub fn to_skia_rrect(rect: &PhysicalRect, radius: &PhysicalBorderRadius) -> skia_safe::RRect {
+    if let Some(radius) = radius.as_uniform() {
+        skia_safe::RRect::new_rect_xy(to_skia_rect(&rect), radius, radius)
+    } else {
+        skia_safe::RRect::new_rect_radii(
+            to_skia_rect(&rect),
+            &[
+                skia_safe::Point::new(radius.top_left, radius.top_left),
+                skia_safe::Point::new(radius.top_right, radius.top_right),
+                skia_safe::Point::new(radius.bottom_right, radius.bottom_right),
+                skia_safe::Point::new(radius.bottom_left, radius.bottom_left),
+            ],
+        )
+    }
 }
 
 pub fn to_skia_point(point: PhysicalPoint) -> skia_safe::Point {
