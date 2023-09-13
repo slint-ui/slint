@@ -595,17 +595,16 @@ function main() {
                 })
                 .catch((e) => {
                     console.info("ServiceWorker or LSP fail:", e);
+                    const div = document.createElement("div");
+                    div.className = "browser-error";
+                    div.innerHTML =
+                        "<p>No ServiceWorker available in your browser. Try disabling private browsing mode.</p>";
+                    document.body.getElementsByClassName("loader")[0].remove();
+                    document.body.appendChild(div);
                 });
         })
         .catch((e) => {
             console.info("Monaco fail:", e);
-            const div = document.createElement("div");
-            div.className = "browser-error";
-            // div.innerHTML =
-            //     "<p>No ServiceWorker available in your browser. Try disabling private browsing mode.</p>";
-            div.innerText = e;
-            document.body.getElementsByClassName("loader")[0].remove();
-            document.body.appendChild(div);
         });
 }
 

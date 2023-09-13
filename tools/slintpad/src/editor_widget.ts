@@ -36,27 +36,13 @@ import getSnippetServiceOverride from "vscode/service-override/snippets";
 import getStorageServiceOverride from "vscode/service-override/storage";
 import { IStandaloneCodeEditor } from "vscode/dist/vscode/vs/editor/standalone/browser/standaloneCodeEditor";
 
-let EDITOR_PANE_WIDGET: EditorPaneWidget | null = null;
-
 function openEditor(
-    modelRef: IReference<IResolvedTextEditorModel>,
+    _modelRef: IReference<IResolvedTextEditorModel>,
     _options: IEditorOptions | undefined,
     _sideBySide?: boolean,
 ): Promise<monaco.editor.IStandaloneCodeEditor | undefined> {
-    if (EDITOR_PANE_WIDGET === null) {
-        return Promise.resolve(undefined);
-    }
-
-    if (!EDITOR_PANE_WIDGET.set_model(modelRef.object.textEditorModel.uri)) {
-        return Promise.resolve(undefined);
-    }
-
-    // if (options != null && options.selection != undefined) {
-    //     EDITOR_PANE_WIDGET.setSelection(options.selection as monaco.IRange);
-    //     EDITOR_PANE_WIDGET.revealLine(options.selection.startLineNumber);
-    // }
-
-    return Promise.resolve(EDITOR_PANE_WIDGET.editor);
+    // We only have one editor and do not want to open more.
+    return Promise.resolve(undefined);
 }
 
 export function initialize(): Promise<void> {
@@ -250,8 +236,6 @@ class EditorPaneWidget extends Widget {
 
         super({ node: node });
 
-        // EDITOR_PANE_WIDGET = this;
-
         this.#editor_view_states = new Map();
         this.setFlag(Widget.Flag.DisallowLayout);
         this.addClass("content");
@@ -330,14 +314,6 @@ class EditorPaneWidget extends Widget {
 
     protected get contentNode(): HTMLDivElement {
         return this.node.getElementsByTagName("div")[0] as HTMLDivElement;
-    }
-
-    setSelection(range: monaco.IRange) {
-        return this.#editor?.setSelection(range);
-    }
-
-    revealLine(lineNumber: number) {
-        return this.#editor?.revealLine(lineNumber);
     }
 
     get current_editor_content(): string {
@@ -486,21 +462,9 @@ class EditorPaneWidget extends Widget {
     }
 
     public set_model(uri: monaco.Uri): boolean {
-        const current_model = this.#editor?.getModel();
-        if (current_model != null) {
-            this.#editor_view_states.set(uri, this.#editor?.saveViewState());
-        }
-
-        const state = this.#editor_view_states.get(uri);
-        if (this.#editor != null) {
-            this.#editor.setModel(monaco.editor.getModel(uri));
-            if (state != null) {
-                this.#editor.restoreViewState(state);
-            }
-            this.#editor.focus();
-            return true;
-        }
-        return false;
+        this.#editor?.setModel(monaco.editor.getModel(uri));
+        this.#editor?.focus();
+        return true;
     }
 
     protected onResize(_msg: LuminoMessage): void {
@@ -576,6 +540,31 @@ class EditorPaneWidget extends Widget {
                 enabled: true,
             },
         });
+
+        monaco.editor.registerEditorOpener({
+            openCodeEditor: (
+                _source,
+                resource: monaco.Uri,
+                selectionOrPosition?: monaco.IPosition | monaco.IRange,
+            ) => {
+                editor.setModel(monaco.editor.getModel(resource));
+                if (monaco.Position.isIPosition(selectionOrPosition)) {
+                    const pos = selectionOrPosition as monaco.IPosition;
+                    editor.setSelection({
+                        startLineNumber: pos.lineNumber,
+                        startColumn: pos.column,
+                        endLineNumber: pos.lineNumber,
+                        endColumn: pos.column,
+                    });
+                    editor.revealPosition(pos);
+                } else {
+                    const range = selectionOrPosition as monaco.IRange;
+                    editor.setSelection(range);
+                    editor.revealRange(range);
+                }
+                return true;
+            },
+        } as monaco.editor.ICodeEditorOpener);
 
         const original_set_model = editor.setModel;
         editor.setModel = (model: monaco.editor.ITextModel) => {
