@@ -3,16 +3,63 @@
 
 //! Delegate the rendering to the [`i_slint_core::software_renderer::SoftwareRenderer`]
 
+use core::num::NonZeroU32;
+use core::ops::DerefMut;
 use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
-use i_slint_core::software_renderer::PremultipliedRgbaColor;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
+use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use std::cell::RefCell;
 
 pub struct WinitSoftwareRenderer {
     renderer: SoftwareRenderer,
     _context: softbuffer::Context,
     surface: RefCell<softbuffer::Surface>,
+}
+
+#[repr(transparent)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct SoftBufferPixel(pub u32);
+
+impl From<SoftBufferPixel> for PremultipliedRgbaColor {
+    #[inline]
+    fn from(pixel: SoftBufferPixel) -> Self {
+        let v = pixel.0;
+        PremultipliedRgbaColor {
+            red: (v >> 16) as u8,
+            green: (v >> 8) as u8,
+            blue: (v >> 0) as u8,
+            alpha: (v >> 24) as u8,
+        }
+    }
+}
+
+impl From<PremultipliedRgbaColor> for SoftBufferPixel {
+    #[inline]
+    fn from(pixel: PremultipliedRgbaColor) -> Self {
+        Self(
+            (pixel.alpha as u32) << 24
+                | ((pixel.red as u32) << 16)
+                | ((pixel.green as u32) << 8)
+                | (pixel.blue as u32),
+        )
+    }
+}
+
+impl TargetPixel for SoftBufferPixel {
+    fn blend(&mut self, color: PremultipliedRgbaColor) {
+        let mut x = PremultipliedRgbaColor::from(*self);
+        x.blend(color);
+        *self = x.into();
+    }
+
+    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
+        Self(0xff000000 | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32))
+    }
+
+    fn background() -> Self {
+        Self(0)
+    }
 }
 
 impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
@@ -63,19 +110,19 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             .buffer_mut()
             .map_err(|e| format!("Error retrieving softbuffer rendering buffer: {e}"))?;
 
-        if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
-            let mut buffer = vec![
-                PremultipliedRgbaColor::default();
-                width.get() as usize * height.get() as usize
-            ];
-            self.renderer.render(buffer.as_mut_slice(), width.get() as usize);
-            for (i, pixel) in buffer.into_iter().enumerate() {
-                target_buffer[i] = (pixel.alpha as u32) << 24
-                    | ((pixel.red as u32) << 16)
-                    | ((pixel.green as u32) << 8)
-                    | (pixel.blue as u32);
-            }
+        let age = target_buffer.age();
+        self.renderer.set_repaint_buffer_type(match age {
+            1 => RepaintBufferType::ReusedBuffer,
+            2 => RepaintBufferType::SwappedBuffers,
+            _ => RepaintBufferType::NewBuffer,
+        });
+
+        let region = if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
+            let buffer: &mut [SoftBufferPixel] =
+                bytemuck::cast_slice_mut(target_buffer.deref_mut());
+            self.renderer.render(buffer, width.get() as usize)
         } else {
+            // SLINT_LINE_BY_LINE is set and this is a debug mode where we also render in a Rgb565Pixel
             struct FrameBuffer<'a> {
                 buffer: &'a mut [u32],
                 line: Vec<i_slint_core::software_renderer::Rgb565Pixel>,
@@ -101,15 +148,32 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             self.renderer.render_by_line(FrameBuffer {
                 buffer: &mut target_buffer,
                 line: vec![Default::default(); width.get() as usize],
-            });
+            })
         };
 
-        target_buffer.present().map_err(|e| format!("Error presenting softbuffer buffer: {e}"))?;
-
+        let size = region.bounding_box_size();
+        if let Some((w, h)) = Option::zip(NonZeroU32::new(size.width), NonZeroU32::new(size.height))
+        {
+            let pos = region.bounding_box_origin();
+            target_buffer
+                .present_with_damage(&[softbuffer::Rect {
+                    width: w,
+                    height: h,
+                    x: pos.x as u32,
+                    y: pos.y as u32,
+                }])
+                .map_err(|e| format!("Error presenting softbuffer buffer: {e}"))?;
+        }
         Ok(())
     }
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
+    }
+
+    fn occluded(&self, _: bool) {
+        // On X11, the buffer is completely cleared when the window is hidden
+        // and the buffer age doesn't respect that, so clean the partial rendering cache
+        self.renderer.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
     }
 }

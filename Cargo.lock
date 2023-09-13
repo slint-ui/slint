@@ -2895,6 +2895,7 @@ version = "1.2.1"
 dependencies = [
  "accesskit",
  "accesskit_winit",
+ "bytemuck",
  "cfg-if",
  "cfg_aliases",
  "cocoa 0.24.1",

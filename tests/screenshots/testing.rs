@@ -208,7 +208,12 @@ pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow>)
     let region = euclid::rect(s.width / 4, s.height / 4, s.width / 2, s.height / 2).cast::<usize>();
     for y in region.y_range() {
         let stride = rendering.width() as usize;
-        rendering.make_mut_slice()[y * stride..][region.x_range()].fill(Default::default());
+        // fill with garbage
+        rendering.make_mut_slice()[y * stride..][region.x_range()].fill(Rgb8Pixel::new(
+            ((y << 3) & 0xff) as u8,
+            0,
+            255,
+        ));
     }
     screenshot_render_by_line(window, Some(region.cast()), &mut rendering);
     if let Err(reason) = compare_images(path, &rendering) {

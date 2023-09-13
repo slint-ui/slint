@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+
+    background: #2360e62b;
+
+    GridLayout {
+        spacing: 3.5px;
+        padding: 5.33px;
+        Rectangle { background: #4d8c; }
+        Rectangle { background: #4d8; opacity: 0.8; }
+        Row {}
+        Text { text: "Hi!"; color: #99aa3380; }
+        Text { text: "Hi!"; color: #9a3; opacity: 0.5; }
+    }
+}
