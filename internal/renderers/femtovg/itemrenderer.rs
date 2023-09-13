@@ -17,15 +17,15 @@ use i_slint_core::items::{
     TextHorizontalAlignment,
 };
 use i_slint_core::lengths::{
-    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths,
-    RectLengths, ScaleFactor, SizeLengths,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
 
 use super::images::{Texture, TextureCacheKey};
 use super::PhysicalSize;
-use super::{fonts, PhysicalLength, PhysicalPoint, PhysicalRect};
+use super::{fonts, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect};
 
 type FemtovgBoxShadowCache = BoxShadowCache<ItemGraphicsCacheEntry>;
 
@@ -82,26 +82,41 @@ pub struct GLItemRenderer<'a> {
     metrics: RenderingMetrics,
 }
 
-fn rect_with_radius_to_path(rect: PhysicalRect, border_radius: PhysicalLength) -> femtovg::Path {
+fn rect_with_radius_to_path(
+    rect: PhysicalRect,
+    border_radius: PhysicalBorderRadius,
+) -> femtovg::Path {
     let mut path = femtovg::Path::new();
     let x = rect.origin.x;
     let y = rect.origin.y;
     let width = rect.size.width;
     let height = rect.size.height;
-    let border_radius = border_radius.get();
-    // If we're drawing a circle, use directly connected bezier curves instead of
-    // ones with intermediate LineTo verbs, as `rounded_rect` creates, to avoid
-    // rendering artifacts due to those edges.
-    if width.approx_eq(&height) && (border_radius * 2.).approx_eq(&width) {
-        path.circle(x + border_radius, y + border_radius, border_radius);
+    if let Some(border_radius) = border_radius.as_uniform() {
+        // If we're drawing a circle, use directly connected bezier curves instead of
+        // ones with intermediate LineTo verbs, as `rounded_rect` creates, to avoid
+        // rendering artifacts due to those edges.
+        if width.approx_eq(&height) && (border_radius * 2.).approx_eq(&width) {
+            path.circle(x + border_radius, y + border_radius, border_radius);
+        } else {
+            path.rounded_rect(x, y, width, height, border_radius);
+        }
     } else {
-        path.rounded_rect(x, y, width, height, border_radius);
+        path.rounded_rect_varying(
+            x,
+            y,
+            width,
+            height,
+            border_radius.top_left,
+            border_radius.top_right,
+            border_radius.bottom_right,
+            border_radius.bottom_left,
+        );
     }
     path
 }
 
 fn rect_to_path(r: PhysicalRect) -> femtovg::Path {
-    rect_with_radius_to_path(r, PhysicalLength::default())
+    rect_with_radius_to_path(r, PhysicalBorderRadius::default())
 }
 
 fn adjust_rect_and_border_for_inner_drawing(
@@ -147,7 +162,7 @@ fn clip_path_for_rect_alike_item(
 
     // Convert from logical to physical pixels
     let mut border_width = border_width * scale_factor;
-    let radius = radius * scale_factor;
+    let radius = LogicalBorderRadius::new_uniform(radius.get()) * scale_factor;
     let mut clip_rect = clip_rect * scale_factor;
 
     adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
@@ -210,16 +225,12 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         };
 
         // Radius of rounded rect if we were to just fill the rectangle, without a border.
-        let mut fill_radius = rect.border_radius() * self.scale_factor;
+        let mut fill_radius = rect.logical_border_radius() * self.scale_factor;
 
         // FemtoVG's border radius on stroke is in the middle of the border. But we want it to be the radius of the rectangle itself.
         // This is incorrect if fill_radius < border_width/2, but this can't be fixed. Better to have a radius a bit too big than no radius at all
-        let stroke_border_radius = if fill_radius.get() > 0. {
-            fill_radius = fill_radius.max(border_width / 2. + PhysicalLength::new(1.));
-            fill_radius - border_width / 2.
-        } else {
-            fill_radius
-        };
+        fill_radius = fill_radius.outer(border_width / 2. + PhysicalLength::new(1.));
+        let stroke_border_radius = fill_radius.inner(border_width / 2.);
 
         // In case of a transparent border, we want the background to cover the whole rectangle, which is
         // not how femtovg's stroke works. So fill the background separately in the else branch if the
