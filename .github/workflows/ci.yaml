@@ -258,11 +258,6 @@ jobs:
       run: |
         echo "CC=cl.exe" >> $GITHUB_ENV
         echo "CXX=cl.exe" >> $GITHUB_ENV
-    - name: Trim trailing backslash from VCINSTALLDIR (windows skia workaround https://github.com/rust-skia/rust-skia/pull/835)
-      if: matrix.os == 'windows-2022'
-      run: |
-        $trimmed=$Env:VCINSTALLDIR.trim('\')
-        echo "VCINSTALLDIR=$trimmed" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     - name: Enable test coverage for resource embedding in C++ when building examples
       if: matrix.os == 'ubuntu-22.04'
       run: |
