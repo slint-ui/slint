@@ -23,6 +23,7 @@ use rp_pico::hal::gpio::{self, Interrupt as GpioInterrupt};
 use rp_pico::hal::pac::interrupt;
 use rp_pico::hal::timer::{Alarm, Alarm0};
 use rp_pico::hal::{self, pac, prelude::*, Timer};
+use shared_bus::BusMutex;
 use slint::platform::software_renderer as renderer;
 use slint::platform::{PointerEventButton, WindowEvent};
 
@@ -37,7 +38,7 @@ static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 #[global_allocator]
 static ALLOCATOR: Heap = Heap::empty();
 
-type IrqPin = gpio::Pin<gpio::bank0::Gpio17, gpio::PullUpInput>;
+type IrqPin = gpio::Pin<gpio::bank0::Gpio17, gpio::FunctionSio<gpio::SioInput>, gpio::PullUp>;
 static IRQ_PIN: Mutex<RefCell<Option<IrqPin>>> = Mutex::new(RefCell::new(None));
 
 static ALARM0: Mutex<RefCell<Option<Alarm0>>> = Mutex::new(RefCell::new(None));
@@ -50,6 +51,41 @@ const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 240);
 
 /// The Pixel type of the backing store
 pub type TargetPixel = Rgb565Pixel;
+
+type SpiPins = (
+    gpio::Pin<gpio::bank0::Gpio11, gpio::FunctionSpi, gpio::PullDown>,
+    gpio::Pin<gpio::bank0::Gpio12, gpio::FunctionSpi, gpio::PullDown>,
+    gpio::Pin<gpio::bank0::Gpio10, gpio::FunctionSpi, gpio::PullDown>,
+);
+
+type EnabledSpi = hal::Spi<hal::spi::Enabled, pac::SPI1, SpiPins, 8>;
+
+#[derive(Clone)]
+struct SharedSpiWithFreq {
+    mutex: &'static shared_bus::NullMutex<(EnabledSpi, Hertz<u32>)>,
+    freq: Hertz<u32>,
+}
+
+impl SharedSpiWithFreq {
+    fn lock<R, F: FnOnce(&mut EnabledSpi) -> R>(&self, f: F) -> R {
+        self.mutex.lock(|(spi, old_freq)| {
+            if *old_freq != self.freq {
+                // the touchscreen and the LCD have different frequencies
+                spi.set_baudrate(125_000_000u32.Hz(), self.freq);
+                *old_freq = self.freq;
+            }
+            f(spi)
+        })
+    }
+}
+
+impl Transfer<u8> for SharedSpiWithFreq {
+    type Error = <EnabledSpi as Transfer<u8>>::Error;
+
+    fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
+        self.lock(move |bus| bus.transfer(words))
+    }
+}
 
 pub fn init() {
     let mut pac = pac::Peripherals::take().unwrap();
@@ -75,29 +111,35 @@ pub fn init() {
     let sio = hal::sio::Sio::new(pac.SIO);
     let pins = rp_pico::Pins::new(pac.IO_BANK0, pac.PADS_BANK0, sio.gpio_bank0, &mut pac.RESETS);
 
-    let _spi_sclk = pins.gpio10.into_mode::<hal::gpio::FunctionSpi>();
-    let _spi_mosi = pins.gpio11.into_mode::<hal::gpio::FunctionSpi>();
-    let _spi_miso = pins.gpio12.into_mode::<hal::gpio::FunctionSpi>();
-
-    let spi = hal::spi::Spi::<_, _, 8>::new(pac.SPI1);
-    let spi = spi.init(
-        &mut pac.RESETS,
-        clocks.peripheral_clock.freq(),
-        SPI_ST7789VW_MAX_FREQ,
-        &embedded_hal::spi::MODE_3,
-    );
-    let spi = singleton!(:shared_bus::BusManagerSimple<hal::Spi<hal::spi::Enabled,  pac::SPI1, 8>> = shared_bus::BusManagerSimple::new(spi)).unwrap();
-
     let rst = pins.gpio15.into_push_pull_output();
     let bl = pins.gpio13.into_push_pull_output();
 
     let dc = pins.gpio8.into_push_pull_output();
     let cs = pins.gpio9.into_push_pull_output();
 
+    let spi_sclk = pins.gpio10.into_function::<gpio::FunctionSpi>();
+    let spi_mosi = pins.gpio11.into_function::<gpio::FunctionSpi>();
+    let spi_miso = pins.gpio12.into_function::<gpio::FunctionSpi>();
+
+    let spi = hal::Spi::new(pac.SPI1, (spi_mosi, spi_miso, spi_sclk));
+    let spi = spi.init(
+        &mut pac.RESETS,
+        clocks.peripheral_clock.freq(),
+        SPI_ST7789VW_MAX_FREQ,
+        &embedded_hal::spi::MODE_3,
+    );
+
+    // SAFETY: This is not safe :-(  But we need to access the SPI and its control pins for the PIO
     let (dc_copy, cs_copy) =
         unsafe { (core::ptr::read(&dc as *const _), core::ptr::read(&cs as *const _)) };
+    let stolen_spi = unsafe { core::ptr::read(&spi as *const _) };
 
-    let di = display_interface_spi::SPIInterface::new(spi.acquire_spi(), dc, cs);
+    let spi_mutex =
+        singleton!(:shared_bus::NullMutex<(EnabledSpi, Hertz<u32>)> = shared_bus::NullMutex::create((spi, 0.Hz())))
+            .unwrap();
+
+    let display_spi = SharedSpiWithFreq { mutex: spi_mutex, freq: SPI_ST7789VW_MAX_FREQ };
+    let di = display_interface_spi::SPIInterface::new(display_spi.clone(), dc, cs);
 
     let mut display = st7789::ST7789::new(
         di,
@@ -115,11 +157,14 @@ pub fn init() {
     cortex_m::interrupt::free(|cs| {
         IRQ_PIN.borrow(cs).replace(Some(touch_irq));
     });
-    let touch =
-        xpt2046::XPT2046::new(&IRQ_PIN, pins.gpio16.into_push_pull_output(), spi.acquire_spi())
-            .unwrap();
+    let touch = xpt2046::XPT2046::new(
+        &IRQ_PIN,
+        pins.gpio16.into_push_pull_output(),
+        SharedSpiWithFreq { mutex: spi_mutex, freq: xpt2046::SPI_FREQ },
+    )
+    .unwrap();
 
-    let mut timer = Timer::new(pac.TIMER, &mut pac.RESETS);
+    let mut timer = Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
     let mut alarm0 = timer.alarm_0().unwrap();
     alarm0.enable_interrupt();
 
@@ -134,15 +179,6 @@ pub fn init() {
     }
 
     let dma = pac.DMA.split(&mut pac.RESETS);
-    // SAFETY: This is not safe :-(
-    let stolen_spi = unsafe {
-        hal::spi::Spi::<_, _, 8>::new(rp_pico::hal::pac::Peripherals::steal().SPI1).init(
-            &mut pac.RESETS,
-            clocks.peripheral_clock.freq(),
-            SPI_ST7789VW_MAX_FREQ,
-            &embedded_hal::spi::MODE_3,
-        )
-    };
     let pio = PioTransfer::Idle(
         dma.ch0,
         vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as _].leak(),
@@ -419,7 +455,9 @@ mod xpt2046 {
     use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::{InputPin, OutputPin};
     use euclid::default::Point2D;
-    use fugit::RateExtU32;
+    use fugit::Hertz;
+
+    pub const SPI_FREQ: Hertz<u32> = Hertz::<u32>::Hz(3_000_000);
 
     pub struct XPT2046<IRQ: InputPin + 'static, CS: OutputPin, SPI: Transfer<u8>> {
         irq: &'static Mutex<RefCell<Option<IRQ>>>,
@@ -462,9 +500,6 @@ mod xpt2046 {
                 const MIN_Y: u32 = 2300;
                 const MAX_Y: u32 = 30300;
 
-                // FIXME! how else set the frequency to this device
-                unsafe { set_spi_freq(3_000_000u32.Hz()) };
-
                 self.cs.set_low().map_err(|e| Error::Pin(e))?;
 
                 macro_rules! xchg {
@@ -487,7 +522,6 @@ mod xpt2046 {
                 if z < threshold {
                     xchg!(0);
                     self.cs.set_high().map_err(|e| Error::Pin(e))?;
-                    unsafe { set_spi_freq(super::SPI_ST7789VW_MAX_FREQ) };
                     return Ok(None);
                 }
 
@@ -506,7 +540,6 @@ mod xpt2046 {
 
                 xchg!(0);
                 self.cs.set_high().map_err(|e| Error::Pin(e))?;
-                unsafe { set_spi_freq(super::SPI_ST7789VW_MAX_FREQ) };
 
                 if z < RELEASE_THRESHOLD {
                     return Ok(None);
@@ -528,13 +561,6 @@ mod xpt2046 {
         Pin(PinE),
         Transfer(TransferE),
         InternalError,
-    }
-
-    unsafe fn set_spi_freq(freq: impl Into<super::Hertz<u32>>) {
-        use rp_pico::hal;
-        // FIXME: the touchscreen and the LCD have different frequencies, but we cannot really set different frequencies to different SpiProxy without this hack
-        hal::spi::Spi::<_, _, 8>::new(hal::pac::Peripherals::steal().SPI1)
-            .set_baudrate(125_000_000u32.Hz(), freq);
     }
 }
 
@@ -581,11 +607,11 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     .ok()
     .unwrap();
 
-    let _spi_sclk = pins.gpio10.into_mode::<hal::gpio::FunctionSpi>();
-    let _spi_mosi = pins.gpio11.into_mode::<hal::gpio::FunctionSpi>();
-    let _spi_miso = pins.gpio12.into_mode::<hal::gpio::FunctionSpi>();
+    let spi_sclk = pins.gpio10.into_function::<gpio::FunctionSpi>();
+    let spi_mosi = pins.gpio11.into_function::<gpio::FunctionSpi>();
+    let spi_miso = pins.gpio12.into_function::<gpio::FunctionSpi>();
 
-    let spi = hal::spi::Spi::<_, _, 8>::new(pac.SPI1);
+    let spi = hal::Spi::<_, _, _, 8>::new(pac.SPI1, (spi_mosi, spi_miso, spi_sclk));
     let spi = spi.init(
         &mut pac.RESETS,
         clocks.peripheral_clock.freq(),
