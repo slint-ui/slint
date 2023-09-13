@@ -97,14 +97,3 @@ issues we're aware of and how to resolve them.
   The error happens when that path contains spaces. By default that's in `%HOMEPATH%\.cargo`,
   which contains spaces if the login name contains spaces. To resolve this issue, set the `CARGO_HOME`
   environment variable to a path without spaces, such as `c:\cargo_home`.
-
-* Compiler error on Windows with messages about invalid tokens
-
-  You may see compile errors that contain this error:
-  
-  ```
-  ERROR at the command-line "--args":1:823: Invalid token.
-  ```
-
-  This is caused by the `VCINSTALLDIR` environment variable ending with a trailing slash. Edit the environment
-  variable and remove the trailing slash.
