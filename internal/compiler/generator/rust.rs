@@ -875,7 +875,7 @@ fn generate_sub_component(
                 (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(index - #range_begin + 1, what),
             ));
             item_geometry_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_geometry(index - #range_begin + 1),
+                #range_begin..=#range_end => return #sub_compo_field.apply_pin(_self).item_geometry(index - #range_begin + 1),
             ));
         }
 
@@ -1027,13 +1027,16 @@ fn generate_sub_component(
                 #subtree_index_function
             }
 
-            fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> slint::private_unstable_api::AnonymousLogicalRect {
+            fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
                 #![allow(unused)]
                 let _self = self;
-                match index {
+                // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
+                // fields are in alphabetical order
+                let (h, w, x, y) = match index {
                     #(#item_geometry_branch)*
-                    _ => ::core::default::Default::default()
-                }
+                    _ => return ::core::default::Default::default()
+                };
+                sp::euclid::rect(x, y, w, h)
             }
 
             fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
@@ -1485,9 +1488,7 @@ fn generate_item_tree(
             }
 
             fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
-                // The result of the expression is an anonymous struct, so fields are in alphabetical order
-                let (h, w, x, y) = self.item_geometry(index);
-                euclid::rect(x, y, w, h)
+                self.item_geometry(index)
             }
 
             fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {

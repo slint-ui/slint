@@ -126,10 +126,6 @@ pub fn set_callback_handler<
     })
 }
 
-/// This matches the type of a `{height: length, width: length, x: length, y: length}` slint anonymous struct
-/// (fields are always in alphabetical order)
-pub type AnonymousLogicalRect = (Coord, Coord, Coord, Coord);
-
 pub fn debug(s: SharedString) {
     #[cfg(feature = "log")]
     log::debug!("{s}");
