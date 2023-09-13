@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use crate::BorderRadius;
 use crate::Coord;
 /// This type is used as a tagging type for use with [`euclid::Scale`] to convert
 /// between physical and logical pixels.
@@ -14,6 +15,7 @@ pub type LogicalRect = euclid::Rect<Coord, LogicalPx>;
 pub type LogicalPoint = euclid::Point2D<Coord, LogicalPx>;
 pub type LogicalSize = euclid::Size2D<Coord, LogicalPx>;
 pub type LogicalVector = euclid::Vector2D<Coord, LogicalPx>;
+pub type LogicalBorderRadius = BorderRadius<Coord, LogicalPx>;
 
 pub type ScaleFactor = euclid::Scale<f32, LogicalPx, PhysicalPx>;
 
