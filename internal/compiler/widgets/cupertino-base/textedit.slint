@@ -13,9 +13,9 @@ export component TextEdit {
     in property <bool> read-only <=> i-text-input.read-only;
     in property <length> font-size <=> i-text-input.font-size;
     in property <bool> enabled <=> i-text-input.enabled;
-    in-out property <bool> has-focus: i-text-input.has-focus;
     out property <length> visible-width <=> i-scroll-view.visible-width;
     out property <length> visible-height <=> i-scroll-view.visible-height;
+    in-out property <bool> has-focus: i-text-input.has-focus;
     in-out property <string> text <=> i-text-input.text;
     in-out property <length> viewport-x <=> i-scroll-view.viewport-x;
     in-out property <length> viewport-y <=> i-scroll-view.viewport-y;
@@ -35,19 +35,10 @@ export component TextEdit {
         has-focus: root.has-focus;
     }
 
-    i-shadow := Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: parent.width + 2 * self.border-width;
-        height: parent.height + 2 * self.border-width;
-        border-radius: 6px;
-        border-width: 1px;
-        border-color: Palette.fake-shadow;
-    }
-
     i-background := Rectangle {
-        border-radius: 5px;
-        background: Palette.surface;
+        background: Palette.background-secondary;
+        border-color: Palette.border;
+        border-width: 1px;
     }
 
     i-scroll-view := ScrollView {
@@ -63,7 +54,7 @@ export component TextEdit {
             color: Palette.foreground;
             font-size: Typography.body.font-size;
             font-weight: Typography.body.font-weight;
-            selection-background-color: Palette.cup-accent-quaternary;
+            selection-background-color: Palette.accent-quaternary;
             selection-foreground-color: self.color;
             single-line: false;
             wrap: word-wrap;
@@ -110,11 +101,8 @@ export component TextEdit {
 
     states [
         disabled when !root.enabled : {
-            i-text-input.color: Palette.foreground-disabled;
-            i-background.background: Palette.surface-disabled;
-            i-shadow.border-color: Palette.fake-disabled-shadow;
-        }
-        focused when root.has-focus : {
+            i-text-input.color: Palette.foreground-secondary;
+            i-background.background: Palette.surface-tertiary;
         }
     ]
 }

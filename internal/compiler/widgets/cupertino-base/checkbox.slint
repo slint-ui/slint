@@ -5,7 +5,8 @@ import { Typography, Palette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component CheckBox {
-    private property <color> text-color: Palette.foreground;
+    private property <brush> background: checked && root.enabled ? Palette.accent : Palette.surface;
+    private property <brush> icon-color: Palette.on-surface;
 
     callback toggled;
 
@@ -21,49 +22,86 @@ export component CheckBox {
     accessible-checked <=> root.checked;
     accessible-role: checkbox;
 
+    FocusBorder {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: 8px;
+        has-focus: root.has-focus;
+    }
+
     i-layout := HorizontalLayout {
         padding-left: 8px;
         spacing: 6px;
 
-        Rectangle {
+        if (!root.checked) : Rectangle {
             y: (parent.height - self.height) / 2;
             width: 14px;
             height: self.width;
+            border-radius: 4px;
+            background: root.background;
+            clip: true;
 
-            i-shadow := Rectangle {
-                visible: !root.enabled || root.checked;
-                x: (parent.width - self.width) / 2;
-                y: (parent.height - self.height) / 2;
-                width: parent.width + 2 * self.border-width;
-                height: parent.height + 2 * self.border-width;
-                border-radius: 4px;
-                border-width: 1px;
-                border-color: root.checked ? Palette.fake-primary-shadow : Palette.fake-shadow;
+            Rectangle {
+                background: @radial-gradient(circle, #00000000 0%, #00000000 50%, #0000001A 100%);
             }
 
-            i-background := Rectangle {
-                background: root.checked ? Palette.primary : Palette.surface;
-                border-radius: 3px;
-                border-width: root.checked ? 0 : 1px;
-                border-color: root.checked ? transparent : Palette.fake-inner-shadow-strong;
+            Rectangle {
+                width: 100%;
+                height: 100%;
+                border-radius: parent.border-radius;
+                border-width: 0.5px;
+                border-color: Palette.border;
+            }
+        }
 
-                i-icon := Image {
-                    image-fit: contain;
-                    visible: root.checked;
-                    source: Icons.check-mark;
-                    colorize: Palette.on-primary;
-                    width: 10px;
+        if (root.checked) : Rectangle {
+            drop-shadow-blur: 3px;
+            drop-shadow-color: #00000066;
+            drop-shadow-offset-y: 0.5px;
+            y: (parent.height - self.height) / 2;
+            width: 14px;
+            height: self.width;
+            border-radius: 4px;
+            background: root.background;
 
-                    animate colorize { duration: 150ms; }
-                }
+            Rectangle {
+                drop-shadow-blur: 2px;
+                drop-shadow-color: #00000026;
+                drop-shadow-offset-y: 1px;
+                border-radius: parent.border-radius;
+                background: root.background;
             }
 
-            animate background, border-color { duration: 150ms; }
+            Rectangle {
+                drop-shadow-blur: 1px;
+                drop-shadow-color: #00000026;
+                drop-shadow-offset-y: 0.5px;
+                border-radius: parent.border-radius;
+                background: root.background;
+            }
+
+            Rectangle {
+                border-radius: parent.border-radius;
+                background: Palette.dimmer;
+                opacity: 0.17;
+            }
+
+            i-icon := Image {
+                image-fit: contain;
+                visible: root.checked;
+                source: Icons.check-mark;
+                colorize: root.icon-color;
+                width: 12px;
+
+                animate colorize { duration: 150ms; }
+            }
         }
 
         if (root.text != "") : Text {
             text: root.text;
-            color: root.text-color;
+            color: Palette.foreground;
             font-size: Typography.body.font-size;
             font-weight: Typography.body.font-weight;
             vertical-alignment: center;
@@ -96,18 +134,13 @@ export component CheckBox {
 
     states [
         disabled when !root.enabled : {
-            i-background.background: Palette.surface-disabled;
-            i-shadow.border-color: Palette.fake-disabled-shadow;
-            i-background.border-color: root.checked ? transparent : Palette.fake-inner-shadow;
-            i-icon.colorize: Palette.foreground-disabled;
+            opacity: 0.5;
+            icon-color: Palette.foreground;
         }
         pressed when i-touch-area.pressed : {
-        }
-        hover when i-touch-area.has-hover : {
-        }
-        checked when root.checked && root.enabled : {
+            root.background: root.checked ? Palette.accent-secondary : Palette.surface-secondary;
         }
     ]
 
-    animate text-color { duration: 200ms; }
+    animate background { duration: 150ms; }
 }
