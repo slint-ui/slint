@@ -280,13 +280,19 @@ fn fill_model(
 
         let geom = item_rc.geometry();
         let position = item_rc.map_to_window(geom.origin);
-
+        let border_color =
+            i_slint_core::Color::from_argb_encoded(if element.borrow().layout.is_some() {
+                0xffff0000
+            } else {
+                0xff0000ff
+            });
         values.push(Value::Struct(
             [
                 ("width".into(), Value::Number(geom.width() as f64)),
                 ("height".into(), Value::Number(geom.height() as f64)),
                 ("x".into(), Value::Number(position.x as f64)),
                 ("y".into(), Value::Number(position.y as f64)),
+                ("border-color".into(), Value::Brush(border_color.into())),
             ]
             .into_iter()
             .collect(),
@@ -348,13 +354,13 @@ pub(crate) fn add_highlighting(doc: &Document) {
 
 /// Add the `for rect in $highlights: $Highlight := Rectangle { ... }`
 fn add_highlight_items(doc: &Document) {
-    let geom_props = ["width", "height", "x", "y"];
+    let mapped_props = ["width", "height", "x", "y", "border-color"];
     doc.root_component.root_element.borrow_mut().property_declarations.insert(
         HIGHLIGHT_PROP.into(),
         PropertyDeclaration {
             property_type: Type::Array(
                 Type::Struct {
-                    fields: geom_props
+                    fields: mapped_props
                         .iter()
                         .map(|x| (x.to_string(), Type::LogicalLength))
                         .collect(),
@@ -383,7 +389,7 @@ fn add_highlight_items(doc: &Document) {
     );
 
     let repeated = Rc::new_cyclic(|repeated| {
-        let mut bindings: BindingsMap = geom_props
+        let mut bindings: BindingsMap = mapped_props
             .iter()
             .map(|x| {
                 (
@@ -402,20 +408,6 @@ fn add_highlight_items(doc: &Document) {
         bindings.insert(
             "border-width".into(),
             RefCell::new(Expression::NumberLiteral(1., Unit::Px).into()),
-        );
-        bindings.insert(
-            "border-color".into(),
-            RefCell::new(
-                Expression::Cast {
-                    from: Expression::Cast {
-                        from: Expression::NumberLiteral(0xff0000ffu32 as f64, Unit::None).into(),
-                        to: Type::Color,
-                    }
-                    .into(),
-                    to: Type::Brush,
-                }
-                .into(),
-            ),
         );
         let base = Rc::new_cyclic(|comp| Component {
             id: "$Highlight".into(),
