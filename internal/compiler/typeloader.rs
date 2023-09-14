@@ -420,7 +420,7 @@ impl TypeLoader {
                         ),
                         &import_token,
                     );
-                return None;
+                false
             }
             Err(err) => {
                 state.borrow_mut().diag.push_error(
@@ -798,6 +798,56 @@ X := XX {}
     assert!(ok.get());
     assert!(!test_diags.has_error());
     assert!(!build_diagnostics.has_error());
+}
+
+#[test]
+fn test_load_error_twice() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+
+    let doc_node = crate::parser::parse(
+        r#"
+/* ... */
+import { XX } from "error.slint";
+component Foo { XX {} }
+"#
+        .into(),
+        Some(std::path::Path::new("HELLO")),
+        &mut test_diags,
+    );
+
+    let doc_node: syntax_nodes::Document = doc_node.into();
+    let global_registry = TypeRegister::builtin();
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    spin_on::spin_on(loader.load_dependencies_recursively(
+        &doc_node,
+        &mut build_diagnostics,
+        &registry,
+    ));
+    assert!(!test_diags.has_error());
+    assert!(build_diagnostics.has_error());
+    let diags = build_diagnostics.to_string_vec();
+    assert_eq!(
+        diags,
+        &["HELLO:3: Cannot find requested import \"error.slint\" in the include search path"]
+    );
+    // Try loading another time with the same registery
+    let mut build_diagnostics = BuildDiagnostics::default();
+    spin_on::spin_on(loader.load_dependencies_recursively(
+        &doc_node,
+        &mut build_diagnostics,
+        &registry,
+    ));
+    assert!(build_diagnostics.has_error());
+    let diags = build_diagnostics.to_string_vec();
+    assert_eq!(
+        diags,
+        &["HELLO:3: Cannot find requested import \"error.slint\" in the include search path"]
+    );
 }
 
 #[test]
