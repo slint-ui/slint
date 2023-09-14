@@ -25,12 +25,8 @@ option(SLINT_BUILD_RUNTIME "Actually build the Slint runtime libraries (Disable 
 add_feature_info(SLINT_BUILD_RUNTIME SLINT_BUILD_RUNTIME "Actually build the Slint runtime libraries (Disable that to only build the compiler)")
 
 set(SLINT_COMPILER "" CACHE STRING "Path to the slint-compiler executable. When unset, it the compiler will be build as part of the build process")
-
 set(SLINT_LIBRARY_CARGO_FLAGS "" CACHE STRING
     "Flags to pass to cargo when building the Slint runtime library")
-if(SLINT_LIBRARY_CARGO_FLAGS)
-    corrosion_set_cargo_flags(slint-cpp ${SLINT_LIBRARY_CARGO_FLAGS})
-endif()
 
 function(define_cargo_feature cargo-feature description default)
     # turn foo-bar into SLINT_FEATURE_FOO_BAR
@@ -102,17 +98,6 @@ define_cargo_dependent_feature(backend-linuxkms "Enable support for the backend 
 define_cargo_dependent_feature(gettext "Enable support of translations using gettext" OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON "NOT SLINT_FEATURE_FREESTANDING")
 
-if (SLINT_FEATURE_FREESTANDING)
-
-    if (ESP_PLATFORM)
-        list(APPEND features "esp-backtrace/${IDF_TARGET}")
-    endif()
-else (SLINT_FEATURE_FREESTANDING)
-    list(APPEND features std)
-endif()
-
-
-
 if (SLINT_BUILD_RUNTIME)
     if(SLINT_FEATURE_COMPILER AND NOT SLINT_COMPILER)
         set(slint_compiler_crate "slint-compiler")
@@ -163,6 +148,15 @@ if (SLINT_BUILD_RUNTIME)
         target_compile_options(Slint INTERFACE /bigobj)
     endif()
 
+    if (SLINT_FEATURE_FREESTANDING)
+        if (ESP_PLATFORM)
+            list(APPEND features "esp-backtrace/${IDF_TARGET}")
+        endif()
+    else (SLINT_FEATURE_FREESTANDING)
+        list(APPEND features std)
+    endif()
+
+
     set_property(
         TARGET slint-cpp
         APPEND
@@ -180,6 +174,10 @@ if (SLINT_BUILD_RUNTIME)
         PROPERTY CORROSION_NO_DEFAULT_FEATURES
         ON
     )
+
+    if(SLINT_LIBRARY_CARGO_FLAGS)
+        corrosion_set_cargo_flags(slint-cpp ${SLINT_LIBRARY_CARGO_FLAGS})
+    endif()
 
     if(SLINT_FEATURE_BACKEND_QT)
         # For the CMake build don't rely on qmake being in PATH but use CMake to locate Qt. This
