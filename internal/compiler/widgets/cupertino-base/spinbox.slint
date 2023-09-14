@@ -10,41 +10,48 @@ component SpinBoxButton {
 
     callback clicked <=> i-touch-area.clicked;
 
+    in property <bool> enabled <=> i-touch-area.enabled;
     in property <image> icon <=> i-icon.source;
 
     min-width: 16px;
     horizontal-stretch: 0;
 
     Rectangle {
-        drop-shadow-blur: 3px;
-        drop-shadow-color: #00000066;
-        drop-shadow-offset-y: 0.5px;
         y: (parent.height - self.height) / 2;
         width: 14px;
         height: self.width;
-        border-radius: 4px;
-        background: root.background;
 
-        Rectangle {
-            drop-shadow-blur: 2px;
-            drop-shadow-color: #00000026;
-            drop-shadow-offset-y: 1px;
-            border-radius: parent.border-radius;
+        if (root.enabled) : Rectangle {
+            width: 100%;
+            height: 100%;
+            border-radius: 4px;
             background: root.background;
-        }
-
-        Rectangle {
-            drop-shadow-blur: 1px;
-            drop-shadow-color: #00000026;
+            drop-shadow-blur: 3px;
+            drop-shadow-color: #00000066;
             drop-shadow-offset-y: 0.5px;
-            border-radius: parent.border-radius;
-            background: root.background;
-        }
 
-        Rectangle {
-            border-radius: parent.border-radius;
-            background: Palette.dimmer;
-            opacity: 0.17;
+            Rectangle {
+                drop-shadow-blur: 2px;
+                drop-shadow-color: #00000026;
+                drop-shadow-offset-y: 1px;
+                border-radius: parent.border-radius;
+                background: root.background;
+            }
+
+            Rectangle {
+                drop-shadow-blur: 1px;
+                drop-shadow-color: #00000026;
+                drop-shadow-offset-y: 0.5px;
+                border-radius: parent.border-radius;
+                background: root.background;
+            }
+
+            Rectangle {
+                border-radius: parent.border-radius;
+                background: Palette.dimmer;
+                opacity: 0.17;
+            }
+
         }
 
         i-icon := Image {
@@ -63,7 +70,7 @@ component SpinBoxButton {
     states [
         disabled when !i-touch-area.enabled : {
             opacity: 0.5;
-            icon-color: Palette.foreground;
+            icon-color: Palette.foreground-secondary;
         }
         pressed when i-touch-area.pressed : {
             root.background: Palette.accent-secondary;
@@ -170,6 +177,7 @@ export component SpinBox {
         SpinBoxButton {
             visible: root.enabled;
             icon: Icons.chevron-up;
+            enabled: root.enabled;
 
             clicked => {
                 root.increment();
@@ -179,6 +187,7 @@ export component SpinBox {
         SpinBoxButton {
             visible: root.enabled;
             icon: Icons.chevron-down;
+            enabled: root.enabled;
 
             clicked => {
                 root.decrement();
@@ -211,11 +220,8 @@ export component SpinBox {
 
     states [
         disabled when !root.enabled : {
-            // i-text-input.color: Palette.foreground-disabled;
-            // i-background.background: Palette.surface-disabled;
-            // i-shadow.border-color: Palette.fake-disabled-shadow;
-        }
-        focused when root.has-focus : {
+            i-text-input.color: Palette.foreground-secondary;
+            root.background: Palette.surface-tertiary;
         }
     ]
 }

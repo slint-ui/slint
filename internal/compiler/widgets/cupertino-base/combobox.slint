@@ -89,48 +89,53 @@ export component ComboBox {
         }
 
         Rectangle {
-            drop-shadow-blur: 3px;
-            drop-shadow-color: #00000066;
-            drop-shadow-offset-y: 0.5px;
             y: (parent.height - self.height) / 2;
             width: 16px;
             height: self.width;
-            border-radius: 4px;
-            background: Palette.accent;
 
-            Rectangle {
-                drop-shadow-blur: 2px;
-                drop-shadow-color: #00000026;
-                drop-shadow-offset-y: 1px;
-                border-radius: parent.border-radius;
-                background: parent.background;
-            }
-
-            Rectangle {
-                drop-shadow-blur: 1px;
-                drop-shadow-color: #00000026;
+            if (root.enabled) : Rectangle {
+                width: 100%;
+                height: 100%;
+                drop-shadow-blur: 3px;
+                drop-shadow-color: #00000066;
                 drop-shadow-offset-y: 0.5px;
-                border-radius: parent.border-radius;
-                background: parent.background;
-            }
+                border-radius: 4px;
+                background: Palette.accent;
 
-            Rectangle {
-                border-radius: parent.border-radius;
-                background: Palette.dimmer;
-                opacity: 0.17;
+                Rectangle {
+                    drop-shadow-blur: 2px;
+                    drop-shadow-color: #00000026;
+                    drop-shadow-offset-y: 1px;
+                    border-radius: parent.border-radius;
+                    background: parent.background;
+                }
+
+                Rectangle {
+                    drop-shadow-blur: 1px;
+                    drop-shadow-color: #00000026;
+                    drop-shadow-offset-y: 0.5px;
+                    border-radius: parent.border-radius;
+                    background: parent.background;
+                }
+
+                Rectangle {
+                    border-radius: parent.border-radius;
+                    background: Palette.dimmer;
+                    opacity: 0.17;
+                }
             }
 
             VerticalLayout {
                 padding: 4px;
                 spacing: 4px;
 
-                Image {
+                i-top-icon := Image {
                     x: (parent.width - self.width) / 2;
                     colorize: Palette.on-surface;
                     source: Icons.chevron-up;
                 }
 
-                Image {
+                i-bottom-icon := Image {
                     x: (parent.width - self.width) / 2;
                     colorize: Palette.on-surface;
                     source: Icons.chevron-down;
@@ -176,6 +181,12 @@ export component ComboBox {
     }
 
     states [
+        disabled when !root.enabled : {
+            i-text.color: Palette.foreground-secondary;
+            i-top-icon.colorize: Palette.foreground-secondary;
+            i-bottom-icon.colorize: Palette.foreground-secondary;
+            root.background: Palette.surface-tertiary;
+        }
         pressed when i-touch-area.pressed : {
             root.background: Palette.surface-secondary;
         }
