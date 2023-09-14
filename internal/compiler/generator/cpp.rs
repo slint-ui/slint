@@ -1057,8 +1057,6 @@ fn generate_item_tree(
         conditional_includes,
     );
 
-    let root_access = if parent_ctx.is_some() { "parent->root" } else { "self" };
-
     let mut item_tree_array: Vec<String> = Default::default();
     let mut item_array: Vec<String> = Default::default();
 
@@ -1397,6 +1395,7 @@ fn generate_item_tree(
         create_code.push("slint::cbindgen_private::slint_ensure_backend();".into());
     }
 
+    let root_access = if parent_ctx.is_some() { "parent->root" } else { "self" };
     create_code.extend([
         format!(
             "slint::private_api::register_component(&self_rc.into_dyn(), {root_access}->m_window);",
@@ -1428,12 +1427,10 @@ fn generate_item_tree(
         }),
     ));
 
-    let mut destructor = vec!["auto self = this;".to_owned()];
-
-    destructor.push(format!(
-        "if (auto &window = {}->m_window) window->window_handle().unregister_component(self, item_array());",
-        root_access
-    ));
+    let root_access = if parent_ctx.is_some() { "root" } else { "this" };
+    let destructor = vec![format!(
+        "if (auto &window = {root_access}->m_window) window->window_handle().unregister_component(this, item_array());"
+    )];
 
     target_struct.members.push((
         Access::Public,
