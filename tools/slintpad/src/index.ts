@@ -104,10 +104,10 @@ function create_style_menu(editor: EditorWidget): Menu {
         commands.addCommand(command_name, {
             label: style.label,
             isToggled: () => {
-                return editor.style === style.name;
+                return editor.style() === style.name;
             },
             execute: () => {
-                editor.style = style.name;
+                editor.set_style(style.name);
             },
         });
         menu.addItem({ command: command_name });
