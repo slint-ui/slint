@@ -88,6 +88,10 @@ slint_init()
             );
         });
 
+        connection.onDidChangeConfiguration(async (_param) => {
+            await the_lsp.reload_config();
+        });
+
         // Listen on the connection
         connection.listen();
 
