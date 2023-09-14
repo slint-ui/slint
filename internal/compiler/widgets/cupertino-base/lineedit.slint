@@ -31,17 +31,10 @@ export component LineEdit {
         has-focus: root.has-focus;
     }
 
-    i-shadow := Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: parent.width + 2 * self.border-width;
-        height: parent.height + 2 * self.border-width;
-        border-width: 1px;
-        border-color: Palette.fake-shadow;
-    }
-
     i-background := Rectangle {
-        background: Palette.surface;
+        background: Palette.background-secondary;
+        border-color: Palette.border;
+        border-width: 1px;
     }
 
     i-layout := HorizontalLayout {
@@ -54,11 +47,12 @@ export component LineEdit {
             i-placeholder := Text {
                 width: 100%;
                 height: 100%;
-                color: Palette.foreground-disabled;
+                color: Palette.foreground-secondary;
                 font-size: Typography.body.font-size;
                 font-weight: Typography.body.font-weight;
                 visible: root.text == "";
                 vertical-alignment: center;
+                horizontal-alignment: center;
             }
 
             i-text-input := TextInput {
@@ -72,7 +66,7 @@ export component LineEdit {
                 vertical-alignment: center;
                 font-size: Typography.body.font-size;
                 font-weight: Typography.body.font-weight;
-                selection-background-color: Palette.cup-accent-quaternary;
+                selection-background-color: Palette.accent-quaternary;
                 selection-foreground-color: self.color;
 
                 accepted => {
@@ -117,12 +111,12 @@ export component LineEdit {
 
     states [
         disabled when !root.enabled : {
-            i-text-input.color: Palette.foreground-disabled;
-            i-placeholder.color: Palette.foreground-disabled;
-            i-background.background: Palette.surface-disabled;
-            i-shadow.border-color: Palette.fake-disabled-shadow;
+            i-text-input.color: Palette.foreground-secondary;
+            i-placeholder.color: Palette.foreground-secondary;
+            i-background.background: Palette.surface-tertiary;
         }
         focused when root.has-focus : {
+            i-background.background: Palette.surface;
         }
     ]
 }

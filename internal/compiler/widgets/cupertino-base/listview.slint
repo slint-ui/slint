@@ -18,6 +18,7 @@ component StandardListViewBase inherits ListView {
     in property<[StandardListViewItem]> model;
     in-out property<int> current-item: -1;
 
+
     for item[index] in root.model : ListItem {
         height: self.min-height;
         text: item.text;
@@ -57,6 +58,7 @@ export component StandardListView inherits StandardListViewBase {
     FocusScope {
         x: 0;
         width: 0;  // Do not react on clicks
+
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
                 root.set-current-item(root.current-item - 1);

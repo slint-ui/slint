@@ -5,8 +5,8 @@ import { Typography, Palette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component Button {
-    private property <brush> background: primary && root.enabled ? Palette.cup-accent : Palette.cup-surface;
-    private property <brush> text-color: primary && root.enabled ? Palette.cup-on-surface : Palette.cup-forground;
+    private property <brush> background: primary && root.enabled ? Palette.accent : Palette.surface;
+    private property <brush> text-color: primary && root.enabled ? Palette.on-surface : Palette.foreground;
 
     callback clicked;
 
@@ -60,7 +60,7 @@ export component Button {
 
         Rectangle {
             border-radius: parent.border-radius;
-            background: Palette.cup-dimmer;
+            background: Palette.dimmer;
             opacity: 0.17;
         }
     }
@@ -79,7 +79,7 @@ export component Button {
             border-radius: parent.border-radius;
             background: root.background;
             border-width: 1px;
-            border-color: Palette.cup-decent-border;
+            border-color: Palette.decent-border;
             opacity: root.enabled ? 1 : 0.5;
         }
     }
@@ -96,6 +96,7 @@ export component Button {
             y: (parent.height - self.height) / 2;
             source <=> root.icon;
             width: 13px;
+            opacity: root.enabled ? 1 : 0.5;
         }
 
         if (root.text != "") : Text {
@@ -136,11 +137,15 @@ export component Button {
     }
 
     states [
+        disabled when !i-touch-area.enabled : {
+            root.text-color: Palette.foreground-secondary;
+            root.background: Palette.surface-quaternary;
+        }
         pressed when root.pressed : {
-            root.background: root.primary ? Palette.cup-accent-secondary : Palette.cup-surface-secondary;
+            root.background: root.primary ? Palette.accent-secondary : Palette.surface-secondary;
         }
         checked when root.checked : {
-            root.text-color: Palette.cup-accent-secondary;
+            root.text-color: Palette.accent-secondary;
         }
     ]
 

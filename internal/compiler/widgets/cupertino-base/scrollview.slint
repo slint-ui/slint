@@ -3,59 +3,41 @@
 
 import { Palette, Icons } from "styling.slint";
 
-component ScrollViewButton inherits TouchArea {
-    in property <image> icon;
-
-    width: 8px;
-    height: 8px;
-
-    i-icon := Image {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: parent.width;
-        source: root.icon;
-        // colorize: Palette.control-stroke;
-
-        animate colorize, opacity { duration: 150ms; }
-        animate width, height { duration: 150ms; easing: ease-out; }
-    }
-
-    states [
-        pressed when root.pressed : {
-            opacity: 1;
-            i-icon.width: 6px;
-        }
-        hover when root.has-hover : {
-            opacity: 1;
-            // i-icon.colorize: Palette.text-secondary;
-        }
-    ]
-}
-
 component ScrollBar inherits Rectangle {
-    private property <length> offset: 16px;
-    private property <length> size: 2px;
     private property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
     private property <length> step-size: 10px;
+    private property <length> offset: 2px;
+    private property <length> pad: 2px;
 
-    in-out property <bool> horizontal;
-    in-out property<length> maximum;
-    in-out property<length> page-size;
-    in-out property<length> value;
     in property <bool> enabled;
+    out property <bool> has-hover: i-touch-area.has-hover;
+    in-out property <bool> horizontal;
+    in-out property <length> maximum;
+    in-out property <length> page-size;
+    in-out property <length> value;
 
-    border-width: 1px;
-    border-radius: 7px;
+    background: transparent;
+
+    i-border := Rectangle {
+        x: 0;
+        y: 0;
+        width: !root.horizontal ? 0.8px : parent.width;
+        height: !root.horizontal ? parent.height : 0.8px;
+        background: transparent;
+    }
 
     i-thumb := Rectangle {
-        width: !root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * root.page-size / (root.maximum + root.page-size));
-        height: root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * (root.page-size / (root.maximum + root.page-size)));
-        x: !root.horizontal ? parent.width - 4px - self.width : root.offset + (root.track-size - i-thumb.width) * (-root.value / root.maximum);
-        y: root.horizontal ? parent.height - 4px - self.height : root.offset + (root.track-size - i-thumb.height) * (-root.value / root.maximum);
+        width: !root.horizontal ? parent.width - 2 * root.pad : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * root.page-size / (root.maximum + root.page-size));
+        height: root.horizontal ? parent.height - 2 * root.pad : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * (root.page-size / (root.maximum + root.page-size)));
+        x: !root.horizontal ? (parent.width - self.width) / 2 : root.offset + (root.track-size - i-thumb.width) * (-root.value / root.maximum);
+        y: root.horizontal ? (parent.height - self.height) / 2 : root.offset + (root.track-size - i-thumb.height) * (-root.value / root.maximum);
         border-radius: (root.horizontal ? self.height : self.width) / 2;
-        // background: Palette.control-stroke;
+        background: Palette.foreground;
+        opacity: 0.6;
+        border-width: 0.8px;
+        border-color: Palette.foreground-neg;
 
-        animate width, height { duration: 150ms; easing: ease-out; }
+        animate width, height { duration: 100ms; easing: ease-out; }
     }
 
     i-touch-area := TouchArea {
@@ -80,38 +62,15 @@ component ScrollBar inherits Rectangle {
         }
     }
 
-    i-up-scroll-button := ScrollViewButton {
-        opacity: 0;
-        x: !root.horizontal ? (parent.width - self.width) / 2 : 4px;
-        y: root.horizontal ? (parent.height - self.height) / 2 : 4px;
-        icon: root.horizontal ? Icons.left : Icons.up;
-
-        clicked => {
-            root.value = min(0px, root.value + root.step-size);
-        }
-    }
-
-    i-down-scroll-button := ScrollViewButton {
-        opacity: 0;
-        x: !root.horizontal ? (parent.width - self.width) / 2 : root.width - self.width - 4px;
-        y: root.horizontal ? (parent.height - self.height) / 2 : root.height - self.height - 4px;
-        icon: root.horizontal ? Icons.right : Icons.down;
-
-        clicked => {
-            root.value = max(-root.maximum, root.value - root.step-size);
-        }
-    }
-
     states [
-        hover when i-touch-area.has-hover || i-down-scroll-button.has-hover || i-up-scroll-button.has-hover : {
-            // root.background: Palette.acrylic-background;
-            root.size: 6px;
-            i-up-scroll-button.opacity: 1;
-            i-down-scroll-button.opacity: 1;
+        hover when i-touch-area.has-hover : {
+            background: Palette.foreground.with-alpha(0.2);
+            i-border.background: Palette.foreground.with-alpha(0.2);
+            pad: 4px;
         }
     ]
 
-    animate size { duration: 150ms; easing: ease-out; }
+    animate width, height, pad, background { duration: 150ms; easing: ease-out; }
 }
 
 export component ScrollView {
@@ -138,18 +97,18 @@ export component ScrollView {
         interactive: false;
         viewport-y <=> i-vertical-bar.value;
         viewport-x <=> i-horizontal-bar.value;
-        width: parent.width - i-vertical-bar.width;
-        height: parent.height - i-horizontal-bar.height;
+        width: 100%;
+        height: 100%;
 
         @children
     }
 
     i-vertical-bar := ScrollBar {
         enabled: root.enabled;
-        width: 14px;
-        x: i-flickable.width + i-flickable.x;
-        y: i-flickable.y;
-        height:  i-flickable.height;
+        x: parent.width  - self.width;
+        y: 0;
+        width: self.has-hover ? 20px : 12px;
+        height: i-horizontal-bar.visible ? parent.height - i-horizontal-bar.height : parent.height;
         horizontal: false;
         maximum:  i-flickable.viewport-height - i-flickable.height;
         page-size:  i-flickable.height;
@@ -158,10 +117,10 @@ export component ScrollView {
 
     i-horizontal-bar := ScrollBar {
         enabled: root.enabled;
-        width:  i-flickable.width;
-        height: 14px;
-        y: i-flickable.height + i-flickable.y;
-        x: i-flickable.x;
+        width: i-vertical-bar.visible ? parent.width - i-vertical-bar.width : parent.width;
+        height: self.has-hover ? 20px : 12px;
+        y: parent.height - self.height;
+        x: 0;
         horizontal: true;
         maximum:  i-flickable.viewport-width - i-flickable.width;
         page-size:  i-flickable.width;

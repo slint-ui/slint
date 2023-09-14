@@ -5,7 +5,7 @@ import { Typography, Palette } from "styling.slint";
 
 export component GroupBox {
     in property <string> title <=> label.text;
-    in property<bool> enabled: true;
+    in property <bool> enabled: true;
 
     VerticalLayout {
         spacing: 6px;
@@ -14,7 +14,7 @@ export component GroupBox {
 
         label := Text {
             vertical-stretch: 0;
-            color: !root.enabled ? Palette.foreground-disabled : Palette.foreground;
+            color: !root.enabled ? Palette.foreground-secondary : Palette.foreground;
             font-size: Typography.body-strong.font-size;
             font-weight: Typography.body-strong.font-weight;
         }
@@ -22,7 +22,7 @@ export component GroupBox {
         Rectangle {
             vertical-stretch: 1;
             border-radius: 6px;
-            background: Palette.background-alt;
+            background: Palette.background-secondary;
             border-width: 1px;
             border-color: Palette.border;
 
