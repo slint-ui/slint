@@ -2,8 +2,64 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import { Typography, Palette } from "styling.slint";
-import { ScrollView } from "scrollview.slint";
+import { ScrollBar } from "scrollview.slint";
 import { FocusBorder } from "components.slint";
+
+// FIXME: After authide of scrollbars is implemented, remove and use `ScrollView` from `scrollview.slint`
+component ScrollView {
+    in property <bool> enabled: true;
+    out property <length> visible-width <=> i-flickable.width;
+    out property <length> visible-height <=> i-flickable.height;
+    in-out property <length> viewport-width <=> i-flickable.viewport-width;
+    in-out property <length> viewport-height <=> i-flickable.viewport-height;
+    in-out property <length> viewport-x <=> i-flickable.viewport-x;
+    in-out property <length> viewport-y <=> i-flickable.viewport-y;
+    // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
+    in-out property <bool> has-focus;
+
+    min-height: 50px;
+    min-width: 50px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    preferred-height: 100%;
+    preferred-width: 100%;
+
+    i-flickable := Flickable {
+        x: 2px;
+        y: 2px;
+        interactive: false;
+        viewport-y <=> i-vertical-bar.value;
+        viewport-x <=> i-horizontal-bar.value;
+        width:  parent.width - 16px;
+        height: 100%;
+
+        @children
+    }
+
+    i-vertical-bar := ScrollBar {
+        enabled: root.enabled;
+        x: parent.width  - self.width;
+        y: 0;
+        width: self.has-hover ? 20px : 12px;
+        height: i-horizontal-bar.visible ? parent.height - i-horizontal-bar.height : parent.height;
+        horizontal: false;
+        maximum:  i-flickable.viewport-height - i-flickable.height;
+        page-size:  i-flickable.height;
+        visible: i-flickable.viewport-height > i-flickable.height;
+    }
+
+    i-horizontal-bar := ScrollBar {
+        enabled: root.enabled;
+        width: i-vertical-bar.visible ? parent.width - i-vertical-bar.width : parent.width;
+        height: self.has-hover ? 20px : 12px;
+        y: parent.height - self.height;
+        x: 0;
+        horizontal: true;
+        maximum:  i-flickable.viewport-width - i-flickable.width;
+        page-size:  i-flickable.width;
+        visible: i-flickable.viewport-width > i-flickable.width;
+    }
+}
 
 export component TextEdit {
     callback edited(string /* text */);
@@ -31,7 +87,6 @@ export component TextEdit {
         y: (parent.height - self.height) / 2;
         width: parent.width + 6px;
         height: parent.height + 6px;
-        border-radius: 9px;
         has-focus: root.has-focus;
     }
 
@@ -42,10 +97,10 @@ export component TextEdit {
     }
 
     i-scroll-view := ScrollView {
-        x: 12px;
-        y: 12px;
-        width: parent.width - 24px;
-        height: parent.height - 24px;
+        x: 8px;
+        y: 8px;
+        width: parent.width - 16px;
+        height: parent.height - 16px;
         viewport-width: root.wrap == TextWrap.word-wrap ? self.visible-width : max(self.visible-width, i-text-input.preferred-width);
         viewport-height: max(self.visible-height, i-text-input.preferred-height);
 
@@ -103,6 +158,9 @@ export component TextEdit {
         disabled when !root.enabled : {
             i-text-input.color: Palette.foreground-secondary;
             i-background.background: Palette.surface-tertiary;
+        }
+        focused when root.has-focus : {
+            i-background.background: Palette.surface;
         }
     ]
 }

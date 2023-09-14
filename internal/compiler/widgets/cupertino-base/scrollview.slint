@@ -3,7 +3,7 @@
 
 import { Palette, Icons } from "styling.slint";
 
-component ScrollBar inherits Rectangle {
+export component ScrollBar inherits Rectangle {
     private property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
     private property <length> step-size: 10px;
     private property <length> offset: 2px;
