@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-// cSpell: ignore lumino permalink
+// cSpell: ignore cupertino lumino permalink
 
-import { EditorWidget } from "./editor_widget";
+import { EditorWidget, initialize as initializeEditor } from "./editor_widget";
 import { LspWaiter, Lsp } from "./lsp";
 import { LspRange, LspPosition } from "./lsp_integration";
 import { OutlineWidget } from "./outline_widget";
@@ -586,18 +586,25 @@ function setup(lsp: Lsp) {
 }
 
 function main() {
-    Promise.all([wait_for_service_worker(), lsp_waiter.wait_for_lsp()])
-        .then(([_sw, lsp]) => {
-            setup(lsp);
-            document.body.getElementsByClassName("loader")[0].remove();
+    initializeEditor()
+        .then((_) => {
+            Promise.all([wait_for_service_worker(), lsp_waiter.wait_for_lsp()])
+                .then(([_sw, lsp]) => {
+                    setup(lsp);
+                    document.body.getElementsByClassName("loader")[0].remove();
+                })
+                .catch((e) => {
+                    console.info("ServiceWorker or LSP fail:", e);
+                    const div = document.createElement("div");
+                    div.className = "browser-error";
+                    div.innerHTML =
+                        "<p>No ServiceWorker available in your browser. Try disabling private browsing mode.</p>";
+                    document.body.getElementsByClassName("loader")[0].remove();
+                    document.body.appendChild(div);
+                });
         })
-        .catch(() => {
-            const div = document.createElement("div");
-            div.className = "browser-error";
-            div.innerHTML =
-                "<p>No ServiceWorker available in your browser. Try disabling private browsing mode.</p>";
-            document.body.getElementsByClassName("loader")[0].remove();
-            document.body.appendChild(div);
+        .catch((e) => {
+            console.info("Monaco fail:", e);
         });
 }
 

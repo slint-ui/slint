@@ -13,7 +13,7 @@ import {
 
 import { TextRange, TextPosition } from "./text";
 
-import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
+import * as monaco from "monaco-editor";
 
 function find_model(
     model: string | monaco.editor.ITextModel | null | undefined,

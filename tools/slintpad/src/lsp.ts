@@ -21,7 +21,7 @@ import {
     MessageWriter,
 } from "vscode-languageserver-protocol/browser";
 
-import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
+import * as monaco from "monaco-editor";
 
 import slint_init, * as slint_preview from "@lsp/slint_lsp_wasm.js";
 import { HighlightRequestCallback } from "./text";
@@ -90,7 +90,7 @@ export class LspWaiter {
         const pp = this.#previewer_promise!;
         this.#previewer_promise = null;
 
-        const [_, worker] = await Promise.all([pp, lp]);
+        const [_1, worker] = await Promise.all([pp, lp]);
 
         return Promise.resolve(new Lsp(worker, this.#previewer_port));
     }
