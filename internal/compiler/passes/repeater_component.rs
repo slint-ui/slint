@@ -37,6 +37,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 repeated: None,
                 is_component_placeholder: false,
                 node: elem.node.clone(),
+                layout: elem.layout.clone(),
                 enclosing_component: Default::default(),
                 states: std::mem::take(&mut elem.states),
                 transitions: std::mem::take(&mut elem.transitions),
