@@ -237,6 +237,7 @@ fn duplicate_element_with_mapping(
         repeated: elem.repeated.clone(),
         is_component_placeholder: elem.is_component_placeholder,
         node: elem.node.clone(),
+        layout: elem.layout.clone(),
         enclosing_component: Rc::downgrade(root_component),
         states: elem.states.clone(),
         transitions: elem

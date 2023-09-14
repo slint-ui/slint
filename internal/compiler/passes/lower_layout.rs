@@ -239,13 +239,14 @@ fn lower_grid_layout(
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().into(),
         BindingExpression::new_with_span(
-            Expression::ComputeLayoutInfo(Layout::GridLayout(grid), Orientation::Vertical),
+            Expression::ComputeLayoutInfo(Layout::GridLayout(grid.clone()), Orientation::Vertical),
             span,
         )
         .into(),
     );
     grid_layout_element.borrow_mut().layout_info_prop =
         Some((layout_info_prop_h, layout_info_prop_v));
+    grid_layout_element.borrow_mut().layout = Some(Layout::GridLayout(grid));
 }
 
 impl GridLayout {
@@ -427,12 +428,13 @@ fn lower_box_layout(
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().into(),
         BindingExpression::new_with_span(
-            Expression::ComputeLayoutInfo(Layout::BoxLayout(layout), Orientation::Vertical),
+            Expression::ComputeLayoutInfo(Layout::BoxLayout(layout.clone()), Orientation::Vertical),
             span,
         )
         .into(),
     );
     layout_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
+    layout_element.borrow_mut().layout = Some(Layout::BoxLayout(layout));
 }
 
 fn lower_dialog_layout(
@@ -637,12 +639,13 @@ fn lower_dialog_layout(
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().into(),
         BindingExpression::new_with_span(
-            Expression::ComputeLayoutInfo(Layout::GridLayout(grid), Orientation::Vertical),
+            Expression::ComputeLayoutInfo(Layout::GridLayout(grid.clone()), Orientation::Vertical),
             span,
         )
         .into(),
     );
     dialog_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
+    dialog_element.borrow_mut().layout = Some(Layout::GridLayout(grid));
 }
 
 struct CreateLayoutItemResult {

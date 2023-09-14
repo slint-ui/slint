@@ -52,6 +52,7 @@ pub fn ensure_window(
         item_index: Default::default(),
         item_index_of_first_children: Default::default(),
         node: win_elem_mut.node.clone(),
+        layout: win_elem_mut.layout.clone(),
         inline_depth: 0,
         is_legacy_syntax: false,
     };
