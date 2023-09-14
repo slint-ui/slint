@@ -157,20 +157,10 @@ impl super::Surface for OpenGLSurface {
     fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
         self.ensure_context_current()?;
 
-        let width = size.width.try_into().map_err(|_| {
-            format!(
-                "Attempting to resize OpenGL window surface with an invalid width: {}",
-                size.width
-            )
-        })?;
-        let height = size.height.try_into().map_err(|_| {
-            format!(
-                "Attempting to resize OpenGL window surface with an invalid height: {}",
-                size.height
-            )
-        })?;
+        if let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok()) {
+            self.glutin_surface.resize(&self.glutin_context, width, height);
+        }
 
-        self.glutin_surface.resize(&self.glutin_context, width, height);
         Ok(())
     }
 
