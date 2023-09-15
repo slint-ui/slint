@@ -1,7 +1,7 @@
 {
   "name": "slint-node",
   "version": "1.3.0",
-  "main": "index.js",
+  "main": "index.ts",
   "types": "index.d.ts",
   "license": "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial",
   "napi": {
@@ -19,7 +19,7 @@
   },
   "scripts": {
     "artifacts": "napi artifacts",
-    "build": "napi build --platform --release",
+    "build": "napi build --platform --release --js napi.js --dts napi.d.ts",
     "build:debug": "napi build --platform",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava",
