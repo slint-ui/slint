@@ -19,7 +19,8 @@ use i_slint_core::items::{
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
-    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, ScaleFactor,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PhysicalPx, ScaleFactor,
 };
 use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
@@ -573,7 +574,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             rect.background(),
             rect.border_color(),
             rect.border_width().get(),
-            rect.border_radius().get(),
+            rect.logical_border_radius(),
         );
     }
 
@@ -912,7 +913,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     Brush::SolidColor(box_shadow.color()),
                     Brush::default(),
                     0.,
-                    box_shadow.border_radius().get(),
+                    LogicalBorderRadius::new_uniform(box_shadow.border_radius().get()),
                 );
 
                 drop(painter_);
@@ -1284,33 +1285,30 @@ impl QtItemRenderer<'_> {
         brush: Brush,
         border_color: Brush,
         mut border_width: f32,
-        border_radius: f32,
+        border_radius: LogicalBorderRadius,
     ) {
         if border_color.is_transparent() {
             border_width = 0.;
         };
         let brush: qttypes::QBrush = into_qbrush(brush, rect.width, rect.height);
         let border_color: qttypes::QBrush = into_qbrush(border_color, rect.width, rect.height);
-        cpp! { unsafe [painter as "QPainterPtr*", brush as "QBrush",  border_color as "QBrush", border_width as "float", border_radius as "float", mut rect as "QRectF"] {
+        let top_left_radius = border_radius.top_left;
+        let top_right_radius = border_radius.top_right;
+        let bottom_left_radius = border_radius.bottom_left;
+        let bottom_right_radius = border_radius.bottom_right;
+        cpp! { unsafe [
+                painter as "QPainterPtr*",
+                brush as "QBrush",
+                border_color as "QBrush",
+                border_width as "float",
+                top_left_radius as "float",
+                top_right_radius as "float",
+                bottom_left_radius as "float",
+                bottom_right_radius as "float",
+                mut rect as "QRectF"] {
             (*painter)->setBrush(brush);
             QPen pen = border_width > 0 ? QPen(border_color, border_width, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin) : Qt::NoPen;
-            if (border_radius > 0) {
-                if (!border_color.isOpaque() && border_width > 1) {
-                    // See adjustment bellow
-                    float r = qMax(border_width/2, border_radius);
-                    // In case of transparent pen, we want the background to cover the whole rectangle, which Qt doesn't do.
-                    // So first draw the background, then draw the pen over it
-                    (*painter)->setPen(Qt::NoPen);
-                    (*painter)->drawRoundedRect(rect, r, r);
-                    (*painter)->setBrush(QBrush());
-                }
-                // Qt's border radius is in the middle of the border. But we want it to be the radius of the rectangle itself.
-                // This is incorrect if border_radius < border_width/2,  but this can't be fixed. Better to have a radius a bit too big than no radius at all
-                float r = qMax(0.01f, border_radius - border_width / 2);
-                rect.adjust(border_width / 2, border_width / 2, -border_width / 2, -border_width / 2);
-                (*painter)->setPen(pen);
-                (*painter)->drawRoundedRect(rect, r, r);
-            } else {
+            if (qFuzzyIsNull(top_left_radius) && qFuzzyIsNull(top_right_radius) && qFuzzyIsNull(bottom_left_radius) && qFuzzyIsNull(bottom_right_radius)) {
                 if (!border_color.isOpaque() && border_width > 1) {
                     // In case of transparent pen, we want the background to cover the whole rectangle, which Qt doesn't do.
                     // So first draw the background, then draw the pen over it
@@ -1321,6 +1319,77 @@ impl QtItemRenderer<'_> {
                 rect.adjust(border_width / 2, border_width / 2, -border_width / 2, -border_width / 2);
                 (*painter)->setPen(pen);
                 (*painter)->drawRect(rect);
+            } else {
+                auto to_painter_path = [](const QRectF &rect, qreal top_left_radius, qreal top_right_radius, qreal bottom_right_radius, qreal bottom_left_radius) {
+                    QPainterPath path;
+                    if (qFuzzyCompare(top_left_radius, top_right_radius) && qFuzzyCompare(top_left_radius, bottom_right_radius) && qFuzzyCompare(top_left_radius, bottom_left_radius)) {
+                        path.addRoundedRect(rect, top_left_radius, top_left_radius);
+                    } else {
+                        QSizeF half = rect.size() / 2.0;
+
+                        qreal tl_rx = qMin(top_left_radius, half.width());
+                        qreal tl_ry = qMin(top_left_radius, half.height());
+                        QRectF top_left(rect.left(), rect.top(), 2 * tl_rx, 2 * tl_ry);
+
+                        qreal tr_rx = qMin(top_right_radius, half.width());
+                        qreal tr_ry = qMin(top_right_radius, half.height());
+                        QRectF top_right(rect.right() - 2 * tr_rx, rect.top(), 2 * tr_rx, 2 * tr_ry);
+
+                        qreal br_rx = qMin(bottom_right_radius, half.width());
+                        qreal br_ry = qMin(bottom_right_radius, half.height());
+                        QRectF bottom_right(rect.right() - 2 * br_rx, rect.bottom() - 2 * br_ry, 2 * br_rx, 2 * br_ry);
+
+                        qreal bl_rx = qMin(bottom_left_radius, half.width());
+                        qreal bl_ry = qMin(bottom_left_radius, half.height());
+                        QRectF bottom_left(rect.left(), rect.bottom() - 2 * bl_ry, 2 * bl_rx, 2 * bl_ry);
+
+                        if (top_left.isNull()) {
+                            path.moveTo(rect.topLeft());
+                        } else {
+                            path.arcMoveTo(top_left, 180);
+                            path.arcTo(top_left, 180, -90);
+                        }
+                        if (top_right.isNull()) {
+                            path.lineTo(rect.topRight());
+                        } else {
+                            path.arcTo(top_right, 90, -90);
+                        }
+                        if (bottom_right.isNull()) {
+                            path.lineTo(rect.bottomRight());
+                        } else {
+                            path.arcTo(bottom_right, 0, -90);
+                        }
+                        if (bottom_left.isNull()) {
+                            path.lineTo(rect.bottomLeft());
+                        } else {
+                            path.arcTo(bottom_left, -90, -90);
+                        }
+                        path.closeSubpath();
+                    }
+                    return path;
+                };
+
+                if (!border_color.isOpaque() && border_width > 1) {
+                    // See adjustment below
+                    float tl_r = qFuzzyIsNull(top_left_radius) ? top_left_radius : qMax(border_width/2, top_left_radius);
+                    float tr_r = qFuzzyIsNull(top_right_radius) ? top_right_radius : qMax(border_width/2, top_right_radius);
+                    float br_r = qFuzzyIsNull(bottom_right_radius) ? bottom_right_radius : qMax(border_width/2, bottom_right_radius);
+                    float bl_r = qFuzzyIsNull(bottom_left_radius) ? bottom_left_radius : qMax(border_width/2, bottom_left_radius);
+                    // In case of transparent pen, we want the background to cover the whole rectangle, which Qt doesn't do.
+                    // So first draw the background, then draw the pen over it
+                    (*painter)->setPen(Qt::NoPen);
+                    (*painter)->drawPath(to_painter_path(rect, tl_r, tr_r, br_r, bl_r));
+                    (*painter)->setBrush(QBrush());
+                }
+                // Qt's border radius is in the middle of the border. But we want it to be the radius of the rectangle itself.
+                // This is incorrect if border_radius < border_width/2,  but this can't be fixed. Better to have a radius a bit too big than no radius at all
+                float tl_r = qMax(0.0f, top_left_radius - border_width / 2);
+                float tr_r = qMax(0.0f, top_right_radius - border_width / 2);
+                float br_r = qMax(0.0f, bottom_right_radius - border_width / 2);
+                float bl_r = qMax(0.0f, bottom_left_radius - border_width / 2);
+                rect.adjust(border_width / 2, border_width / 2, -border_width / 2, -border_width / 2);
+                (*painter)->setPen(pen);
+                (*painter)->drawPath(to_painter_path(rect, tl_r, tr_r, br_r, bl_r));
             }
         }}
     }
