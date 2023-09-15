@@ -22,9 +22,9 @@ The license does not permit the use of the Software within Embedded Systems. An 
 
 You may distribute the Software as part of an Application, modified or unmodified, provided that You do all of the following:
 
-(a) Display the [`AboutSlint`](https://slint.dev/snapshots/master/docs/slint/src/builtins/widgets.html#aboutslint) widget in an "About" screen or dialog that is accessible from the top level menu of the Application.
+(a) Display the [`AboutSlint`](https://slint.dev/snapshots/master/docs/slint/src/language/widgets/aboutslint.html) widget in an "About" screen or dialog that is accessible from the top level menu of the Application.
 
-(b) Display the [Slint attribution badge](https://github.com/slint-ui/slint/tree/master/logo/madewithslint) on a public webpage, preferably where the binaries of your Application can be downloaded from, in such a way that it can be easily found by any visitor to that page.
+(b) Display the [Slint attribution badge](https://github.com/slint-ui/slint/tree/master/logo/MadeWithSlint-logo-whitebg.png) on a public webpage, preferably where the binaries of your Application can be downloaded from, in such a way that it can be easily found by any visitor to that page.
 
 (c) You may not remove or alter any license notices (including copyright notices, disclaimers of warranty, or limitations of liability) contained within the source code form of the Software.
 
