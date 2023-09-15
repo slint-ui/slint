@@ -13,12 +13,12 @@ mod fonts;
 use self::fonts::GlyphRenderer;
 use crate::api::Window;
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
-use crate::graphics::{IntRect, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
+use crate::graphics::{BorderRadius, IntRect, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::ItemRenderer;
 use crate::items::{ImageFit, ItemRc, TextOverflow};
 use crate::lengths::{
-    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, PointLengths,
-    RectLengths, ScaleFactor, SizeLengths,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
 use crate::renderer::{Renderer, RendererSealed};
 use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
@@ -40,6 +40,7 @@ type PhysicalLength = euclid::Length<i16, PhysicalPx>;
 type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
+type PhysicalBorderRadius = BorderRadius<i16, PhysicalPx>;
 
 type DirtyRegion = PhysicalRect;
 
@@ -159,6 +160,23 @@ impl<T: Copy + NumCast + core::ops::Sub<Output = T>> Transform for euclid::Rect<
             origin.x = origin.x - (size.width - one);
         }
         Self::new(origin, size)
+    }
+}
+
+impl<T: Copy> Transform for BorderRadius<T, PhysicalPx> {
+    fn transformed(self, info: RotationInfo) -> Self {
+        match info.orientation {
+            RenderingRotation::NoRotation => self,
+            RenderingRotation::Rotate90 => {
+                Self::new(self.top_right, self.bottom_right, self.bottom_left, self.top_left)
+            }
+            RenderingRotation::Rotate180 => {
+                Self::new(self.bottom_right, self.bottom_left, self.top_left, self.top_right)
+            }
+            RenderingRotation::Rotate270 => {
+                Self::new(self.bottom_left, self.top_left, self.top_right, self.bottom_right)
+            }
+        }
     }
 }
 
@@ -1065,7 +1083,7 @@ impl SharedBufferCommand {
 
 #[derive(Debug)]
 struct RoundedRectangle {
-    radius: PhysicalLength,
+    radius: PhysicalBorderRadius,
     /// the border's width
     width: PhysicalLength,
     border_color: PremultipliedRgbaColor,
@@ -1755,7 +1773,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
             let mut border = rect.border_width();
-            let radius = rect.border_radius();
+            let radius = rect.logical_border_radius();
             // FIXME: gradients
             let color = self.alpha_color(rect.background().color());
             let border_color = if border.get() as f32 > 0.01 {
@@ -1788,10 +1806,10 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 }
             }
 
-            if radius.get() > 0 as _ {
+            if !radius.is_zero() {
                 let radius = radius
-                    .min(geom.width_length() / 2 as Coord)
-                    .min(geom.height_length() / 2 as Coord);
+                    .min(LogicalBorderRadius::from_length(geom.width_length() / 2 as Coord))
+                    .min(LogicalBorderRadius::from_length(geom.height_length() / 2 as Coord));
                 if let Some(clipped) = geom.intersection(&self.current_state.clip) {
                     let geom2 = (geom.cast() * self.scale_factor).transformed(self.rotation);
                     let clipped2 = (clipped.cast() * self.scale_factor).transformed(self.rotation);
@@ -1801,13 +1819,15 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                             .round()
                             .cast()
                             .transformed(self.rotation);
+                    let radius =
+                        (radius.cast() * self.scale_factor).cast().transformed(self.rotation);
                     // Add a small value to make sure that the clip is always positive despite floating point shenanigans
                     const E: f32 = 0.00001;
 
                     self.processor.process_rounded_rectangle(
                         geometry,
                         RoundedRectangle {
-                            radius: (radius.cast() * self.scale_factor).cast(),
+                            radius,
                             width: (border.cast() * self.scale_factor).cast(),
                             border_color,
                             inner_color: color,
