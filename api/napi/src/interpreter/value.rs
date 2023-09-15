@@ -4,10 +4,11 @@
 use crate::{JsBrush, JsImageData, JsModel};
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
-use i_slint_core::model::ModelRc;
-use i_slint_core::{Brush, Color};
+use i_slint_core::model::{ModelRc, SharedVectorModel, Model};
+use i_slint_core::{Brush, Color, SharedVector};
 use napi::{
-    bindgen_prelude::*, Env, JsBoolean, JsExternal, JsNumber, JsObject, JsString, JsUnknown, Result,
+    bindgen_prelude::*, Env, JsBoolean, JsExternal, JsNumber, JsObject, JsString, JsTypedArray,
+    JsUnknown, Result,
 };
 use napi_derive::napi;
 use slint_interpreter::Value;
@@ -65,7 +66,17 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
             Ok(JsBrush::from(brush.clone()).into_instance(*env)?.as_object(*env).into_unknown())
         }
         Value::Model(model) => {
-            Ok(JsModel::from(model.clone()).into_instance(*env)?.as_object(*env).into_unknown())
+            // Ok(JsModel::from(model.clone()).into_instance(*env)?.as_object(*env).into_unknown())
+
+            // let js_array = Array::from_vec(env, model.)
+            // let js_array = Array::
+            let mut vec = vec![];
+
+            for i in 0..model.row_count() {
+                vec.push(to_js_unknown(env, &model.row_data(i).unwrap()));
+            }
+
+            Ok(Array::from_vec(env, vec)?.coerce_to_object()?.into_unknown())
         }
         _ => env.get_undefined().map(|v| v.into_unknown()),
     }
@@ -179,7 +190,19 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                     .collect::<Result<_, _>>()?,
             ))
         }
-        Type::Array(_) => todo!(),
+        Type::Array(a) => match Array::from_unknown(unknown) {
+            Ok(arr) => {
+                let mut vec = vec![];
+
+                for i in 0..arr.len() {
+                    vec.push(to_value(env, arr.get(i)?.unwrap(), *a.to_owned())?);
+                }
+                Ok(Value::Model(ModelRc::new(SharedVectorModel::from(SharedVector::from_slice(
+                    &vec,
+                )))))
+            }
+            Err(_) => todo!(),
+        },
         Type::Enumeration(_) => todo!(),
         Type::Invalid
         | Type::Void
