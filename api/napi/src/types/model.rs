@@ -1,26 +1,27 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use i_slint_core::model::{Model, ModelRc, VecModel};
-use napi::{bindgen_prelude::{External, ToNapiValue, Object}, Env, JsObject, NapiRaw};
-use napi_derive::napi;
+use i_slint_compiler::langtype::Type;
+use i_slint_core::model::Model;
+use napi::{bindgen_prelude::Object, Env, JsFunction, JsNumber, JsUnknown, NapiRaw};
 use slint_interpreter::Value;
 
-use crate::RefCountedReference;
+use crate::{to_js_unknown, to_value, RefCountedReference};
 
 pub struct JsModel {
     model: RefCountedReference,
     env: Env,
     notify: i_slint_core::model::ModelNotify,
+    data_type: Type,
 }
 
 impl JsModel {
-    pub fn new<T: NapiRaw>(env: Env, model: T) -> napi::Result<Self> {
+    pub fn new<T: NapiRaw>(env: Env, model: T, data_type: Type) -> napi::Result<Self> {
         Ok(Self {
             notify: Default::default(),
             env,
             model: RefCountedReference::new(&env, model)?,
-
+            data_type,
         })
     }
 
@@ -33,11 +34,36 @@ impl Model for JsModel {
     type Data = slint_interpreter::Value;
 
     fn row_count(&self) -> usize {
-        0
+        let model: Object = self.model.get().unwrap();
+        model
+            .get::<&str, JsFunction>("rowCount")
+            .ok()
+            .and_then(|callback| {
+                callback.and_then(|callback| {
+                    callback.call::<JsUnknown>(Some(&model), vec![].as_ref()).ok()
+                })
+            })
+            .and_then(|res| res.coerce_to_number().ok())
+            .map(|num| num.get_uint32().ok().map_or(0, |count| count as usize))
+            .unwrap_or_default()
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        None
+        let model: Object = self.model.get().unwrap();
+        model
+            .get::<&str, JsFunction>("rowData")
+            .ok()
+            .and_then(|callback| {
+                callback.and_then(|callback| {
+                    callback
+                        .call::<JsNumber>(
+                            Some(&model),
+                            &[self.env.create_double(row as f64).unwrap()],
+                        )
+                        .ok()
+                })
+            })
+            .and_then(|res| to_value(&self.env, res, self.data_type.clone()).ok())
     }
 
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
@@ -45,27 +71,23 @@ impl Model for JsModel {
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
+        let model: Object = self.model.get().unwrap();
+        model.get::<&str, JsFunction>("setRowData").ok().and_then(|callback| {
+            callback.and_then(|callback| {
+                callback
+                    .call::<JsUnknown>(
+                        Some(&model),
+                        &[
+                            to_js_unknown(&self.env, &Value::Number(row as f64)).unwrap(),
+                            to_js_unknown(&self.env, &data).unwrap(),
+                        ],
+                    )
+                    .ok()
+            })
+        });
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
         self
     }
 }
-
-// #[napi]
-// impl JsModel {
-//     #[napi(constructor)]
-//     pub fn new() -> Self {
-//         Self { inner: ModelRc::new(VecModel::default()) }
-//     }
-
-//     #[napi(getter)]
-//     pub fn row_count(&self) -> u32 {
-//         self.inner.row_count() as u32
-//     }
-
-//     #[napi(getter)]
-//     pub fn model(&self) -> External<ModelRc<Value>> {
-//         External::new(self.inner.clone())
-//     }
-// }

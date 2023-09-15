@@ -4,11 +4,10 @@
 use crate::{JsBrush, JsImageData, JsModel};
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
-use i_slint_core::model::{Model, ModelRc, SharedVectorModel, VecModel};
+use i_slint_core::model::{Model, ModelRc, SharedVectorModel};
 use i_slint_core::{Brush, Color, SharedVector};
 use napi::{
-    bindgen_prelude::*, Env, JsBoolean, JsExternal, JsNumber, JsObject, JsString, JsTypedArray,
-    JsUnknown, Result,
+    bindgen_prelude::*, Env, JsBoolean, JsExternal, JsNumber, JsObject, JsString, JsUnknown, Result,
 };
 use napi_derive::napi;
 use slint_interpreter::Value;
@@ -203,7 +202,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 let _: JsFunction = model.get("rowCount")?.unwrap();
                 let _: JsFunction = model.get("rowData")?.unwrap();
 
-                Ok(Value::Model(ModelRc::new(JsModel::new(*env, model)?)))
+                Ok(Value::Model(ModelRc::new(JsModel::new(*env, model, *a.to_owned())?)))
             }
         }
         Type::Enumeration(_) => todo!(),
