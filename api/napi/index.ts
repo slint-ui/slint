@@ -82,7 +82,7 @@ class NullPeer implements ModelPeer {
  * ArrayModel wraps a JavaScript array for use in `.slint` views. The underlying
  * array can be modified with the [[ArrayModel.push]] and [[ArrayModel.remove]] methods.
  */
-class ArrayModel<T> implements Model<T> {
+export class ArrayModel<T> implements Model<T> {
     /**
      * @hidden
      */

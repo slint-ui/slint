@@ -4,7 +4,7 @@
 use crate::{JsBrush, JsImageData, JsModel};
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
-use i_slint_core::model::{ModelRc, SharedVectorModel, Model};
+use i_slint_core::model::{Model, ModelRc, SharedVectorModel, VecModel};
 use i_slint_core::{Brush, Color, SharedVector};
 use napi::{
     bindgen_prelude::*, Env, JsBoolean, JsExternal, JsNumber, JsObject, JsString, JsTypedArray,
@@ -190,19 +190,25 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                     .collect::<Result<_, _>>()?,
             ))
         }
-        Type::Array(a) => match Array::from_unknown(unknown) {
-            Ok(arr) => {
+        Type::Array(a) => {
+            if unknown.is_array()? {
+                let array = Array::from_unknown(unknown)?;
                 let mut vec = vec![];
 
-                for i in 0..arr.len() {
-                    vec.push(to_value(env, arr.get(i)?.unwrap(), *a.to_owned())?);
+                for i in 0..array.len() {
+                    vec.push(to_value(env, array.get(i)?.unwrap(), *a.to_owned())?);
                 }
                 Ok(Value::Model(ModelRc::new(SharedVectorModel::from(SharedVector::from_slice(
                     &vec,
                 )))))
+            } else {
+                let model = unknown.coerce_to_object()?;
+                let _: JsFunction = model.get("rowCount")?.unwrap();
+                let _: JsFunction = model.get("rowData")?.unwrap();
+
+                Ok(Value::Model(ModelRc::new(JsModel::new(*env, model))))
             }
-            Err(_) => todo!(),
-        },
+        }
         Type::Enumeration(_) => todo!(),
         Type::Invalid
         | Type::Void

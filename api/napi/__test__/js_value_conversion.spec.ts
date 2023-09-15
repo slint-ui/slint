@@ -5,7 +5,7 @@ import test from 'ava';
 const path = require('node:path');
 var Jimp = require("jimp");
 
-import { ComponentCompiler, Brush, Model, Color, ImageData } from '../index'
+import { ComponentCompiler, Brush, Model, Color, ImageData, ArrayModel } from '../index'
 
 test('get/set string properties', (t) => {
   let compiler = new ComponentCompiler;
@@ -264,25 +264,25 @@ test('get/set brush properties', (t) => {
   }
 })
 
-// test('get/set model properties', (t) => {
-//   let compiler = new ComponentCompiler;
-//   let definition = compiler.buildFromSource(`
-//   export component App {
-//     in-out property <[string]> model: ["Florian", "Simon"];
-//   }
-//   `, "");
-//   t.not(definition, null);
-//   let instance = definition!.create();
-//   t.not(instance, null);
+test('ArrayModel', (t) => {
+  let compiler = new ComponentCompiler;
+  let definition = compiler.buildFromSource(`
+  export component App {
+    in-out property <[int]> int-array;
+    in-out property <[string]> string-array;
+  }`, "");
+  t.not(definition, null);
 
-//   let model = instance!.getProperty("model");
+  let instance = definition!.create();
+  t.not(instance, null);
 
-//   if (t.true((model instanceof Model))) {
-//     t.deepEqual((model as Model).rowCount, 2);
-//   }
-// })
+  instance!.setProperty("int-array", new ArrayModel([10, 9, 8]));
 
-test('array model', (t) => {
+  // instance!.setProperty("string-array", ["Simon", "Olivier", "Auri", "Tobias", "Florian"]);
+  // t.deepEqual(instance!.getProperty("string-array"), ["Simon", "Olivier", "Auri", "Tobias", "Florian"]);
+})
+
+test('model from array', (t) => {
   let compiler = new ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
