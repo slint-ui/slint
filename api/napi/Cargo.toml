@@ -4,7 +4,7 @@
 [package]
 edition = "2021"
 name = "slint-napi"
-version = "1.2.0"
+version = "1.2.1"
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial"
 homepage = "https://slint.dev"
 description = "Internal Slint Runtime Library for NodeJS API."
@@ -19,9 +19,9 @@ crate-type = ["cdylib"]
 [dependencies]
 napi = { version = "2.12.0", default-features = false, features = ["napi8"] }
 napi-derive = "2.12.2"
-i-slint-compiler = { version = "=1.2.0", path="../../internal/compiler" }
-i-slint-core = { version = "=1.2.0", path="../../internal/core" }
-slint-interpreter = { version = "=1.2.0", path="../../internal/interpreter",  features = ["display-diagnostics"] }
+i-slint-compiler = { version = "=1.2.1", path="../../internal/compiler" }
+i-slint-core = { version = "=1.2.1", path="../../internal/core" }
+slint-interpreter = { version = "=1.2.1", path="../../internal/interpreter",  features = ["display-diagnostics"] }
 spin_on = "0.1"
 
 [build-dependencies]

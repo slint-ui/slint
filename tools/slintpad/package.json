@@ -1,7 +1,7 @@
 {
     "//": "cSpell: ignore codingame dragdrop frsource lumino ",
     "name": "slintpad",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "description": "",
     "main": "index.js",
     "scripts": {
