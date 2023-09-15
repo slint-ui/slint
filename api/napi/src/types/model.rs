@@ -2,21 +2,30 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use i_slint_core::model::{Model, ModelRc, VecModel};
-use napi::{bindgen_prelude::{External, ToNapiValue, Object}, Env};
+use napi::{bindgen_prelude::{External, ToNapiValue, Object}, Env, JsObject, NapiRaw};
 use napi_derive::napi;
 use slint_interpreter::Value;
 
+use crate::RefCountedReference;
+
 pub struct JsModel {
-    object: Object,
-    env: Env
+    model: RefCountedReference,
+    env: Env,
+    notify: i_slint_core::model::ModelNotify,
 }
 
 impl JsModel {
-    pub fn new(env: Env, object: Object) -> Self {
-        Self {
+    pub fn new<T: NapiRaw>(env: Env, model: T) -> napi::Result<Self> {
+        Ok(Self {
+            notify: Default::default(),
             env,
-            object
-        }
+            model: RefCountedReference::new(&env, model)?,
+
+        })
+    }
+
+    pub fn model(&self) -> &RefCountedReference {
+        &self.model
     }
 }
 
@@ -24,15 +33,22 @@ impl Model for JsModel {
     type Data = slint_interpreter::Value;
 
     fn row_count(&self) -> usize {
-        todo!()
+        0
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        todo!()
+        None
     }
 
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
-        todo!()
+        &self.notify
+    }
+
+    fn set_row_data(&self, row: usize, data: Self::Data) {
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
     }
 }
 

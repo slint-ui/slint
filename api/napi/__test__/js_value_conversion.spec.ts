@@ -268,15 +268,16 @@ test('ArrayModel', (t) => {
   let compiler = new ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
-    in-out property <[int]> int-array;
-    in-out property <[string]> string-array;
+    in-out property <[int]> int-model;
+    in-out property <[string]> string-model;
   }`, "");
   t.not(definition, null);
 
   let instance = definition!.create();
   t.not(instance, null);
 
-  instance!.setProperty("int-array", new ArrayModel([10, 9, 8]));
+  instance!.setProperty("int-model", new ArrayModel([10, 9, 8]));
+  t.deepEqual(instance!.getProperty("int-model"), new ArrayModel([10, 9, 8]));
 
   // instance!.setProperty("string-array", ["Simon", "Olivier", "Auri", "Tobias", "Florian"]);
   // t.deepEqual(instance!.getProperty("string-array"), ["Simon", "Olivier", "Auri", "Tobias", "Florian"]);

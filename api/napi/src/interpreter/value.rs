@@ -66,17 +66,18 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
             Ok(JsBrush::from(brush.clone()).into_instance(*env)?.as_object(*env).into_unknown())
         }
         Value::Model(model) => {
-            // Ok(JsModel::from(model.clone()).into_instance(*env)?.as_object(*env).into_unknown())
+            if let Some(js_model) = model.as_any().downcast_ref::<JsModel>() {
+                let model: Object = js_model.model().get()?;
+                Ok(model.into_unknown())
+            } else {
+                let mut vec = vec![];
 
-            // let js_array = Array::from_vec(env, model.)
-            // let js_array = Array::
-            let mut vec = vec![];
+                for i in 0..model.row_count() {
+                    vec.push(to_js_unknown(env, &model.row_data(i).unwrap()));
+                }
 
-            for i in 0..model.row_count() {
-                vec.push(to_js_unknown(env, &model.row_data(i).unwrap()));
+                Ok(Array::from_vec(env, vec)?.coerce_to_object()?.into_unknown())
             }
-
-            Ok(Array::from_vec(env, vec)?.coerce_to_object()?.into_unknown())
         }
         _ => env.get_undefined().map(|v| v.into_unknown()),
     }
@@ -165,10 +166,6 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 Ok(Value::Image(Image::from_rgba8(pixel_buffer)))
             }
         }
-        Type::Model => {
-            let js_model: JsExternal = unknown.coerce_to_object()?.get("model")?.unwrap();
-            Ok(Value::Model(env.get_value_external::<ModelRc<Value>>(&js_model)?.clone()))
-        }
         Type::Struct { fields, name: _, node: _, rust_attributes: _ } => {
             let js_object = unknown.coerce_to_object()?;
 
@@ -206,11 +203,12 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 let _: JsFunction = model.get("rowCount")?.unwrap();
                 let _: JsFunction = model.get("rowData")?.unwrap();
 
-                Ok(Value::Model(ModelRc::new(JsModel::new(*env, model))))
+                Ok(Value::Model(ModelRc::new(JsModel::new(*env, model)?)))
             }
         }
         Type::Enumeration(_) => todo!(),
         Type::Invalid
+        | Type::Model
         | Type::Void
         | Type::InferredProperty
         | Type::InferredCallback
