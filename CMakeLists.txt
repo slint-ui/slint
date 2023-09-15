@@ -38,7 +38,7 @@ add_feature_info(SLINT_BUILD_EXAMPLES SLINT_BUILD_EXAMPLES "configure whether to
 if(SLINT_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
-if(SLINT_BUILD_TESTING)
+if(SLINT_BUILD_TESTING AND (SLINT_FEATURE_COMPILER OR SLINT_COMPILER))
     add_subdirectory(docs/tutorial/cpp/src/)
 endif()
 

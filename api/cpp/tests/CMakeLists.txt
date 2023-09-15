@@ -45,7 +45,9 @@ if(NOT SLINT_FEATURE_FREESTANDING)
 endif()
 slint_test(models)
 
-add_subdirectory(multiple-includes)
+if(SLINT_FEATURE_COMPILER OR SLINT_COMPILER)
+    add_subdirectory(multiple-includes)
+endif()
 
 slint_test(platform_eventloop)
 target_link_libraries(test_platform_eventloop PRIVATE Threads::Threads)
