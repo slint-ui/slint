@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use std::rc::{Rc, Weak};
+
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::Model;
 use napi::{bindgen_prelude::Object, Env, JsFunction, JsNumber, JsUnknown, NapiRaw};
@@ -16,13 +18,19 @@ pub struct JsModel {
 }
 
 impl JsModel {
-    pub fn new<T: NapiRaw>(env: Env, model: T, data_type: Type) -> napi::Result<Self> {
-        Ok(Self {
+    pub fn new<T: NapiRaw>(env: Env, model: T, data_type: Type) -> napi::Result<Rc<Self>> {
+        // let model = RefCountedReference::new(&env, model)?;
+        let js_model = Rc::new(Self {
             notify: Default::default(),
             env,
             model: RefCountedReference::new(&env, model)?,
             data_type,
-        })
+        });
+
+        let notfy = JsSlintModelNotify { model: Rc::downgrade(&js_model) };
+
+
+        Ok(js_model)
     }
 
     pub fn model(&self) -> &RefCountedReference {
@@ -90,4 +98,29 @@ impl Model for JsModel {
     fn as_any(&self) -> &dyn core::any::Any {
         self
     }
+}
+
+#[napi(js_name = "SlintModelNotify")]
+pub struct JsSlintModelNotify {
+    model: Weak<JsModel>,
+}
+
+#[napi]
+impl JsSlintModelNotify {
+    #[napi(constructor)]
+    pub fn new() -> Self {
+        Self { model: Weak::default() }
+    }
+
+    #[napi]
+    pub fn row_data_changed(&self, row: u32) {}
+
+    #[napi]
+    pub fn row_added(&self, row: u32, count: u32) {}
+
+    #[napi]
+    pub fn row_removed(&self, row: u32, count: u32) {}
+
+    #[napi]
+    pub fn reset(&self) {}
 }
