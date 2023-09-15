@@ -277,7 +277,9 @@ test('ArrayModel', (t) => {
   t.not(instance, null);
 
   instance!.setProperty("int-model", new ArrayModel([10, 9, 8]));
-  t.deepEqual(instance!.getProperty("int-model"), new ArrayModel([10, 9, 8]));
+
+  let arrayModel = instance!.getProperty("int-model") as ArrayModel<number>;
+  t.deepEqual(arrayModel.values(), new ArrayModel([10, 9, 8]).values());
 
   // instance!.setProperty("string-array", ["Simon", "Olivier", "Auri", "Tobias", "Florian"]);
   // t.deepEqual(instance!.getProperty("string-array"), ["Simon", "Olivier", "Auri", "Tobias", "Florian"]);

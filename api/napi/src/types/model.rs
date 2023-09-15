@@ -27,8 +27,9 @@ impl JsModel {
             data_type,
         });
 
-        let notfy = JsSlintModelNotify { model: Rc::downgrade(&js_model) };
+        let notify = JsSlintModelNotify { model: Rc::downgrade(&js_model) };
 
+        js_model.model.get::<Object>()?.set("notify", notify)?;
 
         Ok(js_model)
     }
@@ -113,14 +114,30 @@ impl JsSlintModelNotify {
     }
 
     #[napi]
-    pub fn row_data_changed(&self, row: u32) {}
+    pub fn row_data_changed(&self, row: u32) {
+        if let Some(model) = self.model.upgrade() {
+            model.notify.row_changed(row as usize);
+        }
+    }
 
     #[napi]
-    pub fn row_added(&self, row: u32, count: u32) {}
+    pub fn row_added(&self, row: u32, count: u32) {
+        if let Some(model) = self.model.upgrade() {
+            model.notify.row_added(row as usize, count as usize);
+        }
+    }
 
     #[napi]
-    pub fn row_removed(&self, row: u32, count: u32) {}
+    pub fn row_removed(&self, row: u32, count: u32) {
+        if let Some(model) = self.model.upgrade() {
+            model.notify.row_removed(row as usize, count as usize);
+        }
+    }
 
     #[napi]
-    pub fn reset(&self) {}
+    pub fn reset(&self) {
+        if let Some(model) = self.model.upgrade() {
+            model.notify.reset();
+        }
+    }
 }
