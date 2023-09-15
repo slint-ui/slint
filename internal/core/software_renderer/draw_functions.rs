@@ -223,6 +223,7 @@ pub(super) fn draw_rounded_rectangle_line(
     debug_assert!(y.get() >= 0,);
     let border = Shifted::new(rr.width.get());
     const ONE: Shifted = Shifted::ONE;
+    const ZERO: Shifted = Shifted(0);
     let anti_alias = |x1: Shifted, x2: Shifted, process_pixel: &mut dyn FnMut(usize, u32)| {
         // x1 and x2 are the coordinate on the top and bottom of the intersection of the pixel
         // line and the curve.
@@ -237,10 +238,10 @@ pub(super) fn draw_rounded_rectangle_line(
     let rev = |x: Shifted| {
         (Shifted::new(span.size.width) + Shifted::new(rr.right_clip.get())).saturating_sub(x)
     };
-    let (x1, x2, x3, x4) = if y < rr.radius {
-        let r = Shifted::new(rr.radius.get());
+    let calculate_xxxx = |r: i16, y: i16| {
+        let r = Shifted::new(r);
         // `y` is how far away from the center of the circle the current line is.
-        let y = r - Shifted::new(y.get());
+        let y = r - Shifted::new(y);
         // Circle equation: x = √(r² - y²)
         // Coordinate from the left edge: x' = r - x
         let x2 = r - (r * r).saturating_sub(y * y).sqrt();
@@ -249,8 +250,30 @@ pub(super) fn draw_rounded_rectangle_line(
         let x4 = r - (r2 * r2).saturating_sub(y * y).sqrt();
         let x3 = r - (r2 * r2).saturating_sub((y - ONE) * (y - ONE)).sqrt();
         (x1, x2, x3, x4)
+    };
+
+    let (x1, x2, x3, x4, x5, x6, x7, x8) = if let Some(r) = rr.radius.as_uniform() {
+        let (x1, x2, x3, x4) =
+            if y.get() < r { calculate_xxxx(r, y.get()) } else { (ZERO, ZERO, border, border) };
+        (x1, x2, x3, x4, rev(x4), rev(x3), rev(x2), rev(x1))
     } else {
-        (Shifted(0), Shifted(0), border, border)
+        let (x1, x2, x3, x4) = if y1 < PhysicalLength::new(rr.radius.top_left) {
+            calculate_xxxx(rr.radius.top_left, y.get())
+        } else if y2 < PhysicalLength::new(rr.radius.bottom_left) {
+            calculate_xxxx(rr.radius.bottom_left, y.get())
+        } else {
+            (ZERO, ZERO, border, border)
+        };
+        let (x5, x6, x7, x8) = if y1 < PhysicalLength::new(rr.radius.top_right) {
+            let x = calculate_xxxx(rr.radius.top_right, y.get());
+            (x.3, x.2, x.1, x.0)
+        } else if y2 < PhysicalLength::new(rr.radius.bottom_right) {
+            let x = calculate_xxxx(rr.radius.bottom_right, y.get());
+            (x.3, x.2, x.1, x.0)
+        } else {
+            (border, border, ZERO, ZERO)
+        };
+        (x1, x2, x3, x4, rev(x5), rev(x6), rev(x7), rev(x8))
     };
     anti_alias(
         x1.saturating_sub(Shifted::new(rr.left_clip.get())),
@@ -259,7 +282,7 @@ pub(super) fn draw_rounded_rectangle_line(
             if x >= span.size.width as usize {
                 return;
             }
-            let c = if border == Shifted(0) { rr.inner_color } else { rr.border_color };
+            let c = if border == ZERO { rr.inner_color } else { rr.border_color };
             let col = PremultipliedRgbaColor {
                 alpha: (((c.alpha as u32) * cov as u32) / 255) as u8,
                 red: (((c.red as u32) * cov as u32) / 255) as u8,
@@ -270,15 +293,15 @@ pub(super) fn draw_rounded_rectangle_line(
         },
     );
     if y < rr.width {
-        // up or down border (x2 .. x2)
+        // up or down border (x2 .. x7)
         let l = x2.ceil().saturating_sub(rr.left_clip.get() as u32).min(span.size.width as u32)
             as usize;
-        let r = rev(x2).floor().min(span.size.width as u32) as usize;
+        let r = x7.floor().min(span.size.width as u32) as usize;
         if l < r {
             TargetPixel::blend_slice(&mut line_buffer[pos_x + l..pos_x + r], rr.border_color)
         }
     } else {
-        if border > Shifted(0) {
+        if border > ZERO {
             // 3. draw the border (between x2 and x3)
             if ONE + x2 <= x3 {
                 TargetPixel::blend_slice(
@@ -308,10 +331,10 @@ pub(super) fn draw_rounded_rectangle_line(
             );
         }
         if rr.inner_color.alpha > 0 {
-            // 5. inside (x4 .. x4)
+            // 5. inside (x4 .. x5)
             let begin =
                 x4.ceil().saturating_sub(rr.left_clip.get() as u32).min(span.size.width as u32);
-            let end = rev(x4).floor().min(span.size.width as u32);
+            let end = x5.floor().min(span.size.width as u32);
             if begin < end {
                 TargetPixel::blend_slice(
                     &mut line_buffer[pos_x + begin as usize..pos_x + end as usize],
@@ -319,30 +342,30 @@ pub(super) fn draw_rounded_rectangle_line(
                 )
             }
         }
-        if border > Shifted(0) {
-            // 6. border anti-aliasing: x4..x3
-            anti_alias(rev(x4), rev(x3), &mut |x, cov| {
+        if border > ZERO {
+            // 6. border anti-aliasing: x5..x6
+            anti_alias(x5, x6, &mut |x, cov| {
                 if x >= span.size.width as usize {
                     return;
                 }
                 let col = interpolate_color(cov, rr.inner_color, rr.border_color);
                 line_buffer[pos_x + x].blend(col)
             });
-            // 7. border x3 .. x2
-            if ONE + x2 <= x3 {
+            // 7. border x6 .. x7
+            if ONE + x6 <= x7 {
                 TargetPixel::blend_slice(
-                    &mut line_buffer[pos_x + rev(x3).ceil().min(span.size.width as u32) as usize
-                        ..pos_x + rev(x2).floor().min(span.size.width as u32) as usize],
+                    &mut line_buffer[pos_x + x6.ceil().min(span.size.width as u32) as usize
+                        ..pos_x + x7.floor().min(span.size.width as u32) as usize],
                     rr.border_color,
                 )
             }
         }
     }
-    anti_alias(rev(x2), rev(x1), &mut |x, cov| {
+    anti_alias(x7, x8, &mut |x, cov| {
         if x >= span.size.width as usize {
             return;
         }
-        let c = if border == Shifted(0) { rr.inner_color } else { rr.border_color };
+        let c = if border == ZERO { rr.inner_color } else { rr.border_color };
         let col = PremultipliedRgbaColor {
             alpha: (((c.alpha as u32) * (255 - cov) as u32) / 255) as u8,
             red: (((c.red as u32) * (255 - cov) as u32) / 255) as u8,
