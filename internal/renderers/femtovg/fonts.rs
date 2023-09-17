@@ -654,7 +654,7 @@ pub(crate) fn layout_text_lines(
                     }
                 }
                 if elide_last_line {
-                    let elided = format!("{}…", line);
+                    let elided = format!("{}…", line.strip_suffix('\n').unwrap_or(line));
                     process_line(&elided, y, start, &text_metrics);
                     y += font_height;
                     start = index;
