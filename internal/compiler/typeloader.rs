@@ -614,6 +614,13 @@ impl TypeLoader {
     pub fn all_documents(&self) -> impl Iterator<Item = &object_tree::Document> + '_ {
         self.all_documents.docs.values()
     }
+
+    /// Returns an iterator over all the loaded documents
+    pub fn all_file_documents(
+        &self,
+    ) -> impl Iterator<Item = (&PathBuf, &object_tree::Document)> + '_ {
+        self.all_documents.docs.iter()
+    }
 }
 
 fn get_native_style(all_loaded_files: &mut Vec<PathBuf>) -> String {

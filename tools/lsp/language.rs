@@ -846,12 +846,12 @@ fn get_code_actions(
         // whitespace in between for substituting the parent element with its
         // sub-elements, dropping its own properties, callbacks etc.
         fn is_sub_element(kind: SyntaxKind) -> bool {
-            match kind {
-                SyntaxKind::SubElement => true,
-                SyntaxKind::RepeatedElement => true,
-                SyntaxKind::ConditionalElement => true,
-                _ => false,
-            }
+            matches!(
+                kind,
+                SyntaxKind::SubElement
+                    | SyntaxKind::RepeatedElement
+                    | SyntaxKind::ConditionalElement
+            )
         }
         let sub_elements = node
             .parent()

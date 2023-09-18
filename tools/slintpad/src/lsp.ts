@@ -52,15 +52,10 @@ function createLanguageClient(
 export type FileReader = (_url: string) => Promise<string>;
 
 export class LspWaiter {
-    #previewer_port: MessagePort;
     #previewer_promise: Promise<slint_preview.InitOutput> | null;
     #lsp_promise: Promise<Worker> | null;
 
     constructor() {
-        const lsp_previewer_channel = new MessageChannel();
-        const lsp_side = lsp_previewer_channel.port1;
-        this.#previewer_port = lsp_previewer_channel.port2;
-
         const worker = new Worker(
             new URL("worker/lsp_worker.ts", import.meta.url),
             { type: "module" },
@@ -74,7 +69,6 @@ export class LspWaiter {
                 }
             };
         });
-        worker.postMessage(lsp_side, [lsp_side]);
 
         this.#previewer_promise = slint_init();
     }

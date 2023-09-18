@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+// cSpell: ignore codespaces
+
 // This file is common code shared by both vscode plugin entry points
 
 import * as vscode from "vscode";
@@ -40,7 +42,7 @@ export class ClientHandle {
     set client(c: BaseLanguageClient | null) {
         this.#client = c;
         for (let u of this.#updaters) {
-            u(c);
+            u(this.#client);
         }
     }
 
@@ -50,12 +52,18 @@ export class ClientHandle {
     }
 
     async stop() {
-        if (this.#client) {
+        let to_stop = this.client;
+        this.client = null;
+        for (let u of this.#updaters) {
+            u(this.#client);
+        }
+
+        if (to_stop) {
             // mark as stopped so that we don't detect it as a crash
-            Object.defineProperty(this.#client, "slint_stopped", {
+            Object.defineProperty(to_stop, "slint_stopped", {
                 value: true,
             });
-            await this.#client.stop();
+            await to_stop.stop();
         }
     }
 }
@@ -94,25 +102,10 @@ export function setServerStatus(
 // Set up our middleware. It is used to redirect/forward to the WASM preview
 // as needed and makes the triggering side so much simpler!
 
-export function languageClientOptions(
-    showPreview: (args: any) => boolean,
-    toggleDesignMode: (args: any) => boolean,
-): LanguageClientOptions {
+export function languageClientOptions(): LanguageClientOptions {
     return {
         documentSelector: [{ language: "slint" }, { language: "rust" }],
         middleware: {
-            executeCommand(command: string, args: any, next: any) {
-                if (command === "slint/showPreview") {
-                    if (showPreview(args)) {
-                        return;
-                    }
-                } else if (command === "slint/toggleDesignMode") {
-                    if (toggleDesignMode(args)) {
-                        return;
-                    }
-                }
-                return next(command, args);
-            },
             async provideCodeActions(
                 document: vscode.TextDocument,
                 range: vscode.Range,
@@ -135,6 +128,18 @@ export function languageClientOptions(
 
 export function prepare_client(client: BaseLanguageClient) {
     client.registerFeature(new snippets.SnippetTextEditFeature());
+}
+
+export function use_wasm_preview(): boolean {
+    if (process.env.hasOwnProperty("CODESPACES")) {
+        return true;
+    }
+
+    const result = vscode.workspace
+        .getConfiguration("slint")
+        .get("preview.providedByEditor", true);
+
+    return result;
 }
 
 // VSCode Plugin lifecycle related:
@@ -171,7 +176,7 @@ export function activate(
                 "workspace/didChangeConfiguration",
                 { settings: "" },
             );
-            wasm_preview.refreshPreview();
+            // wasm_preview.refreshPreview();
         }
     });
 
@@ -182,18 +187,16 @@ export function activate(
     });
 
     context.subscriptions.push(
-        vscode.commands.registerCommand("slint.showPreview", function () {
+        vscode.commands.registerCommand("slint.showPreview", async function () {
             let ae = vscode.window.activeTextEditor;
             if (!ae) {
                 return;
             }
 
+            if (use_wasm_preview()) {
+                await wasm_preview.open_preview(context);
+            }
             lsp_commands.showPreview(ae.document.uri.toString(), "");
-        }),
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand("slint.toggleDesignMode", function () {
-            lsp_commands.toggleDesignMode();
         }),
     );
 
@@ -225,13 +228,21 @@ export function activate(
         ) {
             return;
         }
-        wasm_preview.refreshPreview(ev);
 
         // Send a request for properties information after passing through the
         // event loop once to make sure the LSP got signaled to update.
         setTimeout(() => {
             properties_provider.refresh_view();
         }, 1);
+    });
+
+    vscode.workspace.onDidChangeConfiguration(async (ev) => {
+        if (ev.affectsConfiguration("slint")) {
+            client.client?.sendNotification(
+                "workspace/didChangeConfiguration",
+                { settings: "" },
+            );
+        }
     });
 
     return [statusBar, properties_provider];

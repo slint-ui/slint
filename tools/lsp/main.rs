@@ -33,17 +33,70 @@ use std::task::{Poll, Waker};
 struct Previewer {
     #[allow(unused)]
     server_notifier: ServerNotifier,
+    use_external_previewer: RefCell<bool>,
 }
 
 impl PreviewApi for Previewer {
+    fn set_use_external_previewer(&self, ctx: &Rc<Context>, use_external: bool) {
+        let current_is_external = {
+            let mut tmp = self.use_external_previewer.borrow_mut();
+            let old = *tmp;
+            *tmp = use_external;
+            old
+        };
+
+        if current_is_external != use_external {
+            let documents = &ctx.document_cache.borrow().documents;
+
+            for (p, d) in documents.all_file_documents() {
+                let Some(node) = &d.node else {
+                    continue;
+                };
+                self.set_contents(p, &node.text().to_string());
+            }
+            let style = documents.compiler_config.style.clone().unwrap_or_default();
+            self.config_changed(&style, &documents.compiler_config.include_paths);
+
+            if use_external {
+                preview::close_ui();
+            }
+        }
+    }
+
     fn set_contents(&self, _path: &std::path::Path, _contents: &str) {
         #[cfg(feature = "preview")]
-        preview::set_contents(_path, _contents.to_string());
+        {
+            // Always update the internal preview...
+            preview::set_contents(_path, _contents.to_string());
+            if *self.use_external_previewer.borrow() {
+                let _ = self.server_notifier.send_notification(
+                    "slint/lsp_to_preview".to_string(),
+                    crate::common::LspToPreviewMessage::SetContents {
+                        path: _path.to_string_lossy().to_string(),
+                        contents: _contents.to_string(),
+                    },
+                );
+            }
+        }
     }
 
     fn load_preview(&self, _component: common::PreviewComponent) {
         #[cfg(feature = "preview")]
-        {
+        if *self.use_external_previewer.borrow() {
+            let _ = self.server_notifier.send_notification(
+                "slint/lsp_to_preview".to_string(),
+                crate::common::LspToPreviewMessage::ShowPreview {
+                    path: _component.path.to_string_lossy().to_string(),
+                    component: _component.component,
+                    include_paths: _component
+                        .include_paths
+                        .iter()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .collect(),
+                    style: _component.style.to_string(),
+                },
+            );
+        } else {
             preview::open_ui(&self.server_notifier);
             preview::load_preview(_component);
         }
@@ -51,13 +104,41 @@ impl PreviewApi for Previewer {
 
     fn config_changed(&self, _style: &str, _include_paths: &[PathBuf]) {
         #[cfg(feature = "preview")]
-        preview::config_changed(_style, _include_paths);
+        {
+            preview::config_changed(_style, _include_paths);
+
+            if *self.use_external_previewer.borrow() {
+                let _ = self.server_notifier.send_notification(
+                    "slint/lsp_to_preview".to_string(),
+                    crate::common::LspToPreviewMessage::SetConfiguration {
+                        style: _style.to_string(),
+                        include_paths: _include_paths
+                            .iter()
+                            .map(|p| p.to_string_lossy().to_string())
+                            .collect(),
+                    },
+                );
+            }
+        }
     }
 
     fn highlight(&self, _path: Option<std::path::PathBuf>, _offset: u32) -> Result<()> {
         #[cfg(feature = "preview")]
-        preview::highlight(_path, _offset);
-        Ok(())
+        {
+            preview::highlight(&_path, _offset);
+
+            if *self.use_external_previewer.borrow() {
+                self.server_notifier.send_notification(
+                    "slint/lsp_to_preview".to_string(),
+                    crate::common::LspToPreviewMessage::HighlightFromEditor {
+                        path: _path.as_ref().map(|p| p.to_string_lossy().to_string()),
+                        offset: _offset,
+                    },
+                )
+            } else {
+                Ok(())
+            }
+        }
     }
 }
 
@@ -235,7 +316,10 @@ fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<()>
         document_cache: RefCell::new(DocumentCache::new(compiler_config)),
         server_notifier: server_notifier.clone(),
         init_param,
-        preview: Box::new(Previewer { server_notifier }),
+        preview: Box::new(Previewer {
+            server_notifier,
+            use_external_previewer: RefCell::new(false),
+        }),
     });
 
     let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();
@@ -307,7 +391,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
             reload_document(
-                &ctx,
+                ctx,
                 params.text_document.text,
                 params.text_document.uri,
                 params.text_document.version,
@@ -318,7 +402,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
             reload_document(
-                &ctx,
+                ctx,
                 params.content_changes.pop().unwrap().text,
                 params.text_document.uri,
                 params.text_document.version,
@@ -333,6 +417,36 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         #[cfg(feature = "preview")]
         "slint/showPreview" => {
             show_preview_command(req.params.as_array().map_or(&[], |x| x.as_slice()), ctx)?;
+        }
+        #[cfg(feature = "preview")]
+        "slint/preview_to_lsp" => {
+            use common::PreviewToLspMessage as M;
+            let params: M = serde_json::from_value(req.params)?;
+            match params {
+                M::Status { message, health } => {
+                    crate::preview::send_status_notification(
+                        &ctx.server_notifier,
+                        &message,
+                        health,
+                    );
+                }
+                M::Diagnostics { uri, diagnostics } => {
+                    crate::preview::notify_lsp_diagnostics(&ctx.server_notifier, uri, diagnostics);
+                }
+                M::ShowDocument { file, start_line, start_column, end_line, end_column } => {
+                    crate::preview::ask_editor_to_show_document(
+                        &ctx.server_notifier,
+                        &file,
+                        start_line,
+                        start_column,
+                        end_line,
+                        end_column,
+                    );
+                }
+                M::WasmPreviewStateChanged { is_open } => {
+                    ctx.preview.set_use_external_previewer(ctx, is_open);
+                }
+            }
         }
         _ => (),
     }
