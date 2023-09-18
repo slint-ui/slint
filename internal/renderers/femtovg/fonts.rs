@@ -572,12 +572,18 @@ pub(crate) fn layout_text_lines(
             font_height
         } else {
             // Note: this is kind of doing twice the layout because text_size also does it
-            font.text_size(
-                PhysicalLength::new(paint.letter_spacing()),
-                string,
-                if wrap { Some(max_width) } else { None },
-            )
-            .height_length()
+            let text_height = font
+                .text_size(
+                    PhysicalLength::new(paint.letter_spacing()),
+                    string,
+                    if wrap { Some(max_width) } else { None },
+                )
+                .height_length();
+            if elide && text_height > max_height {
+                font_height * (max_height.get() / font_height.get()).floor()
+            } else {
+                text_height
+            }
         }
     };
 
