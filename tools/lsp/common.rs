@@ -3,7 +3,10 @@
 
 //! Data structures common between LSP and previewer
 
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
@@ -11,6 +14,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// API used by the LSP to talk to the Preview. The other direction uses the
 /// ServerNotifier
 pub trait PreviewApi {
+    fn set_use_external_previewer(&self, ctx: &Rc<crate::language::Context>, use_external: bool);
     fn set_contents(&self, path: &Path, contents: &str);
     fn load_preview(&self, component: PreviewComponent);
     fn config_changed(&self, style: &str, include_paths: &[PathBuf]);
@@ -75,6 +79,7 @@ pub enum PreviewToLspMessage {
         health: crate::lsp_ext::Health,
     },
     Diagnostics {
+        uri: lsp_types::Url,
         diagnostics: Vec<lsp_types::Diagnostic>,
     },
     ShowDocument {
@@ -84,4 +89,7 @@ pub enum PreviewToLspMessage {
         end_line: u32,
         end_column: u32,
     },
+    WasmPreviewStateChanged {
+        is_open: bool,
+    }, // send all documents!
 }

@@ -66,11 +66,6 @@
                 "icon": "$(preview)"
             },
             {
-                "command": "slint.toggleDesignMode",
-                "title": "Toggle Design Mode in Slint Preview (experimental)",
-                "category": "Slint"
-            },
-            {
                 "command": "slint.reload",
                 "title": "Restart server",
                 "category": "Slint",
