@@ -59,6 +59,7 @@ pub fn create_layout(
     max_height: PhysicalLength,
     h_align: items::TextHorizontalAlignment,
     v_align: TextVerticalAlignment,
+    wrap: items::TextWrap,
     overflow: items::TextOverflow,
     selection: Option<&Selection>,
 ) -> (skia_safe::textlayout::Paragraph, PhysicalPoint) {
@@ -88,6 +89,9 @@ pub fn create_layout(
 
     if overflow == items::TextOverflow::Elide {
         style.set_ellipsis("…");
+        if wrap == items::TextWrap::WordWrap {
+            style.set_max_lines((max_height.get() / pixel_size.get()).floor() as usize);
+        }
     }
 
     style.set_text_align(match h_align {
