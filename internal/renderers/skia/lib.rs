@@ -224,6 +224,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
             Default::default(),
             Default::default(),
             Default::default(),
+            Default::default(),
             None,
         );
 
@@ -257,6 +258,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
             max_height,
             text_input.horizontal_alignment(),
             text_input.vertical_alignment(),
+            text_input.wrap(),
             i_slint_core::items::TextOverflow::Clip,
             None,
         );
@@ -304,6 +306,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
             max_height,
             text_input.horizontal_alignment(),
             text_input.vertical_alignment(),
+            text_input.wrap(),
             i_slint_core::items::TextOverflow::Clip,
             None,
         );
