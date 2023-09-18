@@ -5,7 +5,7 @@ import test from 'ava';
 const path = require('node:path');
 var Jimp = require("jimp");
 
-import { ComponentCompiler, Brush, Model, Color, ImageData, ArrayModel } from '../index'
+import { ComponentCompiler, Brush, Color, ImageData, ArrayModel } from '../index'
 
 test('get/set string properties', (t) => {
   let compiler = new ComponentCompiler;
@@ -278,11 +278,13 @@ test('ArrayModel', (t) => {
 
   instance!.setProperty("int-model", new ArrayModel([10, 9, 8]));
 
-  let arrayModel = instance!.getProperty("int-model") as ArrayModel<number>;
-  t.deepEqual(arrayModel.values(), new ArrayModel([10, 9, 8]).values());
+  let intArrayModel = instance!.getProperty("int-model") as ArrayModel<number>;
+  t.deepEqual(intArrayModel.values(), new ArrayModel([10, 9, 8]).values());
 
-  // instance!.setProperty("string-array", ["Simon", "Olivier", "Auri", "Tobias", "Florian"]);
-  // t.deepEqual(instance!.getProperty("string-array"), ["Simon", "Olivier", "Auri", "Tobias", "Florian"]);
+  instance!.setProperty("string-model", new ArrayModel(["Simon", "Olivier", "Auri", "Tobias", "Florian"]));
+
+  let stringArrayModel = instance!.getProperty("string-model") as ArrayModel<number>;
+  t.deepEqual(stringArrayModel.values(), new ArrayModel(["Simon", "Olivier", "Auri", "Tobias", "Florian"]).values());
 })
 
 test('model from array', (t) => {
