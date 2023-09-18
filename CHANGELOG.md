@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
  - Fixed generated C++ and Rust code in conversion from unnamed to named struct in complex expressions (#2765)
  - Improved wasm preview in the documentation (especially on mobile)
  - Fixed panic when using Skia OpenGL renderer with fullscreen windows.
+ - Improved `StandardTableView` to use `ListView` optimization for all styles.
+ - Native style: Fixed scroll bar handle size for `ScrollView`.
 
 ### Slint Language
 
