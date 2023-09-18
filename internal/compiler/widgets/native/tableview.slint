@@ -19,6 +19,7 @@ export component StandardTableView {
 
     horizontal-stretch: 1;
     vertical-stretch: 1;
+    forward-focus: i-focus-scope;
 
     public function set-current-row(index: int) {
         if(index < 0 || index >= rows.length) {
@@ -60,6 +61,7 @@ export component StandardTableView {
             width: max(row-layout.preferred-width, scroll-view.visible-width);
             row-ta := TouchArea {
                 clicked => {
+                    root.focus();
                     root.set-current-row(i);
                 }
 
@@ -126,7 +128,7 @@ export component StandardTableView {
         }
     }
 
-    FocusScope {
+    i-focus-scope := FocusScope {
         x: 0;
         width: 0; // Do not react on clicks
 
