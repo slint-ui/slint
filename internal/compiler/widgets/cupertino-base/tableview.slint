@@ -223,6 +223,9 @@ export component StandardTableView {
     }
 
     FocusScope {
+        x: 0;
+        width: 0; // Do not react on clicks
+
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
                 root.set-current-row(root.current-row - 1);
