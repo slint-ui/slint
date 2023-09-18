@@ -65,6 +65,7 @@ function startClient(context: vscode.ExtensionContext) {
                     return await vscode.workspace.fs.readFile(
                         Uri.parse(param, true),
                     );
+                    return new TextDecoder().decode(contents);
                 });
                 wasm_preview.initClientForPreview(cl);
                 //client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
