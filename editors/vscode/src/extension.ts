@@ -3,7 +3,7 @@
 
 // This file is the entry point for the vscode extension (not the browser one)
 
-// cSpell: ignore aarch armv codespaces gnueabihf vsix
+// cSpell: ignore aarch armv gnueabihf vsix
 
 import * as path from "path";
 import { existsSync } from "fs";
@@ -141,36 +141,19 @@ function startClient(
         debug: { command: serverModule, options: options, args: args },
     };
 
-    const clientOptions = common.languageClientOptions(
-        (args: any) => {
-            if (
-                vscode.workspace
-                    .getConfiguration("slint")
-                    .get<boolean>("preview.providedByEditor")
-            ) {
-                wasm_preview.showPreview(
-                    context,
-                    vscode.Uri.parse(args[0], true),
-                    args[1],
-                );
-                return true;
-            }
-            return false;
-        },
-        (_) => {
-            if (
-                vscode.workspace
-                    .getConfiguration("slint")
-                    .get<boolean>("preview.providedByEditor")
-            ) {
-                wasm_preview.toggleDesignMode();
-                return true;
-            }
-            return false;
-        },
+    const cl = new LanguageClient(
+        "slint-lsp",
+        "Slint LSP",
+        serverOptions,
+        common.languageClientOptions(),
     );
 
+    // Add setup common between native and wasm LSP to common.setup_client_handle!
     client.add_updater((cl) => {
+        cl?.onNotification(common.serverStatus, (params: any) =>
+            common.setServerStatus(params, statusBar),
+        );
+
         cl?.onDidChangeState((event) => {
             let properly_stopped = cl.hasOwnProperty("slint_stopped");
             if (
@@ -190,26 +173,10 @@ function startClient(
         });
     });
 
-    const cl = new LanguageClient(
-        "slint-lsp",
-        "Slint LSP",
-        serverOptions,
-        clientOptions,
-    );
-
     cl.start().then(() => (client.client = cl));
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    if (process.env.hasOwnProperty("CODESPACES")) {
-        vscode.workspace
-            .getConfiguration("slint")
-            .update(
-                "preview.providedByEditor",
-                true,
-                vscode.ConfigurationTarget.Global,
-            );
-    }
     [statusBar, properties_provider] = common.activate(context, (cl, ctx) =>
         startClient(cl, ctx),
     );

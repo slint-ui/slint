@@ -4,14 +4,12 @@
 // cSpell: ignore condvar
 
 use crate::common::PreviewComponent;
-use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
+use crate::lsp_ext::Health;
 use crate::ServerNotifier;
 
-use lsp_types::notification::Notification;
 use once_cell::sync::Lazy;
 use slint_interpreter::ComponentHandle;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::future::Future;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -209,17 +207,25 @@ struct PreviewState {
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
+pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Option<()> {
+    let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
+        return Some(());
+    };
+
+    let lsp_diags = crate::preview::convert_diagnostics(diagnostics);
+
+    for (url, diagnostics) in lsp_diags {
+        crate::preview::notify_lsp_diagnostics(&sender, url, diagnostics)?;
+    }
+    Some(())
+}
+
 pub fn send_status(message: &str, health: Health) {
     let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
         return;
     };
 
-    sender
-        .send_notification(
-            ServerStatusNotification::METHOD.into(),
-            ServerStatusParams { health, quiescent: false, message: Some(message.into()) },
-        )
-        .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
+    crate::preview::send_status_notification(&sender, message, health)
 }
 
 pub fn ask_editor_to_show_document(
@@ -295,35 +301,9 @@ pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
     });
 }
 
-pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Option<()> {
-    let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
-        return Some(());
-    };
-
-    let mut lsp_diags: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> = Default::default();
-    for d in diagnostics {
-        if d.source_file().map_or(true, |f| f.is_relative()) {
-            continue;
-        }
-        let uri = lsp_types::Url::from_file_path(d.source_file().unwrap()).unwrap();
-        lsp_diags.entry(uri).or_default().push(crate::util::to_lsp_diag(d));
-    }
-
-    for (uri, diagnostics) in lsp_diags {
-        sender
-            .send_notification(
-                "textDocument/publishDiagnostics".into(),
-                lsp_types::PublishDiagnosticsParams { uri, diagnostics, version: None },
-            )
-            .ok()?;
-    }
-    Some(())
-}
-
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
 pub fn update_highlight(path: PathBuf, offset: u32) {
-    let path = path.to_path_buf();
     run_in_ui_thread(move || async move {
         PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow();
