@@ -478,6 +478,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             max_height,
             text.horizontal_alignment(),
             text.vertical_alignment(),
+            text.wrap(),
             text.overflow(),
             None,
         );
@@ -538,6 +539,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             max_height,
             text_input.horizontal_alignment(),
             text_input.vertical_alignment(),
+            text_input.wrap(),
             i_slint_core::items::TextOverflow::Clip,
             selection.as_ref(),
         );
