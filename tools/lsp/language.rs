@@ -677,7 +677,7 @@ fn get_document_and_offset<'a>(
     text_document_uri: &'a Url,
     pos: &'a Position,
 ) -> Option<(&'a i_slint_compiler::object_tree::Document, u32)> {
-    let path = uri_to_file(&text_document_uri)?;
+    let path = uri_to_file(text_document_uri)?;
     let doc = document_cache.documents.get_document(&path)?;
     let o = doc.node.as_ref()?.source_file.offset(pos.line as usize + 1, pos.character as usize + 1)
         as u32;
@@ -845,12 +845,12 @@ fn get_code_actions(
         // whitespace in between for substituting the parent element with its
         // sub-elements, dropping its own properties, callbacks etc.
         fn is_sub_element(kind: SyntaxKind) -> bool {
-            match kind {
-                SyntaxKind::SubElement => true,
-                SyntaxKind::RepeatedElement => true,
-                SyntaxKind::ConditionalElement => true,
-                _ => return false,
-            }
+            matches!(
+                kind,
+                SyntaxKind::SubElement
+                    | SyntaxKind::RepeatedElement
+                    | SyntaxKind::ConditionalElement
+            )
         }
         let sub_elements = node
             .parent()

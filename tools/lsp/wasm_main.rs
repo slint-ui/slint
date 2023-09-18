@@ -14,14 +14,13 @@ use common::{PreviewApi, Result};
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
 pub use language::{Context, DocumentCache, RequestHandler};
-use lsp_types::notification::Notification;
 use serde::Serialize;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::future::Future;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::unimplemented;
 use wasm_bindgen::prelude::*;
 
 type JsResult<T> = std::result::Result<T, JsError>;
@@ -44,13 +43,19 @@ pub mod wasm_prelude {
     }
 }
 
-use wasm_prelude::UrlWasm;
-
 struct Previewer {
     server_notifier: ServerNotifier,
 }
 
 impl PreviewApi for Previewer {
+    fn set_use_external_previewer(
+        &self,
+        _ctx: &std::rc::Rc<crate::language::Context>,
+        _use_external: bool,
+    ) {
+        unimplemented!("Only the external previewer is supported")
+    }
+
     fn set_contents(&self, path: &std::path::Path, contents: &str) {
         let _ = self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
@@ -276,59 +281,31 @@ impl SlintServer {
         };
 
         match message {
-            M::Status { message, health } => self
-                .ctx
-                .server_notifier
-                .send_notification(
-                    lsp_ext::ServerStatusNotification::METHOD.into(),
-                    lsp_ext::ServerStatusParams {
-                        health,
-                        quiescent: false,
-                        message: Some(message),
-                    },
-                )
-                .map_err(|e| JsValue::from(format!("Error sending notification: {e:?}"))),
-            M::Diagnostics { diagnostics } => {
-                let mut lsp_diags: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> =
-                    Default::default();
-                for d in diagnostics {
-                    if d.source.as_ref().map_or(true, |f| PathBuf::from(f).is_relative()) {
-                        continue;
-                    }
-                    let uri = lsp_types::Url::from_file_path(d.source.as_ref().unwrap()).unwrap();
-                    lsp_diags.entry(uri).or_default().push(d);
-                }
-
-                for (uri, diagnostics) in lsp_diags {
-                    self.ctx
-                        .server_notifier
-                        .send_notification(
-                            "textDocument/publishDiagnostics".into(),
-                            lsp_types::PublishDiagnosticsParams { uri, diagnostics, version: None },
-                        )
-                        .map_err(|e| JsValue::from(format!("{e:?}")))?;
-                }
-                Ok(())
+            M::Status { message, health } => {
+                crate::preview::send_status_notification(
+                    &self.ctx.server_notifier,
+                    &message,
+                    health,
+                );
+            }
+            M::Diagnostics { diagnostics, uri } => {
+                crate::preview::notify_lsp_diagnostics(&self.ctx.server_notifier, uri, diagnostics);
             }
             M::ShowDocument { file, start_line, start_column, end_line, end_column } => {
-                let Some(params) = crate::preview::show_document_request_from_element_callback(
+                crate::preview::ask_editor_to_show_document(
+                    &self.ctx.server_notifier,
                     &file,
                     start_line,
                     start_column,
                     end_line,
                     end_column,
-                ) else {
-                    return Ok(());
-                };
-                self.ctx
-                    .server_notifier
-                    .send_request::<lsp_types::request::ShowDocument>(params)
-                    .map_err(|e| JsValue::from(format!("Failed to send request: {e:?}")))?
-                    .await
-                    .map_err(|e| JsValue::from(format!("Request failed: {e:?}")))?;
-                Ok(())
+                )
+            }
+            M::WasmPreviewStateChanged { is_open: _ } => {
+                // Nothing to do!
             }
         }
+        Ok(())
     }
 
     #[wasm_bindgen]
@@ -393,7 +370,7 @@ async fn load_file(path: String, load_file: &Function) -> std::io::Result<String
     let string_future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(string_promise));
     let js_value =
         string_future.await.map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?;
-    return Ok(js_value.as_string().unwrap_or_default());
+    Ok(js_value.as_string().unwrap_or_default())
 }
 
 // Use a JSON friendly representation to avoid using ES maps instead of JS objects.
