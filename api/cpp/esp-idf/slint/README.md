@@ -152,6 +152,17 @@ Solution: You need to configure your Rust toolchain to use the esp channel. Eith
 channel = "esp"
 ```
 
+### Error compiling Slint for ESP-IDF on Windows
+
+You see errors about `slint-compiler`:
+
+```
+Error copying file (if different) from "C:/path/build/./cargo/build/x86_64-pc-windows-msvc/release/slint-compiler" to "C:/path/build/_deps/slint-build".
+```
+
+Solution: At the moment development development on Windows while targeting ESP-IDF is not supported. We're working on a fix and in the meantime we recommend
+using [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/).
+
 ### The device crashes at boot or enter a boot loop
 
 One reason could be that you don't have enough ram for the heap or the stack.
