@@ -22,6 +22,7 @@ All notable changes to this project are documented in this file.
  - FemtoVG renderer: Fixed empty lines and vertical alignment when eliding text. (#3481)
  - Skia renderer: Fixed eliding of multi-line text. (#3481)
  - `StandardTableView`: Fixed scrollbar only responding to the second click.
+ - Polished the experimental Cupertino style further.
 
 ### Rust API
 
