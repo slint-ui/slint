@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+use napi::{
+    bindgen_prelude::{FromNapiValue, Object},
+    JsUnknown,
+};
+
+#[napi(js_name = Point)]
+pub struct JsPoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[napi]
+impl JsPoint {
+    #[napi(constructor)]
+    pub fn new(x: f64, y: f64) -> Self {
+        Self { x, y }
+    }
+}
+
+impl FromNapiValue for JsPoint {
+    unsafe fn from_napi_value(
+        env: napi::sys::napi_env,
+        napi_val: napi::sys::napi_value,
+    ) -> napi::Result<Self> {
+        let obj = unsafe { Object::from_napi_value(env, napi_val)? };
+        let x: f64 = obj
+            .get::<_, JsUnknown>("x")
+            .ok()
+            .flatten()
+            .and_then(|p| p.coerce_to_number().ok())
+            .and_then(|f64_num| f64_num.try_into().ok())
+            .ok_or_else(
+                || napi::Error::from_reason(
+                    format!("Cannot convert object to Point, because the provided object does not have an f64 x property")
+            ))?;
+        let y: f64 = obj
+            .get::<_, JsUnknown>("y")
+            .ok()
+            .flatten()
+            .and_then(|p| p.coerce_to_number().ok())
+            .and_then(|f64_num| f64_num.try_into().ok())
+            .ok_or_else(
+                || napi::Error::from_reason(
+                    format!("Cannot convert object to Point, because the provided object does not have an f64 y property")
+            ))?;
+
+        Ok(JsPoint { x, y })
+    }
+}

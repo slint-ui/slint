@@ -3,7 +3,8 @@
 
 import test from 'ava'
 
-import { ComponentCompiler, ComponentDefinition, ComponentInstance, Property, ValueType } from '../index'
+import { ComponentCompiler, ComponentDefinition, ComponentInstance, Window, ValueType,
+  Point, Size } from '../index'
 
 test('get/set include paths', (t) => {
   let compiler = new ComponentCompiler;
@@ -236,4 +237,87 @@ test('non-existent properties and callbacks', (t) => {
   });
   t.is(callback_err!.code, 'GenericFailure');
   t.is(callback_err!.message, 'Callback non-existent-callback not found in the component');
+})
+
+test('Window constructor', (t) => {
+  t.throws(() => {
+     new Window()
+    },
+      {
+        code: "GenericFailure",
+        message: "Window can only be created by using a Component."
+      }
+    );
+})
+
+test('Window show / hide', (t) => {
+  let compiler = new ComponentCompiler;
+  let definition = compiler.buildFromSource(`
+
+  export component App inherits Window {
+    width: 300px;
+    height: 300px;
+  }`, "");
+  t.not(definition, null);
+
+  let instance = definition!.create();
+  t.not(instance, null);
+
+  let window = instance!.window();
+  t.is(window.isVisible(), false);
+  window.show();
+  t.is(window.isVisible(), true);
+  window.hide();
+  t.is(window.isVisible(), false);
+})
+
+test('Window position', (t) => {
+  let compiler = new ComponentCompiler;
+  let definition = compiler.buildFromSource(`
+
+  export component App inherits Window {}`, "");
+  t.not(definition, null);
+
+  let instance = definition!.create();
+  t.not(instance, null);
+
+  let window = instance!.window();
+  t.is(window.logicalPosition.x, 0);
+  t.is(window.logicalPosition.y, 0);
+  t.is(window.physicalPosition.x, 0);
+  t.is(window.physicalPosition.y, 0);
+
+  window.logicalPosition = new Point(10, 5);
+  t.is(window.logicalPosition.x, 10);
+  t.is(window.logicalPosition.y, 5);
+  t.is(window.physicalPosition.x, 10);
+  t.is(window.physicalPosition.y, 5);
+
+  window.physicalPosition = new Point(5, 10);
+  t.is(window.logicalPosition.x, 5);
+  t.is(window.logicalPosition.y, 10);
+  t.is(window.physicalPosition.x, 5);
+  t.is(window.physicalPosition.y, 10);
+})
+
+test('Window size', (t) => {
+  let compiler = new ComponentCompiler;
+  let definition = compiler.buildFromSource(`
+
+  export component App inherits Window {
+    width: 300px;
+    height: 200px;
+  }`, "");
+  t.not(definition, null);
+
+  let instance = definition!.create();
+  t.not(instance, null);
+
+  let window = instance!.window();
+
+  window.show();
+  t.is(window.logicalSize.width, 300);
+  t.is(window.logicalSize.height, 200);
+  t.is(window.physicalSize.width, 300);
+  t.is(window.physicalSize.height, 200);
 })
