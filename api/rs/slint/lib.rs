@@ -202,6 +202,8 @@ compile_error!(
 pub use slint_macros::slint;
 
 pub use i_slint_core::api::*;
+#[doc(hidden)]
+#[deprecated(note = "Experimental type was made public by mistake")]
 pub use i_slint_core::component_factory::ComponentFactory;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
