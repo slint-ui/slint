@@ -170,7 +170,39 @@ The Licensed Software includes
     nor shall any award of damages exceed the total amount you paid to us in
     connection with this Agreement.
 
-16. Each Party shall hold Confidential Information of the other Party, its
+16. During the Term, an independent, certified auditor on our behalf, may, upon
+    its reasonable request, with 30 (thirty) days written notice, and at its
+    sole expense, examine your books and records solely with respect to your use
+    of the Licensed Software. Any such audit shall be conducted during regular
+    business hours at your facilities and shall not unreasonably interfere with
+    your business activities. Our auditor shall not remove, copy, or
+    redistribute any electronic material during an audit. If an audit reveals that
+    you are using the Licensed Software in a way that is in material violation
+    of the terms of this Agreement, then you shall pay us reasonable costs of
+    conducting the audit. Our auditor shall only be allowed to report violations
+    of the terms of this Agreement, with a copy to you. You shall be provided
+    the right to provide comments to the report before it is finalized.
+
+17. If you materially breach this Agreement, we will provide a 60 (sixty) days
+    written notice to you during which any such breach(es) may be cured, failing
+    which we will terminate the agreement.
+
+18. You may terminate this Agreement at any time for any reason upon 30 (thirty)
+    days notice to us and upon payment of all applicable fees and contractual
+    penalties, if any, in connection with the use of the Licensed Software.
+
+19. No term or condition contained in your purchase order will apply unless
+    expressly accepted by us in writing.
+
+20. All notices and communications between the Parties shall be in writing and
+    shall be deemed given when received. For avoidance of doubt, email is
+    considered a written form of communication.
+
+21. Both Parties shall comply with all applicable laws and regulations relating
+    to the Licensed Software in the countries in which the Parties use or modify
+    the Licensed Software.
+
+22. Each Party shall hold Confidential Information of the other Party, its
     customers, and licensors in confidence, and without written permission from
     will not disclose to any person or use for its own benefit, any such
     information. **Confidential Information** includes without limitation the
@@ -202,40 +234,8 @@ The Licensed Software includes
         remedies available, each Party shall be entitled to enforcement of such
         obligations by court injunction.
 
-17. During the Term, an independent, certified auditor on our behalf, may, upon
-    its reasonable request, with 30 (thirty) days written notice, and at its
-    sole expense, examine your books and records solely with respect to your use
-    of the Licensed Software. Any such audit shall be conducted during regular
-    business hours at your facilities and shall not unreasonably interfere with
-    your business activities. Our auditor shall not remove, copy, or
-    redistribute any electronic material during an audit. If an audit reveals that
-    you are using the Licensed Software in a way that is in material violation
-    of the terms of this Agreement, then you shall pay us reasonable costs of
-    conducting the audit. Our auditor shall only be allowed to report violations
-    of the terms of this Agreement, with a copy to you. You shall be provided
-    the right to provide comments to the report before it is finalized.
-
-18. If you materially breach this Agreement, we will provide a 60 (sixty) days
-    written notice to you during which any such breach(es) may be cured, failing
-    which we will terminate the agreement.
-
-19. You may terminate this Agreement at any time for any reason upon 30 (thirty)
-    days notice to us and upon payment of all applicable fees and contractual
-    penalties, if any, in connection with the use of the Licensed Software.
-
-20. Both Parties shall comply with all applicable laws and regulations relating
-    to the Licensed Software in the countries in which the Parties use or modify
-    the Licensed Software.
-
-21. All notices and communications between the Parties shall be in writing and
-    shall be deemed given when received. For avoidance of doubt, email is
-    considered a written form of communication.
-
-22. This Agreement shall be construed, interpreted, and governed by the laws of
+23. This Agreement shall be construed, interpreted, and governed by the laws of
     the Federal Republic of Germany.
-
-23. No term or condition contained in your purchase order will apply unless
-    expressly accepted by us in writing.
 
 24. You may assign this Agreement, in whole or in part (whether by operation of
     law or otherwise), with prior consent from us, which shall not be
