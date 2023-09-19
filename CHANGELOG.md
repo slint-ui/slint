@@ -5,8 +5,43 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
- - Improved `StandardTableView` to use `ListView` optimization for all styles.
- - Native style: Fixed scroll bar handle size for `ScrollView`.
+## [1.2.1] - 2023-09-19
+
+### General
+
+ - Fixed generated C++ and Rust code in conversion from unnamed to named struct in complex expressions. (#2765)
+ - Improved wasm preview in the documentation, especially on mobile. (#3389)
+ - Improved `StandardTableView` to use `ListView` optimization for all styles. (#3425)
+ - Fixed in WSL against a distro that uses X11 instead of Wayland. (#3406)
+ - Added documentation about different renderers and their relation to backends.
+ - Added support for partial rendering to the software renderer when used with the winit backend. (#3457)
+ - Fixed builds of the Skia renderer on Windows when built from source within `vcvars.bat` environments.
+ - Updated to Skia milestone 117.
+ - Fixed panic when using `SLINT_FULLSCREEN=1` in comination with the Skia OpenGL renderer. (#3472)
+ - Native style: Fixed scroll bar handle size for `ScrollView`. (#3489)
+ - FemtoVG renderer: Fixed empty lines and vertical alignment when eliding text. (#3481)
+ - Skia renderer: Fixed eliding of multi-line text. (#3481)
+ - `StandardTableView`: Fixed scrollbar only responding to the second click.
+
+### Rust API
+
+ - Derive serde traits for `slint::Color`, when the feature is active. (#3411)
+
+### C++
+
+ - Fixed crash when code in a `clicked` handler in a sub-component would cause a conditional
+   or repeated element to disappear. (#3465)
+ - Fixed Skia renderer builds finding clang correctly.
+
+### VS Code Extension
+
+ - Fixed "Show Preview" command when invoked from the command palette. (#3412)
+
+### Language Server
+
+ - Fixed automatic indentation within named elements. (#3409)
+ - Fixed panic when editing path in import statements. (#3468)
+ 
 ## [1.2.0] - 2023-09-04
 
 ### General
@@ -944,3 +979,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.1.0]: https://github.com/slint-ui/slint/releases/tag/v1.1.0
 [1.1.1]: https://github.com/slint-ui/slint/releases/tag/v1.1.1
 [1.2.0]: https://github.com/slint-ui/slint/releases/tag/v1.2.0
+[1.2.1]: https://github.com/slint-ui/slint/releases/tag/v1.2.1
