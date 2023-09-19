@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+// cSpell: ignore winit
+
 import { Uri, TextDocumentShowOptions } from "vscode";
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
-import { URI } from "vscode-languageserver";
 
 let previewPanel: vscode.WebviewPanel | null = null;
 let previewUrl: Uri | null = null;
@@ -15,8 +16,8 @@ let previewBusy = false;
 let uriMapping = new Map<string, string>();
 
 /// Initialize the callback on the client to make the web preview work
-export function initClientForPreview(client: BaseLanguageClient) {
-    client.onRequest("slint/preview_message", async (msg: any) => {
+export function initClientForPreview(client: BaseLanguageClient | null) {
+    client?.onRequest("slint/preview_message", async (msg: any) => {
         if (previewPanel) {
             // map urls to webview URL
             if (msg.command === "highlight") {
@@ -131,7 +132,9 @@ export async function showPreview(
 
 async function getDocumentSource(url: Uri): Promise<string> {
     // FIXME: is there a faster way to get the document
-    let x = vscode.workspace.textDocuments.find((d) => d.uri.toString() === url.toString());
+    let x = vscode.workspace.textDocuments.find(
+        (d) => d.uri.toString() === url.toString(),
+    );
     let source;
     if (x) {
         source = x.getText();
