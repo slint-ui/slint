@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+ - Improved `StandardTableView` to use `ListView` optimization for all styles.
+ - Native style: Fixed scroll bar handle size for `ScrollView`.
 ## [1.2.0] - 2023-09-04
 
 ### General

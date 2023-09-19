@@ -39,7 +39,7 @@ pub struct NativeSlider {
 }
 
 cpp! {{
-void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, int active_controls, float minimum, float maximum, float float_value, bool vertical) {
+void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, int active_controls, int minimum, int maximum, int value, bool vertical) {
     option.subControls = QStyle::SC_SliderGroove | QStyle::SC_SliderHandle;
     option.activeSubControls = { active_controls };
     if (vertical) {
@@ -48,11 +48,8 @@ void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, 
         option.orientation = Qt::Horizontal;
         option.state |= QStyle::State_Horizontal;
     }
-    // Slint slider supports floating point ranges, while Qt uses integer. To support (0..1) ranges
-    // of values, scale up a little, before truncating to integer values.
-    option.maximum = maximum * 1024;
-    option.minimum = minimum * 1024;
-    int value = float_value * 1024;
+    option.maximum = maximum;
+    option.minimum = minimum;
     option.sliderPosition = value;
     option.sliderValue = value;
     if (enabled) {
@@ -87,9 +84,11 @@ impl Item for NativeSlider {
         _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         let enabled = self.enabled();
-        let value = self.value() as f32;
-        let min = self.minimum() as f32;
-        let max = self.maximum() as f32;
+        // Slint slider supports floating point ranges, while Qt uses integer. To support (0..1) ranges
+        // of values, scale up a little, before truncating to integer values.
+        let value = (self.value() * 1024.0) as i32;
+        let min = (self.minimum() * 1024.0) as i32;
+        let max = (self.maximum() * 1024.0) as i32;
         let data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
@@ -98,9 +97,9 @@ impl Item for NativeSlider {
 
         let size = cpp!(unsafe [
             enabled as "bool",
-            value as "float",
-            min as "float",
-            max as "float",
+            value as "int",
+            min as "int",
+            max as "int",
             active_controls as "int",
             pressed as "bool",
             vertical as "bool",
@@ -157,9 +156,11 @@ impl Item for NativeSlider {
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let enabled = self.enabled();
-        let value = self.value();
-        let min = self.minimum();
-        let max = self.maximum();
+        // Slint slider supports floating point ranges, while Qt uses integer. To support (0..1) ranges
+        // of values, scale up a little, before truncating to integer values.
+        let value = (self.value() * 1024.0) as i32;
+        let min = (self.minimum() * 1024.0) as i32;
+        let max = (self.maximum() * 1024.0) as i32;
         let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed: bool = data.pressed != 0;
@@ -174,9 +175,9 @@ impl Item for NativeSlider {
             pos as "QPoint",
             size as "QSize",
             enabled as "bool",
-            value as "float",
-            min as "float",
-            max as "float",
+            value as "int",
+            min as "int",
+            max as "int",
             active_controls as "int",
             pressed as "bool",
             vertical as "bool",
@@ -201,7 +202,7 @@ impl Item for NativeSlider {
             } => {
                 data.pressed_x = if vertical { pos.y as f32 } else { pos.x as f32 };
                 data.pressed = 1;
-                data.pressed_val = value;
+                data.pressed_val = self.value();
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
@@ -214,8 +215,9 @@ impl Item for NativeSlider {
                 if data.pressed != 0 {
                     // FIXME: use QStyle::subControlRect to find out the actual size of the groove
                     let new_val = data.pressed_val
-                        + ((coord as f32) - data.pressed_x) * (max - min) / size as f32;
-                    let new_val = new_val.max(min).min(max);
+                        + ((coord as f32) - data.pressed_x) * (self.maximum() - self.minimum())
+                            / size as f32;
+                    let new_val = new_val.max(self.minimum()).min(self.maximum());
                     self.value.set(new_val);
                     Self::FIELD_OFFSETS.changed.apply_pin(self).call(&(new_val,));
                     InputEventResult::GrabMouse
@@ -224,8 +226,8 @@ impl Item for NativeSlider {
                 }
             }
             MouseEvent::Wheel { delta_x, delta_y, .. } => {
-                let new_val = value + delta_x + delta_y;
-                let new_val = new_val.max(min).min(max);
+                let new_val = self.value() + delta_x + delta_y;
+                let new_val = new_val.max(self.minimum()).min(self.maximum());
                 self.value.set(new_val);
                 Self::FIELD_OFFSETS.changed.apply_pin(self).call(&(new_val,));
                 InputEventResult::EventAccepted
@@ -261,9 +263,11 @@ impl Item for NativeSlider {
 
     fn_render! { this dpr size painter widget initial_state =>
         let enabled = this.enabled();
-        let value = this.value() as f32;
-        let min = this.minimum() as f32;
-        let max = this.maximum() as f32;
+        // Slint slider supports floating point ranges, while Qt uses integer. To support (0..1) ranges
+        // of values, scale up a little, before truncating to integer values.
+        let value = (this.value() * 1024.0) as i32;
+        let min = (this.minimum() * 1024.0) as i32;
+        let max = (this.maximum() * 1024.0) as i32;
         let data = this.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
@@ -273,9 +277,9 @@ impl Item for NativeSlider {
             painter as "QPainterPtr*",
             widget as "QWidget*",
             enabled as "bool",
-            value as "float",
-            min as "float",
-            max as "float",
+            value as "int",
+            min as "int",
+            max as "int",
             size as "QSize",
             active_controls as "int",
             pressed as "bool",
