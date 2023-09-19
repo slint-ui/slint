@@ -580,7 +580,12 @@ pub(crate) fn layout_text_lines(
                 )
                 .height_length();
             if elide && text_height > max_height {
-                font_height * (max_height.get() / font_height.get()).floor()
+                // The height of the text is used for vertical alignment below.
+                // If the full text doesn't fit into max_height and eliding is
+                // enabled, calculate the height of the max number of lines that
+                // fit to ensure correct vertical alignment when elided.
+                let max_lines = (max_height.get() / font_height.get()).floor();
+                font_height * max_lines
             } else {
                 text_height
             }
