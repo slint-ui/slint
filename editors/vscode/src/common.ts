@@ -60,6 +60,8 @@ export class ClientHandle {
     }
 }
 
+const client = new ClientHandle();
+
 export function setServerStatus(
     status: ServerStatusParams,
     statusBar: vscode.StatusBarItem,
@@ -132,20 +134,42 @@ export function languageClientOptions(
 
 export function activate(
     context: vscode.ExtensionContext,
-    client: ClientHandle,
-    startClient: (_ctx: vscode.ExtensionContext) => void,
+    startClient: (_client: ClientHandle, _ctx: vscode.ExtensionContext) => void,
 ): [vscode.StatusBarItem, PropertiesViewProvider] {
     const statusBar = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Left,
     );
-    context.subscriptions.push(statusBar);
-    statusBar.text = "Slint";
-
-    startClient(context);
 
     const properties_provider = new PropertiesViewProvider(
         context.extensionUri,
     );
+
+    context.subscriptions.push(statusBar);
+    statusBar.text = "Slint";
+
+    client.add_updater((cl) => {
+        if (cl !== null) {
+            cl.registerFeature(new snippets.SnippetTextEditFeature());
+            cl.onNotification(serverStatus, (params: ServerStatusParams) =>
+                setServerStatus(params, statusBar),
+            );
+        }
+        wasm_preview.initClientForPreview(cl);
+
+        properties_provider.refresh_view();
+    });
+
+    vscode.workspace.onDidChangeConfiguration(async (ev) => {
+        if (ev.affectsConfiguration("slint")) {
+            client.client?.sendNotification(
+                "workspace/didChangeConfiguration",
+                { settings: "" },
+            );
+            wasm_preview.refreshPreview();
+        }
+    });
+
+    startClient(client, context);
 
     client.add_updater((c) => {
         properties_provider.client = c;
@@ -171,7 +195,7 @@ export function activate(
         vscode.commands.registerCommand("slint.reload", async function () {
             statusBar.hide();
             await client.stop();
-            startClient(context);
+            startClient(client, context);
         }),
     );
 
@@ -207,7 +231,7 @@ export function activate(
     return [statusBar, properties_provider];
 }
 
-export function deactivate(client: ClientHandle): Thenable<void> | undefined {
+export function deactivate(): Thenable<void> | undefined {
     if (!client.client) {
         return undefined;
     }
