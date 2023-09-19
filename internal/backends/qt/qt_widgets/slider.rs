@@ -204,7 +204,8 @@ impl Item for NativeSlider {
                 if data.pressed != 0 {
                     // FIXME: use QStyle::subControlRect to find out the actual size of the groove
                     let new_val = data.pressed_val
-                        + ((coord as f32) - data.pressed_x) * (self.maximum() - self.minimum()) / size as f32;
+                        + ((coord as f32) - data.pressed_x) * (self.maximum() - self.minimum())
+                            / size as f32;
                     let new_val = new_val.max(self.minimum()).min(self.maximum());
                     self.value.set(new_val);
                     Self::FIELD_OFFSETS.changed.apply_pin(self).call(&(new_val,));
