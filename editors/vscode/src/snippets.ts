@@ -13,7 +13,11 @@
 // cSpell: ignore Tuppeny
 
 import * as vscode from "vscode";
-import { ClientCapabilities, StaticFeature } from "vscode-languageclient";
+import {
+    ClientCapabilities,
+    FeatureState,
+    StaticFeature,
+} from "vscode-languageclient";
 
 export class SnippetTextEditFeature implements StaticFeature {
     private command: vscode.Disposable | undefined;
@@ -46,6 +50,10 @@ export class SnippetTextEditFeature implements StaticFeature {
             new vscode.SnippetString(newText),
             edit.range,
         );
+    }
+
+    getState(): FeatureState {
+        return { kind: "static" };
     }
 }
 
