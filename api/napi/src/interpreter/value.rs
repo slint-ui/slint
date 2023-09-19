@@ -72,7 +72,7 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
                 let mut vec = vec![];
 
                 for i in 0..model.row_count() {
-                    vec.push(to_js_unknown(env, &model.row_data(i).unwrap()));
+                    vec.push(to_js_unknown(env, &model.row_data(i).unwrap())?);
                 }
 
                 Ok(Array::from_vec(env, vec)?.coerce_to_object()?.into_unknown())

@@ -287,6 +287,92 @@ test('ArrayModel', (t) => {
   t.deepEqual(stringArrayModel.values(), new ArrayModel(["Simon", "Olivier", "Auri", "Tobias", "Florian"]).values());
 })
 
+test('ArrayModel rowCount', (t) => {
+  let compiler = new ComponentCompiler;
+  let definition = compiler.buildFromSource(`
+  export component App {
+    out property <int> model-length: model.length;
+    in-out property <[int]> model;
+  }`, "");
+  t.not(definition, null);
+
+  let instance = definition!.create();
+  t.not(instance, null);
+
+  let model = new ArrayModel([10, 9, 8]);
+
+  instance!.setProperty("model", model);
+  t.is(3, model.rowCount());
+  t.is(3, instance?.getProperty("model-length") as number);
+})
+
+test('ArrayModel rowData/setRowData', (t) => {
+  let compiler = new ComponentCompiler;
+  let definition = compiler.buildFromSource(`
+  export component App {
+    callback data(int) -> int;
+
+    in-out property <[int]> model;
+
+    data(row) => {
+      model[row]
+    }
+  }`, "");
+  t.not(definition, null);
+
+  let instance = definition!.create();
+  t.not(instance, null);
+
+  let model = new ArrayModel([10, 9, 8]);
+
+  instance!.setProperty("model", model);
+  t.is(9, model.rowData(1));
+  t.deepEqual(instance!.invoke("data", [1]), 9);
+
+  model.setRowData(1, 4);
+  t.is(4, model.rowData(1));
+  t.deepEqual(instance!.invoke("data", [1]), 4);
+})
+
+test('Model notify', (t) => {
+  let compiler = new ComponentCompiler;
+  let definition = compiler.buildFromSource(`
+  export component App {
+    width: 300px;
+    height: 300px;
+
+    out property<length> layout-height: layout.height;
+    in-out property<[length]> fixed-height-model;
+
+    VerticalLayout {
+      alignment: start;
+
+      layout := VerticalLayout {
+        for fixed-height in fixed-height-model: Rectangle {
+            background: blue;
+            height: fixed-height;
+        }
+      }
+    }
+
+  }`, "");
+  t.not(definition, null);
+
+  let instance = definition!.create();
+  t.not(instance, null);
+
+  let model = new ArrayModel([100, 0]);
+
+  instance!.setProperty("fixed-height-model", model);
+  t.is(100, instance!.getProperty("layout-height") as number);
+  model.setRowData(1, 50);
+  t.is(150, instance!.getProperty("layout-height") as number);
+  model.push(75);
+  t.is(225, instance!.getProperty("layout-height") as number);
+  model.remove(1, 2);
+  t.is(100, instance!.getProperty("layout-height") as number);
+})
+
 test('model from array', (t) => {
   let compiler = new ComponentCompiler;
   let definition = compiler.buildFromSource(`

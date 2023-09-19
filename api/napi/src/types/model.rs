@@ -5,7 +5,7 @@ use std::rc::{Rc, Weak};
 
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::Model;
-use napi::{bindgen_prelude::Object, Env, JsFunction, JsNumber, JsUnknown, NapiRaw};
+use napi::{bindgen_prelude::Object, Env, JsFunction, JsNumber, JsUnknown, NapiRaw, Result};
 use slint_interpreter::Value;
 
 use crate::{to_js_unknown, to_value, RefCountedReference};
@@ -19,7 +19,6 @@ pub struct JsModel {
 
 impl JsModel {
     pub fn new<T: NapiRaw>(env: Env, model: T, data_type: Type) -> napi::Result<Rc<Self>> {
-        // let model = RefCountedReference::new(&env, model)?;
         let js_model = Rc::new(Self {
             notify: Default::default(),
             env,
@@ -48,9 +47,7 @@ impl Model for JsModel {
             .get::<&str, JsFunction>("rowCount")
             .ok()
             .and_then(|callback| {
-                callback.and_then(|callback| {
-                    callback.call::<JsUnknown>(Some(&model), vec![].as_ref()).ok()
-                })
+                callback.and_then(|callback| callback.call::<JsUnknown>(Some(&model), &[]).ok())
             })
             .and_then(|res| res.coerce_to_number().ok())
             .map(|num| num.get_uint32().ok().map_or(0, |count| count as usize))
@@ -106,6 +103,12 @@ pub struct JsSlintModelNotify {
     model: Weak<JsModel>,
 }
 
+impl JsSlintModelNotify {
+    fn model(&self) -> Result<Rc<JsModel>> {
+        self.model.upgrade().ok_or(napi::Error::from_reason("cannot upgrade model"))
+    }
+}
+
 #[napi]
 impl JsSlintModelNotify {
     #[napi(constructor)]
@@ -114,30 +117,61 @@ impl JsSlintModelNotify {
     }
 
     #[napi]
-    pub fn row_data_changed(&self, row: u32) {
-        if let Some(model) = self.model.upgrade() {
-            model.notify.row_changed(row as usize);
+    pub fn row_data_changed(&self, row: f64) -> Result<()> {
+        let model = self.model()?;
+
+        if row < 0. && row >= model.row_count() as f64 {
+            return Err(napi::Error::from_reason(
+                "row with value {row} out of bounds.".to_string(),
+            ));
         }
+
+        model.notify.row_changed(row as usize);
+
+        Ok(())
     }
 
     #[napi]
-    pub fn row_added(&self, row: u32, count: u32) {
-        if let Some(model) = self.model.upgrade() {
-            model.notify.row_added(row as usize, count as usize);
+    pub fn row_added(&self, row: f64, count: f64) -> Result<()> {
+        let model = self.model()?;
+
+        if row < 0. && row >= model.row_count() as f64 {
+            return Err(napi::Error::from_reason(
+                "row with value {row} out of bounds.".to_string(),
+            ));
         }
+
+        if count < 0. {
+            return Err(napi::Error::from_reason("count cannot be negative.".to_string()));
+        }
+
+        model.notify.row_added(row as usize, count as usize);
+
+        Ok(())
     }
 
     #[napi]
-    pub fn row_removed(&self, row: u32, count: u32) {
-        if let Some(model) = self.model.upgrade() {
-            model.notify.row_removed(row as usize, count as usize);
+    pub fn row_removed(&self, row: f64, count: f64) -> Result<()> {
+        let model = self.model()?;
+
+        if row < 0. && row >= model.row_count() as f64 {
+            return Err(napi::Error::from_reason(
+                "row with value {row} out of bounds.".to_string(),
+            ));
         }
+
+        if count < 0. {
+            return Err(napi::Error::from_reason("count cannot be negative.".to_string()));
+        }
+
+        model.notify.row_removed(row as usize, count as usize);
+
+        Ok(())
     }
 
     #[napi]
-    pub fn reset(&self) {
-        if let Some(model) = self.model.upgrade() {
-            model.notify.reset();
-        }
+    pub fn reset(&self) -> Result<()> {
+        self.model()?.notify.reset();
+        Ok(())
     }
 }
