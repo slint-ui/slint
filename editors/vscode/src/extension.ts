@@ -3,7 +3,7 @@
 
 // This file is the entry point for the vscode extension (not the browser one)
 
-// cSpell: ignore aarch armv gnueabihf vsix
+// cSpell: ignore aarch armv codespaces gnueabihf vsix
 
 import * as path from "path";
 import { existsSync } from "fs";
@@ -12,7 +12,6 @@ import * as vscode from "vscode";
 import { PropertiesViewProvider } from "./properties_webview";
 import * as wasm_preview from "./wasm_preview";
 import * as common from "./common";
-import * as snippets from "./snippets";
 
 import {
     LanguageClient,
@@ -21,7 +20,6 @@ import {
     State,
 } from "vscode-languageclient/node";
 
-let client = new common.ClientHandle();
 let statusBar: vscode.StatusBarItem;
 let properties_provider: PropertiesViewProvider;
 
@@ -74,7 +72,17 @@ function lspPlatform(): Platform | null {
     return null;
 }
 
-function startClient(context: vscode.ExtensionContext) {
+// Please add changes to the BaseLanguageClient via
+// `client.add_updater((cl: BaseLanguageClient | null): void)`
+//
+// That makes sure the code is run even when the LSP gets restarted, etc.
+//
+// Please add setup common between web and native VSCode by adding updaters
+// to the client in common.ts!
+function startClient(
+    client: common.ClientHandle,
+    context: vscode.ExtensionContext,
+) {
     let lsp_platform = lspPlatform();
     if (lsp_platform === null) {
         return;
@@ -162,6 +170,26 @@ function startClient(context: vscode.ExtensionContext) {
         },
     );
 
+    client.add_updater((cl) => {
+        cl?.onDidChangeState((event) => {
+            let properly_stopped = cl.hasOwnProperty("slint_stopped");
+            if (
+                !properly_stopped &&
+                event.newState === State.Stopped &&
+                event.oldState === State.Running
+            ) {
+                cl.outputChannel.appendLine(
+                    "The Slint Language Server crashed. This is a bug.\nPlease open an issue on https://github.com/slint-ui/slint/issues",
+                );
+                cl.outputChannel.show();
+                vscode.commands.executeCommand("workbench.action.output.focus");
+                vscode.window.showErrorMessage(
+                    "The Slint Language Server crashed! Please open a bug on the Slint bug tracker with the panic message.",
+                );
+            }
+        });
+    });
+
     const cl = new LanguageClient(
         "slint-lsp",
         "Slint LSP",
@@ -169,49 +197,24 @@ function startClient(context: vscode.ExtensionContext) {
         clientOptions,
     );
 
-    cl.registerFeature(new snippets.SnippetTextEditFeature());
-
-    cl.onDidChangeState((event) => {
-        let properly_stopped = cl.hasOwnProperty("slint_stopped");
-        if (
-            !properly_stopped &&
-            event.newState === State.Stopped &&
-            event.oldState === State.Running
-        ) {
-            cl.outputChannel.appendLine(
-                "The Slint Language Server crashed. This is a bug.\nPlease open an issue on https://github.com/slint-ui/slint/issues",
-            );
-            cl.outputChannel.show();
-            vscode.commands.executeCommand("workbench.action.output.focus");
-            vscode.window.showErrorMessage(
-                "The Slint Language Server crashed! Please open a bug on the Slint bug tracker with the panic message.",
-            );
-        }
-    });
-
-    cl.start();
-    client.client = cl;
-
-    let initClient = () => {
-        wasm_preview.initClientForPreview(cl);
-
-        properties_provider.refresh_view();
-        cl.onNotification(common.serverStatus, (params: any) =>
-            common.setServerStatus(params, statusBar),
-        );
-    };
-    cl.onReady().then(initClient);
+    cl.start().then(() => (client.client = cl));
 }
 
 export function activate(context: vscode.ExtensionContext) {
     if (process.env.hasOwnProperty("CODESPACES")) {
-        vscode.workspace.getConfiguration("slint").update("preview.providedByEditor", true, vscode.ConfigurationTarget.Global);
+        vscode.workspace
+            .getConfiguration("slint")
+            .update(
+                "preview.providedByEditor",
+                true,
+                vscode.ConfigurationTarget.Global,
+            );
     }
-    [statusBar, properties_provider] = common.activate(context, client, (ctx) =>
-        startClient(ctx),
+    [statusBar, properties_provider] = common.activate(context, (cl, ctx) =>
+        startClient(cl, ctx),
     );
 }
 
 export function deactivate(): Thenable<void> | undefined {
-    return common.deactivate(client);
+    return common.deactivate();
 }

@@ -32,6 +32,7 @@ path = "wasm_main.rs"
 name = "slint_lsp_wasm"
 
 [features]
+slint = [] # remove when MSRV > 1.70
 backend-qt = ["slint/backend-qt", "preview"]
 
 backend-winit = ["slint/backend-winit", "preview"]
