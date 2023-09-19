@@ -4,7 +4,7 @@
 // cSpell: ignore lumino
 
 import { GotoPositionCallback } from "./text";
-import { LspPosition, LspURI } from "./lsp_integration";
+import { LspPosition } from "./lsp_integration";
 
 import { PropertyQuery, PropertiesView } from "./shared/properties";
 import * as lsp_commands from "./shared/lsp_commands";
@@ -41,11 +41,7 @@ export class PropertiesWidget extends Widget {
             },
             "fa fa-trash-o",
             (doc, element, property_name) => {
-                return lsp_commands.removeBinding(
-                    doc,
-                    element,
-                    property_name,
-                );
+                return lsp_commands.removeBinding(doc, element, property_name);
             },
             "fa fa-plus-square-o",
         );
@@ -61,8 +57,13 @@ export class PropertiesWidget extends Widget {
         super.dispose();
     }
 
-    position_changed(uri: LspURI, version: number, position: LspPosition) {
-        lsp_commands.queryProperties(uri, position)
+    position_changed(uri: string, version: number, position: LspPosition) {
+        if (uri === "") {
+            return;
+        }
+
+        lsp_commands
+            .queryProperties(uri, position)
             .then((r: PropertyQuery) => {
                 if (r.source_version < version) {
                     setTimeout(() => {
