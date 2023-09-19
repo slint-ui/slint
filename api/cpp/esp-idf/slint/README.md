@@ -30,7 +30,10 @@ The following steps will guide from the a bare-bones esp-idf "hello_world" to a 
 idf.py create-project slint-hello-world
 cd slint-hello-world
 ```
-2. Select your chipset with `idf.py set-target`, for example if you're using an `ESP32S3` chipset, run `idf.py set-target esp32s3`
+2. Select your chipset with `idf.py set-target`, for example if you're using an `ESP32S3` chipset, run
+```bash
+idf.py set-target esp32s3`
+```
 3. Add a [Board Support Package](https://github.com/espressif/esp-bsp#esp-bsp-espressifs-board-support-packages) that matches your device as a dependency. For example, if you're using an ESP-BOX, run
 ```bash
 idf.py add-dependency esp-box
@@ -114,6 +117,9 @@ slint_target_sources(${COMPONENT_LIB} appwindow.slint)
     3. You may need additional device-specific settings. For example if your device has external SPI RAM,
        you may need to enable that. For details for ESP32-S3 based devices see how to [Configure the PSRAM](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/flash_psram_config.html#configure-the-psram).
     4. Quit the editor with `Q` and save the configuration.
+
+    Alternatively, check in a default sdkconfig tweaked from your board that adds the right amount of ram, flash,
+    and use `CONFIG_MAIN_TASK_STACK_SIZE=8192` and `CONFIG_COMPILER_CXX_EXCEPTIONS=y`
 11.  Build the project with `idf.py build`.
 12.  Connect your device, then flash and run it with `idf.py flash monitor`.
 13.  Observe Slint rendering "Hello World" on the screen 🎉.
@@ -145,6 +151,11 @@ Solution: You need to configure your Rust toolchain to use the esp channel. Eith
 [toolchain]
 channel = "esp"
 ```
+
+### The device crashes at boot or enter a boot loop
+
+One reason could be that you don't have enough ram for the heap or the stack.
+Make sure that the stack is big enough (~8KiB), and that all the RAM was made available for the heap allocator.
 
 ## License
 
