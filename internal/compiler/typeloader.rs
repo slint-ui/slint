@@ -12,6 +12,7 @@ use crate::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxToken};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
 use crate::{fileaccess, parser};
+use cargo_metadata::{MetadataCommand, Package};
 use core::future::Future;
 
 /// Storage for a cache of all loaded documents
@@ -72,6 +73,7 @@ pub struct TypeLoader {
     pub compiler_config: CompilerConfiguration,
     style: String,
     all_documents: LoadedDocuments,
+    include_paths: RefCell<HashMap<PathBuf, Option<Vec<PathBuf>>>>,
 }
 
 struct BorrowedTypeLoader<'a> {
@@ -106,6 +108,7 @@ impl TypeLoader {
             compiler_config,
             style: style.clone(),
             all_documents: Default::default(),
+            include_paths: Default::default(),
         };
 
         let known_styles = fileaccess::styles();
@@ -564,12 +567,15 @@ impl TypeLoader {
         referencing_file: Option<&Path>,
         file_to_import: &str,
     ) -> Option<(PathBuf, Option<&'static [u8]>)> {
+        let include_paths = referencing_file.and_then(|f| self.resolve_include_paths_for_file(f));
+        let include_paths =
+            self.compiler_config.include_paths.iter().chain(include_paths.iter().flatten());
         // The directory of the current file is the first in the list of include directories.
         let maybe_current_directory = referencing_file.and_then(base_directory);
         maybe_current_directory
             .clone()
             .into_iter()
-            .chain(self.compiler_config.include_paths.iter().map(PathBuf::as_path).map({
+            .chain(include_paths.map(PathBuf::as_path).map({
                 |include_path| {
                     if include_path.is_relative() && maybe_current_directory.as_ref().is_some() {
                         maybe_current_directory.as_ref().unwrap().join(include_path)
@@ -588,6 +594,45 @@ impl TypeLoader {
                 crate::fileaccess::load_file(&candidate)
                     .map(|virtual_file| (virtual_file.canon_path, virtual_file.builtin_contents))
             })
+    }
+
+    /// Resolves include paths for the given .slint file by looking up the nearest `Cargo.toml`,
+    /// fetching its metadata, and finding any dependencies that depend on slint.
+    ///
+    /// This may get called multiple times for the same .slint file while looking up image
+    /// resources etc. referenced from the .slint file. The results are cached given that
+    /// fetching cargo metadata may be somewhat expensive for larger workspaces.
+    fn resolve_include_paths_for_file(&self, referencing_file: &Path) -> Option<Vec<PathBuf>> {
+        let manifest_file = manifest_directory(referencing_file)?.join("Cargo.toml");
+        if !manifest_file.exists() {
+            return None;
+        }
+
+        self.include_paths
+            .borrow_mut()
+            .entry(manifest_file.clone())
+            .or_insert_with(|| {
+                MetadataCommand::new().manifest_path(&manifest_file).exec().ok().map(|metadata| {
+                    let dependencies = metadata
+                        .packages
+                        .iter()
+                        .find(|p| p.manifest_path == manifest_file)
+                        .map(|p| p.dependencies.iter().map(|d| &d.name).collect::<HashSet<_>>())
+                        .unwrap_or_default();
+
+                    metadata
+                        .packages
+                        .iter()
+                        .filter(|p| {
+                            dependencies.contains(&p.name)
+                                && p.dependencies.iter().any(|d| d.name == "slint")
+                        })
+                        .flat_map(resolve_include_paths_for_package)
+                        .collect::<Vec<_>>()
+                })
+                // .unwrap_or_default()
+            })
+            .clone()
     }
 
     fn collect_dependencies<'a: 'b, 'b>(
@@ -663,18 +708,83 @@ impl TypeLoader {
 pub fn base_directory(referencing_file: &Path) -> Option<PathBuf> {
     if referencing_file.extension().map_or(false, |e| e == "rs") {
         // For .rs file, this is a rust macro, and rust macro locates the file relative to the CARGO_MANIFEST_DIR which is the directory that has a Cargo.toml file.
-        let mut candidate = referencing_file;
-        loop {
-            candidate =
-                if let Some(c) = candidate.parent() { c } else { break referencing_file.parent() };
-            if candidate.join("Cargo.toml").exists() {
-                break Some(candidate);
-            }
-        }
+        manifest_directory(referencing_file)
     } else {
         referencing_file.parent()
     }
     .map(|p| p.to_path_buf())
+}
+
+fn manifest_directory(referencing_file: &Path) -> Option<&Path> {
+    let mut candidate = referencing_file;
+    loop {
+        candidate =
+            if let Some(c) = candidate.parent() { c } else { break referencing_file.parent() };
+        if candidate.join("Cargo.toml").exists() {
+            break Some(candidate);
+        }
+    }
+}
+
+/// Resolves include paths for a package that may provide .slint files.
+///
+/// Defaults to `CARGO_MANIFEST_DIR/ui` unless specified in `Cargo.toml`:
+/// ```toml
+/// [package.metadata.slint]
+/// include_path = "foo" # or ["foo", "bar"]
+/// ```
+fn resolve_include_paths_for_package(package: &Package) -> Vec<PathBuf> {
+    let manifest_dir = package.manifest_path.parent().unwrap();
+    let include_path = package.metadata.get("slint").and_then(|s| s.get("include_path"));
+    match include_path {
+        Some(serde_json::Value::String(s)) => vec![manifest_dir.join(s).into()],
+        Some(serde_json::Value::Array(a)) => {
+            a.iter().map(|s| manifest_dir.join(s.as_str().unwrap()).into()).collect()
+        }
+        _ => vec![manifest_dir.join("ui").into()],
+    }
+}
+
+#[test]
+fn test_resolve_include_paths_for_package() {
+    let mut json = serde_json::json!({
+        "name": "foo",
+        "version": "1.2.3",
+        "id": "foo 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+        "dependencies": [],
+        "targets": [],
+        "features": {},
+        "manifest_path": "/home/user/.cargo/registry/src/index.crates.io-abc/foo-1.2.3/Cargo.toml",
+    });
+
+    let pkg: Package = serde_json::from_value(json.clone()).unwrap();
+    assert_eq!(
+        resolve_include_paths_for_package(&pkg),
+        vec![PathBuf::from("/home/user/.cargo/registry/src/index.crates.io-abc/foo-1.2.3/ui")]
+    );
+
+    json.as_object_mut()
+        .unwrap()
+        .insert("metadata".into(), serde_json::json!({"slint": {"include_path": "foo"}}));
+
+    let pkg: Package = serde_json::from_value(json.clone()).unwrap();
+    assert_eq!(
+        resolve_include_paths_for_package(&pkg),
+        vec![PathBuf::from("/home/user/.cargo/registry/src/index.crates.io-abc/foo-1.2.3/foo")]
+    );
+
+    json.as_object_mut()
+        .unwrap()
+        .insert("metadata".into(), serde_json::json!({"slint": {"include_path": ["foo", "bar"]}}));
+
+    let pkg: Package = serde_json::from_value(json.clone()).unwrap();
+    assert_eq!(
+        resolve_include_paths_for_package(&pkg),
+        vec![
+            PathBuf::from("/home/user/.cargo/registry/src/index.crates.io-abc/foo-1.2.3/foo"),
+            PathBuf::from("/home/user/.cargo/registry/src/index.crates.io-abc/foo-1.2.3/bar")
+        ]
+    );
 }
 
 #[test]

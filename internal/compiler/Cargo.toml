@@ -58,6 +58,9 @@ image = { version = "0.24", optional = true }
 resvg = { workspace = true, optional = true }
 # font embedding
 fontdue = { version = "0.7.1", optional = true }
+# for resolving include paths for dependencies
+cargo_metadata = "0.18.0"
+serde_json = "1.0.96"
 
 [dev-dependencies]
 i-slint-parser-test-macro = { path = "./parser-test-macro" }
