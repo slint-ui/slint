@@ -420,7 +420,7 @@ pub struct ParentCtx<'a, T = ()> {
 
 impl<'a, T> Clone for ParentCtx<'a, T> {
     fn clone(&self) -> Self {
-        Self { ctx: self.ctx, repeater_index: self.repeater_index }
+        *self
     }
 }
 impl<'a, T> Copy for ParentCtx<'a, T> {}

@@ -231,7 +231,7 @@ impl<'a, T: ?Sized + VTableMeta> Copy for VRef<'a, T> {}
 
 impl<'a, T: ?Sized + VTableMeta> Clone for VRef<'a, T> {
     fn clone(&self) -> Self {
-        Self { inner: self.inner, phantom: PhantomData }
+        *self
     }
 }
 
@@ -542,7 +542,7 @@ impl<Base, T: ?Sized + VTableMeta, Flag> Copy for VOffset<Base, T, Flag> {}
 
 impl<Base, T: ?Sized + VTableMeta, Flag> Clone for VOffset<Base, T, Flag> {
     fn clone(&self) -> Self {
-        Self { vtable: self.vtable, offset: self.offset, phantom: PhantomData }
+        *self
     }
 }
 
