@@ -53,7 +53,7 @@ impl<'a, T> Copy for Slice<'a, T> {}
 
 impl<'a, T> Clone for Slice<'a, T> {
     fn clone(&self) -> Self {
-        Self { ptr: self.ptr, len: self.len, phantom: PhantomData }
+        *self
     }
 }
 
