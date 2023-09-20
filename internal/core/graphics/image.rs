@@ -457,7 +457,7 @@ impl PartialEq for ImageInner {
             (Self::BackendStorage(l0), Self::BackendStorage(r0)) => vtable::VRc::ptr_eq(l0, r0),
             #[cfg(not(target_arch = "wasm32"))]
             (Self::BorrowedOpenGLTexture(l0), Self::BorrowedOpenGLTexture(r0)) => l0 == r0,
-            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+            _ => false,
         }
     }
 }
