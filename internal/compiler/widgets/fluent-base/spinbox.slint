@@ -74,7 +74,7 @@ export component SpinBox {
                     font-size: Typography.body.font-size;
                     font-weight: Typography.body.font-weight;
                     selection-background-color: Palette.accent-selected-text;
-                    selection-foreground-color: self.color;
+                    selection-foreground-color: Palette.text-on-accent-primary;
                     horizontal-stretch: 1;
                     text: root.value;
 
@@ -147,6 +147,7 @@ export component SpinBox {
             i-background.background: Palette.control-disabled;
             i-background.border-color: Palette.control-stroke;
             i-text-input.color: Palette.text-disabled;
+            i-text-input.selection-foreground-color: Palette.text-on-accent-disabled;
         }
         focused when root.has-focus : {
             i-background.background: Palette.control-input-active;
