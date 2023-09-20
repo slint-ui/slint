@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file.
 
  - Minimum Rust version is now 1.70.
  - Skia renderer: Fixed the `source` property of `Image` elements sometimes not changing when setting dynamically loaded images. (#3510)
+ - Skia / FemtoVG renderers: Default to vsync swap interval when rendering with OpenGL to avoid excessive CPU usage. (#3516)
 
 ### Slint Language
 
