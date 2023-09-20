@@ -9,6 +9,11 @@ export component TestCase {
     in-out property <int> click-count;
     in-out property <int> popup-selector: 0;
 
+    callback do-close;
+    do-close => {
+        close-from-outside.close();
+    }
+
     default-popup := PopupWindow {
         width: parent.width;
         height: parent.height;
@@ -17,7 +22,7 @@ export component TestCase {
         }
         init => {
             root.popup-created = true;
-        }        
+        }
     }
 
     self-closing-popup := PopupWindow {
@@ -37,12 +42,12 @@ export component TestCase {
         }
     }
 
-    never-closing-popup := PopupWindow {
+    close-from-outside := PopupWindow {
         close-on-click: false;
         width: parent.width;
         height: parent.height;
         Text {
-            text: "I'm a popup that never closes";
+            text: "I'm a popup that only close from outside";
         }
         TouchArea {
             clicked => {
@@ -64,7 +69,7 @@ export component TestCase {
                 self-closing-popup.show();
             } else if (root.popup-selector == 2) {
                 root.popup-selector = 3;
-                never-closing-popup.show();
+                close-from-outside.show();
             }
         }
     }
@@ -109,6 +114,14 @@ slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_click_count(), 1);
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_click_count(), 1);
+
+instance.invoke_do_close();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_click_count(), 2);
+instance.invoke_do_close();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_click_count(), 3);
+
 ```
 
 ```cpp
@@ -150,6 +163,13 @@ slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq(instance.get_click_count(), 1);
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq(instance.get_click_count(), 1);
+
+instance.invoke_do_close();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_click_count(), 2);
+instance.invoke_do_close();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_click_count(), 3);
 ```
 
 ```disable-because-nodejs-runs-with-qt-and-send-mouse-click-wont-send-to-popup-qwindow
@@ -190,6 +210,13 @@ instance.send_mouse_click(5., 5.);
 assert.equal(instance.click_count, 1);
 instance.send_mouse_click(5., 5.);
 assert.equal(instance.click_count, 1);
+
+instance.do_close();
+instance.send_mouse_click(5., 5.);
+assert.equal(instance.click_count, 2);
+instance.do_close();
+instance.send_mouse_click(5., 5.);
+assert.equal(instance.click_count, 3);
 ```
 
 */
