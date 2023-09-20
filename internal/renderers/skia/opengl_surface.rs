@@ -340,6 +340,14 @@ impl OpenGLSurface {
             .into());
         }
 
+        // Try to default to vsync and ignore if the driver doesn't support it.
+        surface
+            .set_swap_interval(
+                &context,
+                glutin::surface::SwapInterval::Wait(NonZeroU32::new(1).unwrap()),
+            )
+            .ok();
+
         Ok((context, surface))
     }
 
