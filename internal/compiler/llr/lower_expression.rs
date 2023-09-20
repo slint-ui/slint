@@ -116,6 +116,13 @@ pub fn lower_expression(
             tree_Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow, _) => {
                 lower_show_popup(arguments, ctx)
             }
+            tree_Expression::BuiltinFunctionReference(BuiltinFunction::ClosePopupWindow, _) => {
+                // FIXME: right now, `popup.close()` will close any visible popup, as the popup argument is ignored
+                llr_Expression::BuiltinFunctionCall {
+                    function: BuiltinFunction::ClosePopupWindow,
+                    arguments: vec![],
+                }
+            }
             tree_Expression::BuiltinFunctionReference(f, _) => {
                 let mut arguments =
                     arguments.iter().map(|e| lower_expression(e, ctx)).collect::<Vec<_>>();
