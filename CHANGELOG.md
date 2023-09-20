@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 ### General
 
  - Minimum Rust version is now 1.70.
+ - Skia renderer: Fixed the `source` property of `Image` elements sometimes not changing when setting dynamically loaded images. (#3510)
 
 ### Slint Language
 
