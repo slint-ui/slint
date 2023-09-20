@@ -5,6 +5,7 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+ - Skia renderer: Fixed the `source` property of `Image` elements sometimes not changing when setting dynamically loaded images. (#3510)
 ## [1.2.1] - 2023-09-19
 
 ### General
