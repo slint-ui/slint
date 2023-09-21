@@ -123,18 +123,6 @@ export function languageClientOptions(): LanguageClientOptions {
     };
 }
 
-export function use_wasm_preview(): boolean {
-    if (process.env.hasOwnProperty("CODESPACES")) {
-        return true;
-    }
-
-    const result = vscode.workspace
-        .getConfiguration("slint")
-        .get("preview.providedByEditor", true);
-
-    return result;
-}
-
 // VSCode Plugin lifecycle related:
 
 export function activate(
@@ -159,7 +147,7 @@ export function activate(
                 setServerStatus(params, statusBar),
             );
         }
-        wasm_preview.initClientForPreview(cl);
+        wasm_preview.initClientForPreview(context, cl);
 
         properties_provider.refresh_view();
     });
@@ -170,7 +158,7 @@ export function activate(
                 "workspace/didChangeConfiguration",
                 { settings: "" },
             );
-            // wasm_preview.refreshPreview();
+            wasm_preview.update_configuration();
         }
     });
 
@@ -187,9 +175,6 @@ export function activate(
                 return;
             }
 
-            if (use_wasm_preview()) {
-                await wasm_preview.open_preview(context);
-            }
             lsp_commands.showPreview(ae.document.uri.toString(), "");
         }),
     );
