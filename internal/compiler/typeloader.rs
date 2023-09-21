@@ -728,10 +728,10 @@ fn manifest_directory(referencing_file: &Path) -> Option<&Path> {
 
 /// Resolves include paths for a package that may provide .slint files.
 ///
-/// Defaults to `CARGO_MANIFEST_DIR/ui` unless specified in `Cargo.toml`:
+/// Specified in `Cargo.toml`:
 /// ```toml
 /// [package.metadata.slint]
-/// include_path = "foo" # or ["foo", "bar"]
+/// include_path = "ui" # or ["ui", "fonts", "images"]
 /// ```
 fn resolve_include_paths_for_package(package: &Package) -> Vec<PathBuf> {
     let manifest_dir = package.manifest_path.parent().unwrap();
@@ -741,7 +741,7 @@ fn resolve_include_paths_for_package(package: &Package) -> Vec<PathBuf> {
         Some(serde_json::Value::Array(a)) => {
             a.iter().map(|s| manifest_dir.join(s.as_str().unwrap()).into()).collect()
         }
-        _ => vec![manifest_dir.join("ui").into()],
+        _ => vec![],
     }
 }
 
@@ -758,10 +758,7 @@ fn test_resolve_include_paths_for_package() {
     });
 
     let pkg: Package = serde_json::from_value(json.clone()).unwrap();
-    assert_eq!(
-        resolve_include_paths_for_package(&pkg),
-        vec![PathBuf::from("/home/user/.cargo/registry/src/index.crates.io-abc/foo-1.2.3/ui")]
-    );
+    assert!(resolve_include_paths_for_package(&pkg).is_empty());
 
     json.as_object_mut()
         .unwrap()
