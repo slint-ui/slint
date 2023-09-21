@@ -34,32 +34,33 @@ struct Previewer {
     #[allow(unused)]
     server_notifier: ServerNotifier,
     use_external_previewer: RefCell<bool>,
+    to_show: RefCell<Option<common::PreviewComponent>>,
 }
 
 impl PreviewApi for Previewer {
-    fn set_use_external_previewer(&self, ctx: &Rc<Context>, use_external: bool) {
-        let current_is_external = {
-            let mut tmp = self.use_external_previewer.borrow_mut();
-            let old = *tmp;
-            *tmp = use_external;
-            old
-        };
+    fn set_use_external_previewer(&self, use_external: bool) {
+        self.use_external_previewer.replace(use_external);
 
-        if current_is_external != use_external {
-            let documents = &ctx.document_cache.borrow().documents;
+        if use_external {
+            preview::close_ui();
+        }
+    }
 
-            for (p, d) in documents.all_file_documents() {
-                let Some(node) = &d.node else {
-                    continue;
-                };
-                self.set_contents(p, &node.text().to_string());
-            }
-            let style = documents.compiler_config.style.clone().unwrap_or_default();
-            self.config_changed(&style, &documents.compiler_config.include_paths);
+    fn request_state(&self, ctx: &Rc<crate::language::Context>) {
+        let documents = &ctx.document_cache.borrow().documents;
 
-            if use_external {
-                preview::close_ui();
-            }
+        for (p, d) in documents.all_file_documents() {
+            let Some(node) = &d.node else {
+                continue;
+            };
+            self.set_contents(p, &node.text().to_string());
+        }
+        let cc = &documents.compiler_config;
+        let empty = String::new();
+        self.config_changed(cc.style.as_ref().unwrap_or(&empty), &cc.include_paths);
+
+        if let Some(c) = self.to_show.take() {
+            self.load_preview(c);
         }
     }
 
@@ -80,25 +81,26 @@ impl PreviewApi for Previewer {
         }
     }
 
-    fn load_preview(&self, _component: common::PreviewComponent) {
+    fn load_preview(&self, component: common::PreviewComponent) {
+        self.to_show.replace(Some(component.clone()));
         #[cfg(feature = "preview")]
         if *self.use_external_previewer.borrow() {
             let _ = self.server_notifier.send_notification(
                 "slint/lsp_to_preview".to_string(),
                 crate::common::LspToPreviewMessage::ShowPreview {
-                    path: _component.path.to_string_lossy().to_string(),
-                    component: _component.component,
-                    include_paths: _component
+                    path: component.path.to_string_lossy().to_string(),
+                    component: component.component,
+                    include_paths: component
                         .include_paths
                         .iter()
                         .map(|p| p.to_string_lossy().to_string())
                         .collect(),
-                    style: _component.style.to_string(),
+                    style: component.style.to_string(),
                 },
             );
         } else {
             preview::open_ui(&self.server_notifier);
-            preview::load_preview(_component);
+            preview::load_preview(component);
         }
     }
 
@@ -310,6 +312,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<()>
         preview: Box::new(Previewer {
             server_notifier,
             use_external_previewer: RefCell::new(false),
+            to_show: RefCell::new(None),
         }),
     });
 
@@ -433,8 +436,11 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                         end_column,
                     );
                 }
-                M::WasmPreviewStateChanged { is_open } => {
-                    ctx.preview.set_use_external_previewer(ctx, is_open);
+                M::PreviewTypeChanged { is_external } => {
+                    ctx.preview.set_use_external_previewer(is_external);
+                }
+                M::RequestState { .. } => {
+                    ctx.preview.request_state(ctx);
                 }
             }
         }

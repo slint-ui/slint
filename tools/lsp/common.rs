@@ -14,7 +14,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// API used by the LSP to talk to the Preview. The other direction uses the
 /// ServerNotifier
 pub trait PreviewApi {
-    fn set_use_external_previewer(&self, ctx: &Rc<crate::language::Context>, use_external: bool);
+    fn set_use_external_previewer(&self, use_external: bool);
+    fn request_state(&self, ctx: &Rc<crate::language::Context>);
     fn set_contents(&self, path: &Path, contents: &str);
     fn load_preview(&self, component: PreviewComponent);
     fn config_changed(&self, style: &str, include_paths: &[PathBuf]);
@@ -89,7 +90,10 @@ pub enum PreviewToLspMessage {
         end_line: u32,
         end_column: u32,
     },
-    WasmPreviewStateChanged {
-        is_open: bool,
+    PreviewTypeChanged {
+        is_external: bool,
+    },
+    RequestState {
+        unused: bool,
     }, // send all documents!
 }
