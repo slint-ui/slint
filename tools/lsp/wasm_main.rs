@@ -20,7 +20,6 @@ use std::future::Future;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::unimplemented;
 use wasm_bindgen::prelude::*;
 
 type JsResult<T> = std::result::Result<T, JsError>;
@@ -48,12 +47,21 @@ struct Previewer {
 }
 
 impl PreviewApi for Previewer {
-    fn set_use_external_previewer(
-        &self,
-        _ctx: &std::rc::Rc<crate::language::Context>,
-        _use_external: bool,
-    ) {
-        unimplemented!("Only the external previewer is supported")
+    fn set_use_external_previewer(&self, _use_external: bool) {
+        // The WASM LSP always needs to use the WASM preview!
+    }
+
+    fn request_state(&self, ctx: &std::rc::Rc<crate::language::Context>) {
+        let documents = &ctx.document_cache.borrow().documents;
+
+        for (p, d) in documents.all_file_documents() {
+            let Some(node) = &d.node else {
+                continue;
+            };
+            self.set_contents(p, &node.text().to_string());
+        }
+        let style = documents.compiler_config.style.clone().unwrap_or_default();
+        self.config_changed(&style, &documents.compiler_config.include_paths);
     }
 
     fn set_contents(&self, path: &std::path::Path, contents: &str) {
@@ -300,7 +308,10 @@ impl SlintServer {
                     end_column,
                 )
             }
-            M::WasmPreviewStateChanged { is_open: _ } => {
+            M::PreviewTypeChanged { is_external: _ } => {
+                // Nothing to do!
+            }
+            M::RequestState { .. } => {
                 // Nothing to do!
             }
         }

@@ -3,7 +3,7 @@
 
 // This file is the entry point for the vscode extension (not the browser one)
 
-// cSpell: ignore gnueabihf vsix
+// cSpell: ignore codespace codespaces gnueabihf vsix
 
 import * as path from "path";
 import { existsSync } from "fs";
@@ -178,6 +178,21 @@ function startClient(
 }
 
 export function activate(context: vscode.ExtensionContext) {
+    // Disable native preview in Codespace.
+    //
+    // We want to have a good default (WASM preview), but we also need to
+    // support users that have special setup in place that allows them to run
+    // the native previewer remotely.
+    if (process.env.hasOwnProperty("CODESPACES")) {
+        vscode.workspace
+            .getConfiguration("slint")
+            .update(
+                "preview.providedByEditor",
+                true,
+                vscode.ConfigurationTarget.Global,
+            );
+    }
+
     [statusBar, properties_provider] = common.activate(context, (cl, ctx) =>
         startClient(cl, ctx),
     );

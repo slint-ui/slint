@@ -8,6 +8,8 @@
         "build": "npm run clean && npx vite build",
         "build:wasm_lsp": "wasm-pack build --dev --target web ../lsp -- --no-default-features --features backend-winit,renderer-femtovg,preview",
         "build:wasm_lsp-release": "wasm-pack build --release --target web ../lsp -- --no-default-features --features backend-winit,renderer-femtovg,preview",
+        "build:wasm_interpreter": "wasm-pack build --dev --target web ../../api/wasm-interpreter -- --features console_error_panic_hook",
+        "build:wasm_interpreter-release": "wasm-pack build --release --target web ../../api/wasm-interpreter -- --features console_error_panic_hook",
         "lint": "eslint src",
         "clean": "rimraf dist dev-dist pkg",
         "start": "npm run clean && npm run build:wasm_lsp && npm run start:vite",
@@ -19,7 +21,7 @@
         "test:cypress_open-chromium": "cypress open --browser=chromium --e2e",
         "test:cypress_run-ff": "cypress run --browser=firefox --e2e",
         "test:cypress_open-ff": "cypress open --browser=firefox --e2e",
-        "slintpad:prepublish": "npm run clean && npm run build:wasm_lsp-release",
+        "slintpad:prepublish": "npm run clean && npm run build:wasm_lsp-release && npm run build:wasm_interpreter-release",
         "postinstall": "monaco-treemending"
     },
     "keywords": [],

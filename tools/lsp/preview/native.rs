@@ -100,7 +100,7 @@ pub fn quit_ui_event_loop() {
 
     let _ = i_slint_core::api::quit_event_loop();
 
-    // Make sure then sender channel gets dropped
+    // Make sure then sender channel gets dropped.
     if let Some(sender) = SERVER_NOTIFIER.get() {
         let mut sender = sender.lock().unwrap();
         *sender = None;
@@ -135,7 +135,7 @@ pub fn open_ui(sender: &ServerNotifier) {
     i_slint_core::api::invoke_from_event_loop(move || {
         PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
-            open_ui_impl(&mut preview_state)
+            open_ui_impl(&mut preview_state);
         });
     })
     .unwrap();
@@ -160,12 +160,9 @@ pub fn close_ui() {
     {
         let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         if !cache.ui_is_visible {
-            return; // UI is already up!
+            return; // UI is already down!
         }
         cache.ui_is_visible = false;
-
-        let mut sender = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap();
-        *sender = None;
     }
 
     i_slint_core::api::invoke_from_event_loop(move || {

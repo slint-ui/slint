@@ -49,9 +49,7 @@ struct PreviewState {
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
 #[wasm_bindgen]
-pub struct PreviewConnector {
-    current_previewed_component: RefCell<Option<PreviewComponent>>,
-}
+pub struct PreviewConnector {}
 
 #[wasm_bindgen]
 impl PreviewConnector {
@@ -76,10 +74,7 @@ impl PreviewConnector {
                             Ok(ui) => {
                                 preview_state.borrow_mut().ui = Some(ui);
                                 resolve.take().call1(&JsValue::UNDEFINED,
-                                    &JsValue::from(
-                                        Self {
-                                            current_previewed_component: RefCell::new(None),
-                                        })).unwrap_throw()
+                                    &JsValue::from(Self { })).unwrap_throw()
                             }
                             Err(e) => reject_c.take().call1(&JsValue::UNDEFINED,
                                         &JsValue::from(format!("Failed to construct Preview UI: {e}"))).unwrap_throw(),
@@ -109,7 +104,7 @@ impl PreviewConnector {
     }
 
     #[wasm_bindgen]
-    pub async fn process_lsp_to_preview_message(&self, value: JsValue) -> Result<(), JsValue> {
+    pub fn process_lsp_to_preview_message(&self, value: JsValue) -> Result<(), JsValue> {
         use crate::common::LspToPreviewMessage as M;
 
         let message: M = serde_wasm_bindgen::from_value(value)
@@ -117,16 +112,6 @@ impl PreviewConnector {
         match message {
             M::SetContents { path, contents } => {
                 super::set_contents(&PathBuf::from(&path), contents);
-                if self.current_previewed_component.borrow().is_none() {
-                    let pc = PreviewComponent {
-                        path: PathBuf::from(path),
-                        component: None,
-                        style: String::new(),
-                        include_paths: vec![],
-                    };
-                    *self.current_previewed_component.borrow_mut() = Some(pc.clone());
-                    load_preview(pc);
-                }
                 Ok(())
             }
             M::SetConfiguration { style, include_paths } => {
@@ -141,7 +126,6 @@ impl PreviewConnector {
                     style,
                     include_paths: include_paths.iter().map(PathBuf::from).collect(),
                 };
-                *self.current_previewed_component.borrow_mut() = Some(pc.clone());
                 load_preview(pc);
                 Ok(())
             }
