@@ -361,8 +361,9 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         &self,
         callback: Box<dyn RenderingNotifier>,
     ) -> std::result::Result<(), SetRenderingNotifierError> {
-        // FIXME: true or false when the surface is not set?
-        if !self.surface.borrow().as_ref().map_or(true, |x| x.supports_graphics_api()) {
+        if !self.surface.borrow().as_ref().map_or(DefaultSurface::supports_graphics_api(), |x| {
+            x.supports_graphics_api_with_self()
+        }) {
             return Err(SetRenderingNotifierError::Unsupported);
         }
         let mut notifier = self.rendering_notifier.borrow_mut();
@@ -433,9 +434,17 @@ pub trait Surface {
     fn name(&self) -> &'static str;
     /// Returns true if the surface supports exposing its platform specific API via the GraphicsAPI struct
     /// and the `with_graphics_api` function.
-    fn supports_graphics_api(&self) -> bool {
+    fn supports_graphics_api() -> bool
+    where
+        Self: Sized,
+    {
         false
     }
+
+    fn supports_graphics_api_with_self(&self) -> bool {
+        false
+    }
+
     /// If supported, this invokes the specified callback with access to the platform graphics API.
     fn with_graphics_api(&self, _callback: &mut dyn FnMut(GraphicsAPI<'_>)) {}
     /// Invokes the callback with the surface active. This has only a meaning for OpenGL rendering, where
