@@ -623,10 +623,7 @@ impl TypeLoader {
                     metadata
                         .packages
                         .iter()
-                        .filter(|p| {
-                            dependencies.contains(&p.name)
-                                && p.dependencies.iter().any(|d| d.name == "slint")
-                        })
+                        .filter(|p| dependencies.contains(&p.name))
                         .flat_map(resolve_include_paths_for_package)
                         .collect::<Vec<_>>()
                 })
