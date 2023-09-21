@@ -58,7 +58,7 @@ fn window_size_to_slint(size: &corelib::api::WindowSize) -> winit::dpi::Size {
     }
 }
 
-fn physical_size_to_slint(size: &winit::dpi::PhysicalSize<u32>) -> corelib::api::PhysicalSize {
+pub fn physical_size_to_slint(size: &winit::dpi::PhysicalSize<u32>) -> corelib::api::PhysicalSize {
     corelib::api::PhysicalSize::new(size.width, size.height)
 }
 

@@ -43,6 +43,11 @@ mod renderer {
 
         // Got WindowEvent::Occluded
         fn occluded(&self, _: bool) {}
+
+        // Got winit::Event::Resumed
+        fn resumed(&self, _winit_window: &winit::window::Window) -> Result<(), PlatformError> {
+            Ok(())
+        }
     }
 
     #[cfg(feature = "renderer-femtovg")]
