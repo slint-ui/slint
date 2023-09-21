@@ -8,17 +8,43 @@ import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
 
 let previewPanel: vscode.WebviewPanel | null = null;
-let from_lsp_queue: object[] = [];
 let to_lsp_queue: object[] = [];
 
 let language_client: BaseLanguageClient | null = null;
 
+function use_wasm_preview(): boolean {
+    return vscode.workspace
+        .getConfiguration("slint")
+        .get("preview.providedByEditor", false);
+}
+
+export function update_configuration() {
+    if (language_client) {
+        send_to_lsp({
+            PreviewTypeChanged: {
+                is_external: previewPanel !== null || use_wasm_preview(),
+            },
+        });
+    }
+}
+
 /// Initialize the callback on the client to make the web preview work
-export function initClientForPreview(client: BaseLanguageClient | null) {
+export function initClientForPreview(
+    context: vscode.ExtensionContext,
+    client: BaseLanguageClient | null,
+) {
     language_client = client;
 
     if (client) {
+        update_configuration();
+
         client.onNotification("slint/lsp_to_preview", async (message: any) => {
+            if ("ShowPreview" in message) {
+                if (open_preview(context)) {
+                    return;
+                }
+            }
+
             previewPanel?.webview.postMessage({
                 command: "slint/lsp_to_preview",
                 params: message,
@@ -43,21 +69,21 @@ function send_to_lsp(message: any): boolean {
     return language_client !== null;
 }
 
-export async function open_preview(
-    context: vscode.ExtensionContext,
-): Promise<void> {
-    if (previewPanel) {
-        previewPanel.reveal(vscode.ViewColumn.Beside);
-    } else {
-        // Create and show a new webview
-        const panel = vscode.window.createWebviewPanel(
-            "slint-preview",
-            "Slint Preview",
-            vscode.ViewColumn.Beside,
-            { enableScripts: true, retainContextWhenHidden: true },
-        );
-        initPreviewPanel(context, panel);
+function open_preview(context: vscode.ExtensionContext): boolean {
+    if (previewPanel !== null) {
+        return false;
     }
+
+    // Create and show a new webview
+    const panel = vscode.window.createWebviewPanel(
+        "slint-preview",
+        "Slint Preview",
+        vscode.ViewColumn.Beside,
+        { enableScripts: true, retainContextWhenHidden: true },
+    );
+    previewPanel = initPreviewPanel(context, panel);
+
+    return true;
 }
 
 function getPreviewHtml(slint_wasm_preview_url: Uri): string {
@@ -116,32 +142,21 @@ export class PreviewSerializer implements vscode.WebviewPanelSerializer {
         webviewPanel: vscode.WebviewPanel,
         _state: any,
     ) {
-        initPreviewPanel(this.context, webviewPanel);
+        previewPanel = initPreviewPanel(this.context, webviewPanel);
         //// How can we load this state? We can not query the necessary data...
-        // if (state) {
-        //     previewUrl = Uri.parse(state.base_url, true);
-        //
-        //     if (previewUrl) {
-        //         let content_str = await getDocumentSource(previewUrl);
-        //         previewComponent = state.component ?? "";
-        //         reload_preview(previewUrl, content_str, previewComponent);
-        //     }
-        // }
     }
 }
 
-async function initPreviewPanel(
+function initPreviewPanel(
     context: vscode.ExtensionContext,
     panel: vscode.WebviewPanel,
-) {
-    previewPanel = panel;
-
+): vscode.WebviewPanel {
     // we will get a preview_ready when the html is loaded and message are ready to be sent
     panel.webview.onDidReceiveMessage(
         async (message) => {
             switch (message.command) {
                 case "preview_ready":
-                    send_to_lsp({ WasmPreviewStateChanged: { is_open: true } });
+                    send_to_lsp({ RequestState: { unused: true } });
                     return;
                 case "slint/preview_to_lsp":
                     send_to_lsp(message.params);
@@ -161,9 +176,11 @@ async function initPreviewPanel(
     panel.onDidDispose(
         () => {
             previewPanel = null;
-            send_to_lsp({ WasmPreviewStateChanged: { is_open: false } });
+            update_configuration();
         },
         undefined,
         context.subscriptions,
     );
+
+    return panel;
 }
