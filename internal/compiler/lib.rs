@@ -226,7 +226,6 @@ pub fn package_include_paths(
         if path.join("package.json").exists() {
             return crate::workspace::npm_include_paths(&path);
         }
-        // TODO: C++/CMake(?)
         p = path.parent();
     }
     None
