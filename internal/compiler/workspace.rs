@@ -41,7 +41,8 @@ pub fn cargo_include_paths(path: &Path) -> Option<HashMap<String, Vec<PathBuf>>>
 /// }
 /// ```
 pub fn npm_include_paths(path: &Path) -> Option<HashMap<String, Vec<PathBuf>>> {
-    let output = Command::new("npm")
+    let npm = std::env::var("npm_execpath").unwrap_or("npm".into());
+    let output = Command::new(npm)
         .arg("ls")
         .arg("--all")
         .arg("--parseable")
