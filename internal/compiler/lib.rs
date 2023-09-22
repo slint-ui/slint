@@ -33,9 +33,11 @@ pub mod object_tree;
 pub mod parser;
 pub mod typeloader;
 pub mod typeregister;
-mod workspace;
 
 pub mod passes;
+
+#[cfg(feature = "workspace")]
+mod workspace;
 
 /// Specify how the resources are embedded by the compiler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -212,6 +214,7 @@ pub async fn compile_syntax_node(
 }
 
 /// Resolves include paths for package dependencies.
+#[cfg(feature = "workspace")]
 pub fn package_include_paths(
     path: &std::path::Path,
 ) -> Option<HashMap<String, Vec<std::path::PathBuf>>> {
