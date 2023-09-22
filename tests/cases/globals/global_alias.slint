@@ -20,7 +20,7 @@ let instance = TestCase::new().unwrap();
 assert!(!instance.get_test_global_prop_value());
 assert_eq!(MyGlobal::get(&instance).get_hello(), 42);
 assert_eq!(GlobalAlias::get(&instance).get_hello(), 42);
-instance.global::<MyGlobal>().set_hello(100);
+instance.global::<MyGlobal<'_>>().set_hello(100);
 assert!(instance.get_test_global_prop_value());
 assert_eq!(MyGlobal::get(&instance).get_hello(), 100);
 assert_eq!(GlobalAlias::get(&instance).get_hello(), 100);

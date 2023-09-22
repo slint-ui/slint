@@ -984,7 +984,7 @@ fn generate_sub_component(
                 self: ::core::pin::Pin<&Self>,
                 dyn_index: u32,
                 order: sp::TraversalOrder,
-                visitor: sp::ItemVisitorRefMut
+                visitor: sp::ItemVisitorRefMut<'_>
             ) -> sp::VisitChildrenResult {
                 #![allow(unused)]
                 let _self = self;
@@ -1431,17 +1431,17 @@ fn generate_item_tree(
         }
 
         impl sp::Component for #inner_component_id {
-            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut)
+            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
                 -> sp::VisitChildrenResult
             {
                 return sp::visit_item_tree(self, &VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
                 #[allow(unused)]
-                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sp::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: u32) -> VisitChildrenResult  {
+                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sp::TraversalOrder, visitor: ItemVisitorRefMut<'_>, dyn_index: u32) -> VisitChildrenResult  {
                     _self.visit_dynamic_children(dyn_index, order, visitor)
                 }
             }
 
-            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<ItemRef> {
+            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<ItemRef<'_>> {
                 match &self.get_item_tree().as_slice()[index as usize] {
                     ItemTreeNode::Item { item_array_index, .. } => {
                         Self::item_array()[*item_array_index as usize].apply_pin(self)
@@ -1452,7 +1452,7 @@ fn generate_item_tree(
             }
 
             fn get_item_tree(
-                self: ::core::pin::Pin<&Self>) -> sp::Slice<sp::ItemTreeNode>
+                self: ::core::pin::Pin<&Self>) -> sp::Slice<'_, sp::ItemTreeNode>
             {
                 Self::item_tree().into()
             }
