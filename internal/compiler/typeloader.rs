@@ -583,15 +583,13 @@ impl TypeLoader {
                         .clone()
                         .into_iter()
                         .chain(self.compiler_config.include_paths.iter().map(PathBuf::as_path).map(
-                            {
-                                |include_path| {
-                                    if include_path.is_relative()
-                                        && maybe_current_directory.as_ref().is_some()
-                                    {
-                                        maybe_current_directory.as_ref().unwrap().join(include_path)
-                                    } else {
-                                        include_path.to_path_buf()
-                                    }
+                            |include_path| {
+                                if include_path.is_relative()
+                                    && maybe_current_directory.as_ref().is_some()
+                                {
+                                    maybe_current_directory.as_ref().unwrap().join(include_path)
+                                } else {
+                                    include_path.to_path_buf()
                                 }
                             },
                         ))
@@ -600,7 +598,7 @@ impl TypeLoader {
                                 || referencing_file.map_or(false, |x| x.starts_with("builtin:/")))
                             .then(|| format!("builtin:/{}", self.style).into()),
                         )
-                        .collect::<Vec<_>>(),
+                        .collect(),
                 )
             }
         };
