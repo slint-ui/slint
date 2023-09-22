@@ -285,8 +285,8 @@ pub fn compile_with_config(
     path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
 ) -> Result<(), CompileError> {
-    let path = Path::new(&env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?)
-        .join(path.as_ref());
+    let manifest_dir = env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?;
+    let path = Path::new(&manifest_dir).join(path.as_ref());
 
     let mut diag = BuildDiagnostics::default();
     let syntax_node = i_slint_compiler::parser::parse_file(&path, &mut diag);
@@ -299,6 +299,11 @@ pub fn compile_with_config(
 
     let mut compiler_config = config.config;
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
+    if let Some(package_include_paths) =
+        i_slint_compiler::package_include_paths(Path::new(&manifest_dir))
+    {
+        compiler_config.package_include_paths.extend(package_include_paths.into_iter());
+    }
 
     let mut rerun_if_changed = String::new();
 

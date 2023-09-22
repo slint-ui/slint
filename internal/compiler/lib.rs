@@ -12,6 +12,7 @@ extern crate proc_macro;
 use core::future::Future;
 use core::pin::Pin;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub mod builtin_macros;
@@ -32,6 +33,7 @@ pub mod object_tree;
 pub mod parser;
 pub mod typeloader;
 pub mod typeregister;
+mod workspace;
 
 pub mod passes;
 
@@ -55,6 +57,8 @@ pub struct CompilerConfiguration {
     pub embed_resources: EmbedResourcesKind,
     /// The compiler will look in these paths for components used in the file to compile.
     pub include_paths: Vec<std::path::PathBuf>,
+    /// The compiler will look in these paths for package imports.
+    pub package_include_paths: HashMap<String, Vec<std::path::PathBuf>>,
     /// the name of the style. (eg: "native")
     pub style: Option<String>,
 
@@ -134,6 +138,7 @@ impl CompilerConfiguration {
         Self {
             embed_resources,
             include_paths: Default::default(),
+            package_include_paths: Default::default(),
             style: Default::default(),
             open_import_fallback: Default::default(),
             inline_all_elements,
@@ -204,4 +209,16 @@ pub async fn compile_syntax_node(
     diagnostics.all_loaded_files = loader.all_files().cloned().collect();
 
     (doc, diagnostics)
+}
+
+/// Resolves include paths for package dependencies.
+pub fn package_include_paths(
+    path: &std::path::Path,
+) -> Option<HashMap<String, Vec<std::path::PathBuf>>> {
+    if path.join("Cargo.toml").exists() {
+        return crate::workspace::cargo_include_paths(path);
+    }
+    // TODO: NPM & CMake
+
+    None
 }
