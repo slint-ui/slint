@@ -49,13 +49,13 @@ component TestCase inherits Window {
 let instance = TestCase::new().unwrap();
 let model = std::rc::Rc::new(slint::VecModel::<slint::SharedString>::from(
     vec!["hello".into(), "world".into()]));
-instance.global::<Glob>().set_model(model.clone().into());
-instance.global::<Glob>().on_clicked(move |val|{
+instance.global::<Glob<'_>>().set_model(model.clone().into());
+instance.global::<Glob<'_>>().on_clicked(move |val|{
     assert_eq!(val, "world");
     model.remove(1);
 });
 slint_testing::send_mouse_click(&instance, 150., 150.);
-assert_eq!(instance.global::<Glob>().get_value(), "world");
+assert_eq!(instance.global::<Glob<'_>>().get_value(), "world");
 ```
 
 ```cpp

@@ -27,14 +27,14 @@ TestCase := Rectangle {
 let instance = TestCase::new().unwrap();
 assert!(!instance.get_test_global_prop_value());
 assert_eq!(PublicGlobal::get(&instance).get_hello(), 42);
-instance.global::<PublicGlobal>().set_hello(100);
+instance.global::<PublicGlobal<'_>>().set_hello(100);
 assert!(instance.get_test_global_prop_value());
 
 assert_eq!(ReexportedGlobal::get(&instance).get_foo(), 44);
 
-instance.global::<PublicGlobal>().on_sum(|a, b| a + b);
+instance.global::<PublicGlobal<'_>>().on_sum(|a, b| a + b);
 assert_eq!(instance.get_test_call_callback(), 10);
-assert_eq!(instance.global::<PublicGlobal>().invoke_sum(4, 5), 9);
+assert_eq!(instance.global::<PublicGlobal<'_>>().invoke_sum(4, 5), 9);
 ```
 
 ```cpp

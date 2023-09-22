@@ -45,7 +45,7 @@ TestCase := Rectangle {
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
 assert_eq!(instance.invoke_pub(20, 2), 100022);
-assert_eq!(instance.global::<PubGlob>().invoke_beh(2, 2), 14);
+assert_eq!(instance.global::<PubGlob<'_>>().invoke_beh(2, 2), 14);
 ```
 
 ```cpp
