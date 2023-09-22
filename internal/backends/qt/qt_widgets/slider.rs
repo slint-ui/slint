@@ -101,14 +101,21 @@ impl Item for NativeSlider {
             auto thick = style->pixelMetric(QStyle::PM_SliderThickness, &option, widget);
             return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), widget);
         });
+        let (width, height) = (size.width as f32, size.height as f32);
         match orientation {
             Orientation::Horizontal => {
                 if !vertical {
-                    LayoutInfo { min: size.width as f32, stretch: 1., ..LayoutInfo::default() }
+                    LayoutInfo {
+                        min: width,
+                        preferred: width,
+                        stretch: 1.,
+                        ..LayoutInfo::default()
+                    }
                 } else {
                     LayoutInfo {
-                        min: size.height as f32,
-                        max: size.height as f32,
+                        min: height,
+                        preferred: height,
+                        max: height,
                         ..LayoutInfo::default()
                     }
                 }
@@ -116,12 +123,18 @@ impl Item for NativeSlider {
             Orientation::Vertical => {
                 if !vertical {
                     LayoutInfo {
-                        min: size.height as f32,
-                        max: size.height as f32,
+                        min: height,
+                        preferred: height,
+                        max: height,
                         ..LayoutInfo::default()
                     }
                 } else {
-                    LayoutInfo { min: size.width as f32, stretch: 1., ..LayoutInfo::default() }
+                    LayoutInfo {
+                        min: width,
+                        preferred: width,
+                        stretch: 1.,
+                        ..LayoutInfo::default()
+                    }
                 }
             }
         }
