@@ -31,7 +31,7 @@ display-diagnostics = ["codemap", "codemap-diagnostic"]
 software-renderer = ["image", "dep:resvg", "fontdue", "i-slint-common/shared-fontdb"]
 
 # Support for resolving include paths for dependencies
-workspace = ["cargo_metadata", "serde_json"]
+workspace = ["dep:cargo_metadata", "dep:serde_json"]
 
 [dependencies]
 i-slint-common = { version = "=1.3.0", path = "../common" }
