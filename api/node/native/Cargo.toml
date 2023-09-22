@@ -20,7 +20,7 @@ crate-type = ["cdylib"]
 name = "slint_node_native"
 
 [dependencies]
-i-slint-compiler = { version = "=1.3.0", path="../../../internal/compiler" }
+i-slint-compiler = { version = "=1.3.0", path="../../../internal/compiler", features = ["workspace"] }
 i-slint-core = { version = "=1.3.0", path="../../../internal/core" }
 slint-interpreter = { version = "=1.3.0", path="../../../internal/interpreter",  features = ["display-diagnostics"] }
 

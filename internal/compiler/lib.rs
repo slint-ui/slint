@@ -218,13 +218,16 @@ pub async fn compile_syntax_node(
 pub fn package_include_paths(
     path: &std::path::Path,
 ) -> Option<HashMap<String, Vec<std::path::PathBuf>>> {
-    if path.join("Cargo.toml").exists() {
-        return crate::workspace::cargo_include_paths(path);
+    let mut p = Some(path.clone());
+    while let Some(path) = p {
+        if path.join("Cargo.toml").exists() {
+            return crate::workspace::cargo_include_paths(&path);
+        }
+        if path.join("package.json").exists() {
+            return crate::workspace::npm_include_paths(&path);
+        }
+        // TODO: C++/CMake(?)
+        p = path.parent();
     }
-    if path.join("package.json").exists() {
-        return crate::workspace::npm_include_paths(path);
-    }
-    // TODO: C++/CMake(?)
-
     None
 }
