@@ -13,6 +13,7 @@ use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
 use crate::{fileaccess, parser};
 use core::future::Future;
+use itertools::Itertools;
 
 /// Storage for a cache of all loaded documents
 #[derive(Default)]
@@ -564,50 +565,50 @@ impl TypeLoader {
         referencing_file: Option<&Path>,
         file_to_import: &str,
     ) -> Option<(PathBuf, Option<&'static [u8]>)> {
-        let mut include_paths: Vec<PathBuf> = self.compiler_config.include_paths.clone();
-        let file_to_import = if let Some(file_to_import) = file_to_import.strip_prefix('@') {
-            // TODO: instead of resolving "@package/path/file.slint" as "path/to/file" and adding include paths for the package,
-            // we should resolve the path in the package to ensure that the file is actually picked from the package.
-            let mut parts = file_to_import.splitn(2, '/');
-            match (parts.next(), parts.next()) {
-                (Some(package), Some(file_to_import)) => {
-                    if let Some(paths) = self.compiler_config.package_include_paths.get(package) {
-                        include_paths.extend(paths.clone());
-                    }
-                    file_to_import.to_string()
-                }
-                _ => {
-                    // TODO: report invalid package import
-                    file_to_import.to_string()
-                }
+        let (file_to_import, include_paths) = match file_to_import.strip_prefix('@') {
+            Some(package_and_file) => {
+                // @package/path/file.slint
+                let (package, file_to_import) = package_and_file.splitn(2, '/').collect_tuple()?;
+                (
+                    file_to_import.to_string(),
+                    self.compiler_config.package_include_paths.get(package)?.clone(),
+                )
             }
-        } else {
-            file_to_import.to_string()
+            None => {
+                // The directory of the current file is the first in the list of include directories.
+                let maybe_current_directory = referencing_file.and_then(base_directory);
+                (
+                    file_to_import.to_string(),
+                    maybe_current_directory
+                        .clone()
+                        .into_iter()
+                        .chain(self.compiler_config.include_paths.iter().map(PathBuf::as_path).map(
+                            {
+                                |include_path| {
+                                    if include_path.is_relative()
+                                        && maybe_current_directory.as_ref().is_some()
+                                    {
+                                        maybe_current_directory.as_ref().unwrap().join(include_path)
+                                    } else {
+                                        include_path.to_path_buf()
+                                    }
+                                }
+                            },
+                        ))
+                        .chain(
+                            (file_to_import == "std-widgets.slint"
+                                || referencing_file.map_or(false, |x| x.starts_with("builtin:/")))
+                            .then(|| format!("builtin:/{}", self.style).into()),
+                        )
+                        .collect::<Vec<_>>(),
+                )
+            }
         };
-        // The directory of the current file is the first in the list of include directories.
-        let maybe_current_directory = referencing_file.and_then(base_directory);
-        maybe_current_directory
-            .clone()
-            .into_iter()
-            .chain(include_paths.iter().map(PathBuf::as_path).map({
-                |include_path| {
-                    if include_path.is_relative() && maybe_current_directory.as_ref().is_some() {
-                        maybe_current_directory.as_ref().unwrap().join(include_path)
-                    } else {
-                        include_path.to_path_buf()
-                    }
-                }
-            }))
-            .chain(
-                (file_to_import == "std-widgets.slint"
-                    || referencing_file.map_or(false, |x| x.starts_with("builtin:/")))
-                .then(|| format!("builtin:/{}", self.style).into()),
-            )
-            .find_map(|include_dir| {
-                let candidate = include_dir.join(file_to_import.as_str());
-                crate::fileaccess::load_file(&candidate)
-                    .map(|virtual_file| (virtual_file.canon_path, virtual_file.builtin_contents))
-            })
+        include_paths.iter().find_map(|include_dir| {
+            let candidate = include_dir.join(file_to_import.as_str());
+            crate::fileaccess::load_file(&candidate)
+                .map(|virtual_file| (virtual_file.canon_path, virtual_file.builtin_contents))
+        })
     }
 
     fn collect_dependencies<'a: 'b, 'b>(
