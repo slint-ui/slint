@@ -31,7 +31,7 @@ export component Example {
 Concatenate strings with `+`.
 
 The operators `&&` and `||` express logical _and_ and _or_ between
-boolean values. The operators `==`, `!=`, `>`, `<`, `=>` and `<=` compare
+boolean values. The operators `==`, `!=`, `>`, `<`, `>=` and `<=` compare
 values of the same type.
 
 Access an element's properties by using its name, followed by a
