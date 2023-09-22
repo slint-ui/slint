@@ -76,7 +76,6 @@
     }
 
     styleSelection.onchange = loadGallery;
-    loadGallery()
 
     window.addEventListener('load', () => {
       let url = document.location.href;
@@ -90,10 +89,10 @@
         val = data.style.split(',');
         for (let i = 0, l = val.length; i < l; i++) {
           document.getElementById('style-selection').value = val[i];
-          loadGallery();
           break;
         }
       }
+      loadGallery();
     }, false);
   </script>
 </body>
