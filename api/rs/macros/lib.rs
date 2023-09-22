@@ -321,7 +321,8 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     let mut tokens = vec![];
     fill_token_vec(token_iter, &mut tokens);
 
-    let source_file = if let Some(cargo_manifest) = std::env::var_os("CARGO_MANIFEST_DIR") {
+    let manifest_dir = std::env::var_os("CARGO_MANIFEST_DIR");
+    let source_file = if let Some(cargo_manifest) = &manifest_dir {
         let mut path: std::path::PathBuf = cargo_manifest.into();
         path.push("Cargo.toml");
         diagnostics::SourceFileInner::from_path_only(path)
@@ -374,6 +375,12 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     }
 
     compiler_config.include_paths = include_paths;
+    manifest_dir
+        .as_ref()
+        .map(std::path::Path::new)
+        .and_then(|dir| i_slint_compiler::package_include_paths(dir))
+        .map(|paths| compiler_config.package_include_paths = paths);
+
     let (root_component, diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     //println!("{:#?}", tree);
