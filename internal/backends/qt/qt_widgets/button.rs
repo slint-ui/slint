@@ -225,13 +225,11 @@ impl Item for NativeButton {
             }
             return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), widget_ptr);
         });
-        LayoutInfo {
-            min: match orientation {
-                Orientation::Horizontal => size.width as f32,
-                Orientation::Vertical => size.height as f32,
-            },
-            ..LayoutInfo::default()
-        }
+        let min = match orientation {
+            Orientation::Horizontal => size.width as f32,
+            Orientation::Vertical => size.height as f32,
+        };
+        LayoutInfo { min, preferred: min, ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(

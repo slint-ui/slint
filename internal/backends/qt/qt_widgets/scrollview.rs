@@ -91,15 +91,12 @@ impl Item for NativeScrollView {
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
-        LayoutInfo {
-            min: match orientation {
-                Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
-                Orientation::Vertical => self.native_padding_top() + self.native_padding_bottom(),
-            }
-            .get(),
-            stretch: 1.,
-            ..LayoutInfo::default()
+        let min = match orientation {
+            Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
+            Orientation::Vertical => self.native_padding_top() + self.native_padding_bottom(),
         }
+        .get();
+        LayoutInfo { min, preferred: min, stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(

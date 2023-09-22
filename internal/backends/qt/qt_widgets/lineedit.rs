@@ -77,12 +77,14 @@ impl Item for NativeLineEdit {
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
+        let min = match orientation {
+            Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
+            Orientation::Vertical => self.native_padding_top() + self.native_padding_bottom(),
+        }
+        .get();
         LayoutInfo {
-            min: match orientation {
-                Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
-                Orientation::Vertical => self.native_padding_top() + self.native_padding_bottom(),
-            }
-            .get(),
+            min,
+            preferred: min,
             stretch: if orientation == Orientation::Horizontal { 1. } else { 0. },
             ..LayoutInfo::default()
         }
