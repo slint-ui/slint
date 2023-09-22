@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export Test := Rectangle {
+
+    HorizontalLayout {
+        spacing-horizontal: 8px;
+//      ^error{Unknown property spacing-horizontal in HorizontalLayout}
+        spacing-vertical: 8px;
+//      ^error{Unknown property spacing-vertical in HorizontalLayout}
+    }
+
+    VerticalLayout {
+        spacing-horizontal: 8px;
+//      ^error{Unknown property spacing-horizontal in VerticalLayout}
+        spacing-vertical: 8px;
+//      ^error{Unknown property spacing-vertical in VerticalLayout}
+    }
+
+
+}
+

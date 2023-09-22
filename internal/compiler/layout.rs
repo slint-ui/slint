@@ -316,9 +316,33 @@ impl Padding {
 }
 
 #[derive(Debug, Clone)]
+pub struct Spacing {
+    pub horizontal: Option<NamedReference>,
+    pub vertical: Option<NamedReference>,
+}
+
+impl Spacing {
+    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+        if let Some(e) = self.horizontal.as_mut() {
+            visitor(&mut *e);
+        }
+        if let Some(e) = self.vertical.as_mut() {
+            visitor(&mut *e);
+        }
+    }
+
+    pub fn orientation(&self, o: Orientation) -> Option<&NamedReference> {
+        match o {
+            Orientation::Horizontal => self.horizontal.as_ref(),
+            Orientation::Vertical => self.vertical.as_ref(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct LayoutGeometry {
     pub rect: LayoutRect,
-    pub spacing: Option<NamedReference>,
+    pub spacing: Spacing,
     pub alignment: Option<NamedReference>,
     pub padding: Padding,
 }
@@ -326,17 +350,18 @@ pub struct LayoutGeometry {
 impl LayoutGeometry {
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         self.rect.visit_named_references(visitor);
-        if let Some(e) = self.spacing.as_mut() {
-            visitor(&mut *e)
-        }
         if let Some(e) = self.alignment.as_mut() {
             visitor(&mut *e)
         }
+        self.spacing.visit_named_references(visitor);
         self.padding.visit_named_references(visitor);
     }
 
     pub fn new(layout_element: &ElementRc) -> Self {
-        let spacing = binding_reference(layout_element, "spacing");
+        let spacing = || binding_reference(layout_element, "spacing");
+        init_fake_property(layout_element, "spacing-horizontal", spacing);
+        init_fake_property(layout_element, "spacing-vertical", spacing);
+
         let alignment = binding_reference(layout_element, "alignment");
 
         let padding = || binding_reference(layout_element, "padding");
@@ -350,6 +375,11 @@ impl LayoutGeometry {
             right: binding_reference(layout_element, "padding-right").or_else(padding),
             top: binding_reference(layout_element, "padding-top").or_else(padding),
             bottom: binding_reference(layout_element, "padding-bottom").or_else(padding),
+        };
+
+        let spacing = Spacing {
+            horizontal: binding_reference(layout_element, "spacing-horizontal").or_else(spacing),
+            vertical: binding_reference(layout_element, "spacing-vertical").or_else(spacing),
         };
 
         let rect = LayoutRect::install_on_element(layout_element);

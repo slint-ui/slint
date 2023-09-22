@@ -785,7 +785,7 @@ fn generate_layout_padding_and_spacing(
             llr_Expression::NumberLiteral(0.)
         }
     };
-    let spacing = padding_prop(layout_geometry.spacing.as_ref());
+    let spacing = padding_prop(layout_geometry.spacing.orientation(orientation));
     let (begin, end) = layout_geometry.padding.begin_end(orientation);
 
     let padding = make_struct(
