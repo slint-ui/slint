@@ -218,7 +218,10 @@ pub fn package_include_paths(
     if path.join("Cargo.toml").exists() {
         return crate::workspace::cargo_include_paths(path);
     }
-    // TODO: NPM & CMake
+    if path.join("package.json").exists() {
+        return crate::workspace::npm_include_paths(path);
+    }
+    // TODO: C++/CMake(?)
 
     None
 }
