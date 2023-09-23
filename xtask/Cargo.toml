@@ -3,11 +3,14 @@
 
 [package]
 name = "xtask"
-version = "1.3.0"
-authors = ["Slint Developers <info@slint.dev>"]
 description = "Development helper tool for the Slint project"
-edition = "2021"
-license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 publish = false
 
 [dependencies]

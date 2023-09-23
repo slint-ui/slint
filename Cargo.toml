@@ -93,7 +93,16 @@ default-members = [
 resolver="2"
 
 [workspace.package]
+description = "GUI toolkit to efficiently develop fluid graphical user interfaces for embedded devices and desktop applications"
+authors = ["Slint Developers <info@slint.dev>"]
+documentation = "https://slint.dev/docs"
+edition = "2021"
+homepage = "https://slint.rs"
+keywords = ["gui", "toolkit", "graphics", "design", "ui"]
+license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial"
+repository = "https://github.com/slint-ui/slint"
 rust-version = "1.70"
+version = "1.3.0"
 
 [workspace.dependencies]
 resvg = { version= "0.34.0", default-features = false, features = ["text"] }
@@ -107,4 +116,3 @@ panic = "abort"
 
 [profile.dev]
 panic = "abort"
-

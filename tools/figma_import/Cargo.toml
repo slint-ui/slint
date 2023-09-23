@@ -3,11 +3,14 @@
 
 [package]
 name = "figma_import"
-version = "1.3.0"
-authors = ["Slint Developers <info@slint.dev>"]
 description = "A figma file importer for Slint"
-edition = "2021"
 license = "GPL-3.0-only"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 publish = false
 
 [dependencies]

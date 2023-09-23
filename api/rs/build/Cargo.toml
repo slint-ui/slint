@@ -3,14 +3,16 @@
 
 [package]
 name = "slint-build"
-version = "1.3.0"
-authors = ["Slint Developers <info@slint.dev>"]
-edition = "2021"
-license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial"
 description = "Helper for Slint build script"
-repository = "https://github.com/slint-ui/slint"
+authors.workspace = true
+edition.workspace = true
 homepage = "https://slint.rs"
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
+version.workspace = true
+categories = ["gui", "rendering::engine", "development-tools::build-utils"]
 
 [lib]
 path = "lib.rs"
