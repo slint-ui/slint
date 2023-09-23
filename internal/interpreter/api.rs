@@ -520,17 +520,14 @@ impl ComponentCompiler {
         &self.config.include_paths
     }
 
-    /// Sets the include paths used for looking up `@package/*.slint` imports to the specified map of package names to paths.
-    pub fn set_package_include_paths(
-        &mut self,
-        package_include_paths: HashMap<String, Vec<PathBuf>>,
-    ) {
-        self.config.package_include_paths = package_include_paths;
+    /// Sets the package entry-points used for looking up `@package` imports to the specified map of package names to paths.
+    pub fn set_package_entry_points(&mut self, entry_points: HashMap<String, PathBuf>) {
+        self.config.package_entry_points = entry_points;
     }
 
-    /// Returns the package include paths the component compiler is currently configured with.
-    pub fn package_include_paths(&self) -> &HashMap<String, Vec<PathBuf>> {
-        &self.config.package_include_paths
+    /// Returns the package entry-points the component compiler is currently configured with.
+    pub fn package_entry_points(&self) -> &HashMap<String, PathBuf> {
+        &self.config.package_entry_points
     }
 
     /// Sets the style to be used for widgets.

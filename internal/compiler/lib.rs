@@ -60,7 +60,7 @@ pub struct CompilerConfiguration {
     /// The compiler will look in these paths for components used in the file to compile.
     pub include_paths: Vec<std::path::PathBuf>,
     /// The compiler will look in these paths for package imports.
-    pub package_include_paths: HashMap<String, Vec<std::path::PathBuf>>,
+    pub package_entry_points: HashMap<String, std::path::PathBuf>,
     /// the name of the style. (eg: "native")
     pub style: Option<String>,
 
@@ -140,7 +140,7 @@ impl CompilerConfiguration {
         Self {
             embed_resources,
             include_paths: Default::default(),
-            package_include_paths: Default::default(),
+            package_entry_points: Default::default(),
             style: Default::default(),
             open_import_fallback: Default::default(),
             inline_all_elements,
@@ -213,18 +213,16 @@ pub async fn compile_syntax_node(
     (doc, diagnostics)
 }
 
-/// Resolves include paths for package dependencies.
+/// Resolves entry-points for package dependencies.
 #[cfg(feature = "workspace")]
-pub fn package_include_paths(
-    path: &std::path::Path,
-) -> Option<HashMap<String, Vec<std::path::PathBuf>>> {
+pub fn package_entry_points(path: &std::path::Path) -> Option<HashMap<String, std::path::PathBuf>> {
     let mut p = Some(path.clone());
     while let Some(path) = p {
         if path.join("Cargo.toml").exists() {
-            return crate::workspace::cargo_include_paths(&path);
+            return crate::workspace::cargo_entry_points(&path);
         }
         if path.join("package.json").exists() {
-            return crate::workspace::npm_include_paths(&path);
+            return crate::workspace::npm_entry_point(&path);
         }
         p = path.parent();
     }

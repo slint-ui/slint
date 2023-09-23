@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-// cSpell: ignore parseable
+// cSpell: ignore execpath parseable
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -10,37 +10,37 @@ use std::process::Command;
 
 use cargo_metadata::MetadataCommand;
 
-/// Resolves include paths for a Cargo workspace.
+/// Resolves package entry-points for a Cargo workspace.
 ///
-/// Defaults to the manifest directory of each dependency unless specified in
-/// `Cargo.toml`:
+/// Specified in `Cargo.toml`:
 /// ```toml
 /// [package.metadata.slint]
-/// include_path = "ui" # or ["ui", "fonts", "images"]
+/// index = "ui/lib.slint"
 /// ```
-pub fn cargo_include_paths(path: &Path) -> Option<HashMap<String, Vec<PathBuf>>> {
+pub fn cargo_entry_points(path: &Path) -> Option<HashMap<String, PathBuf>> {
     let metadata = MetadataCommand::new().current_dir(&path).exec().ok()?;
     Some(metadata.packages.into_iter().fold(HashMap::new(), |mut paths, package| {
         let manifest_dir = package.manifest_path.parent().unwrap();
-        let include_paths =
-            include_paths_from_metadata(manifest_dir.as_std_path(), &package.metadata);
-        paths.insert(package.name, include_paths);
+        if let Some(entry_point) =
+            entry_point_from_metadata(manifest_dir.as_std_path(), &package.metadata)
+        {
+            paths.insert(package.name, entry_point);
+        }
         paths
     }))
 }
 
-/// Resolves include paths for an NPM workspace.
+/// Resolves entry-points for an NPM workspace.
 ///
-/// Defaults to the manifest directory of each dependency unless specified in
-/// `package.json`:
+/// Specified in `package.json`:
 /// ```json
 /// {
 ///     "slint": {
-///         "include_path": "ui" // or ["ui", "fonts", "images"]
+///         "index": "ui/lib.slint"
 ///     }
 /// }
 /// ```
-pub fn npm_include_paths(path: &Path) -> Option<HashMap<String, Vec<PathBuf>>> {
+pub fn npm_entry_point(path: &Path) -> Option<HashMap<String, PathBuf>> {
     let npm = std::env::var("npm_execpath").unwrap_or("npm".into());
     let output = Command::new(npm)
         .arg("ls")
@@ -53,23 +53,21 @@ pub fn npm_include_paths(path: &Path) -> Option<HashMap<String, Vec<PathBuf>>> {
     Some(stdout.lines().map(Path::new).fold(HashMap::new(), |mut paths, path| {
         if let Ok(manifest_file) = File::open(path.join("package.json")) {
             if let Ok(json) = serde_json::from_reader(manifest_file) {
-                let include_paths = include_paths_from_metadata(&path, &json);
-                let name = path.file_name().unwrap().to_str().unwrap().to_string();
-                paths.insert(name, include_paths);
+                if let Some(entry_point) = entry_point_from_metadata(&path, &json) {
+                    let name = path.file_name().unwrap().to_str().unwrap().to_string();
+                    paths.insert(name, entry_point);
+                }
             }
         }
         paths
     }))
 }
 
-fn include_paths_from_metadata(path: &Path, json: &serde_json::Value) -> Vec<PathBuf> {
-    let include_path = json.get("slint").and_then(|s| s.get("include_path"));
-    match include_path {
-        Some(serde_json::Value::String(s)) => vec![path.join(s).into()],
-        Some(serde_json::Value::Array(a)) => {
-            a.iter().map(|s| path.join(s.as_str().unwrap()).into()).collect()
-        }
-        _ => vec![path.into()],
+fn entry_point_from_metadata(path: &Path, json: &serde_json::Value) -> Option<PathBuf> {
+    let entry_point = json.get("slint").and_then(|s| s.get("index"));
+    match entry_point {
+        Some(serde_json::Value::String(s)) => path.join(s).into(),
+        _ => None,
     }
 }
 
@@ -78,25 +76,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_include_paths_from_metadata() {
+    fn test_entry_point_from_metadata() {
         let path = Path::new("/home/user/.cargo/registry/src/index.crates.io-abc/foo-1.2.3");
+        assert_eq!(entry_point_from_metadata(path, &serde_json::Value::Null), None);
         assert_eq!(
-            include_paths_from_metadata(path, &serde_json::Value::Null),
-            vec![path.to_path_buf()]
-        );
-        assert_eq!(
-            include_paths_from_metadata(
+            entry_point_from_metadata(
                 path,
-                &serde_json::json!({"slint": {"include_path": "foo"}})
+                &serde_json::json!({"slint": {"index": "foo/bar.slint"}})
             ),
-            vec![path.join("foo").to_path_buf()]
-        );
-        assert_eq!(
-            include_paths_from_metadata(
-                path,
-                &serde_json::json!({"slint": {"include_path": ["foo", "bar"]}})
-            ),
-            vec![path.join("foo").to_path_buf(), path.join("bar").to_path_buf(),]
+            Some(path.join("foo/bar.slint").to_path_buf())
         );
     }
 }

@@ -378,8 +378,8 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     manifest_dir
         .as_ref()
         .map(std::path::Path::new)
-        .and_then(|dir| i_slint_compiler::package_include_paths(dir))
-        .map(|paths| compiler_config.package_include_paths = paths);
+        .and_then(|dir| i_slint_compiler::package_entry_points(dir))
+        .map(|paths| compiler_config.package_entry_points = paths);
 
     let (root_component, diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
