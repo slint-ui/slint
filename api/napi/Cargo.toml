@@ -2,16 +2,18 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 [package]
-edition = "2021"
 name = "slint-napi"
-version = "1.3.0"
-license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial"
-homepage = "https://slint.dev"
 description = "Internal Slint Runtime Library for NodeJS API."
-repository = "https://github.com/slint-ui/slint"
-categories = ["gui", "development-tools"]
-keywords = ["gui", "ui", "toolkit", "graphics", "design"]
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
+version.workspace = true
+categories = ["gui", "development-tools"]
 
 [lib]
 crate-type = ["cdylib"]
