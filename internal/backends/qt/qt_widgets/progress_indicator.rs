@@ -120,7 +120,7 @@ impl Item for NativeProgressIndicator {
             QPainter *painter_ = painter->get();
             QStyleOptionProgressBar option;
             option.styleObject = widget;
-            option.state |= QStyle::State(initial_state) | QStyle::State_Horizontal;
+            option.state |= QStyle::State(initial_state) | QStyle::State_Horizontal |  QStyle::State_Enabled;
             option.rect = QRect(QPoint(), size / dpr);
             option.maximum = progress < 0 ? 0 : 100;
             option.minimum = 0;
