@@ -6,6 +6,7 @@ use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{Model, ModelRc};
 use i_slint_core::window::WindowInner;
 use i_slint_core::{ImageInner, SharedVector};
+use itertools::Itertools;
 use neon::prelude::*;
 use rand::RngCore;
 use slint_interpreter::ComponentHandle;
@@ -59,11 +60,26 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
         }
         None => vec![],
     };
+    let import_paths = std::env::var("SLINT_PACKAGE_IMPORT_PATH").map_or_else(
+        |_| i_slint_compiler::package_import_paths(path).unwrap_or_default(),
+        |paths| {
+            std::env::split_paths(&paths)
+                .filter_map(|entry| {
+                    let (k, v) = entry
+                        .to_str()
+                        .unwrap_or_default()
+                        .split('=')
+                        .collect_tuple()
+                        .unwrap_or_default();
+                    Some((k.to_string(), std::path::PathBuf::from(v)))
+                })
+                .collect()
+        },
+    );
+
     let mut compiler = slint_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(include_paths);
-    if let Some(import_paths) = i_slint_compiler::package_import_paths(path) {
-        compiler.set_package_import_paths(import_paths);
-    }
+    compiler.set_package_import_paths(import_paths);
 
     let c = spin_on::spin_on(compiler.build_from_path(path));
 

@@ -1,0 +1,8 @@
+{
+    "name": "helper_components",
+    "version": "0.1.0",
+    "private": true,
+    "slint": {
+        "export": "lib.slint"
+    }
+}

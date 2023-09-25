@@ -42,6 +42,22 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let dir = tempfile::tempdir()?;
 
+    let helper_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../helper_components");
+    let mut package_json = File::create(dir.path().join("package.json"))?;
+    write!(
+        package_json,
+        r#"{{
+            "name": "{}",
+            "main": "main.js",
+            "dependencies": {{
+                "helper_components": "file://{}"
+            }}
+        }}
+        "#,
+        testcase.identifier(),
+        helper_dir.to_string_lossy(),
+    )?;
+
     let mut main_js = File::create(dir.path().join("main.js"))?;
     write!(
         main_js,
@@ -58,12 +74,28 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     for x in test_driver_lib::extract_test_functions(&source).filter(|x| x.language_id == "js") {
         write!(main_js, "{{\n    {}\n}}\n", x.source.replace("\n", "\n    "))?;
     }
+    let package_import_paths =
+        format!("helper_components={}", helper_dir.join("lib.slint").to_string_lossy());
+
+    // Ensure the helper_components package is installed into node_modules
+    let npm = which::which("npm").unwrap();
+    std::process::Command::new(npm)
+        .arg("install")
+        .arg("--ignore-scripts")
+        .arg("--no-audit")
+        .current_dir(&dir)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .map_err(|err| format!("Could not launch npm install: {}", err))
+        .unwrap();
 
     let output = std::process::Command::new("node")
         .arg(dir.path().join("main.js"))
         .current_dir(dir.path())
         .env("SLINT_NODE_NATIVE_LIB", std::env::var_os("SLINT_NODE_NATIVE_LIB").unwrap())
         .env("SLINT_INCLUDE_PATH", std::env::join_paths(include_paths).unwrap())
+        .env("SLINT_PACKAGE_IMPORT_PATH", package_import_paths)
         .env("SLINT_SCALE_FACTOR", "1") // We don't have a testing backend, but we can try to force a SF1 as the tests expect.
         .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1")
         .stdout(std::process::Stdio::piped())
