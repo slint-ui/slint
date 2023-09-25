@@ -30,11 +30,13 @@ renderer-software = ["i-slint-backend-winit?/renderer-software", "i-slint-core/s
 rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]
 
+default = []
+
 [dependencies]
-i-slint-core = { version = "=1.3.0", path = "../../../internal/core", default-features = false }
-i-slint-backend-winit = { version = "=1.3.0", path = "../winit", optional = true }
-i-slint-backend-qt = { version = "=1.3.0", path = "../qt", optional = true }
-i-slint-backend-linuxkms = { version = "=1.3.0", path = "../linuxkms", optional = true }
-i-slint-renderer-skia = { version = "=1.3.0", path="../../renderers/skia", optional = true, default-features = false }
+i-slint-core = { workspace = true }
+i-slint-backend-winit = { workspace = true, features = ["default"], optional = true }
+i-slint-backend-qt = { workspace = true, features = ["default"], optional = true }
+i-slint-backend-linuxkms = { workspace = true, features = ["default"], optional = true }
+i-slint-renderer-skia = { workspace = true, optional = true }
 
 cfg-if = "1"

@@ -17,7 +17,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-slint-interpreter = { path = "../../internal/interpreter", default-features = false, features = ["std", "backend-winit", "renderer-femtovg", "compat-1-2"] }
+slint-interpreter = { workspace = true, features = ["std", "backend-winit", "renderer-femtovg", "compat-1-2"] }
 send_wrapper = { workspace = true }
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }

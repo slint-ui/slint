@@ -99,10 +99,10 @@ renderer-winit-software = ["renderer-software"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 
 [dependencies]
-i-slint-compiler = { version = "=1.3.0", path = "../compiler" }
-i-slint-common = { version = "=1.3.0", path = "../common" }
-i-slint-core = { version = "=1.3.0", path = "../core", features = ["rtti"] }
-i-slint-backend-selector = { version = "=1.3.0", path = "../../internal/backends/selector", features = ["rtti"] }
+i-slint-compiler = { workspace = true, features = ["default"] }
+i-slint-common = { workspace = true, features = ["default"] }
+i-slint-core = { workspace = true, features = ["default", "rtti"] }
+i-slint-backend-selector = { workspace = true, features = ["default", "rtti"] }
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 
@@ -118,10 +118,10 @@ version = "0.1"
 optional = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-i-slint-backend-winit = { version = "=1.3.0", path = "../../internal/backends/winit" }
+i-slint-backend-winit = { workspace = true, features = ["default"] }
 
 [dev-dependencies]
-i-slint-backend-testing = { path = "../../internal/backends/testing" }
+i-slint-backend-testing = { workspace = true, features = ["default"] }
 
 spin_on = "0.1"
 

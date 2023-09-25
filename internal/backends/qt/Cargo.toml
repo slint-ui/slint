@@ -15,14 +15,15 @@ links = "i_slint_backend_qt" # just so we can pass metadata to the dependee's bu
 
 [features]
 rtti = ["i-slint-core/rtti"]
+default = []
 
 [lib]
 path = "lib.rs"
 
 [dependencies]
-i-slint-common = { version = "=1.3.0", path = "../../../internal/common" }
-i-slint-core-macros = { version = "=1.3.0", path = "../../../internal/core-macros" }
-i-slint-core = { version = "=1.3.0", path = "../../../internal/core" }
+i-slint-common = { workspace = true, features = ["default"] }
+i-slint-core-macros = { workspace = true, features = ["default"] }
+i-slint-core = { workspace = true, features = ["default"] }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1.8", path = "../../../helper_crates/vtable" }

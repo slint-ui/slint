@@ -21,7 +21,7 @@ path = "lib.rs"
 default = []
 
 [dependencies]
-i-slint-compiler = { version = "=1.3.0", path = "../../../internal/compiler", features = ["rust", "display-diagnostics", "software-renderer"] }
+i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer"] }
 
 spin_on = "0.1"
 thiserror = "1"

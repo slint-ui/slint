@@ -22,12 +22,13 @@ renderer-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "glutin", 
 renderer-femtovg = ["i-slint-renderer-femtovg", "drm", "gbm", "glutin", "raw-window-handle"]
 
 #default = ["renderer-skia", "renderer-femtovg"]
+default = []
 
 [dependencies]
-i-slint-core = { version = "=1.3.0", path = "../../../internal/core", features = ["image-decoders", "svg"] }
-i-slint-common = { version = "=1.3.0", path = "../../../internal/common" }
-i-slint-renderer-skia = { version = "=1.3.0", path = "../../renderers/skia", optional = true }
-i-slint-renderer-femtovg = { version = "=1.3.0", path = "../../renderers/femtovg", optional = true }
+i-slint-core = { workspace = true, features = ["default", "image-decoders", "svg"] }
+i-slint-common = { workspace = true, features = ["default"] }
+i-slint-renderer-skia = { workspace = true, features = ["default"], optional = true }
+i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 input = { version = "0.8.2" }

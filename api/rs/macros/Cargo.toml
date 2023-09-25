@@ -18,8 +18,11 @@ categories = ["gui", "development-tools"]
 proc-macro = true
 path = "lib.rs"
 
+[features]
+default = []
+
 [dependencies]
-i-slint-compiler = { version = "=1.3.0", path = "../../../internal/compiler", features = ["proc_macro_span", "rust", "display-diagnostics"] }
+i-slint-compiler = { workspace = true, features = ["default", "proc_macro_span", "rust", "display-diagnostics"] }
 
 proc-macro2 = "1.0.17"
 quote = "1.0"

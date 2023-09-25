@@ -20,5 +20,5 @@ name = "doctests"
 walkdir = "2"
 
 [dev-dependencies]
-slint-interpreter = { path = "../../internal/interpreter", features = ["display-diagnostics"] }
+slint-interpreter = { workspace = true, features = ["default", "display-diagnostics"] }
 spin_on = "0.1"

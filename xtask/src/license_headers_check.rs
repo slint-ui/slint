@@ -661,7 +661,17 @@ impl CargoToml {
     }
 
     fn dependencies(&self, dep_type: &str) -> Vec<(String, CargoDependency)> {
-        match self.doc.as_table().get(dep_type).and_then(|d| d.as_table()) {
+        let table = if self.is_workspace() {
+            self.doc
+                .as_table()
+                .get("workspace")
+                .and_then(|w| w.as_table())
+                .and_then(|w| w.get(dep_type))
+                .and_then(|d| d.as_table())
+        } else {
+            self.doc.as_table().get(dep_type).and_then(|d| d.as_table())
+        };
+        match table {
             Some(dep_table) => dep_table
                 .iter()
                 .filter_map(|(name, entry)| {
@@ -829,6 +839,11 @@ impl LicenseHeaderCheck {
             if &*wv == "" {
                 *wv = doc.workspace_version()?.to_string();
             }
+            let expected_version = wv.clone();
+
+            // Check the workspace.dependencies:
+            self.check_dependencies(&doc, &expected_version)?;
+
             return Ok(());
         }
 
@@ -851,14 +866,21 @@ impl LicenseHeaderCheck {
         // Check that version of slint- dependencies are matching this version
         let expected_version = {
             let wv = self.workspace_version.borrow().clone();
-            let version = doc
-                .package()?
+            doc.package()?
                 .get("version")
                 .and_then(|v| v.as_value())
                 .and_then(|v| v.as_str())
-                .unwrap_or(&wv);
-            format!("={version}")
+                .unwrap_or(&wv)
+                .to_string()
         };
+
+        self.check_dependencies(&doc, &expected_version)?;
+
+        doc.save_if_changed()
+    }
+
+    fn check_dependencies(&self, doc: &CargoToml, expected_version: &str) -> Result<()> {
+        let expected_version = format!("={expected_version}");
 
         for (dep_name, dep) in doc
             .dependencies("dependencies")
@@ -891,8 +913,7 @@ impl LicenseHeaderCheck {
                 }
             }
         }
-
-        doc.save_if_changed()
+        Ok(())
     }
 
     fn check_file(&self, path: &Path) -> Result<()> {

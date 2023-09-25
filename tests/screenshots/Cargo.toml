@@ -18,14 +18,14 @@ path = "main.rs"
 name = "test-driver-screenshot"
 
 [dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
-i-slint-core = { version = "=1.3.0", path = "../../internal/core", features = ["software-renderer"] }
-i-slint-backend-testing = { path = "../../internal/backends/testing" }
+slint = { workspace = true, features = ["std", "compat-1-2"] }
+i-slint-core = { workspace = true, features = ["default", "software-renderer"] }
+i-slint-backend-testing = { workspace = true, features = ["default"] }
 image = { version = "0.24.0", default-features = false, features = ["png", "jpeg"] }
 crossterm = "0.27"
 
 [build-dependencies]
-i-slint-compiler = { path = "../../internal/compiler", features = ["rust", "display-diagnostics", "software-renderer"] }
+i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer"] }
 walkdir = "2.3"
 spin_on = { version = "0.1" }
 test_driver_lib = { path = "../driver/driverlib" }
