@@ -38,6 +38,8 @@ pub mod passes;
 
 #[cfg(feature = "workspace")]
 mod workspace;
+#[cfg(feature = "workspace")]
+pub use workspace::package_import_paths;
 
 /// Specify how the resources are embedded by the compiler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -60,7 +62,7 @@ pub struct CompilerConfiguration {
     /// The compiler will look in these paths for components used in the file to compile.
     pub include_paths: Vec<std::path::PathBuf>,
     /// The compiler will look in these paths for package imports.
-    pub package_entry_points: HashMap<String, std::path::PathBuf>,
+    pub package_import_paths: HashMap<String, std::path::PathBuf>,
     /// the name of the style. (eg: "native")
     pub style: Option<String>,
 
@@ -140,7 +142,7 @@ impl CompilerConfiguration {
         Self {
             embed_resources,
             include_paths: Default::default(),
-            package_entry_points: Default::default(),
+            package_import_paths: Default::default(),
             style: Default::default(),
             open_import_fallback: Default::default(),
             inline_all_elements,
@@ -211,20 +213,4 @@ pub async fn compile_syntax_node(
     diagnostics.all_loaded_files = loader.all_files().cloned().collect();
 
     (doc, diagnostics)
-}
-
-/// Resolves entry-points for package dependencies.
-#[cfg(feature = "workspace")]
-pub fn package_entry_points(path: &std::path::Path) -> Option<HashMap<String, std::path::PathBuf>> {
-    let mut p = Some(path.clone());
-    while let Some(path) = p {
-        if path.join("Cargo.toml").exists() {
-            return crate::workspace::cargo_entry_points(&path);
-        }
-        if path.join("package.json").exists() {
-            return crate::workspace::npm_entry_point(&path);
-        }
-        p = path.parent();
-    }
-    None
 }

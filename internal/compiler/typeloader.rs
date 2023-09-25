@@ -269,8 +269,8 @@ impl TypeLoader {
             import_token.and_then(|tok| tok.source_file().map(|s| s.path()));
 
         if let Some(package) = maybe_relative_path_or_url.strip_prefix('@') {
-            // "@package" -> "/path/to/package/entry-point.slint"
-            return self.compiler_config.package_entry_points.get(package).and_then(|path| {
+            // "@package" -> "/path/to/package/lib.slint"
+            return self.compiler_config.package_import_paths.get(package).and_then(|path| {
                 crate::fileaccess::load_file(&path)
                     .map(|virtual_file| (virtual_file.canon_path, virtual_file.builtin_contents))
             });

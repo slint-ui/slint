@@ -61,8 +61,8 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     };
     let mut compiler = slint_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(include_paths);
-    if let Some(entry_points) = i_slint_compiler::package_entry_points(path) {
-        compiler.set_package_entry_points(entry_points);
+    if let Some(import_paths) = i_slint_compiler::package_import_paths(path) {
+        compiler.set_package_import_paths(import_paths);
     }
 
     let c = spin_on::spin_on(compiler.build_from_path(path));

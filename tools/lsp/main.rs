@@ -334,7 +334,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
             load_configuration(ctx).await?;
         }
         DidChangeWatchedFiles::METHOD => {
-            update_package_entry_points(ctx).await?;
+            update_package_import_paths(ctx).await?;
         }
 
         #[cfg(feature = "preview")]
