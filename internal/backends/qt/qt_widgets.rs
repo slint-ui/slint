@@ -81,6 +81,7 @@ macro_rules! fn_render {
                 };
                 let $size = qttypes::QSize { width: width as _, height: height as _ };
                 let $this = self;
+                let _workaround = unsafe { $crate::qt_widgets::PainterClipWorkaround::new(painter) };
                 painter.save();
                 let $painter = painter;
                 $($tt)*
@@ -234,6 +235,46 @@ impl SlintTypeErasedWidgetPtr {
         let widget_ptr: *mut SlintTypeErasedWidgetPtr = this.as_ptr();
         cpp!(unsafe [widget_ptr as "std::unique_ptr<SlintTypeErasedWidget>*"] -> NonNull<()> as "void*" {
             return (*widget_ptr)->qwidget();
+        })
+    }
+}
+
+cpp! {{
+    // Some style function calls setClipRect or setClipRegion on the painter and replace the clips.
+    // eg CE_ItemViewItem, CE_Header, or CC_GroupBox in QCommonStyle (#3541).
+    // We do workaround that by setting the clip as a system clip so it cant be overwritten
+    struct PainterClipWorkaround {
+        QPainter *painter;
+        QRegion old_clip;
+        explicit PainterClipWorkaround(QPainter *painter) : painter(painter) {
+            auto engine = painter->paintEngine();
+            old_clip = engine->systemClip();
+            auto new_clip = painter->clipRegion() * painter->transform();
+            if (!old_clip.isNull())
+                new_clip &= old_clip;
+            engine->setSystemClip(new_clip);
+        }
+        ~PainterClipWorkaround() {
+            auto engine = painter->paintEngine();
+            engine->setSystemClip(old_clip);
+            // Qt is seriously bugged, setSystemClip will be scaled by the scale factor
+            auto actual_clip = engine->systemClip();
+            if (actual_clip != old_clip) {
+                QSizeF s2 = actual_clip.boundingRect().size();
+                QSizeF s1 = old_clip.boundingRect().size();
+                engine->setSystemClip(old_clip * QTransform::fromScale(s1.width() / s2.width(), s1.height() / s2.height()));
+            }
+        }
+        PainterClipWorkaround(const PainterClipWorkaround&) = delete;
+        PainterClipWorkaround& operator=(const PainterClipWorkaround&) = delete;
+    };
+}}
+cpp_class!(pub(crate) unsafe struct PainterClipWorkaround as "PainterClipWorkaround");
+impl PainterClipWorkaround {
+    /// Safety: the painter must outlive us
+    pub unsafe fn new(painter: &QPainterPtr) -> Self {
+        cpp!(unsafe [painter as "const QPainterPtr*"] -> PainterClipWorkaround as "PainterClipWorkaround" {
+            return PainterClipWorkaround(painter->get());
         })
     }
 }

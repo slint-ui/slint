@@ -104,11 +104,12 @@ impl TypeLoader {
         let myself = Self {
             global_type_registry,
             compiler_config,
-            style: style.clone(),
+            style: if style == "native" { "qt".into() } else { style.clone() },
             all_documents: Default::default(),
         };
 
-        let known_styles = fileaccess::styles();
+        let mut known_styles = fileaccess::styles();
+        known_styles.push("native");
         if !known_styles.contains(&style.as_ref())
             && myself
                 .find_file_in_include_path(None, &format!("{}/std-widgets.slint", style))

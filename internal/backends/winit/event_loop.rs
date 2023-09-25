@@ -591,6 +591,16 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                 corelib::platform::update_timers_and_animations();
             }
 
+            Event::Resumed => ALL_WINDOWS.with(|ws| {
+                for (_, window_weak) in ws.borrow().iter() {
+                    if let Some(w) = window_weak.upgrade() {
+                        if let Err(e) = w.renderer.resumed(&w.winit_window()) {
+                            *inner_event_loop_error.borrow_mut() = Some(e);
+                        }
+                    }
+                }
+            }),
+
             Event::RedrawEventsCleared => {
                 if *control_flow != ControlFlow::Exit
                     && ALL_WINDOWS.with(|windows| {

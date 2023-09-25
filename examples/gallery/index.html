@@ -32,9 +32,9 @@
   </div>
   <p>Select style
     <select id="style-selection">
-      <option value="./pkg/fluent/gallery.js">Fluent</option>
-      <option value="./pkg/material/gallery.js">Material</option>
-      <option value="./pkg/cupertino/gallery.js">Cupertino</option>
+      <option value="fluent">Fluent</option>
+      <option value="material">Material</option>
+      <option value="cupertino">Cupertino</option>
     </select>
   </p>
   <div id="canvas-parent" width="640" height="480"></div>
@@ -71,12 +71,29 @@
     var styleSelection = document.getElementById("style-selection");
 
     function loadGallery() {
-      var selectedStyle = styleSelection[styleSelection.selectedIndex].value;
+      var selectedStyle = ".\/pkg\/" + styleSelection[styleSelection.selectedIndex].value + "\/gallery.js";
       initGallery(selectedStyle);
     }
 
     styleSelection.onchange = loadGallery;
-    loadGallery()
+
+    window.addEventListener('load', () => {
+      let url = document.location.href;
+      if (url.indexOf('?') > -1) {
+        let params = url.split('?')[1].split('&'),
+          data = {}, tmp, val;
+        for (let i = 0, l = params.length; i < l; i++) {
+          tmp = params[i].split('=');
+          data[tmp[0]] = tmp[1];
+        }
+        val = data.style.split(',');
+        for (let i = 0, l = val.length; i < l; i++) {
+          document.getElementById('style-selection').value = val[i];
+          break;
+        }
+      }
+      loadGallery();
+    }, false);
   </script>
 </body>
 

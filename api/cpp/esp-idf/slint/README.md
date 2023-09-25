@@ -32,7 +32,7 @@ cd slint-hello-world
 ```
 2. Select your chipset with `idf.py set-target`, for example if you're using an `ESP32S3` chipset, run
 ```bash
-idf.py set-target esp32s3`
+idf.py set-target esp32s3
 ```
 3. Add a [Board Support Package](https://github.com/espressif/esp-bsp#esp-bsp-espressifs-board-support-packages) that matches your device as a dependency. For example, if you're using an ESP-BOX, run
 ```bash
@@ -112,12 +112,13 @@ idf_component_register(SRCS "slint-hello-world.cpp" INCLUDE_DIRS "." REQUIRES sl
 slint_target_sources(${COMPONENT_LIB} appwindow.slint)
 ```
 10. Open the configuration editor with `idf.py menuconfig`:
-    1. Change the stack size under `Component config --> ESP System Settings --> Main task stack size` to at least `8192`. You may need to tweak this value in the future if you run into stack overflows.
-    2. You may need additional device-specific settings. For example if your device has external SPI RAM,
+    * Change the stack size under `Component config --> ESP System Settings --> Main task stack size` to at least `8192`. You may need to tweak this value in the future if you run into stack overflows.
+    * You may need additional device-specific settings. For example if your device has external SPI RAM,
        you may need to enable that. For details for ESP32-S3 based devices see how to [Configure the PSRAM](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/flash_psram_config.html#configure-the-psram).
-    3. Quit the editor with `Q` and save the configuration.
+    * Quit the editor with `Q` and save the configuration.
 
     Alternatively, check in a default sdkconfig tweaked from your board that adds the right amount of ram, flash, and use `CONFIG_MAIN_TASK_STACK_SIZE=8192`
+
 11.  Build the project with `idf.py build`.
 12.  Connect your device, then flash and run it with `idf.py flash monitor`.
 13.  Observe Slint rendering "Hello World" on the screen 🎉.

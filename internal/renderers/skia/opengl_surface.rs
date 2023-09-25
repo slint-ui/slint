@@ -98,7 +98,11 @@ impl super::Surface for OpenGLSurface {
         "opengl"
     }
 
-    fn supports_graphics_api(&self) -> bool {
+    fn supports_graphics_api() -> bool {
+        true
+    }
+
+    fn supports_graphics_api_with_self(&self) -> bool {
         true
     }
 

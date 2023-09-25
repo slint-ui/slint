@@ -58,7 +58,7 @@ fn main() {
 ### The .slint code in external files is compiled with `build.rs`
 
 When your design becomes bigger in terms of markup code, you may want move it to a dedicated*/
-#![doc = concat!("`.slint` file. It's also possible to split a `.slint` file into multiple files using [modules](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/reference/modules.html).")]
+#![doc = concat!("`.slint` file. It's also possible to split a `.slint` file into multiple files using [modules](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/language/syntax/modules.html).")]
 /*!Use a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile
 your main `.slint` file:
 
@@ -71,11 +71,11 @@ build = "build.rs"
 edition = "2021"
 
 [dependencies]
-slint = "1.2.0"
+slint = "1.3.0"
 ...
 
 [build-dependencies]
-slint-build = "1.2.0"
+slint-build = "1.3.0"
 ```
 
 Use the API of the slint-build crate in the `build.rs` file:

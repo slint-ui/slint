@@ -3,9 +3,11 @@
 
 // cSpell: ignore datetime dotdot gettext
 
+use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use lazy_static::lazy_static;
+use std::cell::RefCell;
 use std::str::FromStr;
 use std::{path::Path, path::PathBuf};
 
@@ -622,16 +624,54 @@ impl CargoToml {
         self.doc.as_table().get("workspace").is_some()
     }
 
+    fn workspace_version(&self) -> Result<&str> {
+        if !self.is_workspace() {
+            Err(anyhow!("Not a workspace, can not extract version info."))
+        } else {
+            Ok(self
+                .doc
+                .as_table()
+                .get("workspace")
+                .unwrap()
+                .get("package")
+                .unwrap()
+                .get("version")
+                .unwrap()
+                .as_str()
+                .unwrap())
+        }
+    }
+
     fn package(&self) -> Result<&toml_edit::Table> {
-        self.doc
-            .as_table()
-            .get("package")
-            .and_then(|p| p.as_table())
-            .ok_or_else(|| anyhow::anyhow!("Invalid Cargo.toml -- cannot find package section"))
+        if self.is_workspace() {
+            self.doc
+                .as_table()
+                .get("workspace")
+                .and_then(|w| w.as_table())
+                .and_then(|w| w.get("package"))
+                .and_then(|p| p.as_table())
+                .ok_or_else(|| anyhow!("Invalid Cargo.toml -- cannot find workspace package section in workspace file"))
+        } else {
+            self.doc
+                .as_table()
+                .get("package")
+                .and_then(|p| p.as_table())
+                .ok_or_else(|| anyhow!("Invalid Cargo.toml -- cannot find package section"))
+        }
     }
 
     fn dependencies(&self, dep_type: &str) -> Vec<(String, CargoDependency)> {
-        match self.doc.as_table().get(dep_type).and_then(|d| d.as_table()) {
+        let table = if self.is_workspace() {
+            self.doc
+                .as_table()
+                .get("workspace")
+                .and_then(|w| w.as_table())
+                .and_then(|w| w.get(dep_type))
+                .and_then(|d| d.as_table())
+        } else {
+            self.doc.as_table().get(dep_type).and_then(|d| d.as_table())
+        };
+        match table {
             Some(dep_table) => dep_table
                 .iter()
                 .filter_map(|(name, entry)| {
@@ -650,27 +690,52 @@ impl CargoToml {
         field: &'a str,
         expected_str: &'a str,
     ) -> Result<()> {
+        let is_workspace = self.is_workspace();
         match self.package()?.get(field) {
             Some(field_value) => {
-                match field_value.as_str() {
-                    Some(text) => {
-                        if text != expected_str {
-                            if fix_it {
-                                eprintln!("Fixing up {:?} as instructed. It has unexpected data in {field}.", self.path);
-                                self.doc["package"][field] = toml_edit::value(expected_str);
-                                self.edited = true;
-                            } else {
-                                return Err(anyhow::anyhow!(
-                                    "Incorrect {}. Found {} expected {}",
-                                    field,
-                                    text,
-                                    expected_str
-                                ));
-                            }
+                match field_value.get("workspace").and_then(|v| v.as_bool()) {
+                    Some(true) if is_workspace => {
+                        return Err(anyhow!(
+                            "Using workspace {}.workspace = true in workspace",
+                            field
+                        ))
+                    }
+                    Some(true) => { /* nothing to do */ }
+                    Some(false) => {
+                        if fix_it {
+                            eprintln!(
+                                "Fixing up {:?} as instructed. It has {field}.workspace = false",
+                                self.path
+                            );
+                            self.doc["package"][field]["workspace"] = toml_edit::value(true);
+                            self.edited = true;
+                        } else {
+                            return Err(anyhow!(
+                                "Incorrect {}.workspace found: expected true, found false",
+                                field,
+                            ));
                         }
                     }
-                    None => return Err(anyhow::anyhow!("{} field is not a string", field)),
-                }
+                    None => match field_value.as_str() {
+                        Some(text) => {
+                            if text != expected_str {
+                                if fix_it {
+                                    eprintln!("Fixing up {:?} as instructed. It has unexpected data in {field}.", self.path);
+                                    self.doc["package"][field] = toml_edit::value(expected_str);
+                                    self.edited = true;
+                                } else {
+                                    return Err(anyhow!(
+                                        "Incorrect {}. Found {} expected {}",
+                                        field,
+                                        text,
+                                        expected_str
+                                    ));
+                                }
+                            }
+                        }
+                        None => return Err(anyhow!("{} field is not a string", field)),
+                    },
+                };
             }
             None => {
                 if fix_it {
@@ -678,7 +743,7 @@ impl CargoToml {
                     self.doc["package"][field] = toml_edit::value(expected_str);
                     self.edited = true;
                 } else {
-                    return Err(anyhow::anyhow!("Missing {} field", field));
+                    return Err(anyhow!("Missing {} field", field));
                 }
             }
         };
@@ -708,6 +773,9 @@ pub struct LicenseHeaderCheck {
 
     #[arg(long, action)]
     verbose: bool,
+
+    #[arg(skip)]
+    workspace_version: RefCell<String>,
 }
 
 impl LicenseHeaderCheck {
@@ -728,8 +796,7 @@ impl LicenseHeaderCheck {
             }
         }
         if seen_errors {
-            Err(anyhow::anyhow!("Encountered one or multiple errors. See above for details.")
-                .into())
+            Err(anyhow!("Encountered one or multiple errors. See above for details.").into())
         } else {
             println!("All files are ok.");
             Ok(())
@@ -747,7 +814,7 @@ impl LicenseHeaderCheck {
                 let source = source.replace_tag(&EXPECTED_HEADER, license);
                 std::fs::write(path, source).context("Error writing source")
             } else {
-                Err(anyhow::anyhow!("Missing tag"))
+                Err(anyhow!("Missing tag"))
             }
         } else if source.tag_matches(&EXPECTED_HEADER, license) {
             Ok(())
@@ -756,7 +823,7 @@ impl LicenseHeaderCheck {
             let source = source.replace_tag(&EXPECTED_HEADER, license);
             std::fs::write(path, source).context("Error writing new source")
         } else {
-            Err(anyhow::anyhow!(
+            Err(anyhow!(
                 "unexpected header.\nexpected: {}\nfound: {}",
                 EXPECTED_HEADER.to_string(style, license),
                 source.found_tag()
@@ -768,6 +835,15 @@ impl LicenseHeaderCheck {
         let mut doc = CargoToml::new(path)?;
 
         if doc.is_workspace() {
+            let mut wv = self.workspace_version.borrow_mut();
+            if &*wv == "" {
+                *wv = doc.workspace_version()?.to_string();
+            }
+            let expected_version = wv.clone();
+
+            // Check the workspace.dependencies:
+            self.check_dependencies(&doc, &expected_version)?;
+
             return Ok(());
         }
 
@@ -784,37 +860,50 @@ impl LicenseHeaderCheck {
         doc.check_and_fix_package_string_field(self.fix_it, "repository", EXPECTED_REPOSITORY)?;
 
         if doc.package()?["description"].is_none() {
-            return Err(anyhow::anyhow!("Missing description field"));
+            return Err(anyhow!("Missing description field"));
         }
 
         // Check that version of slint- dependencies are matching this version
-        let expected_version = format!(
-            "={}",
-            doc.package()?.get("version").unwrap().as_value().unwrap().as_str().unwrap()
-        );
+        let expected_version = {
+            let wv = self.workspace_version.borrow().clone();
+            doc.package()?
+                .get("version")
+                .and_then(|v| v.as_value())
+                .and_then(|v| v.as_str())
+                .unwrap_or(&wv)
+                .to_string()
+        };
+
+        self.check_dependencies(&doc, &expected_version)?;
+
+        doc.save_if_changed()
+    }
+
+    fn check_dependencies(&self, doc: &CargoToml, expected_version: &str) -> Result<()> {
+        let expected_version = format!("={expected_version}");
 
         for (dep_name, dep) in doc
             .dependencies("dependencies")
             .iter()
             .chain(doc.dependencies("build-dependencies").iter())
         {
-            if dep_name.starts_with("slint") {
+            if dep_name.starts_with("slint") || dep_name.starts_with("i-slint") {
                 match dep {
                     CargoDependency::Simple { .. } => {
-                        return Err(anyhow::anyhow!(
+                        return Err(anyhow!(
                             "slint package '{}' outside of the repository?",
                             dep_name
                         ))
                     }
                     CargoDependency::Full { path, version } => {
                         if path.is_empty() {
-                            return Err(anyhow::anyhow!(
+                            return Err(anyhow!(
                                 "slint package '{}' outside of the repository?",
                                 dep_name
                             ));
                         }
                         if version != &expected_version {
-                            return Err(anyhow::anyhow!(
+                            return Err(anyhow!(
                                 "Version \"{}\" must be specified for dependency {}",
                                 expected_version,
                                 dep_name
@@ -824,8 +913,7 @@ impl LicenseHeaderCheck {
                 }
             }
         }
-
-        doc.save_if_changed()
+        Ok(())
     }
 
     fn check_file(&self, path: &Path) -> Result<()> {

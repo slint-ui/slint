@@ -3,16 +3,17 @@
 
 [package]
 name = "slint-cpp"
-version = "1.3.0"
-authors = ["Slint Developers <info@slint.dev>"]
-edition = "2021"
-build = "build.rs"
-license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial"
 description = "Slint C++ integration"
-repository = "https://github.com/slint-ui/slint"
-homepage = "https://slint.dev"
-publish = false
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
 rust-version.workspace = true
+version.workspace = true
+build = "build.rs"
+publish = false
 # prefix used to convey path to generated includes to the C++ test driver
 links = "slint_cpp"
 
@@ -45,11 +46,11 @@ freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]
 default = ["std", "backend-winit", "renderer-femtovg", "backend-qt"]
 
 [dependencies]
-i-slint-backend-selector = { version = "=1.3.0", path="../../internal/backends/selector", optional = true }
-i-slint-backend-testing = { version = "=1.3.0", path="../../internal/backends/testing", optional = true }
-i-slint-renderer-skia = { version = "=1.3.0", path="../../internal/renderers/skia", optional = true, features = ["x11", "wayland"] }
-i-slint-core = { version = "=1.3.0", path="../../internal/core", default-features = false, features = ["ffi"] }
-slint-interpreter = { version = "=1.3.0", path="../../internal/interpreter", default-features = false, features = ["ffi", "compat-1-2"], optional = true }
+i-slint-backend-selector = { workspace = true, features = ["default"], optional = true }
+i-slint-backend-testing = { workspace = true, features = ["default"], optional = true }
+i-slint-renderer-skia = {  workspace = true, features = ["default", "x11", "wayland"], optional = true }
+i-slint-core = { workspace = true, features = ["ffi"] }
+slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], optional = true }
 raw-window-handle = { version = "0.5", optional = true }
 # Enable image-rs' default features to make all image formats to C++ users
 image = { version = "0.24.0", optional = true }
@@ -60,4 +61,4 @@ esp-backtrace = { version = "0.8.0", features = ["panic-handler", "print-uart"],
 anyhow = "1.0"
 cbindgen = { workspace = true }
 proc-macro2 = "1.0.11"
-i-slint-common = { version = "=1.3.0", path="../../internal/common" }
+i-slint-common = { workspace = true, features = ["default"] }

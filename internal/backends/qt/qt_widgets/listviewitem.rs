@@ -154,7 +154,7 @@ impl Item for NativeStandardListViewItem {
                 option.styleObject = widget;
                 option.state |= QStyle::State(initial_state);
                 option.rect = QRect(QPoint(), size / dpr);
-                option.state = QStyle::State_Enabled;
+                option.state |= QStyle::State_Enabled;
                 if (is_selected) {
                     option.state |= QStyle::State_Selected;
                 }
@@ -172,24 +172,9 @@ impl Item for NativeStandardListViewItem {
                 option.features |= QStyleOptionViewItem::HasDisplay;
 
                 option.text = text;
-                // CE_ItemViewItem in QCommonStyle calls setClipRect on the painter and replace the clips. So we need to cheat.
-                auto engine = (*painter)->paintEngine();
-                auto old_clip = engine->systemClip();
-                auto new_clip = ((*painter)->clipRegion() * (*painter)->transform());
-                if (!old_clip.isNull())
-                    new_clip &= old_clip;
-                engine->setSystemClip(new_clip);
 
                 qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, painter->get(), widget);
                 qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, painter->get(), widget);
-                engine->setSystemClip(old_clip);
-                // Qt is seriously bugged, setSystemClip will be scaled by the scale factor
-                auto actual_clip = engine->systemClip();
-                if (actual_clip != old_clip) {
-                    QSizeF s2 = actual_clip.boundingRect().size();
-                    QSizeF s1 = old_clip.boundingRect().size();
-                    engine->setSystemClip(old_clip * QTransform::fromScale(s1.width() / s2.width(), s1.height() / s2.height()));
-                }
             }
         });
     }

@@ -151,14 +151,11 @@ impl Item for NativeGroupBox {
 
         let size = minimum_group_box_size(text);
 
-        LayoutInfo {
-            min: match orientation {
-                Orientation::Horizontal => size.width as f32,
-                Orientation::Vertical => size.height as f32,
-            },
-            stretch: 1.,
-            ..LayoutInfo::default()
-        }
+        let min = match orientation {
+            Orientation::Horizontal => size.width as f32,
+            Orientation::Vertical => size.height as f32,
+        };
+        LayoutInfo { min, preferred: min, stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(
