@@ -15,7 +15,8 @@ use language::*;
 
 use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::{
-    DidChangeConfiguration, DidChangeTextDocument, DidOpenTextDocument, Notification,
+    DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidOpenTextDocument,
+    Notification,
 };
 use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams};
 
@@ -331,6 +332,9 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         }
         DidChangeConfiguration::METHOD => {
             load_configuration(ctx).await?;
+        }
+        DidChangeWatchedFiles::METHOD => {
+            update_package_entry_points(ctx).await?;
         }
 
         #[cfg(feature = "preview")]

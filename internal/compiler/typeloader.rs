@@ -478,6 +478,19 @@ impl TypeLoader {
         .await
     }
 
+    /// Analyze an already loaded document.
+    pub async fn analyze_document(
+        &mut self,
+        path: &Path,
+        is_builtin: bool,
+        diag: &mut BuildDiagnostics,
+    ) {
+        if let Some(doc) = self.get_document(path).and_then(|d| d.node.clone()) {
+            let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
+            Self::analyze_document_impl(&state, path, doc, is_builtin, &Default::default()).await
+        }
+    }
+
     async fn load_file_impl<'a>(
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         path: &Path,
@@ -489,6 +502,16 @@ impl TypeLoader {
         let dependency_doc: syntax_nodes::Document =
             crate::parser::parse(source_code, Some(source_path), state.borrow_mut().diag).into();
 
+        Self::analyze_document_impl(state, path, dependency_doc, is_builtin, import_stack).await
+    }
+
+    async fn analyze_document_impl<'a>(
+        state: &'a RefCell<BorrowedTypeLoader<'a>>,
+        path: &Path,
+        dependency_doc: syntax_nodes::Document,
+        is_builtin: bool,
+        import_stack: &HashSet<PathBuf>,
+    ) {
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&state.borrow().tl.global_type_registry)));
         dependency_registry.borrow_mut().expose_internal_types = is_builtin;

@@ -671,8 +671,15 @@ pub(crate) async fn reload_document_impl(
     let mut diag = BuildDiagnostics::default();
     document_cache.documents.load_file(&path, &path, content, false, &mut diag).await;
 
+    to_lsp_diags(&diag, &path)
+}
+
+fn to_lsp_diags(
+    diag: &BuildDiagnostics,
+    path: &PathBuf,
+) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
-    let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = core::iter::once(&path)
+    let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = core::iter::once(path)
         .chain(diag.all_loaded_files.iter())
         .map(|path| {
             let uri = Url::from_file_path(path).unwrap();
@@ -680,7 +687,7 @@ pub(crate) async fn reload_document_impl(
         })
         .collect();
 
-    for d in diag.into_iter() {
+    for d in diag.iter() {
         #[cfg(not(target_arch = "wasm32"))]
         if d.source_file().unwrap().is_relative() {
             continue;
@@ -701,7 +708,14 @@ pub async fn reload_document(
 ) -> Result<()> {
     let lsp_diags = reload_document_impl(Some(ctx), content, uri, version, document_cache).await;
 
-    for (uri, diagnostics) in lsp_diags {
+    publish_diagnostic(ctx, lsp_diags).await
+}
+
+async fn publish_diagnostic(
+    ctx: &Context,
+    diagnostics: HashMap<Url, Vec<lsp_types::Diagnostic>>,
+) -> Result<()> {
+    for (uri, diagnostics) in diagnostics {
         ctx.server_notifier.send_notification(
             "textDocument/publishDiagnostics".into(),
             PublishDiagnosticsParams { uri, diagnostics, version: None },
@@ -1172,6 +1186,26 @@ fn find_element_id_for_highlight(
     None
 }
 
+pub async fn update_package_entry_points(ctx: &Context) -> Result<()> {
+    if let Some(root_path) = ctx.init_param.root_uri.as_ref().and_then(uri_to_file) {
+        let mut document_cache = ctx.document_cache.borrow_mut();
+        document_cache.documents.compiler_config.package_entry_points =
+            i_slint_compiler::package_entry_points(&root_path).unwrap_or_default();
+
+        for (uri, _) in document_cache.versions.clone().into_iter() {
+            if let Some(path) = uri_to_file(&uri) {
+                let mut diag = BuildDiagnostics::default();
+                document_cache.documents.analyze_document(&path, false, &mut diag).await;
+
+                let lsp_diags = to_lsp_diags(&diag, &path);
+                publish_diagnostic(ctx, lsp_diags).await?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
 pub async fn load_configuration(ctx: &Context) -> Result<()> {
     if !ctx
         .init_param
@@ -1183,6 +1217,8 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
     {
         return Ok(());
     }
+
+    update_package_entry_points(ctx).await?;
 
     let r = ctx
         .server_notifier

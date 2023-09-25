@@ -69,7 +69,7 @@ preview-api = []
 default = ["backend-qt", "backend-winit", "renderer-femtovg", "preview"]
 
 [dependencies]
-i-slint-compiler = { version = "=1.3.0", path = "../../internal/compiler"}
+i-slint-compiler = { version = "=1.3.0", path = "../../internal/compiler", features = ["workspace"] }
 dunce = "1.0.1"
 euclid = "0.22"
 lsp-types = { version = "0.94.0", features = ["proposed"] }
