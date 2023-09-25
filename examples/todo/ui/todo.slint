@@ -59,6 +59,7 @@ component MainWindow inherits Window {
 
     VerticalBox {
         HorizontalBox {
+            padding: 0px;
             text-edit := LineEdit {
                 placeholder-text: "What needs to be done?";
                 accepted(text) => {
@@ -77,6 +78,7 @@ component MainWindow inherits Window {
         }
 
         if (root.show-header) : HorizontalBox {
+            padding: 0px;
             alignment: start;
 
             CheckBox {
@@ -110,6 +112,7 @@ component MainWindow inherits Window {
             }
         }
         HorizontalBox {
+            padding: 0px;
             alignment: end;
             Button {
                 text: "Remove Done Items";
