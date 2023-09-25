@@ -22,10 +22,9 @@ i-slint-backend-testing = { path = "../../../internal/backends/testing" }
 slint-interpreter = { path = "../../../internal/interpreter", default-features = false, features = ["std", "compat-1-2"] }
 spin_on = "0.1"
 
-helper_components = { path = "../../helper_components" }
-
 [build-dependencies]
 i-slint-compiler = { path = "../../../internal/compiler", features = ["rust", "display-diagnostics"], optional = true }
 
+helper_components = { path = "../../helper_components" }
 spin_on = { version = "0.1", optional = true}
 test_driver_lib = { path = "../driverlib" }
