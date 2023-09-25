@@ -3,7 +3,7 @@
 
 use itertools::Itertools;
 use slint_interpreter::{DiagnosticLevel, Value, ValueType};
-use std::error::Error;
+use std::{collections::HashMap, error::Error};
 
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     i_slint_backend_testing::init();
@@ -12,8 +12,13 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let include_paths = test_driver_lib::extract_include_paths(&source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
+    let package_import_paths = HashMap::from([(
+        "helper_components".to_string(),
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../helper_components/lib.slint"),
+    )]);
     let mut compiler = slint_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(include_paths);
+    compiler.set_package_import_paths(package_import_paths);
     compiler.set_style(String::from("fluent")); // force to fluent style as Qt does not like multi-threaded test execution
 
     let component =
