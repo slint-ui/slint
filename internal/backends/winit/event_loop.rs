@@ -606,20 +606,21 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        use winit::platform::pump_events::{EventLoopExtPumpEvents, PumpStatus};
-        while let PumpStatus::Continue = winit_loop.pump_events(
-            None,
-            |event: Event<SlintUserEvent>,
-             event_loop_target: &EventLoopWindowTarget<SlintUserEvent>,
-             control_flow: &mut ControlFlow| {
-                let running_instance = RunningEventLoop {
-                    event_loop_target,
-                    event_loop_proxy: &event_loop_proxy,
-                    clipboard: &clipboard,
-                };
-                CURRENT_WINDOW_TARGET.set(&running_instance, || run_fn(event, control_flow))
-            },
-        ) {}
+        use winit::platform::run_ondemand::EventLoopExtRunOnDemand as _;
+        winit_loop
+            .run_ondemand(
+                |event: Event<SlintUserEvent>,
+                 event_loop_target: &EventLoopWindowTarget<SlintUserEvent>,
+                 control_flow: &mut ControlFlow| {
+                    let running_instance = RunningEventLoop {
+                        event_loop_target,
+                        event_loop_proxy: &event_loop_proxy,
+                        clipboard: &clipboard,
+                    };
+                    CURRENT_WINDOW_TARGET.set(&running_instance, || run_fn(event, control_flow))
+                },
+            )
+            .map_err(|e| format!("Error running winit event loop: {e}"))?;
 
         *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
 
