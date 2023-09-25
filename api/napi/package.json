@@ -21,7 +21,7 @@
   "scripts": {
     "artifacts": "napi artifacts",
     "compile": "esbuild index.ts --bundle --loader:.node=copy --format=cjs --platform=node --outfile=index.js",
-    "build": "npm run compile && napi build --platform --release --js napi.js --dts napi.d.ts",
+    "build": "napi build --platform --release --js napi.js --dts napi.d.ts && npm run compile",
     "build:debug": "napi build --platform",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava",
