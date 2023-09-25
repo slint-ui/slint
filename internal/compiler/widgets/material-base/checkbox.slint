@@ -12,7 +12,8 @@ export component CheckBox {
     out property <bool> has-focus: i-focus-scope.has-focus;
     in-out property <bool> checked;
 
-    min-height: max(18px, i-layout.min-height);
+    min-height: max(32px, i-layout.min-height);
+    vertical-stretch: 0;
 
     accessible-label <=> i-text.text;
     accessible-checkable: true;
@@ -34,7 +35,7 @@ export component CheckBox {
                     height: 100%;
                     border-radius: 2px;
                     border-width: 2px;
-                    border-color: Palette.on-surface;
+                    border-color: Palette.on-surface-variant;
                 }
 
                 i-state-layer := Rectangle {
