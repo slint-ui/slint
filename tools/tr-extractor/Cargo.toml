@@ -15,7 +15,7 @@ version.workspace = true
 categories = [ "gui", "command-line-utilities", "development-tools" ]
 
 [dependencies]
-i-slint-compiler = { version = "=1.3.0", path = "../../internal/compiler", features = ["display-diagnostics"] }
+i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics"] }
 chrono = {version = "0.4.24", default-features = false, features = ["clock"] }
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 polib = "0.2"

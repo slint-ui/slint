@@ -52,10 +52,10 @@ gettext = ["i-slint-core/gettext-rs"]
 default = ["backend-qt", "backend-winit", "renderer-femtovg"]
 
 [dependencies]
-i-slint-compiler = { version = "=1.3.0", path = "../../internal/compiler" }
-i-slint-core = { version = "=1.3.0", path="../../internal/core" }
-slint-interpreter = { version = "=1.3.0", path = "../../internal/interpreter", default-features = false, features = ["display-diagnostics", "compat-1-2"] }
-i-slint-backend-selector = { version = "=1.3.0", path="../../internal/backends/selector" }
+i-slint-compiler = { workspace = true, features = ["default"] }
+i-slint-core = { workspace = true, features = ["default"] }
+slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2"] }
+i-slint-backend-selector = { workspace = true, features = ["default"] }
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 

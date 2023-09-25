@@ -16,7 +16,7 @@ categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["formatter", "gui", "ui", "toolkit"]
 
 [dependencies]
-i-slint-compiler = { path = "../../internal/compiler", features = ["display-diagnostics"] }
+i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics"] }
 
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 codemap = "0.1"

@@ -17,6 +17,7 @@ version.workspace = true
 path = "lib.rs"
 
 [features]
+default = []
 shared-fontdb = ["dep:fontdb", "dep:libloading", "derive_more", "cfg-if"]
 
 [dependencies]

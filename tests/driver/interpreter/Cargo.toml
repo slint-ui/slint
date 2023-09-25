@@ -18,8 +18,8 @@ path = "main.rs"
 name = "test-driver-interpreter"
 
 [dev-dependencies]
-slint-interpreter = { path = "../../../internal/interpreter", default-features = false, features = ["display-diagnostics", "compat-1-2"] }
-i-slint-backend-testing = { path = "../../../internal/backends/testing" }
+slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2"] }
+i-slint-backend-testing = { workspace = true, features = ["default"] }
 
 itertools = "0.11"
 lazy_static = "1.4.0"
