@@ -446,7 +446,7 @@ jobs:
       run: |
           git checkout v${{ matrix.from_version }} --no-overlay -- examples
           git checkout v${{ matrix.from_version }} --no-overlay -- tests/cases
-          git checkout v${{ matrix.from_version }} --no-overlay -- tests/helper_components
+          git checkout v${{ matrix.from_version }} --no-overlay -- tests/helper_components/*.slint
           # Remove examples from the workspace because they may no longer exist or their Cargo.toml might prevent the build of the updater
           sed -i "/examples/d" Cargo.toml
     - name: "Commit old checkout"
