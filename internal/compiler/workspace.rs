@@ -10,41 +10,40 @@ use std::process::Command;
 
 use cargo_metadata::MetadataCommand;
 
-/// Resolves package import paths for dependencies in Cargo and NPM workspaces.
-pub fn package_import_paths(path: &std::path::Path) -> Option<HashMap<String, std::path::PathBuf>> {
+/// Resolves library paths for dependencies in Cargo and NPM workspaces.
+pub fn library_paths(path: &std::path::Path) -> Option<HashMap<String, std::path::PathBuf>> {
     let mut p = Some(path.clone());
     while let Some(path) = p {
         if path.join("Cargo.toml").exists() {
-            return crate::workspace::cargo_package_imports(&path);
+            return crate::workspace::cargo_library_paths(&path);
         }
         if path.join("package.json").exists() {
-            return crate::workspace::npm_package_imports(&path);
+            return crate::workspace::npm_library_paths(&path);
         }
         p = path.parent();
     }
     None
 }
 
-/// Resolves package import paths for dependencies in a Cargo workspace.
+/// Resolves library paths for dependencies in a Cargo workspace.
 ///
 /// Specified in `Cargo.toml`:
 /// ```toml
 /// [package.metadata.slint]
 /// export = "ui/lib.slint"
 /// ```
-fn cargo_package_imports(path: &Path) -> Option<HashMap<String, PathBuf>> {
+fn cargo_library_paths(path: &Path) -> Option<HashMap<String, PathBuf>> {
     let metadata = MetadataCommand::new().current_dir(&path).exec().ok()?;
     Some(metadata.packages.into_iter().fold(HashMap::new(), |mut paths, package| {
         let manifest_dir = package.manifest_path.parent().unwrap();
-        if let Some(export_path) = slint_export_path(manifest_dir.as_std_path(), &package.metadata)
-        {
-            paths.insert(package.name, export_path);
+        if let Some(path) = slint_library_path(manifest_dir.as_std_path(), &package.metadata) {
+            paths.insert(package.name, path);
         }
         paths
     }))
 }
 
-/// Resolves package import paths for dependencies in an NPM workspace.
+/// Resolves library paths for dependencies in an NPM workspace.
 ///
 /// Specified in `package.json`:
 /// ```json
@@ -54,7 +53,7 @@ fn cargo_package_imports(path: &Path) -> Option<HashMap<String, PathBuf>> {
 ///     }
 /// }
 /// ```
-fn npm_package_imports(path: &Path) -> Option<HashMap<String, PathBuf>> {
+fn npm_library_paths(path: &Path) -> Option<HashMap<String, PathBuf>> {
     let npm = std::env::var("npm_execpath").unwrap_or("npm".into());
     let output = Command::new(npm)
         .arg("ls")
@@ -67,9 +66,9 @@ fn npm_package_imports(path: &Path) -> Option<HashMap<String, PathBuf>> {
     Some(stdout.lines().map(Path::new).fold(HashMap::new(), |mut paths, path| {
         if let Ok(manifest_file) = File::open(path.join("package.json")) {
             if let Ok(json) = serde_json::from_reader(manifest_file) {
-                if let Some(export_path) = slint_export_path(&path, &json) {
+                if let Some(path) = slint_library_path(&path, &json) {
                     let name = path.file_name().unwrap().to_str().unwrap().to_string();
-                    paths.insert(name, export_path);
+                    paths.insert(name, path);
                 }
             }
         }
@@ -77,7 +76,7 @@ fn npm_package_imports(path: &Path) -> Option<HashMap<String, PathBuf>> {
     }))
 }
 
-fn slint_export_path(path: &Path, json: &serde_json::Value) -> Option<PathBuf> {
+fn slint_library_path(path: &Path, json: &serde_json::Value) -> Option<PathBuf> {
     let export_path = json.get("slint").and_then(|s| s.get("export"));
     match export_path {
         Some(serde_json::Value::String(s)) => path.join(s).into(),
@@ -90,11 +89,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_slint_export_path() {
+    fn test_slint_library_path() {
         let path = Path::new("/home/user/.cargo/registry/src/index.crates.io-abc/foo-1.2.3");
-        assert_eq!(slint_export_path(path, &serde_json::Value::Null), None);
+        assert_eq!(slint_library_path(path, &serde_json::Value::Null), None);
         assert_eq!(
-            slint_export_path(path, &serde_json::json!({"slint": {"export": "foo/bar.slint"}})),
+            slint_library_path(path, &serde_json::json!({"slint": {"export": "foo/bar.slint"}})),
             Some(path.join("foo/bar.slint").to_path_buf())
         );
     }

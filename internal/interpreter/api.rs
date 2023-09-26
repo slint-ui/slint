@@ -520,14 +520,14 @@ impl ComponentCompiler {
         &self.config.include_paths
     }
 
-    /// Sets the package import paths used for looking up `@package` imports to the specified map of package names to paths.
-    pub fn set_package_import_paths(&mut self, import_paths: HashMap<String, PathBuf>) {
-        self.config.package_import_paths = import_paths;
+    /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
+    pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
+        self.config.library_paths = library_paths;
     }
 
-    /// Returns the package imports paths the component compiler is currently configured with.
-    pub fn package_import_paths(&self) -> &HashMap<String, PathBuf> {
-        &self.config.package_import_paths
+    /// Returns the library paths the component compiler is currently configured with.
+    pub fn library_paths(&self) -> &HashMap<String, PathBuf> {
+        &self.config.library_paths
     }
 
     /// Sets the style to be used for widgets.

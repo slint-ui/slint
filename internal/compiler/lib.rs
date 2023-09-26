@@ -39,7 +39,7 @@ pub mod passes;
 #[cfg(feature = "workspace")]
 mod workspace;
 #[cfg(feature = "workspace")]
-pub use workspace::package_import_paths;
+pub use workspace::library_paths;
 
 /// Specify how the resources are embedded by the compiler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -61,8 +61,8 @@ pub struct CompilerConfiguration {
     pub embed_resources: EmbedResourcesKind,
     /// The compiler will look in these paths for components used in the file to compile.
     pub include_paths: Vec<std::path::PathBuf>,
-    /// The compiler will look in these paths for package imports.
-    pub package_import_paths: HashMap<String, std::path::PathBuf>,
+    /// The compiler will look in these paths for library imports.
+    pub library_paths: HashMap<String, std::path::PathBuf>,
     /// the name of the style. (eg: "native")
     pub style: Option<String>,
 
@@ -142,7 +142,7 @@ impl CompilerConfiguration {
         Self {
             embed_resources,
             include_paths: Default::default(),
-            package_import_paths: Default::default(),
+            library_paths: Default::default(),
             style: Default::default(),
             open_import_fallback: Default::default(),
             inline_all_elements,

@@ -60,8 +60,8 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
         }
         None => vec![],
     };
-    let import_paths = std::env::var("SLINT_PACKAGE_IMPORT_PATH").map_or_else(
-        |_| i_slint_compiler::package_import_paths(path).unwrap_or_default(),
+    let library_paths = std::env::var("SLINT_LIBRARY_PATH").map_or_else(
+        |_| i_slint_compiler::library_paths(path).unwrap_or_default(),
         |paths| {
             std::env::split_paths(&paths)
                 .filter_map(|entry| {
@@ -79,7 +79,7 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
 
     let mut compiler = slint_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(include_paths);
-    compiler.set_package_import_paths(import_paths);
+    compiler.set_library_paths(library_paths);
 
     let c = spin_on::spin_on(compiler.build_from_path(path));
 
