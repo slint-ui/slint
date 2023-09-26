@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
  - Fix compiler panic with `popup.close()` from outside of the popup. (#3513)
  - Fixed native style (Qt) not finishing its animations with Breeze (#3482)
  - Fixed native style not clipping correctly GroupBox (#3541)
+ - The `SLINT_DEBUG_PERFORMANCE` environment variable is now also compatible with the software renderer.
 
 ### Slint Language
 

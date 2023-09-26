@@ -419,7 +419,6 @@ pub trait ItemRenderer {
 
     /// Returns any rendering metrics collecting since the creation of the renderer (typically
     /// per frame)
-    #[cfg(feature = "std")]
     fn metrics(&self) -> crate::graphics::rendering_metrics_collector::RenderingMetrics {
         Default::default()
     }
