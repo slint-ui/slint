@@ -16,3 +16,4 @@ Concepts
    fonts.md
    purity.md
    translations.md
+   libraries.md
