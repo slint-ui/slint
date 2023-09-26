@@ -58,14 +58,20 @@ renderer-winit-skia-opengl= ["renderer-skia-opengl"]
 renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
-## Enable the built-in preview, that will popup in a native window
-preview = ["dep:slint", "dep:slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:image", "preview-lense", "preview-api"]
-## Enable the "Show Preview" lenses and action on components.
-## When this feature is enabled without the "preview" feature, the lenses do nothing, but the client can still interpret the command
-## to show the actual preview
+## Enable support for previewing .slint files
+preview = ["preview-builtin", "preview-external", "preview-engine"]
+## [deprecated] Used to enable the "Show Preview" lenses and action on components.
 preview-lense = []
-## Open a notification channel so that the LSP can communicate with the preview (when the preview is handled by the client)
-preview-api = []
+## [deprecated] Used to enable partial support for external previewers.
+## Use "preview-external" (and maybe "preview-engine" if you want the LSP binary
+## to provide an implementation of the external preview API when building for WASM)
+preview-api = ["preview-external"]
+## Build in the actual code to act as a preview for slint files.
+preview-engine = ["dep:slint", "dep:slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:image"]
+## Build in the actual code to act as a preview for slint files. Does nothing in WASM!
+preview-builtin = ["preview-engine"]
+## Support the external preview optionally used by e.g. the VSCode plugin
+preview-external = []
 
 default = ["backend-qt", "backend-winit", "renderer-femtovg", "preview"]
 
@@ -78,7 +84,7 @@ rowan = "0.15.5"
 serde = "1.0.118"
 serde_json = "1.0.60"
 
-# for the preview
+# for the preview-engine feature
 i-slint-backend-selector = { workspace = true, features = ["default"], optional = true }
 i-slint-core = { workspace = true, features = ["default"], optional = true }
 slint = { workspace = true, features = ["compat-1-2"], optional = true }
