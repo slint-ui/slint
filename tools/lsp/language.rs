@@ -57,7 +57,7 @@ fn command_list() -> Vec<String> {
     vec![
         QUERY_PROPERTIES_COMMAND.into(),
         REMOVE_BINDING_COMMAND.into(),
-        #[cfg(any(feature = "preview", feature = "preview-lense"))]
+        #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
         SHOW_PREVIEW_COMMAND.into(),
         SET_BINDING_COMMAND.into(),
     ]
@@ -255,7 +255,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
     });
     rh.register::<ExecuteCommand, _>(|params, ctx| async move {
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
-            #[cfg(feature = "preview")]
+            #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
             show_preview_command(&params.arguments, &ctx)?;
             return Ok(None::<serde_json::Value>);
         }
@@ -377,7 +377,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
     });
 }
 
-#[cfg(feature = "preview")]
+#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<()> {
     let document_cache = &mut ctx.document_cache.borrow_mut();
     let config = &document_cache.documents.compiler_config;
@@ -778,7 +778,7 @@ fn get_code_actions(
                 .and_then(syntax_nodes::Component::new)
         });
 
-    #[cfg(feature = "preview-lense")]
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
     {
         if let Some(component) = &component {
             if let Some(component_name) =
@@ -1045,7 +1045,7 @@ fn get_code_lenses(
     document_cache: &mut DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<CodeLens>> {
-    if cfg!(feature = "preview-lense") {
+    if cfg!(any(feature = "preview-builtin", feature = "preview-external")) {
         let filepath = uri_to_file(&text_document.uri)?;
         let doc = document_cache.documents.get_document(&filepath)?;
 
