@@ -105,12 +105,16 @@ fn generate_source(
     let include_paths = test_driver_lib::extract_include_paths(source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
+    let package_import_paths = i_slint_compiler::package_import_paths(&testcase.absolute_path);
 
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse(source.to_owned(), Some(&testcase.absolute_path), &mut diag);
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
     compiler_config.enable_component_containers = true;
     compiler_config.include_paths = include_paths;
+    if let Some(import_paths) = package_import_paths {
+        compiler_config.package_import_paths = import_paths;
+    }
     compiler_config.style = Some("fluent".to_string());
     let (root_component, diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
