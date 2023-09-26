@@ -17,13 +17,13 @@ use lsp_types::notification::Notification;
 use crate::wasm_prelude::*;
 
 mod ui;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 mod wasm;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 pub use wasm::*;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 mod native;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
 #[derive(Default)]
@@ -251,6 +251,7 @@ pub fn send_status_notification(sender: &crate::ServerNotifier, message: &str, h
         .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
 }
 
+#[cfg(feature = "preview-external")]
 pub fn ask_editor_to_show_document(
     sender: &crate::ServerNotifier,
     file: &str,

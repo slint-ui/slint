@@ -6,7 +6,7 @@
 mod common;
 mod language;
 pub mod lsp_ext;
-#[cfg(feature = "preview")]
+#[cfg(feature = "preview-engine")]
 mod preview;
 pub mod util;
 
@@ -52,19 +52,23 @@ impl PreviewApi for Previewer {
     }
 
     fn request_state(&self, ctx: &std::rc::Rc<crate::language::Context>) {
-        let documents = &ctx.document_cache.borrow().documents;
+        #[cfg(feature = "preview-external")]
+        {
+            let documents = &ctx.document_cache.borrow().documents;
 
-        for (p, d) in documents.all_file_documents() {
-            let Some(node) = &d.node else {
-                continue;
-            };
-            self.set_contents(p, &node.text().to_string());
+            for (p, d) in documents.all_file_documents() {
+                let Some(node) = &d.node else {
+                    continue;
+                };
+                self.set_contents(p, &node.text().to_string());
+            }
+            let style = documents.compiler_config.style.clone().unwrap_or_default();
+            self.config_changed(&style, &documents.compiler_config.include_paths);
         }
-        let style = documents.compiler_config.style.clone().unwrap_or_default();
-        self.config_changed(&style, &documents.compiler_config.include_paths);
     }
 
     fn set_contents(&self, path: &std::path::Path, contents: &str) {
+        #[cfg(feature = "preview-external")]
         let _ = self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
             crate::common::LspToPreviewMessage::SetContents {
@@ -75,6 +79,7 @@ impl PreviewApi for Previewer {
     }
 
     fn load_preview(&self, component: common::PreviewComponent) {
+        #[cfg(feature = "preview-external")]
         let _ = self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
             crate::common::LspToPreviewMessage::ShowPreview {
@@ -91,6 +96,7 @@ impl PreviewApi for Previewer {
     }
 
     fn config_changed(&self, style: &str, include_paths: &[PathBuf]) {
+        #[cfg(feature = "preview-external")]
         let _ = self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
             crate::common::LspToPreviewMessage::SetConfiguration {
@@ -104,6 +110,7 @@ impl PreviewApi for Previewer {
     }
 
     fn highlight(&self, path: Option<std::path::PathBuf>, offset: u32) -> Result<()> {
+        #[cfg(feature = "preview-external")]
         self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
             crate::common::LspToPreviewMessage::HighlightFromEditor {
@@ -276,6 +283,7 @@ pub fn create(
 
 #[wasm_bindgen]
 impl SlintServer {
+    #[cfg(all(feature = "preview-engine", feature = "preview-external"))]
     #[wasm_bindgen]
     pub async fn process_preview_to_lsp_message(
         &self,
@@ -343,16 +351,6 @@ impl SlintServer {
         })
     }
 
-    /*  #[wasm_bindgen]
-    pub fn show_preview(&self, params: JsValue) -> JsResult<()> {
-        language::show_preview_command(
-            &serde_wasm_bindgen::from_value(params)?,
-            &ServerNotifier,
-            &mut self.0.borrow_mut(),
-        )
-        .map_err(|e| JsError::new(&e.to_string()));
-    }*/
-
     #[wasm_bindgen]
     pub fn handle_request(&self, _id: JsValue, method: String, params: JsValue) -> js_sys::Promise {
         let guard = self.reentry_guard.clone();
@@ -380,7 +378,7 @@ async fn load_file(path: String, load_file: &Function) -> std::io::Result<String
     let string_future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(string_promise));
     let js_value =
         string_future.await.map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?;
-    Ok(js_value.as_string().unwrap_or_default())
+    return Ok(js_value.as_string().unwrap_or_default());
 }
 
 // Use a JSON friendly representation to avoid using ES maps instead of JS objects.
