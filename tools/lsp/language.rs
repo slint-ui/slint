@@ -1186,6 +1186,7 @@ fn find_element_id_for_highlight(
     None
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn update_library_paths(ctx: &Context) -> Result<()> {
     if let Some(root_path) = ctx.init_param.root_uri.as_ref().and_then(uri_to_file) {
         let mut document_cache = ctx.document_cache.borrow_mut();
@@ -1217,8 +1218,6 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
     {
         return Ok(());
     }
-
-    update_library_paths(ctx).await?;
 
     let r = ctx
         .server_notifier

@@ -125,11 +125,6 @@ export function languageClientOptions(
                 return actions;
             },
         },
-        synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher(
-                "**/{Cargo.toml,package.json}",
-            ),
-        },
     };
 }
 

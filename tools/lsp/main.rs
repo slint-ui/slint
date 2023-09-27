@@ -18,7 +18,12 @@ use lsp_types::notification::{
     DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidOpenTextDocument,
     Notification,
 };
-use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams};
+use lsp_types::request::RegisterCapability;
+use lsp_types::{
+    DidChangeTextDocumentParams, DidChangeWatchedFilesRegistrationOptions,
+    DidOpenTextDocumentParams, FileSystemWatcher, GlobPattern, InitializeParams, Registration,
+    RegistrationParams,
+};
 
 use clap::Parser;
 use lsp_server::{Connection, ErrorCode, Message, RequestId, Response};
@@ -222,6 +227,12 @@ pub fn run_lsp_server() -> Result<()> {
     Ok(())
 }
 
+async fn init_lsp_server(ctx: &Rc<Context>) -> Result<()> {
+    register_watched_files(ctx).await?;
+    update_library_paths(ctx).await?;
+    load_configuration(ctx).await
+}
+
 fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<()> {
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
@@ -244,7 +255,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<()>
     });
 
     let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();
-    let mut first_future = Box::pin(load_configuration(&ctx));
+    let mut first_future = Box::pin(init_lsp_server(&ctx));
 
     // We are waiting in this loop for two kind of futures:
     //  - The compiler future should always be ready immediately because we do not set a callback to load files
@@ -344,4 +355,40 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         _ => (),
     }
     Ok(())
+}
+
+async fn register_watched_files(ctx: &Rc<Context>) -> Result<()> {
+    if !ctx
+        .init_param
+        .capabilities
+        .workspace
+        .as_ref()
+        .and_then(|w| w.did_change_watched_files)
+        .and_then(|w| w.dynamic_registration)
+        .unwrap_or(false)
+    {
+        return Ok(());
+    }
+
+    let options = DidChangeWatchedFilesRegistrationOptions {
+        watchers: vec![
+            FileSystemWatcher {
+                glob_pattern: GlobPattern::String("**/Cargo.{toml,lock}".to_string()),
+                kind: None,
+            },
+            FileSystemWatcher {
+                glob_pattern: GlobPattern::String("**/{package,package-lock}.json".to_string()),
+                kind: None,
+            },
+        ],
+    };
+    ctx.server_notifier
+        .send_request::<RegisterCapability>(RegistrationParams {
+            registrations: vec![Registration {
+                id: DidChangeWatchedFiles::METHOD.to_string(),
+                method: DidChangeWatchedFiles::METHOD.to_string(),
+                register_options: serde_json::to_value(options).ok(),
+            }],
+        })?
+        .await
 }
