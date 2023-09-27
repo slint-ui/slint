@@ -32,6 +32,7 @@ use euclid::num::Zero;
 use euclid::Length;
 #[allow(unused)]
 use num_traits::Float;
+use num_traits::NumCast;
 
 pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
 
@@ -41,6 +42,35 @@ type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 
 type DirtyRegion = PhysicalRect;
+
+/// Extension trait for euclid type to transpose coordinate (swap x and y, as well as width and height)
+trait Rotate90 {
+    /// Return a copy of Self whose coordinate are swapped (x swapped with y)
+    #[must_use]
+    fn rotated90(&self, width: PhysicalLength) -> Self;
+}
+
+impl<T: Copy + NumCast + core::ops::Sub<Output = T>> Rotate90 for euclid::Point2D<T, PhysicalPx> {
+    fn rotated90(&self, width: PhysicalLength) -> Self {
+        Self::new(self.y, T::from(width.get()).unwrap() - self.x - T::from(1).unwrap())
+    }
+}
+
+impl<T: Copy> Rotate90 for euclid::Size2D<T, PhysicalPx> {
+    fn rotated90(&self, _width: PhysicalLength) -> Self {
+        Self::new(self.height, self.width)
+    }
+}
+
+impl<T: Copy + NumCast + core::ops::Sub<Output = T>> Rotate90 for euclid::Rect<T, PhysicalPx> {
+    fn rotated90(&self, width: PhysicalLength) -> Self {
+        Self::new(
+            self.origin.rotated90(width)
+                - euclid::vec2(T::from(0).unwrap(), self.size.width - T::from(1).unwrap()),
+            self.size.rotated90(width),
+        )
+    }
+}
 
 /// This enum describes which parts of the buffer passed to the [`SoftwareRenderer`] may be re-used to speed up painting.
 #[derive(PartialEq, Eq, Debug, Clone, Default, Copy)]
@@ -204,6 +234,27 @@ impl SoftwareRenderer {
     ///
     /// returns the dirty region for this frame (not including the extra_draw_region)
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
+        self.render_impl(buffer, pixel_stride, false)
+    }
+
+    /// Same as [`Self::render`] but the buffer is rotated by 90° (x and y coordinate are inverted)
+    ///
+    /// Note that only the buffer is considered rotated. The pixel_stride is now the size between two "columns"
+    /// in the buffer. The returned PhysicalRegion is in the same coordinate system as the scene, not the buffer
+    pub fn render_rotated(
+        &self,
+        buffer: &mut [impl TargetPixel],
+        pixel_stride: usize,
+    ) -> PhysicalRegion {
+        self.render_impl(buffer, pixel_stride, true)
+    }
+
+    fn render_impl(
+        &self,
+        buffer: &mut [impl TargetPixel],
+        pixel_stride: usize,
+        rotated: bool,
+    ) -> PhysicalRegion {
         let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
         else {
             return Default::default();
@@ -219,6 +270,8 @@ impl SoftwareRenderer {
                     .cast(),
                 window_item.background(),
             )
+        } else if rotated {
+            (euclid::size2((buffer.len() / pixel_stride) as _, pixel_stride as _), Brush::default())
         } else {
             (euclid::size2(pixel_stride as _, (buffer.len() / pixel_stride) as _), Brush::default())
         };
@@ -226,8 +279,11 @@ impl SoftwareRenderer {
             return Default::default();
         }
         assert!(
-            pixel_stride >= size.width as usize
-                && buffer.len() >= (size.height as usize * pixel_stride + size.width as usize) - pixel_stride,
+            if rotated {
+                pixel_stride >= size.height as usize && buffer.len() >= (size.width as usize * pixel_stride + size.height as usize) - pixel_stride
+            } else {
+                pixel_stride >= size.width as usize && buffer.len() >= (size.height as usize * pixel_stride + size.width as usize) - pixel_stride
+            },
             "buffer of size {} with stride {pixel_stride} is too small to handle a window of size {size:?}", buffer.len()
         );
         let buffer_renderer = SceneBuilder::new(
@@ -235,6 +291,7 @@ impl SoftwareRenderer {
             factor,
             window_inner,
             RenderToBuffer { buffer, stride: pixel_stride },
+            rotated,
         );
         let mut renderer = crate::item_rendering::PartialRenderer::new(
             &self.partial_cache,
@@ -848,13 +905,15 @@ enum SceneCommand {
 struct SceneTexture<'a> {
     data: &'a [u8],
     format: PixelFormat,
-    /// bytes between two lines in the source
-    stride: u16,
+    /// number of pixels between two lines in the source
+    pixel_stride: u16,
     source_size: PhysicalSize,
     /// Color to colorize. When not transparent, consider that the image is an alpha map and always use that color.
     /// The alpha of this color is ignored. (it is supposed to be mixed in `Self::alpha`)
     color: Color,
     alpha: u8,
+    /// Image rotated by 90°
+    rotated: bool,
 }
 
 enum SharedBufferData {
@@ -877,6 +936,7 @@ struct SharedBufferCommand {
     source_rect: PhysicalRect,
     colorize: Color,
     alpha: u8,
+    rotated: bool,
 }
 
 impl SharedBufferCommand {
@@ -887,37 +947,41 @@ impl SharedBufferCommand {
         match &self.buffer {
             SharedBufferData::SharedImage(SharedImageBuffer::RGB8(b)) => SceneTexture {
                 data: &b.as_bytes()[begin * 3..],
-                stride: 3 * b.width() as u16,
+                pixel_stride: b.width() as u16,
                 format: PixelFormat::Rgb,
                 source_size: self.source_rect.size,
                 color: self.colorize,
                 alpha: self.alpha,
+                rotated: self.rotated,
             },
             SharedBufferData::SharedImage(SharedImageBuffer::RGBA8(b)) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
-                stride: 4 * b.width() as u16,
+                pixel_stride: b.width() as u16,
                 format: PixelFormat::Rgba,
                 source_size: self.source_rect.size,
                 color: self.colorize,
                 alpha: self.alpha,
+                rotated: self.rotated,
             },
             SharedBufferData::SharedImage(SharedImageBuffer::RGBA8Premultiplied(b)) => {
                 SceneTexture {
                     data: &b.as_bytes()[begin * 4..],
-                    stride: 4 * b.width() as u16,
+                    pixel_stride: b.width() as u16,
                     format: PixelFormat::RgbaPremultiplied,
                     source_size: self.source_rect.size,
                     color: self.colorize,
                     alpha: self.alpha,
+                    rotated: self.rotated,
                 }
             }
             SharedBufferData::AlphaMap { data, width } => SceneTexture {
                 data: &data[begin..],
-                stride: *width,
+                pixel_stride: *width,
                 format: PixelFormat::AlphaMap,
                 source_size: self.source_rect.size,
                 color: self.colorize,
                 alpha: self.alpha,
+                rotated: self.rotated,
             },
         }
     }
@@ -967,7 +1031,7 @@ fn prepare_scene(
     software_renderer: &SoftwareRenderer,
 ) -> Scene {
     let factor = ScaleFactor::new(window.scale_factor());
-    let prepare_scene = SceneBuilder::new(size, factor, window, PrepareScene::default());
+    let prepare_scene = SceneBuilder::new(size, factor, window, PrepareScene::default(), false);
     let mut renderer = crate::item_rendering::PartialRenderer::new(
         &software_renderer.partial_cache,
         software_renderer.force_dirty.take(),
@@ -1018,8 +1082,8 @@ struct RenderToBuffer<'a, TargetPixel> {
     stride: usize,
 }
 
-impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
-    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
+impl<'a, T: TargetPixel> RenderToBuffer<'a, T> {
+    fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
         for line in geometry.min_y()..geometry.max_y() {
             draw_functions::draw_texture_line(
                 &geometry,
@@ -1029,17 +1093,16 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
             );
         }
     }
+}
+
+impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
+    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
+        self.process_texture_impl(geometry, texture)
+    }
 
     fn process_shared_image_buffer(&mut self, geometry: PhysicalRect, buffer: SharedBufferCommand) {
         let texture = buffer.as_texture();
-        for line in geometry.min_y()..geometry.max_y() {
-            draw_functions::draw_texture_line(
-                &geometry,
-                PhysicalLength::new(line),
-                &texture,
-                &mut self.buffer[line as usize * self.stride..],
-            );
-        }
+        self.process_texture_impl(geometry, texture);
     }
 
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
@@ -1154,6 +1217,10 @@ struct SceneBuilder<'a, T> {
     current_state: RenderState,
     scale_factor: ScaleFactor,
     window: &'a WindowInner,
+    /// True when the buffer is rotated by 90°.
+    rotated: bool,
+    /// The width of the scene, so we can compute the rotation
+    width: PhysicalLength,
 }
 
 impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
@@ -1162,6 +1229,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         scale_factor: ScaleFactor,
         window: &'a WindowInner,
         processor: T,
+        rotated: bool,
     ) -> Self {
         Self {
             processor,
@@ -1176,6 +1244,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             },
             scale_factor,
             window,
+            rotated,
+            width: size.width_length(),
         }
     }
 
@@ -1261,7 +1331,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         let actual_y = clipped_relative_source_rect.origin.y as usize
                             + source_rect.origin.y as usize
                             - t.rect.origin.y as usize;
-                        let stride = t.rect.width() as u16 * t.format.bpp() as u16;
+                        let pixel_stride = t.rect.width() as u16;
                         let color = if colorize.alpha() > 0 { colorize } else { t.color };
                         let alpha = if colorize.alpha() > 0 || t.format == PixelFormat::AlphaMap {
                             color.alpha() as u16 * global_alpha_u16 / 255
@@ -1270,16 +1340,21 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         } as u8;
 
                         self.processor.process_texture(
-                            target_rect.cast(),
+                            if self.rotated {
+                                target_rect.cast().rotated90(self.width)
+                            } else {
+                                target_rect.cast()
+                            },
                             SceneTexture {
-                                data: &data.as_slice()[(t.index
-                                    + (stride as usize) * actual_y
-                                    + (t.format.bpp()) * actual_x)..],
-                                stride,
+                                data: &data.as_slice()[t.index
+                                    + ((pixel_stride as usize) * actual_y + actual_x)
+                                        * t.format.bpp()..],
+                                pixel_stride,
                                 source_size: clipped_relative_source_rect.size.ceil().cast(),
                                 format: t.format,
                                 color,
                                 alpha,
+                                rotated: self.rotated,
                             },
                         );
                     }
@@ -1311,7 +1386,11 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         } as u8;
 
                         self.processor.process_shared_image_buffer(
-                            target_rect.cast(),
+                            if self.rotated {
+                                target_rect.cast().rotated90(self.width)
+                            } else {
+                                target_rect.cast()
+                            },
                             SharedBufferCommand {
                                 buffer: SharedBufferData::SharedImage(buffer),
                                 source_rect: clipped_relative_source_rect
@@ -1326,6 +1405,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     .cast(),
                                 colorize,
                                 alpha,
+                                rotated: self.rotated,
                             },
                         );
                     }
@@ -1359,10 +1439,14 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             paragraph.layout.font.height().get(),
                         );
                         if let Some(clipped_src) = geometry.intersection(&physical_clip.cast()) {
-                            self.processor.process_rectangle(
-                                clipped_src.translate(offset.cast()),
-                                selection.selection_background.into(),
-                            );
+                            let geometry = clipped_src.translate(offset.cast());
+                            let geometry = if self.rotated {
+                                geometry.rotated90(self.width)
+                            } else {
+                                geometry
+                            };
+                            self.processor
+                                .process_rectangle(geometry, selection.selection_background.into());
                         }
                     }
                     for positioned_glyph in glyphs {
@@ -1392,21 +1476,28 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             let origin = (geometry.origin - offset.round()).round().cast::<usize>();
                             let actual_x = origin.x - src_rect.origin.x as usize;
                             let actual_y = origin.y - src_rect.origin.y as usize;
-                            let stride = glyph.width.get() as u16;
-                            let geometry = geometry.cast();
+                            let pixel_stride = glyph.width.get() as u16;
+                            let source_size = geometry.size.cast();
+                            let geometry = if self.rotated {
+                                geometry.cast().rotated90(self.width)
+                            } else {
+                                geometry.cast()
+                            };
 
                             match &glyph.alpha_map {
                                 fonts::GlyphAlphaMap::Static(data) => {
                                     self.processor.process_texture(
                                         geometry,
                                         SceneTexture {
-                                            data: &data[actual_x + actual_y * stride as usize..],
-                                            stride,
-                                            source_size: geometry.size,
+                                            data: &data
+                                                [actual_x + actual_y * pixel_stride as usize..],
+                                            pixel_stride,
+                                            source_size,
                                             format: PixelFormat::AlphaMap,
                                             color,
                                             // color already is mixed with global alpha
                                             alpha: color.alpha(),
+                                            rotated: self.rotated,
                                         },
                                     );
                                 }
@@ -1416,15 +1507,16 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                         SharedBufferCommand {
                                             buffer: SharedBufferData::AlphaMap {
                                                 data: data.clone(),
-                                                width: stride,
+                                                width: pixel_stride,
                                             },
                                             source_rect: PhysicalRect::new(
                                                 PhysicalPoint::new(actual_x as _, actual_y as _),
-                                                geometry.size,
+                                                source_size,
                                             ),
                                             colorize: color,
                                             // color already is mixed with global alpha
                                             alpha: color.alpha(),
+                                            rotated: self.rotated,
                                         },
                                     );
                                 }
@@ -1483,21 +1575,28 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
             let background = rect.background();
             if let Brush::LinearGradient(g) = background {
-                let geom2 = geom.cast() * self.scale_factor;
-                let clipped2 = clipped.cast() * self.scale_factor;
-                let act_rect = (clipped.translate(self.current_state.offset.to_vector()).cast()
-                    * self.scale_factor)
-                    .round()
-                    .cast();
+                let mut geom2 = geom.cast() * self.scale_factor;
+                let mut clipped2 = clipped.cast() * self.scale_factor;
+                let mut act_rect =
+                    (clipped.translate(self.current_state.offset.to_vector()).cast()
+                        * self.scale_factor)
+                        .round()
+                        .cast();
 
-                let angle = g.angle();
+                let mut angle = g.angle();
+                if self.rotated {
+                    angle -= 90.;
+                    geom2 = geom2.rotated90(self.width);
+                    clipped2 = clipped2.rotated90(self.width);
+                    act_rect = act_rect.rotated90(self.width);
+                }
 
                 let tan = angle.to_radians().tan().abs();
                 let start = if !tan.is_finite() {
                     255.
                 } else {
-                    let h = tan * geom.width() as f32;
-                    255. * h / (h + geom.height() as f32)
+                    let h = tan * geom2.width() as f32;
+                    255. * h / (h + geom2.height() as f32)
                 } as u8;
                 let mut angle = angle as i32 % 360;
                 if angle < 0 {
@@ -1578,19 +1677,17 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 return;
             }
 
-            // FIXME: gradients
             let color = self.alpha_color(background.color());
 
             if color.alpha() == 0 {
                 return;
             }
-            self.processor.process_rectangle(
-                (clipped.translate(self.current_state.offset.to_vector()).cast()
-                    * self.scale_factor)
-                    .round()
-                    .cast(),
-                color.into(),
-            );
+            let geometry = (clipped.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .round()
+                .cast();
+            let geometry = if self.rotated { geometry.rotated90(self.width) } else { geometry };
+            self.processor.process_rectangle(geometry, color.into());
         }
     }
 
@@ -1642,15 +1739,23 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     .min(geom.width_length() / 2 as Coord)
                     .min(geom.height_length() / 2 as Coord);
                 if let Some(clipped) = geom.intersection(&self.current_state.clip) {
-                    let geom2 = geom.cast() * self.scale_factor;
-                    let clipped2 = clipped.cast() * self.scale_factor;
-                    // Add a small value to make sure that the clip is always positive despite floating point shenanigans
-                    const E: f32 = 0.00001;
-                    self.processor.process_rounded_rectangle(
+                    let mut geom2 = geom.cast() * self.scale_factor;
+                    let mut clipped2 = clipped.cast() * self.scale_factor;
+                    let mut geometry =
                         (clipped.translate(self.current_state.offset.to_vector()).cast()
                             * self.scale_factor)
                             .round()
-                            .cast(),
+                            .cast();
+                    if self.rotated {
+                        geom2 = geom2.rotated90(self.width);
+                        clipped2 = clipped2.rotated90(self.width);
+                        geometry = geometry.rotated90(self.width)
+                    }
+                    // Add a small value to make sure that the clip is always positive despite floating point shenanigans
+                    const E: f32 = 0.00001;
+
+                    self.processor.process_rounded_rectangle(
+                        geometry,
                         RoundedRectangle {
                             radius: (radius.cast() * self.scale_factor).cast(),
                             width: (border.cast() * self.scale_factor).cast(),
@@ -1679,13 +1784,13 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     .inflate(-border.get(), -border.get())
                     .intersection(&self.current_state.clip)
                 {
-                    self.processor.process_rectangle(
-                        (r.translate(self.current_state.offset.to_vector()).cast()
-                            * self.scale_factor)
-                            .round()
-                            .cast(),
-                        color,
-                    );
+                    let geometry = (r.translate(self.current_state.offset.to_vector()).cast()
+                        * self.scale_factor)
+                        .round()
+                        .cast();
+                    let geometry =
+                        if self.rotated { geometry.rotated90(self.width) } else { geometry };
+                    self.processor.process_rectangle(geometry, color);
                 }
             }
 
@@ -1693,13 +1798,13 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             if border_color.alpha > 0 {
                 let mut add_border = |r: LogicalRect| {
                     if let Some(r) = r.intersection(&self.current_state.clip) {
-                        self.processor.process_rectangle(
-                            (r.translate(self.current_state.offset.to_vector()).cast()
-                                * self.scale_factor)
-                                .round()
-                                .cast(),
-                            border_color,
-                        );
+                        let geometry = (r.translate(self.current_state.offset.to_vector()).cast()
+                            * self.scale_factor)
+                            .round()
+                            .cast();
+                        let geometry =
+                            if self.rotated { geometry.rotated90(self.width) } else { geometry };
+                        self.processor.process_rectangle(geometry, border_color);
                     }
                 };
                 let b = border.get();
@@ -1915,8 +2020,9 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             );
 
             if let Some(clipped_src) = cursor_rect.intersection(&physical_clip.cast()) {
-                self.processor
-                    .process_rectangle(clipped_src.translate(offset.cast()), color.into());
+                let geometry = clipped_src.translate(offset.cast());
+                let geometry = if self.rotated { geometry.rotated90(self.width) } else { geometry };
+                self.processor.process_rectangle(geometry, color.into());
             }
         }
     }
@@ -2003,7 +2109,11 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 let origin = (geometry.origin - offset.round()).cast::<usize>();
                 let actual_x = origin.x - src_rect.origin.x as usize;
                 let actual_y = origin.y - src_rect.origin.y as usize;
-                let geometry = geometry.cast();
+                let geometry = if self.rotated {
+                    geometry.cast().rotated90(self.width)
+                } else {
+                    geometry.cast()
+                };
 
                 self.processor.process_shared_image_buffer(
                     geometry,
@@ -2015,6 +2125,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                         ),
                         colorize: Default::default(),
                         alpha: (self.current_state.alpha * 255.) as u8,
+                        rotated: self.rotated,
                     },
                 );
             }
