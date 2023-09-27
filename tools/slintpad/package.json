@@ -44,7 +44,6 @@
         "vite-plugin-pwa": "^0.16.4",
         "vscode": "npm:@codingame/monaco-vscode-api@1.81.7",
         "vscode-languageclient": "~8.1.0",
-        "vscode-languageserver": "~8.1.0",
-        "vscode-languageserver-protocol": "^3.17.3"
+        "vscode-languageserver": "~8.1.0"
     }
 }
