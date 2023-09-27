@@ -563,6 +563,11 @@ impl Item for TextInput {
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
                 self.has_focus.set(false);
                 self.hide_cursor();
+                if matches!(event, FocusEvent::FocusOut) {
+                    self.as_ref()
+                        .anchor_position_byte_offset
+                        .set(self.as_ref().cursor_position_byte_offset());
+                }
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 if !self.read_only() {
                     if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
