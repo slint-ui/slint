@@ -88,12 +88,34 @@ impl PreviewConnector {
     }
 
     #[wasm_bindgen]
-    pub fn show_ui(&self) -> Result<js_sys::Promise, JsValue> {
+    pub fn show_ui(&self, width: u32, height: u32) -> Result<js_sys::Promise, JsValue> {
         {
             let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
             cache.ui_is_visible = true;
         }
-        invoke_from_event_loop_wrapped_in_promise(|instance| instance.show())
+        invoke_from_event_loop_wrapped_in_promise(move |instance| {
+            instance.show()?;
+            instance
+                .window()
+                .set_size(slint::LogicalSize { width: width as f32, height: height as f32 });
+            Ok(())
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn resize_ui(&self, width: u32, height: u32) -> Result<js_sys::Promise, JsValue> {
+        {
+            let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+            if !cache.ui_is_visible {
+                return Ok(js_sys::Promise::resolve(&JsValue::UNDEFINED));
+            }
+        }
+        invoke_from_event_loop_wrapped_in_promise(move |instance| {
+            instance
+                .window()
+                .set_size(slint::LogicalSize { width: width as f32, height: height as f32 });
+            Ok(())
+        })
     }
 
     #[wasm_bindgen]

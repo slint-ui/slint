@@ -13,17 +13,14 @@ export class PreviewWidget extends Widget {
 
     static createNode(): HTMLElement {
         const node = document.createElement("div");
-        node.className = "preview-container";
+        node.className = "preview-editor";
 
         const canvas_id = "canvas";
         const canvas = document.createElement("canvas");
+        node.appendChild(canvas);
 
         canvas.id = canvas_id;
         canvas.className = canvas_id;
-
-        canvas.dataset.slintAutoResizeToPreferred = "true";
-
-        node.appendChild(canvas);
 
         return node;
     }
@@ -43,10 +40,28 @@ export class PreviewWidget extends Widget {
 
             // Give the UI some time to wire up the canvas so it can be found
             // when searching the document.
-            this.#previewer.show_ui().then(() => {
-                console.info("UI should be up!");
-            });
+            this.#previewer
+                .show_ui(this.node.clientWidth, this.node.clientHeight)
+                .then(() => {
+                    console.info("UI should be up!");
+                });
         });
+    }
+
+    protected onResize(msg: Widget.ResizeMessage): void {
+        super.onResize(msg);
+        this.#previewer?.resize_ui(
+            this.node.clientWidth,
+            this.node.clientHeight,
+        );
+    }
+
+    protected onAfterShow(msg: Message): void {
+        super.onAfterShow(msg);
+        this.#previewer?.resize_ui(
+            this.node.clientWidth,
+            this.node.clientHeight,
+        );
     }
 
     protected onCloseRequest(msg: Message): void {

@@ -74,6 +74,12 @@
     color: var(--highlight-fg);
 }
 
+.preview-editor.content {
+    padding: 0px;
+    min-width: 200px;
+    min-height: 200px;
+}
+
 .properties-editor .element-header {
     background: var(--highlight-bg);
     color: var(--highlight-fg);

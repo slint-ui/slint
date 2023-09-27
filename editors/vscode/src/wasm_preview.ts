@@ -88,23 +88,30 @@ function open_preview(context: vscode.ExtensionContext): boolean {
 
 function getPreviewHtml(slint_wasm_preview_url: Uri): string {
     const result = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="height:100%">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Slint Preview</title>
-    <script type="module">
+</head>
+<body style="height:100%;padding:4px;">
+  <div id="preview-editor" style="width:100%;height:100%;padding:0px;">
+     <canvas id="canvas"></canvas>
+  </div>
+  <script type="module">
     "use strict";
     import * as slint_preview from '${slint_wasm_preview_url}';
     await slint_preview.default();
 
     const vscode = acquireVsCodeApi();
-    let promises = {};
+
     try {
         slint_preview.run_event_loop();
     } catch (_) {
         // This is actually not an error:-/
     }
+
+    const div_node = document.getElementById("preview-editor");
 
     let preview_connector = await slint_preview.PreviewConnector.create(
         (data) => { vscode.postMessage({ command: "slint/preview_to_lsp", params: data }); }
@@ -120,11 +127,12 @@ function getPreviewHtml(slint_wasm_preview_url: Uri): string {
         }
     });
 
-    preview_connector.show_ui().then(() => vscode.postMessage({ command: 'preview_ready' }));
-    </script>
-</head>
-<body>
-  <canvas style="margin-top: 10px; width: 100%; height:100%" id="canvas"></canvas>
+    window.addEventListener('resize', async message => {
+        preview_connector.resize_ui(div_node.clientWidth, div_node.clientHeight);
+    });
+
+    preview_connector.show_ui(div_node.clientWidth, div_node.clientHeight).then(() => vscode.postMessage({ command: 'preview_ready' }));
+  </script>
 </body>
 </html>`;
 

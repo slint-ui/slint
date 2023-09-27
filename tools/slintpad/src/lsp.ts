@@ -93,8 +93,12 @@ export class Previewer {
         this.#preview_connector = connector;
     }
 
-    show_ui(): Promise<void> {
-        return this.#preview_connector.show_ui();
+    show_ui(width: number, height: number): Promise<void> {
+        return this.#preview_connector.show_ui(width, height);
+    }
+
+    resize_ui(width: number, height: number): Promise<void> {
+        return this.#preview_connector.resize_ui(width, height);
     }
 }
 
