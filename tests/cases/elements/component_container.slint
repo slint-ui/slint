@@ -1,6 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+// FIXME: Skip embedding test on C++ and NodeJS since ComponentFactory is not
+// implemented there!
+//ignore: cpp,js
+
 import { Button } from "std-widgets.slint";
 
 export component TestCase inherits Rectangle {
@@ -18,8 +22,6 @@ export component TestCase inherits Rectangle {
 /*
 ```cpp
 // ComponentFactory not supported yet!
-
-// THIS TEST IS HARD DISABLED IN build.rs of the C++ test driver
 ```
 
 ```rust

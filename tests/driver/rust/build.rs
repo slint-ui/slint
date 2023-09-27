@@ -17,6 +17,7 @@ fn main() -> std::io::Result<()> {
         }
         writeln!(generated_file, "#[path=\"{0}.rs\"] mod r#{0};", module_name)?;
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
+        let ignored = testcase.is_ignored("rust");
 
         let mut output = std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
@@ -36,12 +37,13 @@ fn main() -> std::io::Result<()> {
             write!(
                 output,
                 r"
-#[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
+#[test] {} fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
     use i_slint_backend_testing as slint_testing;
     slint_testing::init();
     {}
     Ok(())
 }}",
+                if ignored { "#[ignore]" } else { "" },
                 i,
                 x.source.replace('\n', "\n    ")
             )?;

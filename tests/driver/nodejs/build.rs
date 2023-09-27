@@ -39,17 +39,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for testcase in test_driver_lib::collect_test_cases("cases")? {
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let test_function_name = testcase.identifier();
-
-        if &test_function_name == "elements_component_container" {
-            // FIXME: Skip embedding test on NodeJS since ComponentFactory is not
-            // implemented there!
-            continue;
-        }
+        let ignored = testcase.is_ignored("js");
 
         write!(
             tests_file,
             r##"
             #[test]
+            {ignore}
             fn test_nodejs_{function_name}() {{
                 nodejs::test(&test_driver_lib::TestCase{{
                     absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
@@ -57,6 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }}).unwrap();
             }}
         "##,
+            ignore = if ignored { "#[ignore]" } else { "" },
             function_name = test_function_name,
             absolute_path = testcase.absolute_path.to_string_lossy(),
             relative_path = testcase.relative_path.to_string_lossy(),

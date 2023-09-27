@@ -11,11 +11,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for testcase in test_driver_lib::collect_test_cases("cases")? {
         let test_function_name = testcase.identifier();
+        let ignored = testcase.is_ignored("interpreter");
 
         write!(
             tests_file,
             r##"
             #[test]
+            {ignore}
             fn test_interpreter_{function_name}() {{
                 interpreter::test(&test_driver_lib::TestCase{{
                     absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
@@ -23,6 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }}).unwrap();
             }}
         "##,
+            ignore = if ignored { "#[ignore]" } else { "" },
             function_name = test_function_name,
             absolute_path = testcase.absolute_path.to_string_lossy(),
             relative_path = testcase.relative_path.to_string_lossy(),
