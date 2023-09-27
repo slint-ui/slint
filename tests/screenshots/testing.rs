@@ -56,12 +56,19 @@ pub fn image_buffer(path: &str) -> Result<SharedPixelBuffer<Rgb8Pixel>, image::I
     })
 }
 
-pub fn screenshot(window: Rc<MinimalSoftwareWindow>) -> SharedPixelBuffer<Rgb8Pixel> {
+pub fn screenshot(
+    window: Rc<MinimalSoftwareWindow>,
+    rotated: bool,
+) -> SharedPixelBuffer<Rgb8Pixel> {
     let size = window.size();
     let width = size.width;
     let height = size.height;
 
-    let mut buffer = SharedPixelBuffer::<Rgb8Pixel>::new(width, height);
+    let mut buffer = if rotated {
+        SharedPixelBuffer::<Rgb8Pixel>::new(width, height)
+    } else {
+        SharedPixelBuffer::<Rgb8Pixel>::new(height, width)
+    };
 
     // render to buffer
     window.request_redraw();
@@ -70,7 +77,11 @@ pub fn screenshot(window: Rc<MinimalSoftwareWindow>) -> SharedPixelBuffer<Rgb8Pi
             Point2D::new(0., 0.),
             Point2D::new(width as f32, height as f32),
         ));
-        renderer.render(buffer.make_mut_slice(), width as usize);
+        if rotated {
+            renderer.render_rotated(buffer.make_mut_slice(), height as usize);
+        } else {
+            renderer.render(buffer.make_mut_slice(), width as usize);
+        }
     });
 
     buffer
@@ -111,6 +122,7 @@ fn color_difference(lhs: &Rgb8Pixel, rhs: &Rgb8Pixel) -> f32 {
 fn compare_images(
     reference_path: &str,
     screenshot: &SharedPixelBuffer<Rgb8Pixel>,
+    rotated: bool,
 ) -> Result<(), String> {
     let compare = || {
         let reference = image_buffer(reference_path)
@@ -123,28 +135,50 @@ fn compare_images(
                 screenshot.size()
             ));
         }
-        if reference.as_bytes() == screenshot.as_bytes() {
+        if reference.as_bytes() == screenshot.as_bytes() && !rotated {
             return Ok(());
         }
 
-        let (failed_pixel_count, max_color_difference) =
-            reference.as_slice().iter().zip(screenshot.as_slice().iter()).fold(
-                (0, 0.0f32),
-                |(failure_count, max_color_difference), (reference_pixel, screenshot_pixel)| {
-                    (
-                        failure_count + (reference_pixel != screenshot_pixel) as usize,
-                        max_color_difference
-                            .max(color_difference(reference_pixel, screenshot_pixel)),
-                    )
-                },
-            );
+        let fold_pixel = |(failure_count, max_color_difference): (usize, f32),
+                          (reference_pixel, screenshot_pixel)| {
+            (
+                failure_count + (reference_pixel != screenshot_pixel) as usize,
+                max_color_difference.max(color_difference(reference_pixel, screenshot_pixel)),
+            )
+        };
+
+        let (failed_pixel_count, max_color_difference) = if rotated {
+            let mut failure_count = 0usize;
+            let mut max_color_difference = 0.0f32;
+            for y in 0..screenshot.height() {
+                for x in 0..screenshot.width() {
+                    let pa = &reference.as_slice()
+                        [(x * reference.width() + (reference.width() - y - 1)) as usize];
+                    let pb = &screenshot.as_slice()[(y * screenshot.width() + x) as usize];
+                    (failure_count, max_color_difference) =
+                        fold_pixel((failure_count, max_color_difference), (pa, pb));
+                }
+            }
+            (failure_count, max_color_difference)
+        } else {
+            reference
+                .as_slice()
+                .iter()
+                .zip(screenshot.as_slice().iter())
+                .fold((0usize, 0.0f32), fold_pixel)
+        };
         if max_color_difference < 1.75 {
             return Ok(());
         }
 
         for y in 0..screenshot.height() {
             for x in 0..screenshot.width() {
-                let pa = reference.as_slice()[(y * reference.width() + x) as usize];
+                let ref_idx = if rotated {
+                    x * reference.width() + (reference.width() - y - 1)
+                } else {
+                    y * reference.width() + x
+                } as usize;
+                let pa = reference.as_slice()[ref_idx];
                 let pb = screenshot.as_slice()[(y * screenshot.width() + x) as usize];
                 let ca = crossterm::style::Color::Rgb { r: pa.r, g: pa.g, b: pa.b };
                 let cb = crossterm::style::Color::Rgb { r: pb.r, g: pb.g, b: pb.b };
@@ -189,9 +223,15 @@ fn compare_images(
 }
 
 pub fn assert_with_render(path: &str, window: Rc<MinimalSoftwareWindow>) {
-    let rendering = screenshot(window);
-    if let Err(reason) = compare_images(path, &rendering) {
+    let rendering = screenshot(window.clone(), false);
+    if let Err(reason) = compare_images(path, &rendering, false) {
         panic!("Image comparison failure for {path}: {reason}");
+    }
+
+    // Also try the rotated version
+    let rendering = screenshot(window, true);
+    if let Err(reason) = compare_images(path, &rendering, true) {
+        panic!("Image comparison failure for rotated {path}: {reason}");
     }
 }
 
@@ -200,7 +240,7 @@ pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow>)
     let mut rendering = SharedPixelBuffer::<Rgb8Pixel>::new(s.width, s.height);
 
     screenshot_render_by_line(window.clone(), None, &mut rendering);
-    if let Err(reason) = compare_images(path, &rendering) {
+    if let Err(reason) = compare_images(path, &rendering, false) {
         panic!("Image comparison failure for line-by-line rendering for {path}: {reason}");
     }
 
@@ -216,7 +256,7 @@ pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow>)
         ));
     }
     screenshot_render_by_line(window, Some(region.cast()), &mut rendering);
-    if let Err(reason) = compare_images(path, &rendering) {
+    if let Err(reason) = compare_images(path, &rendering, false) {
         panic!("Partial rendering image comparison failure for line-by-line rendering for {path}: {reason}");
     }
 }
@@ -248,7 +288,7 @@ pub fn screenshot_render_by_line(
 }
 
 pub fn save_screenshot(path: &str, window: Rc<MinimalSoftwareWindow>) {
-    let buffer = screenshot(window.clone());
+    let buffer = screenshot(window.clone(), false);
     image::save_buffer(
         path,
         buffer.as_bytes(),

@@ -20,25 +20,53 @@ pub(super) fn draw_texture_line(
     texture: &super::SceneTexture,
     line_buffer: &mut [impl TargetPixel],
 ) {
-    let super::SceneTexture { data, format, stride, source_size, color, alpha } = *texture;
+    let super::SceneTexture { data, format, pixel_stride, source_size, color, alpha, rotated } =
+        *texture;
     let source_size = source_size.cast::<usize>();
     let span_size = span.size.cast::<usize>();
     let bpp = format.bpp();
     let y = (line - span.origin.y_length()).cast::<usize>();
-    let y_pos = (y.get() * source_size.height / span_size.height) * stride as usize;
 
-    for (x, pix) in line_buffer
-        [span.origin.x as usize..(span.origin.x_length() + span.size.width_length()).get() as usize]
-        .iter_mut()
-        .enumerate()
-    {
-        let pos = y_pos + (x * source_size.width / span_size.width) * bpp;
+    let line_buffer = &mut line_buffer[span.origin.x as usize..][..span.size.width as usize];
+
+    if !rotated {
+        let y_pos = (y.get() * source_size.height / span_size.height) * pixel_stride as usize;
+        let mut pos = y_pos << 8;
+        let delta = (source_size.width << 8) / span_size.width;
+        for pix in line_buffer {
+            fetch_blend_pixel(pix, format, data, (pos >> 8) * bpp, alpha, color);
+            pos += delta;
+        }
+    } else {
+        let col = (span_size.height - y.get() - 1) * source_size.width / span_size.height;
+        let col = col * bpp;
+        let stride = pixel_stride as usize * bpp;
+        let mut row = 0;
+        let row_delta = (source_size.height << 8) / span_size.width;
+        for pix in line_buffer {
+            let pos = (row >> 8) * stride + col;
+            fetch_blend_pixel(pix, format, data, pos, alpha, color);
+            row += row_delta;
+        }
+    };
+
+    //let pos = y_pos + (x * source_width / span_size.width) * bpp;
+
+    #[inline]
+    fn fetch_blend_pixel(
+        pix: &mut impl TargetPixel,
+        format: PixelFormat,
+        data: &[u8],
+        pos: usize,
+        alpha: u8,
+        color: Color,
+    ) {
         let c = match format {
             PixelFormat::Rgb => {
                 let p = &data[pos..pos + 3];
                 if alpha == 0xff {
                     *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
-                    continue;
+                    return;
                 } else {
                     PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
                         alpha, p[0], p[1], p[2],
