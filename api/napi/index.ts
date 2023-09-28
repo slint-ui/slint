@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+import { ComponentCompiler, ComponentInstance, Window } from "./napi";
 export * from "./napi";
 
 /**
@@ -144,4 +145,75 @@ export class ArrayModel<T> implements Model<T> {
     entries(): IterableIterator<[number, T]> {
         return this.a.entries()
     }
+}
+
+export class Component {
+    private instance: ComponentInstance;
+
+    /**
+    * @hidden
+    */
+    constructor(instance: ComponentInstance) {
+        this.instance = instance;
+    }
+
+    run() {
+        this.instance.run();
+    }
+
+    show() {
+        this.instance.window().show();
+    }
+
+    hide() {
+        this.instance.window().hide();
+    }
+
+    get window(): Window {
+        return this.instance.window();
+    }
+}
+
+/**
+ * @hidden
+ */
+interface Callback {
+    (): any;
+    setHandler(cb: any): void;
+}
+
+export function create(path: string): Component | null {
+    let compiler = new ComponentCompiler;
+    let definition = compiler.buildFromPath(path);
+
+    if (definition != null) {
+        let instance = definition!.create();
+
+        if (instance != null) {
+            let component = new Component(instance);
+
+            instance!.definition().properties.forEach((prop) => {
+                Object.defineProperty(component, prop.name.replace(/-/g, '_') , {
+                    get() { return instance!.getProperty(prop.name); },
+                    set(value) { instance!.setProperty(prop.name, value); },
+                    enumerable: true
+                })
+            });
+
+            instance!.definition().callbacks.forEach((cb) => {
+                Object.defineProperty(component, cb.replace(/-/g, '_') , {
+                    get() {
+                        let callback = function () { return instance!.invoke(cb, [...arguments]); } as Callback;
+                        callback.setHandler = function (callback) { instance!.setCallback(cb, callback) };
+                        return callback;
+                    },
+                    enumerable: true,
+                })
+            });
+
+            return component;
+        }
+    }
+
+    return null;
 }
