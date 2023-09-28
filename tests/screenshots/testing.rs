@@ -15,7 +15,7 @@ use i_slint_core::{
     item_rendering::DirtyRegion,
     platform::PlatformError,
     renderer::RendererSealed,
-    software_renderer::{LineBufferProvider, MinimalSoftwareWindow},
+    software_renderer::{LineBufferProvider, MinimalSoftwareWindow, WindowRotation},
 };
 
 pub struct SwrTestingBackend {
@@ -58,16 +58,17 @@ pub fn image_buffer(path: &str) -> Result<SharedPixelBuffer<Rgb8Pixel>, image::I
 
 pub fn screenshot(
     window: Rc<MinimalSoftwareWindow>,
-    rotated: bool,
+    rotated: WindowRotation,
 ) -> SharedPixelBuffer<Rgb8Pixel> {
     let size = window.size();
     let width = size.width;
     let height = size.height;
 
-    let mut buffer = if rotated {
-        SharedPixelBuffer::<Rgb8Pixel>::new(width, height)
-    } else {
-        SharedPixelBuffer::<Rgb8Pixel>::new(height, width)
+    let mut buffer = match rotated {
+        WindowRotation::Rotate90 | WindowRotation::Rotate270 => {
+            SharedPixelBuffer::<Rgb8Pixel>::new(height, width)
+        }
+        _ => SharedPixelBuffer::<Rgb8Pixel>::new(width, height),
     };
 
     // render to buffer
@@ -77,11 +78,9 @@ pub fn screenshot(
             Point2D::new(0., 0.),
             Point2D::new(width as f32, height as f32),
         ));
-        if rotated {
-            renderer.render_rotated(buffer.make_mut_slice(), height as usize);
-        } else {
-            renderer.render(buffer.make_mut_slice(), width as usize);
-        }
+        renderer.set_window_rotation(rotated);
+        renderer.render(buffer.make_mut_slice(), width as usize);
+        renderer.set_window_rotation(WindowRotation::NoRotation);
     });
 
     buffer
@@ -122,7 +121,7 @@ fn color_difference(lhs: &Rgb8Pixel, rhs: &Rgb8Pixel) -> f32 {
 fn compare_images(
     reference_path: &str,
     screenshot: &SharedPixelBuffer<Rgb8Pixel>,
-    rotated: bool,
+    rotated: WindowRotation,
 ) -> Result<(), String> {
     let compare = || {
         let reference = image_buffer(reference_path)
@@ -135,9 +134,20 @@ fn compare_images(
                 screenshot.size()
             ));
         }
-        if reference.as_bytes() == screenshot.as_bytes() && !rotated {
+        if reference.as_bytes() == screenshot.as_bytes() && rotated != WindowRotation::NoRotation {
             return Ok(());
         }
+
+        let idx = |x: u32, y: u32| -> u32 {
+            match rotated {
+                WindowRotation::Rotate90 => x * reference.width() + reference.width() - y - 1,
+                WindowRotation::Rotate180 => {
+                    (reference.height() - y - 1) * reference.width() + reference.width() - x - 1
+                }
+                WindowRotation::Rotate270 => (reference.height() - x - 1) * reference.width() + y,
+                _ => y * reference.width() + x,
+            }
+        };
 
         let fold_pixel = |(failure_count, max_color_difference): (usize, f32),
                           (reference_pixel, screenshot_pixel)| {
@@ -147,13 +157,12 @@ fn compare_images(
             )
         };
 
-        let (failed_pixel_count, max_color_difference) = if rotated {
+        let (failed_pixel_count, max_color_difference) = if rotated != WindowRotation::NoRotation {
             let mut failure_count = 0usize;
             let mut max_color_difference = 0.0f32;
             for y in 0..screenshot.height() {
                 for x in 0..screenshot.width() {
-                    let pa = &reference.as_slice()
-                        [(x * reference.width() + (reference.width() - y - 1)) as usize];
+                    let pa = &reference.as_slice()[idx(x, y) as usize];
                     let pb = &screenshot.as_slice()[(y * screenshot.width() + x) as usize];
                     (failure_count, max_color_difference) =
                         fold_pixel((failure_count, max_color_difference), (pa, pb));
@@ -173,12 +182,7 @@ fn compare_images(
 
         for y in 0..screenshot.height() {
             for x in 0..screenshot.width() {
-                let ref_idx = if rotated {
-                    x * reference.width() + (reference.width() - y - 1)
-                } else {
-                    y * reference.width() + x
-                } as usize;
-                let pa = reference.as_slice()[ref_idx];
+                let pa = reference.as_slice()[idx(x, y) as usize];
                 let pb = screenshot.as_slice()[(y * screenshot.width() + x) as usize];
                 let ca = crossterm::style::Color::Rgb { r: pa.r, g: pa.g, b: pa.b };
                 let cb = crossterm::style::Color::Rgb { r: pb.r, g: pb.g, b: pb.b };
@@ -223,15 +227,16 @@ fn compare_images(
 }
 
 pub fn assert_with_render(path: &str, window: Rc<MinimalSoftwareWindow>) {
-    let rendering = screenshot(window.clone(), false);
-    if let Err(reason) = compare_images(path, &rendering, false) {
-        panic!("Image comparison failure for {path}: {reason}");
-    }
-
-    // Also try the rotated version
-    let rendering = screenshot(window, true);
-    if let Err(reason) = compare_images(path, &rendering, true) {
-        panic!("Image comparison failure for rotated {path}: {reason}");
+    for rotation in [
+        WindowRotation::NoRotation,
+        WindowRotation::Rotate180,
+        WindowRotation::Rotate90,
+        WindowRotation::Rotate270,
+    ] {
+        let rendering = screenshot(window.clone(), rotation);
+        if let Err(reason) = compare_images(path, &rendering, rotation) {
+            panic!("Image comparison failure for {path} ({rotation:?}): {reason}");
+        }
     }
 }
 
@@ -240,7 +245,7 @@ pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow>)
     let mut rendering = SharedPixelBuffer::<Rgb8Pixel>::new(s.width, s.height);
 
     screenshot_render_by_line(window.clone(), None, &mut rendering);
-    if let Err(reason) = compare_images(path, &rendering, false) {
+    if let Err(reason) = compare_images(path, &rendering, WindowRotation::NoRotation) {
         panic!("Image comparison failure for line-by-line rendering for {path}: {reason}");
     }
 
@@ -256,7 +261,7 @@ pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow>)
         ));
     }
     screenshot_render_by_line(window, Some(region.cast()), &mut rendering);
-    if let Err(reason) = compare_images(path, &rendering, false) {
+    if let Err(reason) = compare_images(path, &rendering, WindowRotation::NoRotation) {
         panic!("Partial rendering image comparison failure for line-by-line rendering for {path}: {reason}");
     }
 }
@@ -288,7 +293,7 @@ pub fn screenshot_render_by_line(
 }
 
 pub fn save_screenshot(path: &str, window: Rc<MinimalSoftwareWindow>) {
-    let buffer = screenshot(window.clone(), false);
+    let buffer = screenshot(window.clone(), WindowRotation::NoRotation);
     image::save_buffer(
         path,
         buffer.as_bytes(),
