@@ -452,7 +452,6 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 }
                 M::ShowDocument { file, start_line, start_column, end_line, end_column } => {
                     crate::preview::ask_editor_to_show_document(
-                        &ctx.server_notifier,
                         &file,
                         start_line,
                         start_column,

@@ -183,32 +183,6 @@ pub fn highlight(path: &Option<PathBuf>, offset: u32) {
     }
 }
 
-pub fn show_document_request_from_element_callback(
-    file: &str,
-    start_line: u32,
-    start_column: u32,
-    _end_line: u32,
-    end_column: u32,
-) -> Option<lsp_types::ShowDocumentParams> {
-    use lsp_types::{Position, Range, ShowDocumentParams, Url};
-
-    if file.is_empty() || start_column == 0 || end_column == 0 {
-        return None;
-    }
-
-    let start_pos = Position::new(start_line.saturating_sub(1), start_column.saturating_sub(1));
-    // let end_pos = Position::new(end_line.saturating_sub(1), end_column.saturating_sub(1));
-    // Place the cursor at the start of the range and do not mark up the entire range!
-    let selection = Some(Range::new(start_pos, start_pos));
-
-    Url::from_file_path(file).ok().map(|uri| ShowDocumentParams {
-        uri,
-        external: Some(false),
-        take_focus: Some(true),
-        selection,
-    })
-}
-
 pub fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
 ) -> HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> {
@@ -247,28 +221,4 @@ pub fn send_status_notification(sender: &crate::ServerNotifier, message: &str, h
             },
         )
         .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
-}
-
-#[cfg(feature = "preview-external")]
-pub fn ask_editor_to_show_document(
-    sender: &crate::ServerNotifier,
-    file: &str,
-    start_line: u32,
-    start_column: u32,
-    end_line: u32,
-    end_column: u32,
-) {
-    let Some(params) = crate::preview::show_document_request_from_element_callback(
-        file,
-        start_line,
-        start_column,
-        end_line,
-        end_column,
-    ) else {
-        return;
-    };
-    let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
-        return;
-    };
-    i_slint_core::future::spawn_local(fut).unwrap();
 }
