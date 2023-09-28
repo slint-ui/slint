@@ -81,11 +81,11 @@ The rest depends on the language you are using:
 <details data-snippet-language="rust">
 <summary>Rust</summary>
 
-Export the entry-point of the library in `Cargo.toml`:
+Specify the entry-point of the library in `Cargo.toml`:
 
 ```toml
 [package.metadata.slint]
-export = "ui/lib.slint"
+index = "ui/lib.slint"
 ```
 
 </details>
@@ -93,12 +93,12 @@ export = "ui/lib.slint"
 <details data-snippet-language="js">
 <summary>JavaScript</summary>
 
-Export the entry-point of the library in `package.json`:
+Specify the entry-point of the library in `package.json`:
 
 ```json
 {
     "slint": {
-        "export": "ui/lib.slint"
+        "index": "ui/lib.slint"
     }
 }
 ```

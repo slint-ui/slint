@@ -3,6 +3,6 @@
     "version": "0.1.0",
     "private": true,
     "slint": {
-        "export": "lib.slint"
+        "index": "lib.slint"
     }
 }

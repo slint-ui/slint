@@ -13,4 +13,4 @@ version.workspace = true
 publish = false
 
 [package.metadata.slint]
-export = "lib.slint"
+index = "lib.slint"

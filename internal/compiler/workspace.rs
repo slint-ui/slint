@@ -30,7 +30,7 @@ pub fn library_paths(path: &std::path::Path) -> Option<HashMap<String, std::path
 /// Specified in `Cargo.toml`:
 /// ```toml
 /// [package.metadata.slint]
-/// export = "ui/lib.slint"
+/// index = "ui/lib.slint"
 /// ```
 fn cargo_library_paths(path: &Path) -> Option<HashMap<String, PathBuf>> {
     let metadata = MetadataCommand::new().current_dir(&path).exec().ok()?;
@@ -49,7 +49,7 @@ fn cargo_library_paths(path: &Path) -> Option<HashMap<String, PathBuf>> {
 /// ```json
 /// {
 ///     "slint": {
-///         "export": "ui/lib.slint"
+///         "index": "ui/lib.slint"
 ///     }
 /// }
 /// ```
@@ -77,9 +77,9 @@ fn npm_library_paths(path: &Path) -> Option<HashMap<String, PathBuf>> {
 }
 
 fn slint_library_path(path: &Path, json: &serde_json::Value) -> Option<PathBuf> {
-    let export_path = json.get("slint").and_then(|s| s.get("export"));
-    match export_path {
-        Some(serde_json::Value::String(s)) => path.join(s).into(),
+    let index = json.get("slint").and_then(|s| s.get("index"));
+    match index {
+        Some(serde_json::Value::String(index)) => path.join(index).into(),
         _ => None,
     }
 }
@@ -93,7 +93,7 @@ mod tests {
         let path = Path::new("/home/user/.cargo/registry/src/index.crates.io-abc/foo-1.2.3");
         assert_eq!(slint_library_path(path, &serde_json::Value::Null), None);
         assert_eq!(
-            slint_library_path(path, &serde_json::json!({"slint": {"export": "foo/bar.slint"}})),
+            slint_library_path(path, &serde_json::json!({"slint": {"index": "foo/bar.slint"}})),
             Some(path.join("foo/bar.slint").to_path_buf())
         );
     }
