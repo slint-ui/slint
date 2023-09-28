@@ -16,6 +16,12 @@ impl TestCase {
             .to_string_lossy()
             .replace([std::path::MAIN_SEPARATOR, '-'], "_")
     }
+
+    /// Returns true if the test case should be ignored for the specified driver.
+    pub fn is_ignored(&self, driver: &str) -> bool {
+        let source = std::fs::read_to_string(&self.absolute_path).unwrap();
+        extract_ignores(&source).collect::<Vec<_>>().contains(&driver)
+    }
 }
 
 /// Returns a list of all the `.slint` files in the subfolders e.g. `tests/cases` .
@@ -138,4 +144,28 @@ fn test_extract_include_paths() {
     let source = "//include_path: ../first\r\n//include_path: ../second\r\nBlah {}\r\n";
     let r = extract_include_paths(source).collect::<Vec<_>>();
     assert_eq!(r, ["../first", "../second"]);
+}
+
+/// Extract `//ignore` comments from the source.
+fn extract_ignores(source: &str) -> impl Iterator<Item = &'_ str> {
+    lazy_static::lazy_static! {
+        static ref RX: Regex = Regex::new(r"//ignore:\s*(.+)\s*\n").unwrap();
+    }
+    RX.captures_iter(source).flat_map(|mat| {
+        mat.get(1).unwrap().as_str().split(&[' ', ',']).map(str::trim).filter(|s| !s.is_empty())
+    })
+}
+
+#[test]
+fn test_extract_ignores() {
+    assert!(extract_ignores("something").next().is_none());
+
+    let source = r"
+    //ignore: cpp
+    //ignore: rust, nodejs
+    Blah {}
+";
+
+    let r = extract_ignores(source).collect::<Vec<_>>();
+    assert_eq!(r, ["cpp", "rust", "nodejs"]);
 }

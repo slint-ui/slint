@@ -4,13 +4,13 @@
 [package]
 name = "slint-lsp"
 description = "A language server protocol implementation for Slint"
-authors.workspace = true
+authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
-homepage.workspace = true
+homepage = "https://slint.dev"
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-version.workspace = true
+version = "1.3.0"
 categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["lsp", "ui", "toolkit"]
 

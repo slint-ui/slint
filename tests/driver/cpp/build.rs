@@ -44,12 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for testcase in test_driver_lib::collect_test_cases("cases")? {
         let test_function_name = testcase.identifier();
-
-        if &test_function_name == "elements_component_container" {
-            // FIXME: Skip embedding test on C++ since ComponentFactory is not
-            // implemented there!
-            continue;
-        }
+        let ignored = testcase.is_ignored("cpp");
 
         if &test_function_name == "imports_library" {
             // FIXME: Skip library import test on C++ since library dependencies
@@ -61,6 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             tests_file,
             r##"
             #[test]
+            {ignore}
             fn test_cpp_{function_name}() {{
                 cppdriver::test(&test_driver_lib::TestCase{{
                     absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
@@ -69,6 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }}
 
         "##,
+            ignore = if ignored { "#[ignore]" } else { "" },
             function_name = test_function_name,
             absolute_path = testcase.absolute_path.to_string_lossy(),
             relative_path = testcase.relative_path.to_string_lossy(),
