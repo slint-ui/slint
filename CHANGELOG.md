@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file.
 ### Slint Language
 
  - Added `Number`, `Decimal` variant to enum `InputType`
+ - Added `spacing-horizontal` and `spacing-vertical` in `GridLayout`
 
 ### Rust API
 

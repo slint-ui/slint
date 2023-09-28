@@ -223,6 +223,8 @@ Alternatively, the item can be put in a `Row` element.
 ### Properties
 
 -   **`spacing`** (_in_ _length_): The distance between the elements in the layout.
+-   **`spacing-horizontal`**, **`spacing-vertical`** (_in_ _length_): 
+    Set these properties to override the spacing on specific directions.
 -   **`padding`** (_in_ _length_): The padding within the layout.
 -   **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (_in_ _length_):
     Set these properties to override the padding on specific sides.

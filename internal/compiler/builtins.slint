@@ -212,6 +212,8 @@ component Row {
 
 // Note: layouts are not NativeClass, but this is lowered in lower_layout
 export component GridLayout {
+    in property <length> spacing-horizontal;
+    in property <length> spacing-vertical;
     in property <length> spacing;
 
     // Additional accepted child

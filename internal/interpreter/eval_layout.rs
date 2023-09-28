@@ -144,7 +144,7 @@ fn padding_and_spacing(
     orientation: Orientation,
     expr_eval: &impl Fn(&NamedReference) -> f32,
 ) -> (core_layout::Padding, f32) {
-    let spacing = layout_geometry.spacing.as_ref().map_or(0., expr_eval);
+    let spacing = layout_geometry.spacing.orientation(orientation).map_or(0., expr_eval);
     let (begin, end) = layout_geometry.padding.begin_end(orientation);
     let padding =
         core_layout::Padding { begin: begin.map_or(0., expr_eval), end: end.map_or(0., expr_eval) };

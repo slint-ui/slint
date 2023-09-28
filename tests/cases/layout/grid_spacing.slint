@@ -1,0 +1,109 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+TestCase := Rectangle {
+    width: 600phx;
+    height: 300phx;
+
+    Rectangle {
+        width: 300phx;
+        height: 300phx;
+        GridLayout {
+            spacing: 10phx;
+            Row {
+                Rectangle {
+                    width: 5phx;
+                    height: 5phx;
+                    background: red;
+                }
+
+                rect1 := Rectangle {
+                    width: 5phx;
+                    height: 5phx;
+                    background: red;
+                }
+            }
+
+            Row {
+                Rectangle {
+                    width: 5phx;
+                    height: 5phx;
+                    background: red;
+                }
+
+                rect2 := Rectangle {
+                    width: 5phx;
+                    height: 5phx;
+                    background: red;
+                }
+            }
+        }
+    }
+
+    property <bool> rect1_pos_ok: rect1.x == 15phx && rect1.y == 0phx; 
+    property <bool> rect2_pos_ok: rect2.x == 15phx && rect2.y == 15phx; 
+
+    Rectangle {
+        width: 300phx;
+        height: 300phx;
+        GridLayout {
+            spacing-horizontal: 20phx;
+            spacing-vertical: 30phx;
+            spacing: 10phx;
+            Row {
+                Rectangle {
+                    width: 5phx;
+                    height: 5phx;
+                    background: red;
+                }
+
+                rect3 := Rectangle {
+                    width: 5phx;
+                    height: 5phx;
+                    background: red;
+                }
+            }
+
+            Row {
+                Rectangle {
+                    width: 5phx;
+                    height: 5phx;
+                    background: red;
+                }
+
+                rect4 := Rectangle {
+                    width: 5phx;
+                    height: 5phx;
+                    background: red;
+                }
+            }
+        }
+    }
+
+    property <bool> rect3_pos_ok: rect3.x == 25phx && rect3.y == 0phx; 
+    property <bool> rect4_pos_ok: rect4.x == 25phx && rect4.y == 35phx; 
+    
+    out property <bool> test: rect1_pos_ok && rect2_pos_ok &&rect3_pos_ok && rect4_pos_ok;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_rect1_pos_ok());
+assert(instance.get_rect2_pos_ok());
+assert(instance.get_rect3_pos_ok());
+assert(instance.get_rect4_pos_ok());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_rect1_pos_ok());
+assert!(instance.get_rect2_pos_ok());
+assert!(instance.get_rect3_pos_ok());
+assert!(instance.get_rect4_pos_ok());
+```
+
+*/

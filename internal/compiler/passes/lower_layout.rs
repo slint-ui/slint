@@ -437,7 +437,14 @@ fn lower_dialog_layout(
         grid.geometry.padding.top.get_or_insert(NamedReference::new(metrics, "layout-padding"));
         grid.geometry.padding.left.get_or_insert(NamedReference::new(metrics, "layout-padding"));
         grid.geometry.padding.right.get_or_insert(NamedReference::new(metrics, "layout-padding"));
-        grid.geometry.spacing.get_or_insert(NamedReference::new(metrics, "layout-spacing"));
+        grid.geometry
+            .spacing
+            .horizontal
+            .get_or_insert(NamedReference::new(metrics, "layout-spacing"));
+        grid.geometry
+            .spacing
+            .vertical
+            .get_or_insert(NamedReference::new(metrics, "layout-spacing"));
     }
 
     let layout_cache_prop_h = create_new_prop(dialog_element, "layout-cache-h", Type::LayoutCache);
