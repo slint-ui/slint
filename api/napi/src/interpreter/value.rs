@@ -4,8 +4,8 @@
 use crate::{JsBrush, JsImageData, JsModel};
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
-use i_slint_core::model::ModelRc;
-use i_slint_core::{Brush, Color};
+use i_slint_core::model::{Model, ModelRc, SharedVectorModel};
+use i_slint_core::{Brush, Color, SharedVector};
 use napi::{
     bindgen_prelude::*, Env, JsBoolean, JsExternal, JsNumber, JsObject, JsString, JsUnknown, Result,
 };
@@ -65,7 +65,18 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
             Ok(JsBrush::from(brush.clone()).into_instance(*env)?.as_object(*env).into_unknown())
         }
         Value::Model(model) => {
-            Ok(JsModel::from(model.clone()).into_instance(*env)?.as_object(*env).into_unknown())
+            if let Some(js_model) = model.as_any().downcast_ref::<JsModel>() {
+                let model: Object = js_model.model().get()?;
+                Ok(model.into_unknown())
+            } else {
+                let mut vec = vec![];
+
+                for i in 0..model.row_count() {
+                    vec.push(to_js_unknown(env, &model.row_data(i).unwrap())?);
+                }
+
+                Ok(Array::from_vec(env, vec)?.coerce_to_object()?.into_unknown())
+            }
         }
         _ => env.get_undefined().map(|v| v.into_unknown()),
     }
@@ -154,10 +165,6 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 Ok(Value::Image(Image::from_rgba8(pixel_buffer)))
             }
         }
-        Type::Model => {
-            let js_model: JsExternal = unknown.coerce_to_object()?.get("model")?.unwrap();
-            Ok(Value::Model(env.get_value_external::<ModelRc<Value>>(&js_model)?.clone()))
-        }
         Type::Struct { fields, name: _, node: _, rust_attributes: _ } => {
             let js_object = unknown.coerce_to_object()?;
 
@@ -179,9 +186,28 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                     .collect::<Result<_, _>>()?,
             ))
         }
-        Type::Array(_) => todo!(),
+        Type::Array(a) => {
+            if unknown.is_array()? {
+                let array = Array::from_unknown(unknown)?;
+                let mut vec = vec![];
+
+                for i in 0..array.len() {
+                    vec.push(to_value(env, array.get(i)?.unwrap(), *a.to_owned())?);
+                }
+                Ok(Value::Model(ModelRc::new(SharedVectorModel::from(SharedVector::from_slice(
+                    &vec,
+                )))))
+            } else {
+                let model = unknown.coerce_to_object()?;
+                let _: JsFunction = model.get("rowCount")?.unwrap();
+                let _: JsFunction = model.get("rowData")?.unwrap();
+
+                Ok(Value::Model(ModelRc::new(JsModel::new(*env, model, *a.to_owned())?)))
+            }
+        }
         Type::Enumeration(_) => todo!(),
         Type::Invalid
+        | Type::Model
         | Type::Void
         | Type::InferredProperty
         | Type::InferredCallback

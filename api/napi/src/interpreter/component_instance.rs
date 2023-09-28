@@ -332,17 +332,17 @@ impl JsComponentInstance {
 }
 
 // Wrapper around Ref<>, which requires manual ref-counting.
-struct RefCountedReference {
+pub struct RefCountedReference {
     env: Env,
     reference: Ref<()>,
 }
 
 impl RefCountedReference {
-    fn new<T: NapiRaw>(env: &Env, value: T) -> Result<Self> {
+    pub fn new<T: NapiRaw>(env: &Env, value: T) -> Result<Self> {
         Ok(Self { env: env.clone(), reference: env.create_reference(value)? })
     }
 
-    fn get<T: NapiValue>(&self) -> Result<T> {
+    pub fn get<T: NapiValue>(&self) -> Result<T> {
         self.env.get_reference_value(&self.reference)
     }
 }
