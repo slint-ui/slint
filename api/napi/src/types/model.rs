@@ -5,7 +5,9 @@ use std::rc::{Rc, Weak};
 
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::Model;
-use napi::{bindgen_prelude::Object, Env, JsFunction, JsNumber, JsUnknown, NapiRaw, Result};
+use napi::{
+    bindgen_prelude::Object, Env, JsFunction, JsNumber, JsUnknown, NapiRaw, Result, ValueType,
+};
 use slint_interpreter::Value;
 
 use crate::{to_js_unknown, to_value, RefCountedReference};
@@ -69,7 +71,13 @@ impl Model for JsModel {
                         .ok()
                 })
             })
-            .and_then(|res| to_value(&self.env, res, self.data_type.clone()).ok())
+            .and_then(|res| {
+                if res.get_type().unwrap() == ValueType::Undefined {
+                    None
+                } else {
+                    to_value(&self.env, res, self.data_type.clone()).ok()
+                }
+            })
     }
 
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {

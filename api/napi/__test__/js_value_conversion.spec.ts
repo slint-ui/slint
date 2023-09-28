@@ -295,7 +295,7 @@ test('ArrayModel', (t) => {
   instance!.setProperty("struct-model", new ArrayModel([ { "name": "simon", "age": 22 }, { "name": "florian", "age": 22 }]));
 
   let structArrayModel = instance!.getProperty("struct-model") as ArrayModel<object>;
-  t.deepEqual(structArrayModel.values(), new ArrayModel([ { "name": "simon", "age": 22 }, { "name": "florian", "age": 22 }]));
+  t.deepEqual(structArrayModel.values(), new ArrayModel([ { "name": "simon", "age": 22 }, { "name": "florian", "age": 22 }]).values());
 })
 
 test('ArrayModel rowCount', (t) => {
