@@ -20,7 +20,7 @@ pub(super) fn draw_texture_line(
     texture: &super::SceneTexture,
     line_buffer: &mut [impl TargetPixel],
 ) {
-    let super::SceneTexture { data, format, pixel_stride, source_size, color, alpha, rotated } =
+    let super::SceneTexture { data, format, pixel_stride, source_size, color, alpha, rotation } =
         *texture;
     let source_size = source_size.cast::<usize>();
     let span_size = span.size.cast::<usize>();
@@ -29,28 +29,36 @@ pub(super) fn draw_texture_line(
 
     let line_buffer = &mut line_buffer[span.origin.x as usize..][..span.size.width as usize];
 
-    if !rotated {
-        let y_pos = (y.get() * source_size.height / span_size.height) * pixel_stride as usize;
-        let mut pos = y_pos << 8;
-        let delta = (source_size.width << 8) / span_size.width;
+    let y = if rotation.mirror_width() { span_size.height - y.get() - 1 } else { y.get() };
+
+    if !rotation.is_transpose() {
+        let y_pos = (y * source_size.height / span_size.height) * pixel_stride as usize;
+        let mut delta = ((source_size.width << 8) / span_size.width) as isize;
+        let mut pos = (y_pos << 8) as isize;
+        if rotation.mirror_height() {
+            pos += (span_size.width as isize - 1) * delta;
+            delta = -delta;
+        };
         for pix in line_buffer {
-            fetch_blend_pixel(pix, format, data, (pos >> 8) * bpp, alpha, color);
+            fetch_blend_pixel(pix, format, data, (pos as usize >> 8) * bpp, alpha, color);
             pos += delta;
         }
     } else {
-        let col = (span_size.height - y.get() - 1) * source_size.width / span_size.height;
+        let col = y * source_size.width / span_size.height;
         let col = col * bpp;
         let stride = pixel_stride as usize * bpp;
-        let mut row = 0;
-        let row_delta = (source_size.height << 8) / span_size.width;
+        let row_delta = ((source_size.height << 8) / span_size.width) as isize;
+        let (mut row, row_delta) = if rotation.mirror_height() {
+            ((span_size.width as isize - 1) * row_delta, -row_delta)
+        } else {
+            (0, row_delta)
+        };
         for pix in line_buffer {
-            let pos = (row >> 8) * stride + col;
+            let pos = (row as usize >> 8) * stride + col;
             fetch_blend_pixel(pix, format, data, pos, alpha, color);
             row += row_delta;
         }
     };
-
-    //let pos = y_pos + (x * source_width / span_size.width) * bpp;
 
     #[inline]
     fn fetch_blend_pixel(
