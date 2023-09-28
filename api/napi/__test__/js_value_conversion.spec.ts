@@ -267,9 +267,15 @@ test('get/set brush properties', (t) => {
 test('ArrayModel', (t) => {
   let compiler = new ComponentCompiler;
   let definition = compiler.buildFromSource(`
+  export struct Player {
+    name: string,
+    age: int
+  }
+
   export component App {
     in-out property <[int]> int-model;
     in-out property <[string]> string-model;
+    in-out property <[Player]> struct-model;
   }`, "");
   t.not(definition, null);
 
@@ -285,6 +291,11 @@ test('ArrayModel', (t) => {
 
   let stringArrayModel = instance!.getProperty("string-model") as ArrayModel<number>;
   t.deepEqual(stringArrayModel.values(), new ArrayModel(["Simon", "Olivier", "Auri", "Tobias", "Florian"]).values());
+
+  instance!.setProperty("struct-model", new ArrayModel([ { "name": "simon", "age": 22 }, { "name": "florian", "age": 22 }]));
+
+  let structArrayModel = instance!.getProperty("struct-model") as ArrayModel<object>;
+  t.deepEqual(structArrayModel.values(), new ArrayModel([ { "name": "simon", "age": 22 }, { "name": "florian", "age": 22 }]));
 })
 
 test('ArrayModel rowCount', (t) => {

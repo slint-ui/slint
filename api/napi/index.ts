@@ -53,7 +53,7 @@ interface Model<T> {
      * Implementations of this function must return the data at the specified row.
      * @param row
      */
-    rowData(row: number): T;
+    rowData(row: number): T | undefined;
     /**
      * Implementations of this function must store the provided data parameter
      * in the model at the specified row.
