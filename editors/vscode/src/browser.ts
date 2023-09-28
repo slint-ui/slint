@@ -11,7 +11,6 @@ import {
 } from "vscode-languageclient/browser";
 
 import { PropertiesViewProvider } from "./properties_webview";
-import * as wasm_preview from "./wasm_preview";
 import * as common from "./common";
 
 let statusBar: vscode.StatusBarItem;
@@ -21,8 +20,6 @@ function startClient(
     client: common.ClientHandle,
     context: vscode.ExtensionContext,
 ) {
-    //let args = vscode.workspace.getConfiguration('slint').get<[string]>('lsp-args');
-
     // Options to control the language client
     const clientOptions = common.languageClientOptions();
     clientOptions.synchronize = {};
@@ -45,24 +42,28 @@ function startClient(
                 worker,
             );
 
-            client.add_updater((cl) => {
-                cl?.onRequest("slint/load_file", async (param: string) => {
-                    let contents = await vscode.workspace.fs.readFile(
-                        Uri.parse(param, true),
-                    );
-                    return new TextDecoder().decode(contents);
-                });
-            });
-
             cl.start().then(() => (client.client = cl));
         }
     };
 }
 
+function setupClient(client_handle: common.ClientHandle) {
+    client_handle.add_updater((cl: BaseLanguageClient | null) => {
+        cl?.onRequest("slint/load_file", async (param: string) => {
+            let contents = await vscode.workspace.fs.readFile(
+                Uri.parse(param, true),
+            );
+            return new TextDecoder().decode(contents);
+        });
+    });
+}
+
 // this method is called when vs code is activated
 export function activate(context: vscode.ExtensionContext) {
-    [statusBar, properties_provider] = common.activate(context, (cl, ctx) =>
-        startClient(cl, ctx),
+    [statusBar, properties_provider] = common.activate(
+        context,
+        (cl) => setupClient(cl),
+        (cl, ctx) => startClient(cl, ctx),
     );
 }
 

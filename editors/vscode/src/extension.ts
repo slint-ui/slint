@@ -17,6 +17,7 @@ import {
     ServerOptions,
     ExecutableOptions,
     State,
+    BaseLanguageClient,
 } from "vscode-languageclient/node";
 
 let statusBar: vscode.StatusBarItem;
@@ -147,13 +148,17 @@ function startClient(
         common.languageClientOptions(),
     );
 
+    cl.start().then(() => (client.client = cl));
+}
+
+function setupClient(client_handle: common.ClientHandle) {
     // Add setup common between native and wasm LSP to common.setup_client_handle!
-    client.add_updater((cl) => {
+    client_handle.add_updater((cl: BaseLanguageClient | null) => {
         cl?.onNotification(common.serverStatus, (params: any) =>
             common.setServerStatus(params, statusBar),
         );
 
-        cl?.onDidChangeState((event) => {
+        cl?.onDidChangeState((event: any) => {
             let properly_stopped = cl.hasOwnProperty("slint_stopped");
             if (
                 !properly_stopped &&
@@ -171,8 +176,6 @@ function startClient(
             }
         });
     });
-
-    cl.start().then(() => (client.client = cl));
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -191,8 +194,10 @@ export function activate(context: vscode.ExtensionContext) {
             );
     }
 
-    [statusBar, properties_provider] = common.activate(context, (cl, ctx) =>
-        startClient(cl, ctx),
+    [statusBar, properties_provider] = common.activate(
+        context,
+        (cl) => setupClient(cl),
+        (cl, ctx) => startClient(cl, ctx),
     );
 }
 

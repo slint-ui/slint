@@ -127,6 +127,7 @@ export function languageClientOptions(): LanguageClientOptions {
 
 export function activate(
     context: vscode.ExtensionContext,
+    setup_client: (_client: ClientHandle) => void,
     startClient: (_client: ClientHandle, _ctx: vscode.ExtensionContext) => void,
 ): [vscode.StatusBarItem, PropertiesViewProvider] {
     const statusBar = vscode.window.createStatusBarItem(
@@ -139,6 +140,8 @@ export function activate(
 
     context.subscriptions.push(statusBar);
     statusBar.text = "Slint";
+
+    setup_client(client);
 
     client.add_updater((cl) => {
         if (cl !== null) {

@@ -292,7 +292,7 @@ pub fn ask_editor_to_show_document(
         start_column,
         end_line,
         end_column,
-    })
+    });
 }
 
 pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
