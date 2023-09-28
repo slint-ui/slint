@@ -52,7 +52,7 @@ impl FromNapiValue for JsSize {
             .and_then(|f64_num| f64_num.try_into().ok())
             .ok_or_else(
                 || napi::Error::from_reason(
-                    format!("Cannot convert object to Point, because the provided object does not have an f64 height property")
+                    format!("Cannot convert object to Size, because the provided object does not have an f64 height property")
             ))?;
 
         Ok(JsSize { width, height })
