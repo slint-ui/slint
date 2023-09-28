@@ -41,7 +41,7 @@ impl JsWindow {
             .map_err(|_| napi::Error::from_reason("Cannot hide window.".to_string()))
     }
 
-    #[napi]
+    #[napi(getter)]
     pub fn is_visible(&self) -> bool {
         self.inner.window().is_visible()
     }

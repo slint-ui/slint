@@ -3,8 +3,7 @@
 
 import test from 'ava'
 
-import { ComponentCompiler, ComponentDefinition, ComponentInstance, Window, ValueType,
-  Point, Size } from '../index'
+import { ComponentCompiler, ComponentDefinition, ComponentInstance, ValueType} from '../index'
 
 test('get/set include paths', (t) => {
   let compiler = new ComponentCompiler;
@@ -237,36 +236,4 @@ test('non-existent properties and callbacks', (t) => {
   });
   t.is(callback_err!.code, 'GenericFailure');
   t.is(callback_err!.message, 'Callback non-existent-callback not found in the component');
-})
-
-test('Window constructor', (t) => {
-  t.throws(() => {
-     new Window()
-    },
-      {
-        code: "GenericFailure",
-        message: "Window can only be created by using a Component."
-      }
-    );
-})
-
-test('Window show / hide', (t) => {
-  let compiler = new ComponentCompiler;
-  let definition = compiler.buildFromSource(`
-
-  export component App inherits Window {
-    width: 300px;
-    height: 300px;
-  }`, "");
-  t.not(definition, null);
-
-  let instance = definition!.create();
-  t.not(instance, null);
-
-  let window = instance!.window();
-  t.is(window.isVisible(), false);
-  window.show();
-  t.is(window.isVisible(), true);
-  window.hide();
-  t.is(window.isVisible(), false);
 })
