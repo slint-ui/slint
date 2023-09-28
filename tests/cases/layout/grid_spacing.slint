@@ -82,6 +82,8 @@ TestCase := Rectangle {
 
     property <bool> rect3_pos_ok: rect3.x == 25phx && rect3.y == 0phx; 
     property <bool> rect4_pos_ok: rect4.x == 25phx && rect4.y == 35phx; 
+    
+    out property <bool> test: rect1_pos_ok && rect2_pos_ok &&rect3_pos_ok && rect4_pos_ok;
 }
 
 /*
