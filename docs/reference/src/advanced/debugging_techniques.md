@@ -22,7 +22,7 @@ issue, set the `SLINT_DEBUG_PERFORMANCE` environment variable before running the
 
 -   `refresh_lazy`: The frame rate is measured only when an actual frame is rendered, for example due to a running animation, user interaction, or some other state change that results in a visual difference in the user interface. If
 there is no change, a low frame rate is reported. Use this option to verify that no unnecessary repainting happens when there are no visual changes. For example, in a user interface that shows a text input field with a cursor that blinks once per second, the reported frame rate should be two.
--   `refresh_full_speed`: The user interface is continuously refreshed, even if nothing is changed. This continuous refresh results in a higher load on the system. Use this option to identify any bottlenecks that prevent you from achieving smooth animations. Also disable partial rendering with the software renderer.
+-   `refresh_full_speed`: The user interface is continuously refreshed, even if nothing is changed. This continuous refresh results in a higher load on the system. Use this option to identify any bottlenecks that prevent you from achieving smooth animations. Also disables partial rendering with the software renderer.
 -   `console`: The frame rate is printed to `stderr` on the console.
 -   `overlay`: The frame rate is as an overlay text label on top of the user interface in each window.
 
