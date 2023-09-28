@@ -47,7 +47,6 @@ pub use self::image::*;
 pub(crate) mod bitmapfont;
 pub use self::bitmapfont::*;
 
-#[cfg(feature = "std")]
 pub mod rendering_metrics_collector;
 
 #[cfg(feature = "box-shadow-cache")]

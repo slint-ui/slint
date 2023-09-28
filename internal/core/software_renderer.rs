@@ -10,7 +10,9 @@
 mod draw_functions;
 mod fonts;
 
+use self::fonts::GlyphRenderer;
 use crate::api::Window;
+use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use crate::graphics::{IntRect, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::ItemRenderer;
 use crate::items::{ImageFit, ItemRc, TextOverflow};
@@ -32,8 +34,6 @@ use euclid::Length;
 use num_traits::Float;
 
 pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
-
-use self::fonts::GlyphRenderer;
 
 type PhysicalLength = euclid::Length<i16, PhysicalPx>;
 type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
@@ -113,7 +113,6 @@ impl PhysicalRegion {
 ///  2. Using [`render_by_line()`](Self::render()) to render the window line by line. This
 ///     is only useful if the device does not have enough memory to render the whole window
 ///     in one single buffer
-#[derive(Default)]
 pub struct SoftwareRenderer {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
     repaint_buffer_type: Cell<RepaintBufferType>,
@@ -125,6 +124,22 @@ pub struct SoftwareRenderer {
     /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
     prev_frame_dirty: Cell<DirtyRegion>,
     maybe_window_adapter: RefCell<Option<Weak<dyn crate::window::WindowAdapter>>>,
+
+    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
+}
+
+impl Default for SoftwareRenderer {
+    fn default() -> Self {
+        Self {
+            partial_cache: Default::default(),
+            repaint_buffer_type: Default::default(),
+            force_dirty: Default::default(),
+            force_screen_refresh: Default::default(),
+            prev_frame_dirty: Default::default(),
+            maybe_window_adapter: Default::default(),
+            rendering_metrics_collector: RenderingMetricsCollector::new("software"),
+        }
+    }
 }
 
 impl SoftwareRenderer {
@@ -263,6 +278,13 @@ impl SoftwareRenderer {
                         &mut renderer,
                         *origin,
                     );
+                }
+
+                if let Some(metrics) = &self.rendering_metrics_collector {
+                    metrics.measure_frame_rendered(&mut renderer);
+                    if metrics.refresh_mode() == RefreshMode::FullSpeed {
+                        self.force_screen_refresh.set(true);
+                    }
                 }
 
                 PhysicalRegion(to_draw)
@@ -971,7 +993,15 @@ fn prepare_scene(
         }
     });
 
+    if let Some(metrics) = &software_renderer.rendering_metrics_collector {
+        metrics.measure_frame_rendered(&mut renderer);
+        if metrics.refresh_mode() == RefreshMode::FullSpeed {
+            software_renderer.force_screen_refresh.set(true);
+        }
+    }
+
     let prepare_scene = renderer.into_inner();
+
     Scene::new(prepare_scene.processor.items, prepare_scene.processor.vectors, dirty_region)
 }
 
@@ -1991,8 +2021,48 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         });
     }
 
-    fn draw_string(&mut self, _string: &str, _color: Color) {
-        todo!()
+    fn draw_string(&mut self, string: &str, color: Color) {
+        let font_request = Default::default();
+        let font = fonts::match_font(&font_request, self.scale_factor);
+        let clip = self.current_state.clip.cast() * self.scale_factor;
+
+        match font {
+            fonts::Font::PixelFont(pf) => {
+                let layout = fonts::text_layout_for_font(&pf, &font_request, self.scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout,
+                    max_width: clip.width_length().cast(),
+                    max_height: clip.height_length().cast(),
+                    horizontal_alignment: Default::default(),
+                    vertical_alignment: Default::default(),
+                    wrap: Default::default(),
+                    overflow: Default::default(),
+                    single_line: false,
+                };
+
+                self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);
+            }
+            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+            fonts::Font::VectorFont(vf) => {
+                let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout,
+                    max_width: clip.width_length().cast(),
+                    max_height: clip.height_length().cast(),
+                    horizontal_alignment: Default::default(),
+                    vertical_alignment: Default::default(),
+                    wrap: Default::default(),
+                    overflow: Default::default(),
+                    single_line: false,
+                };
+
+                self.draw_text_paragraph(&paragraph, clip, Default::default(), color, None);
+            }
+        }
     }
 
     fn draw_image_direct(&mut self, _image: crate::graphics::Image) {
@@ -2037,7 +2107,7 @@ impl MinimalSoftwareWindow {
     ///
     /// Return true if something was redrawn.
     pub fn draw_if_needed(&self, render_callback: impl FnOnce(&SoftwareRenderer)) -> bool {
-        if self.needs_redraw.replace(false) {
+        if self.needs_redraw.replace(false) || self.renderer.rendering_metrics_collector.is_some() {
             render_callback(&self.renderer);
             true
         } else {
