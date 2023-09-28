@@ -15,10 +15,10 @@ pub fn library_paths(path: &std::path::Path) -> Option<HashMap<String, std::path
     let mut p = Some(path.clone());
     while let Some(path) = p {
         if path.join("Cargo.toml").exists() {
-            return crate::workspace::cargo_library_paths(&path);
+            return cargo_library_paths(&path);
         }
         if path.join("package.json").exists() {
-            return crate::workspace::npm_library_paths(&path);
+            return npm_library_paths(&path);
         }
         p = path.parent();
     }

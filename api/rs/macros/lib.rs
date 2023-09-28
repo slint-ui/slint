@@ -375,11 +375,12 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     }
 
     compiler_config.include_paths = include_paths;
-    manifest_dir
-        .as_ref()
-        .map(std::path::Path::new)
-        .and_then(|dir| i_slint_compiler::library_paths(dir))
-        .map(|paths| compiler_config.library_paths = paths);
+    if let Some(cargo_manifest) = &manifest_dir {
+        let path = std::path::Path::new(cargo_manifest);
+        if let Some(paths) = i_slint_compiler::library_paths(path) {
+            compiler_config.library_paths = paths;
+        }
+    }
 
     let (root_component, diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));

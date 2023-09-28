@@ -46,12 +46,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let test_function_name = testcase.identifier();
         let ignored = testcase.is_ignored("cpp");
 
-        if &test_function_name == "imports_library" {
-            // FIXME: Skip library import test on C++ since library dependencies
-            // are not resolved there!
-            continue;
-        }
-
         write!(
             tests_file,
             r##"
