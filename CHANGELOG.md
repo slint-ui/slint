@@ -3,10 +3,18 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## Unreleased
+## [1.2.2] - 2023-09-29
+
+### General
 
  - Skia renderer: Fixed the `source` property of `Image` elements sometimes not changing when setting dynamically loaded images. (#3510)
- - Fixed native style not clipping correctly GroupBox (#3541)
+ - Fix compiler panic with `popup.close()` from outside of the popup. (#3513)
+ - Fixed native style (Qt) not finishing its animations with Breeze. (#3482)
+ - Fixed native style not clipping correctly GroupBox. (#3541)
+ - Fixed native style ComboBox not always being shown. (#3527)
+ - Winit backend: Fixed window resizing on macOS Sonoma. (#3559)
+ - Skia / FemtoVG renderers: Default to vsync swap interval when rendering with OpenGL to avoid excessive CPU usage. (#3516)
+ 
 ## [1.2.1] - 2023-09-19
 
 ### General
@@ -983,3 +991,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.1.1]: https://github.com/slint-ui/slint/releases/tag/v1.1.1
 [1.2.0]: https://github.com/slint-ui/slint/releases/tag/v1.2.0
 [1.2.1]: https://github.com/slint-ui/slint/releases/tag/v1.2.1
+[1.2.2]: https://github.com/slint-ui/slint/releases/tag/v1.2.2
