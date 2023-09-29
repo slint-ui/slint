@@ -27,12 +27,15 @@ fn main() {
         println!("cargo:rustc-cfg=no_qt");
     }
 
+    let style = i_slint_common::get_native_style(
+        has_native_style,
+        &std::env::var("TARGET").unwrap_or_default(),
+    );
     let out_dir = std::env::var_os("OUT_DIR").unwrap();
     // out_dir is something like
     // <target_dir>/build/i-slint-backend-selector-1fe5c4ab61eb0584/out
     // and we want to write to a common directory, so write in the build/ dir
     let target_path =
         Path::new(&out_dir).parent().unwrap().parent().unwrap().join("SLINT_DEFAULT_STYLE.txt");
-    std::fs::write(target_path, if has_native_style { b"native\n" as &[u8] } else { b"fluent\n" })
-        .unwrap();
+    std::fs::write(target_path, style).unwrap();
 }

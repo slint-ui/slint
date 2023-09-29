@@ -85,26 +85,20 @@ impl TypeLoader {
         compiler_config: CompilerConfiguration,
         diag: &mut BuildDiagnostics,
     ) -> Self {
-        let style = compiler_config
-        .style
-        .clone()
-        .or_else(|| std::env::var("SLINT_STYLE").ok())
-        .unwrap_or_else(|| {
-            let is_wasm = cfg!(target_arch = "wasm32")
-                || std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"));
-            if !is_wasm {
-                diag.push_diagnostic_with_span("SLINT_STYLE not defined, defaulting to 'fluent', see https://github.com/slint-ui/slint/issues/83 for more info".to_owned(),
-                    Default::default(),
-                    crate::diagnostics::DiagnosticLevel::Warning
-                );
-            }
-            String::from("fluent")
-        });
+        let mut style = compiler_config
+            .style
+            .clone()
+            .or_else(|| std::env::var("SLINT_STYLE").ok())
+            .unwrap_or_else(|| "native".into());
+
+        if style == "native" {
+            style = get_native_style(&mut diag.all_loaded_files);
+        }
 
         let myself = Self {
             global_type_registry,
             compiler_config,
-            style: if style == "native" { "qt".into() } else { style.clone() },
+            style: style.clone(),
             all_documents: Default::default(),
         };
 
@@ -651,6 +645,38 @@ impl TypeLoader {
     pub fn all_documents(&self) -> impl Iterator<Item = &object_tree::Document> + '_ {
         self.all_documents.docs.values()
     }
+}
+
+fn get_native_style(all_loaded_files: &mut Vec<PathBuf>) -> String {
+    // Try to get the value written by the i-slint-backend-selector's build script
+
+    // It is in the target/xxx/build directory
+    let target_path = std::env::var_os("OUT_DIR")
+        .and_then(|path| {
+            // Same logic as in i-slint-backend-selector's build script to get the path
+            Path::new(&path).parent()?.parent()?.join("SLINT_DEFAULT_STYLE.txt").into()
+        })
+        .or_else(|| {
+            // When we are called from a slint!, OUT_DIR is only defined when the crate having the macro has a build.rs script.
+            // As a fallback, try to parse the rustc arguments
+            // https://stackoverflow.com/questions/60264534/getting-the-target-folder-from-inside-a-rust-proc-macro
+            let mut args = std::env::args();
+            let mut out_dir = None;
+            while let Some(arg) = args.next() {
+                if arg == "--out-dir" {
+                    out_dir = args.next();
+                    break;
+                }
+            }
+            Path::new(&out_dir?).parent()?.join("build/SLINT_DEFAULT_STYLE.txt").into()
+        });
+    if let Some(style) = target_path.and_then(|target_path| {
+        all_loaded_files.push(target_path.clone());
+        std::fs::read_to_string(target_path).map(|style| style.trim().into()).ok()
+    }) {
+        return style;
+    }
+    i_slint_common::get_native_style(false, &std::env::var("TARGET").unwrap_or_default()).into()
 }
 
 /// return the base directory from which imports are loaded

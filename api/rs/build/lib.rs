@@ -300,21 +300,6 @@ pub fn compile_with_config(
     let mut compiler_config = config.config;
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
 
-    let mut rerun_if_changed = String::new();
-
-    if std::env::var_os("SLINT_STYLE").is_none() && compiler_config.style.is_none() {
-        compiler_config.style = std::env::var_os("OUT_DIR").and_then(|path| {
-            // Same logic as in i-slint-backend-selector's build script to get the path
-            let path = Path::new(&path).parent()?.parent()?.join("SLINT_DEFAULT_STYLE.txt");
-            // unfortunately, if for some reason the file is changed by the i-slint-backend-selector's build script,
-            // it is changed after cargo decide to re-run this build script or not. So that means one will need two build
-            // to settle the right thing.
-            rerun_if_changed = format!("cargo:rerun-if-changed={}", path.display());
-            let style = std::fs::read_to_string(path).ok()?;
-            Some(style.trim().into())
-        });
-    }
-
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
@@ -353,7 +338,7 @@ pub fn compile_with_config(
     });
 
     write!(code_formatter, "{}", generated).map_err(CompileError::SaveError)?;
-    println!("{}\ncargo:rerun-if-changed={}", rerun_if_changed, path.display());
+    println!("cargo:rerun-if-changed={}", path.display());
 
     for resource in doc.root_component.embedded_file_resources.borrow().keys() {
         if !resource.starts_with("builtin:") {

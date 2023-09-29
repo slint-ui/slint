@@ -191,14 +191,13 @@ if (SLINT_BUILD_RUNTIME)
         endif()
     endif(SLINT_FEATURE_BACKEND_QT)
 
-    if(TARGET Qt::qmake)
+    if(SLINT_FEATURE_BACKEND_QT AND TARGET Qt::qmake)
         set_property(
             TARGET slint-cpp
             APPEND
             PROPERTY CORROSION_ENVIRONMENT_VARIABLES
             QMAKE=$<TARGET_PROPERTY:Qt::qmake,LOCATION>
         )
-        set(SLINT_STYLE_DEFAULT "native")
     else()
         set_property(
             TARGET slint-cpp
@@ -206,16 +205,28 @@ if (SLINT_BUILD_RUNTIME)
             PROPERTY CORROSION_ENVIRONMENT_VARIABLES
             SLINT_NO_QT=1
         )
+    endif()
+
+
+    if(ANDROID)
+        set(SLINT_STYLE_DEFAULT "material")
+    elseif(WIN32)
+        set(SLINT_STYLE_DEFAULT "fluent")
+    elseif(APPLE)
+        set(SLINT_STYLE_DEFAULT "cupertino")
+    elseif (SLINT_FEATURE_BACKEND_QT AND TARGET Qt::qmake)
+        set(SLINT_STYLE_DEFAULT "qt")
+    else ()
         set(SLINT_STYLE_DEFAULT "fluent")
     endif()
 
     set(SLINT_STYLE "" CACHE STRING "The Slint Widget Style")
 
-    if(SLINT_STYLE)
+    if(SLINT_STYLE AND NOT SLINT_STYLE STREQUAL "native")
         set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE})
-    else(SLINT_STYLE)
+    else()
         set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE_DEFAULT})
-    endif(SLINT_STYLE)
+    endif()
 
     if(SLINT_FEATURE_RENDERER_SKIA OR SLINT_FEATURE_RENDERER_SKIA_OPENGL OR SLINT_FEATURE_RENDERER_SKIA_VULKAN)
         find_program(CLANGCC clang)

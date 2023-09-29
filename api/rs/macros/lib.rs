@@ -7,7 +7,6 @@
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
 extern crate proc_macro;
-use std::path::Path;
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::parser::SyntaxKind;
@@ -338,41 +337,6 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
-
-    if std::env::var_os("SLINT_STYLE").is_none() {
-        // This file is written by the i-slint-backend-selector's built script.
-        // It is in the target/xxx/build directory
-        let target_path = match std::env::var_os("OUT_DIR") {
-            Some(out_dir) => Some(
-                Path::new(&out_dir)
-                    .parent()
-                    .unwrap()
-                    .parent()
-                    .unwrap()
-                    .join("SLINT_DEFAULT_STYLE.txt"),
-            ),
-            None => {
-                // OUT_DIR is only defined when the crate having the macro has a build.rs script
-                // as a fallback, try to parse the rustc arguments
-                // https://stackoverflow.com/questions/60264534/getting-the-target-folder-from-inside-a-rust-proc-macro
-                let mut args = std::env::args();
-                let mut out_dir = None;
-                while let Some(arg) = args.next() {
-                    if arg == "--out-dir" {
-                        out_dir = args.next();
-                    }
-                }
-                out_dir.map(|out_dir| {
-                    Path::new(&out_dir).parent().unwrap().join("build/SLINT_DEFAULT_STYLE.txt")
-                })
-            }
-        };
-        if let Some(target_path) = target_path {
-            compiler_config.style =
-                std::fs::read_to_string(target_path).map(|style| style.trim().into()).ok()
-        }
-    }
-
     compiler_config.include_paths = include_paths;
     let (root_component, diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
