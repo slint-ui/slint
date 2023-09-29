@@ -129,10 +129,14 @@ export class KnownUrlMapper implements UrlMapper {
         const file_path = file_from_internal_uri(this.#uuid, uri);
 
         const mapped_url = this.#map[file_path] || null;
-        return (
-            monaco.Uri.parse(mapped_url ?? "file:///missing_url") ??
-            monaco.Uri.parse("file:///broken_url")
-        );
+        if (mapped_url) {
+            return (
+                monaco.Uri.parse(mapped_url) ??
+                monaco.Uri.parse("file:///broken_url")
+            );
+        } else {
+            return uri;
+        }
     }
 }
 
@@ -271,17 +275,7 @@ class EditorPaneWidget extends Widget {
         const sw_channel = new MessageChannel();
         sw_channel.port1.onmessage = (m) => {
             if (m.data.type === "MapUrl") {
-                const reply_port = m.ports[0];
-                const internal_uri = monaco.Uri.parse(m.data.url);
-                const mapped_url =
-                    this.#url_mapper?.from_internal(internal_uri)?.toString() ??
-                    "";
-                const file = file_from_internal_uri(
-                    this.#internal_uuid,
-                    internal_uri,
-                );
-                this.#extra_file_urls[file] = mapped_url;
-                reply_port.postMessage(mapped_url);
+                console.log("REMOVE THE SERVICE WORKER AGAIN");
             } else {
                 console.error(
                     "Unknown message received from service worker:",

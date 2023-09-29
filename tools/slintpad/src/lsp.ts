@@ -205,7 +205,7 @@ export class Lsp {
         return lsp_client;
     }
 
-    async previewer(url_resource_mapper: ResourceUrlMapperFunction): Promise<Previewer> {
+    async previewer(resource_url_mapper: ResourceUrlMapperFunction): Promise<Previewer> {
         if (this.#preview_connector === null) {
             try {
                 slint_preview.run_event_loop();
@@ -220,7 +220,7 @@ export class Lsp {
                         "slint/preview_to_lsp",
                         data,
                     )
-                }, url_resource_mapper);
+                }, resource_url_mapper);
         }
         return new Previewer(this.#preview_connector);
     }
