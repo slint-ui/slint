@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-cpp"
-version = "1.2.1"
+version = "1.2.2"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 build = "build.rs"
@@ -45,11 +45,11 @@ freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]
 default = ["std", "backend-winit", "renderer-femtovg", "backend-qt"]
 
 [dependencies]
-i-slint-backend-selector = { version = "=1.2.1", path="../../internal/backends/selector", optional = true }
-i-slint-backend-testing = { version = "=1.2.1", path="../../internal/backends/testing", optional = true }
-i-slint-renderer-skia = { version = "=1.2.1", path="../../internal/renderers/skia", optional = true, features = ["x11", "wayland"] }
-i-slint-core = { version = "=1.2.1", path="../../internal/core", default-features = false, features = ["ffi"] }
-slint-interpreter = { version = "=1.2.1", path="../../internal/interpreter", default-features = false, features = ["ffi", "compat-1-2"], optional = true }
+i-slint-backend-selector = { version = "=1.2.2", path="../../internal/backends/selector", optional = true }
+i-slint-backend-testing = { version = "=1.2.2", path="../../internal/backends/testing", optional = true }
+i-slint-renderer-skia = { version = "=1.2.2", path="../../internal/renderers/skia", optional = true, features = ["x11", "wayland"] }
+i-slint-core = { version = "=1.2.2", path="../../internal/core", default-features = false, features = ["ffi"] }
+slint-interpreter = { version = "=1.2.2", path="../../internal/interpreter", default-features = false, features = ["ffi", "compat-1-2"], optional = true }
 raw-window-handle = { version = "0.5", optional = true }
 # Enable image-rs' default features to make all image formats to C++ users
 image = { version = "0.24.0", optional = true }
@@ -60,4 +60,4 @@ esp-backtrace = { version = "0.8.0", features = ["panic-handler", "print-uart"],
 anyhow = "1.0"
 cbindgen = { workspace = true }
 proc-macro2 = "1.0.11"
-i-slint-common = { version = "=1.2.1", path="../../internal/common" }
+i-slint-common = { version = "=1.2.2", path="../../internal/common" }

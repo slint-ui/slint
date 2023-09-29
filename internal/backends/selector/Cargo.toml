@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-backend-selector"
-version = "1.2.1"
+version = "1.2.2"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial"
@@ -30,10 +30,10 @@ rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]
 
 [dependencies]
-i-slint-core = { version = "=1.2.1", path = "../../../internal/core", default-features = false }
-i-slint-backend-winit = { version = "=1.2.1", path = "../winit", optional = true }
-i-slint-backend-qt = { version = "=1.2.1", path = "../qt", optional = true }
-i-slint-backend-linuxkms = { version = "=1.2.1", path = "../linuxkms", optional = true }
-i-slint-renderer-skia = { version = "=1.2.1", path="../../renderers/skia", optional = true, default-features = false }
+i-slint-core = { version = "=1.2.2", path = "../../../internal/core", default-features = false }
+i-slint-backend-winit = { version = "=1.2.2", path = "../winit", optional = true }
+i-slint-backend-qt = { version = "=1.2.2", path = "../qt", optional = true }
+i-slint-backend-linuxkms = { version = "=1.2.2", path = "../linuxkms", optional = true }
+i-slint-renderer-skia = { version = "=1.2.2", path="../../renderers/skia", optional = true, default-features = false }
 
 cfg-if = "1"
