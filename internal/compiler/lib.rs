@@ -65,6 +65,11 @@ pub struct CompilerConfiguration {
     pub open_import_fallback: Option<
         Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>,
     >,
+    /// Callback to map URLs for resources
+    ///
+    /// The function takes the url and returns the mapped URL (or None if not mapped)
+    pub resource_url_mapper:
+        Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
 
     /// Run the pass that inlines all the elements.
     ///
@@ -135,7 +140,8 @@ impl CompilerConfiguration {
             embed_resources,
             include_paths: Default::default(),
             style: Default::default(),
-            open_import_fallback: Default::default(),
+            open_import_fallback: None,
+            resource_url_mapper: None,
             inline_all_elements,
             scale_factor,
             accessibility: true,
