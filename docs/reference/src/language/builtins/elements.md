@@ -138,6 +138,29 @@ The maximum and preferred size of the `Flickable` are based on the viewport.
 When not part of a layout, its width or height defaults to 100% of the parent
 element when not specified.
 
+### Pointer Event Interaction
+
+If the `Flickable`'s area contains elements that use `TouchArea` to act on clicking, such as `Button`
+widgets, then the following algorithm is used to distinguish between the user's intent of scrolling or
+interacting with `TouchArea` elements:
+
+1. If the `Flickable`'s `interactive` property is `false`, all events are forwarded to elements underneath.
+2. Any wheel events are interpreted as attempt of the user to scroll.
+3. If a press event is received where the event's coordinates interact with a `TouchArea`, the event is stored
+   and any subsequent move and release events are handled as follows:
+   1. If 100ms elapse without any events, the stored press event is delivered to the `TouchArea`.
+   2. If a release event is received before 100ms have elapsed, the stored press event as well as the
+      release event are immediately delivered to the `TouchArea` and the algorithm resets.
+   3. Any move events received will start a flicking operation on the `Flickable` if all of the following
+      conditions are met:
+        1. The event is received before 500ms have elapsed since receiving the press event.
+        2. The distance to the press event exceeds 8 logical pixels in an orientation in which we are allowed to move
+      If `Flickable` decides to flick, any press event sent previously to a `TouchArea`, is followed up
+      by an exit event. During the phase of receiving move events, the flickable follows the coordinates.
+4. If the interaction of press, move, and release events begins at coordinates that do not intersect with
+   a `TouchArea`, then `Flickable` will flick immediately on pointer move events when the euclidean distance
+   to the coordinates of the press event exceeds 8 logical pixels.
+
 ### Properties
 
 -   **`interactive`** (_in_ _bool_): When true, the viewport can be scrolled by clicking on it and dragging it with the cursor. (default value: true)
