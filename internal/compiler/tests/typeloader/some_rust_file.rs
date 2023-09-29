@@ -4,9 +4,11 @@
 slint!(
     import { SubType } from "./tests/typeloader/dependency_local.slint";
     import { AnotherType } from "dependency_from_incpath.slint";
+    import { LibraryType } from "@library";
 
     export component Main {
         SubType {}
         AnotherType {}
+        LibraryType {}
     }
 );

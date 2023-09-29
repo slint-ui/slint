@@ -160,7 +160,7 @@ impl TypeLoader {
                 } else {
                     import.file.clone()
                 };
-                if resolved_import.ends_with(".slint") || resolved_import.ends_with(".60") {
+                if resolved_import.ends_with(".slint") || resolved_import.ends_with(".60") || import.file.starts_with('@') {
                     Some(Box::pin(async move {
                         let file = import.file.as_str();
                         let doc_path = Self::ensure_document_loaded(
@@ -426,9 +426,15 @@ impl TypeLoader {
             }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                 state.borrow_mut().diag.push_error(
-                        format!(
-                            "Cannot find requested import \"{file_to_import}\" in the include search path",
-                        ),
+                        if file_to_import.starts_with('@') {
+                            format!(
+                                "Cannot find requested library \"{file_to_import}\" in the library search path",
+                            )
+                        } else {
+                            format!(
+                                "Cannot find requested import \"{file_to_import}\" in the include search path",
+                            )
+                        },
                         &import_token,
                     );
                 false
@@ -722,6 +728,8 @@ fn test_dependency_loading() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.include_paths = vec![incdir];
+    compiler_config.library_paths =
+        HashMap::from([("library".into(), test_source_path.join("library").join("lib.slint"))]);
     compiler_config.style = Some("fluent".into());
 
     let mut main_test_path = test_source_path;
@@ -740,7 +748,7 @@ fn test_dependency_loading() {
 
     let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
 
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    let (foreign_imports, _) = spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -748,6 +756,7 @@ fn test_dependency_loading() {
 
     assert!(!test_diags.has_error());
     assert!(!build_diagnostics.has_error());
+    assert!(foreign_imports.is_empty());
 }
 
 #[test]
@@ -761,6 +770,8 @@ fn test_dependency_loading_from_rust() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.include_paths = vec![incdir];
+    compiler_config.library_paths =
+        HashMap::from([("library".into(), test_source_path.join("library").join("lib.slint"))]);
     compiler_config.style = Some("fluent".into());
 
     let mut main_test_path = test_source_path;
@@ -779,7 +790,7 @@ fn test_dependency_loading_from_rust() {
 
     let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
 
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    let (foreign_imports, _) = spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -787,6 +798,7 @@ fn test_dependency_loading_from_rust() {
 
     assert!(!test_diags.has_error());
     assert!(!build_diagnostics.has_error());
+    assert!(foreign_imports.is_empty());
 }
 
 #[test]
@@ -961,4 +973,41 @@ fn test_unknown_style() {
     let diags = build_diagnostics.to_string_vec();
     assert_eq!(diags.len(), 1);
     assert!(diags[0].starts_with("Style FooBar in not known. Use one of the builtin styles ["));
+}
+
+#[test]
+fn test_library_load_error() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+
+    let doc_node = crate::parser::parse(
+        r#"
+/* ... */
+import { LibraryType } from "@library";
+component Foo { LibraryType {} }
+"#
+        .into(),
+        Some(std::path::Path::new("HELLO")),
+        &mut test_diags,
+    );
+
+    let doc_node: syntax_nodes::Document = doc_node.into();
+    let global_registry = TypeRegister::builtin();
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    spin_on::spin_on(loader.load_dependencies_recursively(
+        &doc_node,
+        &mut build_diagnostics,
+        &registry,
+    ));
+    assert!(!test_diags.has_error());
+    assert!(build_diagnostics.has_error());
+    let diags = build_diagnostics.to_string_vec();
+    assert_eq!(
+        diags,
+        &["HELLO:3: Cannot find requested library \"@library\" in the library search path"]
+    );
 }
