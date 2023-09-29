@@ -173,8 +173,8 @@ serde = { version = "1.0.163", features = ["derive"] }
 
 [package.metadata.docs.rs]
 rustdoc-args = [
-  "--html-in-header",
-  "docs/resources/slint-docs-preview.html",
+  # "--html-in-header",
+  # "docs/resources/slint-docs-preview.html",
   "--html-in-header",
   "docs/resources/slint-docs-highlight.html",
 ]
