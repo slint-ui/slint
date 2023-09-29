@@ -41,7 +41,6 @@
         "rimraf": "^5.0.0",
         "typescript": "^5.0.4",
         "vite": "^4.3.3",
-        "vite-plugin-pwa": "^0.16.4",
         "vscode": "npm:@codingame/monaco-vscode-api@1.81.7",
         "vscode-languageclient": "~8.1.0",
         "vscode-languageserver": "~8.1.0",

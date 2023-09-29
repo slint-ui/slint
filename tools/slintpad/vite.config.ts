@@ -4,7 +4,6 @@
 // cSpell: ignore lumino
 
 import { defineConfig, UserConfig } from "vite";
-import { VitePWA } from "vite-plugin-pwa";
 import { resolve } from "path";
 
 export default defineConfig(() => {
