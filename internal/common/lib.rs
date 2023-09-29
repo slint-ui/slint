@@ -11,3 +11,31 @@ pub mod key_codes;
 
 #[cfg(feature = "shared-fontdb")]
 pub mod sharedfontdb;
+
+/// Detect the native style depending on the platform
+pub fn get_native_style(has_qt: bool, target: &str) -> &'static str {
+    // NOTE: duplicated in api/cpp/CMakeLists.txt
+    if target.contains("android") {
+        "material"
+    } else if target.contains("windows") {
+        "fluent"
+    } else if target.contains("apple") {
+        "cupertino"
+    } else if target.contains("wasm") {
+        "fluent"
+    } else if target.contains("linux") | target.contains("bsd") {
+        if has_qt { "qt" } else { "fluent" }.into()
+    } else if cfg!(target_os = "android") {
+        "material"
+    } else if cfg!(target_os = "windows") {
+        "fluent"
+    } else if cfg!(target_os = "macos") {
+        "cupertino"
+    } else if cfg!(target_family = "wasm") {
+        "fluent"
+    } else if has_qt {
+        "qt"
+    } else {
+        "fluent"
+    }
+}
