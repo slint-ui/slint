@@ -21,6 +21,7 @@ All notable changes to this project are documented in this file.
 
  - Removed the need for C++ exceptions in generated code.
  - Added ability to only build the Slint compiler or use an external compiler.
+ - Fixed cross-compilation with CMake (against Yocto SDKs)
 
 ### LSP
 
