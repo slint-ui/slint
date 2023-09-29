@@ -26,7 +26,7 @@ All notable changes to this project are documented in this file.
 
  - Added "Wrap in element" and "Remove element" code actions
 
-## [1.2.2] - 2023-09-29
+## [1.2.2] - 2023-10-02
 
 ### General
 
