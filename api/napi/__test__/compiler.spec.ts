@@ -3,7 +3,7 @@
 
 import test from 'ava'
 
-import { ComponentCompiler, ComponentDefinition, ComponentInstance, Property, ValueType } from '../index'
+import { ComponentCompiler, ComponentDefinition, ComponentInstance, ValueType} from '../index'
 
 test('get/set include paths', (t) => {
   let compiler = new ComponentCompiler;

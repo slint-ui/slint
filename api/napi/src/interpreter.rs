@@ -15,3 +15,6 @@ pub use diagnostic::*;
 
 mod value;
 pub use value::*;
+
+mod window;
+pub use window::*;

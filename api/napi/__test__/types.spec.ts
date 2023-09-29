@@ -3,7 +3,7 @@
 
 import test from 'ava';
 
-import { Brush, Color, ArrayModel } from '../index'
+import { Brush, Color, ArrayModel, Size } from '../index'
 
 test('Color from fromRgb', (t) => {
     let color = Color.fromRgb(100, 110, 120);
@@ -75,7 +75,6 @@ test('ArrayModel setRowData', (t) => {
     t.is(arrayModel.rowCount(), 1);
     t.is(arrayModel.rowData(0), 2);
 })
-
 
 test('ArrayModel remove', (t) => {
     let arrayModel = new ArrayModel([0, 2, 1]);

@@ -9,3 +9,9 @@ pub use image_data::*;
 
 mod model;
 pub use model::*;
+
+mod point;
+pub use point::*;
+
+mod size;
+pub use size::*;

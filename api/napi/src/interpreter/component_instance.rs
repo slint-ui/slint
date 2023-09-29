@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use i_slint_compiler::langtype::Type;
+use i_slint_core::window::WindowInner;
 use napi::{Env, Error, JsFunction, JsUnknown, NapiRaw, NapiValue, Ref, Result};
 use slint_interpreter::{ComponentHandle, ComponentInstance, Value};
+
+use crate::JsWindow;
 
 use super::JsComponentDefinition;
 
@@ -328,6 +331,11 @@ impl JsComponentInstance {
             .invoke_global(global_name.as_str(), callback_name.as_str(), args.as_slice())
             .map_err(|_| napi::Error::from_reason("Cannot invoke callback."))?;
         super::to_js_unknown(&env, &result)
+    }
+
+    #[napi]
+    pub fn window(&self) -> Result<JsWindow> {
+        Ok(JsWindow { inner: WindowInner::from_pub(self.inner.window()).window_adapter() })
     }
 }
 
