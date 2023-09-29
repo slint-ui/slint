@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 cmake_minimum_required(VERSION 3.21)
-project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES CXX VERSION 1.0.0)
+# Select C++ and C as languages, as Corrosion needs ${CMAKE_C_COMPILER}
+# for linking
+project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.0.0)
 
 include(FeatureSummary)
 include(CMakeDependentOption)
