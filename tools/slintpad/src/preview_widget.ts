@@ -6,7 +6,7 @@
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
-import { Previewer, Lsp } from "./lsp";
+import { Previewer, Lsp, ResourceUrlMapperFunction } from "./lsp";
 
 export class PreviewWidget extends Widget {
     #previewer: Previewer | null = null;
@@ -28,7 +28,7 @@ export class PreviewWidget extends Widget {
         return node;
     }
 
-    constructor(lsp: Lsp, _internal_url_prefix: string) {
+    constructor(lsp: Lsp, resource_url_mapper: ResourceUrlMapperFunction) {
         super({ node: PreviewWidget.createNode() });
 
         this.setFlag(Widget.Flag.DisallowLayout);
@@ -38,7 +38,7 @@ export class PreviewWidget extends Widget {
         this.title.caption = `Slint Viewer`;
         this.title.closable = true;
 
-        lsp.previewer().then((p) => {
+        lsp.previewer(resource_url_mapper).then((p) => {
             this.#previewer = p;
 
             // Give the UI some time to wire up the canvas so it can be found

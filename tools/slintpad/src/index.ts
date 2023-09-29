@@ -418,7 +418,7 @@ function setup(lsp: Lsp) {
             () => {
                 const preview = new PreviewWidget(
                     lsp,
-                    editor.internal_url_prefix,
+                    (url: string) => editor.map_url(url),
                 );
 
                 return preview;

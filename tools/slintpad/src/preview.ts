@@ -52,7 +52,6 @@ export Demo := Window {
                 source,
                 base_url,
                 style,
-                async (_url: string) => Promise.resolve(undefined),
                 async (url: string): Promise<string> => {
                     const file_source = loaded_documents.get(url);
                     if (file_source === undefined) {
