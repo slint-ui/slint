@@ -21,7 +21,6 @@ All notable changes to this project are documented in this file.
 
  - Removed the need for C++ exceptions in generated code.
  - Added ability to only build the Slint compiler or use an external compiler.
- - Fixed cross-compilation with CMake (against Yocto SDKs)
 
 ### LSP
 
@@ -38,6 +37,10 @@ All notable changes to this project are documented in this file.
  - Fixed native style ComboBox not always being shown. (#3527)
  - Winit backend: Fixed window resizing on macOS Sonoma. (#3559)
  - Skia / FemtoVG renderers: Default to vsync swap interval when rendering with OpenGL to avoid excessive CPU usage. (#3516)
+
+### C++
+
+ - Fixed cross-compilation with CMake (against Yocto SDKs)
  
 ## [1.2.1] - 2023-09-19
 
