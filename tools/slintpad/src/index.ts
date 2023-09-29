@@ -443,9 +443,8 @@ function setup(lsp: Lsp) {
         dock,
         [
             () => {
-                const preview = new PreviewWidget(
-                    lsp,
-                    editor.internal_url_prefix,
+                const preview = new PreviewWidget(lsp, (url) =>
+                    Promise.resolve(editor.map_url(url)),
                 );
 
                 return preview;

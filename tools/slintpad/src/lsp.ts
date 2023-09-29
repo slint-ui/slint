@@ -24,6 +24,9 @@ import {
 
 import slint_init, * as slint_preview from "@lsp/slint_lsp_wasm.js";
 
+import type { ResourceUrlMapperFunction } from "@lsp/slint_lsp_wasm.js";
+export { ResourceUrlMapperFunction };
+
 function createLanguageClient(
     transports: MessageTransports,
 ): MonacoLanguageClient {
@@ -204,7 +207,7 @@ export class Lsp {
         return lsp_client;
     }
 
-    async previewer(): Promise<Previewer> {
+    async previewer(url_mapper: ResourceUrlMapperFunction): Promise<Previewer> {
         if (this.#preview_connector === null) {
             try {
                 slint_preview.run_event_loop();
@@ -219,7 +222,7 @@ export class Lsp {
                         "slint/preview_to_lsp",
                         data,
                     );
-                });
+                }, url_mapper);
         }
         return new Previewer(this.#preview_connector);
     }
