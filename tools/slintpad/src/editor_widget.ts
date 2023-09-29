@@ -217,7 +217,6 @@ class EditorPaneWidget extends Widget {
     #disposables: monaco.IDisposable[] = [];
     #internal_uuid = self.crypto.randomUUID();
 
-    #service_worker_port: MessagePort;
     #extra_file_urls: { [key: string]: string } = {};
 
     onPositionChangeCallback: PositionChangeCallback = (
@@ -271,27 +270,6 @@ class EditorPaneWidget extends Widget {
         monaco.editor.onDidCreateModel((model: monaco.editor.ITextModel) =>
             this.add_model_listener(model),
         );
-
-        const sw_channel = new MessageChannel();
-        sw_channel.port1.onmessage = (m) => {
-            if (m.data.type === "MapUrl") {
-                console.log("REMOVE THE SERVICE WORKER AGAIN");
-            } else {
-                console.error(
-                    "Unknown message received from service worker:",
-                    m.data,
-                );
-            }
-        };
-        if (navigator.serviceWorker.controller == null) {
-            console.error("No active service worker!");
-        } else {
-            navigator.serviceWorker.controller.postMessage(
-                { type: "EditorOpened", url_prefix: this.internal_url_prefix },
-                [sw_channel.port2],
-            );
-        }
-        this.#service_worker_port = sw_channel.port1;
     }
 
     async map_url(url_: string): Promise<string | undefined> {
@@ -321,7 +299,6 @@ class EditorPaneWidget extends Widget {
     }
 
     dispose() {
-        this.#service_worker_port.close();
         this.#disposables.forEach((d: monaco.IDisposable) => d.dispose());
         this.#disposables = [];
         this.#editor?.dispose();
