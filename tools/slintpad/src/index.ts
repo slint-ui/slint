@@ -34,34 +34,6 @@ import {
     Widget,
 } from "@lumino/widgets";
 
-function resolveControllerReady(
-    resolve: () => void,
-    reject: () => void,
-    count: number,
-) {
-    count += 1;
-    if (count >= 5) {
-        // Force a reload! We do not have any state yet, so we do not need to
-        // be creative to make the browser notice that we have an active
-        // service worker.
-        window.location.reload();
-    }
-    if (!navigator.serviceWorker) {
-        reject();
-    } else if (navigator.serviceWorker.controller) {
-        console.info(`Controller ready after ${count} attempts`);
-        resolve();
-    } else {
-        setTimeout(() => {
-            resolveControllerReady(resolve, reject, count);
-        }, 500);
-    }
-}
-
-function wait_for_service_worker(): Promise<void> {
-    return new Promise((res, rej) => resolveControllerReady(res, rej, 0));
-}
-
 const lsp_waiter = new LspWaiter();
 
 const commands = new CommandRegistry();
@@ -497,6 +469,7 @@ function setup(lsp: Lsp) {
                     lsp.previewer,
                     editor.internal_url_prefix,
                 );
+                lsp.resource_url_mapper = (url) => editor.map_url(url);
                 editor.onRenderRequest = (
                     style: string,
                     source: string,
@@ -589,17 +562,18 @@ function setup(lsp: Lsp) {
 function main() {
     initializeEditor()
         .then((_) => {
-            Promise.all([wait_for_service_worker(), lsp_waiter.wait_for_lsp()])
-                .then(([_sw, lsp]) => {
+            lsp_waiter
+                .wait_for_lsp()
+                .then((lsp) => {
                     setup(lsp);
                     document.body.getElementsByClassName("loader")[0].remove();
                 })
                 .catch((e) => {
-                    console.info("ServiceWorker or LSP fail:", e);
+                    console.info("LSP fail:", e);
                     const div = document.createElement("div");
                     div.className = "browser-error";
                     div.innerHTML =
-                        "<p>No ServiceWorker available in your browser. Try disabling private browsing mode.</p>";
+                        "<p>Failed to start the slint language server</p>";
                     document.body.getElementsByClassName("loader")[0].remove();
                     document.body.appendChild(div);
                 });

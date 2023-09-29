@@ -4,7 +4,7 @@
 //! This wasm library can be loaded from JS to load and display the content of .slint files
 #![cfg(target_arch = "wasm32")]
 
-use std::path::Path;
+use std::{future::Future, path::Path, pin::Pin, rc::Rc};
 use wasm_bindgen::prelude::*;
 
 use slint_interpreter::ComponentHandle;
@@ -35,12 +35,16 @@ impl CompilationResult {
 
 #[wasm_bindgen(typescript_custom_section)]
 const CALLBACK_FUNCTION_SECTION: &'static str = r#"
+export type ResourceUrlMapperFunction = (url: string) => Promise<string | undefined>;
 type ImportCallbackFunction = (url: string) => Promise<string>;
 type CurrentElementInformationCallbackFunction = (url: string, start_line: number, start_column: number, end_line: number, end_column: number) => void;
 "#;
 
 #[wasm_bindgen]
 extern "C" {
+    #[wasm_bindgen(typescript_type = "ResourceUrlMapperFunction")]
+    pub type ResourceUrlMapperFunction;
+
     #[wasm_bindgen(typescript_type = "ImportCallbackFunction")]
     pub type ImportCallbackFunction;
 
@@ -50,6 +54,20 @@ extern "C" {
     pub type InstancePromise;
 }
 
+fn resource_url_mapper_from_js(
+    rum: ResourceUrlMapperFunction,
+) -> Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>> {
+    let callback = js_sys::Function::from((*rum).clone());
+
+    Some(Rc::new(move |url: &str| {
+        let Some(promise) = callback.call1(&JsValue::UNDEFINED, &url.into()).ok() else {
+            return Box::pin(std::future::ready(None));
+        };
+        let future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise));
+        Box::pin(async move { future.await.ok().and_then(|v| v.as_string()) })
+    }))
+}
+
 /// Compile the content of a string.
 ///
 /// Returns a promise to a compiled component which can be run with ".run()"
@@ -57,9 +75,17 @@ extern "C" {
 pub async fn compile_from_string(
     source: String,
     base_url: String,
+    resource_url_mapper: Option<ResourceUrlMapperFunction>,
     optional_import_callback: Option<ImportCallbackFunction>,
 ) -> Result<CompilationResult, JsValue> {
-    compile_from_string_with_style(source, base_url, String::new(), optional_import_callback).await
+    compile_from_string_with_style(
+        source,
+        base_url,
+        String::new(),
+        resource_url_mapper,
+        optional_import_callback,
+    )
+    .await
 }
 
 /// Same as [`compile_from_string`], but also takes a style parameter
@@ -68,12 +94,20 @@ pub async fn compile_from_string_with_style(
     source: String,
     base_url: String,
     style: String,
+    resource_url_mapper: Option<ResourceUrlMapperFunction>,
     optional_import_callback: Option<ImportCallbackFunction>,
 ) -> Result<CompilationResult, JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
     let mut compiler = slint_interpreter::ComponentCompiler::default();
+
+    #[cfg(target_arch = "wasm32")]
+    if let Some(rum) = resource_url_mapper {
+        let cc = compiler.compiler_configuration(i_slint_core::InternalToken);
+        cc.resource_url_mapper = resource_url_mapper_from_js(rum);
+    }
+
     if !style.is_empty() {
         compiler.set_style(style)
     }

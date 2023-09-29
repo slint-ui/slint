@@ -131,7 +131,9 @@ export async function showPreview(
 
 async function getDocumentSource(url: Uri): Promise<string> {
     // FIXME: is there a faster way to get the document
-    let x = vscode.workspace.textDocuments.find((d) => d.uri.toString() === url.toString());
+    let x = vscode.workspace.textDocuments.find(
+        (d) => d.uri.toString() === url.toString(),
+    );
     let source;
     if (x) {
         source = x.getText();
@@ -225,8 +227,8 @@ function getPreviewHtml(slint_wasm_preview_url: Uri): string {
 
     async function render(source, base_url, style) {
         let { component, error_string } =
-            style ? await slint.compile_from_string_with_style(source, base_url, style, async(url) => await load_file(url))
-                  : await slint.compile_from_string(source, base_url, async(url) => await load_file(url));
+            style ? await slint.compile_from_string_with_style(source, base_url, style, async(url) => Promise.resolve(undefined), async(url) => await load_file(url))
+                  : await slint.compile_from_string(source, base_url, async(url) => Promise.resolve(undefined), async(url) => await load_file(url));
         if (error_string != "") {
             var text = document.createTextNode(error_string);
             var p = document.createElement('pre');

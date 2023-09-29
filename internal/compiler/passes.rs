@@ -228,8 +228,10 @@ pub async fn run_passes(
         root_component,
         compiler_config.embed_resources,
         compiler_config.scale_factor,
+        &compiler_config.resource_url_mapper,
         diag,
-    );
+    )
+    .await;
 
     match compiler_config.embed_resources {
         #[cfg(feature = "software-renderer")]
