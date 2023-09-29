@@ -10,27 +10,55 @@ use crate::EmbedResourcesKind;
 use image::GenericImageView;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 use std::rc::Rc;
 
-pub fn embed_images(
+pub async fn embed_images(
     component: &Rc<Component>,
     embed_files: EmbedResourcesKind,
     scale_factor: f64,
+    resource_url_mapper: &Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
     diag: &mut BuildDiagnostics,
 ) {
     let global_embedded_resources = &component.embedded_file_resources;
 
-    for component in component
+    let all_components = component
         .used_types
         .borrow()
         .sub_components
         .iter()
         .chain(component.used_types.borrow().globals.iter())
         .chain(std::iter::once(component))
-    {
+        .cloned()
+        .collect::<Vec<_>>();
+
+    let mapped_urls = {
+        let mut urls = HashMap::<String, Option<String>>::new();
+
+        if let Some(mapper) = resource_url_mapper {
+            // Collect URLs (sync!):
+            for component in &all_components {
+                visit_all_expressions(component, |e, _| {
+                    collect_image_urls_from_expression(e, &mut urls)
+                });
+            }
+
+            // Map URLs (async -- well, not really):
+            for i in urls.iter_mut() {
+                *i.1 = (*mapper)(&i.0).await;
+            }
+        }
+
+        urls
+    };
+
+    // Use URLs (sync!):
+    for component in &all_components {
         visit_all_expressions(component, |e, _| {
             embed_images_from_expression(
                 e,
+                &mapped_urls,
                 global_embedded_resources,
                 embed_files,
                 scale_factor,
@@ -40,8 +68,19 @@ pub fn embed_images(
     }
 }
 
+fn collect_image_urls_from_expression(e: &Expression, urls: &mut HashMap<String, Option<String>>) {
+    if let Expression::ImageReference { ref resource_ref, .. } = e {
+        if let ImageReference::AbsolutePath(path) = resource_ref {
+            urls.insert(path.clone(), None);
+        }
+    };
+
+    e.visit(|e| collect_image_urls_from_expression(e, urls));
+}
+
 fn embed_images_from_expression(
     e: &mut Expression,
+    urls: &HashMap<String, Option<String>>,
     global_embedded_resources: &RefCell<HashMap<String, EmbeddedResources>>,
     embed_files: EmbedResourcesKind,
     scale_factor: f64,
@@ -49,25 +88,38 @@ fn embed_images_from_expression(
 ) {
     if let Expression::ImageReference { ref mut resource_ref, source_location } = e {
         match resource_ref {
-            ImageReference::AbsolutePath(path)
+            ImageReference::AbsolutePath(path) => {
+                // used mapped path:
+                let mapped_path =
+                    urls.get(path).unwrap_or(&Some(path.clone())).clone().unwrap_or(path.clone());
+                *path = mapped_path;
+
                 if embed_files != EmbedResourcesKind::OnlyBuiltinResources
-                    || path.starts_with("builtin:/") =>
-            {
-                *resource_ref = embed_image(
-                    global_embedded_resources,
-                    embed_files,
-                    path,
-                    scale_factor,
-                    diag,
-                    source_location,
-                );
+                    || path.starts_with("builtin:/")
+                {
+                    *resource_ref = embed_image(
+                        global_embedded_resources,
+                        embed_files,
+                        &path,
+                        scale_factor,
+                        diag,
+                        source_location,
+                    );
+                }
             }
             _ => {}
         }
     };
 
     e.visit_mut(|e| {
-        embed_images_from_expression(e, global_embedded_resources, embed_files, scale_factor, diag)
+        embed_images_from_expression(
+            e,
+            urls,
+            global_embedded_resources,
+            embed_files,
+            scale_factor,
+            diag,
+        )
     });
 }
 

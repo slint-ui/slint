@@ -86,7 +86,7 @@ pub fn config_changed(style: &str, include_paths: &[PathBuf]) {
 }
 
 /// If the file is in the cache, returns it.
-/// In any was, register it as a dependency
+/// In any way, register it as a dependency
 fn get_file_from_cache(path: PathBuf) -> Option<String> {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let r = cache.source_code.get(&path).cloned();
@@ -108,6 +108,12 @@ async fn reload_preview(preview_component: PreviewComponent) {
     send_status("Loading Preview…", Health::Ok);
 
     let mut builder = slint_interpreter::ComponentCompiler::default();
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        let cc = builder.compiler_configuration(i_slint_core::InternalToken);
+        cc.resource_url_mapper = resource_url_mapper();
+    }
 
     if !preview_component.style.is_empty() {
         builder.set_style(preview_component.style);

@@ -261,7 +261,6 @@ pub fn create(
         let load_file = Function::from(load_file.clone());
         Box::pin(async move { Some(self::load_file(path, &load_file).await) })
     }));
-
     let document_cache = RefCell::new(DocumentCache::new(compiler_config));
     let send_request = Function::from(send_request.clone());
     let reentry_guard = Rc::new(RefCell::new(ReentryGuard::default()));

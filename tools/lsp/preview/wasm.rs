@@ -4,7 +4,7 @@
 //! This wasm library can be loaded from JS to load and display the content of .slint files
 #![cfg(target_arch = "wasm32")]
 
-use std::{cell::RefCell, path::PathBuf, rc::Rc};
+use std::{cell::RefCell, future::Future, path::PathBuf, pin::Pin, rc::Rc};
 
 use wasm_bindgen::prelude::*;
 
@@ -14,13 +14,18 @@ use crate::{common::PreviewComponent, lsp_ext::Health};
 
 #[wasm_bindgen(typescript_custom_section)]
 const CALLBACK_FUNCTION_SECTION: &'static str = r#"
-type SignalLspFunction = (data: any) => void;
+export type ResourceUrlMapperFunction = (url: string) => Promise<string | undefined>;
+export type SignalLspFunction = (data: any) => void;
 "#;
 
 #[wasm_bindgen]
 extern "C" {
+    #[wasm_bindgen(typescript_type = "ResourceUrlMapperFunction")]
+    pub type ResourceUrlMapperFunction;
+
     #[wasm_bindgen(typescript_type = "SignalLspFunction")]
     pub type SignalLspFunction;
+
     #[wasm_bindgen(typescript_type = "Promise<PreviewConnector>")]
     pub type PreviewConnectorPromise;
 }
@@ -38,6 +43,7 @@ struct PreviewState {
     ui: Option<super::ui::PreviewUi>,
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
     lsp_notifier: Option<SignalLspFunction>,
+    resource_url_mapper: Option<ResourceUrlMapperFunction>,
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -47,11 +53,15 @@ pub struct PreviewConnector {}
 #[wasm_bindgen]
 impl PreviewConnector {
     #[wasm_bindgen]
-    pub fn create(lsp_notifier: SignalLspFunction) -> Result<PreviewConnectorPromise, JsValue> {
+    pub fn create(
+        lsp_notifier: SignalLspFunction,
+        resource_url_mapper: ResourceUrlMapperFunction,
+    ) -> Result<PreviewConnectorPromise, JsValue> {
         console_error_panic_hook::set_once();
 
         PREVIEW_STATE.with(|preview_state| {
             preview_state.borrow_mut().lsp_notifier = Some(lsp_notifier);
+            preview_state.borrow_mut().resource_url_mapper = Some(resource_url_mapper);
         });
 
         Ok(JsValue::from(js_sys::Promise::new(&mut move |resolve, reject| {
@@ -229,6 +239,25 @@ pub fn load_preview(component: PreviewComponent) {
         i_slint_core::future::spawn_local(super::reload_preview(component)).unwrap();
     })
     .unwrap();
+}
+
+pub fn resource_url_mapper(
+) -> Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>> {
+    let callback = PREVIEW_STATE.with(|preview_state| {
+        preview_state
+            .borrow()
+            .resource_url_mapper
+            .as_ref()
+            .map(|rum| js_sys::Function::from((*rum).clone()))
+    })?;
+
+    Some(Rc::new(move |url: &str| {
+        let Some(promise) = callback.call1(&JsValue::UNDEFINED, &url.into()).ok() else {
+            return Box::pin(std::future::ready(None));
+        };
+        let future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise));
+        Box::pin(async move { future.await.ok().and_then(|v| v.as_string()) })
+    }))
 }
 
 pub fn send_message_to_lsp(message: crate::common::PreviewToLspMessage) {
