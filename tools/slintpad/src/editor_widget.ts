@@ -122,6 +122,10 @@ export class KnownUrlMapper implements UrlMapper {
     }
 
     from_internal(uri: monaco.Uri): monaco.Uri | null {
+        if (!is_internal_uri(this.#uuid, uri)) {
+            return uri;
+        }
+
         const file_path = file_from_internal_uri(this.#uuid, uri);
 
         const mapped_url = this.#map[file_path] || null;
@@ -142,6 +146,10 @@ export class RelativeUrlMapper implements UrlMapper {
     }
 
     from_internal(uri: monaco.Uri): monaco.Uri | null {
+        if (!is_internal_uri(this.#uuid, uri)) {
+            return uri;
+        }
+
         return monaco.Uri.from({
             scheme: this.#base_uri.scheme,
             authority: this.#base_uri.authority,
@@ -298,6 +306,25 @@ class EditorPaneWidget extends Widget {
             );
         }
         this.#service_worker_port = sw_channel.port1;
+    }
+
+    async map_url(url_: string): Promise<string | undefined> {
+        const js_url = new URL(url_);
+
+        const absolute_uri = monaco.Uri.parse(js_url.toString());
+        const mapped_uri =
+            this.#url_mapper?.from_internal(absolute_uri) ?? absolute_uri;
+        const mapped_string = mapped_uri.toString();
+
+        if (is_internal_uri(this.#internal_uuid, mapped_uri)) {
+            const file = file_from_internal_uri(
+                this.#internal_uuid,
+                mapped_uri,
+            );
+            this.#extra_file_urls[file] = mapped_string;
+        }
+
+        return mapped_string;
     }
 
     get editor(): IStandaloneCodeEditor | undefined {
@@ -842,6 +869,10 @@ export class EditorWidget extends Widget {
         } else {
             this.set_demo(load_demo ?? "");
         }
+    }
+
+    async map_url(url: string): Promise<string | undefined> {
+        return this.#editor.map_url(url);
     }
 
     get current_editor_content(): string {

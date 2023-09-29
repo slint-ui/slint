@@ -24,6 +24,10 @@ import {
 import * as monaco from "monaco-editor";
 
 import slint_init, * as slint_preview from "@lsp/slint_lsp_wasm.js";
+
+import type { ResourceUrlMapperFunction } from "@lsp/slint_lsp_wasm.js";
+export { ResourceUrlMapperFunction };
+
 import { HighlightRequestCallback } from "./text";
 
 let is_event_loop_running = false;
@@ -122,6 +126,8 @@ class PreviewerBackend {
     #instance: Promise<slint_preview.WrappedInstance> | null = null;
     #to_highlight: HighlightInfo = { file: "", offset: 0 };
     #picker_mode = false;
+    #resource_url_mapper: ResourceUrlMapperFunction = async (_) =>
+        Promise.resolve(undefined);
 
     constructor(client_port: MessagePort, lsp_port: MessagePort) {
         this.#lsp_port = lsp_port;
@@ -191,6 +197,10 @@ class PreviewerBackend {
         };
     }
 
+    set resource_url_mapper(rum: ResourceUrlMapperFunction) {
+        this.#resource_url_mapper = rum;
+    }
+
     set picker_mode(state: boolean) {
         this.#picker_mode = state;
         this.configure_picker_mode();
@@ -250,6 +260,7 @@ class PreviewerBackend {
                 source,
                 base_url,
                 style,
+                this.#resource_url_mapper,
                 load_callback,
             );
 
@@ -480,6 +491,10 @@ export class Lsp {
 
     set file_reader(fr: FileReader) {
         this.#file_reader = fr;
+    }
+
+    set resource_url_mapper(rum: ResourceUrlMapperFunction) {
+        this.#previewer_backend.resource_url_mapper = rum;
     }
 
     private read_url(url: string): Promise<string> {
