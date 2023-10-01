@@ -286,6 +286,15 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: wasm_demo
+      - name: Extract Version
+        id: version
+        run: |
+            version=$(grep -oP '(?<=<title>Slint )[0-9]+\.[0-9]+\.[0-9]+' target/slintdocs/html/index.html)
+            if [[ -z "$version" ]]; then
+              echo "Version not found"
+              exit 1
+            fi
+            echo "::set-output name=VERSION::$version"
       - name: Publish Docs and Demos
         run: |
             git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
@@ -293,59 +302,71 @@ jobs:
             ssh-agent sh -c 'echo "${{ secrets.WWW_PUBLISH_SSH_KEY }}" | ssh-add - && git clone git@github.com:slint-ui/www.git  --depth 1'
             cd www
 
-            target_branch=${GITHUB_REF##*/}
+            if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
+              output_path="releases/${{ steps.version.outputs.VERSION }}"
+            else
+              output_path="snapshots/${GITHUB_REF##*/}"
+            fi
 
-            rm -rf snapshots/$target_branch/demos
-            mkdir -p snapshots/$target_branch/demos
+            rm -rf $output_path/demos
+            mkdir -p $output_path/demos
 
             for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust slide_puzzle, memory, imagefilter, plotter, opengl_underlay, carousel,rust energy-monitor,; do
                 IFS=',' read demo subdir <<< "${demo_subdir}"
 
-                mkdir -p snapshots/$target_branch/demos/$demo
-                cp -a ../$demo/$subdir/{pkg,index.html} snapshots/$target_branch/demos/$demo/
+                mkdir -p $output_path/demos/$demo
+                cp -a ../$demo/$subdir/{pkg,index.html} $output_path/demos/$demo/
             done
 
-            git add snapshots/$target_branch/demos
-            git add -u snapshots/$target_branch/demos
+            rm -rf $output_path/wasm-interpreter
+            mkdir -p $output_path/wasm-interpreter
+            cp -a ../api/wasm-interpreter/pkg/* ./$output_path/wasm-interpreter/
 
-            rm -rf snapshots/$target_branch/wasm-interpreter
-            mkdir -p snapshots/$target_branch/wasm-interpreter
-            cp -a ../api/wasm-interpreter/pkg/* ./snapshots/$target_branch/wasm-interpreter/
-            git add snapshots/$target_branch/wasm-interpreter
-            git add -u snapshots/$target_branch/wasm-interpreter
+            rm -rf $output_path/editor
+            mkdir -p $output_path/editor
+            cp -a ../slintpad/* $output_path/editor/
 
-            rm -rf snapshots/$target_branch/editor
-            mkdir -p snapshots/$target_branch/editor
-            cp -a ../slintpad/* snapshots/$target_branch/editor/
-            git add snapshots/$target_branch/editor
-            git add -u snapshots/$target_branch/editor
-
-            rm -rf snapshots/$target_branch/docs
-            mkdir -p snapshots/$target_branch/docs
-            cp -a ../docs/site/* snapshots/$target_branch/docs
-            mkdir -p snapshots/$target_branch/docs/cpp
-            cp -a ../target/cppdocs/html/* snapshots/$target_branch/docs/cpp/
-            mkdir -p snapshots/$target_branch/docs/rust
-            cp -a ../target/doc/* snapshots/$target_branch/docs/rust/
+            rm -rf $output_path/docs
+            mkdir -p $output_path/docs
+            cp -a ../docs/site/* $output_path/docs
+            mkdir -p $output_path/docs/cpp
+            cp -a ../target/cppdocs/html/* $output_path/docs/cpp/
+            mkdir -p $output_path/docs/rust
+            cp -a ../target/doc/* $output_path/docs/rust/
 
             # Fix up link to Slint language documentation
-            sed -i "s!https://slint.dev/releases/.*/docs/!../../!" snapshots/$target_branch/docs/rust/slint/*.html
+            sed -i "s!https://slint.dev/releases/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
 
             for lang in rust cpp node; do
-                mkdir -p snapshots/$target_branch/docs/tutorial/$lang
-                cp -a ../docs/tutorial/$lang/book/html/* snapshots/$target_branch/docs/tutorial/$lang
+                mkdir -p $output_path/docs/tutorial/$lang
+                cp -a ../docs/tutorial/$lang/book/html/* $output_path/docs/tutorial/$lang
             done
-            mkdir -p snapshots/$target_branch/docs/node
-            cp -a ../api/node/docs/* snapshots/$target_branch/docs/node/
-            mkdir -p snapshots/$target_branch/docs/slint
-            cp -a ../target/slintdocs/html/* snapshots/$target_branch/docs/slint/
+            mkdir -p $output_path/docs/node
+            cp -a ../api/node/docs/* $output_path/docs/node/
+            mkdir -p $output_path/docs/slint
+            cp -a ../target/slintdocs/html/* $output_path/docs/slint/
 
-            git add snapshots/$target_branch/docs
-            git add -u snapshots/$target_branch/docs
+      - name: Adjust redirections
+        if: github.event.inputs.release == 'true'
+        run: |
+            sed -i "/1.0.2/! s,releases/[^/]*/\(.*\),releases/${{ steps.version.outputs.VERSION }}/\1," www/data/_redirects
 
+      - name: Adjust slintpad default tag
+        if: github.event.inputs.release == 'true'
+        run: sed -i "s,XXXX_DEFAULT_TAG_XXXX,v${{ steps.version.outputs.VERSION }}," www/releases/${{ steps.version.outputs.VERSION }}/editor/assets/*.js
+
+      - name: Update versions.txt
+        if: github.event.inputs.release == 'true'
+        run: ls -1 | grep -v versions.txt | sort --version-sort -r > versions.txt
+        working-directory: www/releases
+
+      - name: commit and push
+        run: |
+            cd www
+            git add .
+            git add -u .
             git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
             ssh-agent sh -c 'echo "${{ secrets.WWW_PUBLISH_SSH_KEY }}" | ssh-add - && git push origin master'
-
 
   prepare_release:
     if: github.event.inputs.private != 'true'
@@ -376,6 +397,15 @@ jobs:
             mv Slint-cpp-*-Linux-x86_64.tar.gz artifacts/
             mv slint-viewer-linux.tar.gz artifacts/
             mv slint-lsp-linux.tar.gz artifacts/
+      - name: Extract Version
+        id: version
+        run: |
+          version=$(echo artifacts/Slint-cpp-*-win64.exe | sed -nre 's/^.*-([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')
+          if [[ -z "$version" ]]; then
+            echo "Version not found"
+            exit 1
+          fi
+          echo "::set-output name=VERSION::$version"
       - uses: montudor/action-zip@v1
         with:
           args: zip -r artifacts/slint-viewer-windows.zip slint-viewer
@@ -388,6 +418,6 @@ jobs:
           draft: true
           artifacts: "artifacts/*"
           body: "[ChangeLog](https://github.com/slint-ui/slint/blob/master/CHANGELOG.md)"
-          name: "Draft Release"
-          tag: "change_me"
+          name: ${{ steps.version.outputs.VERSION }}
+          tag: v${{ steps.version.outputs.VERSION }}
           commit: ${{ github.sha }}
