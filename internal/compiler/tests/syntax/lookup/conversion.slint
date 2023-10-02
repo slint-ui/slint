@@ -48,5 +48,6 @@ export X := Rectangle {
 
     property <[{a: [int]}]> ccc: [{a: []}, {}, {a: ["123"]}, {a: [123]}];
 //                               ^error{Cannot convert string to int}  (FIXME: error location)
+//                               ^^error{Cannot convert string to int}  (FIXME: duplicated)
 
 }

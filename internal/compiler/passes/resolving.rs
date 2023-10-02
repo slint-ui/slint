@@ -1216,7 +1216,7 @@ impl Expression {
                                 ) => {
                                     *existing_field.get_mut() =
                                         Self::common_target_type_for_type_list(
-                                            [existing_field.get().clone(), elem_ty].iter().cloned(),
+                                            [existing_field.get().clone(), elem_ty].into_iter(),
                                         );
                                 }
                             }
@@ -1228,6 +1228,9 @@ impl Expression {
                             rust_attributes: rust_attributes.or(deriven),
                         }
                     }
+                    (Type::Array(lhs), Type::Array(rhs)) => Type::Array(
+                        Self::common_target_type_for_type_list([*lhs, *rhs].into_iter()).into(),
+                    ),
                     (Type::Color, Type::Brush) | (Type::Brush, Type::Color) => Type::Brush,
                     (target_type, expr_ty) => {
                         if expr_ty.can_convert(&target_type) {
