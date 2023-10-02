@@ -377,7 +377,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             if let Value::LayoutCache(cache) = cache {
                 if let Some(ri) = repeater_index {
                     let offset : usize = eval_expression(ri, local_context).try_into().unwrap();
-                    Value::Number(cache[(cache[*index] as usize) + offset * 2].into())
+                    Value::Number(cache.get((cache[*index] as usize) + offset * 2).copied().unwrap_or(0.).into())
                 } else {
                     Value::Number(cache[*index].into())
                 }
