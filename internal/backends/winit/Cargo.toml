@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-backend-winit"
-description = "OpenGL rendering backend for Slint"
+description = "Winit backend for Slint"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
