@@ -294,7 +294,7 @@ jobs:
               echo "Version not found"
               exit 1
             fi
-            echo "::set-output name=VERSION::$version"
+            echo "VERSION=$version" >> $GITHUB_OUTPUT
       - name: Publish Docs and Demos
         run: |
             git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
@@ -405,7 +405,7 @@ jobs:
             echo "Version not found"
             exit 1
           fi
-          echo "::set-output name=VERSION::$version"
+          echo "VERSION=$version" >> $GITHUB_OUTPUT
       - uses: montudor/action-zip@v1
         with:
           args: zip -r artifacts/slint-viewer-windows.zip slint-viewer
