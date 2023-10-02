@@ -212,6 +212,23 @@ pub fn cursor_rect(
         );
     }
 
+    // SkParagraph::getRectsForRange() does not report the text box of a trailing newline
+    // correctly. Use the last line's metrics to get the correct coordinates (#3590).
+    if cursor_pos == string.len() && string.ends_with('\n') {
+        if let Some(metrics) = layout.get_line_metrics_at(layout.line_number() - 1) {
+            return PhysicalRect::new(
+                PhysicalPoint::new(
+                    (metrics.left + metrics.width) as f32,
+                    (metrics.baseline - metrics.ascent) as f32,
+                ),
+                PhysicalSize::from_lengths(
+                    cursor_width,
+                    PhysicalLength::new(metrics.height as f32),
+                ),
+            );
+        }
+    }
+
     // The cursor is visually between characters, but the logical cursor_pos refers to the
     // index in the string that is the start of a glyph cluster. The cursor is to be drawn
     // at the left edge of that glyph cluster.
