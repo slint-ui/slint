@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::FontRequest;
-use i_slint_core::items::TextVerticalAlignment;
+use i_slint_core::items::{TextHorizontalAlignment, TextVerticalAlignment};
 use i_slint_core::lengths::{LogicalLength, ScaleFactor};
 use i_slint_core::{items, Color};
 
@@ -204,10 +204,16 @@ pub fn cursor_rect(
     cursor_pos: usize,
     layout: skia_safe::textlayout::Paragraph,
     cursor_width: PhysicalLength,
+    h_align: TextHorizontalAlignment,
 ) -> PhysicalRect {
     if string.is_empty() {
+        let x = match h_align {
+            TextHorizontalAlignment::Left => PhysicalLength::default(),
+            TextHorizontalAlignment::Center => PhysicalLength::new(layout.max_width() / 2.),
+            TextHorizontalAlignment::Right => PhysicalLength::new(layout.max_width()),
+        };
         return PhysicalRect::new(
-            PhysicalPoint::default(),
+            PhysicalPoint::from_lengths(x, PhysicalLength::default()),
             PhysicalSize::from_lengths(cursor_width, PhysicalLength::new(layout.height())),
         );
     }

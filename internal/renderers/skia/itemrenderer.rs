@@ -552,6 +552,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
                 cursor_position,
                 layout,
                 text_input.text_cursor_width() * self.scale_factor,
+                text_input.horizontal_alignment(),
             )
             .translate(layout_top_left.to_vector());
 
