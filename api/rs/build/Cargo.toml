@@ -25,4 +25,4 @@ i-slint-compiler = { workspace = true, features = ["default", "rust", "display-d
 
 spin_on = "0.1"
 thiserror = "1"
-toml_edit = "0.19"
+toml_edit = { workspace = true }
