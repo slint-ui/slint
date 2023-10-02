@@ -1,0 +1,31 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+name: Build against pre-built Yocto SDK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+    - name: Fetch Yocto SDK
+      run: |
+          # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
+          wget https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
+          chmod +x poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
+          ./poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh -d ${{ runner.workspace }}/yocto-sdk -y
+          rm -f poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+            toolchain: stable
+            target: aarch64-unknown-linux-gnu
+    - name: C++ Build
+      run: |
+          . ${{ runner.workspace }}/yocto-sdk/environment-setup-cortexa57-poky-linux
+          mkdir ${{ runner.workspace }}/cppbuild
+          cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=OFF -DSLINT_FEATURE_BACKEND_QT=OFF
+          cmake --build ${{ runner.workspace }}/cppbuild
