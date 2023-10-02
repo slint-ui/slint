@@ -214,7 +214,9 @@ pub fn cursor_rect(
 
     // SkParagraph::getRectsForRange() does not report the text box of a trailing newline
     // correctly. Use the last line's metrics to get the correct coordinates (#3590).
-    if cursor_pos == string.len() && string.ends_with('\n') {
+    if cursor_pos == string.len()
+        && string.ends_with(|ch| ch == '\n' || ch == '\u{2028}' || ch == '\u{2029}')
+    {
         if let Some(metrics) = layout.get_line_metrics_at(layout.line_number() - 1) {
             return PhysicalRect::new(
                 PhysicalPoint::new(
