@@ -255,7 +255,7 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
             |glyphs, line_x, line_y, line, _| {
                 last_glyph_right_edge = euclid::approxord::min(
                     self.max_width,
-                    line.width_including_trailing_whitespace(),
+                    line_x + line.width_including_trailing_whitespace(),
                 );
                 last_line_y = line_y;
                 if byte_offset >= line.byte_range.end + line.trailing_whitespace_bytes {
@@ -286,7 +286,7 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
         let two = Font::LengthPrimitive::one() + Font::LengthPrimitive::one();
 
         match self.layout_lines(
-            |glyphs, _, line_y, line, _| {
+            |glyphs, line_x, line_y, line, _| {
                 if pos_y >= line_y + self.layout.font.height() {
                     byte_offset = line.byte_range.end;
                     return core::ops::ControlFlow::Continue(());
@@ -297,10 +297,10 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
                 }
 
                 while let Some(positioned_glyph) = glyphs.next() {
-                    if pos_x >= positioned_glyph.x
-                        && pos_x <= positioned_glyph.x + positioned_glyph.advance
+                    if pos_x >= line_x + positioned_glyph.x
+                        && pos_x <= line_x + positioned_glyph.x + positioned_glyph.advance
                     {
-                        if pos_x < positioned_glyph.x + positioned_glyph.advance / two {
+                        if pos_x < line_x + positioned_glyph.x + positioned_glyph.advance / two {
                             return core::ops::ControlFlow::Break(
                                 positioned_glyph.text_byte_offset,
                             );

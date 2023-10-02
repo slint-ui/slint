@@ -1353,7 +1353,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     let baseline_y = line_y + paragraph.layout.font.ascent();
                     if let (Some(sel), Some(selection)) = (sel, &selection) {
                         let geometry = euclid::rect(
-                            sel.start.get(),
+                            line_x.get() + sel.start.get(),
                             line_y.get(),
                             (sel.end - sel.start).get(),
                             paragraph.layout.font.height().get(),
