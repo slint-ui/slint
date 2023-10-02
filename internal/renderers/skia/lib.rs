@@ -338,6 +338,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
             byte_offset,
             layout,
             text_input.text_cursor_width() * scale_factor,
+            text_input.horizontal_alignment(),
         );
 
         physical_cursor_rect.translate(layout_top_left.to_vector()) / scale_factor
