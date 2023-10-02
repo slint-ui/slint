@@ -90,7 +90,9 @@ pub fn create_layout(
     if overflow == items::TextOverflow::Elide {
         style.set_ellipsis("…");
         if wrap == items::TextWrap::WordWrap {
-            style.set_max_lines((max_height.get() / pixel_size.get()).floor() as usize);
+            let metrics = text_style.font_metrics();
+            let line_height = metrics.descent - metrics.ascent + metrics.leading;
+            style.set_max_lines((max_height.get() / line_height).floor() as usize);
         }
     }
 
