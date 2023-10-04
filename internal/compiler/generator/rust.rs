@@ -138,40 +138,57 @@ fn set_primitive_property_value(ty: &Type, value_expression: TokenStream) -> Tok
 
 /// Generate the rust code for the given component.
 pub fn generate(doc: &Document) -> TokenStream {
-    let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = doc
-        .root_component
-        .used_types
-        .borrow()
-        .structs_and_enums
-        .iter()
-        .filter_map(|ty| match ty {
-            Type::Struct { fields, name: Some(name), node: Some(_), rust_attributes } => {
-                Some((ident(name), generate_struct(name, fields, rust_attributes)))
-            }
-            Type::Enumeration(en) => Some((ident(&en.name), generate_enum(en))),
-            _ => None,
-        })
-        .unzip();
+    match public_component(&doc) {
+        None => TokenStream::default(), // empty document, nothing to generate
+        Some(llr) => {
+            generate_module(public_component_id(&llr.item_tree.root), AppModule { doc, llr })
+        }
+    }
+}
 
-    if matches!(
-        doc.root_component.root_element.borrow().base_type,
-        ElementType::Error | ElementType::Global
-    ) {
-        // empty document, nothing to generate
-        return TokenStream::default();
+trait ModuleGenerator {
+    fn structs_and_enums(&self) -> (Vec<Ident>, Vec<TokenStream>);
+    fn sub_components(&self) -> Vec<TokenStream>;
+    fn public_component(&self) -> (Option<Ident>, TokenStream);
+    fn globals(&self) -> (Vec<Ident>, Vec<TokenStream>);
+    fn resources(&self) -> Vec<TokenStream>;
+}
+
+struct AppModule<'a> {
+    doc: &'a Document,
+    llr: llr::PublicComponent,
+}
+
+impl ModuleGenerator for AppModule<'_> {
+    fn structs_and_enums(&self) -> (Vec<Ident>, Vec<TokenStream>) {
+        generate_structs_and_enums(&self.doc.root_component.used_types.borrow().structs_and_enums)
     }
 
-    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component);
+    fn sub_components(&self) -> Vec<TokenStream> {
+        generate_sub_components(&self.llr)
+    }
 
-    let sub_compos = llr
-        .sub_components
-        .iter()
-        .map(|sub_compo| generate_sub_component(sub_compo, &llr, None, quote!(), None, false))
-        .collect::<Vec<_>>();
+    fn public_component(&self) -> (Option<Ident>, TokenStream) {
+        let compo_id = public_component_id(&self.llr.item_tree.root);
+        let compo = generate_public_component(&self.llr);
+        (Some(compo_id), compo)
+    }
 
-    let compo = generate_public_component(&llr);
-    let compo_id = public_component_id(&llr.item_tree.root);
-    let compo_module = format_ident!("slint_generated{}", compo_id);
+    fn globals(&self) -> (Vec<Ident>, Vec<TokenStream>) {
+        generate_globals(&self.llr)
+    }
+
+    fn resources(&self) -> Vec<TokenStream> {
+        generate_resources(&self.doc)
+    }
+}
+
+fn generate_module(id: Ident, generator: impl ModuleGenerator) -> TokenStream {
+    let (structs_and_enums_ids, structs_and_enum_def) = generator.structs_and_enums();
+    let sub_compos = generator.sub_components();
+
+    let (compo_id, compo) = generator.public_component();
+    let compo_module = format_ident!("slint_generated{}", id);
     let version_check = format_ident!(
         "VersionCheck_{}_{}_{}",
         env!("CARGO_PKG_VERSION_MAJOR"),
@@ -179,13 +196,9 @@ pub fn generate(doc: &Document) -> TokenStream {
         env!("CARGO_PKG_VERSION_PATCH"),
     );
 
-    let globals =
-        llr.globals.iter().filter(|glob| !glob.is_builtin).map(|glob| generate_global(glob, &llr));
-    let globals_ids = llr.globals.iter().filter(|glob| glob.exported).flat_map(|glob| {
-        std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
-    });
-
-    let resource_symbols = generate_resources(doc);
+    let (globals_ids, globals) = generator.globals();
+    let resource_symbols = generator.resources();
+    let public_ids = compo_id.into_iter().chain(structs_and_enums_ids).chain(globals_ids);
 
     quote! {
         #[allow(non_snake_case)]
@@ -210,7 +223,7 @@ pub fn generate(doc: &Document) -> TokenStream {
             #(#resource_symbols)*
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
-        pub use #compo_module::{#compo_id #(,#structs_and_enums_ids)* #(,#globals_ids)* };
+        pub use #compo_module::{#(#public_ids),*};
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     }
 }
@@ -322,6 +335,19 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
             }
         }
     )
+}
+
+fn generate_structs_and_enums(types: &Vec<Type>) -> (Vec<Ident>, Vec<TokenStream>) {
+    types
+        .iter()
+        .filter_map(|ty| match ty {
+            Type::Struct { fields, name: Some(name), node: Some(_), rust_attributes } => {
+                Some((ident(name), generate_struct(name, fields, rust_attributes)))
+            }
+            Type::Enumeration(en) => Some((ident(&en.name), generate_enum(en))),
+            _ => None,
+        })
+        .unzip()
 }
 
 fn generate_struct(
@@ -578,6 +604,13 @@ fn public_api(
     }
 
     quote!(#(#property_and_callback_accessors)*)
+}
+
+fn generate_sub_components(root: &llr::PublicComponent) -> Vec<TokenStream> {
+    root.sub_components
+        .iter()
+        .map(|sub_compo| generate_sub_component(sub_compo, &root, None, quote!(), None, false))
+        .collect::<Vec<_>>()
 }
 
 /// Generate the rust code for the given component.
@@ -1102,6 +1135,18 @@ fn generate_functions(functions: &[llr::Function], ctx: &EvaluationContext) -> V
             }
         })
         .collect()
+}
+
+fn generate_globals(root: &llr::PublicComponent) -> (Vec<Ident>, Vec<TokenStream>) {
+    let globals = root
+        .globals
+        .iter()
+        .filter(|glob| !glob.is_builtin)
+        .map(|glob| generate_global(glob, &root));
+    let globals_ids = root.globals.iter().filter(|glob| glob.exported).flat_map(|glob| {
+        std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
+    });
+    (globals_ids.collect(), globals.collect())
 }
 
 fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -> TokenStream {
@@ -1640,6 +1685,16 @@ fn global_inner_name(g: &llr::GlobalComponent) -> proc_macro2::Ident {
 /// Return an identifier suitable for this component for the developer facing API
 fn public_component_id(component: &llr::SubComponent) -> proc_macro2::Ident {
     ident(&component.name)
+}
+
+fn public_component(doc: &Document) -> Option<llr::PublicComponent> {
+    if matches!(
+        doc.root_component.root_element.borrow().base_type,
+        ElementType::Error | ElementType::Global
+    ) {
+        return None;
+    }
+    Some(crate::llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component))
 }
 
 fn property_set_value_tokens(
