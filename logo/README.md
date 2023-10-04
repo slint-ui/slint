@@ -61,3 +61,7 @@ The name of the product is ***Slint***, not ~~*Slint UI*~~.
 The company (legal entity) behind Slint is *SixtyFPS GmbH*. That name should only be used to refer to the company,
 including the *GmbH*. (*SixtyFPS* was the former name of the product but should no longer be used.)
 Employees of SixtyFPS GmbH should still use the name *Slint* whenever possible (e.g. on conference badges).
+
+## License
+
+All logos are licensed under [CC-BY-ND-4.0](https://creativecommons.org/licenses/by-nd/4.0/)
