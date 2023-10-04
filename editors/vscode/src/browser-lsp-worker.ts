@@ -23,13 +23,6 @@ slint_init(slint_wasm_data).then((_) => {
         return true;
     }
 
-    function highlight(path: string, offset: number) {
-        connection.sendRequest("slint/preview_message", {
-            command: "highlight",
-            data: { path: path, offset: offset },
-        });
-    }
-
     async function send_request(method: string, params: any): Promise<unknown> {
         return await connection.sendRequest(method, params);
     }
@@ -44,7 +37,6 @@ slint_init(slint_wasm_data).then((_) => {
             send_notification,
             send_request,
             load_file,
-            highlight,
         );
         return the_lsp.server_initialize_result(params.capabilities);
     });
