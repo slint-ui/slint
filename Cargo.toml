@@ -50,6 +50,7 @@ members = [
     'tests/driver/driverlib',
     'tests/driver/interpreter',
     'tests/driver/nodejs',
+    'tests/driver/napi',
     'tests/driver/rust',
     'tests/screenshots',
     'tools/compiler',

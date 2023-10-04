@@ -44,3 +44,15 @@ test('loadFile', (t) => {
         },
     ]);
 })
+
+test('constructor parameters', (t) => {
+    let demo = loadFile(path.join(__dirname, "resources/test-constructor.slint"));
+    let hello = "";
+    let test = new demo.Test({ say_hello: function() { hello = "hello"; }, check: "test"});
+
+    // test.say_hello.setHandler(function () { blub = "hello"; });
+    test.say_hello();
+
+    t.is(test.check, "test");
+    t.is(hello, "hello");
+})

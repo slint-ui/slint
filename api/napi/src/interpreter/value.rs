@@ -57,7 +57,10 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
         Value::Struct(struct_value) => {
             let mut o = env.create_object()?;
             for (field_name, field_value) in struct_value.iter() {
-                o.set_property(env.create_string(field_name)?, to_js_unknown(env, field_value)?)?;
+                o.set_property(
+                    env.create_string(&field_name.to_string().replace('-', "_"))?,
+                    to_js_unknown(env, field_value)?,
+                )?;
             }
             Ok(o.into_unknown())
         }
@@ -93,8 +96,8 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
         | Type::Rem
         | Type::Percent
         | Type::UnitProduct(_) => {
-            let js_number: JsNumber = unknown.try_into()?;
-            Ok(Value::Number(js_number.get_double()?))
+            let js_number: Result<JsNumber> = unknown.try_into();
+            Ok(Value::Number(js_number?.get_double()?))
         }
         Type::String => {
             let js_string: JsString = unknown.try_into()?;
@@ -105,12 +108,39 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
             Ok(Value::Bool(js_bool.get_value()?))
         }
         Type::Color => {
-            let js_color: JsExternal = unknown.coerce_to_object()?.get("color")?.unwrap();
-            Ok(Value::Brush(Brush::from(env.get_value_external::<Color>(&js_color)?.clone())))
+            if unknown.get_type()?.eq(&ValueType::String) {
+                let js_string: JsString = unknown.coerce_to_string()?;
+                let string = js_string.into_utf8()?.as_str()?.to_string();
+
+                let c = string.parse::<css_color_parser2::Color>().map_err(|_| {
+                    napi::Error::from_reason(format!("Could not convert {string} to Color."))
+                })?;
+
+                Ok(Value::Brush(
+                    Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into(),
+                ))
+            } else {
+                let js_color: JsExternal = unknown.coerce_to_object()?.get("color")?.unwrap();
+                Ok(Value::Brush(Brush::from(env.get_value_external::<Color>(&js_color)?.clone())))
+            }
+
         }
         Type::Brush => {
-            let js_brush: JsExternal = unknown.coerce_to_object()?.get("brush")?.unwrap();
-            Ok(Value::Brush(env.get_value_external::<Brush>(&js_brush)?.clone()))
+            if unknown.get_type()?.eq(&ValueType::String) {
+                let js_string: JsString = unknown.coerce_to_string()?;
+                let string = js_string.into_utf8()?.as_str()?.to_string();
+
+                let c = string.parse::<css_color_parser2::Color>().map_err(|_| {
+                    napi::Error::from_reason(format!("Could not convert {string} to Brush."))
+                })?;
+
+                Ok(Value::Brush(
+                    Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into(),
+                ))
+            } else {
+                let js_brush: JsExternal = unknown.coerce_to_object()?.get("brush")?.unwrap();
+                Ok(Value::Brush(env.get_value_external::<Brush>(&js_brush)?.clone()))
+            }
         }
         Type::Image => {
             let object = unknown.coerce_to_object()?;

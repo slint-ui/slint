@@ -3,7 +3,7 @@
 
 import test from 'ava';
 
-import { Brush, Color, ArrayModel, Size } from '../index'
+import { Brush, Color, ArrayModel } from '../index'
 
 test('Color from fromRgb', (t) => {
     let color = Color.fromRgb(100, 110, 120);

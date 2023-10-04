@@ -128,33 +128,33 @@ assert_eq!(t.get_i1().blue(), 0);
 
 ```js
 var t = new slint.Test({});
-assert(t.r1 == t.r2);
-assert(t.r1 == t.r3);
-assert(t.r1 == t.r4);
-assert(t.r1 == t.r5);
-assert(t.b1 == t.b2);
-assert(t.b1 == t.b3);
-assert(t.b1 == t.b4);
-assert(t.b1 == t.b5);
-assert(t.b1 != t.r5);
+assert(t.r1.toString() == t.r2.toString());
+assert(t.r1.toString() == t.r3.toString());
+assert(t.r1.toString() == t.r4.toString());
+assert(t.r1.toString() == t.r5.toString());
+assert(t.b1.toString() == t.b2.toString());
+assert(t.b1.toString() == t.b3.toString());
+assert(t.b1.toString() == t.b4.toString());
+assert(t.b1.toString() == t.b5.toString());
+assert(t.b1.toString() != t.r5.toString());
 
 let red = "#ff0000ff";
 let blue = "#0000ffff";
 let g = "#999999ff";
-assert.equal(t.r1, red);
-assert.equal(t.b1, blue);
-assert.equal(t.g1, g);
-assert.equal(t.y1, "#ffff00ff");
+assert.equal(t.r1.toString(), red);
+assert.equal(t.b1.toString(), blue);
+assert.equal(t.g1.toString(), g);
+assert.equal(t.y1.toString(), "#ffff00ff");
 
 t.g1 = "blue";
-assert.equal(t.g1, t.b1);
+assert.equal(t.g1.toString(), t.b1.toString());
 t.g1 = "#f00";
-assert.equal(t.g1, t.r1);
+assert.equal(t.g1.toString(), t.r1.toString());
 
-assert.equal(t.c1, "#ff335588");
-assert.equal(t.c2, "#64172aff");
-assert.equal(t.c3, "#637f28ce");
-assert.equal(t.i1, "#00ff00ff");
+assert.equal(t.c1.toString(), "#ff335588");
+assert.equal(t.c2.toString(), "#64172aff");
+assert.equal(t.c3.toString(), "#637f28ce");
+assert.equal(t.i1.toString(), "#00ff00ff");
 
 ```
 */

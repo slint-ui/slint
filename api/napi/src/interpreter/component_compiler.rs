@@ -19,7 +19,16 @@ impl JsComponentCompiler {
     /// Returns a new ComponentCompiler.
     #[napi(constructor)]
     pub fn new() -> Self {
-        Self { internal: ComponentCompiler::default() }
+        let mut compiler = ComponentCompiler::default();
+        let include_paths = match std::env::var_os("SLINT_INCLUDE_PATH") {
+            Some(paths) => {
+                std::env::split_paths(&paths).filter(|path| !path.as_os_str().is_empty()).collect()
+            }
+            None => vec![],
+        };
+
+        compiler.set_include_paths(include_paths);
+        Self { internal: compiler }
     }
 
     #[napi(setter)]

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { ComponentCompiler, ComponentInstance, Window, DiagnosticLevel, Diagnostic } from "./napi";
+import { ComponentCompiler, ComponentInstance, Window, DiagnosticLevel, Diagnostic, mockElapsedTime } from "./napi";
 export * from "./napi";
 
 /**
@@ -152,6 +152,8 @@ export interface ComponentHandle {
     show();
     hide();
     get window(): Window;
+    send_mouse_click(x: number, y: number);
+    send_keyboard_string_sequence(s: String);
 }
 
 class Component implements ComponentHandle {
@@ -178,6 +180,14 @@ class Component implements ComponentHandle {
 
     get window(): Window {
         return this.instance.window();
+    }
+
+    send_mouse_click(x: number, y: number) {
+        this.instance.sendMouseClick(x, y);
+    }
+
+    send_keyboard_string_sequence(s: string) {
+        this.instance.sendKeyboardStringSequence(s);
     }
 }
 
@@ -217,12 +227,22 @@ export function loadFile(path: string) : Object {
 
     let slint_module = Object.create({});
 
-    Object.defineProperty(slint_module, definition!.name, {
-        value: function() {
+    Object.defineProperty(slint_module, definition!.name.replace(/-/g, '_'), {
+        value: function(properties: any) {
             let instance = definition!.create();
 
             if (instance == null) {
                 throw Error("Could not create a component handle for" + path);
+            }
+
+            for(var key in properties) {
+                let value = properties[key];
+
+                if (value instanceof Function) {
+                    instance.setCallback(key, value);
+                } else {
+                    instance.setProperty(key, properties[key]);
+                }
             }
 
             let componentHandle = new Component(instance!);
@@ -252,3 +272,8 @@ export function loadFile(path: string) : Object {
     return slint_module;
 }
 
+export namespace private_api {
+    export function mock_elapsed_time(ms: number) {
+        mockElapsedTime(ms)
+    }
+}
