@@ -13,9 +13,9 @@ use std::rc::Rc;
 pub fn collect_structs_and_enums(doc: &Document) {
     let mut hash = BTreeMap::new();
 
-    for (name, exp) in doc.exports.iter() {
+    for (_, exp) in doc.exports.iter() {
         if let Some(ty) = exp.as_ref().right() {
-            hash.insert(String::clone(name), ty.clone());
+            maybe_collect_object(ty, &mut hash);
         }
     }
 
@@ -35,25 +35,25 @@ pub fn collect_structs_and_enums(doc: &Document) {
     }
 }
 
-fn collect_types_in_component(root_component: &Rc<Component>, hash: &mut BTreeMap<String, Type>) {
-    let mut maybe_collect_object = |ty: &Type| {
-        visit_declared_type(ty, &mut |name, sub_ty| {
-            hash.entry(name.clone()).or_insert_with(|| sub_ty.clone());
-        });
-    };
+fn maybe_collect_object(ty: &Type, hash: &mut BTreeMap<String, Type>) {
+    visit_declared_type(ty, &mut |name, sub_ty| {
+        hash.entry(name.clone()).or_insert_with(|| sub_ty.clone());
+    });
+}
 
+fn collect_types_in_component(root_component: &Rc<Component>, hash: &mut BTreeMap<String, Type>) {
     recurse_elem_including_sub_components_no_borrow(root_component, &(), &mut |elem, _| {
         for x in elem.borrow().property_declarations.values() {
-            maybe_collect_object(&x.property_type);
+            maybe_collect_object(&x.property_type, hash);
         }
     });
 
     visit_all_expressions(root_component, |expr, _| {
         expr.visit_recursive(&mut |expr| match expr {
-            Expression::Struct { ty, .. } => maybe_collect_object(ty),
-            Expression::Array { element_ty, .. } => maybe_collect_object(element_ty),
+            Expression::Struct { ty, .. } => maybe_collect_object(ty, hash),
+            Expression::Array { element_ty, .. } => maybe_collect_object(element_ty, hash),
             Expression::EnumerationValue(ev) => {
-                maybe_collect_object(&Type::Enumeration(ev.enumeration.clone()))
+                maybe_collect_object(&Type::Enumeration(ev.enumeration.clone()), hash)
             }
             _ => (),
         })
