@@ -146,6 +146,11 @@ pub fn generate(doc: &Document) -> TokenStream {
     }
 }
 
+/// Generate the rust code for the given library.
+pub fn generate_library(name: String, doc: &Document) -> TokenStream {
+    generate_module(ident(&name), LibModule { doc, llr: public_component(&doc) })
+}
+
 trait ModuleGenerator {
     fn structs_and_enums(&self) -> (Vec<Ident>, Vec<TokenStream>);
     fn sub_components(&self) -> Vec<TokenStream>;
@@ -176,6 +181,40 @@ impl ModuleGenerator for AppModule<'_> {
 
     fn globals(&self) -> (Vec<Ident>, Vec<TokenStream>) {
         generate_globals(&self.llr)
+    }
+
+    fn resources(&self) -> Vec<TokenStream> {
+        generate_resources(&self.doc)
+    }
+}
+
+struct LibModule<'a> {
+    doc: &'a Document,
+    llr: Option<llr::PublicComponent>,
+}
+
+impl ModuleGenerator for LibModule<'_> {
+    fn structs_and_enums(&self) -> (Vec<Ident>, Vec<TokenStream>) {
+        generate_structs_and_enums(&self.doc.inner_types)
+    }
+
+    fn sub_components(&self) -> Vec<TokenStream> {
+        self.llr.as_ref().map(generate_sub_components).unwrap_or_default()
+    }
+
+    fn public_component(&self) -> (Option<Ident>, TokenStream) {
+        self.llr
+            .as_ref()
+            .map(|llr| {
+                let compo_id = public_component_id(&llr.item_tree.root);
+                let compo = generate_public_component(&llr);
+                (Some(compo_id), compo)
+            })
+            .unwrap_or_default()
+    }
+
+    fn globals(&self) -> (Vec<Ident>, Vec<TokenStream>) {
+        self.llr.as_ref().map(generate_globals).unwrap_or_default()
     }
 
     fn resources(&self) -> Vec<TokenStream> {
