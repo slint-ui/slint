@@ -1,6 +1,6 @@
 Run with
 
-# pushd ../../../api/node
+# pushd ../../../api/napi
 # npm install
 # popd
 # npm install

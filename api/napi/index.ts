@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { ComponentCompiler, ComponentInstance, Window } from "./napi";
+import { ComponentCompiler, ComponentInstance, Window, DiagnosticLevel } from "./napi";
 export * from "./napi";
 
 /**
@@ -147,7 +147,14 @@ export class ArrayModel<T> implements Model<T> {
     }
 }
 
-export class Component {
+export interface ComponentHandle {
+    run();
+    show();
+    hide();
+    get window(): Window;
+}
+
+class Component implements ComponentHandle {
     private instance: ComponentInstance;
 
     /**
@@ -182,38 +189,57 @@ interface Callback {
     setHandler(cb: any): void;
 }
 
-export function create(path: string): Component | null {
+export function loadFile(path: string) : Object {
     let compiler = new ComponentCompiler;
     let definition = compiler.buildFromPath(path);
 
-    if (definition != null) {
-        let instance = definition!.create();
 
-        if (instance != null) {
-            let component = new Component(instance);
+    let diagnostics = compiler.diagnostics;
 
-            instance!.definition().properties.forEach((prop) => {
-                Object.defineProperty(component, prop.name.replace(/-/g, '_') , {
-                    get() { return instance!.getProperty(prop.name); },
-                    set(value) { instance!.setProperty(prop.name, value); },
-                    enumerable: true
-                })
-            });
-
-            instance!.definition().callbacks.forEach((cb) => {
-                Object.defineProperty(component, cb.replace(/-/g, '_') , {
-                    get() {
-                        let callback = function () { return instance!.invoke(cb, [...arguments]); } as Callback;
-                        callback.setHandler = function (callback) { instance!.setCallback(cb, callback) };
-                        return callback;
-                    },
-                    enumerable: true,
-                })
-            });
-
-            return component;
-        }
+    if (diagnostics.length > 0) {
+        diagnostics.forEach((d) => {
+            if (d.level == DiagnosticLevel.Warning) {
+                console.log(d.message);
+            } else {
+                throw Error(d.message);
+            }
+        })
     }
 
-    return null;
+    let slint_module = Object.create({});
+
+    Object.defineProperty(slint_module, definition!.name, {
+        value: function() {
+            let instance = definition!.create();
+
+            if (instance == null) {
+                throw Error("Could not create a component handle for" + path);
+            }
+
+            let componentHandle = new Component(instance!);
+                instance!.definition().properties.forEach((prop) => {
+                    Object.defineProperty(componentHandle, prop.name.replace(/-/g, '_') , {
+                        get() { return instance!.getProperty(prop.name); },
+                        set(value) { instance!.setProperty(prop.name, value); },
+                        enumerable: true
+                    })
+                });
+
+                instance!.definition().callbacks.forEach((cb) => {
+                    Object.defineProperty(componentHandle, cb.replace(/-/g, '_') , {
+                        get() {
+                            let callback = function () { return instance!.invoke(cb, [...arguments]); } as Callback;
+                            callback.setHandler = function (callback) { instance!.setCallback(cb, callback) };
+                            return callback;
+                        },
+                        enumerable: true,
+                    })
+                });
+
+                return componentHandle;
+        },
+    });
+
+    return slint_module;
 }
+

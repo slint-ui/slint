@@ -4,9 +4,8 @@
 
 import * as slint from "slint-ui";
 
-// import * as demo from "../ui/todo.slint";
-
-let app = slint.create("../ui/todo.slint");
+let demo = slint.loadFile("../ui/todo.slint");
+let app = new demo.MainWindow();
 
 let model = new slint.ArrayModel([
     {
