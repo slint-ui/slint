@@ -228,6 +228,19 @@ if (SLINT_BUILD_RUNTIME)
         set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE_DEFAULT})
     endif()
 
+    # Build environments such as buildroot set PKG_CONFIG_SYSROOT_DIR in their toolchain file
+    # and thus it's only available at cmake configure time. Our build dependencies that use pkg-config
+    # however invoke pkg-config in build.rs, which means we need to defer/propagate the environment variable
+    # to build time.
+    if(DEFINED ENV{PKG_CONFIG_SYSROOT_DIR})
+        set_property(
+            TARGET slint-cpp
+            APPEND
+            PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+            "PKG_CONFIG_SYSROOT_DIR=$ENV{PKG_CONFIG_SYSROOT_DIR}"
+        )        
+    endif()
+
     if(SLINT_FEATURE_RENDERER_SKIA OR SLINT_FEATURE_RENDERER_SKIA_OPENGL OR SLINT_FEATURE_RENDERER_SKIA_VULKAN)
         find_program(CLANGCC clang)
         find_program(CLANGCXX clang++)
