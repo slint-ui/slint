@@ -777,6 +777,8 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
 
     generate_public_component(&mut file, &conditional_includes, &llr);
 
+    generate_type_aliases(&mut file, doc);
+
     file.after_includes = format!(
         "static_assert({x} == SLINT_VERSION_MAJOR && {y} == SLINT_VERSION_MINOR && {z} == SLINT_VERSION_PATCH, \
         \"This file was generated with Slint compiler version {x}.{y}.{z}, but the Slint library used is \" \
@@ -3249,4 +3251,32 @@ fn return_compile_expression(
             format!("return {}", e)
         }
     }
+}
+
+fn generate_type_aliases(file: &mut File, doc: &Document) {
+    let type_aliases = doc
+        .exports
+        .iter()
+        .filter_map(|export| match &export.1 {
+            Either::Left(component) if !component.is_global() => {
+                Some((&export.0.name, &component.id))
+            }
+            Either::Right(ty) => match &ty {
+                Type::Struct { name: Some(name), node: Some(_), .. } => {
+                    Some((&export.0.name, name))
+                }
+                Type::Enumeration(en) => Some((&export.0.name, &en.name)),
+                _ => None,
+            },
+            _ => None,
+        })
+        .filter(|(export_name, type_name)| export_name != type_name)
+        .map(|(export_name, type_name)| {
+            Declaration::TypeAlias(TypeAlias {
+                old_name: ident(&type_name),
+                new_name: ident(&export_name),
+            })
+        });
+
+    file.declarations.extend(type_aliases);
 }
