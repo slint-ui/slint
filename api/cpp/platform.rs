@@ -336,7 +336,9 @@ mod software_renderer {
     use super::*;
     type SoftwareRendererOpaque = *const c_void;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
-    use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
+    use i_slint_core::software_renderer::{
+        RepaintBufferType, Rgb565Pixel, SoftwareRenderer, WindowRotation,
+    };
 
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_new(
@@ -383,6 +385,20 @@ mod software_renderer {
         let r = renderer.render(buffer, pixel_stride);
         let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
         i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_software_renderer_set_window_rotation(
+        r: SoftwareRendererOpaque,
+        rotation: i32,
+    ) {
+        let renderer = &*(r as *const SoftwareRenderer);
+        renderer.set_window_rotation(match rotation {
+            90 => WindowRotation::Rotate90,
+            180 => WindowRotation::Rotate180,
+            270 => WindowRotation::Rotate270,
+            _ => WindowRotation::NoRotation,
+        });
     }
 
     #[no_mangle]
