@@ -386,6 +386,16 @@ if(SLINT_BUILD_RUNTIME)
             endif()
         endforeach()
 
+        # Corrosion sets IMPORTED_NO_SONAME and for macOS we reset that
+        # and set IMPORTED_SONAME. Make sure to propagate these locally
+        # set properties also to the installed cmake target.
+        foreach(prop IMPORTED_NO_SONAME IMPORTED_SONAME)
+            get_target_property(value ${slint_cpp_impl} ${prop})
+            if(value)
+                list(APPEND SLINT_LIB_PROPERTIES ${prop} ${value})
+            endif()
+        endforeach()
+
         get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
         configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
     endfunction()
