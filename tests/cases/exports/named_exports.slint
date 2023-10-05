@@ -4,21 +4,22 @@
 //include_path: ../../helper_components
 import { ExportedStruct, ExportEnum } from "export_structs.slint";
 export { ExportedStruct as NamedStruct, ExportEnum as NamedEnum  }
-export component TestCase inherits Rectangle {
+component TestCase inherits Rectangle {
     in-out property<ExportedStruct> st;
     in-out property<ExportEnum> en: ExportEnum.Bonjour;
 }
+export { TestCase as NamedTestCase }
 
 /*
 
 ```cpp
-auto handle = TestCase::create();
+auto handle = TestCase::create(); // FIXME: NamedTestCase
 const TestCase &instance = *handle;
-assert(instance.get_en() == ExportEnum::Bonjour); // FIXME: NamedEnum::Bonjour (#3599)
+assert(instance.get_en() == ExportEnum::Bonjour); // FIXME: NamedEnum::Bonjour
 ```
 
 ```rust
-let instance = TestCase::new().unwrap();
+let instance = NamedTestCase::new().unwrap();
 assert_eq!(instance.get_en(), NamedEnum::Bonjour);
 ```
 
