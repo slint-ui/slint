@@ -139,6 +139,7 @@ impl TypeLoader {
         )
         .await
     }
+
     fn load_dependencies_recursively_impl<'a: 'b, 'b>(
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         doc: &'b syntax_nodes::Document,
@@ -265,21 +266,25 @@ impl TypeLoader {
             || {
                 referencing_file_or_url
                     .and_then(|base_path_or_url| {
-                        let base_path_or_url_str = base_path_or_url.to_string_lossy();
-                        if base_path_or_url_str.contains("://") {
-                            url::Url::parse(&base_path_or_url_str).ok().and_then(|base_url| {
-                                base_url
-                                    .join(maybe_relative_path_or_url)
-                                    .ok()
-                                    .map(|url| url.to_string().into())
-                            })
-                        } else {
-                            base_path_or_url.parent().and_then(|base_dir| {
-                                dunce::canonicalize(base_dir.join(maybe_relative_path_or_url)).ok()
-                            })
-                        }
+                        let base_url = {
+                            let base_path_or_url_str =
+                                base_path_or_url.to_string_lossy().to_string();
+                            if !base_path_or_url_str.contains(":/") {
+                                format!("file://{}", base_path_or_url_str)
+                            } else {
+                                base_path_or_url_str
+                            }
+                        };
+                        let url_string = url::Url::parse(&base_url).ok().and_then(|base_url| {
+                            base_url
+                                .join(maybe_relative_path_or_url)
+                                .ok()
+                                .map(|url| url.to_string())
+                        })?;
+
+                        Some(url_string.strip_prefix("file://").unwrap_or(&url_string).to_string())
                     })
-                    .map(|p| (p, None))
+                    .map(|p| (PathBuf::from(&p), None))
             },
         )
     }
