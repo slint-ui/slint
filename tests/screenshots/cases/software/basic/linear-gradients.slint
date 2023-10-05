@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Slider } from "std-widgets.slint";
+// ROTATION_THRESHOLD=150  - because gradiants are very impresise in rotation
 
-export TestCase := Window {
+export component TestCase inherits Window {
     width:  64px;
     height: 64px;
 

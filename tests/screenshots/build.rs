@@ -87,6 +87,16 @@ fn main() -> std::io::Result<()> {
             String::new()
         };
 
+        let needle = "ROTATION_THRESHOLD=";
+        let rotation_threshold = source.find(needle).map_or(0., |p| {
+            source[p + needle.len()..]
+                .find(char::is_whitespace)
+                .and_then(|end| source[p + needle.len()..][..end].parse().ok())
+                .unwrap_or_else(|| {
+                    panic!("Cannot parse {needle} for {}", testcase.relative_path.display())
+                })
+        });
+
         let mut output = std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
         )?;
@@ -96,24 +106,24 @@ fn main() -> std::io::Result<()> {
         write!(
             output,
             r"
-    #[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
+    #[test] fn t_{i}() -> Result<(), Box<dyn std::error::Error>> {{
     use crate::testing;
 
     let window = testing::init_swr();
     {scale_factor}
     window.set_size(slint::PhysicalSize::new(64, 64));
     let screenshot = {reference_path};
+    let options = testing::TestCaseOptions {{ rotation_threshold: {rotation_threshold}f32 }};
 
     let instance = TestCase::new().unwrap();
     instance.show().unwrap();
 
-    testing::assert_with_render(screenshot, window.clone());
+    testing::assert_with_render(screenshot, window.clone(), &options);
 
-    testing::assert_with_render_by_line(screenshot, window.clone());
+    testing::assert_with_render_by_line(screenshot, window.clone(), &options);
 
     Ok(())
     }}",
-            i,
         )?;
     }
 

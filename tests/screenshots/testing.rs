@@ -118,10 +118,17 @@ fn color_difference(lhs: &Rgb8Pixel, rhs: &Rgb8Pixel) -> f32 {
     .sqrt()
 }
 
+#[derive(Default, Clone)]
+pub struct TestCaseOptions {
+    /// How much we allow the maximum pixel difference to be when operating a screen rotation
+    pub rotation_threshold: f32,
+}
+
 fn compare_images(
     reference_path: &str,
     screenshot: &SharedPixelBuffer<Rgb8Pixel>,
     rotated: WindowRotation,
+    options: &TestCaseOptions,
 ) -> Result<(), String> {
     let compare = || {
         let reference = image_buffer(reference_path)
@@ -176,7 +183,13 @@ fn compare_images(
                 .zip(screenshot.as_slice().iter())
                 .fold((0usize, 0.0f32), fold_pixel)
         };
-        if max_color_difference < 1.75 {
+        if max_color_difference < 0.1 {
+            return Ok(());
+        }
+        let percentage_different = failed_pixel_count * 100 / reference.as_slice().len();
+        if rotated != WindowRotation::NoRotation
+            && (percentage_different <= 1 || max_color_difference < options.rotation_threshold)
+        {
             return Ok(());
         }
 
@@ -226,7 +239,11 @@ fn compare_images(
     result
 }
 
-pub fn assert_with_render(path: &str, window: Rc<MinimalSoftwareWindow>) {
+pub fn assert_with_render(
+    path: &str,
+    window: Rc<MinimalSoftwareWindow>,
+    options: &TestCaseOptions,
+) {
     for rotation in [
         WindowRotation::NoRotation,
         WindowRotation::Rotate180,
@@ -234,18 +251,22 @@ pub fn assert_with_render(path: &str, window: Rc<MinimalSoftwareWindow>) {
         WindowRotation::Rotate270,
     ] {
         let rendering = screenshot(window.clone(), rotation);
-        if let Err(reason) = compare_images(path, &rendering, rotation) {
+        if let Err(reason) = compare_images(path, &rendering, rotation, options) {
             panic!("Image comparison failure for {path} ({rotation:?}): {reason}");
         }
     }
 }
 
-pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow>) {
+pub fn assert_with_render_by_line(
+    path: &str,
+    window: Rc<MinimalSoftwareWindow>,
+    options: &TestCaseOptions,
+) {
     let s = window.size();
     let mut rendering = SharedPixelBuffer::<Rgb8Pixel>::new(s.width, s.height);
 
     screenshot_render_by_line(window.clone(), None, &mut rendering);
-    if let Err(reason) = compare_images(path, &rendering, WindowRotation::NoRotation) {
+    if let Err(reason) = compare_images(path, &rendering, WindowRotation::NoRotation, options) {
         panic!("Image comparison failure for line-by-line rendering for {path}: {reason}");
     }
 
@@ -261,7 +282,7 @@ pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow>)
         ));
     }
     screenshot_render_by_line(window, Some(region.cast()), &mut rendering);
-    if let Err(reason) = compare_images(path, &rendering, WindowRotation::NoRotation) {
+    if let Err(reason) = compare_images(path, &rendering, WindowRotation::NoRotation, options) {
         panic!("Partial rendering image comparison failure for line-by-line rendering for {path}: {reason}");
     }
 }
