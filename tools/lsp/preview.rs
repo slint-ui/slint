@@ -219,11 +219,20 @@ pub fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
 ) -> HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> {
     let mut result: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> = Default::default();
+    let empty = PathBuf::new();
     for d in diagnostics {
-        if d.source_file().map_or(true, |f| f.is_relative()) {
+        let file_url = {
+            let file_path = d.source_file().unwrap_or(&empty).to_string_lossy().to_string();
+            if !file_path.contains(":/") && !file_path.is_empty() {
+                format!("file://{}", file_path)
+            } else {
+                file_path
+            }
+        };
+        let Ok(uri) = lsp_types::Url::parse(&file_url) else {
             continue;
-        }
-        let uri = lsp_types::Url::from_file_path(d.source_file().unwrap()).unwrap();
+        };
+        crate::log(&format!("Inserting diagnostic message: {d:?}"));
         result.entry(uri).or_default().push(crate::util::to_lsp_diag(d));
     }
     result
