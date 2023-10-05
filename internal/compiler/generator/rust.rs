@@ -186,6 +186,7 @@ pub fn generate(doc: &Document) -> TokenStream {
     });
 
     let resource_symbols = generate_resources(doc);
+    let named_exports = generate_named_exports(doc);
 
     quote! {
         #[allow(non_snake_case)]
@@ -210,7 +211,7 @@ pub fn generate(doc: &Document) -> TokenStream {
             #(#resource_symbols)*
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
-        pub use #compo_module::{#compo_id #(,#structs_and_enums_ids)* #(,#globals_ids)* };
+        pub use #compo_module::{#compo_id #(,#structs_and_enums_ids)* #(,#globals_ids)* #(,#named_exports)*};
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     }
 }
@@ -2714,4 +2715,29 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
             }
         })
         .collect()
+}
+
+fn generate_named_exports(doc: &Document) -> Vec<TokenStream> {
+    doc.exports
+        .iter()
+        .filter_map(|export| match &export.1 {
+            Either::Left(component) if !component.is_global() => {
+                Some((&export.0.name, &component.id))
+            }
+            Either::Right(ty) => match &ty {
+                Type::Struct { name: Some(name), node: Some(_), .. } => {
+                    Some((&export.0.name, name))
+                }
+                Type::Enumeration(en) => Some((&export.0.name, &en.name)),
+                _ => None,
+            },
+            _ => None,
+        })
+        .filter(|(export_name, type_name)| export_name != type_name)
+        .map(|(export_name, type_name)| {
+            let type_id = ident(&type_name);
+            let export_id = ident(&export_name);
+            quote!(#type_id as #export_id)
+        })
+        .collect::<Vec<_>>()
 }

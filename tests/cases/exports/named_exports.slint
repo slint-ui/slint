@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+//include_path: ../../helper_components
+import { ExportedStruct, ExportEnum } from "export_structs.slint";
+export { ExportedStruct as NamedStruct, ExportEnum as NamedEnum  }
+component TestCase inherits Rectangle {
+    in-out property<ExportedStruct> st;
+    in-out property<ExportEnum> en: ExportEnum.Bonjour;
+}
+export { TestCase as NamedTestCase }
+
+/*
+
+```cpp
+auto handle = NamedTestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_en() == NamedEnum::Bonjour);
+```
+
+```rust
+let instance = NamedTestCase::new().unwrap();
+assert_eq!(instance.get_en(), NamedEnum::Bonjour);
+```
+
+*/
