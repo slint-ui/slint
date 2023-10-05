@@ -193,17 +193,27 @@ export function loadFile(path: string) : Object {
     let compiler = new ComponentCompiler;
     let definition = compiler.buildFromPath(path);
 
-
     let diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
-        diagnostics.forEach((d) => {
-            if (d.level == DiagnosticLevel.Warning) {
-                console.log(d.message);
-            } else {
-                throw Error(d.message);
-            }
-        })
+        let warnings = diagnostics.filter((d) => d.level == DiagnosticLevel.Warning);
+        warnings.forEach((w) => console.log("Warning: " + w.message));
+
+        let errors = diagnostics.filter((d) => d.level == DiagnosticLevel.Error);
+
+        if (errors.length > 0) {
+            let errorMessage = "";
+            let lastError = errors[errors.length - 1];
+            errors.forEach((e) => {
+                errorMessage += e.message;
+
+                if (e != lastError) {
+                    errorMessage += "/n";
+                }
+            });
+
+            throw Error(errorMessage);
+        }
     }
 
     let slint_module = Object.create({});
@@ -217,26 +227,26 @@ export function loadFile(path: string) : Object {
             }
 
             let componentHandle = new Component(instance!);
-                instance!.definition().properties.forEach((prop) => {
-                    Object.defineProperty(componentHandle, prop.name.replace(/-/g, '_') , {
-                        get() { return instance!.getProperty(prop.name); },
-                        set(value) { instance!.setProperty(prop.name, value); },
-                        enumerable: true
-                    })
-                });
+            instance!.definition().properties.forEach((prop) => {
+                Object.defineProperty(componentHandle, prop.name.replace(/-/g, '_') , {
+                    get() { return instance!.getProperty(prop.name); },
+                    set(value) { instance!.setProperty(prop.name, value); },
+                    enumerable: true
+                })
+            });
 
-                instance!.definition().callbacks.forEach((cb) => {
-                    Object.defineProperty(componentHandle, cb.replace(/-/g, '_') , {
-                        get() {
-                            let callback = function () { return instance!.invoke(cb, [...arguments]); } as Callback;
-                            callback.setHandler = function (callback) { instance!.setCallback(cb, callback) };
-                            return callback;
-                        },
-                        enumerable: true,
-                    })
-                });
+            instance!.definition().callbacks.forEach((cb) => {
+                Object.defineProperty(componentHandle, cb.replace(/-/g, '_') , {
+                    get() {
+                        let callback = function () { return instance!.invoke(cb, [...arguments]); } as Callback;
+                        callback.setHandler = function (callback) { instance!.setCallback(cb, callback) };
+                        return callback;
+                    },
+                    enumerable: true,
+                })
+            });
 
-                return componentHandle;
+            return componentHandle;
         },
     });
 
