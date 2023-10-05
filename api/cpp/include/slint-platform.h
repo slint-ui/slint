@@ -605,6 +605,28 @@ public:
                 inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size(), pixel_stride);
         return PhysicalRegion { r };
     }
+
+    /// This enum describes the rotation that is applied to the buffer when rendering.
+    /// To be used in set_window_rotation()
+    enum class WindowRotation {
+        /// No rotation
+        NoRotation = 0,
+        /// Rotate 90° to the left
+        Rotate90 = 90,
+        /// 180° rotation (upside-down)
+        Rotate180 = 180,
+        /// Rotate 90° to the right
+        Rotate270 = 270,
+    };
+
+    /// Set how the window need to be rotated in the buffer.
+    ///
+    /// This is typically used to implement screen rotation in software
+    void set_window_rotation(WindowRotation rotation)
+    {
+        cbindgen_private::slint_software_renderer_set_window_rotation(inner,
+                                                                      static_cast<int>(rotation));
+    }
 };
 #endif
 
