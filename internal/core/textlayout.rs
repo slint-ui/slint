@@ -114,7 +114,8 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
         selection: Option<core::ops::Range<usize>>,
     ) -> Result<Font::Length, R> {
         let wrap = self.wrap == TextWrap::WordWrap;
-        let elide_glyph = if self.overflow == TextOverflow::Elide {
+        let elide = self.overflow == TextOverflow::Elide;
+        let elide_glyph = if elide {
             self.layout.font.glyph_for_char('…').filter(|glyph| glyph.glyph_id.is_some())
         } else {
             None
@@ -138,7 +139,18 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
                 self.layout.font.height()
             } else {
                 text_lines = Some(new_line_break_iter().collect::<Vec<_>>());
-                self.layout.font.height() * (text_lines.as_ref().unwrap().len() as i16).into()
+                let text_height =
+                    self.layout.font.height() * (text_lines.as_ref().unwrap().len() as i16).into();
+                if elide && text_height > self.max_height {
+                    // The height of the text is used for vertical alignment below.
+                    // If the full text doesn't fit into max_height and eliding is
+                    // enabled, calculate the height of the max number of lines that
+                    // fit to ensure correct vertical alignment when elided.
+                    let max_lines = self.layout.font.max_lines(self.max_height) as i16;
+                    self.layout.font.height() * max_lines.into()
+                } else {
+                    text_height
+                }
             }
         };
 
@@ -367,6 +379,11 @@ impl TextShaper for FixedTestFont {
             text_byte_offset: 0,
         }
         .into()
+    }
+
+    fn max_lines(&self, max_height: f32) -> usize {
+        let height = self.ascent() - self.descent();
+        (max_height / height).floor() as _
     }
 }
 

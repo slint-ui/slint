@@ -64,6 +64,7 @@ pub trait TextShaper {
         glyphs: &mut GlyphStorage,
     );
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length>>;
+    fn max_lines(&self, max_height: Self::Length) -> usize;
 }
 
 pub trait FontMetrics<Length: Copy + core::ops::Sub<Output = Length>> {
@@ -280,6 +281,10 @@ impl<'a> TextShaper for &rustybuzz::Face<'a> {
 
     fn glyph_for_char(&self, _ch: char) -> Option<Glyph<f32>> {
         todo!()
+    }
+
+    fn max_lines(&self, max_height: f32) -> usize {
+        (max_height / self.height()).floor() as _
     }
 }
 

@@ -109,6 +109,10 @@ impl TextShaper for PixelFont {
                 }
             })
     }
+
+    fn max_lines(&self, max_height: PhysicalLength) -> usize {
+        (max_height / self.glyphs.height(self.bitmap_font)).get() as _
+    }
 }
 
 impl crate::textlayout::FontMetrics<PhysicalLength> for PixelFont {
