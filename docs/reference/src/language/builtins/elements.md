@@ -145,8 +145,7 @@ widgets, then the following algorithm is used to distinguish between the user's 
 interacting with `TouchArea` elements:
 
 1. If the `Flickable`'s `interactive` property is `false`, all events are forwarded to elements underneath.
-2. Any wheel events are interpreted as attempt of the user to scroll.
-3. If a press event is received where the event's coordinates interact with a `TouchArea`, the event is stored
+2. If a press event is received where the event's coordinates interact with a `TouchArea`, the event is stored
    and any subsequent move and release events are handled as follows:
    1. If 100ms elapse without any events, the stored press event is delivered to the `TouchArea`.
    2. If a release event is received before 100ms have elapsed, the stored press event as well as the
@@ -157,7 +156,7 @@ interacting with `TouchArea` elements:
         2. The distance to the press event exceeds 8 logical pixels in an orientation in which we are allowed to move
       If `Flickable` decides to flick, any press event sent previously to a `TouchArea`, is followed up
       by an exit event. During the phase of receiving move events, the flickable follows the coordinates.
-4. If the interaction of press, move, and release events begins at coordinates that do not intersect with
+3. If the interaction of press, move, and release events begins at coordinates that do not intersect with
    a `TouchArea`, then `Flickable` will flick immediately on pointer move events when the euclidean distance
    to the coordinates of the press event exceeds 8 logical pixels.
 
@@ -246,7 +245,7 @@ Alternatively, the item can be put in a `Row` element.
 ### Properties
 
 -   **`spacing`** (_in_ _length_): The distance between the elements in the layout.
--   **`spacing-horizontal`**, **`spacing-vertical`** (_in_ _length_): 
+-   **`spacing-horizontal`**, **`spacing-vertical`** (_in_ _length_):
     Set these properties to override the spacing on specific directions.
 -   **`padding`** (_in_ _length_): The padding within the layout.
 -   **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (_in_ _length_):
@@ -753,8 +752,12 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 -   **`clicked()`**: Invoked when clicked: The mouse is pressed, then released on this element.
 -   **`moved()`**: The mouse has been moved. This will only be called if the mouse is also pressed.
--   **`pointer-event(PointerEvent)`**: Invoked when a button was pressed or released The [_`PointerEvent`_](structs.md#pointerevent)
+-   **`pointer-event(PointerEvent)`**: Invoked when a button was pressed or released. The [_`PointerEvent`_](structs.md#pointerevent)
     argument contains information such which button was pressed and any active keyboard modifiers.
+-   **`scroll-event(PointerScrollEvent) -> EventResult`**: Invoked when the mouse wheel was rotated or another scroll gesture was made.
+    The [_`PointerEvent`_](structs.md#pointerscrollevent) argument contains information about how much to scroll in what direction.
+    The returned [`EventResult`](enums.md#eventresult) indicates whether to accept or ignore the event. Ignored events are
+    forwarded to the parent element.
 
 ### Example
 

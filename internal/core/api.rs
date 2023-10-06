@@ -473,8 +473,8 @@ impl Window {
             crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
                 self.0.process_mouse_input(MouseEvent::Wheel {
                     position: position.to_euclid().cast(),
-                    delta_x,
-                    delta_y,
+                    delta_x: delta_x as _,
+                    delta_y: delta_y as _,
                 });
             }
             crate::platform::WindowEvent::PointerExited => {

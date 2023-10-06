@@ -51,7 +51,7 @@ macro_rules! for_each_builtin_structs {
             }
 
             /// Represents a Pointer event sent by the windowing system.
-            /// This structure is generated and passed to the `pointer-event` callback of the `TouchArea` element.
+            /// This structure is passed to the `pointer-event` callback of the `TouchArea` element.
             struct PointerEvent {
                 @name = "slint::private_api::PointerEvent"
                 export {
@@ -59,6 +59,22 @@ macro_rules! for_each_builtin_structs {
                     button: PointerEventButton,
                     /// The kind of the event
                     kind: PointerEventKind,
+                    /// The keyboard modifiers pressed during the event
+                    modifiers: KeyboardModifiers,
+                }
+                private {
+                }
+            }
+
+            /// Represents a Pointer scroll (or wheel) event sent by the windowing system.
+            /// This structure is passed to the `scroll-event` callback of the `TouchArea` element.
+            struct PointerScrollEvent {
+                @name = "slint::private_api::PointerScrollEvent"
+                export {
+                    /// The amount of pixel in the horizontal direction
+                    delta_x: Coord,
+                    /// The amount of pixel in the vertical direction
+                    delta_y: Coord,
                     /// The keyboard modifiers pressed during the event
                     modifiers: KeyboardModifiers,
                 }
