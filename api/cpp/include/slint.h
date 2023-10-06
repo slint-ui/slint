@@ -59,6 +59,7 @@ using ItemArray = slint::cbindgen_private::Slice<ItemArrayEntry>;
 using cbindgen_private::KeyboardModifiers;
 using cbindgen_private::KeyEvent;
 using cbindgen_private::PointerEvent;
+using cbindgen_private::PointerScrollEvent;
 using cbindgen_private::TableColumn;
 
 constexpr inline ItemTreeNode make_item_node(uint32_t child_count, uint32_t child_index,

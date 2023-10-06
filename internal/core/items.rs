@@ -63,6 +63,7 @@ type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 pub type VoidArg = ();
 pub type KeyEventArg = (KeyEvent,);
 type PointerEventArg = (PointerEvent,);
+type PointerScrollEventArg = (PointerScrollEvent,);
 type PointArg = (Point,);
 
 #[cfg(all(feature = "ffi", windows))]
@@ -425,6 +426,7 @@ pub struct TouchArea {
     pub clicked: Callback<VoidArg>,
     pub moved: Callback<VoidArg>,
     pub pointer_event: Callback<PointerEventArg>,
+    pub scroll_event: Callback<PointerScrollEventArg, EventResult>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
     /// true when we are currently grabbing the mouse
@@ -536,12 +538,20 @@ impl Item for TouchArea {
                     InputEventResult::EventAccepted
                 }
             }
-            MouseEvent::Wheel { .. } => {
+            MouseEvent::Wheel { delta_x, delta_y, .. } => {
+                let modifiers = window_adapter.window().0.modifiers.get().into();
+                let r = Self::FIELD_OFFSETS
+                    .scroll_event
+                    .apply_pin(self)
+                    .call(&(PointerScrollEvent { delta_x, delta_y, modifiers },));
                 return if self.grabbed.get() {
                     InputEventResult::GrabMouse
                 } else {
-                    InputEventResult::EventAccepted
-                }
+                    match r {
+                        EventResult::Reject => InputEventResult::EventIgnored,
+                        EventResult::Accept => InputEventResult::EventAccepted,
+                    }
+                };
             }
         };
         result

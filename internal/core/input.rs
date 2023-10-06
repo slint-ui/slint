@@ -5,6 +5,7 @@
 */
 #![warn(missing_docs)]
 
+use crate::component::ComponentRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{ItemRef, TextCursorDirection};
@@ -12,8 +13,7 @@ pub use crate::items::{KeyEvent, KeyboardModifiers};
 use crate::lengths::{LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
-use crate::Property;
-use crate::{component::ComponentRc, SharedString};
+use crate::{Coord, Property, SharedString};
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
@@ -44,7 +44,7 @@ pub enum MouseEvent {
     /// `pos` is the position of the mouse when the event happens.
     /// `delta_x` is the amount of pixels to scroll in horizontal direction,
     /// `delta_y` is the amount of pixels to scroll in vertical direction.
-    Wheel { position: LogicalPoint, delta_x: f32, delta_y: f32 },
+    Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord },
     /// The mouse exited the item or component
     Exit,
 }

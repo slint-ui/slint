@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file.
  - Added `Number`, `Decimal` variant to enum `InputType`
  - Added `spacing-horizontal` and `spacing-vertical` in `GridLayout`
  - Fixed conversion in array of array of structs (#3574)
+ - Added `scroll-event` callback to `TouchArea`
 
 ### Rust API
 

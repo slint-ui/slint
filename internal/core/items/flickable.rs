@@ -251,9 +251,7 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEvent::Wheel { position, .. } => {
-                InputEventFilterResult::InterceptAndDispatch(MouseEvent::Moved { position })
-            }
+            MouseEvent::Wheel { .. } => InputEventFilterResult::ForwardEvent,
             // Not the left button
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
@@ -324,9 +322,9 @@ impl FlickableData {
                     && !cfg!(target_os = "macos")
                 {
                     // Shift invert coordinate for the purpose of scrolling. But not on macOs because there the OS already take care of the change
-                    LogicalVector::new(delta_y as _, delta_x as _)
+                    LogicalVector::new(delta_y, delta_x)
                 } else {
-                    LogicalVector::new(delta_x as _, delta_y as _)
+                    LogicalVector::new(delta_x, delta_y)
                 };
                 let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
                 (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(new_pos.x_length());
