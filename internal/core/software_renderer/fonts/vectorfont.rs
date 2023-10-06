@@ -155,6 +155,10 @@ impl TextShaper for VectorFont {
                 .unwrap()
         })
     }
+
+    fn max_lines(&self, max_height: PhysicalLength) -> usize {
+        (max_height / self.height).get() as _
+    }
 }
 
 impl crate::textlayout::FontMetrics<PhysicalLength> for VectorFont {
