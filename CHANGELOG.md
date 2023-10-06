@@ -9,6 +9,8 @@ All notable changes to this project are documented in this file.
 
  - Minimum Rust version is now 1.70.
  - The `SLINT_DEBUG_PERFORMANCE` environment variable is now also compatible with the software renderer.
+ - Fixed text rendering and cursor position of elided or aligned multi-line text.
+ - Changed default style to be `fluent` on Windows, and `cupertino` on macOS.
 
 ### Slint Language
 
@@ -22,6 +24,7 @@ All notable changes to this project are documented in this file.
 
  - Removed the need for C++ exceptions in generated code.
  - Added ability to only build the Slint compiler or use an external compiler.
+ - ESP-IDF: wait for vsync before swapping frame buffers.
 
 ### LSP
 
@@ -42,7 +45,7 @@ All notable changes to this project are documented in this file.
 ### C++
 
  - Fixed cross-compilation with CMake (against Yocto SDKs)
- 
+
 ## [1.2.1] - 2023-09-19
 
 ### General
