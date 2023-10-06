@@ -26,7 +26,7 @@ add_feature_info(SLINT_FEATURE_COMPILER SLINT_FEATURE_COMPILER "Enable support f
 option(SLINT_BUILD_RUNTIME "Actually build the Slint runtime libraries (Disable that to only build the compiler)" ON)
 add_feature_info(SLINT_BUILD_RUNTIME SLINT_BUILD_RUNTIME "Actually build the Slint runtime libraries (Disable that to only build the compiler)")
 
-set(SLINT_COMPILER "" CACHE STRING "Path to the slint-compiler executable. When unset, it the compiler will be build as part of the build process")
+set(SLINT_COMPILER "" CACHE FILEPATH "Path to the slint-compiler executable. When unset, it the compiler will be build as part of the build process")
 set(SLINT_LIBRARY_CARGO_FLAGS "" CACHE STRING
     "Flags to pass to cargo when building the Slint runtime library")
 
