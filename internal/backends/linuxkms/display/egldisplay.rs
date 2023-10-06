@@ -204,19 +204,33 @@ pub fn try_create_egl_display(
         })
         .ok_or_else(|| format!("No preferred or non-zero size display mode found"))?;
 
-    let encoder = connector
-        .encoders()
-        .iter()
-        .find_map(|handle| {
-            if connector.current_encoder() == Some(*handle) {
-                drm_device.get_encoder(*handle).ok()
-            } else {
-                None
-            }
-        })
-        .ok_or_else(|| format!("Not encoder found for connector"))?;
+    let encoder = connector.encoders().iter().find_map(|handle| {
+        if connector.current_encoder() == Some(*handle) {
+            drm_device.get_encoder(*handle).ok()
+        } else {
+            None
+        }
+    });
 
-    let crtc = encoder.crtc().ok_or_else(|| format!("no crtc for encoder"))?;
+    let crtc = if let Some(encoder) = encoder {
+        encoder.crtc().ok_or_else(|| format!("no crtc for encoder"))?
+    } else {
+        // No crtc found for current encoder? Pick the first possible crtc
+        // as described in https://manpages.debian.org/testing/libdrm-dev/drm-kms.7.en.html#CRTC/Encoder_Selection
+        connector
+            .encoders()
+            .iter()
+            .filter_map(|handle| drm_device.get_encoder(*handle).ok())
+            .flat_map(|encoder| resources.filter_crtcs(encoder.possible_crtcs()))
+            .find(|crtc_handle| drm_device.get_crtc(*crtc_handle).is_ok())
+            .ok_or_else(|| {
+                format!(
+                    "Could not find any crtc for any encoder connected to output {}-{}",
+                    connector.interface().as_str(),
+                    connector.interface_id()
+                )
+            })?
+    };
 
     let (width, height) = mode.size();
     let width = std::num::NonZeroU32::new(width as _)
