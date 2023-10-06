@@ -14,7 +14,7 @@ endif()
 add_library(@slint_cpp_impl@ @cmake_lib_type@ IMPORTED)
 set_target_properties(@slint_cpp_impl@ PROPERTIES @SLINT_LIB_PROPERTIES@)
 
-set(SLINT_COMPILER @SLINT_COMPILER@ CACHE FILEPATH "Path to the slint-compiler executable")
+set(SLINT_COMPILER @SLINT_COMPILER@ CACHE STRING "Path to the slint-compiler executable")
 if (SLINT_COMPILER)
   set(SLINT_STYLE @_SLINT_STYLE@ CACHE STRING "The Slint widget style")
     add_executable(Slint::slint-compiler IMPORTED GLOBAL)
