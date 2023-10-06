@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { ComponentCompiler, ComponentInstance, Window, DiagnosticLevel } from "./napi";
+import { ComponentCompiler, ComponentInstance, Window, DiagnosticLevel, Diagnostic } from "./napi";
 export * from "./napi";
 
 /**
@@ -189,6 +189,15 @@ interface Callback {
     setHandler(cb: any): void;
 }
 
+export class CompilerError extends Error {
+    public diagnostics: Diagnostic[];
+
+    constructor(message: string, diagnostics: Diagnostic[]) {
+        super(message);
+        this.diagnostics = diagnostics;
+    }
+}
+
 export function loadFile(path: string) : Object {
     let compiler = new ComponentCompiler;
     let definition = compiler.buildFromPath(path);
@@ -197,22 +206,12 @@ export function loadFile(path: string) : Object {
 
     if (diagnostics.length > 0) {
         let warnings = diagnostics.filter((d) => d.level == DiagnosticLevel.Warning);
-        warnings.forEach((w) => console.log("Warning: " + w.message));
+        warnings.forEach((w) => console.log("Warning: " + w));
 
         let errors = diagnostics.filter((d) => d.level == DiagnosticLevel.Error);
 
         if (errors.length > 0) {
-            let errorMessage = "";
-            let lastError = errors[errors.length - 1];
-            errors.forEach((e) => {
-                errorMessage += e.message;
-
-                if (e != lastError) {
-                    errorMessage += "/n";
-                }
-            });
-
-            throw Error(errorMessage);
+            throw new CompilerError("Could not compile " + path, errors);
         }
     }
 
