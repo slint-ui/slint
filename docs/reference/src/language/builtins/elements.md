@@ -154,7 +154,7 @@ interacting with `TouchArea` elements:
    3. Any move events received will start a flicking operation on the `Flickable` if all of the following
       conditions are met:
         1. The event is received before 500ms have elapsed since receiving the press event.
-        2. The distance to the press event exceeds 8 logical pixels in an orientation in which we are allowed to move
+        2. The distance to the press event exceeds 8 logical pixels in an orientation in which we are allowed to move.
       If `Flickable` decides to flick, any press event sent previously to a `TouchArea`, is followed up
       by an exit event. During the phase of receiving move events, the flickable follows the coordinates.
 4. If the interaction of press, move, and release events begins at coordinates that do not intersect with
