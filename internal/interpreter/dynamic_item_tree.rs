@@ -3,8 +3,6 @@
 
 // cSpell: ignore unerase
 
-//! FIXME!  rename dynamic_item_tree
-
 use crate::{api::Value, dynamic_type, eval};
 
 use core::convert::TryInto;
@@ -41,30 +39,30 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::{pin::Pin, rc::Rc};
 
-pub struct ComponentBox<'id> {
+pub struct ItemTreeBox<'id> {
     instance: InstanceBox<'id>,
-    component_type: Rc<ComponentDescription<'id>>,
+    description: Rc<ItemTreeDescription<'id>>,
 }
 
-impl<'id> ComponentBox<'id> {
-    /// Borrow this component as a `Pin<ItemTreeRef>`
+impl<'id> ItemTreeBox<'id> {
+    /// Borrow this instance as a `Pin<ItemTreeRef>`
     pub fn borrow(&self) -> ItemTreeRefPin {
         self.borrow_instance().borrow()
     }
 
     /// Safety: the lifetime is not unique
-    pub fn description(&self) -> Rc<ComponentDescription<'id>> {
-        self.component_type.clone()
+    pub fn description(&self) -> Rc<ItemTreeDescription<'id>> {
+        self.description.clone()
     }
 
     pub fn borrow_instance<'a>(&'a self) -> InstanceRef<'a, 'id> {
-        InstanceRef { instance: self.instance.as_pin_ref(), component_type: &self.component_type }
+        InstanceRef { instance: self.instance.as_pin_ref(), description: &self.description }
     }
 
     pub fn window_adapter_ref(&self) -> Result<&WindowAdapterRc, PlatformError> {
         let root_weak = vtable::VWeak::into_dyn(self.borrow_instance().root_weak().clone());
         InstanceRef::get_or_init_window_adapter_ref(
-            &self.component_type,
+            &self.description,
             root_weak,
             true,
             self.instance.as_pin_ref().get_ref(),
@@ -72,14 +70,15 @@ impl<'id> ComponentBox<'id> {
     }
 }
 
-pub(crate) struct ItemWithinComponent {
+pub(crate) struct ItemWithinItemTree {
     offset: usize,
     pub(crate) rtti: Rc<ItemRTTI>,
     elem: ElementRc,
 }
 
-impl ItemWithinComponent {
-    pub(crate) unsafe fn item_from_component(
+impl ItemWithinItemTree {
+    /// Safety: the pointer must be a dynamic item tree which is coming from the same description as Self
+    pub(crate) unsafe fn item_from_item_tree(
         &self,
         mem: *const u8,
     ) -> Pin<vtable::VRef<ItemVTable>> {
@@ -99,23 +98,23 @@ pub(crate) struct PropertiesWithinComponent {
     pub(crate) prop: Box<dyn PropertyInfo<u8, Value>>,
 }
 
-pub(crate) struct RepeaterWithinComponent<'par_id, 'sub_id> {
-    /// The component description of the items to repeat
-    pub(crate) component_to_repeat: Rc<ComponentDescription<'sub_id>>,
+pub(crate) struct RepeaterWithinItemTree<'par_id, 'sub_id> {
+    /// The description of the items to repeat
+    pub(crate) item_tree_to_repeat: Rc<ItemTreeDescription<'sub_id>>,
     /// The model
     pub(crate) model: Expression,
     /// Offset of the `Repeater`
-    offset: FieldOffset<Instance<'par_id>, Repeater<ErasedComponentBox>>,
+    offset: FieldOffset<Instance<'par_id>, Repeater<ErasedItemTreeBox>>,
 }
 
-impl RepeatedItemTree for ErasedComponentBox {
+impl RepeatedItemTree for ErasedItemTreeBox {
     type Data = Value;
 
     fn update(&self, index: usize, data: Self::Data) {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
-        s.component_type.set_property(s.borrow(), "index", index.try_into().unwrap()).unwrap();
-        s.component_type.set_property(s.borrow(), "model_data", data).unwrap();
+        s.description.set_property(s.borrow(), "index", index.try_into().unwrap()).unwrap();
+        s.description.set_property(s.borrow(), "model_data", data).unwrap();
     }
 
     fn init(&self) {
@@ -130,17 +129,17 @@ impl RepeatedItemTree for ErasedComponentBox {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
 
-        s.component_type
+        s.description
             .set_property(s.borrow(), "y", Value::Number(offset_y.get() as f64))
             .expect("cannot set y");
         let h: f32 = s
-            .component_type
+            .description
             .get_property(s.borrow(), "height")
             .expect("missing height")
             .try_into()
             .expect("height not the right type");
         let w: f32 = s
-            .component_type
+            .description
             .get_property(s.borrow(), "width")
             .expect("missing width")
             .try_into()
@@ -159,7 +158,7 @@ impl RepeatedItemTree for ErasedComponentBox {
     }
 }
 
-impl ItemTree for ErasedComponentBox {
+impl ItemTree for ErasedItemTreeBox {
     fn visit_children_item(
         self: Pin<&Self>,
         index: isize,
@@ -230,31 +229,31 @@ impl ItemTree for ErasedComponentBox {
     }
 }
 
-i_slint_core::ItemTreeVTable_static!(static COMPONENT_BOX_VT for ErasedComponentBox);
+i_slint_core::ItemTreeVTable_static!(static COMPONENT_BOX_VT for ErasedItemTreeBox);
 
-impl<'id> Drop for ErasedComponentBox {
+impl<'id> Drop for ErasedItemTreeBox {
     fn drop(&mut self) {
         generativity::make_guard!(guard);
         let unerase = self.unerase(guard);
         let instance_ref = unerase.borrow_instance();
-        // Do not walk out of our component here:
+        // Do not walk out of our ItemTree here:
         if let Some(window_adapter) = instance_ref.maybe_window_adapter() {
             i_slint_core::item_tree::unregister_item_tree(
                 instance_ref.instance,
                 vtable::VRef::new(self),
-                instance_ref.component_type.item_array.as_slice(),
+                instance_ref.description.item_array.as_slice(),
                 &window_adapter,
             );
         }
     }
 }
 
-pub type DynamicComponentVRc = vtable::VRc<ItemTreeVTable, ErasedComponentBox>;
+pub type DynamicComponentVRc = vtable::VRc<ItemTreeVTable, ErasedItemTreeBox>;
 
 #[derive(Default)]
 pub(crate) struct ComponentExtraData {
     pub(crate) globals: OnceCell<crate::global_component::GlobalStorage>,
-    pub(crate) self_weak: OnceCell<vtable::VWeak<ItemTreeVTable, ErasedComponentBox>>,
+    pub(crate) self_weak: OnceCell<vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>>,
     pub(crate) embedding_position: OnceCell<(ItemTreeWeak, u32)>,
     // resource id -> file path
     pub(crate) embedded_file_resources: OnceCell<HashMap<usize, String>>,
@@ -262,17 +261,17 @@ pub(crate) struct ComponentExtraData {
     pub(crate) canvas_id: OnceCell<String>,
 }
 
-struct ErasedRepeaterWithinComponent<'id>(RepeaterWithinComponent<'id, 'static>);
-impl<'id, 'sub_id> From<RepeaterWithinComponent<'id, 'sub_id>>
+struct ErasedRepeaterWithinComponent<'id>(RepeaterWithinItemTree<'id, 'static>);
+impl<'id, 'sub_id> From<RepeaterWithinItemTree<'id, 'sub_id>>
     for ErasedRepeaterWithinComponent<'id>
 {
-    fn from(from: RepeaterWithinComponent<'id, 'sub_id>) -> Self {
+    fn from(from: RepeaterWithinItemTree<'id, 'sub_id>) -> Self {
         // Safety: this is safe as we erase the sub_id lifetime.
         // As long as when we get it back we get an unique lifetime with ErasedRepeaterWithinComponent::unerase
         Self(unsafe {
             core::mem::transmute::<
-                RepeaterWithinComponent<'id, 'sub_id>,
-                RepeaterWithinComponent<'id, 'static>,
+                RepeaterWithinItemTree<'id, 'sub_id>,
+                RepeaterWithinItemTree<'id, 'static>,
             >(from)
         })
     }
@@ -281,20 +280,20 @@ impl<'id> ErasedRepeaterWithinComponent<'id> {
     pub fn unerase<'a, 'sub_id>(
         &'a self,
         _guard: generativity::Guard<'sub_id>,
-    ) -> &'a RepeaterWithinComponent<'id, 'sub_id> {
+    ) -> &'a RepeaterWithinItemTree<'id, 'sub_id> {
         // Safety: we just go from 'static to an unique lifetime
         unsafe {
             core::mem::transmute::<
-                &'a RepeaterWithinComponent<'id, 'static>,
-                &'a RepeaterWithinComponent<'id, 'sub_id>,
+                &'a RepeaterWithinItemTree<'id, 'static>,
+                &'a RepeaterWithinItemTree<'id, 'sub_id>,
             >(&self.0)
         }
     }
 
-    /// Return a repeater with a component with a 'static lifetime
+    /// Return a repeater with a ItemTree with a 'static lifetime
     ///
-    /// Safety: one should ensure that the inner component is not mixed with other inner component
-    unsafe fn get_untagged(&self) -> &RepeaterWithinComponent<'id, 'static> {
+    /// Safety: one should ensure that the inner ItemTree is not mixed with other inner ItemTree
+    unsafe fn get_untagged(&self) -> &RepeaterWithinItemTree<'id, 'static> {
         &self.0
     }
 }
@@ -302,57 +301,57 @@ impl<'id> ErasedRepeaterWithinComponent<'id> {
 type Callback = i_slint_core::Callback<[Value], Value>;
 
 #[derive(Clone)]
-pub struct ErasedComponentDescription(Rc<ComponentDescription<'static>>);
-impl ErasedComponentDescription {
+pub struct ErasedItemTreeDescription(Rc<ItemTreeDescription<'static>>);
+impl ErasedItemTreeDescription {
     pub fn unerase<'a, 'id>(
         &'a self,
         _guard: generativity::Guard<'id>,
-    ) -> &'a Rc<ComponentDescription<'id>> {
+    ) -> &'a Rc<ItemTreeDescription<'id>> {
         // Safety: we just go from 'static to an unique lifetime
         unsafe {
             core::mem::transmute::<
-                &'a Rc<ComponentDescription<'static>>,
-                &'a Rc<ComponentDescription<'id>>,
+                &'a Rc<ItemTreeDescription<'static>>,
+                &'a Rc<ItemTreeDescription<'id>>,
             >(&self.0)
         }
     }
 }
-impl<'id> From<Rc<ComponentDescription<'id>>> for ErasedComponentDescription {
-    fn from(from: Rc<ComponentDescription<'id>>) -> Self {
-        // Safety: We never access the ComponentDescription with the static lifetime, only after we unerase it
+impl<'id> From<Rc<ItemTreeDescription<'id>>> for ErasedItemTreeDescription {
+    fn from(from: Rc<ItemTreeDescription<'id>>) -> Self {
+        // Safety: We never access the ItemTreeDescription with the static lifetime, only after we unerase it
         Self(unsafe {
-            core::mem::transmute::<Rc<ComponentDescription<'id>>, Rc<ComponentDescription<'static>>>(
+            core::mem::transmute::<Rc<ItemTreeDescription<'id>>, Rc<ItemTreeDescription<'static>>>(
                 from,
             )
         })
     }
 }
 
-/// ComponentDescription is a representation of a component suitable for interpretation
+/// ItemTreeDescription is a representation of a ItemTree suitable for interpretation
 ///
 /// It contains information about how to create and destroy the Component.
-/// Its first member is the ItemTreeVTable for this component, since it is a `#[repr(C)]`
+/// Its first member is the ItemTreeVTable for generated instance, since it is a `#[repr(C)]`
 /// structure, it is valid to cast a pointer to the ItemTreeVTable back to a
-/// ComponentDescription to access the extra field that are needed at runtime
+/// ItemTreeDescription to access the extra field that are needed at runtime
 #[repr(C)]
-pub struct ComponentDescription<'id> {
+pub struct ItemTreeDescription<'id> {
     pub(crate) ct: ItemTreeVTable,
     /// INVARIANT: both dynamic_type and item_tree have the same lifetime id. Here it is erased to 'static
     dynamic_type: Rc<dynamic_type::TypeInfo<'id>>,
     item_tree: Vec<ItemTreeNode>,
     item_array:
         Vec<vtable::VOffset<crate::dynamic_type::Instance<'id>, ItemVTable, vtable::AllowPin>>,
-    pub(crate) items: HashMap<String, ItemWithinComponent>,
+    pub(crate) items: HashMap<String, ItemWithinItemTree>,
     pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
     pub(crate) custom_callbacks: HashMap<String, FieldOffset<Instance<'id>, Callback>>,
     repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
     /// Map the Element::id of the repeater to the index in the `repeater` vec
     pub repeater_names: HashMap<String, usize>,
     /// Offset to a Option<ComponentPinRef>
-    pub(crate) parent_component_offset:
+    pub(crate) parent_item_tree_offset:
         Option<FieldOffset<Instance<'id>, OnceCell<ItemTreeRefPin<'id>>>>,
     pub(crate) root_offset:
-        FieldOffset<Instance<'id>, OnceCell<vtable::VWeak<ItemTreeVTable, ErasedComponentBox>>>,
+        FieldOffset<Instance<'id>, OnceCell<vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>>>,
     /// Offset to the window reference
     pub(crate) window_adapter_offset: FieldOffset<Instance<'id>, OnceCell<WindowAdapterRc>>,
     /// Offset of a ComponentExtraData
@@ -397,7 +396,7 @@ pub enum WindowOptions {
     CreateWithCanvasId(String),
 }
 
-impl<'id> ComponentDescription<'id> {
+impl<'id> ItemTreeDescription<'id> {
     /// The name of this Component as written in the .slint file
     pub fn id(&self) -> &str {
         self.original.id.as_str()
@@ -430,7 +429,7 @@ impl<'id> ComponentDescription<'id> {
             .map(|global| internal_properties_to_public(global.public_properties()))
     }
 
-    /// Instantiate a runtime component from this ComponentDescription
+    /// Instantiate a runtime ItemTree from this ItemTreeDescription
     pub fn create(
         self: Rc<Self>,
         options: WindowOptions,
@@ -440,20 +439,20 @@ impl<'id> ComponentDescription<'id> {
             Ok(())
         })?;
 
-        let component_ref = instantiate(self, None, None, Some(&options), Default::default());
+        let instance = instantiate(self, None, None, Some(&options), Default::default());
         if let WindowOptions::UseExistingWindow(existing_adapter) = options {
             WindowInner::from_pub(existing_adapter.window())
-                .set_component(&vtable::VRc::into_dyn(component_ref.clone()));
+                .set_component(&vtable::VRc::into_dyn(instance.clone()));
         }
-        component_ref.run_setup_code();
-        Ok(component_ref)
+        instance.run_setup_code();
+        Ok(instance)
     }
 
     /// Set a value to property.
     ///
-    /// Return an error if the property with this name does not exist in this component,
+    /// Return an error if the property with this name does not exist,
     /// or if the value is the wrong type.
-    /// Panics if the component is not an instance corresponding to this ComponentDescription,
+    /// Panics if the component is not an instance corresponding to this ItemTreeDescription,
     pub fn set_property(
         &self,
         component: ItemTreeRefPin,
@@ -481,7 +480,7 @@ impl<'id> ComponentDescription<'id> {
 
     /// Set a binding to a property
     ///
-    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
+    /// Returns an error if the instance does not corresponds to this ItemTreeDescription,
     /// or if the property with this name does not exist in this component
     #[allow(unused)]
     pub fn set_binding(
@@ -508,8 +507,8 @@ impl<'id> ComponentDescription<'id> {
 
     /// Return the value of a property
     ///
-    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
-    /// or if a callback with this name does not exist in this component
+    /// Returns an error if the component is not an instance corresponding to this ItemTreeDescription,
+    /// or if a callback with this name does not exist
     pub fn get_property(&self, component: ItemTreeRefPin, name: &str) -> Result<Value, ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
@@ -533,8 +532,8 @@ impl<'id> ComponentDescription<'id> {
 
     /// Sets an handler for a callback
     ///
-    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
-    /// or if the property with this name does not exist in this component
+    /// Returns an error if the component is not an instance corresponding to this ItemTreeDescription,
+    /// or if the property with this name does not exist
     pub fn set_callback_handler(
         &self,
         component: Pin<ItemTreeRef>,
@@ -563,14 +562,14 @@ impl<'id> ComponentDescription<'id> {
                 guard,
             ) {
                 eval::ComponentInstance::InstanceRef(enclosing_component) => {
-                    let component_type = enclosing_component.component_type;
-                    let item_info = &component_type.items[element.borrow().id.as_str()];
+                    let description = enclosing_component.description;
+                    let item_info = &description.items[element.borrow().id.as_str()];
                     let item =
-                        unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+                        unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
                     if let Some(callback) = item_info.rtti.callbacks.get(alias.name()) {
                         callback.set_handler(item, handler)
                     } else if let Some(callback_offset) =
-                        component_type.custom_callbacks.get(alias.name())
+                        description.custom_callbacks.get(alias.name())
                     {
                         let callback = callback_offset.apply(&*enclosing_component.instance);
                         callback.set_handler(handler)
@@ -592,7 +591,7 @@ impl<'id> ComponentDescription<'id> {
 
     /// Invoke the specified callback or function
     ///
-    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
+    /// Returns an error if the component is not an instance corresponding to this ItemTreeDescription,
     /// or if the callback with this name does not exist in this component
     pub fn invoke(
         &self,
@@ -636,7 +635,7 @@ impl<'id> ComponentDescription<'id> {
         generativity::make_guard!(guard);
         // Safety: we just verified that the component has the right vtable
         let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
-        let extra_data = c.component_type.extra_data_offset.apply(c.instance.get_ref());
+        let extra_data = c.description.extra_data_offset.apply(c.instance.get_ref());
         extra_data.globals.get().unwrap().get(global_name).cloned().ok_or(())
     }
 }
@@ -665,7 +664,7 @@ extern "C" fn visit_children_item(
                 // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
                 // Safety: we do not mix the component with other component id in this function
                 let rep_in_comp =
-                    unsafe { instance_ref.component_type.repeater[index as usize].get_untagged() };
+                    unsafe { instance_ref.description.repeater[index as usize].get_untagged() };
                 ensure_repeater_updated(instance_ref, rep_in_comp);
                 let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
                 repeater.visit(order, visitor)
@@ -677,12 +676,12 @@ extern "C" fn visit_children_item(
 /// Make sure that the repeater is updated
 fn ensure_repeater_updated<'id>(
     instance_ref: InstanceRef<'_, 'id>,
-    rep_in_comp: &RepeaterWithinComponent<'id, '_>,
+    rep_in_comp: &RepeaterWithinItemTree<'id, '_>,
 ) {
     let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
     let init = || {
         let instance = instantiate(
-            rep_in_comp.component_to_repeat.clone(),
+            rep_in_comp.item_tree_to_repeat.clone(),
             Some(instance_ref.borrow()),
             None,
             None,
@@ -691,7 +690,7 @@ fn ensure_repeater_updated<'id>(
         instance
     };
     if let Some(lv) = &rep_in_comp
-        .component_to_repeat
+        .item_tree_to_repeat
         .original
         .parent_element
         .upgrade()
@@ -745,7 +744,7 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
     (T::name(), Rc::new(rtti))
 }
 
-/// Create a ComponentDescription from a source.
+/// Create a ItemTreeDescription from a source.
 /// The path corresponding to the source need to be passed as well (path is used for diagnostics
 /// and loading relative assets)
 pub async fn load(
@@ -753,7 +752,7 @@ pub async fn load(
     path: std::path::PathBuf,
     mut compiler_config: CompilerConfiguration,
     guard: generativity::Guard<'_>,
-) -> (Result<Rc<ComponentDescription<'_>>, ()>, i_slint_compiler::diagnostics::BuildDiagnostics) {
+) -> (Result<Rc<ItemTreeDescription<'_>>, ()>, i_slint_compiler::diagnostics::BuildDiagnostics) {
     if compiler_config.style.is_none() && std::env::var("SLINT_STYLE").is_err() {
         // Defaults to native if it exists:
         compiler_config.style = Some(if i_slint_backend_selector::HAS_NATIVE_STYLE {
@@ -783,13 +782,13 @@ pub async fn load(
     #[cfg(feature = "highlight")]
     crate::highlight::add_highlighting(&doc);
 
-    (Ok(generate_component(&doc.root_component, guard)), diag)
+    (Ok(generate_item_tree(&doc.root_component, guard)), diag)
 }
 
-pub(crate) fn generate_component<'id>(
+pub(crate) fn generate_item_tree<'id>(
     component: &Rc<object_tree::Component>,
     guard: generativity::Guard<'id>,
-) -> Rc<ComponentDescription<'id>> {
+) -> Rc<ItemTreeDescription<'id>> {
     //dbg!(&*component.root_element.borrow());
     let mut rtti = HashMap::new();
     {
@@ -844,7 +843,7 @@ pub(crate) fn generate_component<'id>(
         item_array:
             Vec<vtable::VOffset<crate::dynamic_type::Instance<'id>, ItemVTable, vtable::AllowPin>>,
         original_elements: Vec<ElementRc>,
-        items_types: HashMap<String, ItemWithinComponent>,
+        items_types: HashMap<String, ItemWithinItemTree>,
         type_builder: dynamic_type::TypeBuilder<'id>,
         repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
         repeater_names: HashMap<String, usize>,
@@ -867,9 +866,9 @@ pub(crate) fn generate_component<'id>(
             self.repeater_names.insert(item.id.clone(), self.repeater.len());
             generativity::make_guard!(guard);
             self.repeater.push(
-                RepeaterWithinComponent {
-                    component_to_repeat: generate_component(base_component, guard),
-                    offset: self.type_builder.add_field_type::<Repeater<ErasedComponentBox>>(),
+                RepeaterWithinItemTree {
+                    item_tree_to_repeat: generate_item_tree(base_component, guard),
+                    offset: self.type_builder.add_field_type::<Repeater<ErasedItemTreeBox>>(),
                     model: item.repeated.as_ref().unwrap().model.clone(),
                 }
                 .into(),
@@ -916,7 +915,7 @@ pub(crate) fn generate_component<'id>(
             debug_assert_eq!(self.original_elements.len(), self.tree_array.len());
             self.items_types.insert(
                 item.id.clone(),
-                ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
+                ItemWithinItemTree { offset, rtti: rt.clone(), elem: rc_item.clone() },
             );
         }
 
@@ -1078,7 +1077,7 @@ pub(crate) fn generate_component<'id>(
 
     let root_offset = builder
         .type_builder
-        .add_field_type::<OnceCell<vtable::VWeak<ItemTreeVTable, ErasedComponentBox>>>();
+        .add_field_type::<OnceCell<vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>>>();
 
     let window_adapter_offset = builder.type_builder.add_field_type::<OnceCell<WindowAdapterRc>>();
 
@@ -1132,7 +1131,7 @@ pub(crate) fn generate_component<'id>(
         drop_in_place,
         dealloc,
     };
-    let t = ComponentDescription {
+    let t = ItemTreeDescription {
         ct: t,
         dynamic_type: builder.type_builder.build(),
         item_tree: builder.tree_array,
@@ -1144,7 +1143,7 @@ pub(crate) fn generate_component<'id>(
         original_elements: builder.original_elements,
         repeater: builder.repeater,
         repeater_names: builder.repeater_names,
-        parent_component_offset,
+        parent_item_tree_offset: parent_component_offset,
         root_offset,
         window_adapter_offset,
         extra_data_offset,
@@ -1172,7 +1171,7 @@ pub fn animation_for_property(
             state_ref,
         }) => {
             let component_ptr = component.as_ptr();
-            let vtable = NonNull::from(&component.component_type.ct).cast();
+            let vtable = NonNull::from(&component.description.ct).cast();
             let animations = animations.clone();
             let state_ref = state_ref.clone();
             AnimatedBindingKind::Transition(Box::new(
@@ -1214,7 +1213,7 @@ pub fn animation_for_property(
 
 fn make_callback_eval_closure(
     expr: Expression,
-    self_weak: &vtable::VWeak<ItemTreeVTable, ErasedComponentBox>,
+    self_weak: &vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>,
 ) -> impl Fn(&[Value]) -> Value {
     let self_weak = self_weak.clone();
     move |args| {
@@ -1230,7 +1229,7 @@ fn make_callback_eval_closure(
 
 fn make_binding_eval_closure(
     expr: Expression,
-    self_weak: &vtable::VWeak<ItemTreeVTable, ErasedComponentBox>,
+    self_weak: &vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>,
 ) -> impl Fn() -> Value {
     let self_weak = self_weak.clone();
     move || {
@@ -1246,31 +1245,31 @@ fn make_binding_eval_closure(
 }
 
 pub fn instantiate(
-    component_type: Rc<ComponentDescription>,
+    description: Rc<ItemTreeDescription>,
     parent_ctx: Option<ItemTreeRefPin>,
-    root: Option<vtable::VWeak<ItemTreeVTable, ErasedComponentBox>>,
+    root: Option<vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>>,
     window_options: Option<&WindowOptions>,
     mut globals: crate::global_component::GlobalStorage,
 ) -> DynamicComponentVRc {
-    let instance = component_type.dynamic_type.clone().create_instance();
+    let instance = description.dynamic_type.clone().create_instance();
 
-    let component_box = ComponentBox { instance, component_type: component_type.clone() };
+    let component_box = ItemTreeBox { instance, description: description.clone() };
 
-    let self_rc = vtable::VRc::new(ErasedComponentBox::from(component_box));
+    let self_rc = vtable::VRc::new(ErasedItemTreeBox::from(component_box));
     let self_weak = vtable::VRc::downgrade(&self_rc);
 
     generativity::make_guard!(guard);
     let comp = self_rc.unerase(guard);
     let instance_ref = comp.borrow_instance();
     instance_ref.self_weak().set(self_weak.clone()).ok();
-    let component_type = comp.description();
+    let description = comp.description();
 
     let root = root
         .or_else(|| instance_ref.parent_instance().map(|parent| parent.root_weak().clone()))
         .unwrap_or_else(|| self_weak.clone());
-    component_type.root_offset.apply(instance_ref.as_ref()).set(root).ok().unwrap();
+    description.root_offset.apply(instance_ref.as_ref()).set(root).ok().unwrap();
 
-    if !component_type.original.is_global() {
+    if !description.original.is_global() {
         let maybe_window_adapter =
             if let Some(WindowOptions::UseExistingWindow(adapter)) = window_options.as_ref() {
                 Some(adapter.clone())
@@ -1283,24 +1282,24 @@ pub fn instantiate(
     }
 
     if let Some(parent) = parent_ctx {
-        component_type
-            .parent_component_offset
+        description
+            .parent_item_tree_offset
             .unwrap()
             .apply(instance_ref.as_ref())
             .set(parent)
             .ok()
             .unwrap();
     } else {
-        for g in &component_type.compiled_globals {
+        for g in &description.compiled_globals {
             crate::global_component::instantiate(g, &mut globals, self_weak.clone());
         }
-        let extra_data = component_type.extra_data_offset.apply(instance_ref.as_ref());
+        let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());
         extra_data.globals.set(globals).ok().unwrap();
 
         extra_data
             .embedded_file_resources
             .set(
-                component_type
+                description
                     .original
                     .embedded_file_resources
                     .borrow()
@@ -1319,7 +1318,7 @@ pub fn instantiate(
 
     match &window_options {
         Some(WindowOptions::UseExistingWindow(existing_adapter)) => {
-            component_type
+            description
                 .window_adapter_offset
                 .apply(instance_ref.as_ref())
                 .set(existing_adapter.clone())
@@ -1330,7 +1329,7 @@ pub fn instantiate(
     }
 
     // Some properties are generated as Value, but for which the default constructed Value must be initialized
-    for (prop_name, decl) in &component_type.original.root_element.borrow().property_declarations {
+    for (prop_name, decl) in &description.original.root_element.borrow().property_declarations {
         if !matches!(
             decl.property_type,
             Type::Struct { .. } | Type::Array(_) | Type::Enumeration(_)
@@ -1338,12 +1337,12 @@ pub fn instantiate(
         {
             continue;
         }
-        if let Some(b) = component_type.original.root_element.borrow().bindings.get(prop_name) {
+        if let Some(b) = description.original.root_element.borrow().bindings.get(prop_name) {
             if b.borrow().two_way_bindings.is_empty() {
                 continue;
             }
         }
-        let p = component_type.custom_properties.get(prop_name).unwrap();
+        let p = description.custom_properties.get(prop_name).unwrap();
         unsafe {
             let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(p.offset));
             p.prop.set(item, eval::default_value_for_type(&decl.property_type), None).unwrap();
@@ -1351,7 +1350,7 @@ pub fn instantiate(
     }
 
     generator::handle_property_bindings_init(
-        &component_type.original,
+        &description.original,
         |elem, prop_name, binding| unsafe {
             let is_root = Rc::ptr_eq(
                 elem,
@@ -1366,15 +1365,15 @@ pub fn instantiate(
             } else if let Type::Callback { .. } = property_type {
                 if !matches!(binding.expression, Expression::Invalid) {
                     let expr = binding.expression.clone();
-                    let component_type = component_type.clone();
+                    let description = description.clone();
                     if let Some(callback_offset) =
-                        component_type.custom_callbacks.get(prop_name).filter(|_| is_root)
+                        description.custom_callbacks.get(prop_name).filter(|_| is_root)
                     {
                         let callback = callback_offset.apply(instance_ref.as_ref());
                         callback.set_handler(make_callback_eval_closure(expr, &self_weak));
                     } else {
-                        let item_within_component = &component_type.items[&elem.id];
-                        let item = item_within_component.item_from_component(instance_ref.as_ptr());
+                        let item_within_component = &description.items[&elem.id];
+                        let item = item_within_component.item_from_item_tree(instance_ref.as_ptr());
                         if let Some(callback) = item_within_component.rtti.callbacks.get(prop_name)
                         {
                             callback.set_handler(
@@ -1387,7 +1386,7 @@ pub fn instantiate(
                     }
                 }
             } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
-                component_type.custom_properties.get(prop_name).filter(|_| is_root)
+                description.custom_properties.get(prop_name).filter(|_| is_root)
             {
                 let is_state_info = matches!(property_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
                 if is_state_info {
@@ -1429,8 +1428,8 @@ pub fn instantiate(
                     prop_info.link_two_ways(item, get_property_ptr(nr, instance_ref));
                 }
             } else {
-                let item_within_component = &component_type.items[&elem.id];
-                let item = item_within_component.item_from_component(instance_ref.as_ptr());
+                let item_within_component = &description.items[&elem.id];
+                let item = item_within_component.item_from_item_tree(instance_ref.as_ptr());
                 if let Some(prop_rtti) = item_within_component.rtti.properties.get(prop_name) {
                     let maybe_animation = animation_for_property(instance_ref, &binding.animation);
                     for nr in &binding.two_way_bindings {
@@ -1467,7 +1466,7 @@ pub fn instantiate(
         },
     );
 
-    for rep_in_comp in &component_type.repeater {
+    for rep_in_comp in &description.repeater {
         generativity::make_guard!(guard);
         let rep_in_comp = rep_in_comp.unerase(guard);
 
@@ -1496,13 +1495,12 @@ pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *c
             let element = element.borrow();
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
             {
-                if let Some(x) = enclosing_component.component_type.custom_properties.get(nr.name())
-                {
+                if let Some(x) = enclosing_component.description.custom_properties.get(nr.name()) {
                     return unsafe { enclosing_component.as_ptr().add(x.offset).cast() };
                 };
             };
             let item_info = enclosing_component
-                .component_type
+                .description
                 .items
                 .get(element.id.as_str())
                 .unwrap_or_else(|| panic!("Unknown element for {}.{}", element.id, nr.name()));
@@ -1512,22 +1510,22 @@ pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *c
                 .get(nr.name())
                 .unwrap_or_else(|| panic!("Property {} not in {}", nr.name(), element.id));
             core::mem::drop(element);
-            let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+            let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
             unsafe { item.as_ptr().add(prop_info.offset()).cast() }
         }
         eval::ComponentInstance::GlobalComponent(glob) => glob.as_ref().get_property_ptr(nr.name()),
     }
 }
 
-pub struct ErasedComponentBox(ComponentBox<'static>);
-impl ErasedComponentBox {
+pub struct ErasedItemTreeBox(ItemTreeBox<'static>);
+impl ErasedItemTreeBox {
     pub fn unerase<'a, 'id>(
         &'a self,
         _guard: generativity::Guard<'id>,
-    ) -> Pin<&'a ComponentBox<'id>> {
+    ) -> Pin<&'a ItemTreeBox<'id>> {
         Pin::new(
             //Safety: 'id is unique because of `_guard`
-            unsafe { core::mem::transmute::<&ComponentBox<'static>, &ComponentBox<'id>>(&self.0) },
+            unsafe { core::mem::transmute::<&ItemTreeBox<'static>, &ItemTreeBox<'id>>(&self.0) },
         )
     }
 
@@ -1544,7 +1542,7 @@ impl ErasedComponentBox {
         generativity::make_guard!(guard);
         let compo_box = self.unerase(guard);
         let instance_ref = compo_box.borrow_instance();
-        for extra_init_code in self.0.component_type.original.init_code.borrow().iter() {
+        for extra_init_code in self.0.description.original.init_code.borrow().iter() {
             eval::eval_expression(
                 extra_init_code,
                 &mut eval::EvalLocalContext::from_component_instance(instance_ref),
@@ -1552,14 +1550,12 @@ impl ErasedComponentBox {
         }
     }
 }
-impl<'id> From<ComponentBox<'id>> for ErasedComponentBox {
-    fn from(inner: ComponentBox<'id>) -> Self {
+impl<'id> From<ItemTreeBox<'id>> for ErasedItemTreeBox {
+    fn from(inner: ItemTreeBox<'id>) -> Self {
         // Safety: Nothing access the component directly, we only access it through unerased where
         // the lifetime is unique again
         unsafe {
-            ErasedComponentBox(core::mem::transmute::<ComponentBox<'id>, ComponentBox<'static>>(
-                inner,
-            ))
+            ErasedItemTreeBox(core::mem::transmute::<ItemTreeBox<'id>, ItemTreeBox<'static>>(inner))
         }
     }
 }
@@ -1568,26 +1564,26 @@ pub fn get_repeater_by_name<'a, 'id>(
     instance_ref: InstanceRef<'a, '_>,
     name: &str,
     guard: generativity::Guard<'id>,
-) -> (std::pin::Pin<&'a Repeater<ErasedComponentBox>>, Rc<ComponentDescription<'id>>) {
-    let rep_index = instance_ref.component_type.repeater_names[name];
-    let rep_in_comp = instance_ref.component_type.repeater[rep_index].unerase(guard);
-    (rep_in_comp.offset.apply_pin(instance_ref.instance), rep_in_comp.component_to_repeat.clone())
+) -> (std::pin::Pin<&'a Repeater<ErasedItemTreeBox>>, Rc<ItemTreeDescription<'id>>) {
+    let rep_index = instance_ref.description.repeater_names[name];
+    let rep_in_comp = instance_ref.description.repeater[rep_index].unerase(guard);
+    (rep_in_comp.offset.apply_pin(instance_ref.instance), rep_in_comp.item_tree_to_repeat.clone())
 }
 
 extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -> LayoutInfo {
     generativity::make_guard!(guard);
-    // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
+    // This is fine since we can only be called with a component that with our vtable which is a ItemTreeDescription
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let orientation = crate::eval_layout::from_runtime(orientation);
 
     let mut result = crate::eval_layout::get_layout_info(
-        &instance_ref.component_type.original.root_element,
+        &instance_ref.description.original.root_element,
         instance_ref,
         &instance_ref.window_adapter(),
         orientation,
     );
 
-    let constraints = instance_ref.component_type.original.root_constraints.borrow();
+    let constraints = instance_ref.description.original.root_constraints.borrow();
     if constraints.has_explicit_restrictions() {
         crate::eval_layout::fill_layout_info_constraints(
             &mut result,
@@ -1611,7 +1607,7 @@ unsafe extern "C" fn get_item_ref(component: ItemTreeRefPin, index: u32) -> Pin<
             generativity::make_guard!(guard);
             let instance_ref = InstanceRef::from_pin_ref(component, guard);
             core::mem::transmute::<Pin<ItemRef>, Pin<ItemRef>>(
-                instance_ref.component_type.item_array[*item_array_index as usize]
+                instance_ref.description.item_array[*item_array_index as usize]
                     .apply_pin(instance_ref.instance),
             )
         }
@@ -1632,7 +1628,7 @@ extern "C" fn get_subtree_range(component: ItemTreeRefPin, index: u32) -> IndexR
         container.subtree_range()
     } else {
         let rep_in_comp =
-            unsafe { instance_ref.component_type.repeater[index as usize].get_untagged() };
+            unsafe { instance_ref.description.repeater[index as usize].get_untagged() };
         ensure_repeater_updated(instance_ref, rep_in_comp);
 
         let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
@@ -1658,7 +1654,7 @@ extern "C" fn get_subtree(
         *result = container.subtree_component();
     } else {
         let rep_in_comp =
-            unsafe { instance_ref.component_type.repeater[index as usize].get_untagged() };
+            unsafe { instance_ref.description.repeater[index as usize].get_untagged() };
         ensure_repeater_updated(instance_ref, rep_in_comp);
 
         let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
@@ -1671,14 +1667,14 @@ extern "C" fn get_subtree(
 extern "C" fn get_item_tree(component: ItemTreeRefPin) -> Slice<ItemTreeNode> {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    let tree = instance_ref.component_type.item_tree.as_slice();
+    let tree = instance_ref.description.item_tree.as_slice();
     unsafe { core::mem::transmute::<&[ItemTreeNode], &[ItemTreeNode]>(tree) }.into()
 }
 
 extern "C" fn subtree_index(component: ItemTreeRefPin) -> usize {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    if let Ok(value) = instance_ref.component_type.get_property(component, "index") {
+    if let Ok(value) = instance_ref.description.get_property(component, "index") {
         value.try_into().unwrap()
     } else {
         core::usize::MAX
@@ -1691,9 +1687,9 @@ unsafe extern "C" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWea
 
     let component_and_index = {
         // Normal inner-compilation unit case:
-        if let Some(parent_offset) = instance_ref.component_type.parent_component_offset {
+        if let Some(parent_offset) = instance_ref.description.parent_item_tree_offset {
             let parent_item_index = instance_ref
-                .component_type
+                .description
                 .original
                 .parent_element
                 .upgrade()
@@ -1706,7 +1702,7 @@ unsafe extern "C" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWea
             });
             (parent_component, parent_item_index)
         } else if let Some((parent_component, parent_index)) = instance_ref
-            .component_type
+            .description
             .extra_data_offset
             .apply(instance_ref.as_ref())
             .embedding_position
@@ -1731,7 +1727,7 @@ unsafe extern "C" fn embed_component(
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
 
-    if instance_ref.component_type.parent_component_offset.is_some() {
+    if instance_ref.description.parent_item_tree_offset.is_some() {
         // We are not the root of the compilation unit tree... Can not embed this!
         return false;
     }
@@ -1749,7 +1745,7 @@ unsafe extern "C" fn embed_component(
         }
     }
 
-    let extra_data = instance_ref.component_type.extra_data_offset.apply(instance_ref.as_ref());
+    let extra_data = instance_ref.description.extra_data_offset.apply(instance_ref.as_ref());
     extra_data.embedding_position.set((parent_component.clone(), parent_item_tree_index)).is_ok()
 }
 
@@ -1757,7 +1753,7 @@ extern "C" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -> Logic
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
 
-    let e = instance_ref.component_type.original_elements[item_index as usize].borrow();
+    let e = instance_ref.description.original_elements[item_index as usize].borrow();
     let g = e.geometry_props.as_ref().unwrap();
 
     let load_f32 = |nr: &NamedReference| -> f32 {
@@ -1776,7 +1772,7 @@ extern "C" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -> Logic
 extern "C" fn accessible_role(component: ItemTreeRefPin, item_index: u32) -> AccessibleRole {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    let nr = instance_ref.component_type.original_elements[item_index as usize]
+    let nr = instance_ref.description.original_elements[item_index as usize]
         .borrow()
         .accessibility_props
         .0
@@ -1800,7 +1796,7 @@ extern "C" fn accessible_string_property(
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let prop_name = format!("accessible-{}", what);
-    let nr = instance_ref.component_type.original_elements[item_index as usize]
+    let nr = instance_ref.description.original_elements[item_index as usize]
         .borrow()
         .accessibility_props
         .0
@@ -1845,7 +1841,7 @@ unsafe extern "C" fn dealloc(_vtable: &ItemTreeVTable, ptr: *mut u8, layout: vta
 #[derive(Copy, Clone)]
 pub struct InstanceRef<'a, 'id> {
     pub instance: Pin<&'a Instance<'id>>,
-    pub component_type: &'a ComponentDescription<'id>,
+    pub description: &'a ItemTreeDescription<'id>,
 }
 
 impl<'a, 'id> InstanceRef<'a, 'id> {
@@ -1855,9 +1851,9 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
     ) -> Self {
         Self {
             instance: Pin::new_unchecked(&*(component.as_ref().as_ptr() as *const Instance<'id>)),
-            component_type: &*(Pin::into_inner_unchecked(component).get_vtable()
+            description: &*(Pin::into_inner_unchecked(component).get_vtable()
                 as *const ItemTreeVTable
-                as *const ComponentDescription<'id>),
+                as *const ItemTreeDescription<'id>),
         }
     }
 
@@ -1873,19 +1869,19 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
     pub fn borrow(self) -> ItemTreeRefPin<'a> {
         unsafe {
             Pin::new_unchecked(vtable::VRef::from_raw(
-                NonNull::from(&self.component_type.ct).cast(),
+                NonNull::from(&self.description.ct).cast(),
                 NonNull::from(self.instance.get_ref()).cast(),
             ))
         }
     }
 
-    pub fn self_weak(&self) -> &OnceCell<vtable::VWeak<ItemTreeVTable, ErasedComponentBox>> {
-        let extra_data = self.component_type.extra_data_offset.apply(self.as_ref());
+    pub fn self_weak(&self) -> &OnceCell<vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>> {
+        let extra_data = self.description.extra_data_offset.apply(self.as_ref());
         &extra_data.self_weak
     }
 
-    pub fn root_weak(&self) -> &vtable::VWeak<ItemTreeVTable, ErasedComponentBox> {
-        self.component_type.root_offset.apply(self.as_ref()).get().unwrap()
+    pub fn root_weak(&self) -> &vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox> {
+        self.description.root_offset.apply(self.as_ref()).get().unwrap()
     }
 
     pub fn window_adapter(&self) -> WindowAdapterRc {
@@ -1894,7 +1890,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         generativity::make_guard!(guard);
         let comp = root.unerase(guard);
         Self::get_or_init_window_adapter_ref(
-            &comp.component_type,
+            &comp.description,
             root_weak,
             true,
             comp.instance.as_pin_ref().get_ref(),
@@ -1904,13 +1900,13 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
     }
 
     pub fn get_or_init_window_adapter_ref<'b, 'id2>(
-        component_type: &'b ComponentDescription<'id2>,
+        description: &'b ItemTreeDescription<'id2>,
         root_weak: ItemTreeWeak,
         do_create: bool,
         instance: &'b Instance<'id2>,
     ) -> Result<&'b WindowAdapterRc, PlatformError> {
         // We are the actual root: Generate and store a window_adapter if necessary
-        component_type.window_adapter_offset.apply(instance).get_or_try_init(|| {
+        description.window_adapter_offset.apply(instance).get_or_try_init(|| {
             let mut parent_node = ItemWeak::default();
             if let Some(rc) = vtable::VWeak::upgrade(&root_weak) {
                 vtable::VRc::borrow_pin(&rc).as_ref().parent_node(&mut parent_node);
@@ -1924,7 +1920,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
                     .window_adapter(do_create, &mut result);
                 result.ok_or(PlatformError::NoPlatform)
             } else if do_create {
-                let extra_data = component_type.extra_data_offset.apply(instance);
+                let extra_data = description.extra_data_offset.apply(instance);
                 let window_adapter = // We are the root: Create a window adapter
                     i_slint_backend_selector::with_platform(|_b| {
                         #[cfg(not(target_arch = "wasm32"))]
@@ -1951,7 +1947,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         generativity::make_guard!(guard);
         let comp = root.unerase(guard);
         Self::get_or_init_window_adapter_ref(
-            &comp.component_type,
+            &comp.description,
             root_weak,
             false,
             comp.instance.as_pin_ref().get_ref(),
@@ -1968,16 +1964,16 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
     }
 
     pub fn parent_instance(&self) -> Option<InstanceRef<'a, 'id>> {
-        if let Some(parent_offset) = self.component_type.parent_component_offset {
+        if let Some(parent_offset) = self.description.parent_item_tree_offset {
             if let Some(parent) = parent_offset.apply(self.as_ref()).get() {
                 let parent_instance = unsafe {
                     Self {
                         instance: Pin::new_unchecked(
                             &*(parent.as_ref().as_ptr() as *const Instance<'id>),
                         ),
-                        component_type: &*(Pin::into_inner_unchecked(*parent).get_vtable()
+                        description: &*(Pin::into_inner_unchecked(*parent).get_vtable()
                             as *const ItemTreeVTable
-                            as *const ComponentDescription<'id>),
+                            as *const ItemTreeDescription<'id>),
                     }
                 };
                 return Some(parent_instance);
@@ -2006,7 +2002,7 @@ pub fn show_popup(
 ) {
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
-    let compiled = generate_component(&popup.component, guard);
+    let compiled = generate_item_tree(&popup.component, guard);
     let inst = instantiate(
         compiled,
         Some(parent_comp),

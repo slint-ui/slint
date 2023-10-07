@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 use crate::api::Value;
-use crate::dynamic_component::{ErasedComponentBox, ErasedComponentDescription};
+use crate::dynamic_item_tree::{ErasedItemTreeBox, ErasedItemTreeDescription};
 use crate::SetPropertyError;
 use i_slint_compiler::langtype::ElementType;
 use i_slint_compiler::namedreference::NamedReference;
@@ -25,7 +25,7 @@ pub enum CompiledGlobal {
         public_properties: BTreeMap<String, PropertyDeclaration>,
     },
     Component {
-        component: ErasedComponentDescription,
+        component: ErasedItemTreeDescription,
         public_properties: BTreeMap<String, PropertyDeclaration>,
     },
 }
@@ -98,7 +98,7 @@ pub trait GlobalComponent {
 pub fn instantiate(
     description: &CompiledGlobal,
     globals: &mut GlobalStorage,
-    root: vtable::VWeak<ItemTreeVTable, ErasedComponentBox>,
+    root: vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>,
 ) {
     let instance = match description {
         CompiledGlobal::Builtin { element, .. } => {
@@ -124,7 +124,7 @@ pub fn instantiate(
         CompiledGlobal::Component { component, .. } => {
             generativity::make_guard!(guard);
             let description = component.unerase(guard);
-            Rc::pin(GlobalComponentInstance(crate::dynamic_component::instantiate(
+            Rc::pin(GlobalComponentInstance(crate::dynamic_item_tree::instantiate(
                 description.clone(),
                 None,
                 Some(root),
@@ -143,7 +143,7 @@ pub fn instantiate(
 
 /// For the global components, we don't use the dynamic_type optimization,
 /// and we don't try to optimize the property to their real type
-pub struct GlobalComponentInstance(vtable::VRc<ItemTreeVTable, ErasedComponentBox>);
+pub struct GlobalComponentInstance(vtable::VRc<ItemTreeVTable, ErasedItemTreeBox>);
 
 impl GlobalComponent for GlobalComponentInstance {
     fn set_property(
@@ -165,7 +165,7 @@ impl GlobalComponent for GlobalComponentInstance {
     fn get_property_ptr(self: Pin<&Self>, prop_name: &str) -> *const () {
         generativity::make_guard!(guard);
         let comp = self.0.unerase(guard);
-        crate::dynamic_component::get_property_ptr(
+        crate::dynamic_item_tree::get_property_ptr(
             &NamedReference::new(&comp.description().original.root_element, prop_name),
             comp.borrow_instance(),
         )
@@ -259,7 +259,7 @@ pub(crate) fn generate(component: &Rc<Component>) -> CompiledGlobal {
         ElementType::Global => {
             generativity::make_guard!(guard);
             CompiledGlobal::Component {
-                component: crate::dynamic_component::generate_component(component, guard).into(),
+                component: crate::dynamic_item_tree::generate_item_tree(component, guard).into(),
                 public_properties: Default::default(),
             }
         }

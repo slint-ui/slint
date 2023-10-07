@@ -19,11 +19,11 @@ class QWidget;
 
 namespace slint::cbindgen_private {
 //  This has to stay opaque, but VRc don't compile if it is just forward declared
-struct ErasedComponentBox : vtable::Dyn
+struct ErasedItemTreeBox : vtable::Dyn
 {
-    ~ErasedComponentBox() = delete;
-    ErasedComponentBox() = delete;
-    ErasedComponentBox(ErasedComponentBox &) = delete;
+    ~ErasedItemTreeBox() = delete;
+    ErasedItemTreeBox() = delete;
+    ErasedItemTreeBox(ErasedItemTreeBox &) = delete;
 };
 }
 
@@ -538,11 +538,11 @@ class ComponentInstance : vtable::Dyn
     ComponentInstance &operator=(ComponentInstance &) = delete;
     friend class ComponentDefinition;
 
-    // ComponentHandle<ComponentInstance>  is in fact a VRc<ItemTreeVTable, ErasedComponentBox>
-    const cbindgen_private::ErasedComponentBox *inner() const
+    // ComponentHandle<ComponentInstance>  is in fact a VRc<ItemTreeVTable, ErasedItemTreeBox>
+    const cbindgen_private::ErasedItemTreeBox *inner() const
     {
         slint::private_api::assert_main_thread();
-        return reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(this);
+        return reinterpret_cast<const cbindgen_private::ErasedItemTreeBox *>(this);
     }
 
 public:
@@ -1014,7 +1014,7 @@ inline void send_keyboard_char(const slint::interpreter::ComponentInstance *comp
 {
     const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
     cbindgen_private::slint_interpreter_component_instance_window(
-            reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(component), &win_ptr);
+            reinterpret_cast<const cbindgen_private::ErasedItemTreeBox *>(component), &win_ptr);
     cbindgen_private::slint_send_keyboard_char(
             &str, pressed, reinterpret_cast<const cbindgen_private::WindowAdapterRc *>(win_ptr));
 }
@@ -1025,7 +1025,7 @@ inline void send_keyboard_string_sequence(const slint::interpreter::ComponentIns
 {
     const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
     cbindgen_private::slint_interpreter_component_instance_window(
-            reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(component), &win_ptr);
+            reinterpret_cast<const cbindgen_private::ErasedItemTreeBox *>(component), &win_ptr);
     cbindgen_private::send_keyboard_string_sequence(
             &str, reinterpret_cast<const cbindgen_private::WindowAdapterRc *>(win_ptr));
 }

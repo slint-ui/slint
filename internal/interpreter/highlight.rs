@@ -5,7 +5,7 @@
 
 // cSpell: ignore unerase
 
-use crate::dynamic_component::{ComponentBox, DynamicComponentVRc, ErasedComponentBox};
+use crate::dynamic_item_tree::{DynamicComponentVRc, ErasedItemTreeBox, ItemTreeBox};
 use crate::Value;
 use i_slint_compiler::diagnostics::{SourceFile, Spanned};
 use i_slint_compiler::expression_tree::{Expression, Unit};
@@ -52,7 +52,7 @@ fn next_item_down(item: &ItemRc) -> ItemRc {
     }
 }
 
-fn element_providing_item(component: &ErasedComponentBox, index: u32) -> Option<ElementRc> {
+fn element_providing_item(component: &ErasedItemTreeBox, index: u32) -> Option<ElementRc> {
     generativity::make_guard!(guard);
     let c = component.unerase(guard);
 
@@ -156,7 +156,7 @@ pub fn on_element_selected(
 
                 let component = i.item_tree();
                 let component_ref = VRc::borrow(component);
-                let Some(component_box) = component_ref.downcast::<ErasedComponentBox>() else {
+                let Some(component_box) = component_ref.downcast::<ErasedItemTreeBox>() else {
                     continue; // Skip components of unexpected type!
                 };
 
@@ -184,7 +184,7 @@ pub fn on_element_selected(
     );
 }
 
-fn design_mode(component: &std::pin::Pin<&ComponentBox>) -> bool {
+fn design_mode(component: &std::pin::Pin<&ItemTreeBox>) -> bool {
     matches!(
         component
             .description()
@@ -254,12 +254,12 @@ pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset
 fn fill_model(
     repeater_path: &[String],
     element: &ElementRc,
-    component_instance: &ComponentBox,
+    component_instance: &ItemTreeBox,
     values: &mut Vec<Value>,
 ) {
     if let [first, rest @ ..] = repeater_path {
         generativity::make_guard!(guard);
-        let rep = crate::dynamic_component::get_repeater_by_name(
+        let rep = crate::dynamic_item_tree::get_repeater_by_name(
             component_instance.borrow_instance(),
             first.as_str(),
             guard,

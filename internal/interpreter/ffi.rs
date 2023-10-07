@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use crate::dynamic_component::ErasedComponentBox;
+use crate::dynamic_item_tree::ErasedItemTreeBox;
 
 use super::*;
 use core::ptr::NonNull;
@@ -318,7 +318,7 @@ pub extern "C" fn slint_interpreter_struct_make_iter(stru: &StructOpaque) -> Str
 /// to the resulting value. If this function returns false, out is unchanged
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_instance_get_property(
-    inst: &ErasedComponentBox,
+    inst: &ErasedItemTreeBox,
     name: Slice<u8>,
     out: *mut ValueOpaque,
 ) -> bool {
@@ -338,7 +338,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_get_property(
 
 #[no_mangle]
 pub extern "C" fn slint_interpreter_component_instance_set_property(
-    inst: &ErasedComponentBox,
+    inst: &ErasedItemTreeBox,
     name: Slice<u8>,
     val: &ValueOpaque,
 ) -> bool {
@@ -358,7 +358,7 @@ pub extern "C" fn slint_interpreter_component_instance_set_property(
 /// to the resulting value. If this function returns false, out is unchanged
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_instance_invoke(
-    inst: &ErasedComponentBox,
+    inst: &ErasedItemTreeBox,
     name: Slice<u8>,
     args: Slice<ValueOpaque>,
     out: *mut ValueOpaque,
@@ -416,7 +416,7 @@ impl CallbackUserData {
 /// The `callback` function must initialize the `ret` (the `ret` passed to the callback is initialized and is assumed initialized after the function)
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_instance_set_callback(
-    inst: &ErasedComponentBox,
+    inst: &ErasedItemTreeBox,
     name: Slice<u8>,
     callback: extern "C" fn(user_data: *mut c_void, arg: Slice<ValueOpaque>, ret: *mut ValueOpaque),
     user_data: *mut c_void,
@@ -440,7 +440,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_set_callback(
 /// to the resulting value. If this function returns false, out is unchanged
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_instance_get_global_property(
-    inst: &ErasedComponentBox,
+    inst: &ErasedItemTreeBox,
     global: Slice<u8>,
     property_name: Slice<u8>,
     out: *mut ValueOpaque,
@@ -464,7 +464,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_get_global_propert
 
 #[no_mangle]
 pub extern "C" fn slint_interpreter_component_instance_set_global_property(
-    inst: &ErasedComponentBox,
+    inst: &ErasedItemTreeBox,
     global: Slice<u8>,
     property_name: Slice<u8>,
     val: &ValueOpaque,
@@ -487,7 +487,7 @@ pub extern "C" fn slint_interpreter_component_instance_set_global_property(
 /// The `callback` function must initialize the `ret` (the `ret` passed to the callback is initialized and is assumed initialized after the function)
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_instance_set_global_callback(
-    inst: &ErasedComponentBox,
+    inst: &ErasedItemTreeBox,
     global: Slice<u8>,
     name: Slice<u8>,
     callback: extern "C" fn(user_data: *mut c_void, arg: Slice<ValueOpaque>, ret: *mut ValueOpaque),
@@ -514,7 +514,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_set_global_callbac
 /// to the resulting value. If this function returns false, out is unchanged
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_instance_invoke_global(
-    inst: &ErasedComponentBox,
+    inst: &ErasedItemTreeBox,
     global: Slice<u8>,
     callable_name: Slice<u8>,
     args: Slice<ValueOpaque>,
@@ -556,7 +556,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_invoke_global(
 /// Show or hide
 #[no_mangle]
 pub extern "C" fn slint_interpreter_component_instance_show(
-    inst: &ErasedComponentBox,
+    inst: &ErasedItemTreeBox,
     is_visible: bool,
 ) {
     generativity::make_guard!(guard);
@@ -573,7 +573,7 @@ pub extern "C" fn slint_interpreter_component_instance_show(
 /// slint_windowrc_drop after usage
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_instance_window(
-    inst: &ErasedComponentBox,
+    inst: &ErasedItemTreeBox,
     out: *mut *const i_slint_core::window::ffi::WindowAdapterRcOpaque,
 ) {
     assert_eq!(
