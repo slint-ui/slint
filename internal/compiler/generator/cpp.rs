@@ -1746,7 +1746,7 @@ fn generate_sub_component(
         subtrees_components_cases.push(format!(
             "\n        case {i}: {{
                 {e_u}
-                *result = self->{id}.component_at(subtree_index);
+                *result = self->{id}.instance_at(subtree_index);
                 return;
             }}",
             i = idx,

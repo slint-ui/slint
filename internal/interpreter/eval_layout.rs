@@ -11,7 +11,7 @@ use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::items::DialogButtonRole;
 use i_slint_core::layout::{self as core_layout};
-use i_slint_core::model::RepeatedComponent;
+use i_slint_core::model::RepeatedItemTree;
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
 use std::convert::TryInto;
@@ -208,7 +208,7 @@ fn box_layout_data(
                 );
                 instance
             });
-            let component_vec = rep.0.as_ref().components_vec();
+            let component_vec = rep.0.as_ref().instances_vec();
             if let Some(ri) = repeater_indices.as_mut() {
                 ri.push(cells.len() as _);
                 ri.push(component_vec.len() as _);
