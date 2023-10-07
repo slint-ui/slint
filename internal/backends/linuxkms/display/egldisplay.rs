@@ -204,13 +204,10 @@ pub fn try_create_egl_display(
         })
         .ok_or_else(|| format!("No preferred or non-zero size display mode found"))?;
 
-    let encoder = connector.encoders().iter().find_map(|handle| {
-        if connector.current_encoder() == Some(*handle) {
-            drm_device.get_encoder(*handle).ok()
-        } else {
-            None
-        }
-    });
+    let encoder = connector
+        .current_encoder()
+        .filter(|current| connector.encoders().iter().any(|h| *h == *current))
+        .and_then(|current| drm_device.get_encoder(current).ok());
 
     let crtc = if let Some(encoder) = encoder {
         encoder.crtc().ok_or_else(|| format!("no crtc for encoder"))?
