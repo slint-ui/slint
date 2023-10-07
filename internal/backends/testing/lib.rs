@@ -228,8 +228,8 @@ mod for_unit_test {
 
     /// Simulate a mouse click
     pub fn send_mouse_click<
-        X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable> + 'static,
-        Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
+        X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable> + 'static,
+        Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         x: f32,
@@ -247,8 +247,8 @@ mod for_unit_test {
 
     /// Simulate entering a sequence of ascii characters key by (pressed or released).
     pub fn send_keyboard_char<
-        X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>,
-        Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
+        X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
+        Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         string: char,
@@ -263,8 +263,8 @@ mod for_unit_test {
 
     /// Simulate entering a sequence of ascii characters key by key.
     pub fn send_keyboard_string_sequence<
-        X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>,
-        Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
+        X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
+        Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         sequence: &str,
@@ -278,8 +278,8 @@ mod for_unit_test {
     /// Applies the specified scale factor to the window that's associated with the given component.
     /// This overrides the value provided by the windowing system.
     pub fn set_window_scale_factor<
-        X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>,
-        Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
+        X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable>,
+        Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         factor: f32,

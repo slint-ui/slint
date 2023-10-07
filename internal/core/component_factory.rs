@@ -4,18 +4,14 @@
 #![warn(missing_docs)]
 
 //! This module defines a `ComponentFactory` and related code.
-use core::fmt::Debug;
-
+use crate::api::ComponentHandle;
+use crate::item_tree::{ItemTreeRc, ItemTreeVTable};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
-
-use crate::{
-    api::ComponentHandle,
-    component::{ComponentRc, ComponentVTable},
-};
+use core::fmt::Debug;
 
 #[derive(Clone)]
-struct ComponentFactoryInner(Rc<dyn Fn() -> Option<ComponentRc> + 'static>);
+struct ComponentFactoryInner(Rc<dyn Fn() -> Option<ItemTreeRc> + 'static>);
 
 impl PartialEq for ComponentFactoryInner {
     fn eq(&self, other: &Self) -> bool {
@@ -46,18 +42,18 @@ impl ComponentFactory {
     /// Create a new `ComponentFactory`
     pub fn new<T: ComponentHandle + 'static>(factory: impl Fn() -> Option<T> + 'static) -> Self
     where
-        T::Inner: vtable::HasStaticVTable<ComponentVTable> + 'static,
+        T::Inner: vtable::HasStaticVTable<ItemTreeVTable> + 'static,
     {
         let factory = Box::new(factory) as Box<dyn Fn() -> Option<T> + 'static>;
 
-        Self(Some(ComponentFactoryInner(Rc::new(move || -> Option<ComponentRc> {
+        Self(Some(ComponentFactoryInner(Rc::new(move || -> Option<ItemTreeRc> {
             let product = (factory)();
             product.map(|p| vtable::VRc::into_dyn(p.as_weak().inner().upgrade().unwrap()))
         }))))
     }
 
     /// Build a `Component`
-    pub(crate) fn build(&self) -> Option<ComponentRc> {
+    pub(crate) fn build(&self) -> Option<ItemTreeRc> {
         self.0.as_ref().and_then(|b| (b.0)()).into()
     }
 }

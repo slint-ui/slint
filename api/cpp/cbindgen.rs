@@ -260,7 +260,7 @@ fn gen_corelib(
 
     config.export.include = [
         "Clipboard",
-        "ComponentVTable",
+        "ItemTreeVTable",
         "Slice",
         "WindowAdapterRcOpaque",
         "PropertyAnimation",
@@ -653,7 +653,7 @@ namespace slint {
         using LogicalRect = Rect;
         using LogicalPoint = Point2D<float>;
         using LogicalLength = float;
-        struct ComponentVTable;
+        struct ItemTreeVTable;
         struct ItemVTable;
         using types::IntRect;
     }

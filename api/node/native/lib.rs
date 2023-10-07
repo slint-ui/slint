@@ -14,7 +14,7 @@ mod js_model;
 mod persistent_context;
 
 struct WrappedComponentType(Option<slint_interpreter::ComponentDefinition>);
-struct WrappedComponentRc(Option<slint_interpreter::ComponentInstance>);
+struct WrappedItemTreeRc(Option<slint_interpreter::ComponentInstance>);
 struct WrappedWindow(Option<std::rc::Rc<dyn i_slint_core::window::WindowAdapter>>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
@@ -334,9 +334,9 @@ declare_types! {
         }
     }
 
-    class SlintComponent for WrappedComponentRc {
+    class SlintComponent for WrappedItemTreeRc {
         init(_) {
-            Ok(WrappedComponentRc(None))
+            Ok(WrappedItemTreeRc(None))
         }
         method run(mut cx) {
             let this = cx.this();

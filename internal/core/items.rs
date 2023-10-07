@@ -1367,7 +1367,7 @@ i_slint_common::for_each_builtin_structs!(declare_builtin_structs);
 #[cfg(feature = "ffi")]
 #[no_mangle]
 pub unsafe extern "C" fn slint_item_absolute_position(
-    self_component: &vtable::VRc<crate::component::ComponentVTable>,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) -> LogicalPoint {
     let self_rc = ItemRc::new(self_component.clone(), self_index);

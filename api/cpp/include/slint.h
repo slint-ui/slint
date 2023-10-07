@@ -40,13 +40,13 @@ namespace slint {
 
 // Bring opaque structure in scope
 namespace private_api {
-using cbindgen_private::ComponentVTable;
+using cbindgen_private::ItemTreeVTable;
 using cbindgen_private::ItemVTable;
-using ComponentRef = vtable::VRef<private_api::ComponentVTable>;
+using ItemTreeRef = vtable::VRef<private_api::ItemTreeVTable>;
 using IndexRange = cbindgen_private::IndexRange;
 using ItemRef = vtable::VRef<private_api::ItemVTable>;
 using ItemVisitorRefMut = vtable::VRefMut<cbindgen_private::ItemVisitorVTable>;
-using cbindgen_private::ComponentWeak;
+using cbindgen_private::ItemTreeWeak;
 using cbindgen_private::ItemWeak;
 using cbindgen_private::TraversalOrder;
 }
@@ -77,7 +77,7 @@ constexpr inline ItemTreeNode make_dyn_node(std::uint32_t offset, std::uint32_t 
                                                            parent_index } };
 }
 
-inline ItemRef get_item_ref(ComponentRef component,
+inline ItemRef get_item_ref(ItemTreeRef component,
                             const cbindgen_private::Slice<ItemTreeNode> item_tree,
                             const private_api::ItemArray item_array, int index)
 {
@@ -94,7 +94,7 @@ inline cbindgen_private::Rect convert_anonymous_rect(std::tuple<float, float, fl
     return cbindgen_private::Rect { .x = x, .y = y, .width = w, .height = h };
 }
 
-inline void dealloc(const ComponentVTable *, uint8_t *ptr, vtable::Layout layout)
+inline void dealloc(const ItemTreeVTable *, uint8_t *ptr, vtable::Layout layout)
 {
 #ifdef __cpp_sized_deallocation
     ::operator delete(reinterpret_cast<void *>(ptr), layout.size,
@@ -107,7 +107,7 @@ inline void dealloc(const ComponentVTable *, uint8_t *ptr, vtable::Layout layout
 }
 
 template<typename T>
-inline vtable::Layout drop_in_place(ComponentRef component)
+inline vtable::Layout drop_in_place(ItemTreeRef component)
 {
     reinterpret_cast<T *>(component.instance)->~T();
     return vtable::Layout { sizeof(T), alignof(T) };
@@ -137,12 +137,12 @@ class ComponentWeakHandle;
 template<typename T>
 class ComponentHandle
 {
-    vtable::VRc<private_api::ComponentVTable, T> inner;
+    vtable::VRc<private_api::ItemTreeVTable, T> inner;
     friend class ComponentWeakHandle<T>;
 
 public:
     /// internal constructor
-    ComponentHandle(const vtable::VRc<private_api::ComponentVTable, T> &inner) : inner(inner) { }
+    ComponentHandle(const vtable::VRc<private_api::ItemTreeVTable, T> &inner) : inner(inner) { }
 
     /// Arrow operator that implements pointer semantics.
     const T *operator->() const
@@ -170,14 +170,14 @@ public:
     }
 
     /// internal function that returns the internal handle
-    vtable::VRc<private_api::ComponentVTable> into_dyn() const { return inner.into_dyn(); }
+    vtable::VRc<private_api::ItemTreeVTable> into_dyn() const { return inner.into_dyn(); }
 };
 
 /// A weak reference to the component. Can be constructed from a `ComponentHandle<T>`
 template<typename T>
 class ComponentWeakHandle
 {
-    vtable::VWeak<private_api::ComponentVTable, T> inner;
+    vtable::VWeak<private_api::ItemTreeVTable, T> inner;
 
 public:
     /// Constructs a null ComponentWeakHandle. lock() will always return empty.
@@ -273,12 +273,12 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
 
 namespace private_api {
 
-inline static void register_component(const vtable::VRc<ComponentVTable> *c,
+inline static void register_item_tree(const vtable::VRc<ItemTreeVTable> *c,
                                       const std::optional<slint::Window> &maybe_window)
 {
     const cbindgen_private::WindowAdapterRcOpaque *window_ptr =
             maybe_window.has_value() ? &maybe_window->window_handle().handle() : nullptr;
-    cbindgen_private::slint_register_component(c, window_ptr);
+    cbindgen_private::slint_register_item_tree(c, window_ptr);
 }
 
 inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutData &data,
@@ -1189,16 +1189,16 @@ public:
         return std::numeric_limits<uint64_t>::max();
     }
 
-    vtable::VRef<private_api::ComponentVTable> item_at(int i) const
+    vtable::VRef<private_api::ItemTreeVTable> item_at(int i) const
     {
         const auto &x = inner->data.at(i);
         return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
     }
 
-    vtable::VWeak<private_api::ComponentVTable> component_at(int i) const
+    vtable::VWeak<private_api::ItemTreeVTable> component_at(int i) const
     {
         const auto &x = inner->data.at(i);
-        return vtable::VWeak<private_api::ComponentVTable> { x.ptr->into_dyn() };
+        return vtable::VWeak<private_api::ItemTreeVTable> { x.ptr->into_dyn() };
     }
 
     private_api::IndexRange index_range() const

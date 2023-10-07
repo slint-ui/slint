@@ -5,7 +5,6 @@
 
 use cpp::*;
 use euclid::approxeq::ApproxEq;
-use i_slint_core::component::{ComponentRc, ComponentRef};
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
@@ -13,6 +12,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
 use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Image, Point, SharedImageBuffer};
 use i_slint_core::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
+use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
     self, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
     PointerEventButton, RenderingResult, TextOverflow, TextWrap,
@@ -228,7 +228,7 @@ cpp! {{
         QSize sizeHint() const override {
             auto preferred_size = rust!(Slint_sizeHint [rust_window: &QtWindow as "void*"] -> qttypes::QSize as "QSize" {
                 let component_rc = WindowInner::from_pub(&rust_window.window).component();
-                let component = ComponentRc::borrow_pin(&component_rc);
+                let component = ItemTreeRc::borrow_pin(&component_rc);
                 let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
                 let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
                 qttypes::QSize {
@@ -1327,7 +1327,7 @@ impl QtItemRenderer<'_> {
 
             i_slint_core::item_rendering::render_item_children(
                 self,
-                &item_rc.component(),
+                &item_rc.item_tree(),
                 item_rc.index() as isize,
             );
 
@@ -1345,7 +1345,7 @@ impl QtItemRenderer<'_> {
             let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
                 self_rc.geometry().union(
                     &i_slint_core::item_rendering::item_children_bounding_rect(
-                        &self_rc.component(),
+                        &self_rc.item_tree(),
                         self_rc.index() as isize,
                         &current_clip,
                     ),
@@ -1683,13 +1683,13 @@ fn into_qsize(logical_size: i_slint_core::api::LogicalSize) -> qttypes::QSize {
 }
 
 impl WindowAdapterInternal for QtWindow {
-    fn register_component(&self) {
+    fn register_item_tree(&self) {
         self.tree_structure_changed.replace(true);
     }
 
-    fn unregister_component(
+    fn unregister_item_tree(
         &self,
-        _component: ComponentRef,
+        _component: ItemTreeRef,
         _: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
     ) {
         self.tree_structure_changed.replace(true);
@@ -1968,7 +1968,7 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
 
     fn free_graphics_resources(
         &self,
-        component: ComponentRef,
+        component: ItemTreeRef,
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         // Invalidate caches:

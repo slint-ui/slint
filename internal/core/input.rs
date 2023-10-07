@@ -5,7 +5,7 @@
 */
 #![warn(missing_docs)]
 
-use crate::component::ComponentRc;
+use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{ItemRef, TextCursorDirection};
@@ -658,7 +658,7 @@ fn send_exit_events(
 /// of mouse grabber.
 /// Returns a new mouse grabber stack.
 pub fn process_mouse_input(
-    component: ComponentRc,
+    component: ItemTreeRc,
     mouse_event: MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
@@ -704,7 +704,7 @@ pub(crate) fn process_delayed_event(
     };
 
     let mut actual_visitor =
-        |component: &ComponentRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
+        |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
             send_mouse_event_to_item(
                 event,
                 ItemRc::new(component.clone(), index),
@@ -714,7 +714,7 @@ pub(crate) fn process_delayed_event(
             )
         };
     vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
-    vtable::VRc::borrow_pin(top_item.component()).as_ref().visit_children_item(
+    vtable::VRc::borrow_pin(top_item.item_tree()).as_ref().visit_children_item(
         top_item.index() as isize,
         crate::item_tree::TraversalOrder::FrontToBack,
         actual_visitor,
@@ -780,7 +780,7 @@ fn send_mouse_event_to_item(
     result.item_stack.push((item_rc.downgrade(), filter_result));
     if forward_to_children {
         let mut actual_visitor =
-            |component: &ComponentRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
+            |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
                 send_mouse_event_to_item(
                     event_for_children,
                     ItemRc::new(component.clone(), index),
@@ -790,7 +790,7 @@ fn send_mouse_event_to_item(
                 )
             };
         vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
-        let r = vtable::VRc::borrow_pin(item_rc.component()).as_ref().visit_children_item(
+        let r = vtable::VRc::borrow_pin(item_rc.item_tree()).as_ref().visit_children_item(
             item_rc.index() as isize,
             crate::item_tree::TraversalOrder::FrontToBack,
             actual_visitor,

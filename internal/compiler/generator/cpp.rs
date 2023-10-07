@@ -1047,10 +1047,9 @@ fn generate_item_tree(
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
-    target_struct.friends.push(format!(
-        "vtable::VRc<slint::private_api::ComponentVTable, {}>",
-        item_tree_class_name
-    ));
+    target_struct
+        .friends
+        .push(format!("vtable::VRc<slint::private_api::ItemTreeVTable, {}>", item_tree_class_name));
 
     generate_sub_component(
         target_struct,
@@ -1147,7 +1146,7 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "visit_children".into(),
-            signature: "(slint::private_api::ComponentRef component, intptr_t index, slint::private_api::TraversalOrder order, slint::private_api::ItemVisitorRefMut visitor) -> uint64_t".into(),
+            signature: "(slint::private_api::ItemTreeRef component, intptr_t index, slint::private_api::TraversalOrder order, slint::private_api::ItemVisitorRefMut visitor) -> uint64_t".into(),
             is_static: true,
             statements: Some(visit_children_statements),
             ..Default::default()
@@ -1158,7 +1157,7 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "get_item_ref".into(),
-            signature: "(slint::private_api::ComponentRef component, uint32_t index) -> slint::private_api::ItemRef".into(),
+            signature: "(slint::private_api::ItemTreeRef component, uint32_t index) -> slint::private_api::ItemRef".into(),
             is_static: true,
             statements: Some(vec![
                 "return slint::private_api::get_item_ref(component, get_item_tree(component), item_array(), index);".to_owned(),
@@ -1171,7 +1170,7 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "get_subtree_range".into(),
-            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] uint32_t dyn_index) -> slint::private_api::IndexRange".into(),
+            signature: "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t dyn_index) -> slint::private_api::IndexRange".into(),
             is_static: true,
             statements: Some(subtree_range_statement),
             ..Default::default()
@@ -1181,8 +1180,8 @@ fn generate_item_tree(
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
-            name: "get_subtree_component".into(),
-            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] uint32_t dyn_index, [[maybe_unused]] uintptr_t subtree_index, [[maybe_unused]] slint::private_api::ComponentWeak *result) -> void".into(),
+            name: "get_subtree".into(),
+            signature: "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t dyn_index, [[maybe_unused]] uintptr_t subtree_index, [[maybe_unused]] slint::private_api::ItemTreeWeak *result) -> void".into(),
             is_static: true,
             statements: Some(subtree_component_statement),
             ..Default::default()
@@ -1193,7 +1192,7 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "get_item_tree".into(),
-            signature: "(slint::private_api::ComponentRef) -> slint::cbindgen_private::Slice<slint::private_api::ItemTreeNode>".into(),
+            signature: "(slint::private_api::ItemTreeRef) -> slint::cbindgen_private::Slice<slint::private_api::ItemTreeNode>".into(),
             is_static: true,
             statements: Some(vec![
                 "return item_tree();".to_owned(),
@@ -1223,7 +1222,7 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "parent_node".into(),
-            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] slint::private_api::ItemWeak *result) -> void".into(),
+            signature: "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] slint::private_api::ItemWeak *result) -> void".into(),
             is_static: true,
             statements: Some(parent_item_from_parent_component,),
             ..Default::default()
@@ -1234,7 +1233,7 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "embed_component".into(),
-            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] const slint::private_api::ComponentWeak *parent_component, [[maybe_unused]] const uint32_t parent_index) -> bool".into(),
+            signature: "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] const slint::private_api::ItemTreeWeak *parent_component, [[maybe_unused]] const uint32_t parent_index) -> bool".into(),
             is_static: true,
             statements: Some(vec!["return false; /* todo! */".into()]),
             ..Default::default()
@@ -1246,7 +1245,7 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "subtree_index".into(),
-            signature: "([[maybe_unused]] slint::private_api::ComponentRef component) -> uintptr_t"
+            signature: "([[maybe_unused]] slint::private_api::ItemTreeRef component) -> uintptr_t"
                 .into(),
             is_static: true,
             statements: Some(vec!["return std::numeric_limits<uintptr_t>::max();".into()]),
@@ -1291,7 +1290,7 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "layout_info".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ComponentRef component, slint::cbindgen_private::Orientation o) -> slint::cbindgen_private::LayoutInfo"
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, slint::cbindgen_private::Orientation o) -> slint::cbindgen_private::LayoutInfo"
                     .into(),
             is_static: true,
             statements: Some(vec![format!(
@@ -1307,7 +1306,7 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "item_geometry".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ComponentRef component, uint32_t index) -> slint::cbindgen_private::LogicalRect"
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index) -> slint::cbindgen_private::LogicalRect"
                     .into(),
             is_static: true,
             statements: Some(vec![format!(
@@ -1323,7 +1322,7 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "accessible_role".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ComponentRef component, uint32_t index) -> slint::cbindgen_private::AccessibleRole"
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index) -> slint::cbindgen_private::AccessibleRole"
                     .into(),
             is_static: true,
             statements: Some(vec![format!(
@@ -1339,7 +1338,7 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "accessible_string_property".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ComponentRef component, uint32_t index, slint::cbindgen_private::AccessibleStringProperty what, slint::SharedString *result) -> void"
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::cbindgen_private::AccessibleStringProperty what, slint::SharedString *result) -> void"
                     .into(),
             is_static: true,
             statements: Some(vec![format!(
@@ -1355,7 +1354,7 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "window_adapter".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] bool do_create, [[maybe_unused]] slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] bool do_create, [[maybe_unused]] slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
                     .into(),
             is_static: true,
             statements: Some(vec![format!(
@@ -1368,17 +1367,17 @@ fn generate_item_tree(
     target_struct.members.push((
         Access::Public,
         Declaration::Var(Var {
-            ty: "static const slint::private_api::ComponentVTable".to_owned(),
+            ty: "static const slint::private_api::ItemTreeVTable".to_owned(),
             name: "static_vtable".to_owned(),
             ..Default::default()
         }),
     ));
 
     file.definitions.push(Declaration::Var(Var {
-        ty: "inline const slint::private_api::ComponentVTable".to_owned(),
+        ty: "inline const slint::private_api::ItemTreeVTable".to_owned(),
         name: format!("{}::static_vtable", item_tree_class_name),
         init: Some(format!(
-            "{{ visit_children, get_item_ref, get_subtree_range, get_subtree_component, \
+            "{{ visit_children, get_item_ref, get_subtree_range, get_subtree, \
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
                 item_geometry, accessible_role, accessible_string_property, window_adapter, \
                 slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
@@ -1400,7 +1399,7 @@ fn generate_item_tree(
 
     let mut create_code = vec![
         format!(
-            "auto self_rc = vtable::VRc<slint::private_api::ComponentVTable, {0}>::make();",
+            "auto self_rc = vtable::VRc<slint::private_api::ItemTreeVTable, {0}>::make();",
             target_struct.name
         ),
         format!("auto self = const_cast<{0} *>(&*self_rc);", target_struct.name),
@@ -1414,7 +1413,7 @@ fn generate_item_tree(
     let root_access = if parent_ctx.is_some() { "parent->root" } else { "self" };
     create_code.extend([
         format!(
-            "slint::private_api::register_component(&self_rc.into_dyn(), {root_access}->m_window);",
+            "slint::private_api::register_item_tree(&self_rc.into_dyn(), {root_access}->m_window);",
         ),
         format!("self->init({}, self->self_weak, 0, 1 {});", root_access, init_parent_parameters),
     ]);
@@ -1445,7 +1444,7 @@ fn generate_item_tree(
 
     let root_access = if parent_ctx.is_some() { "root" } else { "this" };
     let destructor = vec![format!(
-        "if (auto &window = {root_access}->m_window) window->window_handle().unregister_component(this, item_array());"
+        "if (auto &window = {root_access}->m_window) window->window_handle().unregister_item_tree(this, item_array());"
     )];
 
     target_struct.members.push((
@@ -1473,7 +1472,7 @@ fn generate_sub_component(
 
     let mut init_parameters = vec![
         format!("{} root", root_ptr_type),
-        "slint::cbindgen_private::ComponentWeak enclosing_component".into(),
+        "slint::cbindgen_private::ItemTreeWeak enclosing_component".into(),
         "uint32_t tree_index".into(),
         "uint32_t tree_index_of_first_child".into(),
     ];
@@ -1484,7 +1483,7 @@ fn generate_sub_component(
     target_struct.members.push((
         Access::Public,
         Declaration::Var(Var {
-            ty: "slint::cbindgen_private::ComponentWeak".into(),
+            ty: "slint::cbindgen_private::ItemTreeWeak".into(),
             name: "self_weak".into(),
             ..Default::default()
         }),
@@ -1940,7 +1939,7 @@ fn generate_sub_component(
             field_access,
             Declaration::Function(Function {
                 name: "subtree_component".into(),
-                signature: "(uintptr_t dyn_index, [[maybe_unused]] uintptr_t subtree_index, [[maybe_unused]] slint::private_api::ComponentWeak *result) const -> void".into(),
+                signature: "(uintptr_t dyn_index, [[maybe_unused]] uintptr_t subtree_index, [[maybe_unused]] slint::private_api::ItemTreeWeak *result) const -> void".into(),
                 statements: Some(vec![
                     "[[maybe_unused]] auto self = this;".to_owned(),
                     format!("    switch(dyn_index) {{ {} }};", subtrees_components_cases.join("")),

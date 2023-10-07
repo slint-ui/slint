@@ -6,7 +6,7 @@ use alloc::rc::Rc;
 use core::pin::Pin;
 
 use crate::api::PlatformError;
-use crate::component::ComponentRef;
+use crate::item_tree::ItemTreeRef;
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use crate::window::WindowAdapter;
 
@@ -59,7 +59,7 @@ pub trait RendererSealed {
     /// Clear the caches for the items that are being removed
     fn free_graphics_resources(
         &self,
-        _component: ComponentRef,
+        _component: ItemTreeRef,
         _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
     ) -> Result<(), crate::platform::PlatformError> {
         Ok(())

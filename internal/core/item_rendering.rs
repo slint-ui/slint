@@ -6,8 +6,8 @@
 
 use super::graphics::RenderingCache;
 use super::items::*;
-use crate::component::ComponentRc;
 use crate::graphics::CachedGraphicsData;
+use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{
     ItemRc, ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult,
 };
@@ -93,7 +93,7 @@ impl<T: Clone> ItemCache<T> {
     /// Otherwise call the `update_fn` to compute that value, and track property access
     /// so it is automatically invalided when property becomes dirty.
     pub fn get_or_update_cache_entry(&self, item_rc: &ItemRc, update_fn: impl FnOnce() -> T) -> T {
-        let component = &(**item_rc.component()) as *const _;
+        let component = &(**item_rc.item_tree()) as *const _;
         let mut borrowed = self.map.borrow_mut();
         match borrowed.entry(component).or_default().entry(item_rc.index()) {
             std::collections::hash_map::Entry::Occupied(mut entry) => {
@@ -134,7 +134,7 @@ impl<T: Clone> ItemCache<T> {
         item_rc: &ItemRc,
         callback: impl FnOnce(&T) -> Option<U>,
     ) -> Option<U> {
-        let component = &(**item_rc.component()) as *const _;
+        let component = &(**item_rc.item_tree()) as *const _;
         self.map
             .borrow()
             .get(&component)
@@ -159,16 +159,16 @@ impl<T: Clone> ItemCache<T> {
 
     /// Function that must be called when a component is destroyed.
     ///
-    /// Usually can be called from [`crate::window::WindowAdapterInternal::unregister_component`]
-    pub fn component_destroyed(&self, component: crate::component::ComponentRef) {
+    /// Usually can be called from [`crate::window::WindowAdapterInternal::unregister_item_tree`]
+    pub fn component_destroyed(&self, component: crate::item_tree::ItemTreeRef) {
         let component_ptr: *const _ =
-            crate::component::ComponentRef::as_ptr(component).cast().as_ptr();
+            crate::item_tree::ItemTreeRef::as_ptr(component).cast().as_ptr();
         self.map.borrow_mut().remove(&component_ptr);
     }
 
     /// free the cache for a given item
     pub fn release(&self, item_rc: &ItemRc) {
-        let component = &(**item_rc.component()) as *const _;
+        let component = &(**item_rc.item_tree()) as *const _;
         if let Some(sub) = self.map.borrow_mut().get_mut(&component) {
             sub.remove(&item_rc.index());
         }
@@ -183,13 +183,9 @@ pub(crate) fn is_clipping_item(item: Pin<ItemRef>) -> bool {
 }
 
 /// Renders the children of the item with the specified index into the renderer.
-pub fn render_item_children(
-    renderer: &mut dyn ItemRenderer,
-    component: &ComponentRc,
-    index: isize,
-) {
+pub fn render_item_children(renderer: &mut dyn ItemRenderer, component: &ItemTreeRc, index: isize) {
     let mut actual_visitor =
-        |component: &ComponentRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
+        |component: &ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
             renderer.save_state();
             let item_rc = ItemRc::new(component.clone(), index);
 
@@ -231,7 +227,7 @@ pub fn render_item_children(
 /// Renders the tree of items that component holds, using the specified renderer. Rendering is done
 /// relative to the specified origin.
 pub fn render_component_items(
-    component: &ComponentRc,
+    component: &ItemTreeRc,
     renderer: &mut dyn ItemRenderer,
     origin: LogicalPoint,
 ) {
@@ -246,15 +242,15 @@ pub fn render_component_items(
 /// Compute the bounding rect of all children. This does /not/ include item's own bounding rect. Remember to run this
 /// via `evaluate_no_tracking`.
 pub fn item_children_bounding_rect(
-    component: &ComponentRc,
+    component: &ItemTreeRc,
     index: isize,
     clip_rect: &LogicalRect,
 ) -> LogicalRect {
     let mut bounding_rect = LogicalRect::zero();
 
     let mut actual_visitor =
-        |component: &ComponentRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
-            let item_geometry = ComponentRc::borrow_pin(component).as_ref().item_geometry(index);
+        |component: &ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
+            let item_geometry = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(index);
 
             let local_clip_rect = clip_rect.translate(-item_geometry.origin.to_vector());
 
@@ -450,7 +446,7 @@ impl<'a, T> PartialRenderer<'a, T> {
     }
 
     /// Visit the tree of item and compute what are the dirty regions
-    pub fn compute_dirty_regions(&mut self, component: &ComponentRc, origin: LogicalPoint) {
+    pub fn compute_dirty_regions(&mut self, component: &ItemTreeRc, origin: LogicalPoint) {
         #[derive(Clone, Copy)]
         struct ComputeDirtyRegionState {
             offset: euclid::Vector2D<Coord, LogicalPx>,

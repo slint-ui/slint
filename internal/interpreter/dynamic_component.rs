@@ -3,6 +3,8 @@
 
 // cSpell: ignore unerase
 
+//! FIXME!  rename dynamic_item_tree
+
 use crate::{api::Value, dynamic_type, eval};
 
 use core::convert::TryInto;
@@ -15,10 +17,10 @@ use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::*;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use i_slint_core::accessibility::AccessibleStringProperty;
-use i_slint_core::component::{
-    Component, ComponentRef, ComponentRefPin, ComponentVTable, ComponentWeak, IndexRange,
-};
 use i_slint_core::component_factory::ComponentFactory;
+use i_slint_core::item_tree::{
+    IndexRange, ItemTree, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
+};
 use i_slint_core::item_tree::{
     ItemRc, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
     VisitChildrenResult,
@@ -45,8 +47,8 @@ pub struct ComponentBox<'id> {
 }
 
 impl<'id> ComponentBox<'id> {
-    /// Borrow this component as a `Pin<ComponentRef>`
-    pub fn borrow(&self) -> ComponentRefPin {
+    /// Borrow this component as a `Pin<ItemTreeRef>`
+    pub fn borrow(&self) -> ItemTreeRefPin {
         self.borrow_instance().borrow()
     }
 
@@ -157,7 +159,7 @@ impl RepeatedComponent for ErasedComponentBox {
     }
 }
 
-impl Component for ErasedComponentBox {
+impl ItemTree for ErasedComponentBox {
     fn visit_children_item(
         self: Pin<&Self>,
         index: isize,
@@ -177,7 +179,7 @@ impl Component for ErasedComponentBox {
 
     fn get_item_ref(self: Pin<&Self>, index: u32) -> Pin<ItemRef> {
         // We're having difficulties transferring the lifetime to a pinned reference
-        // to the other ComponentVTable with the same life time. So skip the vtable
+        // to the other ItemTreeVTable with the same life time. So skip the vtable
         // indirection and call our implementation directly.
         unsafe { get_item_ref(self.get_ref().borrow(), index) }
     }
@@ -186,13 +188,8 @@ impl Component for ErasedComponentBox {
         self.borrow().as_ref().get_subtree_range(index)
     }
 
-    fn get_subtree_component(
-        self: Pin<&Self>,
-        index: u32,
-        subindex: usize,
-        result: &mut ComponentWeak,
-    ) {
-        self.borrow().as_ref().get_subtree_component(index, subindex, result);
+    fn get_subtree(self: Pin<&Self>, index: u32, subindex: usize, result: &mut ItemTreeWeak) {
+        self.borrow().as_ref().get_subtree(index, subindex, result);
     }
 
     fn parent_node(self: Pin<&Self>, result: &mut ItemWeak) {
@@ -201,7 +198,7 @@ impl Component for ErasedComponentBox {
 
     fn embed_component(
         self: core::pin::Pin<&Self>,
-        parent_component: &ComponentWeak,
+        parent_component: &ItemTreeWeak,
         item_tree_index: u32,
     ) -> bool {
         self.borrow().as_ref().embed_component(parent_component, item_tree_index)
@@ -233,7 +230,7 @@ impl Component for ErasedComponentBox {
     }
 }
 
-i_slint_core::ComponentVTable_static!(static COMPONENT_BOX_VT for ErasedComponentBox);
+i_slint_core::ItemTreeVTable_static!(static COMPONENT_BOX_VT for ErasedComponentBox);
 
 impl<'id> Drop for ErasedComponentBox {
     fn drop(&mut self) {
@@ -242,7 +239,7 @@ impl<'id> Drop for ErasedComponentBox {
         let instance_ref = unerase.borrow_instance();
         // Do not walk out of our component here:
         if let Some(window_adapter) = instance_ref.maybe_window_adapter() {
-            i_slint_core::component::unregister_component(
+            i_slint_core::item_tree::unregister_item_tree(
                 instance_ref.instance,
                 vtable::VRef::new(self),
                 instance_ref.component_type.item_array.as_slice(),
@@ -252,13 +249,13 @@ impl<'id> Drop for ErasedComponentBox {
     }
 }
 
-pub type DynamicComponentVRc = vtable::VRc<ComponentVTable, ErasedComponentBox>;
+pub type DynamicComponentVRc = vtable::VRc<ItemTreeVTable, ErasedComponentBox>;
 
 #[derive(Default)]
 pub(crate) struct ComponentExtraData {
     pub(crate) globals: OnceCell<crate::global_component::GlobalStorage>,
-    pub(crate) self_weak: OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>,
-    pub(crate) embedding_position: OnceCell<(ComponentWeak, u32)>,
+    pub(crate) self_weak: OnceCell<vtable::VWeak<ItemTreeVTable, ErasedComponentBox>>,
+    pub(crate) embedding_position: OnceCell<(ItemTreeWeak, u32)>,
     // resource id -> file path
     pub(crate) embedded_file_resources: OnceCell<HashMap<usize, String>>,
     #[cfg(target_arch = "wasm32")]
@@ -334,12 +331,12 @@ impl<'id> From<Rc<ComponentDescription<'id>>> for ErasedComponentDescription {
 /// ComponentDescription is a representation of a component suitable for interpretation
 ///
 /// It contains information about how to create and destroy the Component.
-/// Its first member is the ComponentVTable for this component, since it is a `#[repr(C)]`
-/// structure, it is valid to cast a pointer to the ComponentVTable back to a
+/// Its first member is the ItemTreeVTable for this component, since it is a `#[repr(C)]`
+/// structure, it is valid to cast a pointer to the ItemTreeVTable back to a
 /// ComponentDescription to access the extra field that are needed at runtime
 #[repr(C)]
 pub struct ComponentDescription<'id> {
-    pub(crate) ct: ComponentVTable,
+    pub(crate) ct: ItemTreeVTable,
     /// INVARIANT: both dynamic_type and item_tree have the same lifetime id. Here it is erased to 'static
     dynamic_type: Rc<dynamic_type::TypeInfo<'id>>,
     item_tree: Vec<ItemTreeNode>,
@@ -353,9 +350,9 @@ pub struct ComponentDescription<'id> {
     pub repeater_names: HashMap<String, usize>,
     /// Offset to a Option<ComponentPinRef>
     pub(crate) parent_component_offset:
-        Option<FieldOffset<Instance<'id>, OnceCell<ComponentRefPin<'id>>>>,
+        Option<FieldOffset<Instance<'id>, OnceCell<ItemTreeRefPin<'id>>>>,
     pub(crate) root_offset:
-        FieldOffset<Instance<'id>, OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>>,
+        FieldOffset<Instance<'id>, OnceCell<vtable::VWeak<ItemTreeVTable, ErasedComponentBox>>>,
     /// Offset to the window reference
     pub(crate) window_adapter_offset: FieldOffset<Instance<'id>, OnceCell<WindowAdapterRc>>,
     /// Offset of a ComponentExtraData
@@ -459,7 +456,7 @@ impl<'id> ComponentDescription<'id> {
     /// Panics if the component is not an instance corresponding to this ComponentDescription,
     pub fn set_property(
         &self,
-        component: ComponentRefPin,
+        component: ItemTreeRefPin,
         name: &str,
         value: Value,
     ) -> Result<(), crate::api::SetPropertyError> {
@@ -489,7 +486,7 @@ impl<'id> ComponentDescription<'id> {
     #[allow(unused)]
     pub fn set_binding(
         &self,
-        component: ComponentRefPin,
+        component: ItemTreeRefPin,
         name: &str,
         binding: Box<dyn Fn() -> Value>,
     ) -> Result<(), ()> {
@@ -513,7 +510,7 @@ impl<'id> ComponentDescription<'id> {
     ///
     /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
     /// or if a callback with this name does not exist in this component
-    pub fn get_property(&self, component: ComponentRefPin, name: &str) -> Result<Value, ()> {
+    pub fn get_property(&self, component: ItemTreeRefPin, name: &str) -> Result<Value, ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
@@ -540,7 +537,7 @@ impl<'id> ComponentDescription<'id> {
     /// or if the property with this name does not exist in this component
     pub fn set_callback_handler(
         &self,
-        component: Pin<ComponentRef>,
+        component: Pin<ItemTreeRef>,
         name: &str,
         handler: Box<dyn Fn(&[Value]) -> Value>,
     ) -> Result<(), ()> {
@@ -599,7 +596,7 @@ impl<'id> ComponentDescription<'id> {
     /// or if the callback with this name does not exist in this component
     pub fn invoke(
         &self,
-        component: ComponentRefPin,
+        component: ItemTreeRefPin,
         name: &str,
         args: &[Value],
     ) -> Result<Value, ()> {
@@ -630,7 +627,7 @@ impl<'id> ComponentDescription<'id> {
     // Return the global with the given name
     pub fn get_global(
         &self,
-        component: ComponentRefPin,
+        component: ItemTreeRefPin,
         global_name: &str,
     ) -> Result<Pin<Rc<dyn crate::global_component::GlobalComponent>>, ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
@@ -645,7 +642,7 @@ impl<'id> ComponentDescription<'id> {
 }
 
 extern "C" fn visit_children_item(
-    component: ComponentRefPin,
+    component: ItemTreeRefPin,
     index: isize,
     order: TraversalOrder,
     v: ItemVisitorRefMut,
@@ -1074,14 +1071,14 @@ pub(crate) fn generate_component<'id>(
     }
 
     let parent_component_offset = if component.parent_element.upgrade().is_some() {
-        Some(builder.type_builder.add_field_type::<OnceCell<ComponentRefPin>>())
+        Some(builder.type_builder.add_field_type::<OnceCell<ItemTreeRefPin>>())
     } else {
         None
     };
 
     let root_offset = builder
         .type_builder
-        .add_field_type::<OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>>();
+        .add_field_type::<OnceCell<vtable::VWeak<ItemTreeVTable, ErasedComponentBox>>>();
 
     let window_adapter_offset = builder.type_builder.add_field_type::<OnceCell<WindowAdapterRc>>();
 
@@ -1118,13 +1115,13 @@ pub(crate) fn generate_component<'id>(
         })
         .collect();
 
-    let t = ComponentVTable {
+    let t = ItemTreeVTable {
         visit_children_item,
         layout_info,
         get_item_ref,
         get_item_tree,
         get_subtree_range,
-        get_subtree_component,
+        get_subtree,
         parent_node,
         embed_component,
         subtree_index,
@@ -1217,7 +1214,7 @@ pub fn animation_for_property(
 
 fn make_callback_eval_closure(
     expr: Expression,
-    self_weak: &vtable::VWeak<ComponentVTable, ErasedComponentBox>,
+    self_weak: &vtable::VWeak<ItemTreeVTable, ErasedComponentBox>,
 ) -> impl Fn(&[Value]) -> Value {
     let self_weak = self_weak.clone();
     move |args| {
@@ -1233,7 +1230,7 @@ fn make_callback_eval_closure(
 
 fn make_binding_eval_closure(
     expr: Expression,
-    self_weak: &vtable::VWeak<ComponentVTable, ErasedComponentBox>,
+    self_weak: &vtable::VWeak<ItemTreeVTable, ErasedComponentBox>,
 ) -> impl Fn() -> Value {
     let self_weak = self_weak.clone();
     move || {
@@ -1250,8 +1247,8 @@ fn make_binding_eval_closure(
 
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
-    parent_ctx: Option<ComponentRefPin>,
-    root: Option<vtable::VWeak<ComponentVTable, ErasedComponentBox>>,
+    parent_ctx: Option<ItemTreeRefPin>,
+    root: Option<vtable::VWeak<ItemTreeVTable, ErasedComponentBox>>,
     window_options: Option<&WindowOptions>,
     mut globals: crate::global_component::GlobalStorage,
 ) -> DynamicComponentVRc {
@@ -1282,7 +1279,7 @@ pub fn instantiate(
             };
 
         let component_rc = vtable::VRc::into_dyn(self_rc.clone());
-        i_slint_core::component::register_component(&component_rc, maybe_window_adapter);
+        i_slint_core::item_tree::register_item_tree(&component_rc, maybe_window_adapter);
     }
 
     if let Some(parent) = parent_ctx {
@@ -1534,7 +1531,7 @@ impl ErasedComponentBox {
         )
     }
 
-    pub fn borrow(&self) -> ComponentRefPin {
+    pub fn borrow(&self) -> ItemTreeRefPin {
         // Safety: it is safe to access self.0 here because the 'id lifetime does not leak
         self.0.borrow()
     }
@@ -1577,7 +1574,7 @@ pub fn get_repeater_by_name<'a, 'id>(
     (rep_in_comp.offset.apply_pin(instance_ref.instance), rep_in_comp.component_to_repeat.clone())
 }
 
-extern "C" fn layout_info(component: ComponentRefPin, orientation: Orientation) -> LayoutInfo {
+extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -> LayoutInfo {
     generativity::make_guard!(guard);
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
@@ -1607,7 +1604,7 @@ extern "C" fn layout_info(component: ComponentRefPin, orientation: Orientation) 
     result
 }
 
-unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: u32) -> Pin<ItemRef> {
+unsafe extern "C" fn get_item_ref(component: ItemTreeRefPin, index: u32) -> Pin<ItemRef> {
     let tree = get_item_tree(component);
     match &tree[index as usize] {
         ItemTreeNode::Item { item_array_index, .. } => {
@@ -1622,7 +1619,7 @@ unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: u32) -> Pin
     }
 }
 
-extern "C" fn get_subtree_range(component: ComponentRefPin, index: u32) -> IndexRange {
+extern "C" fn get_subtree_range(component: ItemTreeRefPin, index: u32) -> IndexRange {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     if let Some(container_index) = ComponentContainerIndex::try_from_repeater_index(index) {
@@ -1643,11 +1640,11 @@ extern "C" fn get_subtree_range(component: ComponentRefPin, index: u32) -> Index
     }
 }
 
-extern "C" fn get_subtree_component(
-    component: ComponentRefPin,
+extern "C" fn get_subtree(
+    component: ItemTreeRefPin,
     index: u32,
     subtree_index: usize,
-    result: &mut ComponentWeak,
+    result: &mut ItemTreeWeak,
 ) {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
@@ -1671,14 +1668,14 @@ extern "C" fn get_subtree_component(
     }
 }
 
-extern "C" fn get_item_tree(component: ComponentRefPin) -> Slice<ItemTreeNode> {
+extern "C" fn get_item_tree(component: ItemTreeRefPin) -> Slice<ItemTreeNode> {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let tree = instance_ref.component_type.item_tree.as_slice();
     unsafe { core::mem::transmute::<&[ItemTreeNode], &[ItemTreeNode]>(tree) }.into()
 }
 
-extern "C" fn subtree_index(component: ComponentRefPin) -> usize {
+extern "C" fn subtree_index(component: ItemTreeRefPin) -> usize {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     if let Ok(value) = instance_ref.component_type.get_property(component, "index") {
@@ -1688,7 +1685,7 @@ extern "C" fn subtree_index(component: ComponentRefPin) -> usize {
     }
 }
 
-unsafe extern "C" fn parent_node(component: ComponentRefPin, result: &mut ItemWeak) {
+unsafe extern "C" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWeak) {
     generativity::make_guard!(guard);
     let instance_ref = InstanceRef::from_pin_ref(component, guard);
 
@@ -1727,8 +1724,8 @@ unsafe extern "C" fn parent_node(component: ComponentRefPin, result: &mut ItemWe
 }
 
 unsafe extern "C" fn embed_component(
-    component: ComponentRefPin,
-    parent_component: &ComponentWeak,
+    component: ItemTreeRefPin,
+    parent_component: &ItemTreeWeak,
     parent_item_tree_index: u32,
 ) -> bool {
     generativity::make_guard!(guard);
@@ -1756,7 +1753,7 @@ unsafe extern "C" fn embed_component(
     extra_data.embedding_position.set((parent_component.clone(), parent_item_tree_index)).is_ok()
 }
 
-extern "C" fn item_geometry(component: ComponentRefPin, item_index: u32) -> LogicalRect {
+extern "C" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -> LogicalRect {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
 
@@ -1776,7 +1773,7 @@ extern "C" fn item_geometry(component: ComponentRefPin, item_index: u32) -> Logi
     }
 }
 
-extern "C" fn accessible_role(component: ComponentRefPin, item_index: u32) -> AccessibleRole {
+extern "C" fn accessible_role(component: ItemTreeRefPin, item_index: u32) -> AccessibleRole {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let nr = instance_ref.component_type.original_elements[item_index as usize]
@@ -1795,7 +1792,7 @@ extern "C" fn accessible_role(component: ComponentRefPin, item_index: u32) -> Ac
 }
 
 extern "C" fn accessible_string_property(
-    component: ComponentRefPin,
+    component: ItemTreeRefPin,
     item_index: u32,
     what: AccessibleStringProperty,
     result: &mut SharedString,
@@ -1821,7 +1818,7 @@ extern "C" fn accessible_string_property(
 }
 
 extern "C" fn window_adapter(
-    component: ComponentRefPin,
+    component: ItemTreeRefPin,
     do_create: bool,
     result: &mut Option<WindowAdapterRc>,
 ) {
@@ -1834,14 +1831,14 @@ extern "C" fn window_adapter(
     }
 }
 
-unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ComponentVTable>) -> vtable::Layout {
+unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ItemTreeVTable>) -> vtable::Layout {
     let instance_ptr = component.as_ptr() as *mut Instance<'static>;
     let layout = (*instance_ptr).type_info().layout();
     dynamic_type::TypeInfo::drop_in_place(instance_ptr);
     layout.into()
 }
 
-unsafe extern "C" fn dealloc(_vtable: &ComponentVTable, ptr: *mut u8, layout: vtable::Layout) {
+unsafe extern "C" fn dealloc(_vtable: &ItemTreeVTable, ptr: *mut u8, layout: vtable::Layout) {
     std::alloc::dealloc(ptr, layout.try_into().unwrap());
 }
 
@@ -1853,13 +1850,13 @@ pub struct InstanceRef<'a, 'id> {
 
 impl<'a, 'id> InstanceRef<'a, 'id> {
     pub unsafe fn from_pin_ref(
-        component: ComponentRefPin<'a>,
+        component: ItemTreeRefPin<'a>,
         _guard: generativity::Guard<'id>,
     ) -> Self {
         Self {
             instance: Pin::new_unchecked(&*(component.as_ref().as_ptr() as *const Instance<'id>)),
             component_type: &*(Pin::into_inner_unchecked(component).get_vtable()
-                as *const ComponentVTable
+                as *const ItemTreeVTable
                 as *const ComponentDescription<'id>),
         }
     }
@@ -1872,8 +1869,8 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         &self.instance
     }
 
-    /// Borrow this component as a `Pin<ComponentRef>`
-    pub fn borrow(self) -> ComponentRefPin<'a> {
+    /// Borrow this component as a `Pin<ItemTreeRef>`
+    pub fn borrow(self) -> ItemTreeRefPin<'a> {
         unsafe {
             Pin::new_unchecked(vtable::VRef::from_raw(
                 NonNull::from(&self.component_type.ct).cast(),
@@ -1882,12 +1879,12 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         }
     }
 
-    pub fn self_weak(&self) -> &OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>> {
+    pub fn self_weak(&self) -> &OnceCell<vtable::VWeak<ItemTreeVTable, ErasedComponentBox>> {
         let extra_data = self.component_type.extra_data_offset.apply(self.as_ref());
         &extra_data.self_weak
     }
 
-    pub fn root_weak(&self) -> &vtable::VWeak<ComponentVTable, ErasedComponentBox> {
+    pub fn root_weak(&self) -> &vtable::VWeak<ItemTreeVTable, ErasedComponentBox> {
         self.component_type.root_offset.apply(self.as_ref()).get().unwrap()
     }
 
@@ -1908,7 +1905,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 
     pub fn get_or_init_window_adapter_ref<'b, 'id2>(
         component_type: &'b ComponentDescription<'id2>,
-        root_weak: ComponentWeak,
+        root_weak: ItemTreeWeak,
         do_create: bool,
         instance: &'b Instance<'id2>,
     ) -> Result<&'b WindowAdapterRc, PlatformError> {
@@ -1922,7 +1919,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
             if let Some(parent) = parent_node.upgrade() {
                 // We are embedded: Get window adapter from our parent
                 let mut result = None;
-                vtable::VRc::borrow_pin(parent.component())
+                vtable::VRc::borrow_pin(parent.item_tree())
                     .as_ref()
                     .window_adapter(do_create, &mut result);
                 result.ok_or(PlatformError::NoPlatform)
@@ -1979,7 +1976,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
                             &*(parent.as_ref().as_ptr() as *const Instance<'id>),
                         ),
                         component_type: &*(Pin::into_inner_unchecked(*parent).get_vtable()
-                            as *const ComponentVTable
+                            as *const ItemTreeVTable
                             as *const ComponentDescription<'id>),
                     }
                 };
@@ -2003,7 +2000,7 @@ pub fn show_popup(
     popup: &object_tree::PopupWindow,
     pos: i_slint_core::graphics::Point,
     close_on_click: bool,
-    parent_comp: ComponentRefPin,
+    parent_comp: ItemTreeRefPin,
     parent_window_adapter: WindowAdapterRc,
     parent_item: &ItemRc,
 ) {

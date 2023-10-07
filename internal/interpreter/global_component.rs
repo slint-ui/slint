@@ -12,7 +12,7 @@ use i_slint_compiler::langtype::ElementType;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::Component;
 use i_slint_compiler::object_tree::PropertyDeclaration;
-use i_slint_core::component::ComponentVTable;
+use i_slint_core::item_tree::ItemTreeVTable;
 use i_slint_core::rtti;
 
 pub type GlobalStorage = HashMap<String, Pin<Rc<dyn GlobalComponent>>>;
@@ -98,7 +98,7 @@ pub trait GlobalComponent {
 pub fn instantiate(
     description: &CompiledGlobal,
     globals: &mut GlobalStorage,
-    root: vtable::VWeak<ComponentVTable, ErasedComponentBox>,
+    root: vtable::VWeak<ItemTreeVTable, ErasedComponentBox>,
 ) {
     let instance = match description {
         CompiledGlobal::Builtin { element, .. } => {
@@ -143,7 +143,7 @@ pub fn instantiate(
 
 /// For the global components, we don't use the dynamic_type optimization,
 /// and we don't try to optimize the property to their real type
-pub struct GlobalComponentInstance(vtable::VRc<ComponentVTable, ErasedComponentBox>);
+pub struct GlobalComponentInstance(vtable::VRc<ItemTreeVTable, ErasedComponentBox>);
 
 impl GlobalComponent for GlobalComponentInstance {
     fn set_property(

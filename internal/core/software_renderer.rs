@@ -333,7 +333,7 @@ impl SoftwareRenderer {
         };
         let window_inner = WindowInner::from_pub(window.window());
         let component_rc = window_inner.component();
-        let component = crate::component::ComponentRc::borrow_pin(&component_rc);
+        let component = crate::item_tree::ItemTreeRc::borrow_pin(&component_rc);
         if let Some(window_item) = crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(
             component.as_ref().get_item_ref(0),
         ) {
@@ -492,7 +492,7 @@ impl RendererSealed for SoftwareRenderer {
 
     fn free_graphics_resources(
         &self,
-        _component: crate::component::ComponentRef,
+        _component: crate::item_tree::ItemTreeRef,
         items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
     ) -> Result<(), crate::platform::PlatformError> {
         for item in items {
