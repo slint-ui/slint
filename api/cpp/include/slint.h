@@ -77,13 +77,13 @@ constexpr inline ItemTreeNode make_dyn_node(std::uint32_t offset, std::uint32_t 
                                                            parent_index } };
 }
 
-inline ItemRef get_item_ref(ItemTreeRef component,
-                            const cbindgen_private::Slice<ItemTreeNode> item_tree,
+inline ItemRef get_item_ref(ItemTreeRef item_tree,
+                            const cbindgen_private::Slice<ItemTreeNode> item_tree_array,
                             const private_api::ItemArray item_array, int index)
 {
-    const auto item_array_index = item_tree.ptr[index].item.item_array_index;
+    const auto item_array_index = item_tree_array.ptr[index].item.item_array_index;
     const auto item = item_array[item_array_index];
-    return ItemRef { item.vtable, reinterpret_cast<char *>(component.instance) + item.offset };
+    return ItemRef { item.vtable, reinterpret_cast<char *>(item_tree.instance) + item.offset };
 }
 
 /// Convert a slint `{height: length, width: length, x: length, y: length}` to a Rect
@@ -107,9 +107,9 @@ inline void dealloc(const ItemTreeVTable *, uint8_t *ptr, vtable::Layout layout)
 }
 
 template<typename T>
-inline vtable::Layout drop_in_place(ItemTreeRef component)
+inline vtable::Layout drop_in_place(ItemTreeRef item_tree)
 {
-    reinterpret_cast<T *>(component.instance)->~T();
+    reinterpret_cast<T *>(item_tree.instance)->~T();
     return vtable::Layout { sizeof(T), alignof(T) };
 }
 
@@ -1071,12 +1071,12 @@ class Repeater
     struct RepeaterInner : ModelChangeListener
     {
         enum class State { Clean, Dirty };
-        struct ComponentWithState
+        struct RepeatedInstanceWithState
         {
             State state = State::Dirty;
             std::optional<ComponentHandle<C>> ptr;
         };
-        std::vector<ComponentWithState> data;
+        std::vector<RepeatedInstanceWithState> data;
         private_api::Property<bool> is_dirty { true };
 
         void row_added(size_t index, size_t count) override
@@ -1195,7 +1195,7 @@ public:
         return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
     }
 
-    vtable::VWeak<private_api::ItemTreeVTable> component_at(int i) const
+    vtable::VWeak<private_api::ItemTreeVTable> instance_at(int i) const
     {
         const auto &x = inner->data.at(i);
         return vtable::VWeak<private_api::ItemTreeVTable> { x.ptr->into_dyn() };

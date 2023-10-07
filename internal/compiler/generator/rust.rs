@@ -730,7 +730,7 @@ fn generate_sub_component(
         repeated_subtree_components.push(quote!(
             #idx => {
                 #ensure_updated
-                *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(_self.#repeater_id.component_at(subtree_index).unwrap()))
+                *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(_self.#repeater_id.instance_at(subtree_index).unwrap()))
             }
         ));
         repeated_element_names.push(repeater_id);
@@ -1280,7 +1280,7 @@ fn generate_item_tree(
             ),
             quote!(vtable::VRc<sp::ItemTreeVTable, Self>),
             if parent_ctx.repeater_index.is_some() {
-                // Repeaters run their user_init() code from RepeatedComponent::init() after update() initialized model_data/index.
+                // Repeaters run their user_init() code from RepeatedItemTree::init() after update() initialized model_data/index.
                 quote!(self_rc)
             } else {
                 quote! {
@@ -1606,7 +1606,7 @@ fn generate_repeated_component(
     quote!(
         #component
 
-        impl sp::RepeatedComponent for #inner_component_id {
+        impl sp::RepeatedItemTree for #inner_component_id {
             type Data = #data_type;
             fn update(&self, _index: usize, _data: Self::Data) {
                 let self_rc = self.self_weak.get().unwrap().upgrade().unwrap();
@@ -2556,7 +2556,7 @@ fn box_layout_function(
                         #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
                             || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).into() }
                         );
-                        let internal_vec = _self.#repeater_id.components_vec();
+                        let internal_vec = _self.#repeater_id.instances_vec();
                         #ri
                         for sub_comp in &internal_vec {
                             items_vec.push(sub_comp.as_pin_ref().box_layout_data(#orientation))

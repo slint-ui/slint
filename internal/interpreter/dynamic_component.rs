@@ -28,7 +28,7 @@ use i_slint_core::item_tree::{
 use i_slint_core::items::{AccessibleRole, ItemRef, ItemVTable, PropertyAnimation};
 use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalRect};
-use i_slint_core::model::RepeatedComponent;
+use i_slint_core::model::RepeatedItemTree;
 use i_slint_core::model::Repeater;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::properties::InterpolatedPropertyValue;
@@ -108,7 +108,7 @@ pub(crate) struct RepeaterWithinComponent<'par_id, 'sub_id> {
     offset: FieldOffset<Instance<'par_id>, Repeater<ErasedComponentBox>>,
 }
 
-impl RepeatedComponent for ErasedComponentBox {
+impl RepeatedItemTree for ErasedComponentBox {
     type Data = Value;
 
     fn update(&self, index: usize, data: Self::Data) {
@@ -1663,7 +1663,7 @@ extern "C" fn get_subtree(
 
         let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
         *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(
-            repeater.component_at(subtree_index).unwrap(),
+            repeater.instance_at(subtree_index).unwrap(),
         ))
     }
 }

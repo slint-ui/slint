@@ -265,7 +265,7 @@ fn fill_model(
             guard,
         );
         for idx in rep.0.range() {
-            if let Some(c) = rep.0.component_at(idx) {
+            if let Some(c) = rep.0.instance_at(idx) {
                 generativity::make_guard!(guard);
                 fill_model(rest, element, &c.unerase(guard), values);
             }
