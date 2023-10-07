@@ -20,7 +20,7 @@ pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 pub use i_slint_core::api::*;
 use i_slint_core::items::*;
 
-use crate::dynamic_component::{ErasedComponentBox, WindowOptions};
+use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
@@ -602,7 +602,7 @@ impl ComponentCompiler {
 
         generativity::make_guard!(guard);
         let (c, diag) =
-            crate::dynamic_component::load(source, path.into(), self.config.clone(), guard).await;
+            crate::dynamic_item_tree::load(source, path.into(), self.config.clone(), guard).await;
         self.diagnostics = diag.into_iter().collect();
         c.ok().map(|inner| ComponentDefinition { inner: inner.into() })
     }
@@ -630,7 +630,7 @@ impl ComponentCompiler {
     ) -> Option<ComponentDefinition> {
         generativity::make_guard!(guard);
         let (c, diag) =
-            crate::dynamic_component::load(source_code, path, self.config.clone(), guard).await;
+            crate::dynamic_item_tree::load(source_code, path, self.config.clone(), guard).await;
         self.diagnostics = diag.into_iter().collect();
         c.ok().map(|inner| ComponentDefinition { inner: inner.into() })
     }
@@ -645,7 +645,7 @@ impl ComponentCompiler {
 /// creating the instances it is safe to drop the ComponentDefinition.
 #[derive(Clone)]
 pub struct ComponentDefinition {
-    inner: crate::dynamic_component::ErasedComponentDescription,
+    inner: crate::dynamic_item_tree::ErasedItemTreeDescription,
 }
 
 impl ComponentDefinition {
@@ -821,7 +821,7 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
 /// An instance can be put on screen with the [`ComponentInstance::run`] function.
 #[repr(C)]
 pub struct ComponentInstance {
-    inner: crate::dynamic_component::DynamicComponentVRc,
+    inner: crate::dynamic_item_tree::DynamicComponentVRc,
 }
 
 impl ComponentInstance {
@@ -1122,7 +1122,7 @@ impl ComponentInstance {
 }
 
 impl ComponentHandle for ComponentInstance {
-    type Inner = crate::dynamic_component::ErasedComponentBox;
+    type Inner = crate::dynamic_item_tree::ErasedItemTreeBox;
 
     fn as_weak(&self) -> Weak<Self>
     where
@@ -1168,7 +1168,7 @@ impl ComponentHandle for ComponentInstance {
 }
 
 impl From<ComponentInstance>
-    for vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, ErasedComponentBox>
+    for vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, ErasedItemTreeBox>
 {
     fn from(value: ComponentInstance) -> Self {
         value.inner

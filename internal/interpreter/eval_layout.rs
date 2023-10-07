@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use crate::dynamic_component::InstanceRef;
+use crate::dynamic_item_tree::InstanceRef;
 use crate::eval::{self, ComponentInstance, EvalLocalContext};
 use crate::Value;
 use i_slint_compiler::expression_tree::Expression;
@@ -193,13 +193,13 @@ fn box_layout_data(
     for cell in &box_layout.elems {
         if cell.element.borrow().repeated.is_some() {
             generativity::make_guard!(guard);
-            let rep = crate::dynamic_component::get_repeater_by_name(
+            let rep = crate::dynamic_item_tree::get_repeater_by_name(
                 component,
                 cell.element.borrow().id.as_str(),
                 guard,
             );
             rep.0.as_ref().ensure_updated(|| {
-                let instance = crate::dynamic_component::instantiate(
+                let instance = crate::dynamic_item_tree::instantiate(
                     rep.1.clone(),
                     Some(component.borrow()),
                     None,
@@ -313,12 +313,12 @@ pub(crate) fn get_layout_info(
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     } else {
         let item = &component
-            .component_type
+            .description
             .items
             .get(elem.id.as_str())
             .unwrap_or_else(|| panic!("Internal error: Item {} not found", elem.id));
         unsafe {
-            item.item_from_component(component.as_ptr())
+            item.item_from_item_tree(component.as_ptr())
                 .as_ref()
                 .layout_info(to_runtime(orientation), window_adapter)
         }
