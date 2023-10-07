@@ -1158,7 +1158,7 @@ impl<'a> GLItemRenderer<'a> {
 
                 i_slint_core::item_rendering::render_item_children(
                     self,
-                    &item_rc.component(),
+                    &item_rc.item_tree(),
                     item_rc.index() as isize,
                 );
 
@@ -1185,7 +1185,7 @@ impl<'a> GLItemRenderer<'a> {
                 let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
                     item_rc.geometry().union(
                         &i_slint_core::item_rendering::item_children_bounding_rect(
-                            &item_rc.component(),
+                            &item_rc.item_tree(),
                             item_rc.index() as isize,
                             &current_clip,
                         ),

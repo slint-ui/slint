@@ -95,7 +95,7 @@ pub mod generated_code {
 
         #[doc(hidden)]
         fn from_inner(
-            _: vtable::VRc<crate::private_unstable_api::re_exports::ComponentVTable, Self::Inner>,
+            _: vtable::VRc<crate::private_unstable_api::re_exports::ItemTreeVTable, Self::Inner>,
         ) -> Self {
             unimplemented!();
         }

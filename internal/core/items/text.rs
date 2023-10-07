@@ -1233,7 +1233,7 @@ fn next_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
 pub unsafe extern "C" fn slint_textinput_select_all(
     text_input: *const TextInput,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::component::ComponentVTable>,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
@@ -1246,7 +1246,7 @@ pub unsafe extern "C" fn slint_textinput_select_all(
 pub unsafe extern "C" fn slint_textinput_clear_selection(
     text_input: *const TextInput,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::component::ComponentVTable>,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
@@ -1259,7 +1259,7 @@ pub unsafe extern "C" fn slint_textinput_clear_selection(
 pub unsafe extern "C" fn slint_textinput_cut(
     text_input: *const TextInput,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::component::ComponentVTable>,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
@@ -1272,7 +1272,7 @@ pub unsafe extern "C" fn slint_textinput_cut(
 pub unsafe extern "C" fn slint_textinput_copy(
     text_input: *const TextInput,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::component::ComponentVTable>,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
@@ -1285,7 +1285,7 @@ pub unsafe extern "C" fn slint_textinput_copy(
 pub unsafe extern "C" fn slint_textinput_paste(
     text_input: *const TextInput,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::component::ComponentVTable>,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);

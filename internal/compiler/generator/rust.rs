@@ -8,7 +8,7 @@
 Some convention used in the generated code:
  - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated sub component,
     this is existing for any evaluation of a binding
- - `self_rc` is of type `VRc<ComponentVTable, ComponentType>` or `Rc<ComponentType>` for globals
+ - `self_rc` is of type `VRc<ItemTreeVTable, ComponentType>` or `Rc<ComponentType>` for globals
     this is usually a local variable to the init code that shouldn't rbe relied upon by the binding code.
 */
 
@@ -254,7 +254,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
 
     quote!(
         #component
-        pub struct #public_component_id(vtable::VRc<sp::ComponentVTable, #inner_component_id>);
+        pub struct #public_component_id(vtable::VRc<sp::ItemTreeVTable, #inner_component_id>);
 
         impl #public_component_id {
             pub fn new() -> core::result::Result<Self, slint::PlatformError> {
@@ -267,7 +267,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
             #property_and_callback_accessors
         }
 
-        impl From<#public_component_id> for vtable::VRc<sp::ComponentVTable, #inner_component_id> {
+        impl From<#public_component_id> for vtable::VRc<sp::ItemTreeVTable, #inner_component_id> {
             fn from(value: #public_component_id) -> Self {
                 value.0
             }
@@ -283,7 +283,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
                 Self(self.0.clone())
             }
 
-            fn from_inner(inner: vtable::VRc<sp::ComponentVTable, #inner_component_id>) -> Self {
+            fn from_inner(inner: vtable::VRc<sp::ItemTreeVTable, #inner_component_id>) -> Self {
                 Self(inner)
             }
 
@@ -916,7 +916,7 @@ fn generate_sub_component(
     let parent_component_type = parent_ctx.iter().map(|parent| {
         let parent_component_id =
             self::inner_component_id(parent.ctx.current_sub_component.unwrap());
-        quote!(sp::VWeakMapped::<sp::ComponentVTable, #parent_component_id>)
+        quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
     });
 
     user_init_code.extend(component.init_code.iter().map(|e| {
@@ -955,17 +955,17 @@ fn generate_sub_component(
             #(#declared_property_vars : sp::Property<#declared_property_types>,)*
             #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
             #(#repeated_element_names : sp::Repeater<#repeated_element_components>,)*
-            self_weak : sp::OnceCell<sp::VWeakMapped<sp::ComponentVTable, #inner_component_id>>,
+            self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
             #(parent : #parent_component_type,)*
-            root : sp::OnceCell<sp::VWeak<sp::ComponentVTable, #root_component_id>>,
+            root : sp::OnceCell<sp::VWeak<sp::ItemTreeVTable, #root_component_id>>,
             tree_index: ::core::cell::Cell<u32>,
             tree_index_of_first_child: ::core::cell::Cell<u32>,
             #extra_fields
         }
 
         impl #inner_component_id {
-            pub fn init(self_rc: sp::VRcMapped<sp::ComponentVTable, Self>,
-                    root : &sp::VRc<sp::ComponentVTable, #root_component_id>,
+            pub fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
+                    root : &sp::VRc<sp::ItemTreeVTable, #root_component_id>,
                     tree_index: u32, tree_index_of_first_child: u32) {
                 #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
@@ -976,7 +976,7 @@ fn generate_sub_component(
                 #(#init)*
             }
 
-            pub fn user_init(self_rc: sp::VRcMapped<sp::ComponentVTable, Self>) {
+            pub fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
                 let _self = self_rc.as_pin_ref();
                 #(#user_init_code)*
             }
@@ -1013,7 +1013,7 @@ fn generate_sub_component(
                 }
             }
 
-            fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ComponentWeak) {
+            fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
                 #![allow(unused)]
                 let _self = self;
                 match dyn_index {
@@ -1210,14 +1210,14 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
         struct #inner_component_id {
             #(#declared_property_vars: sp::Property<#declared_property_types>,)*
             #(#declared_callbacks: sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
-            root : sp::OnceCell<sp::VWeak<sp::ComponentVTable, #root_component_id>>,
+            root : sp::OnceCell<sp::VWeak<sp::ItemTreeVTable, #root_component_id>>,
         }
 
         impl #inner_component_id {
             fn new() -> ::core::pin::Pin<sp::Rc<Self>> {
                 sp::Rc::pin(Self::default())
             }
-            fn init(self: ::core::pin::Pin<sp::Rc<Self>>, root: &sp::VRc<sp::ComponentVTable, #root_component_id>) {
+            fn init(self: ::core::pin::Pin<sp::Rc<Self>>, root: &sp::VRc<sp::ItemTreeVTable, #root_component_id>) {
                 #![allow(unused)]
                 self.root.set(VRc::downgrade(root));
                 let self_rc = self;
@@ -1253,7 +1253,7 @@ fn generate_item_tree(
         .map(|parent| {
             let parent_component_id =
                 self::inner_component_id(parent.ctx.current_sub_component.unwrap());
-            quote!(sp::VWeakMapped::<sp::ComponentVTable, #parent_component_id>)
+            quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
         })
         .collect::<Vec<_>>();
     let root_token = if parent_ctx.is_some() {
@@ -1278,7 +1278,7 @@ fn generate_item_tree(
                         .and_then(|root| root.maybe_window_adapter_impl())
                 }
             ),
-            quote!(vtable::VRc<sp::ComponentVTable, Self>),
+            quote!(vtable::VRc<sp::ItemTreeVTable, Self>),
             if parent_ctx.repeater_index.is_some() {
                 // Repeaters run their user_init() code from RepeatedComponent::init() after update() initialized model_data/index.
                 quote!(self_rc)
@@ -1315,7 +1315,7 @@ fn generate_item_tree(
                 }
             ),
             quote!(
-                core::result::Result<vtable::VRc<sp::ComponentVTable, Self>, slint::PlatformError>
+                core::result::Result<vtable::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError>
             ),
             quote!(core::result::Result::Ok(self_rc)),
         )
@@ -1399,7 +1399,7 @@ fn generate_item_tree(
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = VRc::new(_self);
                 let self_dyn_rc = vtable::VRc::into_dyn(self_rc.clone());
-                sp::register_component(&self_dyn_rc, (*#root_token).maybe_window_adapter_impl());
+                sp::register_item_tree(&self_dyn_rc, (*#root_token).maybe_window_adapter_impl());
                 Self::init(sp::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
                 #new_end
             }
@@ -1423,15 +1423,15 @@ fn generate_item_tree(
         impl sp::PinnedDrop for #inner_component_id {
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
                 use slint::private_unstable_api::re_exports::*;
-                ComponentVTable_static!(static VT for self::#inner_component_id);
-                new_vref!(let vref : VRef<ComponentVTable> for Component = self.as_ref().get_ref());
+                ItemTreeVTable_static!(static VT for self::#inner_component_id);
+                new_vref!(let vref : VRef<ItemTreeVTable> for ItemTree = self.as_ref().get_ref());
                 if let Some(wa) = self.maybe_window_adapter_impl() {
-                    sp::unregister_component(self.as_ref(), vref, Self::item_array(), &wa);
+                    sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
                 }
             }
         }
 
-        impl sp::Component for #inner_component_id {
+        impl sp::ItemTree for #inner_component_id {
             fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
                 -> sp::VisitChildrenResult
             {
@@ -1464,8 +1464,8 @@ fn generate_item_tree(
                 self.subtree_range(index)
             }
 
-            fn get_subtree_component(
-                self: ::core::pin::Pin<&Self>, index: u32, subtree_index: usize, result: &mut sp::ComponentWeak)
+            fn get_subtree(
+                self: ::core::pin::Pin<&Self>, index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak)
             {
                 self.subtree_component(index, subtree_index, result);
             }
@@ -1480,7 +1480,7 @@ fn generate_item_tree(
                 #parent_item_expression
             }
 
-            fn embed_component(self: ::core::pin::Pin<&Self>, _parent_component: &sp::ComponentWeak, _item_tree_index: u32) -> bool {
+            fn embed_component(self: ::core::pin::Pin<&Self>, _parent_component: &sp::ItemTreeWeak, _item_tree_index: u32) -> bool {
                 #embedding_function
             }
 

@@ -5,7 +5,7 @@
 
 //! Model and Repeater
 
-use crate::component::ComponentVTable;
+use crate::item_tree::ItemTreeVTable;
 use crate::item_tree::TraversalOrder;
 pub use crate::items::{StandardListViewItem, TableColumn};
 use crate::layout::Orientation;
@@ -27,7 +27,7 @@ use pin_project::pin_project;
 mod adapters;
 mod model_peer;
 
-type ComponentRc<C> = vtable::VRc<crate::component::ComponentVTable, C>;
+type ItemTreeRc<C> = vtable::VRc<crate::item_tree::ItemTreeVTable, C>;
 
 /// This trait defines the interface that users of a model can use to track changes
 /// to a model. It is supplied via [`Model::model_tracker`] and implementation usually
@@ -685,7 +685,7 @@ impl<T> Model for ModelRc<T> {
 
 /// Component that can be instantiated by a repeater.
 pub trait RepeatedComponent:
-    crate::component::Component + vtable::HasStaticVTable<ComponentVTable> + 'static
+    crate::item_tree::ItemTree + vtable::HasStaticVTable<ItemTreeVTable> + 'static
 {
     /// The data corresponding to the model
     type Data: 'static;
@@ -725,7 +725,7 @@ enum RepeatedComponentState {
     Dirty,
 }
 struct RepeaterInner<C: RepeatedComponent> {
-    components: Vec<(RepeatedComponentState, Option<ComponentRc<C>>)>,
+    components: Vec<(RepeatedComponentState, Option<ItemTreeRc<C>>)>,
 
     // The remaining properties only make sense for ListView
     /// The model row (index) of the first component in the `components` vector.
@@ -881,7 +881,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
     /// Call this function to make sure that the model is updated.
     /// The init function is the function to create a component
-    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ComponentRc<C>) {
+    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) {
         let model = self.model();
         if self.data().project_ref().is_dirty.get() {
             self.ensure_updated_impl(init, &model, model.row_count());
@@ -891,7 +891,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     // returns true if new items were created
     fn ensure_updated_impl(
         self: Pin<&Self>,
-        init: impl Fn() -> ComponentRc<C>,
+        init: impl Fn() -> ItemTreeRc<C>,
         model: &ModelRc<C::Data>,
         count: usize,
     ) -> bool {
@@ -922,7 +922,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     /// Same as `Self::ensure_updated` but for a ListView
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
-        init: impl Fn() -> ComponentRc<C>,
+        init: impl Fn() -> ItemTreeRc<C>,
         viewport_width: Pin<&Property<LogicalLength>>,
         viewport_height: Pin<&Property<LogicalLength>>,
         viewport_y: Pin<&Property<LogicalLength>>,
@@ -950,7 +950,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         } else {
             let total_height = Cell::new(LogicalLength::zero());
             let count = Cell::new(0);
-            let get_height_visitor = |x: &ComponentRc<C>| {
+            let get_height_visitor = |x: &ItemTreeRc<C>| {
                 let height = x.as_pin_ref().item_geometry(0).height_length();
                 count.set(count.get() + 1);
                 total_height.set(total_height.get() + height);
@@ -1182,7 +1182,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
     /// Return the component instance for the given model index.
     /// The index should be within [`Self::range()`]
-    pub fn component_at(&self, index: usize) -> Option<ComponentRc<C>> {
+    pub fn component_at(&self, index: usize) -> Option<ItemTreeRc<C>> {
         let inner = self.0.inner.borrow();
         inner
             .components
@@ -1196,7 +1196,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     }
 
     /// Returns a vector containing all components
-    pub fn components_vec(&self) -> Vec<ComponentRc<C>> {
+    pub fn components_vec(&self) -> Vec<ItemTreeRc<C>> {
         self.0.inner.borrow().components.iter().flat_map(|x| x.1.clone()).collect()
     }
 }

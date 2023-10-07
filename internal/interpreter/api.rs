@@ -1136,7 +1136,7 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn from_inner(
-        inner: vtable::VRc<i_slint_core::component::ComponentVTable, Self::Inner>,
+        inner: vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, Self::Inner>,
     ) -> Self {
         Self { inner }
     }
@@ -1168,7 +1168,7 @@ impl ComponentHandle for ComponentInstance {
 }
 
 impl From<ComponentInstance>
-    for vtable::VRc<i_slint_core::component::ComponentVTable, ErasedComponentBox>
+    for vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, ErasedComponentBox>
 {
     fn from(value: ComponentInstance) -> Self {
         value.inner

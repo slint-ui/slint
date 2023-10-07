@@ -19,9 +19,9 @@ use winit::platform::web::WindowExtWebSys;
 use crate::renderer::WinitCompatibleRenderer;
 use const_field_offset::FieldOffsets;
 
-use corelib::component::ComponentRc;
+use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
-use corelib::component::ComponentRef;
+use corelib::item_tree::ItemTreeRef;
 use corelib::items::MouseCursor;
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
@@ -323,7 +323,7 @@ impl WindowAdapter for WinitWindowAdapter {
             let scale_factor = runtime_window.scale_factor() as f64;
 
             let component_rc = runtime_window.component();
-            let component = ComponentRc::borrow_pin(&component_rc);
+            let component = ItemTreeRc::borrow_pin(&component_rc);
 
             let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
             if let Some(window_item) = runtime_window.window_item() {
@@ -668,17 +668,17 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     #[cfg(enable_accesskit)]
-    fn register_component(&self) {
-        self.accesskit_adapter.register_component();
+    fn register_item_tree(&self) {
+        self.accesskit_adapter.register_item_tree();
     }
 
     #[cfg(enable_accesskit)]
-    fn unregister_component(
+    fn unregister_item_tree(
         &self,
-        _component: ComponentRef,
+        _component: ItemTreeRef,
         _: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
     ) {
-        self.accesskit_adapter.unregister_component(_component);
+        self.accesskit_adapter.unregister_item_tree(_component);
     }
 }
 

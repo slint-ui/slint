@@ -8,13 +8,13 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{Item, ItemConsts, ItemRc, RenderingResult};
-use crate::component::{ComponentRc, ComponentWeak, IndexRange};
 use crate::component_factory::ComponentFactory;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
+use crate::item_tree::{IndexRange, ItemTreeRc, ItemTreeWeak};
 use crate::item_tree::{ItemTreeNode, ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalSize};
@@ -57,9 +57,9 @@ pub struct ComponentContainer {
     pub cached_rendering_data: CachedRenderingData,
 
     component_tracker: OnceCell<Pin<Box<PropertyTracker>>>,
-    component: RefCell<Option<ComponentRc>>,
+    component: RefCell<Option<ItemTreeRc>>,
 
-    my_component: OnceCell<ComponentWeak>,
+    my_component: OnceCell<ItemTreeWeak>,
     embedding_item_tree_index: OnceCell<u32>,
 }
 
@@ -128,7 +128,7 @@ impl ComponentContainer {
         IndexRange { start: 0, end: if self.component.borrow().is_some() { 1 } else { 0 } }
     }
 
-    pub fn subtree_component(self: Pin<&Self>) -> ComponentWeak {
+    pub fn subtree_component(self: Pin<&Self>) -> ItemTreeWeak {
         let rc = self.component.borrow().clone();
         vtable::VRc::downgrade(rc.as_ref().unwrap())
     }
@@ -150,7 +150,7 @@ impl ComponentContainer {
 
 impl Item for ComponentContainer {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
-        let rc = self_rc.component();
+        let rc = self_rc.item_tree();
 
         self.my_component.set(vtable::VRc::downgrade(rc)).ok().unwrap();
 

@@ -12,12 +12,10 @@ use accesskit::{
     Action, ActionRequest, CheckedState, Node, NodeBuilder, NodeId, Role, Tree, TreeUpdate,
 };
 use i_slint_core::accessibility::AccessibleStringProperty;
+use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
 use i_slint_core::items::{ItemRc, WindowItem};
+use i_slint_core::lengths::ScaleFactor;
 use i_slint_core::window::WindowInner;
-use i_slint_core::{
-    component::{ComponentRc, ComponentRef, ComponentWeak},
-    lengths::ScaleFactor,
-};
 use i_slint_core::{properties::PropertyTracker, window::WindowAdapter};
 
 use super::WinitWindowAdapter;
@@ -33,7 +31,7 @@ use super::WinitWindowAdapter;
 /// the `on_event` function that needs calling.
 ///
 /// Similarly, when the window adapter is informed about a focus change, handle_focus_change must be called.
-/// Finally, when a component is destroyed, `unregister_component` must be called, which rebuilds the entire
+/// Finally, when a component is destroyed, `unregister_item_tree` must be called, which rebuilds the entire
 /// tree at the moment.
 ///
 /// If we wanted to move this to corelib, `on_event` gets replaced with listening to the events sent from the
@@ -45,7 +43,7 @@ pub struct AccessKitAdapter {
 
     node_classes: RefCell<accesskit::NodeClassSet>,
     next_component_id: Cell<usize>,
-    components_by_id: RefCell<HashMap<usize, ComponentWeak>>,
+    components_by_id: RefCell<HashMap<usize, ItemTreeWeak>>,
     component_ids: RefCell<HashMap<NonNull<u8>, usize>>,
     all_nodes: RefCell<Vec<CachedNode>>,
     global_property_tracker: Pin<Box<PropertyTracker<AccessibilitiesPropertyTracker>>>,
@@ -125,7 +123,7 @@ impl AccessKitAdapter {
         }
     }
 
-    pub fn register_component(&self) {
+    pub fn register_item_tree(&self) {
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = win.upgrade() {
@@ -135,8 +133,8 @@ impl AccessKitAdapter {
         });
     }
 
-    pub fn unregister_component(&self, component: ComponentRef) {
-        let component_ptr = ComponentRef::as_ptr(component);
+    pub fn unregister_item_tree(&self, component: ItemTreeRef) {
+        let component_ptr = ItemTreeRef::as_ptr(component);
         if let Some(component_id) = self.component_ids.borrow_mut().remove(&component_ptr) {
             self.components_by_id.borrow_mut().remove(&component_id);
         }
@@ -170,8 +168,8 @@ impl AccessKitAdapter {
     }
 
     fn encode_item_node_id(&self, item: &ItemRc) -> Option<NodeId> {
-        let component = item.component();
-        let component_ptr = ComponentRef::as_ptr(ComponentRc::borrow(component));
+        let component = item.item_tree();
+        let component_ptr = ItemTreeRef::as_ptr(ItemTreeRc::borrow(component));
         let component_id = *(self.component_ids.borrow().get(&component_ptr)?);
         let index = item.index();
         Some(NodeId(
@@ -236,15 +234,15 @@ impl AccessKitAdapter {
 
         builder.set_children(children.clone());
 
-        let component = item.component();
-        let component_ptr = ComponentRef::as_ptr(ComponentRc::borrow(component));
+        let component = item.item_tree();
+        let component_ptr = ItemTreeRef::as_ptr(ItemTreeRc::borrow(component));
         if !self.component_ids.borrow().contains_key(&component_ptr) {
             let component_id = self.next_component_id.get();
             self.next_component_id.set(component_id + 1);
             self.component_ids.borrow_mut().insert(component_ptr, component_id);
             self.components_by_id
                 .borrow_mut()
-                .insert(component_id, ComponentRc::downgrade(component));
+                .insert(component_id, ItemTreeRc::downgrade(component));
         }
 
         let id = self.encode_item_node_id(&item).unwrap();

@@ -7,11 +7,11 @@
 This module contains the code moving the keyboard focus between items
 */
 
-use crate::item_tree::ComponentItemTree;
+use crate::item_tree::ItemTreeNodeArray;
 
 pub fn step_out_of_node(
     index: u32,
-    item_tree: &crate::item_tree::ComponentItemTree,
+    item_tree: &crate::item_tree::ItemTreeNodeArray,
 ) -> Option<u32> {
     let mut self_or_ancestor = index;
     loop {
@@ -28,7 +28,7 @@ pub fn step_out_of_node(
 
 pub fn default_next_in_local_focus_chain(
     index: u32,
-    item_tree: &crate::item_tree::ComponentItemTree,
+    item_tree: &crate::item_tree::ItemTreeNodeArray,
 ) -> Option<u32> {
     if let Some(child) = item_tree.first_child(index) {
         return Some(child);
@@ -37,7 +37,7 @@ pub fn default_next_in_local_focus_chain(
     step_out_of_node(index, item_tree)
 }
 
-fn step_into_node(item_tree: &ComponentItemTree, index: u32) -> u32 {
+fn step_into_node(item_tree: &ItemTreeNodeArray, index: u32) -> u32 {
     let mut node = index;
     loop {
         if let Some(last_child) = item_tree.last_child(node) {
@@ -50,7 +50,7 @@ fn step_into_node(item_tree: &ComponentItemTree, index: u32) -> u32 {
 
 pub fn default_previous_in_local_focus_chain(
     index: u32,
-    item_tree: &crate::item_tree::ComponentItemTree,
+    item_tree: &crate::item_tree::ItemTreeNodeArray,
 ) -> Option<u32> {
     if let Some(previous) = item_tree.previous_sibling(index) {
         Some(step_into_node(item_tree, previous))
@@ -65,7 +65,7 @@ mod tests {
 
     use crate::item_tree::ItemTreeNode;
 
-    fn validate_focus_chains<'a>(item_tree: ComponentItemTree<'a>) {
+    fn validate_focus_chains<'a>(item_tree: ItemTreeNodeArray<'a>) {
         let forward_chain = {
             let mut tmp = alloc::vec::Vec::with_capacity(item_tree.node_count());
             let mut node = 0;
@@ -110,7 +110,7 @@ mod tests {
             item_array_index: 0,
         }];
 
-        let tree: ComponentItemTree = (nodes.as_slice()).into();
+        let tree: ItemTreeNodeArray = (nodes.as_slice()).into();
         validate_focus_chains(tree);
     }
 
@@ -133,7 +133,7 @@ mod tests {
             },
         ];
 
-        let tree: ComponentItemTree = (nodes.as_slice()).into();
+        let tree: ItemTreeNodeArray = (nodes.as_slice()).into();
         validate_focus_chains(tree);
     }
 
@@ -170,7 +170,7 @@ mod tests {
             },
         ];
 
-        let tree: ComponentItemTree = (nodes.as_slice()).into();
+        let tree: ItemTreeNodeArray = (nodes.as_slice()).into();
         validate_focus_chains(tree);
     }
 
@@ -291,7 +291,7 @@ mod tests {
             },
         ];
 
-        let tree: ComponentItemTree = (nodes.as_slice()).into();
+        let tree: ItemTreeNodeArray = (nodes.as_slice()).into();
         validate_focus_chains(tree);
     }
 }

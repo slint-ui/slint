@@ -15,14 +15,14 @@ use re_exports::*;
 // extra copies of the original functions for each call site due to
 // the impl Fn() they are taking.
 
-pub trait StrongComponentRef: Sized {
+pub trait StrongItemTreeRef: Sized {
     type Weak: Clone + 'static;
     fn to_weak(&self) -> Self::Weak;
     fn from_weak(weak: &Self::Weak) -> Option<Self>;
 }
 
-impl<C: 'static> StrongComponentRef for VRc<ComponentVTable, C> {
-    type Weak = VWeak<ComponentVTable, C>;
+impl<C: 'static> StrongItemTreeRef for VRc<ItemTreeVTable, C> {
+    type Weak = VWeak<ItemTreeVTable, C>;
     fn to_weak(&self) -> Self::Weak {
         VRc::downgrade(self)
     }
@@ -31,8 +31,8 @@ impl<C: 'static> StrongComponentRef for VRc<ComponentVTable, C> {
     }
 }
 
-impl<C: 'static> StrongComponentRef for VRcMapped<ComponentVTable, C> {
-    type Weak = VWeakMapped<ComponentVTable, C>;
+impl<C: 'static> StrongItemTreeRef for VRcMapped<ItemTreeVTable, C> {
+    type Weak = VWeakMapped<ItemTreeVTable, C>;
     fn to_weak(&self) -> Self::Weak {
         VRcMapped::downgrade(self)
     }
@@ -41,7 +41,7 @@ impl<C: 'static> StrongComponentRef for VRcMapped<ComponentVTable, C> {
     }
 }
 
-impl<C: 'static> StrongComponentRef for Pin<Rc<C>> {
+impl<C: 'static> StrongItemTreeRef for Pin<Rc<C>> {
     type Weak = PinWeak<C>;
     fn to_weak(&self) -> Self::Weak {
         PinWeak::downgrade(self.clone())
@@ -51,19 +51,19 @@ impl<C: 'static> StrongComponentRef for Pin<Rc<C>> {
     }
 }
 
-pub fn set_property_binding<T: Clone + 'static, StrongRef: StrongComponentRef + 'static>(
+pub fn set_property_binding<T: Clone + 'static, StrongRef: StrongItemTreeRef + 'static>(
     property: Pin<&Property<T>>,
     component_strong: &StrongRef,
     binding: fn(StrongRef) -> T,
 ) {
     let weak = component_strong.to_weak();
     property
-        .set_binding(move || binding(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap()))
+        .set_binding(move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap()))
 }
 
 pub fn set_animated_property_binding<
     T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
-    StrongRef: StrongComponentRef + 'static,
+    StrongRef: StrongItemTreeRef + 'static,
 >(
     property: Pin<&Property<T>>,
     component_strong: &StrongRef,
@@ -72,14 +72,14 @@ pub fn set_animated_property_binding<
 ) {
     let weak = component_strong.to_weak();
     property.set_animated_binding(
-        move || binding(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap()),
+        move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap()),
         animation_data,
     )
 }
 
 pub fn set_animated_property_binding_for_transition<
     T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
-    StrongRef: StrongComponentRef + 'static,
+    StrongRef: StrongItemTreeRef + 'static,
 >(
     property: Pin<&Property<T>>,
     component_strong: &StrongRef,
@@ -91,30 +91,28 @@ pub fn set_animated_property_binding_for_transition<
     let weak_1 = component_strong.to_weak();
     let weak_2 = weak_1.clone();
     property.set_animated_binding_for_transition(
-        move || binding(<StrongRef as StrongComponentRef>::from_weak(&weak_1).unwrap()),
+        move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak_1).unwrap()),
         move || {
-            compute_animation_details(
-                <StrongRef as StrongComponentRef>::from_weak(&weak_2).unwrap(),
-            )
+            compute_animation_details(<StrongRef as StrongItemTreeRef>::from_weak(&weak_2).unwrap())
         },
     )
 }
 
-pub fn set_property_state_binding<StrongRef: StrongComponentRef + 'static>(
+pub fn set_property_state_binding<StrongRef: StrongItemTreeRef + 'static>(
     property: Pin<&Property<StateInfo>>,
     component_strong: &StrongRef,
     binding: fn(StrongRef) -> i32,
 ) {
     let weak = component_strong.to_weak();
     re_exports::set_state_binding(property, move || {
-        binding(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap())
+        binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap())
     })
 }
 
 pub fn set_callback_handler<
     Arg: ?Sized + 'static,
     Ret: Default + 'static,
-    StrongRef: StrongComponentRef + 'static,
+    StrongRef: StrongItemTreeRef + 'static,
 >(
     callback: Pin<&Callback<Arg, Ret>>,
     component_strong: &StrongRef,
@@ -122,7 +120,7 @@ pub fn set_callback_handler<
 ) {
     let weak = component_strong.to_weak();
     callback.set_handler(move |arg| {
-        handler(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap(), arg)
+        handler(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap(), arg)
     })
 }
 
@@ -181,14 +179,14 @@ pub mod re_exports {
     pub use i_slint_core::accessibility::AccessibleStringProperty;
     pub use i_slint_core::animations::{animation_tick, EasingCurve};
     pub use i_slint_core::callbacks::Callback;
-    pub use i_slint_core::component::{
-        register_component, unregister_component, Component, ComponentRefPin, ComponentVTable,
-        ComponentWeak, IndexRange,
-    };
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
         key_codes::Key, FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
         MouseEvent,
+    };
+    pub use i_slint_core::item_tree::{
+        register_item_tree, unregister_item_tree, IndexRange, ItemTree, ItemTreeRefPin,
+        ItemTreeVTable, ItemTreeWeak,
     };
     pub use i_slint_core::item_tree::{
         visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak,
@@ -206,8 +204,8 @@ pub mod re_exports {
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,
     };
     pub use i_slint_core::Color;
-    pub use i_slint_core::ComponentVTable_static;
     pub use i_slint_core::Coord;
+    pub use i_slint_core::ItemTreeVTable_static;
     pub use i_slint_core::SharedString;
     pub use i_slint_core::SharedVector;
     pub use num_traits::float::Float;

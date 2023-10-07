@@ -538,7 +538,7 @@ class ComponentInstance : vtable::Dyn
     ComponentInstance &operator=(ComponentInstance &) = delete;
     friend class ComponentDefinition;
 
-    // ComponentHandle<ComponentInstance>  is in fact a VRc<ComponentVTable, ErasedComponentBox>
+    // ComponentHandle<ComponentInstance>  is in fact a VRc<ItemTreeVTable, ErasedComponentBox>
     const cbindgen_private::ErasedComponentBox *inner() const
     {
         slint::private_api::assert_main_thread();

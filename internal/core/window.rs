@@ -10,13 +10,13 @@ use crate::api::{
     CloseRequestResponse, PhysicalPosition, PhysicalSize, PlatformError, Window, WindowPosition,
     WindowSize,
 };
-use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::Point;
 use crate::input::{
     key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, KeyInputEvent,
     KeyboardModifiers, MouseEvent, MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::ItemRc;
+use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
 use crate::items::{ItemRef, MouseCursor};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
@@ -158,13 +158,13 @@ pub trait WindowAdapter {
 #[doc(hidden)]
 pub trait WindowAdapterInternal {
     /// This function is called by the generated code when a component and therefore its tree of items are created.
-    fn register_component(&self) {}
+    fn register_item_tree(&self) {}
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
-    fn unregister_component(
+    fn unregister_item_tree(
         &self,
-        _component: ComponentRef,
+        _component: ItemTreeRef,
         _items: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
     ) {
     }
@@ -253,7 +253,7 @@ impl<'a> WindowProperties<'a> {
     pub fn background(&self) -> crate::Brush {
         self.0
             .window_item()
-            .map(|w: VRcMapped<ComponentVTable, crate::items::WindowItem>| {
+            .map(|w: VRcMapped<ItemTreeVTable, crate::items::WindowItem>| {
                 w.as_pin_ref().background()
             })
             .unwrap_or_default()
@@ -262,7 +262,7 @@ impl<'a> WindowProperties<'a> {
     /// Returns the layout constraints of the window
     pub fn layout_constraints(&self) -> LayoutConstraints {
         let component = self.0.component();
-        let component = ComponentRc::borrow_pin(&component);
+        let component = ItemTreeRc::borrow_pin(&component);
         let h = component.as_ref().layout_info(crate::layout::Orientation::Horizontal);
         let v = component.as_ref().layout_info(crate::layout::Orientation::Vertical);
         let (min, max) = crate::layout::min_max_size_for_layout_constraints(h, v);
@@ -318,7 +318,7 @@ struct PopupWindow {
     /// The location defines where the pop up is rendered.
     location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
-    component: ComponentRc,
+    component: ItemTreeRc,
     /// If true, Slint will close the popup after any mouse click within the popup.
     /// Set to false and call close() on the PopupWindow to close it manually.
     close_on_click: bool,
@@ -342,9 +342,9 @@ struct WindowPinnedFields {
 /// Inner datastructure for the [`crate::api::Window`]
 pub struct WindowInner {
     window_adapter_weak: Weak<dyn WindowAdapter>,
-    component: RefCell<ComponentWeak>,
+    component: RefCell<ItemTreeWeak>,
     /// When the window is visible, keep a strong reference
-    strong_component_ref: RefCell<Option<ComponentRc>>,
+    strong_component_ref: RefCell<Option<ItemTreeRc>>,
     mouse_input_state: Cell<MouseInputState>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
 
@@ -413,17 +413,17 @@ impl WindowInner {
 
     /// Associates this window with the specified component. Further event handling and rendering, etc. will be
     /// done with that component.
-    pub fn set_component(&self, component: &ComponentRc) {
+    pub fn set_component(&self, component: &ItemTreeRc) {
         self.close_popup();
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
         self.modifiers.replace(Default::default());
-        self.component.replace(ComponentRc::downgrade(component));
+        self.component.replace(ItemTreeRc::downgrade(component));
         self.pinned_fields.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
         let window_adapter = self.window_adapter();
         window_adapter.renderer().set_window_adapter(&window_adapter);
         {
-            let component = ComponentRc::borrow_pin(component);
+            let component = ItemTreeRc::borrow_pin(component);
             let root_item = component.as_ref().get_item_ref(0);
             let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item).unwrap();
 
@@ -444,12 +444,12 @@ impl WindowInner {
 
     /// return the component.
     /// Panics if it wasn't set.
-    pub fn component(&self) -> ComponentRc {
+    pub fn component(&self) -> ItemTreeRc {
         self.component.borrow().upgrade().unwrap()
     }
 
     /// returns the component or None if it isn't set.
-    pub fn try_component(&self) -> Option<ComponentRc> {
+    pub fn try_component(&self) -> Option<ItemTreeRc> {
         self.component.borrow().upgrade()
     }
 
@@ -483,7 +483,7 @@ impl WindowInner {
 
                 if let MouseEvent::Pressed { position, .. } = &event {
                     // close the popup if one press outside the popup
-                    let geom = ComponentRc::borrow_pin(popup_component).as_ref().item_geometry(0);
+                    let geom = ItemTreeRc::borrow_pin(popup_component).as_ref().item_geometry(0);
                     if !geom.contains(*position) {
                         self.close_popup();
                         return None;
@@ -732,7 +732,7 @@ impl WindowInner {
     /// Returns None if no component is set yet.
     pub fn draw_contents<T>(
         &self,
-        render_components: impl FnOnce(&[(&ComponentRc, LogicalPoint)]) -> T,
+        render_components: impl FnOnce(&[(&ItemTreeRc, LogicalPoint)]) -> T,
     ) -> Option<T> {
         let draw_fn = || {
             let component_rc = self.try_component()?;
@@ -796,7 +796,7 @@ impl WindowInner {
     /// Show a popup at the given position relative to the item
     pub fn show_popup(
         &self,
-        popup_componentrc: &ComponentRc,
+        popup_componentrc: &ItemTreeRc,
         position: Point,
         close_on_click: bool,
         parent_item: &ItemRc,
@@ -804,7 +804,7 @@ impl WindowInner {
         let position = parent_item.map_to_window(
             parent_item.geometry().origin + LogicalPoint::from_untyped(position).to_vector(),
         );
-        let popup_component = ComponentRc::borrow_pin(popup_componentrc);
+        let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
         let (mut w, mut h) = if let Some(window_item) =
@@ -870,7 +870,7 @@ impl WindowInner {
             if let PopupWindowLocation::ChildWindow(offset) = current_popup.location {
                 // Refresh the area that was previously covered by the popup.
                 let popup_region = crate::properties::evaluate_no_tracking(|| {
-                    let popup_component = ComponentRc::borrow_pin(&current_popup.component);
+                    let popup_component = ItemTreeRc::borrow_pin(&current_popup.component);
                     popup_component.as_ref().item_geometry(0)
                 })
                 .translate(offset.to_vector());
@@ -915,7 +915,7 @@ impl WindowInner {
     }
 
     /// Returns the window item that is the first item in the component.
-    pub fn window_item(&self) -> Option<VRcMapped<ComponentVTable, crate::items::WindowItem>> {
+    pub fn window_item(&self) -> Option<VRcMapped<ItemTreeVTable, crate::items::WindowItem>> {
         self.try_component().and_then(|component_rc| {
             ItemRc::new(component_rc, 0).downcast::<crate::items::WindowItem>()
         })
@@ -925,7 +925,7 @@ impl WindowInner {
     /// window resize event from the windowing system.
     pub(crate) fn set_window_item_geometry(&self, size: LogicalSize) {
         if let Some(component_rc) = self.try_component() {
-            let component = ComponentRc::borrow_pin(&component_rc);
+            let component = ItemTreeRc::borrow_pin(&component_rc);
             let root_item = component.as_ref().get_item_ref(0);
             if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
             {
@@ -1100,7 +1100,7 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_set_component(
         handle: *const WindowAdapterRcOpaque,
-        component: &ComponentRc,
+        component: &ItemTreeRc,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         WindowInner::from_pub(window_adapter.window()).set_component(component)
@@ -1110,7 +1110,7 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_show_popup(
         handle: *const WindowAdapterRcOpaque,
-        popup: &ComponentRc,
+        popup: &ItemTreeRc,
         position: crate::graphics::Point,
         close_on_click: bool,
         parent_item: &ItemRc,

@@ -27,7 +27,7 @@ pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
 /// Simulate a click on a position within the component.
 #[no_mangle]
 pub extern "C" fn slint_send_mouse_click(
-    _component: &crate::component::ComponentRc,
+    _component: &crate::item_tree::ItemTreeRc,
     x: f32,
     y: f32,
     window_adapter: &crate::window::WindowAdapterRc,

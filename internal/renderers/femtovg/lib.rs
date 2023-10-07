@@ -500,7 +500,7 @@ impl RendererSealed for FemtoVGRenderer {
 
     fn free_graphics_resources(
         &self,
-        component: i_slint_core::component::ComponentRef,
+        component: i_slint_core::item_tree::ItemTreeRef,
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.opengl_context.ensure_current()?;

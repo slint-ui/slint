@@ -20,7 +20,6 @@ pub mod accessibility;
 pub mod animations;
 pub mod api;
 pub mod callbacks;
-pub mod component;
 pub mod component_factory;
 pub mod future;
 pub mod graphics;
