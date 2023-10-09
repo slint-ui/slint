@@ -172,7 +172,8 @@ function startClient(
         });
     });
 
-    cl.start().then(() => (client.client = cl));
+    cl.start();
+    cl.onReady().then(() => (client.client = cl));
 }
 
 export function activate(context: vscode.ExtensionContext) {
