@@ -119,13 +119,13 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
 
         self.libinput.dispatch()?;
 
+        let screen_size = self.window.size().to_logical(self.window.scale_factor());
+
         for event in &mut self.libinput {
             match event {
                 input::Event::Pointer(pointer_event) => {
                     match pointer_event {
                         input::event::PointerEvent::Motion(motion_event) => {
-                            let screen_size =
-                                self.window.size().to_logical(self.window.scale_factor());
                             let mut mouse_pos =
                                 self.mouse_pos.as_ref().get().unwrap_or(LogicalPosition {
                                     x: screen_size.width / 2.,
@@ -140,8 +140,6 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             self.window.dispatch_event(event);
                         }
                         input::event::PointerEvent::MotionAbsolute(abs_motion_event) => {
-                            let screen_size =
-                                self.window.size().to_logical(self.window.scale_factor());
                             let mouse_pos = LogicalPosition {
                                 x: abs_motion_event.absolute_x_transformed(screen_size.width as u32)
                                     as _,
@@ -179,7 +177,6 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                     }
                 }
                 input::Event::Touch(touch_event) => {
-                    let screen_size = self.window.size();
                     if let Some(event) = match touch_event {
                         input::event::TouchEvent::Down(touch_down_event) => {
                             self.last_touch_pos = LogicalPosition::new(
