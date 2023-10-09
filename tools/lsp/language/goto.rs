@@ -9,6 +9,7 @@ use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupObject, LookupResult};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
+use i_slint_compiler::pathutils::clean_path;
 
 use lsp_types::{GotoDefinitionResponse, LocationLink, Range};
 use std::path::Path;
@@ -116,7 +117,7 @@ pub fn goto_definition(
                 .parent()
                 .unwrap_or_else(|| Path::new("/"))
                 .join(n.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'));
-            let import_file = dunce::canonicalize(&import_file).unwrap_or(import_file);
+            let import_file = clean_path(&import_file);
             let doc = document_cache.documents.get_document(&import_file)?;
             let doc_node = doc.node.clone()?;
             return goto_node(&doc_node);

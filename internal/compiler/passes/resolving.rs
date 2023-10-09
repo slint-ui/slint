@@ -337,7 +337,7 @@ impl Expression {
 
         let absolute_source_path = {
             let path = std::path::Path::new(&s);
-            if path.is_absolute() || s.starts_with("http://") || s.starts_with("https://") {
+            if crate::pathutils::is_absolute(path) {
                 s
             } else {
                 ctx.type_loader

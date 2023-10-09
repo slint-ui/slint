@@ -30,7 +30,7 @@ pub fn load_file(path: &std::path::Path) -> Option<VirtualFile> {
     match path.strip_prefix("builtin:/") {
         Ok(builtin_path) => builtin_library::load_builtin_file(builtin_path),
         Err(_) => path.exists().then(|| VirtualFile {
-            canon_path: dunce::canonicalize(path).unwrap_or_else(|_| path.into()),
+            canon_path: crate::pathutils::clean_path(path),
             builtin_contents: None,
         }),
     }
@@ -75,9 +75,11 @@ mod builtin_library {
             library.iter().find_map(|builtin_file| {
                 if builtin_file.path == file {
                     Some(VirtualFile {
-                        canon_path: ["builtin:/", folder.to_str().unwrap(), builtin_file.path]
-                            .iter()
-                            .collect::<std::path::PathBuf>(),
+                        canon_path: std::path::PathBuf::from(format!(
+                            "builtin:/{}/{}",
+                            folder.to_str().unwrap(),
+                            builtin_file.path
+                        )),
                         builtin_contents: Some(builtin_file.contents),
                     })
                 } else {

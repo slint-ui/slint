@@ -265,20 +265,12 @@ impl TypeLoader {
             || {
                 referencing_file_or_url
                     .and_then(|base_path_or_url| {
-                        let base_path_or_url_str = base_path_or_url.to_string_lossy();
-                        if base_path_or_url_str.contains("://") {
-                            url::Url::parse(&base_path_or_url_str).ok().and_then(|base_url| {
-                                base_url
-                                    .join(maybe_relative_path_or_url)
-                                    .ok()
-                                    .map(|url| url.to_string().into())
-                            })
-                        } else {
-                            base_path_or_url.parent().and_then(|base_dir| {
-                                dunce::canonicalize(base_dir.join(maybe_relative_path_or_url)).ok()
-                            })
-                        }
+                        crate::pathutils::join(
+                            &crate::pathutils::dirname(base_path_or_url),
+                            &PathBuf::from(maybe_relative_path_or_url),
+                        )
                     })
+                    .filter(|p| p.exists())
                     .map(|p| (p, None))
             },
         )
@@ -297,8 +289,9 @@ impl TypeLoader {
             .resolve_import_path(import_token.as_ref(), file_to_import)
         {
             Some(x) => x,
-            None => match dunce::canonicalize(file_to_import) {
-                Ok(path) => {
+            None => {
+                let import_path = crate::pathutils::clean_path(&Path::new(file_to_import));
+                if import_path.exists() {
                     if import_token.as_ref().and_then(|x| x.source_file()).is_some() {
                         borrowed_state.diag.push_warning(
                         format!(
@@ -307,42 +300,23 @@ impl TypeLoader {
                         &import_token,
                     );
                     }
-                    (path, None)
-                }
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                    (import_path, None)
+                } else {
                     // We will load using the `open_import_fallback`
                     // Simplify the path to remove the ".."
-                    let mut path = import_token
+                    let base_path = import_token
                         .as_ref()
                         .and_then(|tok| tok.source_file().map(|s| s.path()))
-                        .and_then(|p| p.parent())
                         .map_or(PathBuf::new(), |p| p.into());
-                    for c in Path::new(file_to_import).components() {
-                        use std::path::Component::*;
-                        match c {
-                            RootDir => path = PathBuf::new(),
-                            CurDir => {}
-                            ParentDir
-                                if matches!(
-                                    path.components().last(),
-                                    Some(Normal(_) | RootDir)
-                                ) =>
-                            {
-                                path.pop();
-                            }
-                            Prefix(_) | ParentDir | Normal(_) => path.push(c),
-                        }
-                    }
+                    let Some(path) = crate::pathutils::join(
+                        &crate::pathutils::dirname(&base_path),
+                        Path::new(file_to_import),
+                    ) else {
+                        return None;
+                    };
                     (path, None)
                 }
-                Err(err) => {
-                    borrowed_state.diag.push_error(
-                        format!("Error reading requested import \"{file_to_import}\": {err}",),
-                        &import_token,
-                    );
-                    return None;
-                }
-            },
+            }
         };
 
         if !import_stack.insert(path_canon.clone()) {
@@ -560,26 +534,23 @@ impl TypeLoader {
         file_to_import: &str,
     ) -> Option<(PathBuf, Option<&'static [u8]>)> {
         // The directory of the current file is the first in the list of include directories.
-        let maybe_current_directory = referencing_file.and_then(base_directory);
-        maybe_current_directory
-            .clone()
+        referencing_file
+            .map(base_directory)
             .into_iter()
-            .chain(self.compiler_config.include_paths.iter().map(PathBuf::as_path).map({
+            .chain(self.compiler_config.include_paths.iter().map(PathBuf::as_path).map(
                 |include_path| {
-                    if include_path.is_relative() && maybe_current_directory.as_ref().is_some() {
-                        maybe_current_directory.as_ref().unwrap().join(include_path)
-                    } else {
-                        include_path.to_path_buf()
-                    }
-                }
-            }))
+                    let base = referencing_file.map(Path::to_path_buf).unwrap_or_default();
+                    crate::pathutils::join(&crate::pathutils::dirname(&base), include_path)
+                        .unwrap_or_else(|| include_path.to_path_buf())
+                },
+            ))
             .chain(
                 (file_to_import == "std-widgets.slint"
                     || referencing_file.map_or(false, |x| x.starts_with("builtin:/")))
                 .then(|| format!("builtin:/{}", self.style).into()),
             )
             .find_map(|include_dir| {
-                let candidate = include_dir.join(file_to_import);
+                let candidate = crate::pathutils::join(&include_dir, &Path::new(file_to_import))?;
                 crate::fileaccess::load_file(&candidate)
                     .map(|virtual_file| (virtual_file.canon_path, virtual_file.builtin_contents))
             })
@@ -630,10 +601,8 @@ impl TypeLoader {
 
     /// Return a document if it was already loaded
     pub fn get_document<'b>(&'b self, path: &Path) -> Option<&'b object_tree::Document> {
-        dunce::canonicalize(path).map_or_else(
-            |_| self.all_documents.docs.get(path),
-            |path| self.all_documents.docs.get(&path),
-        )
+        let path = crate::pathutils::clean_path(path);
+        self.all_documents.docs.get(&path)
     }
 
     /// Return an iterator over all the loaded file path
@@ -654,7 +623,7 @@ fn get_native_style(all_loaded_files: &mut Vec<PathBuf>) -> String {
     let target_path = std::env::var_os("OUT_DIR")
         .and_then(|path| {
             // Same logic as in i-slint-backend-selector's build script to get the path
-            Path::new(&path).parent()?.parent()?.join("SLINT_DEFAULT_STYLE.txt").into()
+            crate::pathutils::join(&Path::new(&path), &Path::new("../../SLINT_DEFAULT_STYLE.txt"))
         })
         .or_else(|| {
             // When we are called from a slint!, OUT_DIR is only defined when the crate having the macro has a build.rs script.
@@ -668,7 +637,12 @@ fn get_native_style(all_loaded_files: &mut Vec<PathBuf>) -> String {
                     break;
                 }
             }
-            Path::new(&out_dir?).parent()?.join("build/SLINT_DEFAULT_STYLE.txt").into()
+            out_dir.and_then(|od| {
+                crate::pathutils::join(
+                    &Path::new(&od),
+                    &Path::new("../build/SLINT_DEFAULT_STYLE.txt"),
+                )
+            })
         });
     if let Some(style) = target_path.and_then(|target_path| {
         all_loaded_files.push(target_path.clone());
@@ -687,21 +661,25 @@ fn get_native_style(all_loaded_files: &mut Vec<PathBuf>) -> String {
 /// Note: this function is only called for .rs path as part of the LSP or viewer.
 /// Because from a proc_macro, we don't actually know the path of the current file, and this
 /// is why we must be relative to CARGO_MANIFEST_DIR.
-pub fn base_directory(referencing_file: &Path) -> Option<PathBuf> {
+pub fn base_directory(referencing_file: &Path) -> PathBuf {
     if referencing_file.extension().map_or(false, |e| e == "rs") {
         // For .rs file, this is a rust macro, and rust macro locates the file relative to the CARGO_MANIFEST_DIR which is the directory that has a Cargo.toml file.
-        let mut candidate = referencing_file;
+        let mut candidate = crate::pathutils::dirname(referencing_file);
+        let mut previous_candidate = referencing_file.to_path_buf();
         loop {
-            candidate =
-                if let Some(c) = candidate.parent() { c } else { break referencing_file.parent() };
+            if candidate == previous_candidate {
+                return crate::pathutils::dirname(referencing_file);
+            }
+            previous_candidate = candidate;
+            candidate = crate::pathutils::dirname(&previous_candidate);
+
             if candidate.join("Cargo.toml").exists() {
-                break Some(candidate);
+                return candidate.to_path_buf();
             }
         }
     } else {
-        referencing_file.parent()
+        crate::pathutils::dirname(referencing_file)
     }
-    .map(|p| p.to_path_buf())
 }
 
 #[test]
@@ -862,7 +840,7 @@ component Foo { XX {} }
         diags,
         &["HELLO:3: Cannot find requested import \"error.slint\" in the include search path"]
     );
-    // Try loading another time with the same registery
+    // Try loading another time with the same registry
     let mut build_diagnostics = BuildDiagnostics::default();
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,

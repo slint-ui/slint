@@ -989,7 +989,7 @@ pub fn parse(
 ) -> SyntaxNode {
     let mut p = DefaultParser::new(&source, build_diagnostics);
     p.source_file = std::rc::Rc::new(crate::diagnostics::SourceFileInner::new(
-        path.map(|p| p.to_path_buf()).unwrap_or_default(),
+        path.map(|p| crate::pathutils::clean_path(p)).unwrap_or_default(),
         source,
     ));
     document::parse_document(&mut p);
@@ -1003,7 +1003,8 @@ pub fn parse_file<P: AsRef<std::path::Path>>(
     path: P,
     build_diagnostics: &mut BuildDiagnostics,
 ) -> Option<SyntaxNode> {
-    let source = crate::diagnostics::load_from_path(path.as_ref())
+    let path = crate::pathutils::clean_path(path.as_ref());
+    let source = crate::diagnostics::load_from_path(&path)
         .map_err(|d| build_diagnostics.push_internal_error(d))
         .ok()?;
     Some(parse(source, Some(path.as_ref()), build_diagnostics))
