@@ -19,6 +19,7 @@ use crate::wasm_prelude::*;
 
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken};
+use i_slint_compiler::pathutils::clean_path;
 use i_slint_compiler::CompilerConfiguration;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use i_slint_compiler::{typeloader::TypeLoader, typeregister::TypeRegister};
@@ -51,8 +52,8 @@ const TOGGLE_DESIGN_MODE_COMMAND: &str = "slint/toggleDesignMode";
 
 pub fn uri_to_file(uri: &lsp_types::Url) -> Option<PathBuf> {
     let Ok(path) = uri.to_file_path() else { return None };
-    let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
-    Some(path_canon)
+    let cleaned_path = clean_path(&path);
+    Some(cleaned_path)
 }
 
 fn command_list() -> Vec<String> {

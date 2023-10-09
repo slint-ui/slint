@@ -78,7 +78,7 @@ fn process_diagnostics(
     compile_diagnostics: &i_slint_compiler::diagnostics::BuildDiagnostics,
     path: &Path,
     source: &str,
-    silent: bool,
+    _silent: bool,
 ) -> std::io::Result<bool> {
     let mut success = true;
 
@@ -159,7 +159,7 @@ fn process_diagnostics(
         println!("{:?}: Unexpected errors/warnings: {:#?}", path, diags);
 
         #[cfg(feature = "display-diagnostics")]
-        if !silent {
+        if !_silent {
             let mut to_report = i_slint_compiler::diagnostics::BuildDiagnostics::default();
             for d in diags {
                 to_report.push_compiler_error(d.clone());

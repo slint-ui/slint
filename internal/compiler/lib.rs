@@ -30,6 +30,7 @@ pub mod lookup;
 pub mod namedreference;
 pub mod object_tree;
 pub mod parser;
+pub mod pathutils;
 pub mod typeloader;
 pub mod typeregister;
 

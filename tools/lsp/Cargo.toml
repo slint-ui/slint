@@ -70,7 +70,6 @@ default = ["backend-qt", "backend-winit", "renderer-femtovg", "preview"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default"] }
-dunce = "1.0.1"
 euclid = "0.22"
 lsp-types = { version = "0.94.0", features = ["proposed"] }
 serde = "1.0.118"
