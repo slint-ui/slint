@@ -42,6 +42,7 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 
 std = ["image", "i-slint-core/default", "i-slint-backend-selector"]
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]
+experimental = ["i-slint-core/software-renderer-rotation"]
 
 default = ["std", "backend-winit", "renderer-femtovg", "backend-qt"]
 

@@ -1327,6 +1327,7 @@ pub mod ffi {
     }
 }
 
+#[cfg(feature = "software-renderer")]
 #[test]
 fn test_empty_window() {
     // Test that when creating an empty window without a component, we don't panic when render() is called.

@@ -18,14 +18,21 @@ struct EspPlatform : public slint::platform::Platform
     EspPlatform(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                 std::optional<esp_lcd_touch_handle_t> touch,
                 std::span<slint::platform::Rgb565Pixel> buffer1,
-                std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2 = {},
-                slint::platform::SoftwareRenderer::WindowRotation rotation = {})
+                std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2 = {}
+#ifdef SLINT_FEATURE_EXPERIMENTAL
+                ,
+                slint::platform::SoftwareRenderer::WindowRotation rotation = {}
+#endif
+                )
         : size(size),
           panel_handle(panel),
           touch_handle(touch),
           buffer1(buffer1),
-          buffer2(buffer2),
+          buffer2(buffer2)
+#ifdef SLINT_FEATURE_EXPERIMENTAL
+          ,
           rotation(rotation)
+#endif
     {
     }
 
@@ -42,7 +49,9 @@ private:
     std::optional<esp_lcd_touch_handle_t> touch_handle;
     std::span<slint::platform::Rgb565Pixel> buffer1;
     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2;
+#ifdef SLINT_FEATURE_EXPERIMENTAL
     slint::platform::SoftwareRenderer::WindowRotation rotation;
+#endif
     class EspWindowAdapter *m_window = nullptr;
 
     // Need to be static because we can't pass user data to the touch interrupt callback
@@ -82,7 +91,9 @@ std::unique_ptr<slint::platform::WindowAdapter> EspPlatform::create_window_adapt
             buffer2 ? RepaintBufferType::SwappedBuffers : RepaintBufferType::ReusedBuffer;
     auto window = std::make_unique<EspWindowAdapter>(buffer_type, size);
     m_window = window.get();
+#ifdef SLINT_FEATURE_EXPERIMENTAL
     m_window->m_renderer.set_window_rotation(rotation);
+#endif
     return window;
 }
 
@@ -190,9 +201,12 @@ void EspPlatform::run_event_loop()
             }
 
             if (std::exchange(m_window->needs_redraw, false)) {
-                auto rotated =
-                        rotation == slint::platform::SoftwareRenderer::WindowRotation::Rotate90
-                        || rotation == slint::platform::SoftwareRenderer::WindowRotation::Rotate270;
+                auto rotated = false
+#ifdef SLINT_FEATURE_EXPERIMENTAL
+                        || rotation == slint::platform::SoftwareRenderer::WindowRotation::Rotate90
+                        || rotation == slint::platform::SoftwareRenderer::WindowRotation::Rotate270
+#endif
+                        ;
                 auto region =
                         m_window->m_renderer.render(buffer1, rotated ? size.height : size.width);
                 auto o = region.bounding_box_origin();
@@ -266,9 +280,17 @@ TaskHandle_t EspPlatform::task = {};
 void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                     std::optional<esp_lcd_touch_handle_t> touch,
                     std::span<slint::platform::Rgb565Pixel> buffer1,
-                    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2,
-                    slint::platform::SoftwareRenderer::WindowRotation rotation)
+                    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2
+#ifdef SLINT_FEATURE_EXPERIMENTAL
+                    ,
+                    slint::platform::SoftwareRenderer::WindowRotation rotation
+#endif
+)
 {
-    slint::platform::set_platform(
-            std::make_unique<EspPlatform>(size, panel, touch, buffer1, buffer2, rotation));
+    slint::platform::set_platform(std::make_unique<EspPlatform>(size, panel, touch, buffer1, buffer2
+#ifdef SLINT_FEATURE_EXPERIMENTAL
+                                                                ,
+                                                                rotation
+#endif
+                                                                ));
 }

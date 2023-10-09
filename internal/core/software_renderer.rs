@@ -62,22 +62,32 @@ pub enum RepaintBufferType {
     SwappedBuffers,
 }
 
-/// Specify that the window should be drawn rotated
-///
-/// Argument to be passed in [`SoftwareRenderer::set_window_rotation`]
-#[non_exhaustive]
-#[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
-pub enum WindowRotation {
-    /// No rotation
-    #[default]
-    NoRotation,
-    /// Rotate 90° to the left
-    Rotate90,
-    /// 180° rotation (upside-down)
-    Rotate180,
-    /// Rotate 90° to the right
-    Rotate270,
+/// This module is just a trick to make the Window public only when `feature = "software-renderer-rotation"`
+#[allow(unused)]
+mod internal {
+    use super::*;
+    /// This enum describes the rotation that should be applied to the contents rendered by the software renderer.
+    ///
+    /// Argument to be passed in [`SoftwareRenderer::set_window_rotation`].
+    #[non_exhaustive]
+    #[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
+    pub enum WindowRotation {
+        /// No rotation
+        #[default]
+        NoRotation,
+        /// Rotate 90° to the left
+        Rotate90,
+        /// 180° rotation (upside-down)
+        Rotate180,
+        /// Rotate 90° to the right
+        Rotate270,
+    }
 }
+
+#[cfg(feature = "software-renderer-rotation")]
+pub use internal::WindowRotation;
+#[cfg(not(feature = "software-renderer-rotation"))]
+use internal::WindowRotation;
 
 impl WindowRotation {
     fn is_transpose(self) -> bool {
@@ -265,11 +275,15 @@ impl SoftwareRenderer {
     /// Set how the window need to be rotated in the buffer.
     ///
     /// This is typically used to implement screen rotation in software
+    #[cfg(feature = "software-renderer-rotation")]
+    // This API is under a feature flag because it is experimental for now.
+    // It should be a property of the Window instead (set via dispatch_event?)
     pub fn set_window_rotation(&self, rotation: WindowRotation) {
         self.rotation.set(rotation)
     }
 
     /// Return the current rotation. See [`Self::set_window_rotation()`]
+    #[cfg(feature = "software-renderer-rotation")]
     pub fn window_rotation(&self) -> WindowRotation {
         self.rotation.get()
     }
