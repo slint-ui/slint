@@ -149,7 +149,7 @@ fn path_bounding_box(canvas: &CanvasRc, path: &femtovg::Path) -> euclid::default
 // Return a femtovg::Path (in physical pixels) that represents the clip_rect, radius and border_width (all logical!)
 fn clip_path_for_rect_alike_item(
     clip_rect: LogicalRect,
-    mut radius: LogicalLength,
+    mut radius: LogicalBorderRadius,
     mut border_width: LogicalLength,
     scale_factor: ScaleFactor,
 ) -> femtovg::Path {
@@ -157,12 +157,12 @@ fn clip_path_for_rect_alike_item(
     // adjust_rect_and_border_for_inner_drawing adjusts the rect so that for drawing it
     // would be entirely an *inner* border. However for clipping we want the rect that's
     // entirely inside, hence the doubling of the width and consequently radius adjustment.
-    radius -= border_width * KAPPA90;
+    radius -= LogicalBorderRadius::new_uniform(border_width.get() * KAPPA90);
     border_width *= 2.;
 
     // Convert from logical to physical pixels
     let mut border_width = border_width * scale_factor;
-    let radius = LogicalBorderRadius::new_uniform(radius.get()) * scale_factor;
+    let radius = radius * scale_factor;
     let mut clip_rect = clip_rect * scale_factor;
 
     adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
@@ -852,10 +852,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             return RenderingResult::ContinueRenderingWithoutChildren;
         }
 
-        let radius = clip_item.border_radius();
+        let radius = clip_item.logical_border_radius();
         let border_width = clip_item.border_width();
 
-        if radius.get() > 0. {
+        if !radius.is_zero() {
             if let Some(layer_image) = self.render_layer(item_rc, &|| item_rc.geometry().size) {
                 let layer_image_paint = layer_image.as_paint();
 
@@ -880,7 +880,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     fn combine_clip(
         &mut self,
         clip_rect: LogicalRect,
-        radius: LogicalLength,
+        radius: LogicalBorderRadius,
         border_width: LogicalLength,
     ) -> bool {
         let clip = &mut self.state.last_mut().unwrap().scissor;
@@ -909,7 +909,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         // femtovg only supports rectangular clipping. Non-rectangular clips must be handled via `apply_clip`,
         // which can render children into a layer.
-        debug_assert!(radius.get() == 0.);
+        debug_assert!(radius.is_zero());
 
         clip_region_valid
     }

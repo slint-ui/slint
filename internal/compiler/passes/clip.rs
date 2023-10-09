@@ -79,7 +79,16 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
             )
         })
         .collect();
-    for optional_binding in ["border-radius", "border-width"].iter() {
+    for optional_binding in [
+        "border-radius",
+        "border-top-left-radius",
+        "border-top-right-radius",
+        "border-bottom-right-radius",
+        "border-bottom-left-radius",
+        "border-width",
+    ]
+    .iter()
+    {
         if parent_elem.borrow().bindings.contains_key(*optional_binding) {
             clip.borrow_mut().bindings.insert(
                 optional_binding.to_string(),

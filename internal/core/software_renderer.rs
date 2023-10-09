@@ -407,7 +407,7 @@ impl SoftwareRenderer {
 
                 renderer.combine_clip(
                     (to_draw.cast() / factor).cast(),
-                    LogicalLength::zero(),
+                    LogicalBorderRadius::zero(),
                     LogicalLength::zero(),
                 );
 
@@ -1149,7 +1149,7 @@ fn prepare_scene(
 
         renderer.combine_clip(
             (dirty_region.cast() / factor).cast(),
-            LogicalLength::zero(),
+            LogicalBorderRadius::zero(),
             LogicalLength::zero(),
         );
         for (component, origin) in components {
@@ -2111,7 +2111,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     fn combine_clip(
         &mut self,
         other: LogicalRect,
-        _radius: LogicalLength,
+        _radius: LogicalBorderRadius,
         _border_width: LogicalLength,
     ) -> bool {
         match self.current_state.clip.intersection(&other) {
