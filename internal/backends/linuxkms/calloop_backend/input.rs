@@ -139,6 +139,20 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             let event = WindowEvent::PointerMoved { position: mouse_pos };
                             self.window.dispatch_event(event);
                         }
+                        input::event::PointerEvent::MotionAbsolute(abs_motion_event) => {
+                            let screen_size =
+                                self.window.size().to_logical(self.window.scale_factor());
+                            let mouse_pos = LogicalPosition {
+                                x: abs_motion_event.absolute_x_transformed(screen_size.width as u32)
+                                    as _,
+                                y: abs_motion_event
+                                    .absolute_y_transformed(screen_size.height as u32)
+                                    as _,
+                            };
+                            self.mouse_pos.set(Some(mouse_pos));
+                            let event = WindowEvent::PointerMoved { position: mouse_pos };
+                            self.window.dispatch_event(event);
+                        }
                         input::event::PointerEvent::Button(button_event) => {
                             // https://github.com/torvalds/linux/blob/0dd2a6fb1e34d6dcb96806bc6b111388ad324722/include/uapi/linux/input-event-codes.h#L355
                             let button = match button_event.button() {
