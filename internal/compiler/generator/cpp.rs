@@ -2793,10 +2793,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::Struct { ty, values } => {
             if let Type::Struct{fields, name: None, ..} = ty {
-                let mut elem = fields.keys().map(|k| {
+                let mut elem = fields.iter().map(|(k, t)| {
                     values
                         .get(k)
                         .map(|e| compile_expression(e, ctx))
+                        .map(|e| {
+                            // explicit conversion to avoid warning C4244 (possible loss of data) with MSVC
+                            if t.as_unit_product().is_some() { format!("{}({e})", t.cpp_type().unwrap()) } else {e}
+                        })
                         .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
                 });
                 format!("std::make_tuple({})", elem.join(", "))
