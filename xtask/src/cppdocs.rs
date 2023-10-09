@@ -88,6 +88,7 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
         freestanding: false,
         renderer_software: true,
         renderer_skia: true,
+        experimental: false,
     };
     cbindgen::gen_all(&root, &generated_headers_dir, enabled_features)?;
 

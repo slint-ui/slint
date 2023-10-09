@@ -336,9 +336,7 @@ mod software_renderer {
     use super::*;
     type SoftwareRendererOpaque = *const c_void;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
-    use i_slint_core::software_renderer::{
-        RepaintBufferType, Rgb565Pixel, SoftwareRenderer, WindowRotation,
-    };
+    use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
 
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_new(
@@ -387,11 +385,13 @@ mod software_renderer {
         i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
     }
 
+    #[cfg(feature = "experimental")]
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_set_window_rotation(
         r: SoftwareRendererOpaque,
         rotation: i32,
     ) {
+        use i_slint_core::software_renderer::WindowRotation;
         let renderer = &*(r as *const SoftwareRenderer);
         renderer.set_window_rotation(match rotation {
             90 => WindowRotation::Rotate90,

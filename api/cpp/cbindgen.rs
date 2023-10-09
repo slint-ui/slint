@@ -861,7 +861,7 @@ macro_rules! declare_features {
     };
 }
 
-declare_features! {interpreter backend_qt freestanding renderer_software renderer_skia}
+declare_features! {interpreter backend_qt freestanding renderer_software renderer_skia experimental}
 
 /// Generate the headers.
 /// `root_dir` is the root directory of the slint git repo

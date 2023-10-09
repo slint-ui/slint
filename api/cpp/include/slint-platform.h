@@ -606,6 +606,7 @@ public:
         return PhysicalRegion { r };
     }
 
+#    ifdef SLINT_FEATURE_EXPERIMENTAL
     /// This enum describes the rotation that is applied to the buffer when rendering.
     /// To be used in set_window_rotation()
     enum class WindowRotation {
@@ -627,6 +628,7 @@ public:
         cbindgen_private::slint_software_renderer_set_window_rotation(inner,
                                                                       static_cast<int>(rotation));
     }
+#    endif
 };
 #endif
 

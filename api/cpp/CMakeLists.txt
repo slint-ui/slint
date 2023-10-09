@@ -99,6 +99,7 @@ define_cargo_dependent_feature(backend-linuxkms "Enable support for the backend 
 
 define_cargo_dependent_feature(gettext "Enable support of translations using gettext" OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_feature(experimental "Enable experimental features. (No backward compatibility guarantees)" OFF)
 
 if (SLINT_BUILD_RUNTIME)
     if(SLINT_FEATURE_COMPILER AND NOT SLINT_COMPILER)
@@ -238,7 +239,7 @@ if (SLINT_BUILD_RUNTIME)
             APPEND
             PROPERTY CORROSION_ENVIRONMENT_VARIABLES
             "PKG_CONFIG_SYSROOT_DIR=$ENV{PKG_CONFIG_SYSROOT_DIR}"
-        )        
+        )
     endif()
 
     if(SLINT_FEATURE_RENDERER_SKIA OR SLINT_FEATURE_RENDERER_SKIA_OPENGL OR SLINT_FEATURE_RENDERER_SKIA_VULKAN)
