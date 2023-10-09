@@ -371,6 +371,55 @@ cpp! {{
         }
         return -1;
     }
+
+    QPainterPath to_painter_path(const QRectF &rect, qreal top_left_radius, qreal top_right_radius, qreal bottom_right_radius, qreal bottom_left_radius) {
+        QPainterPath path;
+        if (qFuzzyCompare(top_left_radius, top_right_radius) && qFuzzyCompare(top_left_radius, bottom_right_radius) && qFuzzyCompare(top_left_radius, bottom_left_radius)) {
+            path.addRoundedRect(rect, top_left_radius, top_left_radius);
+        } else {
+            QSizeF half = rect.size() / 2.0;
+
+            qreal tl_rx = qMin(top_left_radius, half.width());
+            qreal tl_ry = qMin(top_left_radius, half.height());
+            QRectF top_left(rect.left(), rect.top(), 2 * tl_rx, 2 * tl_ry);
+
+            qreal tr_rx = qMin(top_right_radius, half.width());
+            qreal tr_ry = qMin(top_right_radius, half.height());
+            QRectF top_right(rect.right() - 2 * tr_rx, rect.top(), 2 * tr_rx, 2 * tr_ry);
+
+            qreal br_rx = qMin(bottom_right_radius, half.width());
+            qreal br_ry = qMin(bottom_right_radius, half.height());
+            QRectF bottom_right(rect.right() - 2 * br_rx, rect.bottom() - 2 * br_ry, 2 * br_rx, 2 * br_ry);
+
+            qreal bl_rx = qMin(bottom_left_radius, half.width());
+            qreal bl_ry = qMin(bottom_left_radius, half.height());
+            QRectF bottom_left(rect.left(), rect.bottom() - 2 * bl_ry, 2 * bl_rx, 2 * bl_ry);
+
+            if (top_left.isNull()) {
+                path.moveTo(rect.topLeft());
+            } else {
+                path.arcMoveTo(top_left, 180);
+                path.arcTo(top_left, 180, -90);
+            }
+            if (top_right.isNull()) {
+                path.lineTo(rect.topRight());
+            } else {
+                path.arcTo(top_right, 90, -90);
+            }
+            if (bottom_right.isNull()) {
+                path.lineTo(rect.bottomRight());
+            } else {
+                path.arcTo(bottom_right, 0, -90);
+            }
+            if (bottom_left.isNull()) {
+                path.lineTo(rect.bottomLeft());
+            } else {
+                path.arcTo(bottom_left, -90, -90);
+            }
+            path.closeSubpath();
+        }
+        return path;
+    };
 }}
 
 cpp_class!(
@@ -1008,7 +1057,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn combine_clip(
         &mut self,
         rect: LogicalRect,
-        radius: LogicalLength,
+        radius: LogicalBorderRadius,
         border_width: LogicalLength,
     ) -> bool {
         let mut border_width: f32 = border_width.get();
@@ -1020,12 +1069,21 @@ impl ItemRenderer for QtItemRenderer<'_> {
         };
         adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
         let painter: &mut QPainterPtr = &mut self.painter;
-        cpp! { unsafe [painter as "QPainterPtr*", clip_rect as "QRectF", radius as "float"] -> bool as "bool" {
-            if (radius <= 0) {
+        let top_left_radius = radius.top_left;
+        let top_right_radius = radius.top_right;
+        let bottom_left_radius = radius.bottom_left;
+        let bottom_right_radius = radius.bottom_right;
+        cpp! { unsafe [
+                painter as "QPainterPtr*",
+                clip_rect as "QRectF",
+                top_left_radius as "float",
+                top_right_radius as "float",
+                bottom_right_radius as "float",
+                bottom_left_radius as "float"] -> bool as "bool" {
+            if (top_left_radius <= 0 && top_right_radius <= 0 && bottom_right_radius <= 0 && bottom_left_radius <= 0) {
                 (*painter)->setClipRect(clip_rect, Qt::IntersectClip);
             } else {
-                QPainterPath path;
-                path.addRoundedRect(clip_rect, radius, radius);
+                QPainterPath path = to_painter_path(clip_rect, top_left_radius, top_right_radius, bottom_right_radius, bottom_left_radius);
                 (*painter)->setClipPath(path, Qt::IntersectClip);
             }
             return !(*painter)->clipBoundingRect().isEmpty();
@@ -1308,7 +1366,7 @@ impl QtItemRenderer<'_> {
                 mut rect as "QRectF"] {
             (*painter)->setBrush(brush);
             QPen pen = border_width > 0 ? QPen(border_color, border_width, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin) : Qt::NoPen;
-            if (qFuzzyIsNull(top_left_radius) && qFuzzyIsNull(top_right_radius) && qFuzzyIsNull(bottom_left_radius) && qFuzzyIsNull(bottom_right_radius)) {
+            if (top_left_radius <= 0 && top_right_radius <= 0 && bottom_left_radius <= 0 && bottom_right_radius <= 0) {
                 if (!border_color.isOpaque() && border_width > 1) {
                     // In case of transparent pen, we want the background to cover the whole rectangle, which Qt doesn't do.
                     // So first draw the background, then draw the pen over it
@@ -1320,55 +1378,6 @@ impl QtItemRenderer<'_> {
                 (*painter)->setPen(pen);
                 (*painter)->drawRect(rect);
             } else {
-                auto to_painter_path = [](const QRectF &rect, qreal top_left_radius, qreal top_right_radius, qreal bottom_right_radius, qreal bottom_left_radius) {
-                    QPainterPath path;
-                    if (qFuzzyCompare(top_left_radius, top_right_radius) && qFuzzyCompare(top_left_radius, bottom_right_radius) && qFuzzyCompare(top_left_radius, bottom_left_radius)) {
-                        path.addRoundedRect(rect, top_left_radius, top_left_radius);
-                    } else {
-                        QSizeF half = rect.size() / 2.0;
-
-                        qreal tl_rx = qMin(top_left_radius, half.width());
-                        qreal tl_ry = qMin(top_left_radius, half.height());
-                        QRectF top_left(rect.left(), rect.top(), 2 * tl_rx, 2 * tl_ry);
-
-                        qreal tr_rx = qMin(top_right_radius, half.width());
-                        qreal tr_ry = qMin(top_right_radius, half.height());
-                        QRectF top_right(rect.right() - 2 * tr_rx, rect.top(), 2 * tr_rx, 2 * tr_ry);
-
-                        qreal br_rx = qMin(bottom_right_radius, half.width());
-                        qreal br_ry = qMin(bottom_right_radius, half.height());
-                        QRectF bottom_right(rect.right() - 2 * br_rx, rect.bottom() - 2 * br_ry, 2 * br_rx, 2 * br_ry);
-
-                        qreal bl_rx = qMin(bottom_left_radius, half.width());
-                        qreal bl_ry = qMin(bottom_left_radius, half.height());
-                        QRectF bottom_left(rect.left(), rect.bottom() - 2 * bl_ry, 2 * bl_rx, 2 * bl_ry);
-
-                        if (top_left.isNull()) {
-                            path.moveTo(rect.topLeft());
-                        } else {
-                            path.arcMoveTo(top_left, 180);
-                            path.arcTo(top_left, 180, -90);
-                        }
-                        if (top_right.isNull()) {
-                            path.lineTo(rect.topRight());
-                        } else {
-                            path.arcTo(top_right, 90, -90);
-                        }
-                        if (bottom_right.isNull()) {
-                            path.lineTo(rect.bottomRight());
-                        } else {
-                            path.arcTo(bottom_right, 0, -90);
-                        }
-                        if (bottom_left.isNull()) {
-                            path.lineTo(rect.bottomLeft());
-                        } else {
-                            path.arcTo(bottom_left, -90, -90);
-                        }
-                        path.closeSubpath();
-                    }
-                    return path;
-                };
-
                 if (!border_color.isOpaque() && border_width > 1) {
                     // See adjustment below
                     float tl_r = qFuzzyIsNull(top_left_radius) ? top_left_radius : qMax(border_width/2, top_left_radius);

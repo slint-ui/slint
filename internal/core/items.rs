@@ -750,6 +750,10 @@ declare_item_vtable! {
 /// The implementation of the `Clip` element
 pub struct Clip {
     pub border_radius: Property<LogicalLength>,
+    pub border_top_left_radius: Property<LogicalLength>,
+    pub border_top_right_radius: Property<LogicalLength>,
+    pub border_bottom_left_radius: Property<LogicalLength>,
+    pub border_bottom_right_radius: Property<LogicalLength>,
     pub border_width: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
     pub clip: Property<bool>,
@@ -820,6 +824,17 @@ impl Item for Clip {
         size: LogicalSize,
     ) -> RenderingResult {
         (*backend).visit_clip(self, self_rc, size)
+    }
+}
+
+impl Clip {
+    pub fn logical_border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
+        LogicalBorderRadius::from_lengths(
+            self.border_top_left_radius(),
+            self.border_top_right_radius(),
+            self.border_bottom_right_radius(),
+            self.border_bottom_left_radius(),
+        )
     }
 }
 

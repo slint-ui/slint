@@ -12,8 +12,8 @@ use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
-    LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize, LogicalVector, PhysicalPx,
-    RectLengths, ScaleFactor, SizeLengths,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
+    LogicalVector, PhysicalPx, RectLengths, ScaleFactor, SizeLengths,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{items, Brush, Color, Property};
@@ -711,7 +711,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
     fn combine_clip(
         &mut self,
         rect: LogicalRect,
-        radius: LogicalLength,
+        radius: LogicalBorderRadius,
         border_width: LogicalLength,
     ) -> bool {
         let mut rect = rect * self.scale_factor;
@@ -723,8 +723,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
         adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
 
         let radius = radius * self.scale_factor;
-        let rounded_rect =
-            skia_safe::RRect::new_rect_xy(to_skia_rect(&rect), radius.get(), radius.get());
+        let rounded_rect = to_skia_rrect(&rect, &radius);
         self.canvas.clip_rrect(rounded_rect, None, true);
         self.canvas.local_clip_bounds().is_some()
     }

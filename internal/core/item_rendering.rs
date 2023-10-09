@@ -12,7 +12,8 @@ use crate::item_tree::{
     ItemRc, ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult,
 };
 use crate::lengths::{
-    LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize, LogicalVector,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
+    LogicalVector,
 };
 use crate::properties::PropertyTracker;
 use crate::Coord;
@@ -345,7 +346,7 @@ pub trait ItemRenderer {
 
             let clip_region_valid = self.combine_clip(
                 LogicalRect::new(LogicalPoint::default(), geometry.size),
-                clip_item.border_radius(),
+                clip_item.logical_border_radius(),
                 clip_item.border_width(),
             );
 
@@ -366,7 +367,7 @@ pub trait ItemRenderer {
     fn combine_clip(
         &mut self,
         rect: LogicalRect,
-        radius: LogicalLength,
+        radius: LogicalBorderRadius,
         border_width: LogicalLength,
     ) -> bool;
     /// Get the current clip bounding box in the current transformed coordinate.
@@ -649,7 +650,7 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
     fn combine_clip(
         &mut self,
         rect: LogicalRect,
-        radius: LogicalLength,
+        radius: LogicalBorderRadius,
         border_width: LogicalLength,
     ) -> bool {
         self.actual_renderer.combine_clip(rect, radius, border_width)
