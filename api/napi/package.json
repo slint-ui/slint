@@ -23,6 +23,7 @@
     "compile": "esbuild index.ts --bundle --external:*.node --format=cjs --platform=node --outfile=index.js",
     "build": "napi build --platform --release --js napi.js --dts napi.d.ts && npm run compile",
     "build:debug": "napi build --platform --js napi.js --dts napi.d.ts && npm run compile",
+    "install": "npm run build",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava",
     "universal": "napi universal",
