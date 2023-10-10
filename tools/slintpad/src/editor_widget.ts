@@ -829,6 +829,10 @@ export class EditorWidget extends Widget {
         const code = params.get("snippet");
         const load_url = params.get("load_url");
         const load_demo = params.get("load_demo");
+        const style = params.get("style");
+        if (style) {
+            this.#editor.set_style(style);
+        }
 
         if (code) {
             this.#editor.clear_models();

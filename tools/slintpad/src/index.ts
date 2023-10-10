@@ -203,6 +203,7 @@ function create_share_menu(editor: EditorWidget): Menu {
         execute: () => {
             const params = new URLSearchParams();
             params.set("snippet", editor.current_editor_content);
+            params.set("style", editor.style());
             const this_url = new URL(window.location.toString());
             this_url.search = params.toString();
 
