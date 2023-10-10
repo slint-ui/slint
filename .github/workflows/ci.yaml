@@ -175,14 +175,11 @@ jobs:
     - uses: ./.github/actions/setup-rust
       with:
         key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
-    - name: Run npm install
-      working-directory: ./api/napi
-      run: npm install
+    - name: Run test-driver-napi
+      run: cargo test --verbose --all-features -p test-driver-napi -p slint-napi
     - name: Run napi tests
       working-directory: ./api/napi
       run: npm test
-    - name: Run test-driver-napi
-      run: cargo test --verbose --all-features -p test-driver-napi -p slint-napi
 
   cpp_test_driver:
     env:

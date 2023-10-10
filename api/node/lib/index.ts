@@ -303,7 +303,7 @@ function send_keyboard_string_sequence(component: Component, s: String) {
 
 module.exports = {
     private_api: {
-        native,
+        mock_elapsed_time: native.mock_elapsed_time,
         send_mouse_click: send_mouse_click,
         send_keyboard_string_sequence: send_keyboard_string_sequence,
     },
