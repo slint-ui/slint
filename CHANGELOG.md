@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
  - The `SLINT_DEBUG_PERFORMANCE` environment variable is now also compatible with the software renderer.
  - Fixed text rendering and cursor position of elided or aligned multi-line text.
  - Changed default style to be `fluent` on Windows, and `cupertino` on macOS.
+ - LinuxKMS backend: Add support for absolute motion pointer events, fixed support for touch input on
+   scaled screens, and improved encoder/CRTC handling for EGL rendering.
 
 ### Slint Language
 
