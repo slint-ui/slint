@@ -4,16 +4,6 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-fn os_dylib_prefix_and_suffix() -> (&'static str, &'static str) {
-    if cfg!(target_os = "windows") {
-        ("", "dll")
-    } else if cfg!(target_os = "macos") || cfg!(target_os = "ios") {
-        ("lib", "dylib")
-    } else {
-        ("lib", "so")
-    }
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // target/{debug|release}/build/package/out/ -> target/{debug|release}
     let mut target_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
