@@ -123,7 +123,6 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 let js_color: JsExternal = unknown.coerce_to_object()?.get("color")?.unwrap();
                 Ok(Value::Brush(Brush::from(env.get_value_external::<Color>(&js_color)?.clone())))
             }
-
         }
         Type::Brush => {
             if unknown.get_type()?.eq(&ValueType::String) {
