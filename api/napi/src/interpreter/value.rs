@@ -6,9 +6,7 @@ use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::model::{Model, ModelRc, SharedVectorModel};
 use i_slint_core::{Brush, Color, SharedVector};
-use napi::{
-    bindgen_prelude::*, Env, JsBoolean, JsNumber, JsObject, JsString, JsUnknown, Result,
-};
+use napi::{bindgen_prelude::*, Env, JsBoolean, JsNumber, JsObject, JsString, JsUnknown, Result};
 use napi_derive::napi;
 use slint_interpreter::Value;
 
