@@ -294,18 +294,20 @@ class ArrayModel<T> implements Model<T> {
 }
 
 function send_mouse_click(component: Component, x: number, y: number) {
-    component.component().send_mouse_click(x, y)
+    component.component.send_mouse_click(x, y)
 }
 
 function send_keyboard_string_sequence(component: Component, s: String) {
-    component.component().send_keyboard_string_sequence(s)
+    component.component.send_keyboard_string_sequence(s)
 }
 
 module.exports = {
-    private_api: native,
+    private_api: {
+        native,
+        send_mouse_click: send_mouse_click,
+        send_keyboard_string_sequence: send_keyboard_string_sequence,
+    },
     ArrayModel: ArrayModel,
-    send_mouse_click: send_mouse_click,
-    send_keyboard_string_sequence: send_keyboard_string_sequence,
     Timer: {
         singleShot: native.singleshot_timer,
     },
