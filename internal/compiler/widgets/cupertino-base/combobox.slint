@@ -13,7 +13,7 @@ export component ComboBox {
     in property <bool> enabled <=> i-focus-scope.enabled;
     out property <bool> has-focus <=> i-focus-scope.has-focus;
     in-out property <int> current-index: 0;
-    in-out property <string> current-value: root.model[root.current-index];
+    in-out property <string> current-value: root.get-current-value();
 
     min-width: max(160px, i-layout.min-width);
     min-height: max(22px, i-layout.min-height);
@@ -168,8 +168,11 @@ export component ComboBox {
 
     function select(index: int) {
         root.current-index = index;
-        root.current-value = root.model[root.current-index];
         root.selected(root.current-value);
+    }
+
+    function get-current-value() -> string {
+        root.current-index >= 0 && root.current-index <= root.model.length ? root.model[root.current-index] : ""
     }
 
     function move-selection-up() {

@@ -234,7 +234,7 @@ export component StandardListView inherits StandardListViewBase {
 export component ComboBox inherits NativeComboBox {
     in property <[string]> model;
     in-out property <int> current-index : 0;
-    current-value: root.model[root.current-index];
+    current-value: root.get-current-value();
     out property has-focus <=> fs.has-focus;
     enabled: true;
     callback selected(string);
@@ -253,18 +253,14 @@ export component ComboBox inherits NativeComboBox {
         width: root.width;
         VerticalLayout {
             spacing: 0px;
-            for value[i] in root.model: NativeStandardListViewItem {
+            for value[index] in root.model: NativeStandardListViewItem {
                 item: { text: value };
-                is-selected: root.current-index == i;
+                is-selected: root.current-index == index;
                 has-hover: ta.has-hover;
                 combobox: true;
                 ta := TouchArea {
                     clicked => {
-                        if (root.enabled) {
-                            root.current-index = i;
-                            root.current-value = value;
-                            root.selected(root.current-value);
-                        }
+                        root.select(index);
                         //is-open = false;
                     }
                 }
@@ -275,12 +271,10 @@ export component ComboBox inherits NativeComboBox {
     fs := FocusScope {
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
-                root.current-index = Math.max(root.current-index - 1, 0);
-                root.current-value = root.model[root.current-index];
+                root.move-selection-up();
                 return accept;
             } else if (event.text == Key.DownArrow) {
-                root.current-index = Math.min(root.current-index + 1, root.model.length - 1);
-                root.current-value = root.model[root.current-index];
+                root.move-selection-down();
                 return accept;
             // PopupWindow can not get hidden again at this time, so do not allow to pop that up.
             // } else if (event.text == Key.Return) {
@@ -297,6 +291,23 @@ export component ComboBox inherits NativeComboBox {
                 popup.show();
             }
         }
+    }
+
+    function select(index: int) {
+        root.current-index = index;
+        root.selected(root.current-value);
+    }
+
+    function move-selection-up() {
+        root.select(Math.max(root.current-index - 1, 0));
+    }
+
+    function move-selection-down() {
+        root.select(Math.min(root.current-index + 1, root.model.length - 1));
+    }
+
+    function get-current-value() -> string {
+        root.current-index >= 0 && root.current-index <= root.model.length ? root.model[root.current-index] : ""
     }
 }
 

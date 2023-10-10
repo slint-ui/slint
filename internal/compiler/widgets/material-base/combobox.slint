@@ -12,7 +12,8 @@ export component ComboBox {
     in property <[string]> model;
     out property <bool> has-focus <=> i-focus-scope.has-focus;
     in-out property <int> current-index : 0;
-    in-out property <string> current-value: root.model[root.current-index];
+    in-out property <string> current-value: root.current-index >= 0 && root.current-index <= root.model.length  ?
+        root.model[root.current-index] : "";
 
     horizontal-stretch: 1;
     vertical-stretch: 0;
@@ -25,13 +26,14 @@ export component ComboBox {
     i-focus-scope := FocusScope {
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
-                root.current-index = Math.max(root.current-index - 1, 0);
-                root.current-value = root.model[root.current-index];
+                root.move-selection-up();
                 return accept;
             } else if (event.text == Key.DownArrow) {
-                root.current-index = Math.min(root.current-index + 1, root.model.length - 1);
-                root.current-value = root.model[root.current-index];
+
+                root.move-selection-down();
                 return accept;
+            } else if (event.text == Key.Return) {
+                i-popup.show();
             }
             return reject;
         }
@@ -92,19 +94,32 @@ export component ComboBox {
         }
 
         VerticalLayout {
-            for value[idx] in root.model: ListItem {
+            for value[index] in root.model: ListItem {
                 text: value;
-                selected: idx == root.current-index;
+                selected: index == root.current-index;
 
                 clicked => {
-                    if (root.enabled) {
-                        root.current-index = idx;
-                        root.current-value = value;
-                        root.selected(root.current-value);
-                    }
+                    root.select(index);
                 }
             }
         }
+    }
+
+    function select(index: int) {
+        root.current-index = index;
+        root.selected(root.current-value);
+    }
+
+    function move-selection-up() {
+        root.select(Math.max(root.current-index - 1, 0));
+    }
+
+    function move-selection-down() {
+        root.select(Math.min(root.current-index + 1, root.model.length - 1));
+    }
+
+    function get-current-value() -> string {
+        root.current-index >= 0 && root.current-index <= root.model.length ? root.model[root.current-index] : ""
     }
 
     states [
