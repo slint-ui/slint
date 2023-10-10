@@ -142,6 +142,7 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult {
                 property_type: t,
                 resolved_name: name.into(),
                 is_local_to_component: false,
+                is_in_direct_base: false,
                 property_visibility: crate::object_tree::PropertyVisibility::InOut,
                 declared_pure: None,
             };
@@ -158,6 +159,7 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult {
                             property_type: Type::LogicalLength,
                             resolved_name: format!("{}-{}", pre, suf).into(),
                             is_local_to_component: false,
+                            is_in_direct_base: false,
                             property_visibility: crate::object_tree::PropertyVisibility::InOut,
                             declared_pure: None,
                         };
@@ -170,6 +172,7 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult {
         resolved_name: name.into(),
         property_type: Type::Invalid,
         is_local_to_component: false,
+        is_in_direct_base: false,
         property_visibility: crate::object_tree::PropertyVisibility::Private,
         declared_pure: None,
     }

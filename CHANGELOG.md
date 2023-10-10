@@ -20,6 +20,7 @@ All notable changes to this project are documented in this file.
  - Added `spacing-horizontal` and `spacing-vertical` in `GridLayout`
  - Fixed conversion in array of array of structs (#3574)
  - Added `scroll-event` callback to `TouchArea`
+ - Added support for `protected` functions.
 
 ### Rust API
 

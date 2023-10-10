@@ -36,6 +36,8 @@ export component Foo {
         c2();
     }
 
+    protected function f6() {}
+
     c1 => { f2() }
     c2 => {
         c1();
@@ -54,6 +56,8 @@ export component Foo {
 //         ^error{Call of impure function}
         fs.focus();
 //         ^error{Call of impure function}
+        f6();
+//      ^error{Call of impure function 'f6'}
         42
     };
 
