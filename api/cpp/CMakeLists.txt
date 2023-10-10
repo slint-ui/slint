@@ -245,13 +245,15 @@ if (SLINT_BUILD_RUNTIME)
     if(SLINT_FEATURE_RENDERER_SKIA OR SLINT_FEATURE_RENDERER_SKIA_OPENGL OR SLINT_FEATURE_RENDERER_SKIA_VULKAN)
         find_program(CLANGCC clang)
         find_program(CLANGCXX clang++)
-        if(CLANGCC AND CLANGCXX)
+        if(CLANGCC AND NOT DEFINED ENV{CLANGCC})
             set_property(
                 TARGET slint-cpp
                 APPEND
                 PROPERTY CORROSION_ENVIRONMENT_VARIABLES
                 CLANGCC=${CLANGCC}
             )
+        endif()
+        if(CLANGCXX AND NOT DEFINED ENV{CLANGCXX})
             set_property(
                 TARGET slint-cpp
                 APPEND
