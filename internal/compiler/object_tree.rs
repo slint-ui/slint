@@ -435,6 +435,7 @@ pub enum PropertyVisibility {
     InOut,
     /// For functions, not properties
     Public,
+    Protected,
 }
 
 impl Display for PropertyVisibility {
@@ -445,6 +446,7 @@ impl Display for PropertyVisibility {
             PropertyVisibility::Output => f.write_str("output"),
             PropertyVisibility::InOut => f.write_str("input output"),
             PropertyVisibility::Public => f.write_str("public"),
+            PropertyVisibility::Protected => f.write_str("protected"),
         }
     }
 }
@@ -1134,7 +1136,13 @@ impl Element {
                 match token.as_token().unwrap().text() {
                     "pure" => pure = Some(true),
                     "public" => {
+                        debug_assert_eq!(visibility, PropertyVisibility::Private);
                         visibility = PropertyVisibility::Public;
+                        pure = pure.or(Some(false));
+                    }
+                    "protected" => {
+                        debug_assert_eq!(visibility, PropertyVisibility::Private);
+                        visibility = PropertyVisibility::Protected;
                         pure = pure.or(Some(false));
                     }
                     _ => (),
@@ -1482,6 +1490,7 @@ impl Element {
         self.property_declarations.get(name).map_or_else(
             || {
                 let mut r = self.base_type.lookup_property(name);
+                r.is_in_direct_base = r.is_local_to_component;
                 r.is_local_to_component = false;
                 r
             },
@@ -1491,6 +1500,7 @@ impl Element {
                 property_visibility: p.visibility,
                 declared_pure: p.pure,
                 is_local_to_component: true,
+                is_in_direct_base: false,
             },
         )
     }

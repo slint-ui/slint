@@ -38,6 +38,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// animate * { }
 /// @children
 /// double_binding <=> element.property;
+/// public pure function foo() {}
 /// ```
 pub fn parse_element_content(p: &mut impl Parser) {
     let mut had_parse_error = false;
@@ -63,9 +64,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 }
                 SyntaxKind::Identifier
                     if p.peek().as_str() == "function"
-                        || (matches!(p.peek().as_str(), "public" | "pure")
+                        || (matches!(p.peek().as_str(), "public" | "pure" | "protected")
                             && p.nth(1).as_str() == "function")
-                        || (matches!(p.nth(1).as_str(), "public" | "pure")
+                        || (matches!(p.nth(1).as_str(), "public" | "pure" | "protected")
                             && p.nth(2).as_str() == "function") =>
                 {
                     parse_function(&mut *p);
@@ -575,17 +576,18 @@ fn parse_transition_inner(p: &mut impl Parser) -> bool {
 /// function bar(xx : int) { yy = xx; }
 /// function bar(xx : int,) -> int { return 42; }
 /// public function aa(x: int, b: {a: int}, c: int) {}
+/// protected pure function fff() {}
 /// ```
 fn parse_function(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Function);
-    if p.peek().as_str() == "public" {
+    if matches!(p.peek().as_str(), "public" | "protected") {
         p.consume();
         if p.peek().as_str() == "pure" {
             p.consume()
         }
     } else if p.peek().as_str() == "pure" {
         p.consume();
-        if p.peek().as_str() == "public" {
+        if matches!(p.peek().as_str(), "public" | "protected") {
             p.consume()
         }
     }

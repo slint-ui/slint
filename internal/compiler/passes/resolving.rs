@@ -1333,11 +1333,21 @@ fn continue_lookup_within_element(
             Some(NodeOrToken::Token(second)),
         )
     } else if matches!(lookup_result.property_type, Type::Function { .. }) {
-        if !lookup_result.is_local_to_component
-            && lookup_result.property_visibility == PropertyVisibility::Private
+        if lookup_result.property_visibility == PropertyVisibility::Private && !local_to_component {
+            let message = format!("The function '{}' is private. Annotate it with 'public' to make it accessible from other components", second.text());
+            if !lookup_result.is_local_to_component {
+                ctx.diag.push_error(message, &second);
+            } else {
+                ctx.diag.push_warning(message+". Note: this used to be allowed in previous version, but this should be considered an error", &second);
+            }
+        } else if lookup_result.property_visibility == PropertyVisibility::Protected
+            && !local_to_component
+            && !(lookup_result.is_in_direct_base
+                && ctx.component_scope.first().map_or(false, |x| Rc::ptr_eq(x, elem)))
         {
-            ctx.diag.push_error(format!("The function '{}' is private. Annotate it with 'public' to make it accessible from other components", second.text()), &second);
-        } else if let Some(x) = it.next() {
+            ctx.diag.push_error(format!("The function '{}' is protected", second.text()), &second);
+        }
+        if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of a function".into(), &x)
         }
         if let Some(f) =

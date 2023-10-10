@@ -1,13 +1,24 @@
-
-
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+global Glob {
+    function g1() {}
+    protected function g2() {}
+    public function g3() {}
 
+    function c() {
+        g1();g2();g3();
+    }
+}
 
 Comp := Rectangle {
     function f1() {}
     public function f2() {}
+    protected function f3() {}
+
+    function c() {
+        f1();f2();f3();
+    }
 }
 
 export Xxx := Rectangle {
@@ -31,8 +42,47 @@ export Xxx := Rectangle {
         comp.f1();
 //           ^error{The function 'f1' is private. Annotate it with 'public' to make it accessible from other components}
         comp.f2();
+
+        comp.f3();
+//           ^error{The function 'f3' is protected}
     }
 
     callback xx <=> foo;
 //  ^error{Binding to callback 'xx' must bind to another callback}
+}
+
+
+export component DerComp inherits Comp {
+    public function f4() {
+        root.f1();
+//           ^error{The function 'f1' is private. Annotate it with 'public' to make it accessible from other components}
+        root.f2();
+        root.f3();
+
+        self.f1();
+//           ^error{The function 'f1' is private. Annotate it with 'public' to make it accessible from other components}
+        self.f2();
+        self.f3();
+    }
+}
+
+export component DerDerComp inherits DerComp {
+    public function f5() {
+        root.f1();
+//           ^error{The function 'f1' is private. Annotate it with 'public' to make it accessible from other components}
+        root.f2();
+        root.f3();
+//           ^error{The function 'f3' is protected}
+        self.f1();
+//           ^error{The function 'f1' is private. Annotate it with 'public' to make it accessible from other components}
+        self.f2();
+        self.f3();
+//           ^error{The function 'f3' is protected}
+
+        Glob.g1();
+//           ^warning{The function 'g1' is private. Annotate it with 'public' to make it accessible from other components. Note: this used to be allowed in previous version, but this should be considered an error}
+        Glob.g2();
+//           ^error{The function 'g2' is protected}
+        Glob.g3();
+    }
 }
