@@ -19,7 +19,7 @@ name = "test-driver-napi"
 [dev-dependencies]
 test_driver_lib = { path = "../driverlib" }
 # Require `artifact`  dependencies tracked by rust RFC 3028
-#slint-node = { path = "../../../api/node", artifact = ["cdylib"] }
+#slint-napi = { path = "../../../api/napi", artifact = ["cdylib"] }
 lazy_static = "1.4.0"
 which = "4.0.2"
 tempfile = "3.2"
