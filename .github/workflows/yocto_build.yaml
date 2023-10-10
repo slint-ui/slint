@@ -27,5 +27,5 @@ jobs:
       run: |
           . ${{ runner.workspace }}/yocto-sdk/environment-setup-cortexa57-poky-linux
           mkdir ${{ runner.workspace }}/cppbuild
-          cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=OFF -DSLINT_FEATURE_BACKEND_QT=OFF
+          cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF
           cmake --build ${{ runner.workspace }}/cppbuild
