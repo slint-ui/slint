@@ -78,8 +78,8 @@ assert_eq(instance.get_r5(), "__abcdefghij__");
 
 ```js
 var instance = new slint.TestCase();
-instance.send_mouse_click(50., 50.);
-instance.send_keyboard_string_sequence("__abcdefghij__");
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+slintlib.private_api.send_keyboard_string_sequence(instance, "__abcdefghij__");
 assert.equal(instance.r1, "__afghij__");
 assert.equal(instance.r2, "__abfghij__");
 assert.equal(instance.r3, "__abcfghij__");

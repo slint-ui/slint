@@ -181,41 +181,41 @@ assert.equal(instance.popup_created, false);
 instance.popup_selector = 0;
 instance.popup_created = false;
 instance.click_count = 0;
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.click_count, 1);
 assert.equal(instance.popup_created, true);
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.click_count, 1);
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.click_count, 2);
 
 instance.popup_selector = 1;
 instance.popup_created = false;
 instance.click_count = 0;
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.click_count, 1);
 assert.equal(instance.popup_created, true);
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.click_count, 1);
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.click_count, 2);
 
 instance.popup_selector = 2;
 instance.popup_created = false;
 instance.click_count = 0;
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.click_count, 1);
 assert.equal(instance.popup_created, true);
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.click_count, 1);
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.click_count, 1);
 
 instance.do_close();
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.click_count, 2);
 instance.do_close();
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.click_count, 3);
 ```
 

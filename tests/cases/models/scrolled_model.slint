@@ -62,7 +62,7 @@ slint_testing::send_keyboard_string_sequence(&instance, "\t");
 var instance = new slint.TestCase({});
 
 // This should not crash:
-instance.send_keyboard_string_sequence("\t");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
 ```
 
 */

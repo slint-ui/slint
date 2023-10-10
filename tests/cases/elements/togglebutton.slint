@@ -51,11 +51,11 @@ var instance = new slint.TestCase();
 assert.equal(instance.checked, true);
 
 // click on button
-instance.send_mouse_click(50., 50.);
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
 assert.equal(instance.checked, false);
 
 // click on button
-instance.send_mouse_click(50., 50.);
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
 assert.equal(instance.checked, true);
 ```
 */

@@ -64,15 +64,15 @@ assert_eq!(instance.get_top_level(), 92);
 
 ```js
 var instance = new slint.TestCase();
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.top_level, 42);
 
 instance.cond1 = true;
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.top_level, 92);
 
 instance.cond1 = false;
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.top_level, 92);
 ```
 */

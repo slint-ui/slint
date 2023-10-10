@@ -84,7 +84,7 @@ assert_eq!(instance.get_materialized_rect_max_width(), i32::MAX);
 
 ```js
 var instance = new slint.TestCase();
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.materialized_max_height, 300);
 assert.equal(instance.materialized_min_width, 50);
 assert.equal(instance.materialized_min_height, 25);

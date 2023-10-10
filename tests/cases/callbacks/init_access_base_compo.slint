@@ -93,7 +93,7 @@ assert.equal(instance.test1, "KO");
 assert.equal(instance.test2, "KO");
 assert(instance.test);
 instance.cond = true;
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.test1, "OK");
 assert.equal(instance.test2, "OK");
 ```

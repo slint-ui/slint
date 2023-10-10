@@ -25,7 +25,7 @@ i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default"] }
 slint-interpreter = { workspace = true, features = ["default", "display-diagnostics"] }
 spin_on = "0.1"
-css-color-parser2 = "1.0.1"
+css-color-parser2 = { workspace = true }
 
 [build-dependencies]
 napi-build = "2.0.1"

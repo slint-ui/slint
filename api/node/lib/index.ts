@@ -45,12 +45,8 @@ class Component {
         return new WindowAPI(this.comp.window());
     }
 
-    send_mouse_click(x: number, y: number) {
-        this.comp.send_mouse_click(x, y)
-    }
-
-    send_keyboard_string_sequence(s: String) {
-        this.comp.send_keyboard_string_sequence(s)
+    get component(): any {
+        return this.comp;
     }
 }
 
@@ -297,9 +293,19 @@ class ArrayModel<T> implements Model<T> {
     }
 }
 
+function send_mouse_click(component: Component, x: number, y: number) {
+    component.component().send_mouse_click(x, y)
+}
+
+function send_keyboard_string_sequence(component: Component, s: String) {
+    component.component().send_keyboard_string_sequence(s)
+}
+
 module.exports = {
     private_api: native,
     ArrayModel: ArrayModel,
+    send_mouse_click: send_mouse_click,
+    send_keyboard_string_sequence: send_keyboard_string_sequence,
     Timer: {
         singleShot: native.singleshot_timer,
     },

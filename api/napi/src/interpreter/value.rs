@@ -7,7 +7,7 @@ use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::model::{Model, ModelRc, SharedVectorModel};
 use i_slint_core::{Brush, Color, SharedVector};
 use napi::{
-    bindgen_prelude::*, Env, JsBoolean, JsExternal, JsNumber, JsObject, JsString, JsUnknown, Result,
+    bindgen_prelude::*, Env, JsBoolean, JsNumber, JsObject, JsString, JsUnknown, Result,
 };
 use napi_derive::napi;
 use slint_interpreter::Value;
@@ -108,37 +108,51 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
             Ok(Value::Bool(js_bool.get_value()?))
         }
         Type::Color => {
-            if unknown.get_type()?.eq(&ValueType::String) {
-                let js_string: JsString = unknown.coerce_to_string()?;
-                let string = js_string.into_utf8()?.as_str()?.to_string();
+            let color_ref = env.create_reference(unknown.coerce_to_object()?)?;
+            if let Some(js_color) = env
+                .get_reference_value::<JsObject>(&color_ref)
+                .ok()
+                .and_then(|obj| obj.get("color").ok().flatten())
+                .and_then(|brush_prop| env.get_value_external::<Brush>(&brush_prop).ok())
+            {
+                return Ok(Value::Brush(js_color.clone()));
+            }
 
-                let c = string.parse::<css_color_parser2::Color>().map_err(|_| {
-                    napi::Error::from_reason(format!("Could not convert {string} to Color."))
-                })?;
-
-                Ok(Value::Brush(
-                    Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into(),
-                ))
+            if let Some(js_brush) = env
+                .get_reference_value::<JsObject>(&color_ref)
+                .ok()
+                .and_then(|js_object| js_object.coerce_to_string().ok())
+                .and_then(|string| string_to_brush(string).ok())
+            {
+                return Ok(js_brush);
             } else {
-                let js_color: JsExternal = unknown.coerce_to_object()?.get("color")?.unwrap();
-                Ok(Value::Brush(Brush::from(env.get_value_external::<Color>(&js_color)?.clone())))
+                return Err(napi::Error::from_reason(
+                            format!("Cannot convert object to brush, because the given object is neither a brush nor a string")
+                    ));
             }
         }
         Type::Brush => {
-            if unknown.get_type()?.eq(&ValueType::String) {
-                let js_string: JsString = unknown.coerce_to_string()?;
-                let string = js_string.into_utf8()?.as_str()?.to_string();
+            let brush_ref = env.create_reference(unknown.coerce_to_object()?)?;
+            if let Some(js_brush) = env
+                .get_reference_value::<JsObject>(&brush_ref)
+                .ok()
+                .and_then(|obj| obj.get("brush").ok().flatten())
+                .and_then(|brush_prop| env.get_value_external::<Brush>(&brush_prop).ok())
+            {
+                return Ok(Value::Brush(js_brush.clone()));
+            }
 
-                let c = string.parse::<css_color_parser2::Color>().map_err(|_| {
-                    napi::Error::from_reason(format!("Could not convert {string} to Brush."))
-                })?;
-
-                Ok(Value::Brush(
-                    Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into(),
-                ))
+            if let Some(js_brush) = env
+                .get_reference_value::<JsObject>(&brush_ref)
+                .ok()
+                .and_then(|js_object| js_object.coerce_to_string().ok())
+                .and_then(|string| string_to_brush(string).ok())
+            {
+                return Ok(js_brush);
             } else {
-                let js_brush: JsExternal = unknown.coerce_to_object()?.get("brush")?.unwrap();
-                Ok(Value::Brush(env.get_value_external::<Brush>(&js_brush)?.clone()))
+                return Err(napi::Error::from_reason(
+                            format!("Cannot convert object to brush, because the given object is neither a brush nor a string")
+                    ));
             }
         }
         Type::Image => {
@@ -248,4 +262,14 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
         | Type::LayoutCache
         | Type::ElementReference => Err(napi::Error::from_reason("reason")),
     }
+}
+
+fn string_to_brush(js_string: JsString) -> Result<Value> {
+    let string = js_string.into_utf8()?.as_str()?.to_string();
+
+    let c = string
+        .parse::<css_color_parser2::Color>()
+        .map_err(|_| napi::Error::from_reason(format!("Could not convert {string} to Brush.")))?;
+
+    Ok(Value::Brush(Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into()))
 }

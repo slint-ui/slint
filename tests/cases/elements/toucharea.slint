@@ -172,25 +172,25 @@ assert_eq!(instance.get_pointer_event_test().as_str(), "downleft(ctrl)clickuplef
 ```js
 var instance = new slint.TestCase();
 // does not click on anything
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.touch1, 0);
 assert.equal(instance.touch2, 0);
 assert.equal(instance.touch3, 0);
 
 // click on second one
-instance.send_mouse_click(101., 101.);
+slintlib.private_api.send_mouse_click(instance, 101., 101.);
 assert.equal(instance.touch1, 0);
 assert.equal(instance.touch2, 1);
 assert.equal(instance.touch3, 0);
 
 // click on first one only
-instance.send_mouse_click(108., 108.);
+slintlib.private_api.send_mouse_click(instance, 108., 108.);
 assert.equal(instance.touch1, 1);
 assert.equal(instance.touch2, 1);
 assert.equal(instance.touch3, 0);
 
 // click on the third
-instance.send_mouse_click(106., 103.);
+slintlib.private_api.send_mouse_click(instance, 106., 103.);
 assert.equal(instance.touch1, 1);
 assert.equal(instance.touch2, 1);
 assert.equal(instance.touch3, 1);

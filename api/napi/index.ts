@@ -152,8 +152,6 @@ export interface ComponentHandle {
     show();
     hide();
     get window(): napi.Window;
-    send_mouse_click(x: number, y: number);
-    send_keyboard_string_sequence(s: String);
 }
 
 class Component implements ComponentHandle {
@@ -182,12 +180,11 @@ class Component implements ComponentHandle {
         return this.instance.window();
     }
 
-    send_mouse_click(x: number, y: number) {
-        this.instance.sendMouseClick(x, y);
-    }
-
-    send_keyboard_string_sequence(s: string) {
-        this.instance.sendKeyboardStringSequence(s);
+    /**
+    * @hidden
+    */
+    get component_instance(): napi.ComponentInstance {
+        return this.instance;
     }
 }
 
@@ -278,4 +275,12 @@ export namespace private_api {
     export import ComponentDefinition = napi.ComponentDefinition;
     export import ComponentInstance = napi.ComponentInstance;
     export import ValueType = napi.ValueType;
+
+    export function send_mouse_click(component: Component, x: number, y: number) {
+        component.component_instance.sendMouseClick(x, y);
+    }
+
+    export function send_keyboard_string_sequence(component: Component, s: string) {
+        component.component_instance.sendKeyboardStringSequence(s);
+    }
 }

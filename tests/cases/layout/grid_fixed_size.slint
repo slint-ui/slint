@@ -80,7 +80,7 @@ assert!(instance.get_rect5_pos_ok());
 
 ```js
 var instance = new slint.TestCase();
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert(instance.rect1_pos_ok);
 assert(instance.rect2_pos_ok);
 assert(instance.rect3_pos_ok);

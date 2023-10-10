@@ -51,9 +51,9 @@ assert!(instance.get_activated());
 
 ```js
 var instance = new slint.TestCase();
-instance.send_mouse_click(95., 5.);
+slintlib.private_api.send_mouse_click(instance, 95., 5.);
 assert(!instance.activated);
-instance.send_mouse_click(95., 5.);
+slintlib.private_api.send_mouse_click(instance, 95., 5.);
 assert(instance.activated);
 ```
 */

@@ -39,7 +39,7 @@ assert!(instance.get_combo_has_focus());
 ```js
 var instance = new slint.TestCase();
 assert(!instance.combo_has_focus);
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert(instance.combo_has_focus);
 ```
 */

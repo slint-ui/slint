@@ -63,15 +63,15 @@ assert_eq!(instance.get_value(), 9);
 
 ```js
 var instance = new slint.TestCase();
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.value, -10);
 
 instance.cond1 = true;
-instance.send_mouse_click(25., 25.);
+slintlib.private_api.send_mouse_click(instance, 25., 25.);
 assert.equal(instance.value, 8);
 
 instance.cond1 = false;
-instance.send_mouse_click(45., 15.);
+slintlib.private_api.send_mouse_click(instance, 45., 15.);
 assert.equal(instance.value, 9);
 ```
 */

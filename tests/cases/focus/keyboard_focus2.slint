@@ -105,29 +105,29 @@ assert_eq(instance.get_result(), "2:1:2:");
 var instance = new slint.TestCase();
 
 // Forward:
-instance.send_keyboard_string_sequence("X");
+slintlib.private_api.send_keyboard_string_sequence(instance, "X");
 assert.equal(instance.result, "");
-instance.send_keyboard_string_sequence("\t");
-instance.send_keyboard_string_sequence("X");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+slintlib.private_api.send_keyboard_string_sequence(instance, "X");
 assert.equal(instance.result, "1:");
-instance.send_keyboard_string_sequence("\t");
-instance.send_keyboard_string_sequence("X");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+slintlib.private_api.send_keyboard_string_sequence(instance, "X");
 assert.equal(instance.result, "1:2:");
-instance.send_keyboard_string_sequence("\t");
-instance.send_keyboard_string_sequence("X");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+slintlib.private_api.send_keyboard_string_sequence(instance, "X");
 assert.equal(instance.result, "1:2:1:");
 
 // Backwards:
 instance.result = "";
 assert.equal(instance.result, "");
-instance.send_keyboard_string_sequence("\u0019");
-instance.send_keyboard_string_sequence("X");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u0019");
+slintlib.private_api.send_keyboard_string_sequence(instance, "X");
 assert.equal(instance.result, "2:");
-instance.send_keyboard_string_sequence("\u0019");
-instance.send_keyboard_string_sequence("X");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u0019");
+slintlib.private_api.send_keyboard_string_sequence(instance, "X");
 assert.equal(instance.result, "2:1:");
-instance.send_keyboard_string_sequence("\u0019");
-instance.send_keyboard_string_sequence("X");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u0019");
+slintlib.private_api.send_keyboard_string_sequence(instance, "X");
 assert.equal(instance.result, "2:1:2:");
 ```
 */

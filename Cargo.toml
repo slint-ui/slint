@@ -128,6 +128,7 @@ fontdb = { version = "0.14.1", default-features = false }
 send_wrapper = { version = "0.6.0" }
 cbindgen = { version = "0.26", default-features = false }
 toml_edit = "0.20"
+css-color-parser2 = { workspace = true }
 
 [profile.release]
 lto = true

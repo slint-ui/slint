@@ -164,6 +164,11 @@ impl JsBrush {
 
     #[napi]
     pub fn to_string(&self) -> String {
-        self.color().to_string()
+        if let Brush::SolidColor(_) = self.inner {
+            return self.color().to_string();
+        }
+
+        println!("toString() is not yet implemented for gradient brushes.");
+        String::default()
     }
 }
