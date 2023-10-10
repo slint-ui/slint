@@ -277,4 +277,5 @@ export namespace private_api {
     export import ComponentCompiler = napi.ComponentCompiler;
     export import ComponentDefinition = napi.ComponentDefinition;
     export import ComponentInstance = napi.ComponentInstance;
+    export import ValueType = napi.ValueType;
 }

@@ -5,10 +5,10 @@ import test from 'ava';
 const path = require('node:path');
 var Jimp = require("jimp");
 
-import { ComponentCompiler, Brush, Color, ImageData, ArrayModel } from '../index'
+import { private_api, Brush, Color, ImageData, ArrayModel } from '../index'
 
 test('get/set string properties', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`export component App { in-out property <string> name: "Initial"; }`, "");
   t.not(definition, null);
 
@@ -41,7 +41,7 @@ test('get/set string properties', (t) => {
 })
 
 test('get/set number properties', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
     export component App {
         in-out property <float> age: 42;
@@ -78,7 +78,7 @@ test('get/set number properties', (t) => {
 
 test('get/set bool properties', (t) => {
 
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`export component App { in-out property <bool> ready: true; }`, "");
   t.not(definition, null);
 
@@ -111,7 +111,7 @@ test('get/set bool properties', (t) => {
 })
 
 test('set struct properties', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export struct Player {
     name: string,
@@ -176,7 +176,7 @@ test('set struct properties', (t) => {
 })
 
 test('get/set image properties', async (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     in-out property <image> image: @image-url("resources/rgb.png");
@@ -231,7 +231,7 @@ test('get/set image properties', async (t) => {
 })
 
 test('get/set brush properties', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     in-out property <brush> black: #000000;
@@ -285,7 +285,7 @@ test('get/set brush properties', (t) => {
 })
 
 test('ArrayModel', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export struct Player {
     name: string,
@@ -319,7 +319,7 @@ test('ArrayModel', (t) => {
 })
 
 test('ArrayModel rowCount', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     out property <int> model-length: model.length;
@@ -338,7 +338,7 @@ test('ArrayModel rowCount', (t) => {
 })
 
 test('ArrayModel rowData/setRowData', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     callback data(int) -> int;
@@ -366,7 +366,7 @@ test('ArrayModel rowData/setRowData', (t) => {
 })
 
 test('Model notify', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     width: 300px;
@@ -405,7 +405,7 @@ test('Model notify', (t) => {
 })
 
 test('model from array', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     in-out property <[int]> int-array;
@@ -424,7 +424,7 @@ test('model from array', (t) => {
 })
 
 test('invoke callback', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export struct Person {
     name: string

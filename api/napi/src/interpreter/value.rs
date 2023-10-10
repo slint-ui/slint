@@ -58,7 +58,7 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
             let mut o = env.create_object()?;
             for (field_name, field_value) in struct_value.iter() {
                 o.set_property(
-                    env.create_string(&field_name.to_string().replace('-', "_"))?,
+                    env.create_string(&field_name.replace('-', "_"))?,
                     to_js_unknown(env, field_value)?,
                 )?;
             }

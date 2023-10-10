@@ -3,10 +3,10 @@
 
 import test from 'ava'
 
-import { ComponentCompiler, ComponentDefinition, ComponentInstance, ValueType } from '../index'
+import { private_api } from '../index'
 
 test('get/set include paths', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
 
   t.is(compiler.includePaths.length, 0);
 
@@ -16,7 +16,7 @@ test('get/set include paths', (t) => {
 })
 
 test('get/set style', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
 
   t.is(compiler.style, null);
 
@@ -25,22 +25,22 @@ test('get/set style', (t) => {
 })
 
 test('get/set build from source', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`export component App {}`, "");
   t.not(definition, null);
   t.is(definition!.name, "App");
 })
 
 test('constructor error ComponentDefinition and ComponentInstance', (t) => {
-  const componentDefinitionError = t.throws(() => { new ComponentDefinition });
+  const componentDefinitionError = t.throws(() => { new private_api.ComponentDefinition });
   t.is(componentDefinitionError?.message, "ComponentDefinition can only be created by using ComponentCompiler.");
 
-  const componentInstanceError = t.throws(() => { new ComponentInstance });
+  const componentInstanceError = t.throws(() => { new private_api.ComponentInstance });
   t.is(componentInstanceError?.message, "ComponentInstance can only be created by using ComponentCompiler.");
 })
 
 test('properties ComponentDefinition', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`export struct Struct {}
   export component App {
     in-out property <bool> bool-property;
@@ -74,27 +74,27 @@ test('properties ComponentDefinition', (t) => {
   })
 
   t.is(properties[0].name, "bool-property");
-  t.is(properties[0].valueType, ValueType.Bool);
+  t.is(properties[0].valueType, private_api.ValueType.Bool);
   t.is(properties[1].name, "brush-property");
-  t.is(properties[1].valueType, ValueType.Brush);
+  t.is(properties[1].valueType, private_api.ValueType.Brush);
   t.is(properties[2].name, "color-property");
-  t.is(properties[2].valueType, ValueType.Brush);
+  t.is(properties[2].valueType, private_api.ValueType.Brush);
   t.is(properties[3].name, "float-property");
-  t.is(properties[3].valueType, ValueType.Number);
+  t.is(properties[3].valueType, private_api.ValueType.Number);
   t.is(properties[4].name, "image-property");
-  t.is(properties[4].valueType, ValueType.Image);
+  t.is(properties[4].valueType, private_api.ValueType.Image);
   t.is(properties[5].name, "int-property");
-  t.is(properties[5].valueType, ValueType.Number);
+  t.is(properties[5].valueType, private_api.ValueType.Number);
   t.is(properties[6].name, "model-property");
-  t.is(properties[6].valueType, ValueType.Model);
+  t.is(properties[6].valueType, private_api.ValueType.Model);
   t.is(properties[7].name, "string-property");
-  t.is(properties[7].valueType, ValueType.String);
+  t.is(properties[7].valueType, private_api.ValueType.String);
   t.is(properties[8].name, "struct-property");
-  t.is(properties[8].valueType, ValueType.Struct);
+  t.is(properties[8].valueType, private_api.ValueType.Struct);
 })
 
 test('callbacks ComponentDefinition', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     callback first-callback();
@@ -112,7 +112,7 @@ test('callbacks ComponentDefinition', (t) => {
 })
 
 test('globalProperties ComponentDefinition', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`export struct Struct {}
 
   export global TestGlobal {
@@ -155,27 +155,27 @@ test('globalProperties ComponentDefinition', (t) => {
   })
 
   t.is(properties![0].name, "bool-property");
-  t.is(properties![0].valueType, ValueType.Bool);
+  t.is(properties![0].valueType, private_api.ValueType.Bool);
   t.is(properties![1].name, "brush-property");
-  t.is(properties![1].valueType, ValueType.Brush);
+  t.is(properties![1].valueType, private_api.ValueType.Brush);
   t.is(properties![2].name, "color-property");
-  t.is(properties![2].valueType, ValueType.Brush);
+  t.is(properties![2].valueType, private_api.ValueType.Brush);
   t.is(properties![3].name, "float-property");
-  t.is(properties![3].valueType, ValueType.Number);
+  t.is(properties![3].valueType, private_api.ValueType.Number);
   t.is(properties![4].name, "image-property");
-  t.is(properties![4].valueType, ValueType.Image);
+  t.is(properties![4].valueType, private_api.ValueType.Image);
   t.is(properties![5].name, "int-property");
-  t.is(properties![5].valueType, ValueType.Number);
+  t.is(properties![5].valueType, private_api.ValueType.Number);
   t.is(properties![6].name, "model-property");
-  t.is(properties![6].valueType, ValueType.Model);
+  t.is(properties![6].valueType, private_api.ValueType.Model);
   t.is(properties![7].name, "string-property");
-  t.is(properties![7].valueType, ValueType.String);
+  t.is(properties![7].valueType, private_api.ValueType.String);
   t.is(properties![8].name, "struct-property");
-  t.is(properties![8].valueType, ValueType.Struct);
+  t.is(properties![8].valueType, private_api.ValueType.Struct);
 })
 
 test('globalCallbacks ComponentDefinition', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export global TestGlobal {
     callback first-callback();
@@ -198,7 +198,7 @@ test('globalCallbacks ComponentDefinition', (t) => {
 })
 
 test('compiler diagnostics', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   t.is(compiler.buildFromSource(`export component App {
     garbage
   }`, "testsource.slint"), null);
@@ -215,7 +215,7 @@ test('compiler diagnostics', (t) => {
 })
 
 test('non-existent properties and callbacks', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
 
   export component App {
