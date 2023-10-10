@@ -1,4 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial -->
+
 # Editor Configuration for Slint
 
 This folder contains extensions or configuration files for different editor to better support .slint files.
@@ -147,6 +148,7 @@ for syntax highlighting and indentation support.
 To install the Slint Language server, check the [LSP README.md](../tools/lsp/README.md).
 
 To setup the LSP:
+
 1. Make sure the slint language server is installed
 2. Using Package Control in Sublime Text, install the LSP package (sublimelsp/LSP)
 3. Download the Slint syntax highlighting files into your User Package folder,
@@ -157,7 +159,7 @@ To setup the LSP:
    https://raw.githubusercontent.com/slint-ui/slint/master/editors/sublime/LSP.sublime-settings
 5. Modify the slint-lsp command path in `LSP.sublime-settings` to point to the cargo installation path in your home folder (**Replace YOUR_USER by your username**):
    `"command": ["/home/YOUR_USER/.cargo/bin/slint-lsp"]`
-6. Run "LSP: Enable Language Server Globally" or "LSP: Enable Lanuage Server in Project" from Sublime's Command Palette to allow the server to start.
+6. Run "LSP: Enable Language Server Globally" or "LSP: Enable Language Server in Project" from Sublime's Command Palette to allow the server to start.
 7. Open a .slint file - if the server starts its name will be in the left side of the status bar.
 
 In order to **preview a component**, when you have a .slint file open, place your cursor to
@@ -165,16 +167,8 @@ the name of the component you would like to preview and select the "Show preview
 will appear on the right of the editor pane.
 
 ## JetBrains IDE
-Tested with: CLion 2022.1 (on linux)
 
-Tested and doesn't work with CLion 2023.1+ (on Linux). Plugin is no longer maintained.
+https://github.com/kizeevov/slint-idea-plugin has a plugin for the Intellij
+platform.
 
-*Note: This may/should work for other JetBrains-products also. If you test it please add your results to the above list.*
-
-### LSP Support
-1. Install the "LSP Support"-plugin (https://plugins.jetbrains.com/plugin/10209-lsp-support). The docs can be found at https://github.com/gtache/intellij-lsp
-2. Install slint-lsp `cargo install slint-lsp`
-4. Go to File -> Settings -> Languages & Frameworks -> Language Server Protocol -> Server Definitions
-5. Choose "Executable". In "Extension" put "slint" and set "Path" to "/home/\<username\>/.cargo/bin/slint-lsp"
-6. Press the "+"-button
-7. Restart IDE
+_Note: This plugin is developed by @kizeevov._
