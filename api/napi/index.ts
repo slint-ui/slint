@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { ComponentCompiler, ComponentInstance, Window, DiagnosticLevel, Diagnostic, mockElapsedTime } from "./napi";
-export * from "./napi";
+import * as napi from "./napi";
+export { Diagnostic, Window, Brush, Color, ImageData, Point, Size, SlintModelNotify } from "./napi";
 
 /**
  * ModelPeer is the interface that the run-time implements. An instance is
@@ -151,18 +151,18 @@ export interface ComponentHandle {
     run();
     show();
     hide();
-    get window(): Window;
+    get window(): napi.Window;
     send_mouse_click(x: number, y: number);
     send_keyboard_string_sequence(s: String);
 }
 
 class Component implements ComponentHandle {
-    private instance: ComponentInstance;
+    private instance: napi.ComponentInstance;
 
     /**
     * @hidden
     */
-    constructor(instance: ComponentInstance) {
+    constructor(instance: napi.ComponentInstance) {
         this.instance = instance;
     }
 
@@ -178,7 +178,7 @@ class Component implements ComponentHandle {
         this.instance.window().hide();
     }
 
-    get window(): Window {
+    get window(): napi.Window {
         return this.instance.window();
     }
 
@@ -200,25 +200,25 @@ interface Callback {
 }
 
 export class CompilerError extends Error {
-    public diagnostics: Diagnostic[];
+    public diagnostics: napi.Diagnostic[];
 
-    constructor(message: string, diagnostics: Diagnostic[]) {
+    constructor(message: string, diagnostics: napi.Diagnostic[]) {
         super(message);
         this.diagnostics = diagnostics;
     }
 }
 
 export function loadFile(path: string) : Object {
-    let compiler = new ComponentCompiler;
+    let compiler = new napi.ComponentCompiler;
     let definition = compiler.buildFromPath(path);
 
     let diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
-        let warnings = diagnostics.filter((d) => d.level == DiagnosticLevel.Warning);
+        let warnings = diagnostics.filter((d) => d.level == napi.DiagnosticLevel.Warning);
         warnings.forEach((w) => console.log("Warning: " + w));
 
-        let errors = diagnostics.filter((d) => d.level == DiagnosticLevel.Error);
+        let errors = diagnostics.filter((d) => d.level == napi.DiagnosticLevel.Error);
 
         if (errors.length > 0) {
             throw new CompilerError("Could not compile " + path, errors);
@@ -273,7 +273,8 @@ export function loadFile(path: string) : Object {
 }
 
 export namespace private_api {
-    export function mock_elapsed_time(ms: number) {
-        mockElapsedTime(ms)
-    }
+    export import mock_elapsed_time = napi.mockElapsedTime;
+    export import ComponentCompiler = napi.ComponentCompiler;
+    export import ComponentDefinition = napi.ComponentDefinition;
+    export import ComponentInstance = napi.ComponentInstance;
 }
