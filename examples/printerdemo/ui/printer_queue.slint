@@ -29,7 +29,7 @@ export global PrinterQueue  {
         { status: JobStatus.Waiting, title: "Salaries.pdf", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
     ];
 
-    function statusString(status: JobStatus) -> string {
+    public pure function statusString(status: JobStatus) -> string {
         if (status == JobStatus.Printing) {
             @tr("PRINTING")
         } else if (status == JobStatus.Waiting) {
