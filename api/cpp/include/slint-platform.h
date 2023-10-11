@@ -459,7 +459,7 @@ inline void set_platform(std::unique_ptr<Platform> platform)
 
                 bool status = maybe_clipboard.has_value();
                 if (status)
-                    *out_text = maybe_clipboard.value();
+                    *out_text = *maybe_clipboard;
                 return status;
             },
             [](void *p) { return reinterpret_cast<Platform *>(p)->run_event_loop(); },
