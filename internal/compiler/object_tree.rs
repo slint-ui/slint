@@ -23,6 +23,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
+use std::path::PathBuf;
 use std::rc::{Rc, Weak};
 
 macro_rules! unwrap_or_continue {
@@ -180,14 +181,21 @@ impl Document {
                     || import.file.ends_with(".ttf")
                     || import.file.ends_with(".otf")
                 {
+                    let token_path = import.import_uri_token.source_file.path();
+                    let import_file_path = PathBuf::from(import.file.clone());
+                    let import_file_path = crate::pathutils::join(token_path, &import_file_path)
+                        .unwrap_or(import_file_path);
+
                     // Assume remote urls are valid, we need to load them at run-time (which we currently don't). For
                     // local paths we should try to verify the existence and let the developer know ASAP.
-                    if import.file.starts_with("http://")
-                        || import.file.starts_with("https://")
-                        || crate::fileaccess::load_file(std::path::Path::new(&import.file))
+                    if crate::pathutils::is_url(&import_file_path)
+                        || crate::fileaccess::load_file(std::path::Path::new(&import_file_path))
                             .is_some()
                     {
-                        Some((import.file, import.import_uri_token))
+                        Some((
+                            import_file_path.to_string_lossy().to_string(),
+                            import.import_uri_token,
+                        ))
                     } else {
                         diag.push_error(
                             format!("File \"{}\" not found", import.file),

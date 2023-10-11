@@ -8,6 +8,16 @@
 
 use std::path::{Path, PathBuf};
 
+/// Check whether a `Path` is actually an URL.
+pub fn is_url(path: &Path) -> bool {
+    let Some(path) = path.to_str() else {
+        // URLs can always convert to string in Rust
+        return false;
+    };
+
+    to_url(path).is_some()
+}
+
 /// Convert a `Path` to an `url::Url` if possible
 fn to_url(path: &str) -> Option<url::Url> {
     let Ok(url) = url::Url::parse(path) else {
