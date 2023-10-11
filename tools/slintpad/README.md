@@ -1,4 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial -->
+
 # SlintPad
 
 This directory contains the frontend code for SlintPad, the online code editor
@@ -10,7 +11,6 @@ To try it out locally type this in this directory:
 ```sh
 ## only need to run this once
 npm install
-npm run build:wasm_preview   # Build the wasm interpreter used by the preview
 npm run build:wasm_lsp       # Build the wasm LSP used by the text editor
 
 ## Run this to refresh slintpad (dev mode!)
@@ -18,7 +18,6 @@ npm run start                # Run in development mode
 
 ## Run this to refresh slintpad (build mode!)
 npm run build                # Build the web UI code
-cp -r ../../api/wasm-interpreter/pkg dist/wasm-interpreter # To make the LSP available
 npx vite preview             # Start a server serving the slintpad UI
 ```
 
@@ -44,3 +43,10 @@ The `preview.html` page contains only the preview and the code must be given via
 
     -   https://slint.dev/editor/?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D
     -   https://slint.dev/editor/preview.html?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D
+
+-   `?style=` query argument, followed by the name of the style to use.
+
+    Example: The "Hello Slint" using different styles
+
+    -   https://slint.dev/editor/?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D?style=fluent-dark
+    -   https://slint.dev/editor/preview.html?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D?style=material
