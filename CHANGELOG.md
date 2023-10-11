@@ -23,6 +23,7 @@ All notable changes to this project are documented in this file.
  - Added support for `protected` functions.
  - `ComboBox` selection can now be changed by scroll event
  - `SpinBox` value can now be incremented and decremented by scroll event
+ - Added `got_focus` and `lost_focus` callbacks to `FocusScope`
 
 ### Rust API
 

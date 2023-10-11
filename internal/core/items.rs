@@ -605,6 +605,8 @@ pub struct FocusScope {
     pub has_focus: Property<bool>,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
     pub key_released: Callback<KeyEventArg, EventResult>,
+    pub got_focus: Callback<VoidArg>,
+    pub lost_focus: Callback<VoidArg>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -679,9 +681,11 @@ impl Item for FocusScope {
         match event {
             FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
                 self.has_focus.set(true);
+                Self::FIELD_OFFSETS.got_focus.apply_pin(self).call(&());
             }
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
                 self.has_focus.set(false);
+                Self::FIELD_OFFSETS.lost_focus.apply_pin(self).call(&());
             }
         }
         FocusEventResult::FocusAccepted
