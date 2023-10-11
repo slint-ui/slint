@@ -135,7 +135,7 @@ assert_eq(instance.get_clicked_score(), 439 + 3);
 
 ```js
 var instance = new slint.TestCase({});
-instance.send_mouse_click(15., 5.);
+slintlib.private_api.send_mouse_click(instance, 15., 5.);
 assert.equal(instance.clicked_score, 792);
 
 assert.equal(instance.model[1].score, 792.);
@@ -149,12 +149,12 @@ let another_model = new slintlib.ArrayModel([
 ]);
 instance.model = another_model;
 
-instance.send_mouse_click(25., 5.);
+slintlib.private_api.send_mouse_click(instance, 25., 5.);
 assert.equal(instance.clicked_score, 336);
 assert.equal(another_model.rowData(2).score, 336.);
 
 instance.manual_score_update(2, 100);
-instance.send_mouse_click(25., 5.);
+slintlib.private_api.send_mouse_click(instance, 25., 5.);
 assert.equal(instance.clicked_score, 439);
 assert.equal(another_model.rowData(2).score, 439.);
 assert.equal(another_model.rowData(2).name, "world");

@@ -5,10 +5,10 @@ import test from 'ava';
 const path = require('node:path');
 var Jimp = require("jimp");
 
-import { ComponentCompiler, Brush, Color, ImageData, ArrayModel } from '../index'
+import { private_api, Brush, Color, ImageData, ArrayModel } from '../index'
 
 test('get/set string properties', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`export component App { in-out property <string> name: "Initial"; }`, "");
   t.not(definition, null);
 
@@ -40,11 +40,12 @@ test('get/set string properties', (t) => {
 
 })
 
-
 test('get/set number properties', (t) => {
-
-  let compiler = new ComponentCompiler;
-  let definition = compiler.buildFromSource(`export component App { in-out property <float> age: 42; }`, "");
+  let compiler = new private_api.ComponentCompiler;
+  let definition = compiler.buildFromSource(`
+    export component App {
+        in-out property <float> age: 42;
+    }`, "");
   t.not(definition, null);
 
   let instance = definition!.create();
@@ -77,7 +78,7 @@ test('get/set number properties', (t) => {
 
 test('get/set bool properties', (t) => {
 
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`export component App { in-out property <bool> ready: true; }`, "");
   t.not(definition, null);
 
@@ -110,16 +111,18 @@ test('get/set bool properties', (t) => {
 })
 
 test('set struct properties', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export struct Player {
     name: string,
-    age: int
+    age: int,
+    energy_level: float
   }
   export component App {
     in-out property <Player> player: {
       name: "Florian",
       age: 20,
+      energy_level: 40%
     };
   }
   `, "");
@@ -131,16 +134,19 @@ test('set struct properties', (t) => {
   t.deepEqual(instance!.getProperty("player"), {
     "name": "Florian",
     "age": 20,
+    "energy_level": 0.4
   });
 
   instance!.setProperty("player", {
     "name": "Simon",
     "age": 22,
+    "energy_level": 0.8
   });
 
   t.deepEqual(instance!.getProperty("player"), {
     "name": "Simon",
     "age": 22,
+    "energy_level": 0.8
   });
 
   // Missing properties throw an exception (TODO: the message is not very helpful, should say which one)
@@ -159,16 +165,18 @@ test('set struct properties', (t) => {
   instance!.setProperty("player", {
     "name": "Excessive Player",
     "age": 100,
+    "energy_level": 0.8,
     "weight": 200,
   });
   t.deepEqual(instance!.getProperty("player"), {
     "name": "Excessive Player",
     "age": 100,
+    "energy_level": 0.8
   });
 })
 
 test('get/set image properties', async (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     in-out property <image> image: @image-url("resources/rgb.png");
@@ -223,7 +231,7 @@ test('get/set image properties', async (t) => {
 })
 
 test('get/set brush properties', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     in-out property <brush> black: #000000;
@@ -238,11 +246,23 @@ test('get/set brush properties', (t) => {
 
   let black = instance!.getProperty("black");
 
+  t.is((black as Brush).toString(), "#000000ff");
+
   if (t.true((black instanceof Brush))) {
     let blackColor = (black as Brush).color;
     t.deepEqual(blackColor.red, 0);
     t.deepEqual(blackColor.green, 0);
     t.deepEqual(blackColor.blue, 0);
+  }
+
+  instance?.setProperty("black", "#ffffff");
+  let white = instance!.getProperty("black");
+
+  if (t.true((white instanceof Brush))) {
+    let whiteColor = (white as Brush).color;
+    t.deepEqual(whiteColor.red, 255);
+    t.deepEqual(whiteColor.green, 255);
+    t.deepEqual(whiteColor.blue, 255);
   }
 
   let transparent = instance!.getProperty("trans");
@@ -265,7 +285,7 @@ test('get/set brush properties', (t) => {
 })
 
 test('ArrayModel', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export struct Player {
     name: string,
@@ -299,7 +319,7 @@ test('ArrayModel', (t) => {
 })
 
 test('ArrayModel rowCount', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     out property <int> model-length: model.length;
@@ -318,7 +338,7 @@ test('ArrayModel rowCount', (t) => {
 })
 
 test('ArrayModel rowData/setRowData', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     callback data(int) -> int;
@@ -346,7 +366,7 @@ test('ArrayModel rowData/setRowData', (t) => {
 })
 
 test('Model notify', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     width: 300px;
@@ -385,7 +405,7 @@ test('Model notify', (t) => {
 })
 
 test('model from array', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
     in-out property <[int]> int-array;
@@ -404,7 +424,7 @@ test('model from array', (t) => {
 })
 
 test('invoke callback', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export struct Person {
     name: string

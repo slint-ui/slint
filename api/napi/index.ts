@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { ComponentCompiler, ComponentInstance, Window, DiagnosticLevel, Diagnostic } from "./napi";
-export * from "./napi";
+import * as napi from "./rust-module";
+export { Diagnostic, Window, Brush, Color, ImageData, Point, Size, SlintModelNotify } from "./rust-module";
 
 /**
  * ModelPeer is the interface that the run-time implements. An instance is
@@ -151,16 +151,16 @@ export interface ComponentHandle {
     run();
     show();
     hide();
-    get window(): Window;
+    get window(): napi.Window;
 }
 
 class Component implements ComponentHandle {
-    private instance: ComponentInstance;
+    private instance: napi.ComponentInstance;
 
     /**
     * @hidden
     */
-    constructor(instance: ComponentInstance) {
+    constructor(instance: napi.ComponentInstance) {
         this.instance = instance;
     }
 
@@ -176,8 +176,15 @@ class Component implements ComponentHandle {
         this.instance.window().hide();
     }
 
-    get window(): Window {
+    get window(): napi.Window {
         return this.instance.window();
+    }
+
+    /**
+    * @hidden
+    */
+    get component_instance(): napi.ComponentInstance {
+        return this.instance;
     }
 }
 
@@ -190,25 +197,25 @@ interface Callback {
 }
 
 export class CompilerError extends Error {
-    public diagnostics: Diagnostic[];
+    public diagnostics: napi.Diagnostic[];
 
-    constructor(message: string, diagnostics: Diagnostic[]) {
+    constructor(message: string, diagnostics: napi.Diagnostic[]) {
         super(message);
         this.diagnostics = diagnostics;
     }
 }
 
 export function loadFile(path: string) : Object {
-    let compiler = new ComponentCompiler;
+    let compiler = new napi.ComponentCompiler;
     let definition = compiler.buildFromPath(path);
 
     let diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
-        let warnings = diagnostics.filter((d) => d.level == DiagnosticLevel.Warning);
+        let warnings = diagnostics.filter((d) => d.level == napi.DiagnosticLevel.Warning);
         warnings.forEach((w) => console.log("Warning: " + w));
 
-        let errors = diagnostics.filter((d) => d.level == DiagnosticLevel.Error);
+        let errors = diagnostics.filter((d) => d.level == napi.DiagnosticLevel.Error);
 
         if (errors.length > 0) {
             throw new CompilerError("Could not compile " + path, errors);
@@ -217,12 +224,22 @@ export function loadFile(path: string) : Object {
 
     let slint_module = Object.create({});
 
-    Object.defineProperty(slint_module, definition!.name, {
-        value: function() {
+    Object.defineProperty(slint_module, definition!.name.replace(/-/g, '_'), {
+        value: function(properties: any) {
             let instance = definition!.create();
 
             if (instance == null) {
                 throw Error("Could not create a component handle for" + path);
+            }
+
+            for(var key in properties) {
+                let value = properties[key];
+
+                if (value instanceof Function) {
+                    instance.setCallback(key, value);
+                } else {
+                    instance.setProperty(key, properties[key]);
+                }
             }
 
             let componentHandle = new Component(instance!);
@@ -252,3 +269,18 @@ export function loadFile(path: string) : Object {
     return slint_module;
 }
 
+export namespace private_api {
+    export import mock_elapsed_time = napi.mockElapsedTime;
+    export import ComponentCompiler = napi.ComponentCompiler;
+    export import ComponentDefinition = napi.ComponentDefinition;
+    export import ComponentInstance = napi.ComponentInstance;
+    export import ValueType = napi.ValueType;
+
+    export function send_mouse_click(component: Component, x: number, y: number) {
+        component.component_instance.sendMouseClick(x, y);
+    }
+
+    export function send_keyboard_string_sequence(component: Component, s: string) {
+        component.component_instance.sendKeyboardStringSequence(s);
+    }
+}

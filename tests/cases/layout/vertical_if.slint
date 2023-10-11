@@ -124,28 +124,28 @@ assert_eq!(instance.get_value(), 2);
 ```js
 var instance = new slint.TestCase();
 
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.value, 0);
 
-instance.send_mouse_click(5., 52.);
+slintlib.private_api.send_mouse_click(instance, 5., 52.);
 assert.equal(instance.value, 2);
 
-instance.send_mouse_click(5., 30.);
+slintlib.private_api.send_mouse_click(instance, 5., 30.);
 assert.equal(instance.value, 1);
 
-instance.send_mouse_click(5., 80);
+slintlib.private_api.send_mouse_click(instance, 5., 80);
 assert.equal(instance.value, 4);
 
 instance.cond = false;
-instance.send_mouse_click(5., 35.);
+slintlib.private_api.send_mouse_click(instance, 5., 35.);
 assert.equal(instance.value, 1);
-instance.send_mouse_click(5., 30.);
+slintlib.private_api.send_mouse_click(instance, 5., 30.);
 assert.equal(instance.value, 0);
-instance.send_mouse_click(5., 67.);
+slintlib.private_api.send_mouse_click(instance, 5., 67.);
 assert.equal(instance.value, 4);
 
 instance.cond = true;
-instance.send_mouse_click(5., 70.);
+slintlib.private_api.send_mouse_click(instance, 5., 70.);
 assert.equal(instance.value, 2);
 ```
 */

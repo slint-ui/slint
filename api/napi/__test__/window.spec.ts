@@ -3,7 +3,7 @@
 
 import test from 'ava'
 
-import { ComponentCompiler, Window } from '../index'
+import { private_api, Window } from '../index'
 
 test('Window constructor', (t) => {
     t.throws(() => {
@@ -17,7 +17,7 @@ test('Window constructor', (t) => {
 })
 
 test('Window show / hide', (t) => {
-    let compiler = new ComponentCompiler;
+    let compiler = new private_api.ComponentCompiler;
     let definition = compiler.buildFromSource(`
 
     export component App inherits Window {
@@ -30,9 +30,9 @@ test('Window show / hide', (t) => {
     t.not(instance, null);
 
     let window = instance!.window();
-    t.is(window.isVisible, false);
+    t.is(window.is_visible, false);
     window.show();
-    t.is(window.isVisible, true);
+    t.is(window.is_visible, true);
     window.hide();
-    t.is(window.isVisible, false);
+    t.is(window.is_visible, false);
 })

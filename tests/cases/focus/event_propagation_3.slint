@@ -52,10 +52,10 @@ assert_eq(instance.get_r2(), "ok");
 
 ```js
 var instance = new slint.TestCase();
-instance.send_mouse_click(70., 70.);
+slintlib.private_api.send_mouse_click(instance, 70., 70.);
 assert(instance.correct_focus);
 instance.click_to_focus_on_outer = false;
-instance.send_keyboard_string_sequence("ok");
+slintlib.private_api.send_keyboard_string_sequence(instance, "ok");
 assert.equal(instance.r1, "ok");
 assert.equal(instance.r2, "ok");
 ```

@@ -50,7 +50,7 @@ assert_eq!(instance.get_value(), "Green");
 
 ```js
 var instance = new slint.TestCase();
-instance.send_mouse_click(5., 205.);
+slintlib.private_api.send_mouse_click(instance, 5., 205.);
 assert.equal(instance.value, "Green");
 ```
 

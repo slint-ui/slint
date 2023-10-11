@@ -4,11 +4,11 @@
 import test from 'ava';
 const path = require('node:path');
 
-import { ComponentCompiler } from '../index'
+import { private_api } from '../index'
 
 test('get/set global properties', (t) => {
 
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
     export global Global { in-out property <string> name: "Initial"; }
     export component App {}`, "");
@@ -79,7 +79,7 @@ test('get/set global properties', (t) => {
 })
 
 test('invoke global callback', (t) => {
-  let compiler = new ComponentCompiler;
+  let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export struct Person {
     name: string

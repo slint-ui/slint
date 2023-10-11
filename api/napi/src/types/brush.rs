@@ -57,6 +57,11 @@ impl JsColor {
         self.inner.blue()
     }
 
+    #[napi(getter)]
+    pub fn alpha(&self) -> u8 {
+        self.inner.alpha()
+    }
+
     #[napi]
     pub fn brighter(&self, factor: f64) -> JsColor {
         JsColor::from(self.inner.brighter(factor as f32))
@@ -80,6 +85,11 @@ impl JsColor {
     #[napi]
     pub fn with_alpha(&self, alpha: f64) -> JsColor {
         JsColor::from(self.inner.with_alpha(alpha as f32))
+    }
+
+    #[napi]
+    pub fn to_string(&self) -> String {
+        format!("#{:02x}{:02x}{:02x}{:02x}", self.red(), self.green(), self.blue(), self.alpha())
     }
 }
 
@@ -150,5 +160,15 @@ impl JsBrush {
     #[napi(getter)]
     pub fn brush(&self) -> External<Brush> {
         External::new(self.inner.clone())
+    }
+
+    #[napi]
+    pub fn to_string(&self) -> String {
+        if let Brush::SolidColor(_) = self.inner {
+            return self.color().to_string();
+        }
+
+        println!("toString() is not yet implemented for gradient brushes.");
+        String::default()
     }
 }

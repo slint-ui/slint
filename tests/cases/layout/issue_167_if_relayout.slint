@@ -43,9 +43,9 @@ assert_eq!(instance.get_last_clicked(), 2);
 ```js
 var instance = new slint.TestCase();
 assert.equal(instance.last_clicked, 0);
-instance.send_mouse_click(15., 145.);
+slintlib.private_api.send_mouse_click(instance, 15., 145.);
 assert.equal(instance.last_clicked, 1);
-instance.send_mouse_click(15., 155.);
+slintlib.private_api.send_mouse_click(instance, 15., 155.);
 assert.equal(instance.last_clicked, 2);
 ```
 */

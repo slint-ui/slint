@@ -74,7 +74,7 @@ assert!(instance.get_y_ok());
 
 ```js
 var instance = new slint.TestCase();
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert(instance.size_ok);
 assert(instance.x_ok);
 assert(instance.y_ok);

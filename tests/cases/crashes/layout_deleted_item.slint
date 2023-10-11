@@ -67,10 +67,10 @@ var instance = new slint.TestCase({
     clicked: function() { var x = instance.model; x.pop(); instance.model = x; }
 });
 instance.model = [1, 2];
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.model.length, 1);
 assert(instance.hover);
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.model.length, 0);
 assert(!instance.hover);
 ```

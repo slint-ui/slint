@@ -74,14 +74,14 @@ var instance = new slint.TestCase();
 
 // Send an initial click to traverse the item tree and force a listview
 // layout.
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.viewport_height, 100.);
 
 // Trigger the mouse area to change the model
-instance.send_mouse_click(5., 55.);
+slintlib.private_api.send_mouse_click(instance, 5., 55.);
 
 // Send a second click to force an item tree traversal and listview update
-instance.send_mouse_click(5., 5.);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.viewport_height, 200.);
 ```
 */
