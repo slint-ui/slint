@@ -20,6 +20,8 @@ backend-qt = ["slint-interpreter/backend-qt"]
 backend-winit = ["slint-interpreter/backend-winit"]
 backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
+backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
+backend-default = ["slint-interpreter/backend-default"]
 
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
 renderer-skia = ["slint-interpreter/renderer-skia"]
@@ -39,9 +41,6 @@ renderer-winit-skia-opengl= ["renderer-skia-opengl"]
 renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
-
-backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
-
 ## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)
 ##
 ## the `@tr(...)` code from .slint files will be transformed into call to `dgettext`.
@@ -49,7 +48,7 @@ backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
 ## so that the viewer can find the translation
 gettext = ["i-slint-core/gettext-rs"]
 
-default = ["backend-qt", "backend-winit", "renderer-femtovg"]
+default = ["backend-default", "backend-winit", "renderer-femtovg"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default"] }

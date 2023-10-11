@@ -1,0 +1,25 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+[package]
+name = "i-slint-backend-default"
+description = "Helper crate to pick the default rendering backend for Slint"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+i-slint-backend-selector = { workspace = true, features = [ "i-slint-backend-qt" ] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+i-slint-backend-selector = { workspace = true, features = ["renderer-femtovg"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+i-slint-backend-selector = { workspace = true, features = ["renderer-skia"] }

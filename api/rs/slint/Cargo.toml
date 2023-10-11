@@ -25,7 +25,7 @@ default = [
   "backend-winit",
   "renderer-femtovg",
   "renderer-software",
-  "backend-qt",
+  "backend-default",
   "accessibility",
   "compat-1-2",
 ]
@@ -124,6 +124,10 @@ backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 ## with support for the Wayland window system on Unix.
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 
+## Alias to a backend and renderer that depends on the platform.
+## Will select the Qt backend on linux, and the skia backend on everything but wasm.
+backend-default = ["dep:i-slint-backend-default"]
+
 # deprecated aliases
 renderer-winit-femtovg = ["renderer-femtovg"]
 renderer-winit-skia = ["renderer-skia"]
@@ -155,6 +159,7 @@ i-slint-core = { workspace = true }
 slint-macros = { workspace = true, features = ["default"] }
 i-slint-backend-selector = { workspace = true, features = ["default"] }
 i-slint-renderer-femtovg = { workspace = true, optional = true }
+i-slint-backend-default = { workspace = true, optional = true }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }

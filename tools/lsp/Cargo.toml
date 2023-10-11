@@ -38,6 +38,7 @@ backend-winit = ["slint-interpreter/backend-winit", "preview"]
 backend-winit-x11 = ["slint-interpreter/backend-winit-x11", "preview"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland", "preview"]
 backend-linuxkms = ["slint-interpreter/backend-linuxkms", "preview"]
+backend-default = ["slint-interpreter/backend-default", "preview"]
 
 renderer-femtovg = ["slint-interpreter/renderer-femtovg", "preview"]
 renderer-skia = ["slint-interpreter/renderer-skia", "preview"]
@@ -66,7 +67,7 @@ preview-lense = []
 ## Open a notification channel so that the LSP can communicate with the preview (when the preview is handled by the client)
 preview-api = []
 
-default = ["backend-qt", "backend-winit", "renderer-femtovg", "preview"]
+default = ["backend-default", "backend-winit", "renderer-femtovg", "preview"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default"] }
@@ -80,6 +81,7 @@ rowan = "0.15.5"
 i-slint-core = { workspace = true, features = ["default"], optional = true }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "highlight"], optional = true  }
 i-slint-backend-selector = { workspace = true, features = ["default"], optional = true }
+i-slint-backend-default = { workspace = true, optional = true }
 # Enable image-rs' default features to make all image formats available for the preview
 image = { version = "0.24.0", optional = true }
 

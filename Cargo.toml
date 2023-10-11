@@ -37,6 +37,7 @@ members = [
     'internal/backends/selector',
     'internal/backends/testing',
     'internal/backends/linuxkms',
+    'internal/backends/default',
     'internal/renderers/skia',
     'internal/renderers/femtovg',
     'internal/common',
@@ -105,6 +106,7 @@ rust-version = "1.70"
 version = "1.3.0"
 
 [workspace.dependencies]
+i-slint-backend-default = { version = "=1.3.0", path = "internal/backends/default", default-features = false }
 i-slint-backend-linuxkms = { version = "=1.3.0", path = "internal/backends/linuxkms", default-features = false }
 i-slint-backend-qt = { version = "=1.3.0", path="internal/backends/qt", default-features = false }
 i-slint-backend-selector = { version = "=1.3.0", path = "internal/backends/selector", default-features = false }

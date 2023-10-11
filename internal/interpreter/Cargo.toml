@@ -20,7 +20,7 @@ path = "lib.rs"
 
 [features]
 
-default = ["std", "backend-winit", "renderer-femtovg", "backend-qt", "accessibility", "compat-1-2"]
+default = ["std", "backend-winit", "renderer-femtovg", "backend-default", "accessibility", "compat-1-2"]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.2
@@ -69,6 +69,10 @@ backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"
 ## windowing system.
 backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 
+## Alias to a backend and renderer that depends on the platform.
+## Will select the Qt backend on linux, and the skia backend on everything but wasm.
+backend-default = ["dep:i-slint-backend-default"]
+
 ## Make the winit backend capable of rendering using the [femtovg](https://crates.io/crates/femtovg) crate.
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
 
@@ -103,6 +107,7 @@ i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default", "rtti"] }
 i-slint-backend-selector = { workspace = true, features = ["default", "rtti"] }
+i-slint-backend-default = { workspace = true, optional = true }
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 
