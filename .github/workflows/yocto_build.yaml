@@ -15,8 +15,8 @@ jobs:
       matrix:
         include:
           - sdk_url: https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
-          - env_setup: environment-setup-cortexa57-poky-linux
-          - target: aarch64-unknown-linux-gnu
+            env_setup: environment-setup-cortexa57-poky-linux
+            target: aarch64-unknown-linux-gnu
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
