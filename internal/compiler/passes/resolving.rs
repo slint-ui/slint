@@ -345,7 +345,14 @@ impl Expression {
                         loader.resolve_import_path(Some(&(*node).clone().into()), &s)
                     })
                     .map(|i| i.0.to_string_lossy().to_string())
-                    .unwrap_or(s)
+                    .unwrap_or_else(|| {
+                        crate::pathutils::join(
+                            &crate::pathutils::dirname(node.source_file.path()),
+                            path,
+                        )
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or(s.clone())
+                    })
             }
         };
 
