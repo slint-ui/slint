@@ -59,6 +59,7 @@ The Qt renderer comes with the [Qt backend](backend_qt.md) and renders using QPa
 - Runs anywhere, highly portable, and lightweight.
 - Software rendering, no GPU acceleration.
 - Supports partial rendering.
+- Supports line-by-line rendering (Rust only).
 - Suitable for Microcontrollers.
 - No support for `Path` rendering and image rotation yet.
 - Text rendering currently limited to western scripts.
