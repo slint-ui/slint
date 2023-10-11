@@ -6,6 +6,7 @@ use napi::{
     JsUnknown, Result,
 };
 
+/// Represents a size.
 #[napi(js_name = Size)]
 pub struct JsSize {
     pub width: f64,
@@ -14,6 +15,7 @@ pub struct JsSize {
 
 #[napi]
 impl JsSize {
+    /// Constructs a size form with and height.
     #[napi(constructor)]
     pub fn new(width: f64, height: f64) -> Result<Self> {
         if width < 0. {

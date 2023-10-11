@@ -6,6 +6,7 @@ use napi::{
     JsUnknown,
 };
 
+/// Represents a two dimensional point.
 #[napi(js_name = Point)]
 pub struct JsPoint {
     pub x: f64,
@@ -14,6 +15,7 @@ pub struct JsPoint {
 
 #[napi]
 impl JsPoint {
+    /// Constructs new point from x and y.
     #[napi(constructor)]
     pub fn new(x: f64, y: f64) -> Self {
         Self { x, y }

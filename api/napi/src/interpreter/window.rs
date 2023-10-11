@@ -5,6 +5,9 @@ use crate::types::{JsPoint, JsSize};
 use i_slint_core::window::WindowAdapterRc;
 use slint_interpreter::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 
+/// This type represents a window towards the windowing system, that's used to render the
+/// scene of a component. It provides API to control windowing system specific aspects such
+/// as the position on the screen.
 #[napi(js_name = "Window")]
 pub struct JsWindow {
     pub(crate) inner: WindowAdapterRc,
@@ -18,6 +21,7 @@ impl From<WindowAdapterRc> for JsWindow {
 
 #[napi]
 impl JsWindow {
+    /// @hidden
     #[napi(constructor)]
     pub fn new() -> napi::Result<Self> {
         Err(napi::Error::from_reason(
@@ -25,6 +29,8 @@ impl JsWindow {
         ))
     }
 
+    /// Shows the window on the screen. An additional strong reference on the
+    /// associated component is maintained while the window is visible.
     #[napi]
     pub fn show(&self) -> napi::Result<()> {
         self.inner
@@ -33,6 +39,7 @@ impl JsWindow {
             .map_err(|_| napi::Error::from_reason("Cannot show window.".to_string()))
     }
 
+    /// Hides the window, so that it is not visible anymore.
     #[napi]
     pub fn hide(&self) -> napi::Result<()> {
         self.inner
@@ -41,17 +48,21 @@ impl JsWindow {
             .map_err(|_| napi::Error::from_reason("Cannot hide window.".to_string()))
     }
 
+    /// Returns the visibility state of the window. This function can return false even if you previously called show()
+    /// on it, for example if the user minimized the window.
     #[napi(getter, js_name = "is_visible")]
     pub fn is_visible(&self) -> bool {
         self.inner.window().is_visible()
     }
 
+    /// Returns the logical position of the window on the screen.
     #[napi(getter)]
     pub fn get_logical_position(&self) -> JsPoint {
         let pos = self.inner.window().position().to_logical(self.inner.window().scale_factor());
         JsPoint { x: pos.x as f64, y: pos.y as f64 }
     }
 
+    /// Sets the logical position of the window on the screen.
     #[napi(setter)]
     pub fn set_logical_position(&self, position: JsPoint) {
         self.inner
@@ -59,12 +70,14 @@ impl JsWindow {
             .set_position(LogicalPosition { x: position.x as f32, y: position.y as f32 });
     }
 
+    /// Returns the physical position of the window on the screen.
     #[napi(getter)]
     pub fn get_physical_position(&self) -> JsPoint {
         let pos = self.inner.window().position();
         JsPoint { x: pos.x as f64, y: pos.y as f64 }
     }
 
+    /// Sets the physical position of the window on the screen.
     #[napi(setter)]
     pub fn set_physical_position(&self, position: JsPoint) {
         self.inner.window().set_position(PhysicalPosition {
@@ -73,12 +86,14 @@ impl JsWindow {
         });
     }
 
+    /// Returns the logical size of the window on the screen,
     #[napi(getter)]
     pub fn get_logical_size(&self) -> JsSize {
         let size = self.inner.window().size().to_logical(self.inner.window().scale_factor());
         JsSize { width: size.width as f64, height: size.height as f64 }
     }
 
+    /// Sets the logical size of the window on the screen,
     #[napi(setter)]
     pub fn set_logical_size(&self, size: JsSize) {
         self.inner.window().set_size(LogicalSize::from_physical(
@@ -87,12 +102,14 @@ impl JsWindow {
         ));
     }
 
+    /// Returns the physical size of the window on the screen,
     #[napi(getter)]
     pub fn get_physical_size(&self) -> JsSize {
         let size = self.inner.window().size();
         JsSize { width: size.width as f64, height: size.height as f64 }
     }
 
+    /// Sets the logical size of the window on the screen,
     #[napi(setter)]
     pub fn set_physical_size(&self, size: JsSize) {
         self.inner.window().set_size(PhysicalSize {
