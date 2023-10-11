@@ -11,24 +11,30 @@ on:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        include:
+          - sdk_url: https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
+          - env_setup: environment-setup-cortexa57-poky-linux
+          - target: aarch64-unknown-linux-gnu
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
     - name: Fetch Yocto SDK
       run: |
           # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
-          wget https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
-          chmod +x poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
-          ./poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh -d ${{ runner.workspace }}/yocto-sdk -y
-          rm -f poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
+          wget -O sdk.sh ${{ matrix.sdk_url }}
+          chmod +x sdk.sh
+          ./sdk.sh -d ${{ runner.workspace }}/yocto-sdk -y
+          rm -f sdk.sh
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
             toolchain: stable
-            target: aarch64-unknown-linux-gnu
+            target: ${{ matrix.target }}
     - name: C++ Build
       run: |
-          . ${{ runner.workspace }}/yocto-sdk/environment-setup-cortexa57-poky-linux
+          . ${{ runner.workspace }}/yocto-sdk/${{ matrix.env_setup }}
           mkdir ${{ runner.workspace }}/cppbuild
-          cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON
+          cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON
           cmake --build ${{ runner.workspace }}/cppbuild
