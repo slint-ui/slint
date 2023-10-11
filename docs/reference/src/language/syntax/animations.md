@@ -25,6 +25,7 @@ Fine-tune animations using the following parameters:
 -   `duration`: the amount of time it takes for the animation to complete
 -   `iteration-count`: The number of times a animation should run. A negative value specifies
     infinite reruns. Fractual values are possible.
+    For permanently running animations, see [`animation-tick()`](../builtins/functions.md#animation-tick-duration).
 -   `easing`: can be `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `cubic-bezier(a, b, c, d)` as in CSS
 
 It's also possible to animate several properties with the same animation:
