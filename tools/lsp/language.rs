@@ -1200,7 +1200,7 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
     let document_cache = &mut ctx.document_cache.borrow_mut();
     for v in r {
         if let Some(o) = v.as_object() {
-            if let Some(ip) = o.get("includePath").and_then(|v| v.as_array()) {
+            if let Some(ip) = o.get("includePaths").and_then(|v| v.as_array()) {
                 if !ip.is_empty() {
                     document_cache.documents.compiler_config.include_paths =
                         ip.iter().filter_map(|x| x.as_str()).map(PathBuf::from).collect();
