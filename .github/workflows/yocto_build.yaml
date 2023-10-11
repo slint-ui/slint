@@ -38,6 +38,9 @@ jobs:
     - name: C++ Build
       run: |
           . ${{ runner.workspace }}/yocto-sdk/${{ matrix.env_setup }}
+          # Only needed for 32-bit arm builds where soft-fp/hard-fp affects header file lookup, hence the need to drag in these flags. See also commit
+          # f5c3908b7ec5131b7b19ff642b5975660c7484f8
+          export BINDGEN_EXTRA_CLANG_ARGS=$OECORE_TUNE_CCARGS
           mkdir ${{ runner.workspace }}/cppbuild
           cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON
           cmake --build ${{ runner.workspace }}/cppbuild
