@@ -3,44 +3,29 @@
 
 import { Typography, Palette, Icons } from "styling.slint";
 import { MenuBorder, ListItem, FocusBorder } from "components.slint";
+import { ComboBoxBase } from "../common/combobox-base.slint";
 
 export component ComboBox {
-    callback selected(string /* current-value */);
+    callback selected <=> i-base.selected;
 
-    in property <[string]> model;
-    in property <bool> enabled <=> i-focus-scope.enabled;
-    out property <bool> has-focus <=> i-focus-scope.has-focus;
-    in-out property <int> current-index: 0;
-    in-out property <string> current-value: root.model[root.current-index];
+    in property <[string]> model <=> i-base.model;
+    in property <bool> enabled <=> i-base.enabled;
+    out property <bool> has-focus <=> i-base.has-focus;
+    in-out property <int> current-index <=> i-base.current-index;
+    in-out property <string> current-value <=> i-base.current-value;
 
     min-width: max(160px, i-layout.min-height);
     min-height: max(32px, i-layout.min-height);
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    forward-focus: i-focus-scope;
+    forward-focus: i-base;
 
-    i-focus-scope := FocusScope {
-        key-pressed(event) => {
-            if (event.text == Key.UpArrow) {
-                root.move-selection-up();
-                return accept;
-            } else if (event.text == Key.DownArrow) {
+    i-base := ComboBoxBase {
+        width: 100%;
+        height: 100%;
 
-                root.move-selection-down();
-                return accept;
-            } else if (event.text == Key.Return) {
-                i-popup.show();
-            }
-            return reject;
-        }
-
-        i-touch-area := TouchArea {
-            enabled <=> root.enabled;
-
-            clicked => {
-                root.focus();
-                i-popup.show();
-            }
+        show-popup => {
+            i-popup.show();
         }
     }
 
@@ -96,25 +81,11 @@ export component ComboBox {
                     selected: index == root.current-index;
 
                     clicked => {
-                        root.select(index);
+                        i-base.select(index);
                     }
                 }
             }
         }
-    }
-
-    function select(index: int) {
-        root.current-index = index;
-        root.current-value = root.model[root.current-index];
-        root.selected(root.current-value);
-    }
-
-    function move-selection-up() {
-        root.select(Math.max(root.current-index - 1, 0));
-    }
-
-    function move-selection-down() {
-        root.select(Math.min(root.current-index + 1, root.model.length - 1));
     }
 
     states [
@@ -124,13 +95,13 @@ export component ComboBox {
             i-text.color: Palette.text-disabled;
             i-icon.colorize: Palette.text-disabled;
         }
-        pressed when i-touch-area.pressed : {
+        pressed when i-base.pressed : {
             i-background.background: Palette.control-alt-tertiary;
             i-background.border-color: Palette.control-stroke;
             i-text.color: Palette.text-secondary;
             i-icon.colorize: Palette.text-tertiary;
         }
-        hover when i-touch-area.has-hover : {
+        hover when i-base.has-hover : {
             i-background.background: Palette.control-secondary;
         }
     ]

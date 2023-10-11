@@ -7,6 +7,7 @@ import { LineEditInner, TextEdit, AboutSlint } from "../common/common.slint";
 import { StyleMetrics, ScrollView  } from "std-widgets-impl.slint";
 import { StandardTableView } from "tableview.slint";
 export { StyleMetrics, ScrollView, TextEdit, AboutSlint, StandardTableView }
+import { ComboBoxBase } from "../common/combobox-base.slint";
 
 export component Button {
     in property<string> text <=> native.text;
@@ -232,69 +233,52 @@ export component StandardListView inherits StandardListViewBase {
 }
 
 export component ComboBox inherits NativeComboBox {
-    in property <[string]> model;
-    in-out property <int> current-index : 0;
-    current-value: root.model[root.current-index];
-    out property has-focus <=> fs.has-focus;
-    enabled: true;
-    callback selected(string);
-    forward-focus: fs;
+    callback selected <=> i-base.selected;
 
+    in property <[string]> model <=> i-base.model;
+    in-out property <int> current-index <=> i-base.current-index;
+    out property has-focus <=> i-base.has-focus;
+
+    enabled: true;
     accessible-role: combobox;
     accessible-value <=> root.current-value;
+    current-value: root.model[root.current-index];
+    forward-focus: i-base;
 
-    popup := PopupWindow {
-        x:0;
+    i-base := ComboBoxBase {
+        width: 100%;
+        height: 100%;
+        current-value <=> root.current-value;
+
+        show-popup => {
+            i-popup.show();
+        }
+    }
+
+    i-popup := PopupWindow {
+        x: 0;
+        y: root.height;
+        width: root.width;
+
         NativeComboBoxPopup {
             width: 100%;
             height: 100%;
         }
-        y: root.height;
-        width: root.width;
+
         VerticalLayout {
             spacing: 0px;
-            for value[i] in root.model: NativeStandardListViewItem {
+
+            for value[index] in root.model: NativeStandardListViewItem {
                 item: { text: value };
-                is-selected: root.current-index == i;
+                is-selected: root.current-index == index;
                 has-hover: ta.has-hover;
                 combobox: true;
+
                 ta := TouchArea {
                     clicked => {
-                        if (root.enabled) {
-                            root.current-index = i;
-                            root.current-value = value;
-                            root.selected(root.current-value);
-                        }
-                        //is-open = false;
+                        i-base.select(index);
                     }
                 }
-            }
-        }
-    }
-
-    fs := FocusScope {
-        key-pressed(event) => {
-            if (event.text == Key.UpArrow) {
-                root.current-index = Math.max(root.current-index - 1, 0);
-                root.current-value = root.model[root.current-index];
-                return accept;
-            } else if (event.text == Key.DownArrow) {
-                root.current-index = Math.min(root.current-index + 1, root.model.length - 1);
-                root.current-value = root.model[root.current-index];
-                return accept;
-            // PopupWindow can not get hidden again at this time, so do not allow to pop that up.
-            // } else if (event.text == Key.Return) {
-            //     touch.clicked()
-            //     return accept;
-            }
-            return reject;
-        }
-
-        touch := TouchArea {
-            enabled <=> root.enabled;
-            clicked => {
-                root.focus();
-                popup.show();
             }
         }
     }
