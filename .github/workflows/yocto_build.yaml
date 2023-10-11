@@ -17,6 +17,9 @@ jobs:
           - sdk_url: https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
             env_setup: environment-setup-cortexa57-poky-linux
             target: aarch64-unknown-linux-gnu
+          - sdk_url: https://nextcloud.slint.dev/s/BTL5NtLACjgS7Pf/download/poky-glibc-x86_64-core-image-weston-cortexa15t2hf-neon-qemuarm-toolchain-4.0.9.sh
+            env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
+            target: armv7-unknown-linux-gnueabihf
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
