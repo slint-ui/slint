@@ -519,7 +519,17 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                 }
             }
             ElementType::Builtin(base_type)
-                if matches!(base_type.name.as_str(), "Rectangle" | "Empty") =>
+                if matches!(
+                    base_type.name.as_str(),
+                    "Rectangle"
+                        | "Empty"
+                        | "TouchArea"
+                        | "FocusScope"
+                        | "Opacity"
+                        | "Layer"
+                        | "BoxShadow"
+                        | "Clip"
+                ) =>
             {
                 // hard-code the value for rectangle because many rectangle end up optimized away and we
                 // don't want to depend on the element.
