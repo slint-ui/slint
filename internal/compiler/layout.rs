@@ -191,16 +191,21 @@ impl LayoutConstraints {
         constraints
     }
 
-    pub fn has_explicit_restrictions(&self) -> bool {
-        self.min_width.is_some()
-            || self.max_width.is_some()
-            || self.min_height.is_some()
-            || self.max_width.is_some()
-            || self.max_height.is_some()
-            || self.preferred_height.is_some()
-            || self.preferred_width.is_some()
-            || self.horizontal_stretch.is_some()
-            || self.vertical_stretch.is_some()
+    pub fn has_explicit_restrictions(&self, orientation: Orientation) -> bool {
+        match orientation {
+            Orientation::Horizontal => {
+                self.min_width.is_some()
+                    || self.max_width.is_some()
+                    || self.preferred_width.is_some()
+                    || self.horizontal_stretch.is_some()
+            }
+            Orientation::Vertical => {
+                self.min_height.is_some()
+                    || self.max_height.is_some()
+                    || self.preferred_height.is_some()
+                    || self.vertical_stretch.is_some()
+            }
+        }
     }
 
     // Iterate over the constraint with a reference to a property, and the corresponding member in the i_slint_core::layout::LayoutInfo struct
