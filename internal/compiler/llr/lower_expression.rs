@@ -819,7 +819,7 @@ pub fn get_layout_info(
         lower_expression(&crate::layout::implicit_layout_info_call(elem, orientation), ctx)
     };
 
-    if constraints.has_explicit_restrictions() {
+    if constraints.has_explicit_restrictions(orientation) {
         let store = llr_Expression::StoreLocalVariable {
             name: "layout_info".into(),
             value: layout_info.into(),

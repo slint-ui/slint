@@ -1584,7 +1584,7 @@ extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -
     );
 
     let constraints = instance_ref.description.original.root_constraints.borrow();
-    if constraints.has_explicit_restrictions() {
+    if constraints.has_explicit_restrictions(orientation) {
         crate::eval_layout::fill_layout_info_constraints(
             &mut result,
             &constraints,

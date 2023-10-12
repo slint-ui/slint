@@ -155,7 +155,9 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
             c.borrow()
                 .layout_info_prop
                 .clone()
-                .map(|(h, v)| (Expression::PropertyReference(h), Expression::PropertyReference(v)))
+                .map(|(h, v)| {
+                    (Some(Expression::PropertyReference(h)), Some(Expression::PropertyReference(v)))
+                })
                 .or_else(|| {
                     if c.borrow().is_legacy_syntax {
                         return None;
@@ -165,24 +167,19 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
                         return None;
                     }
                     let explicit_constraints = LayoutConstraints::new(c, diag);
-                    if !explicit_constraints.has_explicit_restrictions() {
-                        c.borrow()
-                            .builtin_type()
-                            .map_or(false, |b| {
-                                b.default_size_binding == DefaultSizeBinding::ImplicitSize
-                            })
-                            .then(|| {
-                                (
-                                    implicit_layout_info_call(c, Orientation::Horizontal),
-                                    implicit_layout_info_call(c, Orientation::Vertical),
-                                )
-                            })
-                    } else {
-                        Some((
-                            explicit_layout_info(c, Orientation::Horizontal),
-                            explicit_layout_info(c, Orientation::Vertical),
-                        ))
-                    }
+                    let use_implicit_size = c.borrow().builtin_type().map_or(false, |b| {
+                        b.default_size_binding == DefaultSizeBinding::ImplicitSize
+                    });
+
+                    let compute = |orientation| {
+                        if !explicit_constraints.has_explicit_restrictions(orientation) {
+                            use_implicit_size.then(|| implicit_layout_info_call(c, orientation))
+                        } else {
+                            Some(explicit_layout_info(c, orientation))
+                        }
+                    };
+                    Some((compute(Orientation::Horizontal), compute(Orientation::Vertical)))
+                        .filter(|(a, b)| a.is_some() || b.is_some())
                 })
         })
         .collect::<Vec<_>>();
@@ -200,16 +197,20 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
     let mut expr_v = implicit_layout_info_call(elem, Orientation::Vertical);
 
     for child_info in child_infos {
-        expr_h = Expression::BinaryExpression {
-            lhs: Box::new(std::mem::take(&mut expr_h)),
-            rhs: Box::new(child_info.0),
-            op: '+',
-        };
-        expr_v = Expression::BinaryExpression {
-            lhs: Box::new(std::mem::take(&mut expr_v)),
-            rhs: Box::new(child_info.1),
-            op: '+',
-        };
+        if let Some(h) = child_info.0 {
+            expr_h = Expression::BinaryExpression {
+                lhs: Box::new(std::mem::take(&mut expr_h)),
+                rhs: Box::new(h),
+                op: '+',
+            };
+        }
+        if let Some(v) = child_info.1 {
+            expr_v = Expression::BinaryExpression {
+                lhs: Box::new(std::mem::take(&mut expr_v)),
+                rhs: Box::new(v),
+                op: '+',
+            };
+        }
     }
 
     let expr_v = BindingExpression::new_with_span(expr_v, elem.borrow().to_source_location());
