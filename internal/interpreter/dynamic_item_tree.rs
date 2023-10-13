@@ -750,16 +750,19 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
 pub async fn load(
     source: String,
     path: std::path::PathBuf,
-    mut compiler_config: CompilerConfiguration,
+    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
     guard: generativity::Guard<'_>,
 ) -> (Result<Rc<ItemTreeDescription<'_>>, ()>, i_slint_compiler::diagnostics::BuildDiagnostics) {
-    if compiler_config.style.is_none() && std::env::var("SLINT_STYLE").is_err() {
-        // Defaults to native if it exists:
-        compiler_config.style = Some(if i_slint_backend_selector::HAS_NATIVE_STYLE {
-            "native".to_owned()
-        } else {
-            "fluent".to_owned()
-        });
+    // If the native style should be Qt, resolve it here as we have the knowledge of the native style
+    #[cfg(all(unix, not(target_os = "macos")))]
+    if i_slint_backend_selector::HAS_NATIVE_STYLE {
+        let is_native = match &compiler_config.style {
+            Some(s) => s == "native",
+            None => std::env::var("SLINT_STYLE").map_or(true, |s| s == "native"),
+        };
+        if is_native {
+            compiler_config.style = Some("qt".into());
+        }
     }
 
     let mut diag = BuildDiagnostics::default();
