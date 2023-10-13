@@ -32,6 +32,7 @@ members = [
     'helper_crates/vtable',
     'helper_crates/vtable/macro',
     'internal/backends/winit',
+    'internal/backends/android-activity',
     'internal/backends/qt',
     'internal/backends/selector',
     'internal/backends/testing',
@@ -108,6 +109,7 @@ i-slint-backend-qt = { version = "=1.3.0", path="internal/backends/qt", default-
 i-slint-backend-selector = { version = "=1.3.0", path = "internal/backends/selector", default-features = false }
 i-slint-backend-testing = { version = "=1.3.0", path = "internal/backends/testing", default-features = false }
 i-slint-backend-winit = { version = "=1.3.0", path = "internal/backends/winit", default-features = false }
+i-slint-backend-android-activity = { version = "=1.3.0", path = "internal/backends/android-activity", default-features = false }
 i-slint-common = { version = "=1.3.0", path = "internal/common", default-features = false }
 i-slint-compiler = { version = "=1.3.0", path = "internal/compiler", default-features = false }
 i-slint-core = { version = "=1.3.0", path = "internal/core", default-features = false }
