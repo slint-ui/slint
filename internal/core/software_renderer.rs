@@ -1584,13 +1584,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             };
                         }
                     }
-                    if paragraph.overflow == TextOverflow::Elide
-                        && line_y + paragraph.layout.font.height() * 2 > paragraph.max_height
-                    {
-                        core::ops::ControlFlow::Break(())
-                    } else {
-                        core::ops::ControlFlow::Continue(())
-                    }
+                    core::ops::ControlFlow::Continue(())
                 },
                 selection.as_ref().map(|s| s.selection.clone()),
             )
