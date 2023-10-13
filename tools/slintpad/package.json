@@ -14,7 +14,7 @@
         "start:vite": "vite --open",
         "start:vite_cypress": "vite --port=3001",
         "start:vite_cypress-preview": "vite preview --port=3001",
-        "syntax_check": "tsc --build --force && cd src/service_worker && tsc --build --force",
+        "syntax_check": "tsc --build --force",
         "test:cypress_run-chromium": "cypress run --browser=chromium --e2e",
         "test:cypress_open-chromium": "cypress open --browser=chromium --e2e",
         "test:cypress_run-ff": "cypress run --browser=firefox --e2e",

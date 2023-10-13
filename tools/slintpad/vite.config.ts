@@ -33,25 +33,6 @@ export default defineConfig(() => {
                 path: "path-browserify", // To make path.sep available to monaco
             },
         },
-        plugins: [
-            VitePWA({
-                registerType: "autoUpdate",
-                injectRegister: "auto",
-                injectManifest: {
-                    injectionPoint: undefined,
-                },
-                srcDir: "src/service_worker",
-                filename: "service_worker.ts",
-                workbox: {
-                    swDest: "sw.js",
-                    maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-                },
-                strategies: "injectManifest",
-                devOptions: {
-                    enabled: true,
-                },
-            }),
-        ],
     };
 
     return base_config as UserConfig;
