@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import { Palette, Typography, Icons } from "styling.slint";
+import { SpinBoxBase } from "../common/spinbox-base.slint";
 
 component SpinBoxButton inherits Rectangle {
     callback clicked <=> i-touch-area.clicked;
@@ -61,139 +62,125 @@ component SpinBoxButton inherits Rectangle {
 export component SpinBox {
     callback edited(int /* value */);
 
-    in property <int> minimum;
-    in property <int> maximum: 100;
-    in property <bool> enabled <=> i-focus-scope.enabled;
-    out property <bool> has-focus <=> i-focus-scope.has-focus;
-    in-out property <int> value;
+    in property <int> minimum <=> i-base.minimum;
+    in property <int> maximum <=> i-base.maximum;
+    in property <bool> enabled <=> i-base.enabled;
+    out property <bool> has-focus <=> i-text-input.has-focus;
+    in-out property <int> value <=> i-base.value;
 
-    forward-focus: i-focus-scope;
+    forward-focus: i-text-input;
     horizontal-stretch: 1;
     vertical-stretch: 0;
+    min-width: i-layout.min-width;
     min-height: max(56px, i-layout.min-height);
-
     accessible-role: spinbox;
     accessible-value: root.value;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
 
-    i-focus-scope := FocusScope {
-        key-pressed(event) => {
-            if (root.enabled && event.text == Key.UpArrow && root.value < root.maximum) {
-                root.value += 1;
-                root.edited(value);
-                accept
-            } else if (root.enabled && event.text == Key.DownArrow && root.value > root.minimum) {
-                root.value -= 1;
-                root.edited(value);
-                accept
-            } else {
-                reject
-            }
+    i-base := SpinBoxBase {
+        width: 100%;
+        height: 100%;
+
+        edited(value) => {
+            i-text-input.text = value;
+            root.edited(value);
         }
     }
 
     i-background := Rectangle {
-        width: 100%;
-        height: 100%;
         border-radius: 4px;
         border-width: 1px;
         border-color: Palette.outline;
-    }
 
-    i-layout := HorizontalLayout {
-        padding-top: 8px;
-        padding-bottom: 8px;
-        padding-left: 16px;
-        padding-right: 12px;
-        spacing: 16px;
+        i-layout := HorizontalLayout {
+            padding-top: 8px;
+            padding-bottom: 8px;
+            padding-left: 16px;
+            padding-right: 12px;
+            spacing: 16px;
 
-        Rectangle {
-            clip: true;
+            Rectangle {
+                clip: true;
 
-            i-text-input := TextInput {
-                text: root.value;
-                height: 100%;
-                color: Palette.on-surface;
-                vertical-alignment: center;
-                // FIXME after Roboto font can be loaded
-                //font-family: Typography.body-large.font;
-                font-size: Typography.body-large.font-size;
-                font-weight: Typography.body-large.font-weight;
+                i-text-input := TextInput {
+                    vertical-alignment: center;
+                    horizontal-alignment: left;
+                    text: root.value;
+                    // height: 100%;
+                    color: Palette.on-surface;
+                    // FIXME after Roboto font can be loaded
+                    //font-family: Typography.body-large.font;
+                    font-size: Typography.body-large.font-size;
+                    font-weight: Typography.body-large.font-weight;
+                    enabled: root.enabled;
+                    horizontal-stretch: 1;
 
-                accepted => {
-                    if (!self.text.is-float()) {
+                    accepted => {
+                        if (self.text == "") {
+                            i-base.update-value(root.minimum);
+                        }
+                    }
+
+                    edited => {
+                        if (self.text == "") {
+                            i-base.update-value(root.minimum);
+                            return;
+                        }
+
+                        if (self.text.is-float()) {
+                            i-base.update-value(root.value + 1);
+                            return;
+                        }
+
                         self.text = root.value;
                     }
                 }
 
-                edited => {
-                    if (self.text.is-float()) {
-                        root.update-value(self.text.to-float());
+                i-touch-area := TouchArea {
+                    clicked => {
+                        i-text-input.focus();
                     }
                 }
             }
 
-            i-touch-area := TouchArea {
-                clicked => {
-                    i-text-input.focus();
+            VerticalLayout {
+                spacing: 4px;
+
+                SpinBoxButton {
+                    enabled: root.enabled;
+
+                    Image {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        source: Icons.arrow-drop-up;
+                        opacity: parent.icon-opacity;
+                        colorize: parent.icon-fill;
+                    }
+
+                    clicked => {
+                        i-base.increment();
+                    }
+                }
+
+                SpinBoxButton {
+                    enabled: root.enabled;
+
+                    Image {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        source: Icons.arrow-drop-down;
+                        opacity: parent.icon-opacity;
+                        colorize: parent.icon-fill;
+                    }
+
+                    clicked => {
+                        i-base.decrement();
+                    }
                 }
             }
         }
-
-        VerticalLayout {
-            spacing: 4px;
-
-            SpinBoxButton {
-                enabled: root.enabled;
-
-                Image {
-                    x: (parent.width - self.width) / 2;
-                    y: (parent.height - self.height) / 2;
-                    source: Icons.arrow-drop-up;
-                    opacity: parent.icon-opacity;
-                    colorize: parent.icon-fill;
-                }
-
-                clicked => {
-                    root.increment();
-                }
-            }
-
-            SpinBoxButton {
-                enabled: root.enabled;
-
-                Image {
-                    x: (parent.width - self.width) / 2;
-                    y: (parent.height - self.height) / 2;
-                    source: Icons.arrow-drop-down;
-                    opacity: parent.icon-opacity;
-                    colorize: parent.icon-fill;
-                }
-
-                clicked => {
-                    root.decrement();
-                }
-            }
-        }
-    }
-
-    function update-value(value: int) {
-        if (value >= root.minimum && value <= root.maximum) {
-            root.value = value;
-            root.edited(value);
-        }
-
-        i-text-input.text = root.value;
-    }
-
-    function increment() {
-        root.update-value(root.value + 1);
-    }
-
-    function decrement() {
-        root.update-value(root.value - 1);
     }
 
     states [

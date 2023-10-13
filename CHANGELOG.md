@@ -21,6 +21,8 @@ All notable changes to this project are documented in this file.
  - Fixed conversion in array of array of structs (#3574)
  - Added `scroll-event` callback to `TouchArea`
  - Added support for `protected` functions.
+ - `ComboBox` selection can now be changed by scroll event
+ - `SpinBox` value can now be incremented and decremented by scroll event
 
 ### Rust API
 
