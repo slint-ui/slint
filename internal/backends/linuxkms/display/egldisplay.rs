@@ -56,20 +56,9 @@ impl super::Presenter for EglDisplay {
 
         // TODO: support modifiers
         // TODO: consider falling back to the old non-planar API
-
-        let flags = if front_buffer
-            .modifier()
-            .map_err(|e| format!("Error retrieving modifiers from font buffer: {e}"))?
-            != gbm::Modifier::Invalid
-        {
-            drm::control::FbCmd2Flags::MODIFIERS
-        } else {
-            drm::control::FbCmd2Flags::empty()
-        };
-
         let fb = self
             .gbm_device
-            .add_planar_framebuffer(&front_buffer, flags)
+            .add_planar_framebuffer(&front_buffer, &[None, None, None, None], 0)
             .map_err(|e| format!("Error adding gbm buffer as framebuffer: {e}"))?;
 
         front_buffer
