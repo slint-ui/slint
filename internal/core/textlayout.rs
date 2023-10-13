@@ -69,7 +69,7 @@ impl<'a, Font: AbstractFont> TextLayout<'a, Font> {
         let mut line_count: i16 = 0;
         let shape_buffer = ShapeBuffer::new(self, text);
 
-        for line in TextLineBreaker::<Font>::new(text, &shape_buffer, max_width) {
+        for line in TextLineBreaker::<Font>::new(text, &shape_buffer, max_width, None) {
             max_line_width = euclid::approxord::max(max_line_width, line.text_width);
             line_count += 1;
         }
@@ -130,6 +130,7 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
                 self.string,
                 &shape_buffer,
                 if wrap { Some(self.max_width) } else { None },
+                if elide { Some(self.layout.font.max_lines(self.max_height)) } else { None },
             )
         };
         let mut text_lines = None;
@@ -139,18 +140,7 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
                 self.layout.font.height()
             } else {
                 text_lines = Some(new_line_break_iter().collect::<Vec<_>>());
-                let text_height =
-                    self.layout.font.height() * (text_lines.as_ref().unwrap().len() as i16).into();
-                if elide && text_height > self.max_height {
-                    // The height of the text is used for vertical alignment below.
-                    // If the full text doesn't fit into max_height and eliding is
-                    // enabled, calculate the height of the max number of lines that
-                    // fit to ensure correct vertical alignment when elided.
-                    let max_lines = self.layout.font.max_lines(self.max_height) as i16;
-                    self.layout.font.height() * max_lines.into()
-                } else {
-                    text_height
-                }
+                self.layout.font.height() * (text_lines.as_ref().unwrap().len() as i16).into()
             }
         };
 
