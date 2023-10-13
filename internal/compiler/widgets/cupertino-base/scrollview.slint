@@ -4,8 +4,6 @@
 import { Palette, Icons } from "styling.slint";
 
 export component ScrollBar inherits Rectangle {
-    callback scroll-event <=> i-touch-area.scroll-event;
-
     private property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
     private property <length> step-size: 10px;
     private property <length> offset: 2px;
@@ -62,6 +60,17 @@ export component ScrollBar inherits Rectangle {
                 )));
             }
         }
+
+        scroll-event(event) => {
+            if (root.horizontal && event.delta-x != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-x));
+                return accept;
+            } else if (!root.horizontal && event.delta-y != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-y));
+                return accept;
+            }
+            reject
+        }
     }
 
     states [
@@ -115,15 +124,6 @@ export component ScrollView {
         maximum:  i-flickable.viewport-height - i-flickable.height;
         page-size:  i-flickable.height;
         visible: i-flickable.viewport-height > i-flickable.height;
-
-        scroll-event(event) => {
-            if (event.delta-y != 0) {
-                root.viewport-y = max(root.visible-height - root.viewport-height, min(0px, root.viewport-y + event.delta-y));
-                return accept;
-            }
-
-            reject
-        }
     }
 
     i-horizontal-bar := ScrollBar {
@@ -136,14 +136,5 @@ export component ScrollView {
         maximum:  i-flickable.viewport-width - i-flickable.width;
         page-size:  i-flickable.width;
         visible: i-flickable.viewport-width > i-flickable.width;
-
-        scroll-event(event) => {
-            if (event.delta-x != 0) {
-                root.viewport-y = max(root.visible-width - root.viewport-width, min(0px, root.viewport-x + event.delta-x));
-                return accept;
-            }
-
-            reject
-        }
     }
 }
