@@ -165,7 +165,7 @@ where
     M: Model<Data = T>,
 {
     /// Creates a new MapModel based on the given `wrapped_model` and `map_function`.
-    /// Alternativly you can use [`ModelExt::map`] on your Model.
+    /// Alternatively you can use [`ModelExt::map`] on your Model.
     pub fn new(wrapped_model: M, map_function: F) -> Self {
         Self { wrapped_model, map_function }
     }
@@ -372,7 +372,7 @@ where
     F: Fn(&M::Data) -> bool + 'static,
 {
     /// Creates a new FilterModel based on the given `wrapped_model` and filtered by `filter_function`.
-    /// Alternativly you can use [`ModelExt::filter`] on your Model.
+    /// Alternatively you can use [`ModelExt::filter`] on your Model.
     pub fn new(wrapped_model: M, filter_function: F) -> Self {
         let filter_model_inner = FilterModelInner {
             wrapped_model,
@@ -746,7 +746,7 @@ where
     F: FnMut(&M::Data, &M::Data) -> core::cmp::Ordering + 'static,
 {
     /// Creates a new SortModel based on the given `wrapped_model` and sorted by `sort_function`.
-    /// Alternativly you can use [`ModelExt::sort_by`] on your Model.
+    /// Alternatively you can use [`ModelExt::sort_by`] on your Model.
     pub fn new(wrapped_model: M, sort_function: F) -> Self
     where
         F: FnMut(&M::Data, &M::Data) -> core::cmp::Ordering + 'static,
@@ -773,7 +773,7 @@ where
     M::Data: core::cmp::Ord,
 {
     /// Creates a new SortModel based on the given `wrapped_model` and sorted in ascending order.
-    /// Alternativly you can use [`ModelExt::sort`] on your Model.
+    /// Alternatively you can use [`ModelExt::sort`] on your Model.
     pub fn new_ascending(wrapped_model: M) -> Self
     where
         M::Data: core::cmp::Ord,
@@ -1058,7 +1058,7 @@ where
     M: Model + 'static,
 {
     /// Creates a new ReverseModel based on the given `wrapped_model`.
-    /// Alternativly you can use [`ModelExt::reverse`] on your Model.
+    /// Alternatively you can use [`ModelExt::reverse`] on your Model.
     pub fn new(wrapped_model: M) -> Self {
         let inner = ReverseModelInner { wrapped_model, notify: Default::default() };
         let container = Box::pin(ModelChangeListenerContainer::new(inner));

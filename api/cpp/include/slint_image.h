@@ -145,7 +145,7 @@ public:
     ///
     /// Safety:
     ///
-    /// This function is unsafe because invalid texture ids may lead to undefind behavior in OpenGL
+    /// This function is unsafe because invalid texture ids may lead to undefined behavior in OpenGL
     /// drivers. A valid texture id is one that was created by the same OpenGL context that is
     /// current during any of the invocations of the callback set on
     /// [`Window::set_rendering_notifier()`]. OpenGL contexts between instances of [`slint::Window`]

@@ -14,7 +14,7 @@ fi
 
 git checkout $modified_files
 
-# The version number is a shorterned time stamp of the last commit
+# The version number is a shortend time stamp of the last commit
 nightly_version=`git log -1 --format=%cd --date="format:%Y.%-m.%-d%H"`
 last_commit=`git log -1 --format=%H`
 
@@ -43,4 +43,4 @@ cat > CHANGELOG.md <<EOT
 This nightly build was created from commit $last_commit
 EOT
 
-echo "package.json, REAMDE.md, etc. have been modified. You can package the extension now. Run git checkout afterwards to undo the modifications done by this script."
+echo "package.json, README.md, etc. have been modified. You can package the extension now. Run git checkout afterwards to undo the modifications done by this script."

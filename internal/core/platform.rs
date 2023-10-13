@@ -180,7 +180,7 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
 }
 
 /// Call this function to update and potentially activate any pending timers, as well
-/// as advance the state of any active animtaions.
+/// as advance the state of any active animations.
 ///
 /// This function should be called before rendering or processing input event, at the
 /// beginning of each event loop iteration.

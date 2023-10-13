@@ -19,31 +19,31 @@ TestCase := Rectangle {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-int callback_3_emited = 0;
-instance.on_test_callback3([&]{ callback_3_emited++; });
+int callback_3_emitted = 0;
+instance.on_test_callback3([&]{ callback_3_emitted++; });
 instance.set_callback_emission_count(0);
 assert_eq(instance.get_callback_emission_count(), 0);
 instance.invoke_test_callback();
 assert_eq(instance.get_callback_emission_count(), 1);
 instance.invoke_test_callback();
 assert_eq(instance.get_callback_emission_count(), 2);
-assert_eq(callback_3_emited, 0);
+assert_eq(callback_3_emitted, 0);
 instance.invoke_test_callback2();
 assert_eq(instance.get_callback_emission_count(), 88);
-assert_eq(callback_3_emited, 1);
+assert_eq(callback_3_emitted, 1);
 ```
 
 
 ```rust
 let instance = TestCase::new().unwrap();
-let callback_3_emited = std::rc::Rc::new(std::cell::Cell::new(0));
+let callback_3_emitted = std::rc::Rc::new(std::cell::Cell::new(0));
 // test that mutable variables can be captured
 let mut _mutable_var = String::from("1");
 instance.on_test_callback3({
-    let callback_3_emited = callback_3_emited.clone();
+    let callback_3_emitted = callback_3_emitted.clone();
     move || {
-        callback_3_emited.set(callback_3_emited.get() + 1);
-        _mutable_var.push_str(&callback_3_emited.get().to_string());
+        callback_3_emitted.set(callback_3_emitted.get() + 1);
+        _mutable_var.push_str(&callback_3_emitted.get().to_string());
     }
 });
 instance.set_callback_emission_count(0);
@@ -52,16 +52,16 @@ instance.invoke_test_callback();
 assert_eq!(instance.get_callback_emission_count(), 1);
 instance.invoke_test_callback();
 assert_eq!(instance.get_callback_emission_count(), 2);
-assert_eq!(callback_3_emited.get(), 0);
+assert_eq!(callback_3_emitted.get(), 0);
 instance.invoke_test_callback2();
 assert_eq!(instance.get_callback_emission_count(), 88);
-assert_eq!(callback_3_emited.get(), 1);
+assert_eq!(callback_3_emitted.get(), 1);
 ```
 
 ```js
-var callback_3_emited = 0;
+var callback_3_emitted = 0;
 var instance = new slint.TestCase({
-    test_callback3: function() { callback_3_emited++; }
+    test_callback3: function() { callback_3_emitted++; }
 });
 instance.callback_emission_count = 0;
 assert.equal(instance.callback_emission_count, 0);
@@ -71,9 +71,9 @@ let x = instance.test_callback;
 assert.equal(instance.callback_emission_count, 1);
 x()
 assert.equal(instance.callback_emission_count, 2);
-assert.equal(callback_3_emited, 0);
+assert.equal(callback_3_emitted, 0);
 instance.test_callback2();
 assert.equal(instance.callback_emission_count, 88);
-assert.equal(callback_3_emited, 1);
+assert.equal(callback_3_emitted, 1);
 ```
 */

@@ -181,7 +181,7 @@ struct CppPlatform {
     window_factory: unsafe extern "C" fn(PlatformUserData, *mut WindowAdapterRcOpaque),
     #[cfg(not(feature = "std"))]
     duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
-    // silent the warning depite `Clipboard` is a `#[non_exhaustive]` enum from another crate.
+    // silent the warning despite `Clipboard` is a `#[non_exhaustive]` enum from another crate.
     #[allow(improper_ctypes_definitions)]
     set_clipboard_text: unsafe extern "C" fn(PlatformUserData, &SharedString, Clipboard),
     #[allow(improper_ctypes_definitions)]

@@ -29,8 +29,8 @@ pub struct Glyph<Length> {
 ///
 /// Functionality wise it provides the ability to convert a string into a set of glyphs,
 /// each of which has basic metric fields as well as an offset back into the original string.
-/// Typically this is implemented by using a general text shaper, which performans an M:N mapping
-/// from unicode characters to glyphs, via glyph substitions and script specific rules. In addition
+/// Typically this is implemented by using a general text shaper, which performs an M:N mapping
+/// from unicode characters to glyphs, via glyph substitutions and script specific rules. In addition
 /// the glyphs may be positioned for the required appearance (such as stacked diacritics).
 ///
 /// Finally, for convenience the TextShaper also provides a single glyph_for_char function, for example

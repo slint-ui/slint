@@ -17,7 +17,7 @@ component ValueDelegate {
 
         Rectangle {
             min_width: 1px;
-            background: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.limon-green;
+            background: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.lemon-green;
             horizontal-stretch: 0;
         }
 
@@ -26,7 +26,7 @@ component ValueDelegate {
             horizontal-stretch: 1;
 
             i-title := Text {
-                color: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.limon-green;
+                color: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.lemon-green;
                 font-size: Theme.typo.label.size;
                 font-weight: Theme.typo.label.weight;
             }
@@ -46,7 +46,7 @@ component ValueDelegate {
                 i-unit := Text {
                     y: Theme.spaces.small;
                     vertical-alignment: center;
-                    color: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.limon-green;
+                    color: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.lemon-green;
                     font-size: Theme.typo.label-light.size;
                     font-weight: Theme.typo.label-light.weight;
                 }
@@ -85,7 +85,7 @@ export component ValueDisplay {
         width: 100%;
         height: 100%;
         border-radius: 4px;
-        background: alternative-colors ? Theme.palette.slint-blue-gradient : Theme.palette.limon-green-gradient;
+        background: alternative-colors ? Theme.palette.slint-blue-gradient : Theme.palette.lemon-green-gradient;
     }
 
     if(model.length > 0 && !vertical) : HorizontalLayout {

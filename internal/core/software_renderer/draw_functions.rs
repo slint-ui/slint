@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-#![allow(clippy::identity_op)] // We use x + 0 a lot here for symetry
+#![allow(clippy::identity_op)] // We use x + 0 a lot here for symmetry
 
 //! This is the module for the functions that are drawing the pixels
 //! on the line buffer

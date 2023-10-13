@@ -63,7 +63,7 @@ pub enum Type {
         name: Option<String>,
         /// When declared in .slint, this is the node of the declaration.
         node: Option<syntax_nodes::ObjectType>,
-        /// deriven
+        /// derived
         rust_attributes: Option<Vec<String>>,
     },
     Enumeration(Rc<Enumeration>),

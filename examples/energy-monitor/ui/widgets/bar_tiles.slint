@@ -24,8 +24,8 @@ component ValueLabel {
             vertical-stretch: 0;
             horizontal-alignment: right;
             text: root.text;
-            font-size: Theme.typo.desciption-light.size;
-            font-weight: Theme.typo.desciption-light.weight;
+            font-size: Theme.typo.description-light.size;
+            font-weight: Theme.typo.description-light.weight;
         }
 
         Text {
@@ -33,14 +33,14 @@ component ValueLabel {
             vertical-stretch: 0;
             horizontal-alignment: left;
             text: "°";
-            font-size: Theme.typo.desciption-light.size;
-            font-weight: Theme.typo.desciption-light.weight;
+            font-size: Theme.typo.description-light.size;
+            font-weight: Theme.typo.description-light.weight;
         }
     }
 }
 
 component BarTile {
-    in property <string> title <=> i-tiitle.text;
+    in property <string> title <=> i-title.text;
     in property <image> icon <=> i-icon.source;
     in property <int> max;
     in property <int> min;
@@ -54,12 +54,12 @@ component BarTile {
         VerticalLayout {
             spacing: 7px;
 
-            i-tiitle := Text {
+            i-title := Text {
                 color: Theme.palette.white;
                 vertical-stretch: 0;
                 horizontal-alignment: center;
-                font-size: Theme.typo.desciption.size;
-                font-weight: Theme.typo.desciption.weight;
+                font-size: Theme.typo.description.size;
+                font-weight: Theme.typo.description.weight;
             }
 
             i-icon := Image {
@@ -88,7 +88,7 @@ component BarTile {
                         min_width: 12px;
                         border-radius: 6px;
 
-                        background: Theme.palette.limon-green-light-gradient;
+                        background: Theme.palette.lemon-green-light-gradient;
                     }
                 }
             }

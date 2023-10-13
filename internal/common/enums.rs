@@ -3,7 +3,7 @@
 
 //! This module contains all enums exposed in the .slint language.
 
-// cSpell: ignore combobox evenodd grabbable horizontalbox horizontallayout nesw spinbox standardbutton standardtableview verticalbox verticallayout
+// cSpell: ignore evenodd grabbable horizontalbox horizontallayout nesw standardbutton standardtableview verticalbox verticallayout
 
 /// Call a macro with every enum exposed in the .slint language
 ///

@@ -221,8 +221,8 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
 fn formatter_test() {
     fn format_code(code: &str) -> String {
         let mut res = Vec::new();
-        let mut formater = CodeFormatter::new(&mut res);
-        formater.write_all(code.as_bytes()).unwrap();
+        let mut formatter = CodeFormatter::new(&mut res);
+        formatter.write_all(code.as_bytes()).unwrap();
         String::from_utf8(res).unwrap()
     }
 

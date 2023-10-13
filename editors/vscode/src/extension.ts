@@ -3,7 +3,7 @@
 
 // This file is the entry point for the vscode extension (not the browser one)
 
-// cSpell: ignore aarch armv codespaces gnueabihf vsix
+// cSpell: ignore codespaces gnueabihf vsix
 
 import * as path from "path";
 import { existsSync } from "fs";

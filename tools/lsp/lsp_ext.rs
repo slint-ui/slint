@@ -6,7 +6,7 @@
 use lsp_types::notification::Notification;
 use serde::{Deserialize, Serialize};
 
-/// Taken from rust-analizer
+/// Taken from rust-analyzer
 pub enum ServerStatusNotification {}
 
 impl Notification for ServerStatusNotification {

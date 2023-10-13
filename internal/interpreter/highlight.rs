@@ -3,8 +3,6 @@
 
 //! This module contains the code for the highlight of some elements
 
-// cSpell: ignore unerase
-
 use crate::dynamic_item_tree::{DynamicComponentVRc, ErasedItemTreeBox, ItemTreeBox};
 use crate::Value;
 use i_slint_compiler::diagnostics::{SourceFile, Spanned};

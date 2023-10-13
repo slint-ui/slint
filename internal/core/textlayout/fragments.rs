@@ -103,7 +103,7 @@ impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy> Iterator
 
         fragment.glyph_range = Range { start, end: last_glyph_cluster.glyph_range.end };
 
-        // Make sure that adjacent fragments are adjanced in their byte range:
+        // Make sure that adjacent fragments are advanced in their byte range:
         // this assertion should hold: fragment.byte_range.end + fragment.trailing_whitespace_bytes == next_fragment.byte_range.start
         // That means characters causing mandatory breaks need to be included.
         if fragment.trailing_mandatory_break {
