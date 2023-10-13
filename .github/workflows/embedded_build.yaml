@@ -6,6 +6,9 @@ name: Embedded Build
 on:
   workflow_dispatch:
 
+  schedule:
+    - cron: '0 1 * * *'
+
 jobs:
   build_containers:
     runs-on: ubuntu-22.04
