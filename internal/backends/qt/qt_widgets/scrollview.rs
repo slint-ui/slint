@@ -209,8 +209,16 @@ impl Item for NativeScrollView {
                         InputEventResult::EventAccepted
                     }
                 }
-                MouseEvent::Wheel { .. } => {
-                    // TODO
+                MouseEvent::Wheel { delta_x, delta_y, .. } => {
+                    if horizontal {
+                        let max = max as f32;
+                        let new_val = value as f32 + delta_x;
+                        value_prop.set(LogicalLength::new(new_val.min(0.).max(-max)));
+                    } else {
+                        let max = max as f32;
+                        let new_val = value as f32 + delta_y;
+                        value_prop.set(LogicalLength::new(new_val.min(0.).max(-max)));
+                    }
                     InputEventResult::EventAccepted
                 }
             };
