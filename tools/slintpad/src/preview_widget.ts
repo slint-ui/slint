@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-// cSpell: ignore bindgen lumino winit
+// cSpell: ignore bindgen lumino
 
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";

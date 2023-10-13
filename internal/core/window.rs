@@ -64,7 +64,7 @@ fn input_as_key_event(input: KeyInputEvent, modifiers: KeyboardModifiers) -> Key
 ///
 /// If the implementation of this bi-directional message passing protocol is incomplete, the user may
 /// experience unexpected behavior, or the intention of the developer calling functions on the [`crate::Window`](struct.Window.html)
-/// API may not be fullfilled.
+/// API may not be fulfilled.
 ///
 /// Your implementation must hold a renderer, such as [`crate::software_renderer::SoftwareRenderer`].
 /// In the [`Self::renderer()`] function, you must return a reference to it.

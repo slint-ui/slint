@@ -1,5 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-<!-- cSpell: ignore ccmake dslint femtovg skia winit -->
+<!-- cSpell: ignore ccmake dslint femtovg -->
 
 # Installing Or Building With CMake
 
@@ -43,7 +43,7 @@ First you need to install the prerequisites:
 
 * Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
   have Rust installed, make sure that it's at least version 1.60 or newer. You can check which version you have installed
-  by running `rustc --version`. Once this is done, you should have the ```rustc``` compiler and the ```cargo``` build system installed in your path.
+  by running `rustc --version`. Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your path.
 * **[cmake](https://cmake.org/download/)** (3.21 or newer)
 * A C++ compiler that supports C++20 (e.g., **MSVC 2019 16.6** on Windows)
 

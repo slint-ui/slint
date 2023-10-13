@@ -329,7 +329,7 @@ fn handle_paint(p: &Paint, rc: &mut Ctx, arg: &str) -> Result<bool, Box<dyn std:
     let mut has_something = false;
     if !p.gradientStops.is_empty() {
         if p.r#type != "GRADIENT_LINEAR" {
-            eprintln!("Warning: unsuported Paint type {:?}", p.r#type);
+            eprintln!("Warning: unsupported paint type {:?}", p.r#type);
             return Ok(false);
         }
         let p1 = *p

@@ -5,7 +5,7 @@
 ```sh
 bindgen /usr/include/qt/QtCore/qnamespace.h --whitelist-type Qt::Key --whitelist-type Qt::KeyboardModifier --whitelist-type Qt::AlignmentFlag --whitelist-type Qt::TextFlag --whitelist-type Qt::FillRule --whitelist-type Qt::CursorShape -o internal/backends/qt/key_generated.rs -- -I /usr/include/qt -xc++
 ```
-then add licence header and this doc
+then add license header and this doc
 */
 #![allow(unused)]
 #![allow(non_camel_case_types)]

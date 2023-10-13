@@ -9,10 +9,10 @@ import { IconButton, CheckBox, RadioButton, Switch, ScrollView, Item, ItemGroupB
 export global SettingsAdapter {
     callback check-radio-option(int /* index */);
 
-    // fuctions
-    in-out property <bool> fuction-one-checked: true;
+    // functions
+    in-out property <bool> function-one-checked: true;
     in-out property <bool> kiosk-mode-checked;
-    in-out property <bool> fuction-three-checked;
+    in-out property <bool> function-three-checked;
 
     // radio options
     in-out property <bool> radio-option-one-checked: true;
@@ -39,10 +39,10 @@ export component Settings inherits Page {
     callback close();
     callback check-radio-option <=> SettingsAdapter.check-radio-option;
 
-    // fuctions
-    in-out property <bool> fuction-one-checked <=> SettingsAdapter.fuction-one-checked;
+    // functions
+    in-out property <bool> function-one-checked <=> SettingsAdapter.function-one-checked;
     in-out property <bool> kiosk-mode-checked <=> SettingsAdapter.kiosk-mode-checked;
-    in-out property <bool> fuction-three-checked <=> SettingsAdapter.fuction-three-checked;
+    in-out property <bool> function-three-checked <=> SettingsAdapter.function-three-checked;
 
     // radio options
     in-out property <bool> radio-option-one-checked <=> SettingsAdapter.radio-option-one-checked;
@@ -75,7 +75,7 @@ export component Settings inherits Page {
                     text: "Function One";
 
                     i-function-one-check-box := CheckBox {
-                        checked <=> root.fuction-one-checked;
+                        checked <=> root.function-one-checked;
                     }
 
                     clicked => {
@@ -181,12 +181,12 @@ export component Settings inherits Page {
                 Item {
                     text: "Function Three";
 
-                    i-fuction-three := Switch {
-                        checked <=> root.fuction-three-checked;
+                    i-function-three := Switch {
+                        checked <=> root.function-three-checked;
                     }
 
                     clicked => {
-                        i-fuction-three.clicked();
+                        i-function-three.clicked();
                     }
                 }
             }

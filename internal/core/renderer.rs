@@ -67,7 +67,7 @@ pub trait RendererSealed {
 
     /// Mark a given region as dirty regardless whether the items actually are dirty.
     ///
-    /// Example: when a PopupWindow disapear, the region under the popup needs to be redrawn
+    /// Example: when a PopupWindow disappears, the region under the popup needs to be redrawn
     fn mark_dirty_region(&self, _region: crate::item_rendering::DirtyRegion) {}
 
     #[cfg(feature = "std")] // FIXME: just because of the Error

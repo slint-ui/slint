@@ -1210,7 +1210,7 @@ impl Expression {
                             fields: elem_fields,
                             name: elem_name,
                             node: elem_node,
-                            rust_attributes: deriven,
+                            rust_attributes: derived,
                         },
                     ) => {
                         for (elem_name, elem_ty) in elem_fields.into_iter() {
@@ -1232,7 +1232,7 @@ impl Expression {
                             name: result_name.or(elem_name),
                             fields: result_fields,
                             node: result_node.or(elem_node),
-                            rust_attributes: rust_attributes.or(deriven),
+                            rust_attributes: rust_attributes.or(derived),
                         }
                     }
                     (Type::Array(lhs), Type::Array(rhs)) => Type::Array(

@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-// cSpell: ignore winit
-
 import { Uri, TextDocumentShowOptions } from "vscode";
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
@@ -245,7 +243,7 @@ function getPreviewHtml(slint_wasm_preview_url: Uri): string {
                 try {
                     slint.run_event_loop();
                 } catch (e) {
-                    // ignore winit event loop exception
+                    // ignore event loop exception
                 }
                 current_instance = (async () => {
                     let new_instance = await component.create("slint_canvas");

@@ -152,7 +152,7 @@ mod allocator {
             if align <= core::mem::size_of::<usize>() {
                 malloc(layout.size()) as *mut u8
             } else {
-                // Ideally we'd use alligned_alloc, but that function caused heap corruption with esp-idf
+                // Ideally we'd use aligned_alloc, but that function caused heap corruption with esp-idf
                 let ptr = malloc(layout.size() + align) as *mut u8;
                 let shift = align - (ptr as usize % align);
                 let ptr = ptr.add(shift);

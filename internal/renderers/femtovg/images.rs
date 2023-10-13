@@ -100,7 +100,7 @@ impl Texture {
             ImageInner::HTMLImage(html_image) => {
                 if html_image.size().is_some() {
                     // Anecdotal evidence suggests that HTMLImageElement converts to a texture with
-                    // pre-multipled alpha. It's possible that this is not generally applicable, but it
+                    // pre-multiplied alpha. It's possible that this is not generally applicable, but it
                     // is the case for SVGs.
                     let image_flags = if html_image.is_svg() {
                         if let Some(target_size) = target_size_for_scalable_source {

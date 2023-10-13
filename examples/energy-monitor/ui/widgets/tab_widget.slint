@@ -48,11 +48,11 @@ component Tab {
         animate opacity { duration: Theme.durations.medium; }
     }
 
-    i-inidator := Rectangle {
+    i-initiator := Rectangle {
         width: 0;
         y: 0;
         height: 1px;
-        background: Theme.palette.limon-green;
+        background: Theme.palette.lemon-green;
         visible: selected;
 
         animate width { duration: Theme.durations.medium; }
@@ -62,8 +62,8 @@ component Tab {
 
     states [
         selected when selected : {
-            i-inidator.width: root.width;
-            i-title.color: Theme.palette.limon-green;
+            i-initiator.width: root.width;
+            i-title.color: Theme.palette.lemon-green;
             i-gradient.opacity: 1.0;
         }
     ]

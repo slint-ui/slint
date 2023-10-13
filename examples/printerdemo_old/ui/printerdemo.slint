@@ -62,7 +62,7 @@ export component MainWindow inherits Window {
     title: "Slint printer demo";
     background: white;
 
-    /// Note that this property is overwriten in the .cpp and .rs code.
+    /// Note that this property is overwritten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
     in-out property <[InkLevel]> ink-levels: [
                 {color: #0ff, level: 60%},
@@ -158,7 +158,7 @@ export component MainWindow inherits Window {
             }
             invisible when root.active-page > 0 && root.active-page != idx + 1 : {
                 color: transparent;
-                // FIXME: should probaby hide the entire item under with z-ordering
+                // FIXME: should probably hide the entire item under with z-ordering
                 img.y: 1000000000px;
                 text.color: #0000;
             }

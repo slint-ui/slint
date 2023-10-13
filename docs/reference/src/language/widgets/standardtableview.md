@@ -1,8 +1,9 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 ## `StandardTableView`
 
 The `StandardTableView` represents a table of data with columns and rows. Cells
-are organised in a model where each row is a model of
+are organized in a model where each row is a model of
 \[[`StandardListViewItem`](../builtins/structs.md#standardlistviewitem)\].
 
 ### Properties
@@ -23,7 +24,7 @@ Same as [`ListView`](#listview), and in addition:
 
 ### Functions
 
--   **`set-current-row(int)`: Sets the current row by index and brings it into view.
+-   **`set-current-row(int)`**: Sets the current row by index and brings it into view.
 
 ### Example
 

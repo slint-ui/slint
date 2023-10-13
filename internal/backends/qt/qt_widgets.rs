@@ -219,7 +219,7 @@ cpp! {{
         // For our hacks to work, we need to have some invisible parent widget.
         static QWidget globalParent;
         ptr->setParent(&globalParent);
-        // Let Qt thinks the widget is visible even if it isn't so update() from animation is forwared
+        // Let Qt thinks the widget is visible even if it isn't so update() from animation is forwarded
         ptr->setAttribute(Qt::WA_WState_Visible, true);
         // Hack so update() send a UpdateLater event
         ptr->setAttribute(Qt::WA_WState_InPaintEvent, true);

@@ -1,4 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 ## Introduction
 
 This document will outline the process of triaging GitHub issues and provide an explanation of GitHub labels.
@@ -6,7 +7,7 @@ This document will outline the process of triaging GitHub issues and provide an 
 ## GitHub Labels
 
 Labels that start with `a:` are area labels.
-Area labels help categorise issues based on their scope. Each issue should ideally have at least one area label.
+Area labels help categorize issues based on their scope. Each issue should ideally have at least one area label.
 The description of the area label ends with a code that indicates the maintainer or backup maintainer of that area.
 For example, if a label description ends with `(mX,bY)`, it means person X is the maintainer, and person Y is the backup maintainer for that area.
 
@@ -57,7 +58,7 @@ Filter for all the issues not assigned to an area:
 curl -H 'Accept: application/vnd.github.v3+json' "https://api.github.com/repos/slint-ui/slint/labels?per_page=100&page=1" | jq -r '.[].name'  | grep "^a:" | sed 's/^\(.*\)$/-label:\\\"\1\\\"/' | xargs echo
 ```
 
-Filter of all issues for which X is a maintainer  (replace the X in `"mX"` with the right letter name, or `bX` for the backup)
+Filter of all issues for which X is a maintainer (replace the X in `"mX"` with the right letter name, or `bX` for the backup)
 
 ```sh
 curl -H 'Accept: application/vnd.github.v3+json' "https://api.github.com/repos/slint-ui/slint/labels?per_page=100&page=1" | jq -r '.[] | select(.description | contains("mX")) | .name' | awk '{printf "\"%s\",", $0}' | sed 's/^\(.*\),$/label:\1\n/'

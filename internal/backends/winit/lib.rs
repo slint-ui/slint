@@ -131,7 +131,7 @@ pub const HAS_NATIVE_STYLE: bool = false;
 #[doc(hidden)]
 pub mod native_widgets {}
 
-#[doc = concat!("This struct implements the Slint Platform trait. Use this in conjuction with [`slint::platform::set_platform`](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/platform/fn.set_platform.html) to initialize.")]
+#[doc = concat!("This struct implements the Slint Platform trait. Use this in conjunction with [`slint::platform::set_platform`](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/platform/fn.set_platform.html) to initialize.")]
 /// Slint to use winit for all windowing system interaction.
 ///
 /// ```rust,no_run

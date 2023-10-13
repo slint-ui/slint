@@ -9,7 +9,7 @@ export SuperSimple := Rectangle {
         background: blue + 3
         x: 45phx;
 //      ^error{Syntax error: expected ';'}
-// FIXME: would be nice if the smeicolon error was on the previous line
+// FIXME: would be nice if the semicolon error was on the previous line
     }
 
     there was already parse error in this scope, so no more
@@ -29,5 +29,3 @@ struct F {};
 
 export {F};
 //        ^error{Extra semicolon. Remove this semicolon}
-
-

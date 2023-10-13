@@ -11,7 +11,7 @@ pub mod lower_expression;
 pub mod lower_to_item_tree;
 pub mod pretty_print;
 
-/// The optimisation passes over the LLR
+/// The optimization passes over the LLR
 pub mod optim_passes {
     pub mod count_property_use;
     mod inline_expressions;

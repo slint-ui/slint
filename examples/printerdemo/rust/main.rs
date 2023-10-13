@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 slint::include_modules!();
 
-/// Returns the current time formated as a string
+/// Returns the current time formatted as a string
 fn current_time() -> slint::SharedString {
     #[cfg(not(target_arch = "wasm32"))]
     return chrono::Local::now().format("%H:%M:%S %d/%m/%Y").to_string().into();

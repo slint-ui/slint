@@ -31,8 +31,8 @@ component ListViewItem {
         i-text := Text {
             horizontal-stretch: 1;
             color: Theme.palette.white;
-            font-size: Theme.typo.desciption.size;
-            font-weight: Theme.typo.desciption.weight;
+            font-size: Theme.typo.description.size;
+            font-weight: Theme.typo.description.weight;
             vertical-alignment: center;
         }
 
@@ -40,7 +40,7 @@ component ListViewItem {
             horizontal-stretch: 0;
             visible: false;
             source: Images.check;
-            colorize: Theme.palette.limon-green;
+            colorize: Theme.palette.lemon-green;
         }
      }
 
@@ -52,7 +52,7 @@ component ListViewItem {
 
     states [
         selected when selected : {
-            i-container.border-color: Theme.palette.limon-green;
+            i-container.border-color: Theme.palette.lemon-green;
             i-icon.visible: true;
         }
     ]

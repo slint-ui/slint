@@ -82,7 +82,7 @@ private:
 ///
 /// If the implementation of this bi-directional message passing protocol is incomplete, the user
 /// may experience unexpected behavior, or the intention of the developer calling functions on the
-/// Window API may not be fullfilled.
+/// Window API may not be fulfilled.
 ///
 /// Your WindowAdapter subclass must hold a renderer (either a SoftwareRenderer or a SkiaRenderer).
 /// In the renderer() method, you must return a reference to it.

@@ -152,7 +152,7 @@ fn analyze_element(
         if binding.borrow().analysis.is_some() {
             continue;
         }
-        analyse_binding(
+        analyze_binding(
             &PropertyPath::from(NamedReference::new(elem, name)),
             context,
             reverse_aliases,
@@ -194,7 +194,7 @@ fn analyze_element(
 #[derive(Copy, Clone, dm::BitAnd, dm::BitOr, dm::BitAndAssign, dm::BitOrAssign)]
 struct DependsOnExternal(bool);
 
-fn analyse_binding(
+fn analyze_binding(
     current: &PropertyPath,
     context: &mut AnalysisContext,
     reverse_aliases: &ReverseAliases,
@@ -342,7 +342,7 @@ fn process_property(
     loop {
         let element = prop.prop.element();
         if element.borrow().bindings.contains_key(prop.prop.name()) {
-            analyse_binding(&prop, context, reverse_aliases, diag);
+            analyze_binding(&prop, context, reverse_aliases, diag);
         }
         let next = if let ElementType::Component(base) = &element.borrow().base_type {
             if element.borrow().property_declarations.contains_key(prop.prop.name()) {
