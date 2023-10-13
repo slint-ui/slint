@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+
+export component SpinBoxBase {
+    private property <length> scroll-delta: 2px;
+
+    callback edited(/* value */ int);
+    callback update-text(/* text */ string);
+
+    in property <int> minimum;
+    in property <int> maximum: 100;
+    in property <bool> enabled;
+    in-out property <int> value;
+
+    TouchArea {
+        enabled: root.enabled;
+
+        scroll-event(event) => {
+            if (event.delta-y < 0) {
+                root.increment();
+                return accept;
+            }
+
+            if (event.delta-y > 0) {
+                root.decrement();
+                return accept;
+            }
+
+            return reject;
+        }
+    }
+
+    public function update-value(value: int) {
+        if (value < root.minimum || value > root.maximum) {
+            return;
+        }
+
+        root.value = value;
+        root.edited(value);
+    }
+
+    public function increment() {
+        root.update-value(root.value + 1);
+    }
+
+    public function decrement() {
+        root.update-value(root.value - 1);
+    }
+}
