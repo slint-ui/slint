@@ -1,0 +1,29 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+[package]
+name = "i-slint-backend-android-activity"
+description = "OpenGL rendering backend for Slint"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[features]
+game-activity = ["android-activity/game-activity"]
+native-activity = ["android-activity/native-activity"]
+
+[target.'cfg(target_os = "android")'.dependencies]
+# FIXME: we shoudln't depend on slint, but the other way around
+slint = { workspace = true, features = ["compat-1-2"] }
+i-slint-renderer-skia = { workspace = true }
+i-slint-core = { workspace = true }
+raw-window-handle = { version = "0.5.2" }
+android-activity = { version = "0.5" }
+ndk = { version = "0.8.0", features = ["rwh_05"] }

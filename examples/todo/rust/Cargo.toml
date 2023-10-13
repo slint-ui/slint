@@ -17,18 +17,21 @@ name = "todo"
 [dependencies]
 slint = { path = "../../../api/rs/slint" }
 
+[target.'cfg(target_os = "android")'.dependencies]
+i-slint-backend-android-activity = { workspace = true, features = ["native-activity"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { version = "0.2" }
+console_error_panic_hook = "0.1.5"
+
 [build-dependencies]
 slint-build = { path = "../../../api/rs/build" }
 
-# Remove the `#wasm#` to uncomment the wasm build.
+# Remove the `#wasm#` to uncomment the wasm and android build.
 # This is commented out by default because we don't want to build it as a library by default
 # The CI has a script that does sed "s/#wasm# //" to generate the wasm build.
 
 #wasm# [lib]
 #wasm# crate-type = ["cdylib"]
 #wasm# path = "main.rs"
-#wasm#
-#wasm# [target.'cfg(target_arch = "wasm32")'.dependencies]
-#wasm# wasm-bindgen = { version = "0.2" }
-#wasm# web-sys = { version = "0.3", features=["console"] }
-#wasm# console_error_panic_hook = "0.1.5"
+
