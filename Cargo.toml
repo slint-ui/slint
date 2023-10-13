@@ -129,6 +129,7 @@ send_wrapper = { version = "0.6.0" }
 cbindgen = { version = "0.26", default-features = false }
 toml_edit = "0.20"
 css-color-parser2 = { version = "1.0.1" }
+itertools = "0.11"
 
 [profile.release]
 lto = true
