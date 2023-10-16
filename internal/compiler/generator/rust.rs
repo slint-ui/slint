@@ -859,7 +859,6 @@ fn generate_sub_component(
         }
 
         let sub_items_count = sub.ty.child_item_count();
-        let local_tree_index = local_tree_index;
         accessible_role_branch.push(quote!(
             #local_tree_index => #sub_compo_field.apply_pin(_self).accessible_role(0),
         ));
