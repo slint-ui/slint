@@ -94,7 +94,7 @@ pub fn is_absolute(path: &Path) -> bool {
         return true;
     }
 
-    matches!(components(path, 0, &None), Some((PathComponent::RootComponent(_), _, _)))
+    matches!(components(path, 0, &None), Some((PathComponent::Root(_), _, _)))
 }
 
 #[test]
@@ -151,12 +151,12 @@ fn test_is_absolute() {
 
 #[derive(Debug, PartialEq)]
 enum PathComponent<'a> {
-    RootComponent(&'a str),
-    EmptyComponent,
-    SameDirectoryComponent(&'a str),
-    ParentDirectoryComponent(&'a str),
-    DirectoryComponent(&'a str),
-    FileComponent(&'a str),
+    Root(&'a str),
+    Empty,
+    SameDirectory(&'a str),
+    ParentDirectory(&'a str),
+    Directory(&'a str),
+    File(&'a str),
 }
 
 /// Find which kind of path separator is used in the `str`
@@ -186,27 +186,24 @@ fn components<'a>(
     let b = path.as_bytes();
 
     if offset == 0 {
-        if b.len() >= 3 {
-            if ((b'a'..=b'z').contains(&b[0]) || (b'A'..=b'Z').contains(&b[0]))
-                && b[1] == b':'
-                && (b[2] == b'\\' || b[2] == b'/')
-            {
-                return Some((PC::RootComponent(&path[0..3]), 3, b[2] as char));
-            }
+        if b.len() >= 3
+            && b[0].is_ascii_alphabetic()
+            && b[1] == b':'
+            && (b[2] == b'\\' || b[2] == b'/')
+        {
+            return Some((PC::Root(&path[0..3]), 3, b[2] as char));
         }
-        if b.len() >= 2 {
-            if b[0] == b'\\' && b[1] == b'\\' {
-                let second_bs = path[2..]
-                    .find('\\')
-                    .map(|pos| pos + 2 + 1)
-                    .and_then(|pos1| path[pos1..].find('\\').map(|pos2| pos2 + pos1));
-                if let Some(end_offset) = second_bs {
-                    return Some((PC::RootComponent(&path[0..=end_offset]), end_offset + 1, '\\'));
-                }
+        if b.len() >= 2 && b[0] == b'\\' && b[1] == b'\\' {
+            let second_bs = path[2..]
+                .find('\\')
+                .map(|pos| pos + 2 + 1)
+                .and_then(|pos1| path[pos1..].find('\\').map(|pos2| pos2 + pos1));
+            if let Some(end_offset) = second_bs {
+                return Some((PC::Root(&path[0..=end_offset]), end_offset + 1, '\\'));
             }
         }
         if b[0] == b'/' || b[0] == b'\\' {
-            return Some((PC::RootComponent(&path[0..1]), 1, b[0] as char));
+            return Some((PC::Root(&path[0..1]), 1, b[0] as char));
         }
     }
 
@@ -215,31 +212,25 @@ fn components<'a>(
     let next_component = path[offset..].find(separator).map(|p| p + offset).unwrap_or(path.len());
     if &path[offset..next_component] == "." {
         return Some((
-            PC::SameDirectoryComponent(&path[offset..next_component]),
+            PC::SameDirectory(&path[offset..next_component]),
             next_component + 1,
             separator,
         ));
     }
     if &path[offset..next_component] == ".." {
         return Some((
-            PC::ParentDirectoryComponent(&path[offset..next_component]),
+            PC::ParentDirectory(&path[offset..next_component]),
             next_component + 1,
             separator,
         ));
     }
 
     if next_component == path.len() {
-        Some((PC::FileComponent(&path[offset..next_component]), next_component, separator))
+        Some((PC::File(&path[offset..next_component]), next_component, separator))
+    } else if next_component == offset {
+        Some((PC::Empty, next_component + 1, separator))
     } else {
-        if next_component == offset {
-            Some((PC::EmptyComponent, next_component + 1, separator))
-        } else {
-            Some((
-                PC::DirectoryComponent(&path[offset..next_component]),
-                next_component + 1,
-                separator,
-            ))
-        }
+        Some((PC::Directory(&path[offset..next_component]), next_component + 1, separator))
     }
 }
 
@@ -252,67 +243,53 @@ fn test_components() {
         assert_eq!(components(input, 0, &None), expected);
     }
 
-    th("/foo/bar/", Some((PC::RootComponent("/"), 1, '/')));
-    th("../foo/bar", Some((PC::ParentDirectoryComponent(".."), 3, '/')));
-    th("foo/bar", Some((PC::DirectoryComponent("foo"), 4, '/')));
-    th("./foo/bar", Some((PC::SameDirectoryComponent("."), 2, '/')));
+    th("/foo/bar/", Some((PC::Root("/"), 1, '/')));
+    th("../foo/bar", Some((PC::ParentDirectory(".."), 3, '/')));
+    th("foo/bar", Some((PC::Directory("foo"), 4, '/')));
+    th("./foo/bar", Some((PC::SameDirectory("."), 2, '/')));
     // Windows style paths:
-    th("C:\\Documents\\Newsletters\\Summer2018.pdf", Some((PC::RootComponent("C:\\"), 3, '\\')));
+    th("C:\\Documents\\Newsletters\\Summer2018.pdf", Some((PC::Root("C:\\"), 3, '\\')));
     // Windows actually considers this to be a relative path:
-    th(
-        "\\Program Files\\Custom Utilities\\StringFinder.exe",
-        Some((PC::RootComponent("\\"), 1, '\\')),
-    );
-    th("2018\\January.xlsx", Some((PC::DirectoryComponent("2018"), 5, '\\')));
-    th("..\\Publications\\TravelBrochure.pdf", Some((PC::ParentDirectoryComponent(".."), 3, '\\')));
+    th("\\Program Files\\Custom Utilities\\StringFinder.exe", Some((PC::Root("\\"), 1, '\\')));
+    th("2018\\January.xlsx", Some((PC::Directory("2018"), 5, '\\')));
+    th("..\\Publications\\TravelBrochure.pdf", Some((PC::ParentDirectory(".."), 3, '\\')));
     // TODO: This is wrong, but we are unlikely to need it:-)
-    th("C:Projects\\library\\library.sln", Some((PC::DirectoryComponent("C:Projects"), 11, '\\')));
-    th("\\\\system07\\C$\\", Some((PC::RootComponent("\\\\system07\\C$\\"), 14, '\\')));
-    th(
-        "\\\\Server2\\Share\\Test\\Foo.txt",
-        Some((PC::RootComponent("\\\\Server2\\Share\\"), 16, '\\')),
-    );
-    th("\\\\.\\C:\\Test\\Foo.txt", Some((PC::RootComponent("\\\\.\\C:\\"), 7, '\\')));
-    th("\\\\?\\C:\\Test\\Foo.txt", Some((PC::RootComponent("\\\\?\\C:\\"), 7, '\\')));
+    th("C:Projects\\library\\library.sln", Some((PC::Directory("C:Projects"), 11, '\\')));
+    th("\\\\system07\\C$\\", Some((PC::Root("\\\\system07\\C$\\"), 14, '\\')));
+    th("\\\\Server2\\Share\\Test\\Foo.txt", Some((PC::Root("\\\\Server2\\Share\\"), 16, '\\')));
+    th("\\\\.\\C:\\Test\\Foo.txt", Some((PC::Root("\\\\.\\C:\\"), 7, '\\')));
+    th("\\\\?\\C:\\Test\\Foo.txt", Some((PC::Root("\\\\?\\C:\\"), 7, '\\')));
     th(
         "\\\\.\\Volume{b75e2c83-0000-0000-0000-602f00000000}\\Test\\Foo.txt",
-        Some((
-            PC::RootComponent("\\\\.\\Volume{b75e2c83-0000-0000-0000-602f00000000}\\"),
-            49,
-            '\\',
-        )),
+        Some((PC::Root("\\\\.\\Volume{b75e2c83-0000-0000-0000-602f00000000}\\"), 49, '\\')),
     );
     th(
         "\\\\?\\Volume{b75e2c83-0000-0000-0000-602f00000000}\\Test\\Foo.txt",
-        Some((
-            PC::RootComponent("\\\\?\\Volume{b75e2c83-0000-0000-0000-602f00000000}\\"),
-            49,
-            '\\',
-        )),
+        Some((PC::Root("\\\\?\\Volume{b75e2c83-0000-0000-0000-602f00000000}\\"), 49, '\\')),
     );
     // Windows style paths - some programs will helpfully convert the backslashes:-(:
-    th("C:/Documents/Newsletters/Summer2018.pdf", Some((PC::RootComponent("C:/"), 3, '/')));
+    th("C:/Documents/Newsletters/Summer2018.pdf", Some((PC::Root("C:/"), 3, '/')));
     // TODO: All the following are wrong, but unlikely to bother us!
-    th("/Program Files/Custom Utilities/StringFinder.exe", Some((PC::RootComponent("/"), 1, '/')));
-    th("//system07/C$/", Some((PC::RootComponent("/"), 1, '/')));
-    th("//Server2/Share/Test/Foo.txt", Some((PC::RootComponent("/"), 1, '/')));
-    th("//./C:/Test/Foo.txt", Some((PC::RootComponent("/"), 1, '/')));
-    th("//?/C:/Test/Foo.txt", Some((PC::RootComponent("/"), 1, '/')));
+    th("/Program Files/Custom Utilities/StringFinder.exe", Some((PC::Root("/"), 1, '/')));
+    th("//system07/C$/", Some((PC::Root("/"), 1, '/')));
+    th("//Server2/Share/Test/Foo.txt", Some((PC::Root("/"), 1, '/')));
+    th("//./C:/Test/Foo.txt", Some((PC::Root("/"), 1, '/')));
+    th("//?/C:/Test/Foo.txt", Some((PC::Root("/"), 1, '/')));
     th(
         "//./Volume{b75e2c83-0000-0000-0000-602f00000000}/Test/Foo.txt",
-        Some((PC::RootComponent("/"), 1, '/')),
+        Some((PC::Root("/"), 1, '/')),
     );
     th(
         "//?/Volume{b75e2c83-0000-0000-0000-602f00000000}/Test/Foo.txt",
-        Some((PC::RootComponent("/"), 1, '/')),
+        Some((PC::Root("/"), 1, '/')),
     );
     // // Some corner case:
     // th("C:///Documents/Newsletters/Summer2018.pdf", true);
     // TODO: This is wrong, but unlikely to be needed
-    th("C:", Some((PC::FileComponent("C:"), 2, '/')));
-    th("foo", Some((PC::FileComponent("foo"), 3, '/')));
-    th("foo/", Some((PC::DirectoryComponent("foo"), 4, '/')));
-    th("foo\\", Some((PC::DirectoryComponent("foo"), 4, '\\')));
+    th("C:", Some((PC::File("C:"), 2, '/')));
+    th("foo", Some((PC::File("foo"), 3, '/')));
+    th("foo/", Some((PC::Directory("foo"), 4, '/')));
+    th("foo\\", Some((PC::Directory("foo"), 4, '\\')));
     th("", None);
 }
 
@@ -322,7 +299,7 @@ struct Components<'a> {
     separator: Option<char>,
 }
 
-fn component_iter<'a>(path: &'a str) -> Components<'a> {
+fn component_iter(path: &str) -> Components {
     Components { path, offset: 0, separator: None }
 }
 
@@ -331,7 +308,7 @@ impl<'a> Iterator for Components<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let Some((result, new_offset, separator)) =
-            components(&self.path, self.offset, &self.separator)
+            components(self.path, self.offset, &self.separator)
         else {
             return None;
         };
@@ -353,34 +330,33 @@ fn clean_path_string(path: &str) -> String {
     };
 
     let mut clean_components = Vec::new();
-    let mut iter = component_iter(&path);
 
-    while let Some(component) = iter.next() {
+    for component in component_iter(&path) {
         match component {
-            PC::RootComponent(v) => {
-                clean_components = vec![PC::RootComponent(v)];
+            PC::Root(v) => {
+                clean_components = vec![PC::Root(v)];
             }
-            PC::EmptyComponent | PC::SameDirectoryComponent(_) => { /* nothing to do */ }
-            PC::ParentDirectoryComponent(v) => {
+            PC::Empty | PC::SameDirectory(_) => { /* nothing to do */ }
+            PC::ParentDirectory(v) => {
                 match clean_components.last() {
-                    Some(PC::DirectoryComponent(_)) => {
+                    Some(PC::Directory(_)) => {
                         clean_components.pop();
                     }
-                    Some(PC::FileComponent(_)) => unreachable!("Must be the last component"),
-                    Some(PC::SameDirectoryComponent(_) | PC::EmptyComponent) => {
+                    Some(PC::File(_)) => unreachable!("Must be the last component"),
+                    Some(PC::SameDirectory(_) | PC::Empty) => {
                         unreachable!("Will never be in a the vector")
                     }
-                    Some(PC::ParentDirectoryComponent(_)) => {
-                        clean_components.push(PC::ParentDirectoryComponent(v));
+                    Some(PC::ParentDirectory(_)) => {
+                        clean_components.push(PC::ParentDirectory(v));
                     }
-                    Some(PC::RootComponent(_)) => { /* do nothing */ }
+                    Some(PC::Root(_)) => { /* do nothing */ }
                     None => {
-                        clean_components.push(PC::ParentDirectoryComponent(v));
+                        clean_components.push(PC::ParentDirectory(v));
                     }
                 };
             }
-            PC::DirectoryComponent(v) => clean_components.push(PC::DirectoryComponent(v)),
-            PC::FileComponent(v) => clean_components.push(PC::FileComponent(v)),
+            PC::Directory(v) => clean_components.push(PC::Directory(v)),
+            PC::File(v) => clean_components.push(PC::File(v)),
         }
     }
     if clean_components.is_empty() {
@@ -389,17 +365,17 @@ fn clean_path_string(path: &str) -> String {
         let mut result = String::new();
         for c in clean_components {
             match c {
-                PC::RootComponent(v) => {
+                PC::Root(v) => {
                     result = v.to_string();
                 }
-                PC::EmptyComponent | PC::SameDirectoryComponent(_) => {
+                PC::Empty | PC::SameDirectory(_) => {
                     unreachable!("Never in the vector!")
                 }
-                PC::ParentDirectoryComponent(v) => {
+                PC::ParentDirectory(v) => {
                     result += &format!("{v}{separator}");
                 }
-                PC::DirectoryComponent(v) => result += &format!("{v}{separator}"),
-                PC::FileComponent(v) => {
+                PC::Directory(v) => result += &format!("{v}{separator}"),
+                PC::File(v) => {
                     result += v;
                 }
             }
@@ -441,17 +417,16 @@ pub fn clean_path(path: &Path) -> PathBuf {
 
 fn dirname_string(path: &str) -> String {
     let separator = find_path_separator(path);
-    let mut iter = component_iter(path);
     let mut result = String::new();
 
-    while let Some(component) = iter.next() {
+    for component in component_iter(path) {
         match component {
-            PathComponent::RootComponent(v) => result = v.to_string(),
-            PathComponent::EmptyComponent => result.push(separator),
-            PathComponent::SameDirectoryComponent(v)
-            | PathComponent::ParentDirectoryComponent(v)
-            | PathComponent::DirectoryComponent(v) => result += &format!("{v}{separator}"),
-            PathComponent::FileComponent(_) => { /* nothing to do */ }
+            PathComponent::Root(v) => result = v.to_string(),
+            PathComponent::Empty => result.push(separator),
+            PathComponent::SameDirectory(v)
+            | PathComponent::ParentDirectory(v)
+            | PathComponent::Directory(v) => result += &format!("{v}{separator}"),
+            PathComponent::File(_) => { /* nothing to do */ }
         };
     }
 

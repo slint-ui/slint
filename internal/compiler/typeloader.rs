@@ -290,7 +290,7 @@ impl TypeLoader {
         {
             Some(x) => x,
             None => {
-                let import_path = crate::pathutils::clean_path(&Path::new(file_to_import));
+                let import_path = crate::pathutils::clean_path(Path::new(file_to_import));
                 if import_path.exists() {
                     if import_token.as_ref().and_then(|x| x.source_file()).is_some() {
                         borrowed_state.diag.push_warning(
@@ -550,7 +550,7 @@ impl TypeLoader {
                 .then(|| format!("builtin:/{}", self.style).into()),
             )
             .find_map(|include_dir| {
-                let candidate = crate::pathutils::join(&include_dir, &Path::new(file_to_import))?;
+                let candidate = crate::pathutils::join(&include_dir, Path::new(file_to_import))?;
                 crate::fileaccess::load_file(&candidate)
                     .map(|virtual_file| (virtual_file.canon_path, virtual_file.builtin_contents))
             })
@@ -623,7 +623,7 @@ fn get_native_style(all_loaded_files: &mut Vec<PathBuf>) -> String {
     let target_path = std::env::var_os("OUT_DIR")
         .and_then(|path| {
             // Same logic as in i-slint-backend-selector's build script to get the path
-            crate::pathutils::join(&Path::new(&path), &Path::new("../../SLINT_DEFAULT_STYLE.txt"))
+            crate::pathutils::join(Path::new(&path), Path::new("../../SLINT_DEFAULT_STYLE.txt"))
         })
         .or_else(|| {
             // When we are called from a slint!, OUT_DIR is only defined when the crate having the macro has a build.rs script.
@@ -639,8 +639,8 @@ fn get_native_style(all_loaded_files: &mut Vec<PathBuf>) -> String {
             }
             out_dir.and_then(|od| {
                 crate::pathutils::join(
-                    &Path::new(&od),
-                    &Path::new("../build/SLINT_DEFAULT_STYLE.txt"),
+                    Path::new(&od),
+                    Path::new("../build/SLINT_DEFAULT_STYLE.txt"),
                 )
             })
         });

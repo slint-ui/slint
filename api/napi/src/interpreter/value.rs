@@ -125,7 +125,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 return Ok(js_brush);
             } else {
                 return Err(napi::Error::from_reason(
-                            format!("Cannot convert object to brush, because the given object is neither a brush nor a string")
+                            "Cannot convert object to brush, because the given object is neither a brush nor a string".to_string()
                     ));
             }
         }
@@ -149,7 +149,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 return Ok(js_brush);
             } else {
                 return Err(napi::Error::from_reason(
-                            format!("Cannot convert object to brush, because the given object is neither a brush nor a string")
+                            "Cannot convert object to brush, because the given object is neither a brush nor a string".to_string()
                     ));
             }
         }
@@ -179,9 +179,10 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 ) -> Result<SharedPixelBuffer<Rgba8Pixel>> {
                     let buffer =
                         object.get::<_, BufferType>("data").ok().flatten().ok_or_else(|| {
-                            napi::Error::from_reason(format!(
+                            napi::Error::from_reason(
                                 "data property does not have suitable array buffer type"
-                            ))
+                                    .to_string(),
+                            )
                         })?;
                     const BPP: usize = core::mem::size_of::<Rgba8Pixel>();
                     let actual_size = buffer.as_ref().len();
