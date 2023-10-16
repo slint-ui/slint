@@ -43,7 +43,7 @@ impl super::Surface for SoftwareSurface {
     fn render(
         &self,
         size: PhysicalWindowSize,
-        callback: &dyn Fn(&mut skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
+        callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
         else {

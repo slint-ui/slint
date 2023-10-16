@@ -124,7 +124,7 @@ impl super::Surface for OpenGLSurface {
     fn render(
         &self,
         size: PhysicalWindowSize,
-        callback: &dyn Fn(&mut skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
+        callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
     ) -> Result<(), PlatformError> {
         self.ensure_context_current()?;
 
@@ -341,7 +341,7 @@ impl OpenGLSurface {
     ) -> Result<skia_safe::Surface, PlatformError> {
         let config = gl_context.config();
 
-        let backend_render_target = skia_safe::gpu::BackendRenderTarget::new_gl(
+        let backend_render_target = skia_safe::gpu::backend_render_targets::make_gl(
             (width, height),
             Some(config.num_samples() as _),
             config.stencil_size() as _,

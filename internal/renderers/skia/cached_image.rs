@@ -34,7 +34,7 @@ pub(crate) fn as_skia_image(
     target_size_fn: &dyn Fn() -> (LogicalLength, LogicalLength),
     image_fit: ImageFit,
     scale_factor: ScaleFactor,
-    _canvas: &mut skia_safe::Canvas,
+    _canvas: &skia_safe::Canvas,
 ) -> Option<skia_safe::Image> {
     let image_inner: &ImageInner = (&image).into();
     match image_inner {
@@ -91,10 +91,11 @@ pub(crate) fn as_skia_image(
                 texture_id.get(),
             );
             texture_info.format = glow::RGBA8;
-            let backend_texture = skia_safe::gpu::BackendTexture::new_gl(
+            let backend_texture = skia_safe::gpu::backend_textures::make_gl(
                 (size.width as _, size.height as _),
                 skia_safe::gpu::Mipmapped::No,
                 texture_info,
+                "Borrowed GL texture",
             );
             skia_safe::image::Image::from_texture(
                 _canvas.recording_context().as_mut().unwrap(),
