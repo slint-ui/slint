@@ -59,6 +59,8 @@ function startClient(
                 worker,
             );
 
+            common.prepare_client(cl);
+
             client.add_updater((cl) => {
                 cl?.onRequest("slint/load_file", async (param: string) => {
                     let contents = await vscode.workspace.fs.readFile(

@@ -130,6 +130,13 @@ export function languageClientOptions(
     };
 }
 
+// Setup code to be run *before* the client is started.
+// Use the ClientHandle for code that runs after the client is started.
+
+export function prepare_client(client: BaseLanguageClient) {
+    client.registerFeature(new snippets.SnippetTextEditFeature());
+}
+
 // VSCode Plugin lifecycle related:
 
 export function activate(
@@ -149,7 +156,6 @@ export function activate(
 
     client.add_updater((cl) => {
         if (cl !== null) {
-            cl.registerFeature(new snippets.SnippetTextEditFeature());
             cl.onNotification(serverStatus, (params: ServerStatusParams) =>
                 setServerStatus(params, statusBar),
             );

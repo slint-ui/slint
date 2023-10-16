@@ -197,6 +197,8 @@ function startClient(
         clientOptions,
     );
 
+    common.prepare_client(cl);
+
     cl.start().then(() => (client.client = cl));
 }
 
