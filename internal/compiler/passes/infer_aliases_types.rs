@@ -54,7 +54,8 @@ fn resolve_alias(
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    let old_type = match elem.borrow_mut().property_declarations.get_mut(prop) {
+    let mut borrow_mut = elem.borrow_mut();
+    let old_type = match borrow_mut.property_declarations.get_mut(prop) {
         Some(decl) => {
             if !matches!(decl.property_type, Type::InferredCallback | Type::InferredProperty) {
                 // already processed;
@@ -63,8 +64,18 @@ fn resolve_alias(
             // mark the type as invalid now so that we catch recursion
             std::mem::replace(&mut decl.property_type, Type::Invalid)
         }
-        None => panic!("called with not an alias?"),
+        None => {
+            // Unresolved callback from a base component?
+            debug_assert!(matches!(
+                borrow_mut.lookup_property(prop).property_type,
+                Type::InferredCallback | Type::InferredProperty
+            ));
+            // It is still unresolved because there is an error in that component
+            assert!(diag.has_error());
+            return;
+        }
     };
+    drop(borrow_mut);
 
     let nr = match &elem.borrow().bindings[prop].borrow().expression {
         Expression::Uncompiled(node) => {

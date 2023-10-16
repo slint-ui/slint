@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { Bug } from "../../typeloader/incpath/bug_3674_alias_from_invalid_import.slint";
+
+export component Test {
+    out property t1 <=> b.foo;
+//                        ^error{Element 'Bug' does not have a property 'foo'}
+//  ^^error{Could not infer type of property 't1'}
+    out property t2 <=> b.bar;
+
+    callback t3 <=> b.bar;
+//  ^error{Binding to callback 't3' must bind to another callback}
+    out property t4 <=> b.xxx;
+//                        ^error{Element 'Bug' does not have a property 'xxx'}
+//  ^^error{Could not infer type of property 't4'}
+    out property t5 <=> b.xyz;
+//                        ^error{Element 'Bug' does not have a property 'xyz'}
+//  ^^error{Could not infer type of property 't5'}
+    out property<int> t6 <=> b.foo;
+//                             ^error{Element 'Bug' does not have a property 'foo'}
+    b := Bug {}
+}
