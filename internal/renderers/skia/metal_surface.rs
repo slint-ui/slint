@@ -81,7 +81,7 @@ impl super::Surface for MetalSurface {
     fn render(
         &self,
         _size: PhysicalWindowSize,
-        callback: &dyn Fn(&mut skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
+        callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         autoreleasepool(|| {
             let drawable = match self.layer.next_drawable() {
@@ -104,7 +104,6 @@ impl super::Surface for MetalSurface {
 
                 let backend_render_target = skia_safe::gpu::BackendRenderTarget::new_metal(
                     (size.width as i32, size.height as i32),
-                    1,
                     &texture_info,
                 );
 

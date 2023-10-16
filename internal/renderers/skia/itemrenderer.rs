@@ -24,7 +24,7 @@ struct RenderState {
 }
 
 pub struct SkiaItemRenderer<'a> {
-    pub canvas: &'a mut skia_safe::Canvas,
+    pub canvas: &'a skia_safe::Canvas,
     pub scale_factor: ScaleFactor,
     pub window: &'a i_slint_core::api::Window,
     state_stack: Vec<RenderState>,
@@ -36,7 +36,7 @@ pub struct SkiaItemRenderer<'a> {
 
 impl<'a> SkiaItemRenderer<'a> {
     pub fn new(
-        canvas: &'a mut skia_safe::Canvas,
+        canvas: &'a skia_safe::Canvas,
         window: &'a i_slint_core::api::Window,
         image_cache: &'a ItemCache<Option<skia_safe::Image>>,
         path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
