@@ -34,7 +34,7 @@ fn diagnose_component_container(element: &ElementRc, diag: &mut BuildDiagnostics
 fn process_component_container(element: &ElementRc, empty_type: &ElementType) {
     let mut elem = element.borrow_mut();
 
-    let new = Rc::new(RefCell::new(Element {
+    let embedded_element = Rc::new(RefCell::new(Element {
         base_type: empty_type.clone(),
         id: elem.id.clone(),
         node: elem.node.clone(),
@@ -45,5 +45,6 @@ fn process_component_container(element: &ElementRc, empty_type: &ElementType) {
         is_component_placeholder: true,
         ..Default::default()
     }));
-    elem.children.push(new);
+
+    elem.children.push(embedded_element);
 }

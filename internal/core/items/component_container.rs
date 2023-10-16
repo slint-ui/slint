@@ -7,7 +7,7 @@ This module contains the builtin `ComponentContainer` and related items
 When adding an item or a property, it needs to be kept in sync with different place.
 Lookup the [`crate::items`] module documentation.
 */
-use super::{Item, ItemConsts, ItemRc, RenderingResult};
+use super::{Item, ItemConsts, ItemRc, Rectangle, RenderingResult};
 use crate::component_factory::ComponentFactory;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -57,7 +57,7 @@ pub struct ComponentContainer {
     pub cached_rendering_data: CachedRenderingData,
 
     component_tracker: OnceCell<Pin<Box<PropertyTracker>>>,
-    component: RefCell<Option<ItemTreeRc>>,
+    item_tree: RefCell<Option<ItemTreeRc>>,
 
     my_component: OnceCell<ItemTreeWeak>,
     embedding_item_tree_index: OnceCell<u32>,
@@ -91,57 +91,58 @@ impl ComponentContainer {
             // The change resulted in a new component to set up:
             let component = vtable::VRc::borrow_pin(rc);
             let root_item = component.as_ref().get_item_ref(0);
-            let window_item =
-                crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(root_item).unwrap();
+            if let Some(window_item) =
+                crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+            {
+                // Calculate new size for both myself and the embedded window:
+                let new_width = limit_to_constraints(
+                    window_item.width(),
+                    component.as_ref().layout_info(Orientation::Horizontal),
+                );
+                let new_height = limit_to_constraints(
+                    window_item.height(),
+                    component.as_ref().layout_info(Orientation::Vertical),
+                );
 
-            // Calculate new size for both myself and the embedded window:
-            let new_width = limit_to_constraints(
-                window_item.width(),
-                component.as_ref().layout_info(Orientation::Horizontal),
-            );
-            let new_height = limit_to_constraints(
-                window_item.height(),
-                component.as_ref().layout_info(Orientation::Vertical),
-            );
+                Property::link_two_way(
+                    ComponentContainer::FIELD_OFFSETS.width.apply_pin(self),
+                    super::WindowItem::FIELD_OFFSETS.width.apply_pin(window_item),
+                );
+                Property::link_two_way(
+                    ComponentContainer::FIELD_OFFSETS.height.apply_pin(self),
+                    super::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item),
+                );
 
-            Property::link_two_way(
-                ComponentContainer::FIELD_OFFSETS.width.apply_pin(self),
-                super::WindowItem::FIELD_OFFSETS.width.apply_pin(window_item),
-            );
-            Property::link_two_way(
-                ComponentContainer::FIELD_OFFSETS.height.apply_pin(self),
-                super::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item),
-            );
-
-            ComponentContainer::FIELD_OFFSETS.width.apply_pin(self).set(new_width);
-            ComponentContainer::FIELD_OFFSETS.height.apply_pin(self).set(new_height);
+                ComponentContainer::FIELD_OFFSETS.width.apply_pin(self).set(new_width);
+                ComponentContainer::FIELD_OFFSETS.height.apply_pin(self).set(new_height);
+            }
         } else {
             // There change resulted in no component to embed:
             ComponentContainer::FIELD_OFFSETS.width.apply_pin(self).set(Default::default());
             ComponentContainer::FIELD_OFFSETS.height.apply_pin(self).set(Default::default());
         }
 
-        self.component.replace(product);
+        self.item_tree.replace(product);
     }
 
     pub fn subtree_range(self: Pin<&Self>) -> IndexRange {
-        IndexRange { start: 0, end: if self.component.borrow().is_some() { 1 } else { 0 } }
+        IndexRange { start: 0, end: if self.item_tree.borrow().is_some() { 1 } else { 0 } }
     }
 
     pub fn subtree_component(self: Pin<&Self>) -> ItemTreeWeak {
-        let rc = self.component.borrow().clone();
+        let rc = self.item_tree.borrow().clone();
         vtable::VRc::downgrade(rc.as_ref().unwrap())
     }
 
     pub fn visit_children_item(
         self: Pin<&Self>,
-        index: isize,
+        _index: isize,
         order: TraversalOrder,
         visitor: vtable::VRefMut<ItemVisitorVTable>,
     ) -> VisitChildrenResult {
-        let rc = self.component.borrow().clone();
+        let rc = self.item_tree.borrow().clone();
         if let Some(rc) = &rc {
-            vtable::VRc::borrow_pin(rc).as_ref().visit_children_item(index, order, visitor)
+            vtable::VRc::borrow_pin(rc).as_ref().visit_children_item(-1, order, visitor)
         } else {
             VisitChildrenResult::CONTINUE
         }
@@ -174,7 +175,7 @@ impl Item for ComponentContainer {
         _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         self.ensure_updated();
-        if let Some(rc) = self.component.borrow().clone() {
+        if let Some(rc) = self.item_tree.borrow().clone() {
             vtable::VRc::borrow_pin(&rc).as_ref().layout_info(orientation)
         } else {
             Default::default()
@@ -219,10 +220,22 @@ impl Item for ComponentContainer {
 
     fn render(
         self: Pin<&Self>,
-        _backend: &mut super::ItemRendererRef,
-        _item_rc: &ItemRc,
-        _size: LogicalSize,
+        backend: &mut super::ItemRendererRef,
+        item_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
+        if let Some(item_tree) = self.item_tree.borrow().clone() {
+            let item_tree = vtable::VRc::borrow_pin(&item_tree);
+            let root_item = item_tree.as_ref().get_item_ref(0);
+            if let Some(window_item) =
+                crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+            {
+                let mut rect = Rectangle::default();
+                rect.background.set(window_item.background());
+                backend.draw_rectangle(core::pin::pin!(rect).as_ref(), item_rc, size);
+            }
+        }
+
         RenderingResult::ContinueRenderingChildren
     }
 }
