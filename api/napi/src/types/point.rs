@@ -34,7 +34,7 @@ impl FromNapiValue for JsPoint {
             .and_then(|f64_num| f64_num.try_into().ok())
             .ok_or_else(
                 || napi::Error::from_reason(
-                    format!("Cannot convert object to Point, because the provided object does not have an f64 x property")
+                    "Cannot convert object to Point, because the provided object does not have an f64 x property".to_string()
             ))?;
         let y: f64 = obj
             .get::<_, JsUnknown>("y")
@@ -44,7 +44,7 @@ impl FromNapiValue for JsPoint {
             .and_then(|f64_num| f64_num.try_into().ok())
             .ok_or_else(
                 || napi::Error::from_reason(
-                    format!("Cannot convert object to Point, because the provided object does not have an f64 y property")
+                    "Cannot convert object to Point, because the provided object does not have an f64 y property".to_string()
             ))?;
 
         Ok(JsPoint { x, y })

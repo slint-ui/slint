@@ -42,7 +42,7 @@ impl FromNapiValue for JsSize {
             .and_then(|f64_num| f64_num.try_into().ok())
             .ok_or_else(
                 || napi::Error::from_reason(
-                    format!("Cannot convert object to Size, because the provided object does not have an f64 width property")
+                    "Cannot convert object to Size, because the provided object does not have an f64 width property".to_string()
             ))?;
         let height:  f64 = obj
             .get::<_, JsUnknown>("height")
@@ -52,7 +52,7 @@ impl FromNapiValue for JsSize {
             .and_then(|f64_num| f64_num.try_into().ok())
             .ok_or_else(
                 || napi::Error::from_reason(
-                    format!("Cannot convert object to Size, because the provided object does not have an f64 height property")
+                    "Cannot convert object to Size, because the provided object does not have an f64 height property".to_string()
             ))?;
 
         Ok(JsSize { width, height })

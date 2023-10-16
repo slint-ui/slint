@@ -54,6 +54,6 @@ impl ComponentFactory {
 
     /// Build a `Component`
     pub(crate) fn build(&self) -> Option<ItemTreeRc> {
-        self.0.as_ref().and_then(|b| (b.0)()).into()
+        self.0.as_ref().and_then(|b| (b.0)())
     }
 }
