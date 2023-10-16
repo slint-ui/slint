@@ -50,7 +50,7 @@ esbuild
         entryPoints: ["src/browser-lsp-worker.ts"],
         bundle: true,
         outfile: "out/browserServerMain.js",
-        format: "iife",
+        format: "esm",
         platform: "browser",
         plugins: [wasmPlugin],
     })
@@ -79,6 +79,6 @@ esbuild
         bundle: true,
         outfile: "out/propertiesView.js",
         platform: "browser",
-        format: "iife",
+        format: "esm",
     })
     .catch(() => process.exit(1));

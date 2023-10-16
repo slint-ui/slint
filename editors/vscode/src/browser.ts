@@ -47,7 +47,7 @@ function startClient(
         "out/browserServerMain.js",
     );
 
-    const worker = new Worker(serverMain.toString(true));
+    const worker = new Worker(serverMain.toString(true), { type: "module" });
     worker.onmessage = (m) => {
         // We cannot start sending messages to the client before we start listening which
         // the server only does in a future after the wasm is loaded.
