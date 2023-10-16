@@ -78,6 +78,17 @@ component ScrollBar inherits Rectangle {
                 )));
             }
         }
+
+        scroll-event(event) => {
+            if (root.horizontal && event.delta-x != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-x));
+                return accept;
+            } else if (!root.horizontal && event.delta-y != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-y));
+                return accept;
+            }
+            reject
+        }
     }
 
     i-up-scroll-button := ScrollViewButton {

@@ -19,6 +19,7 @@ component ScrollBar inherits Rectangle {
         border-radius: 4px;
         opacity: 0;
         visible: i-handle.width > 0 && i-handle.height > 0;
+
         animate opacity { duration: 250ms; easing: ease; }
     }
 
@@ -48,6 +49,7 @@ component ScrollBar inherits Rectangle {
                 self.pressed-value = -root.value;
             }
         }
+
         moved => {
             if (self.enabled && self.pressed) {
                 root.value = -max(0px, min(root.maximum, self.pressed-value + (
@@ -55,6 +57,17 @@ component ScrollBar inherits Rectangle {
                                : (i-touch-area.mouse-y - i-touch-area.pressed-y) * (root.maximum / (root.height - i-handle.height))
                 )));
             }
+        }
+
+        scroll-event(event) => {
+            if (root.horizontal && event.delta-x != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-x));
+                return accept;
+            } else if (!root.horizontal && event.delta-y != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-y));
+                return accept;
+            }
+            reject
         }
     }
 
@@ -74,12 +87,12 @@ component ScrollBar inherits Rectangle {
 
 // Scrollview contains a viewport that is bigger than the view and can be scrolled.
 export component ScrollView {
-    in-out property <length> viewport-width <=> fli.viewport-width;
-    in-out property <length> viewport-height <=> fli.viewport-height;
-    in-out property <length> viewport-x <=> fli.viewport-x;
-    in-out property <length> viewport-y <=> fli.viewport-y;
-    out property <length> visible-width <=> fli.width;
-    out property <length> visible-height <=> fli.height;
+    in-out property <length> viewport-width <=> i-flickable.viewport-width;
+    in-out property <length> viewport-height <=> i-flickable.viewport-height;
+    in-out property <length> viewport-x <=> i-flickable.viewport-x;
+    in-out property <length> viewport-y <=> i-flickable.viewport-y;
+    out property <length> visible-width <=> i-flickable.width;
+    out property <length> visible-height <=> i-flickable.height;
     in property <bool> enabled: true;
     in-out property <bool> has-focus;
 
@@ -94,36 +107,36 @@ export component ScrollView {
         background: Palette.surface;
     }
 
-    fli := Flickable {
+    i-flickable := Flickable {
         x:0;y:0;
         interactive: false;
-        viewport-y <=> vbar.value;
-        viewport-x <=> hbar.value;
-        width: parent.width - vbar.width - 4px;
-        height: parent.height - hbar.height - 4px;
+        viewport-y <=> i-vertical-bar.value;
+        viewport-x <=> i-horizontal-bar.value;
+        width: parent.width - i-vertical-bar.width - 4px;
+        height: parent.height - i-horizontal-bar.height - 4px;
 
         @children
     }
 
-    vbar := ScrollBar {
+    i-vertical-bar := ScrollBar {
         width: 8px;
-        x: fli.width + fli.x;
-        y: fli.y;
-        height: fli.height;
+        x: i-flickable.width + i-flickable.x;
+        y: i-flickable.y;
+        height: i-flickable.height;
         horizontal: false;
-        maximum: fli.viewport-height - fli.height;
-        page-size: fli.height;
+        maximum: i-flickable.viewport-height - i-flickable.height;
+        page-size: i-flickable.height;
         enabled: root.enabled;
     }
 
-    hbar := ScrollBar {
+    i-horizontal-bar := ScrollBar {
         height: 8px;
-        y: fli.height + fli.y;
-        x: fli.x;
-        width: fli.width;
+        y: i-flickable.height + i-flickable.y;
+        x: i-flickable.x;
+        width: i-flickable.width;
         horizontal: true;
-        maximum: fli.viewport-width - fli.width;
-        page-size: fli.width;
+        maximum: i-flickable.viewport-width - i-flickable.width;
+        page-size: i-flickable.width;
         enabled: root.enabled;
     }
 }
