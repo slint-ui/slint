@@ -20,7 +20,7 @@ use lsp_types::notification::{
 use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams};
 
 use clap::Parser;
-use lsp_server::{Connection, ErrorCode, Message, RequestId, Response};
+use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
@@ -177,37 +177,44 @@ fn main() {
 
     #[cfg(feature = "preview")]
     {
-        let lsp_thread = std::thread::spawn(|| {
-            /// Make sure we quit the event loop even if we panic
-            struct QuitEventLoop;
-            impl Drop for QuitEventLoop {
-                fn drop(&mut self) {
-                    preview::quit_ui_event_loop();
+        let lsp_thread = std::thread::Builder::new()
+            .name("LanguageServer".into())
+            .spawn(|| {
+                /// Make sure we quit the event loop even if we panic
+                struct QuitEventLoop;
+                impl Drop for QuitEventLoop {
+                    fn drop(&mut self) {
+                        preview::quit_ui_event_loop();
+                    }
                 }
-            }
-            let _quit_ui_loop = QuitEventLoop;
+                let quit_ui_loop = QuitEventLoop;
 
-            match run_lsp_server() {
-                Ok(_) => {}
-                Err(error) => {
-                    eprintln!("Error running LSP server: {}", error);
-                }
-            }
-        });
+                let threads = match run_lsp_server() {
+                    Ok(threads) => threads,
+                    Err(error) => {
+                        eprintln!("Error running LSP server: {}", error);
+                        return;
+                    }
+                };
+
+                drop(quit_ui_loop);
+                threads.join().unwrap();
+            })
+            .unwrap();
 
         preview::start_ui_event_loop();
         lsp_thread.join().unwrap();
     }
     #[cfg(not(feature = "preview"))]
     match run_lsp_server() {
-        Ok(_) => {}
+        Ok(threads) => threads.join().unwrap(),
         Err(error) => {
             eprintln!("Error running LSP server: {}", error);
         }
     }
 }
 
-pub fn run_lsp_server() -> Result<()> {
+pub fn run_lsp_server() -> Result<IoThreads> {
     let (connection, io_threads) = Connection::stdio();
     let (id, params) = connection.initialize_start()?;
 
@@ -217,8 +224,8 @@ pub fn run_lsp_server() -> Result<()> {
     connection.initialize_finish(id, initialize_result)?;
 
     main_loop(connection, init_param)?;
-    io_threads.join()?;
-    Ok(())
+
+    Ok(io_threads)
 }
 
 fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<()> {
