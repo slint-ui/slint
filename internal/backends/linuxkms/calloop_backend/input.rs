@@ -58,7 +58,7 @@ pub struct LibInputHandler<'a> {
     mouse_pos: Pin<Rc<Property<Option<LogicalPosition>>>>,
     last_touch_pos: LogicalPosition,
     window: &'a i_slint_core::api::Window,
-    keystate: xkb::State,
+    keystate: Option<xkb::State>,
 }
 
 impl<'a> LibInputHandler<'a> {
@@ -74,11 +74,6 @@ impl<'a> LibInputHandler<'a> {
         });
         libinput.udev_assign_seat(&seat_name).unwrap();
 
-        let xkb_context = xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
-        let keymap = xkb::Keymap::new_from_names(&xkb_context, "", "", "", "", None, 0)
-            .ok_or_else(|| format!("Error compiling keymap"))?;
-        let keystate = xkb::State::new(&keymap);
-
         let mouse_pos_property = Rc::pin(Property::new(None));
 
         let handler = Self {
@@ -87,7 +82,7 @@ impl<'a> LibInputHandler<'a> {
             mouse_pos: mouse_pos_property.clone(),
             last_touch_pos: Default::default(),
             window,
-            keystate,
+            keystate: Default::default(),
         };
 
         event_loop_handle
@@ -209,9 +204,17 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                     let key_code = xkb::Keycode::new(key_event.key() + 8);
                     let state = key_event.key_state();
 
-                    let sym = self.keystate.key_get_one_sym(key_code);
+                    let xkb_key_state = self.keystate.get_or_insert_with(|| {
+                        let xkb_context = xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
+                        let keymap =
+                            xkb::Keymap::new_from_names(&xkb_context, "", "", "", "", None, 0)
+                                .expect("Error compiling keymap");
+                        xkb::State::new(&keymap)
+                    });
 
-                    self.keystate.update_key(
+                    let sym = xkb_key_state.key_get_one_sym(key_code);
+
+                    xkb_key_state.update_key(
                         key_code,
                         match state {
                             input::event::tablet_pad::KeyState::Pressed => xkb::KeyDirection::Down,
@@ -219,11 +222,9 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                         },
                     );
 
-                    let control = self
-                        .keystate
+                    let control = xkb_key_state
                         .mod_name_is_active(xkb::MOD_NAME_CTRL, xkb::STATE_MODS_EFFECTIVE);
-                    let alt = self
-                        .keystate
+                    let alt = xkb_key_state
                         .mod_name_is_active(xkb::MOD_NAME_ALT, xkb::STATE_MODS_EFFECTIVE);
 
                     if state == KeyState::Pressed {
