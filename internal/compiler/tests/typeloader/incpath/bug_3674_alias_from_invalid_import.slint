@@ -1,0 +1,10 @@
+
+import { NotExist } from "idontexist.slint";
+//                       ^error{Cannot find requested import "idontexist.slint" in the include search path}
+
+export component Bug {
+    callback foo <=> xx.foo;
+    out property bar <=> xx.bar;
+    in property <int> wyz <=> xx.wyz;
+    xx := NotExist {   }
+}
