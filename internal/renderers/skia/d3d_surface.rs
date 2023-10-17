@@ -443,11 +443,11 @@ impl super::Surface for D3DSurface {
     fn render(
         &self,
         _size: PhysicalWindowSize,
-        callback: &dyn Fn(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
+        callback: &dyn Fn(&mut skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.swap_chain
             .borrow_mut()
-            .render_and_present(|surface, gr_context| callback(surface.canvas(), gr_context))
+            .render_and_present(|surface, gr_context| callback(surface.canvas(), Some(gr_context)))
     }
 
     fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {

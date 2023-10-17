@@ -124,7 +124,7 @@ impl super::Surface for OpenGLSurface {
     fn render(
         &self,
         size: PhysicalWindowSize,
-        callback: &dyn Fn(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
+        callback: &dyn Fn(&mut skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
     ) -> Result<(), PlatformError> {
         self.ensure_context_current()?;
 
@@ -151,7 +151,7 @@ impl super::Surface for OpenGLSurface {
 
         let skia_canvas = surface.canvas();
 
-        callback(skia_canvas, gr_context);
+        callback(skia_canvas, Some(gr_context));
 
         self.glutin_surface.swap_buffers(&current_context).map_err(|glutin_error| {
             format!("Skia OpenGL Renderer: Error swapping buffers: {glutin_error}").into()

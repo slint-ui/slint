@@ -239,7 +239,7 @@ impl super::Surface for VulkanSurface {
     fn render(
         &self,
         size: PhysicalWindowSize,
-        callback: &dyn Fn(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
+        callback: &dyn Fn(&mut skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         let gr_context = &mut self.gr_context.borrow_mut();
 
@@ -333,7 +333,7 @@ impl super::Surface for VulkanSurface {
         )
         .ok_or_else(|| format!("Error creating Skia Vulkan surface"))?;
 
-        callback(skia_surface.canvas(), gr_context);
+        callback(skia_surface.canvas(), Some(gr_context));
 
         drop(skia_surface);
 

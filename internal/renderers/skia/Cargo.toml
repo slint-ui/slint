@@ -52,6 +52,8 @@ winit = { version = "0.28.6", optional = true, default-features = false }
 ash = { version = "^0.37.2", optional = true }
 vulkano = { version = "0.33.0", optional = true, default-features = false }
 
+softbuffer = { workspace = true }
+
 [target.'cfg(target_family = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["impl-default", "dwrite", "d3d12", "dxgi", "dxgi1_2", "dxgi1_3", "dxgi1_4", "d3d12sdklayers", "synchapi", "winbase"] }
 skia-safe = { version = "0.66.2", features = ["d3d"] }
