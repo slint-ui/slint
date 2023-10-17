@@ -4,7 +4,7 @@
 [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/slint-ui)
 
 [Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
-Slint-node is the integration with node.
+Slint-node is the integration with Node.js.
 
 To get started you can use the [Walk-through tutorial](https://slint.dev/docs/tutorial/node).
 We also have a [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template) repository with
