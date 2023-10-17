@@ -13,6 +13,13 @@ TestCase := Window {
 
     t1 := TouchArea {
       height: 50phx;
+      y: 0px;
+      Rectangle { background: parent.has-hover ? red: blue; }
+    }
+    t1sec := TouchArea {
+      height: 10phx;
+      y: 50px;
+      Rectangle { background: parent.has-hover ? red: blue; }
     }
   }
 
@@ -23,13 +30,15 @@ TestCase := Window {
 
     t2 := TouchArea {
       width: 50phx;
+      Rectangle { background: parent.has-hover ? green: yellow; }
     }
   }
 
-  property<bool> t1-has-hover: t1.has-hover;
-  property<bool> t2-has-hover: t2.has-hover;
+  out property<bool> t1-has-hover: t1.has-hover;
+  out property<bool> t1sec-has-hover: t1sec.has-hover;
+  out property<bool> t2-has-hover: t2.has-hover;
 
-  property f1_pos <=> f1.viewport_y;
+  in-out property f1_pos <=> f1.viewport_y;
 }
 
 /*
@@ -39,30 +48,47 @@ use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton
 let instance = TestCase::new().unwrap();
 // Vertical
 assert_eq!(instance.get_t1_has_hover(), false);
+assert_eq!(instance.get_t1sec_has_hover(), false);
+assert_eq!(instance.get_t2_has_hover(), false);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(25.0, 25.0) });
 assert_eq!(instance.get_t1_has_hover(), true);
+assert_eq!(instance.get_t1sec_has_hover(), false);
+assert_eq!(instance.get_t2_has_hover(), false);
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(25.0, 25.0), delta_x: 0.0, delta_y: -30.0 });
 assert_eq!(instance.get_t1_has_hover(), false);
+assert_eq!(instance.get_t1sec_has_hover(), true);
+assert_eq!(instance.get_t2_has_hover(), false);
 assert_eq!(instance.get_f1_pos(), -30.0);
+
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(25.0, 25.0), delta_x: 0.0, delta_y: -30.0 });
+assert_eq!(instance.get_t1_has_hover(), false);
+assert_eq!(instance.get_t1sec_has_hover(), false);
+assert_eq!(instance.get_t2_has_hover(), false);
+assert_eq!(instance.get_f1_pos(), -60.0);
+
+
 // Horizontal
 assert_eq!(instance.get_t2_has_hover(), false);
+assert_eq!(instance.get_t1_has_hover(), false);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(275.0, 25.0) });
 assert_eq!(instance.get_t2_has_hover(), true);
+assert_eq!(instance.get_t1_has_hover(), false);
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(275.0, 25.0), delta_x: -30.0, delta_y: 0.0 });
 assert_eq!(instance.get_t2_has_hover(), false);
+assert_eq!(instance.get_t1_has_hover(), false);
 
 
 
 
 // Test that it's not flicking when the mouse is released
-assert_eq!(instance.get_f1_pos(), -30.0);
+assert_eq!(instance.get_f1_pos(), -60.0);
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 125.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(100);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 125.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(100);
-assert_eq!(instance.get_f1_pos(), -30.0);
+assert_eq!(instance.get_f1_pos(), -60.0);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(30.0, 25.0) });
-assert_eq!(instance.get_f1_pos(), -30.0);
+assert_eq!(instance.get_f1_pos(), -60.0);
 ```
 
 
