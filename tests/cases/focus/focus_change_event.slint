@@ -9,12 +9,8 @@ TestCase := Rectangle {
     focus-scope := FocusScope {}
 
     FocusScope {
-        focused => {
-            scope-focused = true;
-        }
-
-        focus-lost => {
-            scope-focused = false;
+        focus-changed-event => {
+            scope-focused = self.has-focus;
         }
     }
 

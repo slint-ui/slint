@@ -212,8 +212,7 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
     forwarded to the parent element.
 -   **`key-released(KeyEvent) -> EventResult`**: Invoked when a key is released, the argument is a [`KeyEvent`](structs.md#keyevent) struct. The returned [`EventResult`](enums.md#eventresult) indicates whether to accept or ignore the event. Ignored events are
     forwarded to the parent element.
--   **`focused()`**: Invoked when the focus scope received focus.
--   **`focus-lost()`**: Invoked when the focus scope lost focus.
+-   **`focus-changed-event()`**: Invoked when the focus on the focus scope has changed.
 
 ### Example
 
