@@ -112,8 +112,6 @@ pub enum InputEventFilterResult {
     /// The event will not be forwarded to children, if a children already had the grab, the
     /// grab will be cancelled with a [`MouseEvent::Exit`] event
     Intercept,
-    /// Similar to `Intercept` but the contained [`MouseEvent`] will be forwarded to children
-    InterceptAndDispatch(MouseEvent),
     /// The event will be forwarding to the children with a delay (in milliseconds), unless it is
     /// being intercepted.
     /// This is what happens when the flickable wants to delay the event.
@@ -752,10 +750,6 @@ fn send_mouse_event_to_item(
         InputEventFilterResult::ForwardAndIgnore => (true, true),
         InputEventFilterResult::ForwardAndInterceptGrab => (true, false),
         InputEventFilterResult::Intercept => (false, false),
-        InputEventFilterResult::InterceptAndDispatch(new_event) => {
-            event_for_children = new_event;
-            (true, false)
-        }
         InputEventFilterResult::DelayForwarding(_) if ignore_delays => (true, false),
         InputEventFilterResult::DelayForwarding(duration) => {
             let timer = Timer::default();
@@ -796,12 +790,6 @@ fn send_mouse_event_to_item(
             actual_visitor,
         );
         if r.has_aborted() {
-            // the event was intercepted by a children
-            if matches!(filter_result, InputEventFilterResult::InterceptAndDispatch(_)) {
-                let mut event = mouse_event;
-                event.translate(-geom.origin.to_vector());
-                item.as_ref().input_event(event, window_adapter, &item_rc);
-            }
             return r;
         }
     };
