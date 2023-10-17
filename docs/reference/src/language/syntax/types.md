@@ -231,7 +231,7 @@ The default value of each enum type is always the first value.
 
 Arrays are declared by wrapping `[` and `]` square brackets around the type of the array elements.
 
-Array literals as well as properties holding arrays act as models in`for` expressions.
+Array literals as well as properties holding arrays act as models in `for` expressions.
 
 ```slint,no-preview
 export component Example {
