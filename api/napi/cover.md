@@ -81,7 +81,7 @@ let component = new ui.MainWindow({
 
 ### Accessing a property
 
-Properties are exposed as properties on the component instance
+Properties declared as `out` or `in-out` in `.slint` files are visible as JavaScript on the component instance.
 
 ```js
 component.counter = 42;
