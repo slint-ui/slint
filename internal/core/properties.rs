@@ -8,6 +8,8 @@
     thin dst container, and intrusive linked list
 */
 
+// cSpell: ignore rustflags
+
 #![allow(unsafe_code)]
 #![warn(missing_docs)]
 
@@ -1005,6 +1007,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                         debug_name.as_str(),
                     );
                 }
+                prop2.set(value);
                 return;
             }
         };
@@ -1140,6 +1143,123 @@ fn property_two_ways_recurse_from_binding() {
     assert_eq!(p1.as_ref().get(), 55 + 2 + 9);
     assert_eq!(p2.as_ref().get(), 55 + 2 + 9);
     assert_eq!(xx.as_ref().get(), 55 + 2);
+}
+
+#[test]
+fn property_two_ways_binding_of_two_way_binding_first() {
+    let p1_1 = Rc::pin(Property::new(2));
+    let p1_2 = Rc::pin(Property::new(4));
+    Property::link_two_way(p1_1.as_ref(), p1_2.as_ref());
+
+    assert_eq!(p1_1.as_ref().get(), 4);
+    assert_eq!(p1_2.as_ref().get(), 4);
+
+    let p2 = Rc::pin(Property::new(3));
+    Property::link_two_way(p1_1.as_ref(), p2.as_ref());
+
+    assert_eq!(p1_1.as_ref().get(), 3);
+    assert_eq!(p1_2.as_ref().get(), 3);
+    assert_eq!(p2.as_ref().get(), 3);
+
+    p1_1.set(6);
+
+    assert_eq!(p1_1.as_ref().get(), 6);
+    assert_eq!(p1_2.as_ref().get(), 6);
+    assert_eq!(p2.as_ref().get(), 6);
+
+    p1_2.set(8);
+
+    assert_eq!(p1_1.as_ref().get(), 8);
+    assert_eq!(p1_2.as_ref().get(), 8);
+    assert_eq!(p2.as_ref().get(), 8);
+
+    p2.set(7);
+
+    assert_eq!(p1_1.as_ref().get(), 7);
+    assert_eq!(p1_2.as_ref().get(), 7);
+    assert_eq!(p2.as_ref().get(), 7);
+}
+
+#[test]
+fn property_two_ways_binding_of_two_way_binding_second() {
+    let p1 = Rc::pin(Property::new(2));
+    let p2_1 = Rc::pin(Property::new(3));
+    let p2_2 = Rc::pin(Property::new(5));
+    Property::link_two_way(p2_1.as_ref(), p2_2.as_ref());
+
+    assert_eq!(p2_1.as_ref().get(), 5);
+    assert_eq!(p2_2.as_ref().get(), 5);
+
+    Property::link_two_way(p1.as_ref(), p2_2.as_ref());
+
+    assert_eq!(p1.as_ref().get(), 5);
+    assert_eq!(p2_1.as_ref().get(), 5);
+    assert_eq!(p2_2.as_ref().get(), 5);
+
+    p1.set(6);
+
+    assert_eq!(p1.as_ref().get(), 6);
+    assert_eq!(p2_1.as_ref().get(), 6);
+    assert_eq!(p2_2.as_ref().get(), 6);
+
+    p2_1.set(7);
+
+    assert_eq!(p1.as_ref().get(), 7);
+    assert_eq!(p2_1.as_ref().get(), 7);
+    assert_eq!(p2_2.as_ref().get(), 7);
+
+    p2_2.set(9);
+
+    assert_eq!(p1.as_ref().get(), 9);
+    assert_eq!(p2_1.as_ref().get(), 9);
+    assert_eq!(p2_2.as_ref().get(), 9);
+}
+
+#[test]
+fn property_two_ways_binding_of_two_two_way_bindings() {
+    let p1_1 = Rc::pin(Property::new(2));
+    let p1_2 = Rc::pin(Property::new(4));
+    Property::link_two_way(p1_1.as_ref(), p1_2.as_ref());
+    assert_eq!(p1_1.as_ref().get(), 4);
+    assert_eq!(p1_2.as_ref().get(), 4);
+
+    let p2_1 = Rc::pin(Property::new(3));
+    let p2_2 = Rc::pin(Property::new(5));
+    Property::link_two_way(p2_1.as_ref(), p2_2.as_ref());
+
+    assert_eq!(p2_1.as_ref().get(), 5);
+    assert_eq!(p2_2.as_ref().get(), 5);
+
+    Property::link_two_way(p1_1.as_ref(), p2_2.as_ref());
+
+    assert_eq!(p1_1.as_ref().get(), 5);
+    assert_eq!(p1_2.as_ref().get(), 5);
+    assert_eq!(p2_1.as_ref().get(), 5);
+    assert_eq!(p2_2.as_ref().get(), 5);
+
+    p1_1.set(6);
+    assert_eq!(p1_1.as_ref().get(), 6);
+    assert_eq!(p1_2.as_ref().get(), 6);
+    assert_eq!(p2_1.as_ref().get(), 6);
+    assert_eq!(p2_2.as_ref().get(), 6);
+
+    p1_2.set(8);
+    assert_eq!(p1_1.as_ref().get(), 8);
+    assert_eq!(p1_2.as_ref().get(), 8);
+    assert_eq!(p2_1.as_ref().get(), 8);
+    assert_eq!(p2_2.as_ref().get(), 8);
+
+    p2_1.set(7);
+    assert_eq!(p1_1.as_ref().get(), 7);
+    assert_eq!(p1_2.as_ref().get(), 7);
+    assert_eq!(p2_1.as_ref().get(), 7);
+    assert_eq!(p2_2.as_ref().get(), 7);
+
+    p2_2.set(9);
+    assert_eq!(p1_1.as_ref().get(), 9);
+    assert_eq!(p1_2.as_ref().get(), 9);
+    assert_eq!(p2_1.as_ref().get(), 9);
+    assert_eq!(p2_2.as_ref().get(), 9);
 }
 
 mod properties_animations;
