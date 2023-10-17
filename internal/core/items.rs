@@ -548,7 +548,13 @@ impl Item for TouchArea {
                     InputEventResult::GrabMouse
                 } else {
                     match r {
-                        EventResult::Reject => InputEventResult::EventIgnored,
+                        EventResult::Reject => {
+                            // We are ignoring the event, so we will be removed from the item_stack,
+                            // therefore we must remove the has_hover flag as there might be a scroll under us.
+                            // It will be put back later.
+                            Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
+                            InputEventResult::EventIgnored
+                        }
                         EventResult::Accept => InputEventResult::EventAccepted,
                     }
                 };

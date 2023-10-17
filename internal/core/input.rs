@@ -671,7 +671,7 @@ pub fn process_mouse_input(
     };
 
     let mut result = MouseInputState::default();
-    let root = ItemRc::new(component, 0);
+    let root = ItemRc::new(component.clone(), 0);
     let r = send_mouse_event_to_item(mouse_event, root, window_adapter, &mut result, false);
     if mouse_input_state.delayed.is_some()
         && (!r.has_aborted()
@@ -682,6 +682,18 @@ pub fn process_mouse_input(
         return mouse_input_state;
     }
     send_exit_events(&mouse_input_state, &mut result, mouse_event.position(), window_adapter);
+
+    if let MouseEvent::Wheel { position, .. } = mouse_event {
+        if r.has_aborted() {
+            // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
+            return process_mouse_input(
+                component,
+                MouseEvent::Moved { position },
+                window_adapter,
+                result,
+            );
+        }
+    }
 
     result
 }
