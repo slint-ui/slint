@@ -90,7 +90,7 @@ console.log(component.counter);
 
 ### Callbacks
 
-The callbacks are also exposed as property that have a setHandler function, and that can can be called.
+The callbacks are also exposed as property that has a setHandler function, and that can be called as a function.
 
 ```js
 // connect to a callback
