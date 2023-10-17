@@ -16,7 +16,7 @@ export component TestCase inherits Window {
 
     Text {
         text: "No wrap, first line\nand also second line";
-        y: 14px;
+        y: 11px;
         width: 100%;
         overflow: elide;
         font-size: 9px;
@@ -26,13 +26,22 @@ export component TestCase inherits Window {
 
     Text {
         text: "Wrap and elide multiple lines of text";
-        y: 40px;
+        y: 32px;
         width: 100%;
-        height: parent.height - self.y;
+        height: 24px;
         wrap: word-wrap;
         overflow: elide;
         font-size: 9px;
         color: blue;
         horizontal-alignment: right;
+    }
+
+    Text {
+        text: "i i i i i i i i i i i i i i i i i i i i";
+        y: 54px;
+        width: 100%;
+        overflow: elide;
+        font-size: 9px;
+        color: magenta;
     }
 }
