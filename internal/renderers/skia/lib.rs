@@ -31,6 +31,8 @@ mod cached_image;
 mod itemrenderer;
 mod textlayout;
 
+mod software_surface;
+
 #[cfg(target_os = "macos")]
 pub mod metal_surface;
 
@@ -143,7 +145,7 @@ impl SkiaRenderer {
         let size = window.size();
         let window_inner = WindowInner::from_pub(window);
 
-        surface.render(size, &|skia_canvas, gr_context| {
+        surface.render(size, &|skia_canvas, mut gr_context| {
             window_inner.draw_contents(|components| {
                 let window_background_brush =
                     window_inner.window_item().map(|w| w.as_pin_ref().background());
@@ -157,7 +159,9 @@ impl SkiaRenderer {
                     // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                     // the back buffer, in order to allow the callback to provide its own rendering of the background.
                     // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
-                    gr_context.flush(None);
+                    if let Some(ctx) = gr_context.as_mut() {
+                        ctx.flush(None);
+                    }
 
                     surface.with_graphics_api(&mut |api| {
                         callback.notify(RenderingState::BeforeRendering, &api)
@@ -208,7 +212,9 @@ impl SkiaRenderer {
 
                 drop(item_renderer);
 
-                gr_context.flush(None);
+                if let Some(ctx) = gr_context.as_mut() {
+                    ctx.flush(None);
+                }
             });
 
             if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
@@ -462,7 +468,7 @@ pub trait Surface {
     fn render(
         &self,
         size: PhysicalWindowSize,
-        callback: &dyn Fn(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
+        callback: &dyn Fn(&mut skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
     ) -> Result<(), i_slint_core::platform::PlatformError>;
     /// Called when the surface should be resized.
     fn resize_event(

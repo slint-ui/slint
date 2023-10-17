@@ -57,7 +57,7 @@ i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional 
 i-slint-renderer-skia = {  workspace = true, features = ["default"], optional = true }
 
 # For the software renderer
-softbuffer = { version = "0.3.1", optional = true }
+softbuffer = { workspace = true, optional = true }
 imgref = { version = "1.6.1", optional = true }
 rgb = { version = "0.8.27", optional = true }
 bytemuck = { version = "1.13.1", optional = true, features = ["derive"] }
