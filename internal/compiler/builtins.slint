@@ -109,6 +109,7 @@ export component FocusScope {
     out property <bool> has-focus;
     callback key_pressed(KeyEvent) -> EventResult;
     callback key_released(KeyEvent) -> EventResult;
+    callback focus_changed_event();
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
 }
