@@ -18,7 +18,7 @@ The follow table summarizes the entire mapping:
  :code:`physical_length`     :code:`float`                        The unit are physical pixels.
  :code:`length`              :code:`float`                        At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio.
  :code:`duration`            :code:`std::int64_t`                 At run-time, durations are always represented as signed 64-bit integers with millisecond precision.
- :code:`angle`               :code:`float`                        The value in degrees.
+ :code:`angle`               :code:`float`                        The angle in degrees.
  :code:`relative-font-size`  :code:`float`                        Relative font size factor that is multiplied with the :code:`Window.default-font-size` and can be converted to a :code:`length`.
  structure                   A :code:`class` of the same name     The order of the data member are in the same as in the slint declaration
  anonymous object            A :code:`std::tuple`                 The fields are in alphabetical order.

@@ -6,7 +6,7 @@ The follow table summarizes the entire mapping:
 
 | `.slint` Type | Rust Type | Note |
 | --- | --- | --- |
-| `angle` | `f32` | The value in degrees |
+| `angle` | `f32` | The angle in degrees |
 | `array` | [`ModelRc`] | Arrays are represented as models, so that their contents can change dynamically. |
 | `bool` | `bool` | |
 | `brush` | [`Brush`] | |
