@@ -8,7 +8,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{Item, ItemConsts, ItemRc, Rectangle, RenderingResult};
-use crate::component_factory::ComponentFactory;
+use crate::component_factory::{ComponentFactory, FactoryContext};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
@@ -77,15 +77,12 @@ impl ComponentContainer {
             return;
         };
 
-        let product = factory.build().and_then(|rc| {
-            vtable::VRc::borrow_pin(&rc)
-                .as_ref()
-                .embed_component(
-                    self.my_component.get().unwrap(),
-                    *self.embedding_item_tree_index.get().unwrap(),
-                )
-                .then_some(rc)
-        });
+        let factory_context = FactoryContext {
+            parent_item_tree: self.my_component.get().unwrap().clone(),
+            parent_item_tree_index: *self.embedding_item_tree_index.get().unwrap(),
+        };
+
+        let product = factory.build(factory_context);
 
         if let Some(rc) = &product {
             // The change resulted in a new component to set up:

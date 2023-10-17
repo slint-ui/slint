@@ -392,6 +392,10 @@ pub enum WindowOptions {
     UseExistingWindow(WindowAdapterRc),
     #[cfg(target_arch = "wasm32")]
     CreateWithCanvasId(String),
+    Embed {
+        parent_item_tree: ItemTreeWeak,
+        parent_item_tree_index: u32,
+    },
 }
 
 impl<'id> ItemTreeDescription<'id> {
@@ -1265,10 +1269,18 @@ pub fn instantiate(
     instance_ref.self_weak().set(self_weak.clone()).ok();
     let description = comp.description();
 
-    let root = root
-        .or_else(|| instance_ref.parent_instance().map(|parent| parent.root_weak().clone()))
-        .unwrap_or_else(|| self_weak.clone());
-    description.root_offset.apply(instance_ref.as_ref()).set(root).ok().unwrap();
+    if let Some(WindowOptions::Embed { parent_item_tree, parent_item_tree_index }) = window_options
+    {
+        vtable::VRc::borrow_pin(&self_rc)
+            .as_ref()
+            .embed_component(parent_item_tree, *parent_item_tree_index);
+        description.root_offset.apply(instance_ref.as_ref()).set(self_weak.clone()).ok().unwrap();
+    } else {
+        let root = root
+            .or_else(|| instance_ref.parent_instance().map(|parent| parent.root_weak().clone()))
+            .unwrap_or_else(|| self_weak.clone());
+        description.root_offset.apply(instance_ref.as_ref()).set(root).ok().unwrap();
+    }
 
     if !description.original.is_global() {
         let maybe_window_adapter =

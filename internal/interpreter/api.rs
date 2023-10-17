@@ -3,7 +3,7 @@
 
 use core::convert::TryFrom;
 use i_slint_compiler::langtype::Type as LangType;
-use i_slint_core::component_factory::ComponentFactory;
+use i_slint_core::component_factory::{ComponentFactory, FactoryContext};
 use i_slint_core::graphics::Image;
 use i_slint_core::model::{Model, ModelRc};
 use i_slint_core::window::WindowInner;
@@ -665,6 +665,17 @@ impl ComponentDefinition {
         generativity::make_guard!(guard);
         Ok(ComponentInstance {
             inner: self.inner.unerase(guard).clone().create(Default::default())?,
+        })
+    }
+
+    /// Creates a new instance of the component and returns a shared handle to it.
+    pub fn create_embedded(&self, ctx: FactoryContext) -> Result<ComponentInstance, PlatformError> {
+        generativity::make_guard!(guard);
+        Ok(ComponentInstance {
+            inner: self.inner.unerase(guard).clone().create(WindowOptions::Embed {
+                parent_item_tree: ctx.parent_item_tree,
+                parent_item_tree_index: ctx.parent_item_tree_index,
+            })?,
         })
     }
 
