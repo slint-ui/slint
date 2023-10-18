@@ -117,9 +117,11 @@ component.clicked();
 
 ### Arrays and Models
 
-For property of array type, they can either be set using an array.
-In that case, getting the property also return an array.
-If the array was set within the .slint file, the array can be obtained
+[Array properties](../slint/src/reference/types#arrays-and-models) can be set from JavaScript by passing
+either `Array` objects or implementations of the {@link Model} interface.
+
+When passing a JavaScript `Array` object, the contents of the array are copied. Any changes to the JavaScript afterwards will not be visible on the Slint side. Similarly, reading a Slint array property from JavaScript that was
+previously initialised from a JavaScript `Array`, will return a newly allocated JavaScript `Array`.
 
 ```js
 component.model = [1, 2, 3];
