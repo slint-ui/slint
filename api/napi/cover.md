@@ -125,7 +125,7 @@ previously initialised from a JavaScript `Array`, will return a newly allocated 
 
 ```js
 component.model = [1, 2, 3];
-// component.model.push(4); // does not work, because it operate on a copy
+// component.model.push(4); // does not work, because assignment creates a copy.
 // but re-assigning works
 component.model = component.model.concat(4);
 ```
