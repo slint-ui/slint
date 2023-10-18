@@ -15,7 +15,7 @@ pub struct JsSize {
 
 #[napi]
 impl JsSize {
-    /// Constructs a size form with and height.
+    /// Constructs a size from the given width and height.
     #[napi(constructor)]
     pub fn new(width: f64, height: f64) -> Result<Self> {
         if width < 0. {
