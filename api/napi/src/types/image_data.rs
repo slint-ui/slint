@@ -26,7 +26,8 @@ impl From<Image> for JsImageData {
 
 #[napi]
 impl JsImageData {
-    /// Constructs a new image with width 0 and height 0.
+    /// Constructs a new image with the given width and height.
+    /// Each pixel will set to red = 0, green = 0, blue = 0 and alpha = 0.
     #[napi(constructor)]
     pub fn new(width: u32, height: u32) -> Self {
         Self { inner: Image::from_rgba8(SharedPixelBuffer::new(width, height)) }

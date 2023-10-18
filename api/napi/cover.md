@@ -30,7 +30,7 @@ npm install slint-ui
 
 You need to install the following components:
 
-  * **[Node.js](https://nodejs.org/download/release/v16.19.1/)** (v16. Newer versions currently not supported: [#961](https://github.com/slint-ui/slint/issues/961))
+  * **[Node.js](https://nodejs.org/download/release/)** (v16. or newer)
   * **[npm](https://www.npmjs.com/)**
   * **[Rust compiler](https://www.rust-lang.org/tools/install)** (1.70 or newer)
 
@@ -128,7 +128,7 @@ component.model = [1, 2, 3];
 component.model = component.model.concat(4);
 ```
 
-Another option is to set an object that implements the {@link Model} interface. Rreading a Slint array property from JavaScript that was previously initialised from a {@link Model} object, will return a reference to the model. 
+Another option is to set an object that implements the {@link Model} interface. Rreading a Slint array property from JavaScript that was previously initialised from a {@link Model} object, will return a reference to the model.
 
 As an example, here is the implementation of the @{link ArrayModel}.
 
