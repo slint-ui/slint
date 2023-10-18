@@ -87,6 +87,8 @@ export component MainWindow inherits Window {
 The exported component is exposed as a type constructor. The type constructor takes as parameter
 an object which allow to initialize the value of public properties or callbacks.
 
+**`main.js`**
+
 ```js
 import * as slint from "slint-ui";
 // In this example, the main.slint file exports a module which
@@ -150,9 +152,9 @@ The types used for properties in .slint design markup each translate to specific
 | `int` | `Number` | |
 | `float` | `Number` | |
 | `string` | `String` | |
-| `color` | `Color` |  |
-| `brush` | `Brush` |  |
-| `image` | `ImageData` |  |
+| `color` | {@link Color} |  |
+| `brush` | {@link Brush} |  |
+| `image` | {@link ImageData} |  |
 | `length` | `Number` | |
 | `physical_length` | `Number` | |
 | `duration` | `Number` | The number of milliseconds |

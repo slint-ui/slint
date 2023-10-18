@@ -35,10 +35,10 @@ pub struct JsDiagnostic {
     /// Message for this diagnostic.
     pub message: String,
 
-    /// The line number in the Slint source file.
+    /// The line number in the .slint source file.
     pub line_number: u32,
 
-    // The column in the slint source file
+    // The column in the .slint source file
     pub column: u32,
 
     /// The path of the source file where this diagnostic occurred.
