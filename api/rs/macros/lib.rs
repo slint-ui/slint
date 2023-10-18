@@ -8,6 +8,8 @@
 
 extern crate proc_macro;
 
+use std::collections::HashMap;
+
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::parser::SyntaxKind;
 use i_slint_compiler::*;
@@ -257,10 +259,24 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
     }
 }
 
-fn extract_include_paths(
+fn extract_path(literal: proc_macro::Literal) -> std::path::PathBuf {
+    let path_with_quotes = literal.to_string();
+    let path_with_quotes_stripped = if let Some(p) = path_with_quotes.strip_prefix('r') {
+        let hash_removed = p.trim_matches('#');
+        hash_removed.strip_prefix('\"').unwrap().strip_suffix('\"').unwrap()
+    } else {
+        // FIXME: unescape
+        path_with_quotes.trim_matches('\"')
+    };
+    path_with_quotes_stripped.into()
+}
+
+fn extract_include_and_library_paths(
     mut stream: proc_macro::token_stream::IntoIter,
-) -> (impl Iterator<Item = TokenTree>, Vec<std::path::PathBuf>) {
+) -> (impl Iterator<Item = TokenTree>, Vec<std::path::PathBuf>, HashMap<String, std::path::PathBuf>)
+{
     let mut include_paths = Vec::new();
+    let mut library_paths = HashMap::new();
 
     let mut remaining_stream;
     loop {
@@ -270,24 +286,36 @@ fn extract_include_paths(
                 if p.as_char() == '#' && group.delimiter() == proc_macro::Delimiter::Bracket =>
             {
                 let mut attr_stream = group.stream().into_iter();
-                match (attr_stream.next(), attr_stream.next(), attr_stream.next()) {
-                    (
-                        Some(TokenTree::Ident(include_ident)),
-                        Some(TokenTree::Punct(equal_punct)),
-                        Some(TokenTree::Literal(path)),
-                    ) if include_ident.to_string() == "include_path"
-                        && equal_punct.as_char() == '=' =>
+                match attr_stream.next() {
+                    Some(TokenTree::Ident(include_ident))
+                        if include_ident.to_string() == "include_path" =>
                     {
-                        let path_with_quotes = path.to_string();
-                        let path_with_quotes_stripped =
-                            if let Some(p) = path_with_quotes.strip_prefix('r') {
-                                let hash_removed = p.trim_matches('#');
-                                hash_removed.strip_prefix('\"').unwrap().strip_suffix('\"').unwrap()
-                            } else {
-                                // FIXME: unescape
-                                path_with_quotes.trim_matches('\"')
-                            };
-                        include_paths.push(path_with_quotes_stripped.into());
+                        match (attr_stream.next(), attr_stream.next()) {
+                            (
+                                Some(TokenTree::Punct(equal_punct)),
+                                Some(TokenTree::Literal(path)),
+                            ) if equal_punct.as_char() == '=' => {
+                                include_paths.push(extract_path(path));
+                            }
+                            _ => break,
+                        }
+                    }
+                    Some(TokenTree::Ident(library_ident))
+                        if library_ident.to_string() == "library_path" =>
+                    {
+                        match (attr_stream.next(), attr_stream.next(), attr_stream.next()) {
+                            (
+                                Some(TokenTree::Group(group)),
+                                Some(TokenTree::Punct(equal_punct)),
+                                Some(TokenTree::Literal(path)),
+                            ) if group.delimiter() == proc_macro::Delimiter::Parenthesis
+                                && equal_punct.as_char() == '=' =>
+                            {
+                                let library_name = group.stream().into_iter().next().unwrap();
+                                library_paths.insert(library_name.to_string(), extract_path(path));
+                            }
+                            _ => break,
+                        }
                     }
                     _ => break,
                 }
@@ -295,7 +323,7 @@ fn extract_include_paths(
             _ => break,
         }
     }
-    (remaining_stream, include_paths)
+    (remaining_stream, include_paths, library_paths)
 }
 
 /// This macro allows you to use the Slint design markup language inline in Rust code. Within the braces of the macro
@@ -315,7 +343,7 @@ fn extract_include_paths(
 pub fn slint(stream: TokenStream) -> TokenStream {
     let token_iter = stream.into_iter();
 
-    let (token_iter, include_paths) = extract_include_paths(token_iter);
+    let (token_iter, include_paths, library_paths) = extract_include_and_library_paths(token_iter);
 
     let mut tokens = vec![];
     fill_token_vec(token_iter, &mut tokens);
@@ -338,6 +366,7 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
     compiler_config.include_paths = include_paths;
+    compiler_config.library_paths = library_paths;
     let (root_component, diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     //println!("{:#?}", tree);

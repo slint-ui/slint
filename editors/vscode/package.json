@@ -113,6 +113,15 @@
                         "type": "string"
                     },
                     "description": "List of paths in which the `import` statement and `@image-url` are looked up"
+                },
+                "slint.libraryPaths": {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[a-zA-Z][a-zA-Z0-9-_]*$": {
+                            "type": "string"
+                        }
+                    },
+                    "description": "Map of paths in which the `import` statement for `@library` imports are looked up"
                 }
             }
         },

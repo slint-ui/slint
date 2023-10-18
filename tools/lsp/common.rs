@@ -3,7 +3,10 @@
 
 //! Data structures common between LSP and previewer
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
@@ -15,7 +18,12 @@ pub trait PreviewApi {
     fn design_mode(&self) -> bool;
     fn set_contents(&self, path: &Path, contents: &str);
     fn load_preview(&self, component: PreviewComponent, behavior: PostLoadBehavior);
-    fn config_changed(&self, style: &str, include_paths: &[PathBuf]);
+    fn config_changed(
+        &self,
+        style: &str,
+        include_paths: &[PathBuf],
+        library_paths: &HashMap<String, PathBuf>,
+    );
     fn highlight(&self, path: Option<PathBuf>, offset: u32) -> Result<()>;
 }
 
@@ -31,6 +39,9 @@ pub struct PreviewComponent {
 
     /// The list of include paths
     pub include_paths: Vec<PathBuf>,
+
+    /// The map of library paths
+    pub library_paths: HashMap<String, PathBuf>,
 
     /// The style name for the preview
     pub style: String,

@@ -4,6 +4,7 @@
 use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::*;
+use itertools::Itertools;
 use std::io::Write;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -31,6 +32,12 @@ struct Cli {
     /// Include path for other .slint files
     #[arg(short = 'I', name = "include path", number_of_values = 1, action)]
     include_paths: Vec<std::path::PathBuf>,
+
+    /// The argument should be in the format `<library>=<path>` specifying the
+    /// name of the library and the path to the library directory or a .slint
+    /// entry-point file.
+    #[arg(short = 'L', name = "library path", number_of_values = 1, action)]
+    library_paths: Vec<String>,
 
     /// Path to .slint file ('-' for stdin)
     #[arg(name = "file", action)]
@@ -81,6 +88,11 @@ fn main() -> std::io::Result<()> {
     }
 
     compiler_config.include_paths = args.include_paths;
+    compiler_config.library_paths = args
+        .library_paths
+        .iter()
+        .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
+        .collect();
     if let Some(style) = args.style {
         compiler_config.style = Some(style);
     }

@@ -67,6 +67,7 @@ serde_json = "1"
 shlex = "1"
 spin_on = "0.1"
 env_logger = "0.10.0"
+itertools = { workspace = true }
 
 # Enable image-rs' default features to make all image formats available for preview
 image = { version = "0.24.0" }

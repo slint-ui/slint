@@ -35,6 +35,7 @@ slint-viewer path/to/myfile.slint
    This option is incompatible with `--auto-reload`
  - `--load-data <file>`: Load the values of public properties from a json file.
  - `-I <path>`: Add an include path to look for imported .slint files or images.
+ - `-L <library:path>`: Add a library path to look for `@library` imports.
  - `--style <style>`: Set the style. Defaults to `native` if the Qt backend is compiled, otherwise `fluent`
  - `--backend <backend>`: Override the Slint rendering backend
  - `--on <callback> <handler>`: Set a callback handler, see [callback handler](#callback-handlers)

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use super::JsComponentDefinition;
 use super::JsDiagnostic;
+use itertools::Itertools;
 use slint_interpreter::ComponentCompiler;
 
 /// ComponentCompiler is the entry point to the Slint interpreter that can be used
@@ -26,8 +27,22 @@ impl JsComponentCompiler {
             }
             None => vec![],
         };
+        let library_paths = match std::env::var_os("SLINT_LIBRARY_PATH") {
+            Some(paths) => std::env::split_paths(&paths)
+                .filter_map(|entry| {
+                    entry
+                        .to_str()
+                        .unwrap_or_default()
+                        .split('=')
+                        .collect_tuple()
+                        .map(|(k, v)| (k.into(), v.into()))
+                })
+                .collect(),
+            None => std::collections::HashMap::new(),
+        };
 
         compiler.set_include_paths(include_paths);
+        compiler.set_library_paths(library_paths);
         Self { internal: compiler }
     }
 

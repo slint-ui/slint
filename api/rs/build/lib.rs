@@ -50,6 +50,7 @@ compile_error!(
     forward compatibility with future version of this crate"
 );
 
+use std::collections::HashMap;
 use std::env;
 use std::io::Write;
 use std::path::Path;
@@ -98,6 +99,39 @@ impl CompilerConfiguration {
     pub fn with_include_paths(self, include_paths: Vec<std::path::PathBuf>) -> Self {
         let mut config = self.config;
         config.include_paths = include_paths;
+        Self { config }
+    }
+
+    /// Create a new configuration that sets the library paths used for looking up
+    /// `@library` imports to the specified map of paths.
+    ///
+    /// Each library path can either be a path to a `.slint` file or a directory.
+    /// If it's a file, the library is imported by its name prefixed by `@` (e.g.
+    /// `@example`). The specified file is the only entry-point for the library
+    /// and other files from the library won't be accessible from the outside.
+    /// If it's a directory, a specific file in that directory must be specified
+    /// when importing the library (e.g. `@example/widgets.slint`). This allows
+    /// exposing multiple entry-points for a single library.
+    ///
+    /// Compile `ui/main.slint` and specify an "example" library path:
+    /// ```rust,no_run
+    /// let manifest_dir = std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    /// let library_paths = std::collections::HashMap::from([(
+    ///     "example".to_string(),
+    ///     manifest_dir.join("third_party/example/ui/lib.slint"),
+    /// )]);
+    /// let config = slint_build::CompilerConfiguration::new().with_library_paths(library_paths);
+    /// slint_build::compile_with_config("ui/main.slint", config).unwrap();
+    /// ```
+    ///
+    /// Import the "example" library in `ui/main.slint`:
+    /// ```slint,ignore
+    /// import { Example } from "@example";
+    /// ```
+    #[must_use]
+    pub fn with_library_paths(self, library_paths: HashMap<String, std::path::PathBuf>) -> Self {
+        let mut config = self.config;
+        config.library_paths = library_paths;
         Self { config }
     }
 

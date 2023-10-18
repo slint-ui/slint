@@ -531,6 +531,16 @@ impl ComponentCompiler {
         &self.config.include_paths
     }
 
+    /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
+    pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
+        self.config.library_paths = library_paths;
+    }
+
+    /// Returns the library paths the component compiler is currently configured with.
+    pub fn library_paths(&self) -> &HashMap<String, PathBuf> {
+        &self.config.library_paths
+    }
+
     /// Sets the style to be used for widgets.
     ///
     /// Use the "material" style as widget style when compiling:

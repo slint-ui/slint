@@ -6,6 +6,7 @@ use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{Model, ModelRc};
 use i_slint_core::window::WindowInner;
 use i_slint_core::{ImageInner, SharedVector};
+use itertools::Itertools;
 use neon::prelude::*;
 use rand::RngCore;
 use slint_interpreter::ComponentHandle;
@@ -59,8 +60,22 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
         }
         None => vec![],
     };
+    let library_paths = match std::env::var_os("SLINT_LIBRARY_PATH") {
+        Some(paths) => std::env::split_paths(&paths)
+            .filter_map(|entry| {
+                entry
+                    .to_str()
+                    .unwrap_or_default()
+                    .split('=')
+                    .collect_tuple()
+                    .map(|(k, v)| (k.into(), v.into()))
+            })
+            .collect(),
+        None => std::collections::HashMap::new(),
+    };
     let mut compiler = slint_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(include_paths);
+    compiler.set_library_paths(library_paths);
     let c = spin_on::spin_on(compiler.build_from_path(path));
 
     slint_interpreter::print_diagnostics(compiler.diagnostics());
