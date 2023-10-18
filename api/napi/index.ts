@@ -159,7 +159,7 @@ export interface ComponentHandle {
     run();
 
     /**
-     * This shows the window on the screen.
+     * Shows the component's window on the screen.
      */
     show();
 
