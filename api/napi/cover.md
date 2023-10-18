@@ -115,7 +115,7 @@ component.clicked();
 | structure | `Object` | Structures are mapped to JavaScrip objects with structure fields mapped to properties. |
 | array | `Array` or Model Object | |
 
-### Models
+### Arrays and Models
 
 For property of array type, they can either be set using an array.
 In that case, getting the property also return an array.
