@@ -67,6 +67,23 @@ For a full example, see [/examples/todo/node](https://github.com/slint-ui/slint/
 
 ### Instantiating a Component
 
+The following example shows how to instantiating a Slint component from JavaScript.
+
+**`ui/main.slint`**
+
+```slint
+export component MainWindow inherits Window {
+    callback clicked <=> i-touch-area.clicked;
+
+    in property <int> counter;
+
+    width: 400px;
+    height: 200px;
+
+    i-touch-area := TouchArea {}
+}
+```
+
 The exported component is exposed as a type constructor. The type constructor takes as parameter
 an object which allow to initialize the value of public properties or callbacks.
 
@@ -98,7 +115,7 @@ usign the `<=>` syntax.
 **`ui/my-component.slint`**
 
 ```slint
-export MyComponent inhertis Window {
+export component MyComponent inherits Window {
     callback clicked <=> i-touch-area.clicked;
 
     width: 400px;
@@ -106,7 +123,7 @@ export MyComponent inhertis Window {
 
     i-touch-area := TouchArea {}
 }
-``````
+```
 
 The callbacks in JavaScript are exposed as property that has a setHandler function, and that can be called as a function.
 
