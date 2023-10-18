@@ -29,7 +29,7 @@ impl From<DiagnosticLevel> for JsDiagnosticLevel {
 /// position in the code.
 #[napi(object, js_name = "Diagnostic")]
 pub struct JsDiagnostic {
-    /// The level for this diagnostic
+    /// The level for this diagnostic.
     pub level: JsDiagnosticLevel,
 
     /// Message for this diagnostic
