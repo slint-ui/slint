@@ -142,11 +142,20 @@ impl WinitWindowAdapter {
     pub(crate) fn new<R: WinitCompatibleRenderer + 'static>(
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+        let theme = std::env::var("SLINT_THEME").ok().and_then(|theme| {
+            if theme.eq_ignore_ascii_case("dark") {
+                Some(winit::window::Theme::Dark)
+            } else if theme.eq_ignore_ascii_case("light") {
+                Some(winit::window::Theme::Light)
+            } else {
+                None
+            }
+        });
         let (renderer, winit_window) = Self::window_builder(
             #[cfg(target_arch = "wasm32")]
             canvas_id,
         )
-        .and_then(|builder| R::new(builder))?;
+        .and_then(|builder| R::new(builder.with_theme(theme)))?;
 
         let winit_window = Rc::new(winit_window);
 
@@ -156,7 +165,11 @@ impl WinitWindowAdapter {
             self_weak: self_weak.clone(),
             currently_pressed_key_code: Default::default(),
             pending_redraw: Default::default(),
-            dark_color_scheme: Default::default(),
+            dark_color_scheme: if let Some(theme) = theme {
+                OnceCell::with_value(Box::pin(Property::new(theme == winit::window::Theme::Dark)))
+            } else {
+                Default::default()
+            },
             constraints: Default::default(),
             shown: Default::default(),
             window_level: Default::default(),

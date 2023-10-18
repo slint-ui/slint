@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
  - Changed default style to be `fluent` on Windows, and `cupertino` on macOS.
  - LinuxKMS backend: Add support for absolute motion pointer events, fixed support for touch input on
    scaled screens, and improved encoder/CRTC handling for EGL rendering.
+ - Winit backend: Allow theme selection at runtime via the `SLINT_THEME` environment variable.
 
 ### Slint Language
 

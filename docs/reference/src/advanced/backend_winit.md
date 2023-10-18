@@ -21,6 +21,9 @@ The Winit backend supports different renderers. They can be explicitly selected 
 
 The Winit backend reads and interprets the following environment variables:
 
-| Name               | Accepted Values | Description                                                        |
-|--------------------|-----------------|--------------------------------------------------------------------|
-| `SLINT_FULLSCREEN` | any value       | If this variable is set, every window is shown in fullscreen mode. |
+| Name               | Accepted Values | Description                                                           |
+|--------------------|-----------------|-----------------------------------------------------------------------|
+| `SLINT_FULLSCREEN` | any value       | If this variable is set, every window is shown in fullscreen mode.    |
+| `SLINT_THEME`      | `light`, `dark` | If this variable is set, every window is shown in light or dark mode. |
+
+Note: the `SLINT_THEME` environment variable can be used to override the system theme for the following [styles](style.md#selecting-a-widget-style) that follow the system theme: `cupertino`, `fluent`, and `material`.
