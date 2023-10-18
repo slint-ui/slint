@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Switch, GridBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
+import { Switch, GridBox, ListView, ScrollView, VerticalBox, StyleMetrics } from "std-widgets.slint";
 
 import { GallerySettings } from "../gallery_settings.slint";
 
@@ -11,6 +11,7 @@ export component Page inherits VerticalBox {
 
     HorizontalLayout {
         height: 24px;
+        spacing: 8px;
 
         Text {
             font-size: 20px;
@@ -24,6 +25,13 @@ export component Page inherits VerticalBox {
             horizontal-stretch: 0;
             text: @tr("Widgets enabled");
             checked <=> GallerySettings.widgets-enabled;
+            enabled: true;
+        }
+
+        Switch {
+            horizontal-stretch: 0;
+            text: @tr("Dark Color Scheme");
+            checked <=> StyleMetrics.dark-color-scheme;
             enabled: true;
         }
     }

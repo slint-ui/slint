@@ -24,6 +24,7 @@ All notable changes to this project are documented in this file.
  - `ComboBox` selection can now be changed by scroll event
  - `SpinBox` value can now be incremented and decremented by scroll event
  - Added `focus-changed-event` callback to `FocusScope`
+ - Changed `dark-color-scheme` property of `StyleMetrics` to `in-out`
 
 ### Rust API
 
