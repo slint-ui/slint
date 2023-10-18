@@ -130,17 +130,6 @@ component.model = component.model.concat(4);
 
 Another option is to set an object that implements the {@link Model} interface. Rreading a Slint array property from JavaScript that was previously initialised from a {@link Model} object, will return a reference to the model. 
 
-* `rowCount()`: returns the number of element in the model.
-* `rowData(index)`: return the row at the given index
-* `setRowData(index, data)`: called when the model need to be changed. `this.notify.rowDataChanged` must be called if successful.
-
-When such an object is set to a model property, it gets a new `notify` object with the following function
-
-* `rowDataChanged(index)`: notify the view that the row was changed.
-* `rowAdded(index, count)`: notify the view that rows were added.
-* `rowRemoved(index, count)`: notify the view that a row were removed.
-* `reset()`: notify the view that everything may have changed.
-
 As an example, here is the implementation of the `ArrayModel` (which is available as `slint.ArrayModel`)
 
 ```js
