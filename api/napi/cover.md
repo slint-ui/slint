@@ -61,7 +61,7 @@ let main = new ui.Main();
 main.run();
 ```
 
-See [/examples/todo/node](https://github.com/slint-ui/slint/tree/master/examples/todo/node) for a full example.
+For a full example, see [/examples/todo/node](https://github.com/slint-ui/slint/tree/master/examples/todo/node).
 
 ## API Overview
 
