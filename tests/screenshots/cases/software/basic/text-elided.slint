@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+
+    Text {
+        text: "No wrap, single line";
+        y: 0px;
+        width: 100%;
+        overflow: elide;
+        font-size: 9px;
+        color: red;
+    }
+
+    Text {
+        text: "No wrap, first line\nand also second line";
+        y: 11px;
+        width: 100%;
+        overflow: elide;
+        font-size: 9px;
+        color: green;
+        horizontal-alignment: center;
+    }
+
+    Text {
+        text: "Wrap and elide multiple lines of text";
+        y: 32px;
+        width: 100%;
+        height: 24px;
+        wrap: word-wrap;
+        overflow: elide;
+        font-size: 9px;
+        color: blue;
+        horizontal-alignment: right;
+    }
+
+    Text {
+        text: "i i i i i i i i i i i i i i i i i i i i";
+        y: 54px;
+        width: 100%;
+        overflow: elide;
+        font-size: 9px;
+        color: magenta;
+    }
+}
