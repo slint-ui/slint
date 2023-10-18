@@ -169,7 +169,7 @@ export interface ComponentHandle {
     hide();
 
     /**
-     * Returns the Window associated with this component.
+     * Returns the {@link Window} associated with this component instance.
      * The window API can be used to control different aspects of the integration into the windowing system, such as the position on the screen.
      */
     get window(): napi.Window;
