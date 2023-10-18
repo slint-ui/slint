@@ -38,6 +38,8 @@ You will also need a few more dependencies, see <https://github.com/slint-ui/sli
 
 ## Using Slint
 
+First, import the API from the `slint-ui` module. In the following examples we're using [ECMAScript module syntax](https://nodejs.org/api/esm.html#modules-ecmascript-modules), but if you prefer you can also import the API using [CommonJS](https://nodejs.org/api/modules.html#modules-commonjs-modules) syntax.
+
 To initialize the API, you first need to import the `slint-ui` module in our code:
 
 ```js
