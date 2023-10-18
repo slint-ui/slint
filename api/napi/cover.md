@@ -128,7 +128,7 @@ component.model = [1, 2, 3];
 component.model = component.model.concat(4);
 ```
 
-Another option is to set a model object.  A model object has the following function:
+Another option is to set an object that implements the {@link Model} interface. Rreading a Slint array property from JavaScript that was previously initialised from a {@link Model} object, will return a reference to the model. 
 
 * `rowCount()`: returns the number of element in the model.
 * `rowData(index)`: return the row at the given index
