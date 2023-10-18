@@ -26,7 +26,7 @@
     "build": "napi build --platform --release --js rust-module.js --dts rust-module.d.ts && npm run compile",
     "build:debug": "napi build --platform --js rust-module.js --dts rust-module.d.ts && npm run compile",
     "install": "npm run build",
-    "docs": "npm run build && typedoc --hideGenerator --readme cover.md index.ts",
+    "docs": "npm run build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md index.ts",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava",
     "universal": "napi universal",

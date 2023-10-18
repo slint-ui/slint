@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import * as napi from "./rust-module";
-export { Diagnostic, Window, Brush, Color, ImageData, Point, Size, SlintModelNotify } from "./rust-module";
+export { Diagnostic, DiagnosticLevel, Window, Brush, Color, ImageData, Point, Size, SlintModelNotify } from "./rust-module";
 
 /**
  * ModelPeer is the interface that the run-time implements. An instance is
