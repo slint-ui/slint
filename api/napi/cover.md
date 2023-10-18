@@ -65,7 +65,7 @@ For a full example, see [/examples/todo/node](https://github.com/slint-ui/slint/
 
 ## API Overview
 
-### Instantiating a component
+### Instantiating a Component
 
 The exported component is exposed as a type constructor. The type constructor takes as parameter
 an object which allow to initialize the value of public properties or callbacks.
