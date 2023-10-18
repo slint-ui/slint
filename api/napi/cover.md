@@ -15,7 +15,7 @@ Slint-node is still in the early stages of development: APIs will change and imp
 
 ## Slint Language Manual
 
-The [Slint language manual](../slint) covers the Slint UI description language
+The [Slint Language Documentation](../slint) covers the Slint UI description language
 in detail.
 
 ## Installing Slint
