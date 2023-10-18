@@ -148,7 +148,9 @@ export class ArrayModel<T> implements Model<T> {
 }
 
 /**
- * This interface describes the common public API of a Slint component.
+ * This interface describes the public API of a Slint component that is common to all instances. Use this to
+ * show() the window on the screen, access the window and subsequent window properties, or start the
+ * Slint event loop with run().
  */
 export interface ComponentHandle {
     /**
