@@ -46,6 +46,7 @@ impl JsImageData {
     }
 
     /// Returns the image as buffer.
+    /// A Buffer is a subclass of Uint8Array.
     #[napi(getter)]
     pub fn data(&self) -> Buffer {
         let image_inner: &ImageInner = (&self.inner).into();

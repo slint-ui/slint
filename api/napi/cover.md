@@ -108,6 +108,7 @@ component.clicked();
 | `string` | `String` | |
 | `color` | `Color` |  |
 | `brush` | `Brush` |  |
+| `image` | `ImageData` |  |
 | `length` | `Number` | |
 | `physical_length` | `Number` | |
 | `duration` | `Number` | The number of milliseconds |
