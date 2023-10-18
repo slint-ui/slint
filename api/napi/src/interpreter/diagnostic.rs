@@ -32,7 +32,7 @@ pub struct JsDiagnostic {
     /// The level for this diagnostic.
     pub level: JsDiagnosticLevel,
 
-    /// Message for this diagnostic
+    /// Message for this diagnostic.
     pub message: String,
 
     /// The line number in the slint source file
