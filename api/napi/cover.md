@@ -112,7 +112,7 @@ component.clicked();
 | `physical_length` | `Number` | |
 | `duration` | `Number` | The number of milliseconds |
 | `angle` | `Number` | The angle in degrees |
-| structure | `Object` | Structures are mapped to JavaScrip objects with structure fields mapped to properties. |
+| structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
 | array | `Array` or Model Object | |
 
 ### Arrays and Models
