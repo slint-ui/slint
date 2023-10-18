@@ -103,6 +103,8 @@ component.clicked();
 
 ### Type Mappings
 
+The types used for properties in .slint design markup each translate to specific types in JavaScript. The follow table summarizes the entire mapping:
+
 | `.slint` Type | JavaScript Type | Notes |
 | --- | --- | --- |
 | `int` | `Number` | |
@@ -116,7 +118,7 @@ component.clicked();
 | `duration` | `Number` | The number of milliseconds |
 | `angle` | `Number` | The angle in degrees |
 | structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
-| array | `Array` or Model Object | |
+| array | `Array` or any implementation of {@link Model} | |
 
 ### Arrays and Models
 
@@ -134,27 +136,3 @@ component.model = component.model.concat(4);
 ```
 
 Another option is to set an object that implements the {@link Model} interface. Rreading a Slint array property from JavaScript that was previously initialised from a {@link Model} object, will return a reference to the model.
-
-As an example, here is the implementation of the @{link ArrayModel}.
-
-```js
-let array = [1, 2, 3];
-let model = {
-    rowCount() { return a.length; },
-    rowData(row) { return a[row]; },
-    setRowData(row, data) { a[row] = data; this.notify.rowDataChanged(row); },
-    push() {
-        let size = a.length;
-        Array.prototype.push.apply(a, arguments);
-        this.notify.rowAdded(size, arguments.length);
-    },
-    remove(index, size) {
-        let r = a.splice(index, size);
-        this.notify.rowRemoved(size, arguments.length);
-    },
-};
-component.model = model;
-model.push(4); // this works
-// does NOT work, getting the model does not return the right object
-// component.model.push(5);
-```

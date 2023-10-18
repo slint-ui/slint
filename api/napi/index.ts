@@ -6,7 +6,7 @@ export { Diagnostic, DiagnosticLevel, Window, Brush, Color, ImageData, Point, Si
 
 /**
  * ModelPeer is the interface that the run-time implements. An instance is
- * set on dynamic Model<T> instances and can be used to notify the run-time
+ * set on dynamic {@link Model} instances and can be used to notify the run-time
  * of changes in the structure or data of the model.
  */
 export interface ModelPeer {
@@ -44,6 +44,57 @@ export interface ModelPeer {
  *
  * A model is organized like a table with rows of data. The
  * fields of the data type T behave like columns.
+ *
+ * ### Example
+ * As an example let's see the implementation of {@link ArrayModel}
+ *
+ * ```js
+ * export class ArrayModel<T> implements Model<T> {
+ *    private a: Array<T>
+ *    notify: ModelPeer;
+ *
+ *   constructor(arr: Array<T>) {
+ *        this.a = arr;
+ *        this.notify = new NullPeer();
+ *    }
+ *
+ *    rowCount() {
+ *        return this.a.length;
+ *    }
+ *
+ *    rowData(row: number) {
+ *       return this.a[row];
+ *    }
+ *
+ *    setRowData(row: number, data: T) {
+ *        this.a[row] = data;
+ *        this.notify.rowDataChanged(row);
+ *    }
+ *
+ *    push(...values: T[]) {
+ *        let size = this.a.length;
+ *        Array.prototype.push.apply(this.a, values);
+ *        this.notify.rowAdded(size, arguments.length);
+ *    }
+ *
+ *    remove(index: number, size: number) {
+ *        let r = this.a.splice(index, size);
+ *        this.notify.rowRemoved(index, size);
+ *    }
+ *
+ *    get length(): number {
+ *        return this.a.length;
+ *    }
+ *
+ *    values(): IterableIterator<T> {
+ *        return this.a.values();
+ *    }
+ *
+ *    entries(): IterableIterator<[number, T]> {
+ *        return this.a.entries()
+ *    }
+ *}
+ * ```
  */
 export interface Model<T> {
     /**
@@ -223,11 +274,11 @@ interface Callback {
 /**
  * Represents an errors that can be emitted by the compiler.
  */
-export class CompilerError extends Error {
+export class CompileError extends Error {
     public diagnostics: napi.Diagnostic[];
 
     /**
-     * Creates a new CompilerError.
+     * Creates a new CompileError.
      *
      * @param message
      * @param diagnostics
@@ -254,7 +305,7 @@ export function loadFile(path: string) : Object {
         let errors = diagnostics.filter((d) => d.level == napi.DiagnosticLevel.Error);
 
         if (errors.length > 0) {
-            throw new CompilerError("Could not compile " + path, errors);
+            throw new CompileError("Could not compile " + path, errors);
         }
     }
 

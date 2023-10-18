@@ -4,7 +4,7 @@
 import test from 'ava'
 const path = require('node:path');
 
-import { loadFile, CompilerError, Diagnostic } from '../index'
+import { loadFile, CompileError } from '../index'
 
 test('loadFile', (t) => {
     let demo = loadFile(path.join(__dirname, "resources/test.slint"));
@@ -14,9 +14,9 @@ test('loadFile', (t) => {
     let errorPath = path.join(__dirname, "resources/error.slint");
 
     const error = t.throws(() => {
-        loadFile(errorPath)
+            loadFile(errorPath)
         },
-        {instanceOf: CompilerError}
+        {instanceOf: CompileError}
     );
 
     t.is(error?.message, "Could not compile " + errorPath);
