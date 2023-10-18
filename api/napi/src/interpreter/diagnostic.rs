@@ -41,7 +41,7 @@ pub struct JsDiagnostic {
     // The column in the slint source file
     pub column: u32,
 
-    /// The path of the source file where this error is attached
+    /// The path of the source file where this diagnostic occurred.
     pub source_file: Option<String>,
 }
 
