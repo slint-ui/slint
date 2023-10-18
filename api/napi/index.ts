@@ -164,7 +164,7 @@ export interface ComponentHandle {
     show();
 
     /**
-     * Hides the window, so that it is not visible anymore.
+     * Hides the component's window, so that it is not visible anymore.
      */
     hide();
 
