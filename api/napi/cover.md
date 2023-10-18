@@ -92,9 +92,32 @@ console.log(component.counter);
 
 ### Callbacks
 
-The callbacks are also exposed as property that has a setHandler function, and that can be called as a function.
+Callback in Slint can be defined usign the `callback` keyword and can be connected to a callback of an other component
+usign the `<=>` syntax.
+
+**`ui/my-component.slint`**
+
+```slint
+export MyComponent inhertis Window {
+    callback clicked <=> i-touch-area.clicked;
+
+    width: 400px;
+    height: 200px;
+
+    i-touch-area := TouchArea {}
+}
+``````
+
+The callbacks in JavaScript are exposed as property that has a setHandler function, and that can be called as a function.
+
+**`main.js`**
 
 ```js
+import * as slint from "slint-ui";
+
+let ui = slint.loadFile("ui/my-component.slint");
+let component = new ui.MyComponent();
+
 // connect to a callback
 component.clicked.setHandler(function() { console.log("hello"); })
 // emit a callback
