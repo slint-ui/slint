@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
 use clap::Parser;
+use itertools::Itertools;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -21,6 +22,10 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 struct Cli {
     #[arg(short = 'I', name = "include path for other .slint files", number_of_values = 1, action)]
     include_paths: Vec<std::path::PathBuf>,
+
+    /// The first argument is the library name, and the second argument is the path to the library.
+    #[arg(short = 'L', name = "library path for @library imports", number_of_values = 1, action)]
+    library_paths: Vec<String>,
 
     /// The .slint file to load ('-' for stdin)
     #[arg(name = "path to .slint file", action)]
@@ -165,6 +170,12 @@ fn init_compiler(
         compiler.set_translation_domain(domain);
     }
     compiler.set_include_paths(args.include_paths.clone());
+    compiler.set_library_paths(
+        args.library_paths
+            .iter()
+            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
+            .collect(),
+    );
     if let Some(style) = &args.style {
         compiler.set_style(style.clone());
     }

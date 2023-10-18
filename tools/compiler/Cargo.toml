@@ -28,3 +28,4 @@ i-slint-compiler = { workspace = true, features = ["default", "display-diagnosti
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 proc-macro2 = "1.0.11"
 spin_on = "0.1"
+itertools = { workspace = true }

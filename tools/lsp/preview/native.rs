@@ -147,13 +147,21 @@ pub fn set_contents(path: &Path, content: String) {
     }
 }
 
-pub fn config_changed(style: &str, include_paths: &[PathBuf]) {
+pub fn config_changed(
+    style: &str,
+    include_paths: &[PathBuf],
+    library_paths: &HashMap<String, PathBuf>,
+) {
     if let Some(cache) = CONTENT_CACHE.get() {
         let mut cache = cache.lock().unwrap();
         let style = style.to_string();
-        if cache.current.style != style || cache.current.include_paths != include_paths {
+        if cache.current.style != style
+            || cache.current.include_paths != include_paths
+            || cache.current.library_paths != *library_paths
+        {
             cache.current.style = style;
             cache.current.include_paths = include_paths.to_vec();
+            cache.current.library_paths = library_paths.clone();
             let current = cache.current.clone();
             let sender = cache.sender.clone();
             drop(cache);
@@ -276,6 +284,7 @@ async fn reload_preview(
         builder.set_style(preview_component.style);
     }
     builder.set_include_paths(preview_component.include_paths);
+    builder.set_library_paths(preview_component.library_paths);
 
     builder.set_file_loader(|path| {
         let path = path.to_owned();

@@ -13,6 +13,7 @@ use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
 use crate::{fileaccess, parser};
 use core::future::Future;
+use itertools::Itertools;
 
 /// Storage for a cache of all loaded documents
 #[derive(Default)]
@@ -149,7 +150,12 @@ impl TypeLoader {
         let mut foreign_imports = vec![];
         let mut dependencies = Self::collect_dependencies(state, doc)
             .filter_map(|mut import| {
-                if import.file.ends_with(".60") || import.file.ends_with(".slint") {
+                let resolved_import = if let Some((path, _)) = state.borrow().tl.resolve_import_path(Some(&import.import_uri_token.clone().into()), &import.file) {
+                    path.to_string_lossy().to_string()
+                } else {
+                    import.file.clone()
+                };
+                if resolved_import.ends_with(".slint") || resolved_import.ends_with(".60") || import.file.starts_with('@') {
                     Some(Box::pin(async move {
                         let file = import.file.as_str();
                         let doc_path = Self::ensure_document_loaded(
@@ -192,10 +198,7 @@ impl TypeLoader {
                         }
                     }))
                 } else {
-                    if let Some((path, _)) = state.borrow().tl.resolve_import_path(Some(&import.import_uri_token.clone().into()), &import.file) {
-                        import.file = path.to_string_lossy().to_string();
-                    };
-
+                    import.file = resolved_import;
                     foreign_imports.push(import);
                     None
                 }
@@ -258,22 +261,24 @@ impl TypeLoader {
         import_token: Option<&NodeOrToken>,
         maybe_relative_path_or_url: &str,
     ) -> Option<(PathBuf, Option<&'static [u8]>)> {
-        let referencing_file_or_url =
-            import_token.and_then(|tok| tok.source_file().map(|s| s.path()));
-
-        self.find_file_in_include_path(referencing_file_or_url, maybe_relative_path_or_url).or_else(
-            || {
-                referencing_file_or_url
-                    .and_then(|base_path_or_url| {
-                        crate::pathutils::join(
-                            &crate::pathutils::dirname(base_path_or_url),
-                            &PathBuf::from(maybe_relative_path_or_url),
-                        )
-                    })
-                    .filter(|p| p.exists())
-                    .map(|p| (p, None))
-            },
-        )
+        if let Some(maybe_library_import) = maybe_relative_path_or_url.strip_prefix('@') {
+            self.find_file_in_library_path(maybe_library_import)
+        } else {
+            let referencing_file_or_url =
+                import_token.and_then(|tok| tok.source_file().map(|s| s.path()));
+            self.find_file_in_include_path(referencing_file_or_url, maybe_relative_path_or_url)
+                .or_else(|| {
+                    referencing_file_or_url
+                        .and_then(|base_path_or_url| {
+                            crate::pathutils::join(
+                                &crate::pathutils::dirname(base_path_or_url),
+                                &PathBuf::from(maybe_relative_path_or_url),
+                            )
+                        })
+                        .filter(|p| p.exists())
+                        .map(|p| (p, None))
+                })
+        }
     }
 
     async fn ensure_document_loaded<'a: 'b, 'b>(
@@ -384,9 +389,15 @@ impl TypeLoader {
             }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                 state.borrow_mut().diag.push_error(
-                        format!(
-                            "Cannot find requested import \"{file_to_import}\" in the include search path",
-                        ),
+                        if file_to_import.starts_with('@') {
+                            format!(
+                                "Cannot find requested import \"{file_to_import}\" in the library search path",
+                            )
+                        } else {
+                            format!(
+                                "Cannot find requested import \"{file_to_import}\" in the include search path",
+                            )
+                        },
                         &import_token,
                     );
                 false
@@ -524,6 +535,28 @@ impl TypeLoader {
                     .insert_type_with_name(ty, import_name.internal_name),
             }
         }
+    }
+
+    /// Lookup a library and filename and try to find the absolute filename based on the library path
+    fn find_file_in_library_path(
+        &self,
+        maybe_library_import: &str,
+    ) -> Option<(PathBuf, Option<&'static [u8]>)> {
+        let (library, file) = maybe_library_import
+            .splitn(2, '/')
+            .collect_tuple()
+            .map(|(library, path)| (library, Some(path)))
+            .unwrap_or((maybe_library_import, None));
+        self.compiler_config.library_paths.get(library).and_then(|library_path| {
+            let path = match file {
+                // "@library/file.slint" -> "/path/to/library/" + "file.slint"
+                Some(file) => library_path.join(file),
+                // "@library" -> "/path/to/library/lib.slint"
+                None => library_path.clone(),
+            };
+            crate::fileaccess::load_file(path.as_path())
+                .map(|virtual_file| (virtual_file.canon_path, virtual_file.builtin_contents))
+        })
     }
 
     /// Lookup a filename and try to find the absolute filename based on the include path or
@@ -693,6 +726,8 @@ fn test_dependency_loading() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.include_paths = vec![incdir];
+    compiler_config.library_paths =
+        HashMap::from([("library".into(), test_source_path.join("library").join("lib.slint"))]);
     compiler_config.style = Some("fluent".into());
 
     let mut main_test_path = test_source_path;
@@ -711,7 +746,7 @@ fn test_dependency_loading() {
 
     let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
 
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    let (foreign_imports, _) = spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -719,6 +754,7 @@ fn test_dependency_loading() {
 
     assert!(!test_diags.has_error());
     assert!(!build_diagnostics.has_error());
+    assert!(foreign_imports.is_empty());
 }
 
 #[test]
@@ -732,6 +768,8 @@ fn test_dependency_loading_from_rust() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.include_paths = vec![incdir];
+    compiler_config.library_paths =
+        HashMap::from([("library".into(), test_source_path.join("library").join("lib.slint"))]);
     compiler_config.style = Some("fluent".into());
 
     let mut main_test_path = test_source_path;
@@ -750,7 +788,7 @@ fn test_dependency_loading_from_rust() {
 
     let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
 
-    spin_on::spin_on(loader.load_dependencies_recursively(
+    let (foreign_imports, _) = spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
         &mut build_diagnostics,
         &registry,
@@ -758,6 +796,7 @@ fn test_dependency_loading_from_rust() {
 
     assert!(!test_diags.has_error());
     assert!(!build_diagnostics.has_error());
+    assert!(foreign_imports.is_empty());
 }
 
 #[test]
@@ -932,4 +971,105 @@ fn test_unknown_style() {
     let diags = build_diagnostics.to_string_vec();
     assert_eq!(diags.len(), 1);
     assert!(diags[0].starts_with("Style FooBar in not known. Use one of the builtin styles ["));
+}
+
+#[test]
+fn test_library_import() {
+    let test_source_path: PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader", "library"].iter().collect();
+
+    let library_paths = HashMap::from([
+        ("libdir".into(), test_source_path.clone()),
+        ("libfile.slint".into(), test_source_path.join("lib.slint")),
+    ]);
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.library_paths = library_paths;
+    compiler_config.style = Some("fluent".into());
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+
+    let doc_node = crate::parser::parse(
+        r#"
+/* ... */
+import { LibraryType } from "@libfile.slint";
+import { LibraryHelperType } from "@libdir/library_helper_type.slint";
+"#
+        .into(),
+        Some(std::path::Path::new("HELLO")),
+        &mut test_diags,
+    );
+
+    let doc_node: syntax_nodes::Document = doc_node.into();
+    let global_registry = TypeRegister::builtin();
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    spin_on::spin_on(loader.load_dependencies_recursively(
+        &doc_node,
+        &mut build_diagnostics,
+        &registry,
+    ));
+    assert!(!test_diags.has_error());
+    assert!(!build_diagnostics.has_error());
+}
+
+#[test]
+fn test_library_import_errors() {
+    let test_source_path: PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader", "library"].iter().collect();
+
+    let library_paths = HashMap::from([
+        ("libdir".into(), test_source_path.clone()),
+        ("libfile.slint".into(), test_source_path.join("lib.slint")),
+    ]);
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.library_paths = library_paths;
+    compiler_config.style = Some("fluent".into());
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+
+    let doc_node = crate::parser::parse(
+        r#"
+/* ... */
+import { A } from "@libdir";
+import { B } from "@libdir/unknown.slint";
+import { C } from "@libfile.slint/unknown.slint";
+import { D } from "@unknown";
+import { E } from "@unknown/lib.slint";
+"#
+        .into(),
+        Some(std::path::Path::new("HELLO")),
+        &mut test_diags,
+    );
+
+    let doc_node: syntax_nodes::Document = doc_node.into();
+    let global_registry = TypeRegister::builtin();
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+    spin_on::spin_on(loader.load_dependencies_recursively(
+        &doc_node,
+        &mut build_diagnostics,
+        &registry,
+    ));
+    assert!(!test_diags.has_error());
+    assert!(build_diagnostics.has_error());
+    let diags = build_diagnostics.to_string_vec();
+    assert_eq!(diags.len(), 5);
+    assert!(diags[0].starts_with(&format!(
+        "HELLO:3: Error reading requested import \"{}\": ",
+        test_source_path.to_string_lossy()
+    )));
+    assert_eq!(&diags[1], "HELLO:4: Cannot find requested import \"@libdir/unknown.slint\" in the library search path");
+    assert_eq!(&diags[2], "HELLO:5: Cannot find requested import \"@libfile.slint/unknown.slint\" in the library search path");
+    assert_eq!(
+        &diags[3],
+        "HELLO:6: Cannot find requested import \"@unknown\" in the library search path"
+    );
+    assert_eq!(
+        &diags[4],
+        "HELLO:7: Cannot find requested import \"@unknown/lib.slint\" in the library search path"
+    );
 }

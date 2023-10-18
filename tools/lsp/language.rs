@@ -415,6 +415,7 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
             path,
             component,
             include_paths: config.include_paths.clone(),
+            library_paths: config.library_paths.clone(),
             style: config.style.clone().unwrap_or_default(),
         },
         crate::common::PostLoadBehavior::ShowAfterLoad,
@@ -1206,6 +1207,14 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
                         ip.iter().filter_map(|x| x.as_str()).map(PathBuf::from).collect();
                 }
             }
+            if let Some(lp) = o.get("libraryPaths").and_then(|v| v.as_object()) {
+                if !lp.is_empty() {
+                    document_cache.documents.compiler_config.library_paths = lp
+                        .iter()
+                        .filter_map(|(k, v)| v.as_str().map(|v| (k.to_string(), PathBuf::from(v))))
+                        .collect();
+                }
+            }
             if let Some(style) =
                 o.get("preview").and_then(|v| v.as_object()?.get("style")?.as_str())
             {
@@ -1222,7 +1231,11 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
 
     let cc = &document_cache.documents.compiler_config;
     let empty_string = String::new();
-    ctx.preview.config_changed(cc.style.as_ref().unwrap_or(&empty_string), &cc.include_paths);
+    ctx.preview.config_changed(
+        cc.style.as_ref().unwrap_or(&empty_string),
+        &cc.include_paths,
+        &cc.library_paths,
+    );
 
     Ok(())
 }

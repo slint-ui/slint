@@ -146,6 +146,34 @@ fn test_extract_include_paths() {
     assert_eq!(r, ["../first", "../second"]);
 }
 
+/// Extract extra library paths from a comment in the source if present.
+pub fn extract_library_paths(source: &str) -> impl Iterator<Item = (&'_ str, &'_ str)> {
+    lazy_static::lazy_static! {
+        static ref RX: Regex = Regex::new(r"//library_path\((.+)\):\s*(.+)\s*\n").unwrap();
+    }
+    RX.captures_iter(source)
+        .map(|mat| (mat.get(1).unwrap().as_str().trim(), mat.get(2).unwrap().as_str().trim()))
+}
+
+#[test]
+fn test_extract_library_paths() {
+    use std::collections::HashMap;
+
+    assert!(extract_library_paths("something").next().is_none());
+
+    let source = r"
+    //library_path(first): ../first/lib.slint
+    //library_path(second): ../second/lib.slint
+    Blah {}
+";
+
+    let r = extract_library_paths(source).collect::<HashMap<_, _>>();
+    assert_eq!(
+        r,
+        HashMap::from([("first", "../first/lib.slint"), ("second", "../second/lib.slint")])
+    );
+}
+
 /// Extract `//ignore` comments from the source.
 fn extract_ignores(source: &str) -> impl Iterator<Item = &'_ str> {
     lazy_static::lazy_static! {

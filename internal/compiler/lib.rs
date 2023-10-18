@@ -12,6 +12,7 @@ extern crate proc_macro;
 use core::future::Future;
 use core::pin::Pin;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub mod builtin_macros;
@@ -56,6 +57,8 @@ pub struct CompilerConfiguration {
     pub embed_resources: EmbedResourcesKind,
     /// The compiler will look in these paths for components used in the file to compile.
     pub include_paths: Vec<std::path::PathBuf>,
+    /// The compiler will look in these paths for library imports.
+    pub library_paths: HashMap<String, std::path::PathBuf>,
     /// the name of the style. (eg: "native")
     pub style: Option<String>,
 
@@ -140,6 +143,7 @@ impl CompilerConfiguration {
         Self {
             embed_resources,
             include_paths: Default::default(),
+            library_paths: Default::default(),
             style: Default::default(),
             open_import_fallback: None,
             resource_url_mapper: None,

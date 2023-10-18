@@ -62,9 +62,14 @@ impl PreviewApi for Previewer {
         preview::load_preview(self.server_notifier.clone(), _component, _behavior);
     }
 
-    fn config_changed(&self, _style: &str, _include_paths: &[PathBuf]) {
+    fn config_changed(
+        &self,
+        _style: &str,
+        _include_paths: &[PathBuf],
+        _library_paths: &HashMap<String, PathBuf>,
+    ) {
         #[cfg(feature = "preview")]
-        preview::config_changed(_style, _include_paths);
+        preview::config_changed(_style, _include_paths, _library_paths);
     }
 
     fn highlight(&self, _path: Option<std::path::PathBuf>, _offset: u32) -> Result<()> {

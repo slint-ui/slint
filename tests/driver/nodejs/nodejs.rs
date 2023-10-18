@@ -55,6 +55,14 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     )?;
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
     let include_paths = test_driver_lib::extract_include_paths(&source);
+    let library_paths = test_driver_lib::extract_library_paths(&source)
+        .map(|(k, v)| {
+            let mut abs_path = testcase.absolute_path.clone();
+            abs_path.pop();
+            abs_path.push(v);
+            format!("{}={}", k, abs_path.to_string_lossy())
+        })
+        .collect::<Vec<_>>();
     for x in test_driver_lib::extract_test_functions(&source).filter(|x| x.language_id == "js") {
         write!(main_js, "{{\n    {}\n}}\n", x.source.replace("\n", "\n    "))?;
     }
@@ -64,6 +72,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .current_dir(dir.path())
         .env("SLINT_NODE_NATIVE_LIB", std::env::var_os("SLINT_NODE_NATIVE_LIB").unwrap())
         .env("SLINT_INCLUDE_PATH", std::env::join_paths(include_paths).unwrap())
+        .env("SLINT_LIBRARY_PATH", std::env::join_paths(library_paths).unwrap())
         .env("SLINT_SCALE_FACTOR", "1") // We don't have a testing backend, but we can try to force a SF1 as the tests expect.
         .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1")
         .stdout(std::process::Stdio::piped())

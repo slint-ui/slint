@@ -12,11 +12,15 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let include_paths = test_driver_lib::extract_include_paths(&source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
+    let library_paths = test_driver_lib::extract_library_paths(&source)
+        .map(|(k, v)| (k.to_string(), std::path::PathBuf::from(v)))
+        .collect::<std::collections::HashMap<_, _>>();
 
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), &mut diag);
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Cpp);
     compiler_config.include_paths = include_paths;
+    compiler_config.library_paths = library_paths;
     let (root_component, diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 

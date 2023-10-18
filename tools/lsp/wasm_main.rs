@@ -17,6 +17,7 @@ use js_sys::Function;
 pub use language::{Context, DocumentCache, RequestHandler};
 use serde::Serialize;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::future::Future;
 use std::io::ErrorKind;
 use std::path::PathBuf;
@@ -69,7 +70,12 @@ impl PreviewApi for Previewer {
         // do nothing!
     }
 
-    fn config_changed(&self, _style: &str, _include_paths: &[PathBuf]) {
+    fn config_changed(
+        &self,
+        _style: &str,
+        _include_paths: &[PathBuf],
+        _library_paths: &HashMap<String, PathBuf>,
+    ) {
         // do nothing!
     }
 
