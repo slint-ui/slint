@@ -6,7 +6,7 @@ use napi::{
     JsUnknown, Result,
 };
 
-/// Represents a size.
+/// Represents a two-dimensional size.
 #[napi(js_name = Size)]
 pub struct JsSize {
     pub width: f64,
