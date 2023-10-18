@@ -214,7 +214,7 @@ impl JsBrush {
     }
 
     /// Returns the color as string in hex representation e.g. `#000000` for black.
-    /// It only works for solid color brushes.
+    /// It is only implemented for solid color brushes.
     #[napi]
     pub fn to_string(&self) -> String {
         if let Brush::SolidColor(_) = self.inner {
