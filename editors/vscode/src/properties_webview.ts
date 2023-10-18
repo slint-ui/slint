@@ -293,7 +293,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 				<link href="${codiconsUri}" rel="stylesheet" />
 			</head>
 			<body class="properties-editor">
-                <script src="${scriptUri}" type="module"></script>
+                <script src="${scriptUri}"></script>
 			</body>
 			</html>`;
     }
