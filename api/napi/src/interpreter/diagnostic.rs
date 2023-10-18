@@ -26,7 +26,7 @@ impl From<DiagnosticLevel> for JsDiagnosticLevel {
 /// This structure represent a diagnostic emitted while compiling .slint code.
 ///
 /// It is basically a message, a level (warning or error), attached to a
-/// position in the code
+/// position in the code.
 #[napi(object, js_name = "Diagnostic")]
 pub struct JsDiagnostic {
     /// The level for this diagnostic
