@@ -9,7 +9,7 @@ use i_slint_core::{
 };
 use napi::bindgen_prelude::{Buffer, External};
 
-// This is needed for typdoc check JsImageData::image
+// This is needed for typedoc check JsImageData::image
 pub type ImageData = Image;
 
 /// An image data type that can be displayed by the Image element
