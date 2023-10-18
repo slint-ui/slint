@@ -130,7 +130,7 @@ component.model = component.model.concat(4);
 
 Another option is to set an object that implements the {@link Model} interface. Rreading a Slint array property from JavaScript that was previously initialised from a {@link Model} object, will return a reference to the model. 
 
-As an example, here is the implementation of the `ArrayModel` (which is available as `slint.ArrayModel`)
+As an example, here is the implementation of the @{link ArrayModel}.
 
 ```js
 let array = [1, 2, 3];
