@@ -46,7 +46,7 @@ To initialize the API, you first need to import the `slint-ui` module in our cod
 import * as slint from "slint-ui";
 ```
 
-As next you can load a slint file with:
+Next, load a slint file with the `loadFile` function:
 
 ```js
 let ui = slint.loadFile("ui/main.slint");
