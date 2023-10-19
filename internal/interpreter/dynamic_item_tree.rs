@@ -1652,16 +1652,18 @@ extern "C" fn get_subtree(
         >(container)
         .unwrap();
         container.ensure_updated();
-        *result = container.subtree_component();
+        if subtree_index == 0 {
+            *result = container.subtree_component();
+        }
     } else {
         let rep_in_comp =
             unsafe { instance_ref.description.repeater[index as usize].get_untagged() };
         ensure_repeater_updated(instance_ref, rep_in_comp);
 
         let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
-        *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(
-            repeater.instance_at(subtree_index).unwrap(),
-        ))
+        if let Some(instance_at) = repeater.instance_at(subtree_index) {
+            *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(instance_at))
+        }
     }
 }
 
