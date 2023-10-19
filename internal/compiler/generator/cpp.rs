@@ -3035,8 +3035,7 @@ fn compile_builtin_function_call(
             format!("{}.size()", a.next().unwrap())
         }
         BuiltinFunction::ArrayLength => {
-            // note: cast to "long" to avoid signed vs signed comparison warning, because all other integers coming from slint are signed
-            format!("[](const auto &model){{ (*model).track_row_count_changes(); return long((*model).row_count()); }}({})", a.next().unwrap())
+            format!("slint::private_api::model_length({})", a.next().unwrap())
         }
         BuiltinFunction::Rgb => {
             format!("slint::Color::from_argb_uint8(std::clamp(static_cast<float>({a}) * 255., 0., 255.), std::clamp(static_cast<int>({r}), 0, 255), std::clamp(static_cast<int>({g}), 0, 255), std::clamp(static_cast<int>({b}), 0, 255))",
