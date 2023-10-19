@@ -27,6 +27,8 @@ All notable changes to this project are documented in this file.
 
 ### Rust API
 
+- Added `source_model()` to `MapModel`, `FilterModel`, `SortModel`, `ReverseModel` to access inner model.
+
 ### C++
 
  - Removed the need for C++ exceptions in generated code.
