@@ -95,6 +95,7 @@ struct Cli {
 }
 
 enum OutgoingRequest {
+    Start,
     Pending(Waker),
     Done(lsp_server::Response),
 }
@@ -122,14 +123,15 @@ impl ServerNotifier {
             Message::Request(lsp_server::Request::new(id.clone(), T::METHOD.to_string(), request));
         self.0.send(msg)?;
         let queue = self.1.clone();
+        queue.lock().unwrap().insert(id.clone(), OutgoingRequest::Start);
         Ok(std::future::poll_fn(move |ctx| {
             let mut queue = queue.lock().unwrap();
-            match queue.remove(&id) {
-                None | Some(OutgoingRequest::Pending(_)) => {
+            match queue.remove(&id).unwrap() {
+                OutgoingRequest::Pending(_) | OutgoingRequest::Start => {
                     queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
                     Poll::Pending
                 }
-                Some(OutgoingRequest::Done(d)) => {
+                OutgoingRequest::Done(d) => {
                     if let Some(err) = d.error {
                         Poll::Ready(Err(err.message.into()))
                     } else {
@@ -282,6 +284,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<()>
                         OutgoingRequest::Done(_) => {
                             return Err("Response to unknown request".into())
                         }
+                        OutgoingRequest::Start => { /* nothing to do */ }
                         OutgoingRequest::Pending(x) => x.wake_by_ref(),
                     };
                     *q = OutgoingRequest::Done(resp)
