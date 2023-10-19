@@ -9,6 +9,10 @@ use i_slint_core::{
 };
 use napi::bindgen_prelude::{Buffer, External};
 
+// This is needed for typedoc check JsImageData::image
+pub type ImageData = Image;
+
+/// An image data type that can be displayed by the Image element
 #[napi(js_name = ImageData)]
 pub struct JsImageData {
     inner: Image,
@@ -22,21 +26,27 @@ impl From<Image> for JsImageData {
 
 #[napi]
 impl JsImageData {
+    /// Constructs a new image with the given width and height.
+    /// Each pixel will set to red = 0, green = 0, blue = 0 and alpha = 0.
     #[napi(constructor)]
     pub fn new(width: u32, height: u32) -> Self {
         Self { inner: Image::from_rgba8(SharedPixelBuffer::new(width, height)) }
     }
 
+    /// Returns the width of the image in pixels.
     #[napi(getter)]
     pub fn width(&self) -> u32 {
         self.inner.size().width
     }
 
+    /// Returns the height of the image in pixels.
     #[napi(getter)]
     pub fn height(&self) -> u32 {
         self.inner.size().height
     }
 
+    /// Returns the image as buffer.
+    /// A Buffer is a subclass of Uint8Array.
     #[napi(getter)]
     pub fn data(&self) -> Buffer {
         let image_inner: &ImageInner = (&self.inner).into();
@@ -61,8 +71,9 @@ impl JsImageData {
         Buffer::from(vec![0; (self.width() * self.height() * 4) as usize])
     }
 
+    /// @hidden
     #[napi(getter)]
-    pub fn image(&self) -> External<Image> {
+    pub fn image(&self) -> External<ImageData> {
         External::new(self.inner.clone())
     }
 }

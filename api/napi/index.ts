@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import * as napi from "./rust-module";
-export { Diagnostic, Window, Brush, Color, ImageData, Point, Size, SlintModelNotify } from "./rust-module";
+export { Diagnostic, DiagnosticLevel, Window, Brush, Color, ImageData, Point, Size, SlintModelNotify } from "./rust-module";
 
 /**
  * ModelPeer is the interface that the run-time implements. An instance is
- * set on dynamic Model<T> instances and can be used to notify the run-time
+ * set on dynamic {@link Model} instances and can be used to notify the run-time
  * of changes in the structure or data of the model.
  */
-interface ModelPeer {
+export interface ModelPeer {
     /**
      * Call this function from our own model to notify that fields of data
      * in the specified row have changed.
@@ -44,8 +44,59 @@ interface ModelPeer {
  *
  * A model is organized like a table with rows of data. The
  * fields of the data type T behave like columns.
+ *
+ * ### Example
+ * As an example let's see the implementation of {@link ArrayModel}
+ *
+ * ```js
+ * export class ArrayModel<T> implements Model<T> {
+ *    private a: Array<T>
+ *    notify: ModelPeer;
+ *
+ *   constructor(arr: Array<T>) {
+ *        this.a = arr;
+ *        this.notify = new NullPeer();
+ *    }
+ *
+ *    rowCount() {
+ *        return this.a.length;
+ *    }
+ *
+ *    rowData(row: number) {
+ *       return this.a[row];
+ *    }
+ *
+ *    setRowData(row: number, data: T) {
+ *        this.a[row] = data;
+ *        this.notify.rowDataChanged(row);
+ *    }
+ *
+ *    push(...values: T[]) {
+ *        let size = this.a.length;
+ *        Array.prototype.push.apply(this.a, values);
+ *        this.notify.rowAdded(size, arguments.length);
+ *    }
+ *
+ *    remove(index: number, size: number) {
+ *        let r = this.a.splice(index, size);
+ *        this.notify.rowRemoved(index, size);
+ *    }
+ *
+ *    get length(): number {
+ *        return this.a.length;
+ *    }
+ *
+ *    values(): IterableIterator<T> {
+ *        return this.a.values();
+ *    }
+ *
+ *    entries(): IterableIterator<[number, T]> {
+ *        return this.a.entries()
+ *    }
+ *}
+ * ```
  */
-interface Model<T> {
+export interface Model<T> {
     /**
      * Implementations of this function must return the current number of rows.
      */
@@ -147,13 +198,37 @@ export class ArrayModel<T> implements Model<T> {
     }
 }
 
+/**
+ * This interface describes the public API of a Slint component that is common to all instances. Use this to
+ * show() the window on the screen, access the window and subsequent window properties, or start the
+ * Slint event loop with run().
+ */
 export interface ComponentHandle {
+    /**
+     * Shows the window and runs the event loop.
+     */
     run();
+
+    /**
+     * Shows the component's window on the screen.
+     */
     show();
+
+    /**
+     * Hides the component's window, so that it is not visible anymore.
+     */
     hide();
+
+    /**
+     * Returns the {@link Window} associated with this component instance.
+     * The window API can be used to control different aspects of the integration into the windowing system, such as the position on the screen.
+     */
     get window(): napi.Window;
 }
 
+/**
+ * @hidden
+ */
 class Component implements ComponentHandle {
     private instance: napi.ComponentInstance;
 
@@ -196,15 +271,27 @@ interface Callback {
     setHandler(cb: any): void;
 }
 
-export class CompilerError extends Error {
+/**
+ * Represents an errors that can be emitted by the compiler.
+ */
+export class CompileError extends Error {
     public diagnostics: napi.Diagnostic[];
 
+    /**
+     * Creates a new CompileError.
+     *
+     * @param message
+     * @param diagnostics
+     */
     constructor(message: string, diagnostics: napi.Diagnostic[]) {
         super(message);
         this.diagnostics = diagnostics;
     }
 }
 
+/**
+ * Loads the given slint file and returns a constructor to create an instance of the exported component.
+ */
 export function loadFile(path: string) : Object {
     let compiler = new napi.ComponentCompiler;
     let definition = compiler.buildFromPath(path);
@@ -218,7 +305,7 @@ export function loadFile(path: string) : Object {
         let errors = diagnostics.filter((d) => d.level == napi.DiagnosticLevel.Error);
 
         if (errors.length > 0) {
-            throw new CompilerError("Could not compile " + path, errors);
+            throw new CompileError("Could not compile " + path, errors);
         }
     }
 
@@ -254,7 +341,7 @@ export function loadFile(path: string) : Object {
             instance!.definition().callbacks.forEach((cb) => {
                 Object.defineProperty(componentHandle, cb.replace(/-/g, '_') , {
                     get() {
-                        let callback = function () { return instance!.invoke(cb, [...arguments]); } as Callback;
+                        let callback = function () { return instance!.invoke(cb, Array.from(arguments)); } as Callback;
                         callback.setHandler = function (callback) { instance!.setCallback(cb, callback) };
                         return callback;
                     },
@@ -269,6 +356,9 @@ export function loadFile(path: string) : Object {
     return slint_module;
 }
 
+/**
+ * @hidden
+ */
 export namespace private_api {
     export import mock_elapsed_time = napi.mockElapsedTime;
     export import ComponentCompiler = napi.ComponentCompiler;

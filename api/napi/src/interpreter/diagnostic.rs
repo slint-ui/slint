@@ -4,9 +4,13 @@
 use napi::bindgen_prelude::{FromNapiValue, ToNapiValue};
 use slint_interpreter::{Diagnostic, DiagnosticLevel};
 
+/// This enum describes the level or severity of a diagnostic message produced by the compiler.
 #[napi(js_name = "DiagnosticLevel")]
 pub enum JsDiagnosticLevel {
+    /// The diagnostic found is an error that prevents successful compilation.
     Error,
+
+    /// The diagnostic found is a warning.
     Warning,
 }
 
@@ -19,12 +23,25 @@ impl From<DiagnosticLevel> for JsDiagnosticLevel {
     }
 }
 
+/// This structure represent a diagnostic emitted while compiling .slint code.
+///
+/// It is basically a message, a level (warning or error), attached to a
+/// position in the code.
 #[napi(object, js_name = "Diagnostic")]
 pub struct JsDiagnostic {
+    /// The level for this diagnostic.
     pub level: JsDiagnosticLevel,
+
+    /// Message for this diagnostic.
     pub message: String,
+
+    /// The line number in the .slint source file.
     pub line_number: u32,
+
+    // The column in the .slint source file
     pub column: u32,
+
+    /// The path of the source file where this diagnostic occurred.
     pub source_file: Option<String>,
 }
 
