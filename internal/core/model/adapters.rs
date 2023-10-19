@@ -169,6 +169,11 @@ where
     pub fn new(wrapped_model: M, map_function: F) -> Self {
         Self { wrapped_model, map_function }
     }
+
+    /// Returns a reference to the inner model
+    pub fn source_model(&self) -> &M {
+        &self.wrapped_model
+    }
 }
 
 #[test]
@@ -400,6 +405,11 @@ where
     pub fn unfiltered_row(&self, filtered_row: usize) -> usize {
         self.0.mapping.borrow()[filtered_row]
     }
+
+    /// Returns a reference to the inner model
+    pub fn source_model(&self) -> &M {
+        &self.0.as_ref().get().get_ref().wrapped_model
+    }
 }
 
 impl<M, F> Model for FilterModel<M, F>
@@ -467,6 +477,24 @@ fn test_filter_model() {
     assert_eq!(filter.row_data(3).unwrap(), 6);
     assert_eq!(filter.row_data(4).unwrap(), 8);
     assert_eq!(filter.row_count(), 5);
+}
+
+#[test]
+fn test_filter_model_source_model() {
+    let wrapped_rc = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
+    let model = FilterModel::new(wrapped_rc.clone(), |x| x % 2 == 0);
+
+    let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+    model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
+
+    model.source_model().push(5);
+    model.source_model().push(6);
+
+    let expected = &[2, 4, 6];
+    assert_eq!(model.row_count(), expected.len());
+    for (i, v) in expected.iter().enumerate() {
+        assert_eq!(model.row_data(i), Some(*v), "Expected {} at index {}", v, i);
+    }
 }
 
 pub trait SortHelper<D> {
@@ -765,6 +793,11 @@ where
 
         Self(container)
     }
+
+    /// Returns a reference to the inner model
+    pub fn source_model(&self) -> &M {
+        &self.0.as_ref().get().get_ref().wrapped_model
+    }
 }
 
 impl<M> SortModel<M, AscendingSortHelper>
@@ -949,6 +982,24 @@ mod sort_tests {
         assert_eq!(sorted_model.row_data(2).unwrap(), 2);
         assert_eq!(sorted_model.row_data(3).unwrap(), 3);
     }
+
+    #[test]
+    fn test_sorted_model_source_model() {
+        let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
+        let model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs.cmp(rhs));
+
+        let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+        model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
+
+        model.source_model().push(6);
+        model.source_model().push(5);
+
+        let expected = &[1, 2, 3, 4, 5, 6];
+        assert_eq!(model.row_count(), expected.len());
+        for (i, v) in expected.iter().enumerate() {
+            assert_eq!(model.row_data(i), Some(*v), "Expected {} at index {}", v, i);
+        }
+    }
 }
 
 /// Provides a reversed view of another [`Model`].
@@ -1064,6 +1115,11 @@ where
         let container = Box::pin(ModelChangeListenerContainer::new(inner));
         container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
         Self(container)
+    }
+
+    /// Returns a reference to the inner model
+    pub fn source_model(&self) -> &M {
+        &self.0.as_ref().get().get_ref().wrapped_model
     }
 }
 
@@ -1186,5 +1242,18 @@ mod reversed_tests {
             assert_eq!(*observer.reset.borrow(), 0);
             assert_eq!(model.row_data(mapped_idx), Some(10));
         }
+    }
+
+    #[test]
+    fn test_reversed_model_source_model() {
+        let wrapped_rc = Rc::new(VecModel::from(vec![1, 2, 3, 4]));
+        let model = ReverseModel::new(wrapped_rc.clone());
+
+        let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+        model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
+
+        model.source_model().push(5);
+
+        check_content(&model, &[5, 4, 3, 2, 1]);
     }
 }
