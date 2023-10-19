@@ -14,6 +14,7 @@ use i_slint_compiler::object_tree::{
     PropertyVisibility, RepeatedElementInfo,
 };
 use i_slint_compiler::parser::TextRange;
+use i_slint_compiler::pathutils;
 use i_slint_core::item_tree::ItemWeak;
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::LogicalPoint;
@@ -230,6 +231,8 @@ fn highlight_elements(
 pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset: u32) {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
+
+    let path = pathutils::clean_path(&path);
 
     if design_mode(&c) {
         return;
