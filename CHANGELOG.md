@@ -32,6 +32,7 @@ All notable changes to this project are documented in this file.
  - Removed the need for C++ exceptions in generated code.
  - Added ability to only build the Slint compiler or use an external compiler.
  - ESP-IDF: wait for vsync before swapping frame buffers.
+ - Fixed crash when accessing empty model from Slint
 
 ### LSP
 

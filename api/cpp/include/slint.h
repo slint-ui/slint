@@ -341,10 +341,22 @@ using ModelPeer = std::weak_ptr<ModelChangeListener>;
 template<typename M>
 auto access_array_index(const M &model, size_t index)
 {
-    if (const auto v = model->row_data_tracked(index)) {
+    if (!model) {
+        return decltype(*model->row_data_tracked(index)) {};
+    } else if (const auto v = model->row_data_tracked(index)) {
         return *v;
     } else {
         return decltype(*v) {};
+    }
+}
+
+template<typename M>
+long int model_length(const M &model) {
+    if (!model) {
+        return 0;
+    } else {
+        model->track_row_count_changes();
+        return model->row_count();
     }
 }
 

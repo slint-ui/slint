@@ -24,6 +24,7 @@ const TestCase &instance = *handle;
 assert_eq(instance.get_num_ints(), 5);
 assert_eq(instance.get_n(), 4);
 assert_eq(instance.get_third_int(), 3);
+assert_eq(instance.get_test(), true);
 
 auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int>{1, 2, 3, 4, 5, 6, 7});
 instance.set_ints(model);
@@ -45,6 +46,7 @@ let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_num_ints(), 5);
 assert_eq!(instance.get_n(), 4);
 assert_eq!(instance.get_third_int(), 3);
+assert_eq!(instance.get_test(), true);
 
 let model: std::rc::Rc<slint::VecModel<i32>> = std::rc::Rc::new(vec![1, 2, 3, 4, 5, 6, 7].into());
 instance.set_ints(slint::ModelRc::from(model.clone()));
