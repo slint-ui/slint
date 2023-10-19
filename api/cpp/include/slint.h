@@ -1208,8 +1208,11 @@ public:
         return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
     }
 
-    vtable::VWeak<private_api::ItemTreeVTable> instance_at(int i) const
+    vtable::VWeak<private_api::ItemTreeVTable> instance_at(std::size_t i) const
     {
+        if (i >= inner->data.size()) {
+            return {};
+        }
         const auto &x = inner->data.at(i);
         return vtable::VWeak<private_api::ItemTreeVTable> { x.ptr->into_dyn() };
     }

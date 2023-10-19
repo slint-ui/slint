@@ -730,7 +730,9 @@ fn generate_sub_component(
         repeated_subtree_components.push(quote!(
             #idx => {
                 #ensure_updated
-                *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(_self.#repeater_id.instance_at(subtree_index).unwrap()))
+                if let Some(instance) = _self.#repeater_id.instance_at(subtree_index) {
+                    *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(instance));
+                }
             }
         ));
         repeated_element_names.push(repeater_id);
@@ -771,7 +773,9 @@ fn generate_sub_component(
         repeated_subtree_components.push(quote!(
             #repeater_index => {
                 #ensure_updated
-                *result = #embed_item.subtree_component()
+                if subtree_index == 0 {
+                    *result = #embed_item.subtree_component()
+                }
             }
         ));
     }

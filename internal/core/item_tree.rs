@@ -16,6 +16,7 @@ use core::pin::Pin;
 use vtable::*;
 
 #[repr(C)]
+#[derive(Debug, Clone, Copy)]
 /// A range of indices
 pub struct IndexRange {
     /// Start index
@@ -215,14 +216,11 @@ fn step_into_node(
         crate::item_tree::ItemTreeNode::DynamicTree { index, .. } => {
             let range = comp_ref_pin.as_ref().get_subtree_range(*index);
             let component_index = subtree_child(range.start, range.end);
-            if core::ops::Range::from(range).contains(&component_index) {
-                let mut child_component = Default::default();
-                comp_ref_pin.as_ref().get_subtree(*index, component_index, &mut child_component);
-                let child_component = child_component.upgrade().unwrap();
-                Some(wrap_around(ItemRc::new(child_component, 0)))
-            } else {
-                None
-            }
+            let mut child_instance = Default::default();
+            comp_ref_pin.as_ref().get_subtree(*index, component_index, &mut child_instance);
+            child_instance
+                .upgrade()
+                .map(|child_instance| wrap_around(ItemRc::new(child_instance, 0)))
         }
     }
 }
@@ -426,19 +424,17 @@ impl ItemRc {
                     crate::item_tree::ItemTreeNode::DynamicTree { index, .. } => *index,
                 };
 
-                let range = parent_ref_pin.as_ref().get_subtree_range(subtree_index);
                 let next_subtree_index = subtree_step(current_component_subtree_index);
 
-                if core::ops::Range::from(range).contains(&next_subtree_index) {
-                    // Get next subtree from repeater!
-                    let mut next_subtree_component = Default::default();
-                    parent_ref_pin.as_ref().get_subtree(
-                        subtree_index,
-                        next_subtree_index,
-                        &mut next_subtree_component,
-                    );
-                    let next_subtree_component = next_subtree_component.upgrade().unwrap();
-                    return Some(ItemRc::new(next_subtree_component, 0));
+                // Get next subtree from repeater!
+                let mut next_subtree_instance = Default::default();
+                parent_ref_pin.as_ref().get_subtree(
+                    subtree_index,
+                    next_subtree_index,
+                    &mut next_subtree_instance,
+                );
+                if let Some(next_subtree_instance) = next_subtree_instance.upgrade() {
+                    return Some(ItemRc::new(next_subtree_instance, 0));
                 }
 
                 // We need to leave the repeater:
@@ -1096,9 +1092,9 @@ mod tests {
             component_index: usize,
             result: &mut ItemTreeWeak,
         ) {
-            *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(
-                self.subtrees.borrow()[subtree_index as usize][component_index].clone(),
-            ))
+            if let Some(vrc) = self.subtrees.borrow()[subtree_index as usize].get(component_index) {
+                *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(vrc.clone()))
+            }
         }
 
         fn accessible_role(self: Pin<&Self>, _: u32) -> AccessibleRole {
