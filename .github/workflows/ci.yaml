@@ -178,6 +178,9 @@ jobs:
     - name: Run npm install
       working-directory: ./api/napi
       run: npm install
+    - name: Typescript check
+      working-directory: ./api/napi
+      run: npm run syntax_check
     - name: Run napi tests
       working-directory: ./api/napi
       run: npm test

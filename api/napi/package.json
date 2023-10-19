@@ -24,11 +24,12 @@
     "artifacts": "napi artifacts",
     "compile": "esbuild index.ts --bundle --external:*.node --format=cjs --platform=node --outfile=index.js",
     "build": "napi build --platform --release --js rust-module.js --dts rust-module.d.ts && npm run compile",
-    "build:debug": "napi build --platform --js rust-module.js --dts rust-module.d.ts && npm run compile",
+    "build:debug": "napi build --platform --js rust-module.js --dts rust-module.d.ts && npm run compile && npm run syntax_check",
     "install": "npm run build",
     "docs": "npm run build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md index.ts",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava",
+    "syntax_check": "tsc -noEmit index.ts",
     "universal": "napi universal",
     "version": "1.3.0"
   },
