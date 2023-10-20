@@ -77,7 +77,6 @@ fn create_default_surface(
 
 /// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using Skia as underlying graphics library.
-#[derive(Default)]
 pub struct SkiaRenderer {
     maybe_window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
@@ -86,9 +85,46 @@ pub struct SkiaRenderer {
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
     rendering_first_time: Cell<bool>,
     surface: RefCell<Option<Box<dyn Surface>>>,
+    surface_factory: fn(
+        window_handle: raw_window_handle::WindowHandle<'_>,
+        display_handle: raw_window_handle::DisplayHandle<'_>,
+        size: PhysicalWindowSize,
+    ) -> Result<Box<dyn Surface>, PlatformError>,
+}
+
+impl Default for SkiaRenderer {
+    fn default() -> Self {
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            image_cache: Default::default(),
+            path_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Default::default(),
+            surface: Default::default(),
+            surface_factory: create_default_surface,
+        }
+    }
 }
 
 impl SkiaRenderer {
+    /// Creates a new SkiaRenderer that will always use Skia's software renderer.
+    pub fn default_software() -> Self {
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            image_cache: Default::default(),
+            path_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Default::default(),
+            surface: Default::default(),
+            surface_factory: |window_handle, display_handle, size| {
+                software_surface::SoftwareSurface::new(window_handle, display_handle, size)
+                    .map(|r| Box::new(r) as Box<dyn Surface>)
+            },
+        }
+    }
+
     /// Creates a new renderer is associated with the provided window adapter.
     pub fn new(
         window_handle: raw_window_handle::WindowHandle<'_>,
@@ -108,6 +144,9 @@ impl SkiaRenderer {
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
             surface: RefCell::new(Some(surface)),
+            surface_factory: |_, _, _| {
+                Err("Skia renderer constructed with surface does not support dynamic surface re-creation".into())
+            },
         }
     }
 
@@ -126,7 +165,7 @@ impl SkiaRenderer {
         display_handle: raw_window_handle::DisplayHandle<'_>,
         size: PhysicalWindowSize,
     ) -> Result<(), PlatformError> {
-        self.set_surface(create_default_surface(window_handle, display_handle, size)?);
+        self.set_surface((self.surface_factory)(window_handle, display_handle, size)?);
         Ok(())
     }
 

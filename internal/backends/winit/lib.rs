@@ -164,13 +164,12 @@ impl Backend {
             Some("gl") | Some("femtovg") => renderer::femtovg::GlutinFemtoVGRenderer::new,
             #[cfg(enable_skia_renderer)]
             Some("skia") => renderer::skia::WinitSkiaRenderer::new,
+            #[cfg(enable_skia_renderer)]
+            Some("skia-software") => renderer::skia::WinitSkiaRenderer::new_software,
             #[cfg(feature = "renderer-software")]
             Some("sw") | Some("software") => renderer::sw::WinitSoftwareRenderer::new,
             None => default_renderer_factory,
             Some(renderer_name) => {
-                #[cfg(enable_skia_renderer)]
-                if renderer_name == "skia-software" {}
-
                 eprintln!(
                     "slint winit: unrecognized renderer {}, falling back to {}",
                     renderer_name, DEFAULT_RENDERER_NAME
