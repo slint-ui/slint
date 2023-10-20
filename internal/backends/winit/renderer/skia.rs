@@ -24,6 +24,21 @@ impl WinitSkiaRenderer {
 
         Ok((Box::new(Self { renderer }), winit_window))
     }
+
+    pub fn new_software(
+        window_builder: winit::window::WindowBuilder,
+    ) -> Result<(Box<dyn super::WinitCompatibleRenderer>, winit::window::Window), PlatformError>
+    {
+        let winit_window = crate::event_loop::with_window_target(|event_loop| {
+            window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
+                format!("Error creating native window for Skia rendering: {}", winit_os_error)
+            })
+        })?;
+
+        let renderer = i_slint_renderer_skia::SkiaRenderer::default_software();
+
+        Ok((Box::new(Self { renderer }), winit_window))
+    }
 }
 
 impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
