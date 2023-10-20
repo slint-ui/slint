@@ -57,6 +57,24 @@ cfg_if::cfg_if! {
     }
 }
 
+fn create_default_surface(
+    window_handle: raw_window_handle::WindowHandle<'_>,
+    display_handle: raw_window_handle::DisplayHandle<'_>,
+    size: PhysicalWindowSize,
+) -> Result<Box<dyn Surface>, PlatformError> {
+    match DefaultSurface::new(window_handle.clone(), display_handle.clone(), size) {
+        Ok(gpu_surface) => Ok(Box::new(gpu_surface) as Box<dyn Surface>),
+        Err(err) => {
+            i_slint_core::debug_log!(
+                "Failed to initialize Skia GPU renderer: {} . Falling back to software rendering",
+                err
+            );
+            software_surface::SoftwareSurface::new(window_handle, display_handle, size)
+                .map(|r| Box::new(r) as Box<dyn Surface>)
+        }
+    }
+}
+
 /// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using Skia as underlying graphics library.
 #[derive(Default)]
@@ -77,13 +95,11 @@ impl SkiaRenderer {
         display_handle: raw_window_handle::DisplayHandle<'_>,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError> {
-        let surface = DefaultSurface::new(window_handle, display_handle, size)?;
-
-        Ok(Self::new_with_surface(surface))
+        Ok(Self::new_with_surface(create_default_surface(window_handle, display_handle, size)?))
     }
 
     /// Creates a new renderer with the given surface trait implementation.
-    pub fn new_with_surface(surface: impl Surface + 'static) -> Self {
+    pub fn new_with_surface(surface: Box<dyn Surface + 'static>) -> Self {
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
@@ -91,16 +107,16 @@ impl SkiaRenderer {
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
-            surface: RefCell::new(Some(Box::new(surface))),
+            surface: RefCell::new(Some(surface)),
         }
     }
 
     /// Reset the surface to a new surface. (destroy the previously set surface if any)
-    pub fn set_surface(&self, surface: impl Surface + 'static) {
+    pub fn set_surface(&self, surface: Box<dyn Surface + 'static>) {
         self.image_cache.clear_all();
         self.path_cache.clear_all();
         self.rendering_first_time.set(true);
-        *self.surface.borrow_mut() = Some(Box::new(surface));
+        *self.surface.borrow_mut() = Some(surface);
     }
 
     /// Reset the surface to the window given the window handle
@@ -110,7 +126,7 @@ impl SkiaRenderer {
         display_handle: raw_window_handle::DisplayHandle<'_>,
         size: PhysicalWindowSize,
     ) -> Result<(), PlatformError> {
-        self.set_surface(DefaultSurface::new(window_handle, display_handle, size)?);
+        self.set_surface(create_default_surface(window_handle, display_handle, size)?);
         Ok(())
     }
 

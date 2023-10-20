@@ -28,7 +28,9 @@ impl SkiaRendererAdapter {
         )?;
 
         let renderer = Box::new(Self {
-            renderer: i_slint_renderer_skia::SkiaRenderer::new_with_surface(skia_vk_surface),
+            renderer: i_slint_renderer_skia::SkiaRenderer::new_with_surface(Box::new(
+                skia_vk_surface,
+            )),
             presenter: None,
             size: display.size,
         });
@@ -55,7 +57,9 @@ impl SkiaRendererAdapter {
         let size = display.size;
 
         let renderer = Box::new(Self {
-            renderer: i_slint_renderer_skia::SkiaRenderer::new_with_surface(skia_gl_surface),
+            renderer: i_slint_renderer_skia::SkiaRenderer::new_with_surface(Box::new(
+                skia_gl_surface,
+            )),
             presenter: Some(Box::new(display)),
             size,
         });
