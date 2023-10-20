@@ -664,7 +664,7 @@ fn add_components_to_import(
             );
             result.push(CompletionItem {
                 label: format!("{} (import from \"{}\")", exported_name.name, file),
-                insert_text: Some(format!("{} {{ $1 }}", exported_name.name)),
+                insert_text: Some(format!("{} {{$1}}", exported_name.name)),
                 insert_text_format: Some(InsertTextFormat::SNIPPET),
                 filter_text: Some(exported_name.name.clone()),
                 kind: Some(CompletionItemKind::CLASS),
