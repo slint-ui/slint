@@ -220,7 +220,7 @@ fn highlight_elements(
         let mut values = Vec::<Value>::new();
         for element in elements.iter().filter_map(|e| e.upgrade()) {
             if let Some(repeater_path) = repeater_path(&element) {
-                fill_model(&repeater_path, &element, &c, &mut values);
+                fill_model(&repeater_path, &element, &c, &c, &mut values);
             }
         }
         Value::Model(ModelRc::new(VecModel::from(values)))
@@ -260,6 +260,7 @@ fn fill_model(
     repeater_path: &[String],
     element: &ElementRc,
     component_instance: &ItemTreeBox,
+    root_component_instance: &ItemTreeBox,
     values: &mut Vec<Value>,
 ) {
     if let [first, rest @ ..] = repeater_path {
@@ -272,18 +273,21 @@ fn fill_model(
         for idx in rep.0.range() {
             if let Some(c) = rep.0.instance_at(idx) {
                 generativity::make_guard!(guard);
-                fill_model(rest, element, &c.unerase(guard), values);
+                fill_model(rest, element, &c.unerase(guard), root_component_instance, values);
             }
         }
     } else {
         let vrc = VRc::into_dyn(
             component_instance.borrow_instance().self_weak().get().unwrap().upgrade().unwrap(),
         );
+        let root_vrc = VRc::into_dyn(
+            root_component_instance.borrow_instance().self_weak().get().unwrap().upgrade().unwrap(),
+        );
         let index = element.borrow().item_index.get().copied().unwrap();
         let item_rc = ItemRc::new(vrc.clone(), index);
 
         let geom = item_rc.geometry();
-        let position = item_rc.map_to_item_tree(geom.origin, &vrc);
+        let position = item_rc.map_to_item_tree(geom.origin, &root_vrc);
 
         values.push(Value::Struct(
             [
