@@ -9,10 +9,11 @@ pub struct WinitSkiaRenderer {
     renderer: i_slint_renderer_skia::SkiaRenderer,
 }
 
-impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
-    fn new(
+impl WinitSkiaRenderer {
+    pub fn new(
         window_builder: winit::window::WindowBuilder,
-    ) -> Result<(Self, winit::window::Window), PlatformError> {
+    ) -> Result<(Box<dyn super::WinitCompatibleRenderer>, winit::window::Window), PlatformError>
+    {
         let winit_window = crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
                 format!("Error creating native window for Skia rendering: {}", winit_os_error)
@@ -21,9 +22,11 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
 
         let renderer = i_slint_renderer_skia::SkiaRenderer::default();
 
-        Ok((Self { renderer }, winit_window))
+        Ok((Box::new(Self { renderer }), winit_window))
     }
+}
 
+impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
     fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
         self.renderer.render()
     }

@@ -11,6 +11,8 @@ pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use std::cell::RefCell;
 
+use super::WinitCompatibleRenderer;
+
 pub struct WinitSoftwareRenderer {
     renderer: SoftwareRenderer,
     _context: softbuffer::Context,
@@ -62,10 +64,10 @@ impl TargetPixel for SoftBufferPixel {
     }
 }
 
-impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
-    fn new(
+impl WinitSoftwareRenderer {
+    pub fn new(
         window_builder: winit::window::WindowBuilder,
-    ) -> Result<(Self, winit::window::Window), PlatformError> {
+    ) -> Result<(Box<dyn WinitCompatibleRenderer>, winit::window::Window), PlatformError> {
         let winit_window = crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
                 format!("Error creating native window for software rendering: {}", winit_os_error)
@@ -82,15 +84,17 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         )?;
 
         Ok((
-            Self {
+            Box::new(Self {
                 renderer: SoftwareRenderer::new(),
                 _context: context,
                 surface: RefCell::new(surface),
-            },
+            }),
             winit_window,
         ))
     }
+}
 
+impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
     fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
         let size = window.size();
 
