@@ -139,14 +139,20 @@ pub struct WinitWindowAdapter {
 impl WinitWindowAdapter {
     /// Creates a new reference-counted instance.
     #[allow(clippy::new_ret_no_self)]
-    pub(crate) fn new<R: WinitCompatibleRenderer + 'static>(
+    pub(crate) fn new(
+        renderer_factory_fn: fn(
+            window_builder: winit::window::WindowBuilder,
+        ) -> Result<
+            (Box<dyn WinitCompatibleRenderer>, winit::window::Window),
+            PlatformError,
+        >,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
         let (renderer, winit_window) = Self::window_builder(
             #[cfg(target_arch = "wasm32")]
             canvas_id,
         )
-        .and_then(|builder| R::new(builder))?;
+        .and_then(|builder| renderer_factory_fn(builder))?;
 
         let winit_window = Rc::new(winit_window);
 
@@ -162,7 +168,7 @@ impl WinitWindowAdapter {
             window_level: Default::default(),
             winit_window: winit_window.clone(),
             size: Default::default(),
-            renderer: Box::new(renderer),
+            renderer,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
             #[cfg(enable_accesskit)]
