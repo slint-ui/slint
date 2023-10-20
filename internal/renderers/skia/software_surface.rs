@@ -68,7 +68,7 @@ impl super::Surface for SoftwareSurface {
                 skia_safe::AlphaType::Opaque,
                 None,
             ),
-            unsafe { target_buffer.as_mut().align_to_mut().1 },
+            bytemuck::cast_slice_mut(target_buffer.as_mut()),
             None,
             None,
         )

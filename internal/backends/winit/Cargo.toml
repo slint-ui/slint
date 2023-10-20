@@ -60,7 +60,7 @@ i-slint-renderer-skia = {  workspace = true, features = ["default"], optional = 
 softbuffer = { workspace = true, optional = true }
 imgref = { version = "1.6.1", optional = true }
 rgb = { version = "0.8.27", optional = true }
-bytemuck = { version = "1.13.1", optional = true, features = ["derive"] }
+bytemuck = { workspace = true, optional = true, features = ["derive"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features=["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent", "DomStringMap", "ClipboardEvent", "DataTransfer"] }

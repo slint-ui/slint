@@ -131,6 +131,7 @@ toml_edit = "0.20"
 css-color-parser2 = { version = "1.0.1" }
 itertools = "0.11"
 softbuffer = { version = "0.3.1" }
+bytemuck = { version = "1.13.1" }
 
 [profile.release]
 lto = true
