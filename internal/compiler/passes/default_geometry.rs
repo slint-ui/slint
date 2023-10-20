@@ -52,20 +52,40 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                 match builtin_type.default_size_binding {
                     DefaultSizeBinding::None => {
                         if elem.borrow().default_fill_parent.0 {
-                            w100 |= make_default_100(elem, parent, "width");
+                            let e_width =
+                                elem.borrow().geometry_props.as_ref().unwrap().width.clone();
+                            let p_width =
+                                parent.borrow().geometry_props.as_ref().unwrap().width.clone();
+                            w100 |= make_default_100(&e_width, &p_width);
                         } else {
                             make_default_implicit(elem, "width");
                         }
                         if elem.borrow().default_fill_parent.1 {
-                            h100 |= make_default_100(elem, parent, "height");
+                            let e_height =
+                                elem.borrow().geometry_props.as_ref().unwrap().height.clone();
+                            let p_height =
+                                parent.borrow().geometry_props.as_ref().unwrap().height.clone();
+                            h100 |= make_default_100(&e_height, &p_height);
                         } else {
                             make_default_implicit(elem, "height");
                         }
                     }
                     DefaultSizeBinding::ExpandsToParentGeometry => {
                         if !elem.borrow().child_of_layout {
-                            w100 |= make_default_100(elem, parent, "width");
-                            h100 |= make_default_100(elem, parent, "height");
+                            let (e_width, e_height) = elem
+                                .borrow()
+                                .geometry_props
+                                .as_ref()
+                                .map(|g| (g.width.clone(), g.height.clone()))
+                                .unwrap();
+                            let (p_width, p_height) = parent
+                                .borrow()
+                                .geometry_props
+                                .as_ref()
+                                .map(|g| (g.width.clone(), g.height.clone()))
+                                .unwrap();
+                            w100 |= make_default_100(&e_width, &p_width);
+                            h100 |= make_default_100(&e_height, &p_height);
                         }
                     }
                     DefaultSizeBinding::ImplicitSize => {
@@ -282,9 +302,9 @@ fn fix_percent_size(
 
 /// Generate a size property that covers the parent.
 /// Return true if it was changed
-fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str) -> bool {
-    elem.borrow_mut().set_binding_if_not_set(property.to_string(), || {
-        Expression::PropertyReference(NamedReference::new(parent_element, property))
+fn make_default_100(prop: &NamedReference, parent_prop: &NamedReference) -> bool {
+    prop.element().borrow_mut().set_binding_if_not_set(prop.name().to_string(), || {
+        Expression::PropertyReference(parent_prop.clone())
     })
 }
 

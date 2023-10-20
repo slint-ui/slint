@@ -5,7 +5,6 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::langtype::ElementType;
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn lower_component_container(
@@ -34,7 +33,7 @@ fn diagnose_component_container(element: &ElementRc, diag: &mut BuildDiagnostics
 fn process_component_container(element: &ElementRc, empty_type: &ElementType) {
     let mut elem = element.borrow_mut();
 
-    let embedded_element = Rc::new(RefCell::new(Element {
+    let embedded_element = Element::make_rc(Element {
         base_type: empty_type.clone(),
         id: elem.id.clone(),
         node: elem.node.clone(),
@@ -44,7 +43,7 @@ fn process_component_container(element: &ElementRc, empty_type: &ElementType) {
         inline_depth: elem.inline_depth,
         is_component_placeholder: true,
         ..Default::default()
-    }));
+    });
 
     elem.children.push(embedded_element);
 }

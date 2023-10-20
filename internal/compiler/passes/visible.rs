@@ -64,8 +64,9 @@ pub fn handle_visible(
                         let clip_elem = create_visibility_element(&root_elem, &native_clip);
                         object_tree::inject_element_as_repeated_element(&child, clip_elem.clone());
                         // The width and the height must be null
-                        clip_elem.borrow_mut().bindings.remove("width");
-                        clip_elem.borrow_mut().bindings.remove("height");
+                        let d = NamedReference::new(&clip_elem, "dummy");
+                        clip_elem.borrow_mut().geometry_props.as_mut().unwrap().width = d.clone();
+                        clip_elem.borrow_mut().geometry_props.as_mut().unwrap().height = d;
                     }
                 } else if has_visible_binding(&child) {
                     let new_child = create_visibility_element(&child, &native_clip);

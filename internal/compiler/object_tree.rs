@@ -2544,32 +2544,20 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
 /// Make the geometry of the `injected_parent` that of the old_elem. And the old_elem
 /// will cover the `injected_parent`
 pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem: &ElementRc) {
-    // The values for properties that affect the geometry may be supplied in two different ways:
-    //
-    //   * When coming from the outside, for example by the repeater being inside a layout, we need
-    //     the values to apply to the new root element and the old root just needs to follow.
-    //   * When coming from the inside, for example when the repeater just creates rectangles that
-    //     calculate their own position, we need to move those bindings as well to the new root.
-    injected_parent.borrow_mut().bindings.extend(Iterator::chain(
-        ["x", "y", "z"].iter().filter_map(|x| old_elem.borrow_mut().bindings.remove_entry(*x)),
-        ["width", "height"].iter().map(|x| {
-            (
-                x.to_string(),
-                BindingExpression::from(Expression::PropertyReference(NamedReference::new(
-                    old_elem, x,
-                )))
-                .into(),
-            )
-        }),
-    ));
-    injected_parent.borrow().property_analysis.borrow_mut().extend(
-        ["x", "y", "z"].into_iter().filter_map(|x| {
-            old_elem
-                .borrow()
-                .property_analysis
-                .borrow()
-                .get_key_value(x)
-                .map(|(k, v)| (k.clone(), v.clone()))
-        }),
+    let mut injected_parent_mut = injected_parent.borrow_mut();
+    injected_parent_mut.bindings.insert(
+        "z".into(),
+        RefCell::new(BindingExpression::new_two_way(NamedReference::new(old_elem, "z".into()))),
     );
+    // (should be removed by const propagation in the llr)
+    injected_parent_mut.property_declarations.insert(
+        "dummy".into(),
+        PropertyDeclaration { property_type: Type::LogicalLength, ..Default::default() },
+    );
+    let mut old_elem_mut = old_elem.borrow_mut();
+    injected_parent_mut.default_fill_parent = std::mem::take(&mut old_elem_mut.default_fill_parent);
+    injected_parent_mut.geometry_props = old_elem_mut.geometry_props.clone();
+    drop(injected_parent_mut);
+    old_elem_mut.geometry_props.as_mut().unwrap().x = NamedReference::new(injected_parent, "dummy");
+    old_elem_mut.geometry_props.as_mut().unwrap().y = NamedReference::new(injected_parent, "dummy");
 }
