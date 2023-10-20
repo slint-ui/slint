@@ -73,7 +73,9 @@ pub(crate) fn completion_at(
                         }
                         Some(CompletionItemKind::CLASS) => {
                             available_types.insert(c.label.clone());
-                            c.insert_text = Some(format!("{} {{$1}}", c.label))
+                            if !is_followed_by_brace(&token) {
+                                c.insert_text = Some(format!("{} {{$1}}", c.label))
+                            }
                         }
                         _ => (),
                     }
@@ -664,7 +666,11 @@ fn add_components_to_import(
             );
             result.push(CompletionItem {
                 label: format!("{} (import from \"{}\")", exported_name.name, file),
-                insert_text: Some(format!("{} {{$1}}", exported_name.name)),
+                insert_text: if is_followed_by_brace(token) {
+                    Some(exported_name.name.clone())
+                } else {
+                    Some(format!("{} {{$1}}", exported_name.name))
+                },
                 insert_text_format: Some(InsertTextFormat::SNIPPET),
                 filter_text: Some(exported_name.name.clone()),
                 kind: Some(CompletionItemKind::CLASS),
@@ -675,6 +681,17 @@ fn add_components_to_import(
         }
     }
     Some(())
+}
+
+fn is_followed_by_brace(token: &SyntaxToken) -> bool {
+    let mut next_token = token.next_token();
+    while let Some(ref t) = next_token {
+        if t.kind() != SyntaxKind::Whitespace {
+            break;
+        }
+        next_token = t.next_token();
+    }
+    next_token.is_some_and(|x| x.kind() == SyntaxKind::LBrace)
 }
 
 #[cfg(test)]
@@ -691,8 +708,15 @@ mod tests {
 
         let doc = dc.documents.get_document(&uri_to_file(&uri).unwrap()).unwrap();
         let token = crate::language::token_at_offset(doc.node.as_ref().unwrap(), offset)?;
+        let caps = CompletionClientCapabilities {
+            completion_item: Some(lsp_types::CompletionItemCapability {
+                snippet_support: Some(true),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
 
-        completion_at(&mut dc, token, offset, None)
+        completion_at(&mut dc, token, offset, Some(&caps))
     }
 
     #[test]
@@ -882,5 +906,57 @@ mod tests {
         res.iter().find(|ci| ci.label == "ease-in-out").unwrap();
         res.iter().find(|ci| ci.label == "linear").unwrap();
         res.iter().find(|ci| ci.label == "cubic-bezier").unwrap();
+    }
+
+    #[test]
+    fn element_snippet_without_braces() {
+        let source = r#"
+            component Foo {
+                🔺
+            }
+        "#;
+        let res = get_completions(source)
+            .unwrap()
+            .into_iter()
+            .filter(|ci| {
+                matches!(
+                    ci,
+                    CompletionItem {
+                        insert_text_format: Some(InsertTextFormat::SNIPPET),
+                        detail: Some(detail),
+                        ..
+                    }
+                    if detail == "element"
+                )
+            })
+            .collect::<Vec<_>>();
+        assert!(!res.is_empty());
+        assert!(res.iter().all(|ci| ci.insert_text.as_ref().is_some_and(|t| t.ends_with("{$1}"))));
+    }
+
+    #[test]
+    fn element_snippet_before_braces() {
+        let source = r#"
+            component Foo {
+                🔺 {}
+            }
+        "#;
+        let res = get_completions(source)
+            .unwrap()
+            .into_iter()
+            .filter(|ci| {
+                matches!(
+                    ci,
+                    CompletionItem {
+                        insert_text_format: Some(InsertTextFormat::SNIPPET),
+                        detail: Some(detail),
+                        ..
+                    }
+                    if detail == "element"
+                )
+            })
+            .collect::<Vec<_>>();
+        assert!(!res.is_empty());
+        assert!(res.iter().all(|ci| ci.insert_text.is_none()));
     }
 }
