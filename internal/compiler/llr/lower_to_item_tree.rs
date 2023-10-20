@@ -521,12 +521,9 @@ fn lower_repeated_component(elem: &ElementRc, ctx: &ExpressionContext) -> Repeat
     let component = e.base_type.as_component().clone();
     let repeated = e.repeated.as_ref().unwrap();
 
-    let sc = lower_sub_component(&component, ctx.state, Some(ctx));
+    let sc: LoweredSubComponent = lower_sub_component(&component, ctx.state, Some(ctx));
 
-    let map_inner_prop = |p| {
-        sc.mapping
-            .map_property_reference(&NamedReference::new(&component.root_element, p), ctx.state)
-    };
+    let geom = component.root_element.borrow().geometry_props.clone().unwrap();
 
     let listview = repeated.is_listview.as_ref().map(|lv| ListViewInfo {
         viewport_y: ctx.map_property_reference(&lv.viewport_y),
@@ -534,10 +531,9 @@ fn lower_repeated_component(elem: &ElementRc, ctx: &ExpressionContext) -> Repeat
         viewport_width: ctx.map_property_reference(&lv.viewport_width),
         listview_height: ctx.map_property_reference(&lv.listview_height),
         listview_width: ctx.map_property_reference(&lv.listview_width),
-
-        prop_y: map_inner_prop("y"),
-        prop_width: map_inner_prop("width"),
-        prop_height: map_inner_prop("height"),
+        prop_y: sc.mapping.map_property_reference(&geom.y, ctx.state),
+        prop_width: sc.mapping.map_property_reference(&geom.width, ctx.state),
+        prop_height: sc.mapping.map_property_reference(&geom.height, ctx.state),
     });
 
     RepeatedElement {

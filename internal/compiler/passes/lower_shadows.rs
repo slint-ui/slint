@@ -163,16 +163,7 @@ pub fn lower_shadow_properties(
                     }
                 };
 
-                // Install bindings from the remaining properties of the shadow element to the
-                // original, such as x/y/width/height.
-                for (prop, _) in crate::typeregister::RESERVED_GEOMETRY_PROPERTIES.iter() {
-                    let prop = prop.to_string();
-                    shadow_elem.bindings.entry(prop.clone()).or_insert_with(|| {
-                        let binding_ref =
-                            Expression::PropertyReference(NamedReference::new(&child, &prop));
-                        RefCell::new(binding_ref.into())
-                    });
-                }
+                shadow_elem.geometry_props = elem.borrow().geometry_props.clone();
 
                 elem.borrow_mut().children.push(Element::make_rc(shadow_elem));
             }
