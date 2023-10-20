@@ -23,7 +23,7 @@ napi = { version = "2.12.0", default-features = false, features = ["napi8"] }
 napi-derive = "2.12.2"
 i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default"] }
-slint-interpreter = { workspace = true, features = ["default", "display-diagnostics"] }
+slint-interpreter = { workspace = true, features = ["default", "display-diagnostics", "internal"] }
 spin_on = "0.1"
 css-color-parser2 = { workspace = true }
 
