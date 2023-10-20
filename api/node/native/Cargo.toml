@@ -22,7 +22,7 @@ name = "slint_node_native"
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default"] }
-slint-interpreter = { workspace = true, features = ["default", "display-diagnostics"] }
+slint-interpreter = { workspace = true, features = ["default", "display-diagnostics", "internal"] }
 
 vtable = { version = "0.1.6", path="../../../helper_crates/vtable" }
 

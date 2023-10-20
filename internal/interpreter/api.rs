@@ -3,9 +3,12 @@
 
 use core::convert::TryFrom;
 use i_slint_compiler::langtype::Type as LangType;
-use i_slint_core::component_factory::{ComponentFactory, FactoryContext};
+use i_slint_core::component_factory::ComponentFactory;
+#[cfg(feature = "internal")]
+use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::graphics::Image;
 use i_slint_core::model::{Model, ModelRc};
+#[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, PathData, SharedVector};
 use std::borrow::Cow;
@@ -20,7 +23,9 @@ pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 pub use i_slint_core::api::*;
 use i_slint_core::items::*;
 
-use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
+use crate::dynamic_item_tree::ErasedItemTreeBox;
+#[cfg(any(feature = "internal", target_arch = "wasm32"))]
+use crate::dynamic_item_tree::WindowOptions;
 
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
@@ -514,6 +519,7 @@ impl ComponentCompiler {
     ///
     /// This is an internal function without and ABI or API stability guarantees.
     #[doc(hidden)]
+    #[cfg(feature = "internal")]
     pub fn compiler_configuration(
         &mut self,
         _: i_slint_core::InternalToken,
@@ -669,6 +675,8 @@ impl ComponentDefinition {
     }
 
     /// Creates a new instance of the component and returns a shared handle to it.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
     pub fn create_embedded(&self, ctx: FactoryContext) -> Result<ComponentInstance, PlatformError> {
         generativity::make_guard!(guard);
         Ok(ComponentInstance {
@@ -697,6 +705,7 @@ impl ComponentDefinition {
 
     /// Instantiate the component using an existing window.
     #[doc(hidden)]
+    #[cfg(feature = "internal")]
     pub fn create_with_existing_window(
         &self,
         window: &Window,
@@ -713,6 +722,7 @@ impl ComponentDefinition {
     ///
     /// This is internal because it exposes the `Type` from compilerlib.
     #[doc(hidden)]
+    #[cfg(feature = "internal")]
     pub fn properties_and_callbacks(
         &self,
     ) -> impl Iterator<Item = (String, i_slint_compiler::langtype::Type)> + '_ {
@@ -766,6 +776,7 @@ impl ComponentDefinition {
     ///
     /// This is internal because it exposes the `Type` from compilerlib.
     #[doc(hidden)]
+    #[cfg(feature = "internal")]
     pub fn global_properties_and_callbacks(
         &self,
         global_name: &str,

@@ -78,7 +78,7 @@ rowan = "0.15.5"
 
 # for the preview
 i-slint-core = { workspace = true, features = ["default"], optional = true }
-slint-interpreter = { workspace = true, features = ["compat-1-2", "highlight"], optional = true  }
+slint-interpreter = { workspace = true, features = ["compat-1-2", "highlight", "internal"], optional = true  }
 i-slint-backend-selector = { workspace = true, features = ["default"], optional = true }
 # Enable image-rs' default features to make all image formats available for the preview
 image = { version = "0.24.0", optional = true }

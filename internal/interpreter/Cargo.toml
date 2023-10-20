@@ -98,6 +98,10 @@ renderer-winit-software = ["renderer-software"]
 ## APIs to support screen readers and other assistive technologies.
 accessibility = ["i-slint-backend-selector/accessibility"]
 
+## Features used internally by Slint tooling that are not stable and come without
+## any stability guarantees whatsoever.
+internal = []
+
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default"] }
