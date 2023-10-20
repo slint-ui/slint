@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
  - Changed default style to be `fluent` on Windows, and `cupertino` on macOS.
  - LinuxKMS backend: Add support for absolute motion pointer events, fixed support for touch input on
    scaled screens, and improved encoder/CRTC handling for EGL rendering.
+ - Skia renderer / winit backend: Fall back to Skia software rendering when GPU acceleration is not available.
 
 ### Slint Language
 
