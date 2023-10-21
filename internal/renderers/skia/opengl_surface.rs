@@ -267,7 +267,7 @@ impl OpenGLSurface {
 
                 let gles_context_attributes = ContextAttributesBuilder::new()
                     .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
-                        major: 2,
+                        major: 3,
                         minor: 0,
                     })))
                     .build(Some(_window_handle.raw_window_handle()));
