@@ -25,7 +25,7 @@ renderer-femtovg = ["dep:i-slint-renderer-femtovg", "dep:glutin", "dep:glutin-wi
 renderer-skia = ["i-slint-renderer-skia"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
-renderer-software = ["softbuffer", "imgref", "rgb", "i-slint-core/software-renderer-systemfonts", "bytemuck"]
+renderer-software = ["dep:softbuffer", "dep:imgref", "dep:rgb", "i-slint-core/software-renderer-systemfonts", "dep:bytemuck", "winit/rwh_05"]
 accessibility = ["dep:accesskit",
  #"dep:accesskit_winit"
 ]
