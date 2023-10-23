@@ -39,7 +39,7 @@ All notable changes to this project are documented in this file.
 
 ### LSP
 
- - Added "Wrap in element" and "Remove element" code actions
+ - Added "Wrap in element", "Remove element", "Repeat element", and "Make conditional" code actions
 
 ## [1.2.2] - 2023-10-02
 
