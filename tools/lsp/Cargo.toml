@@ -68,7 +68,7 @@ preview-lense = []
 ## to provide an implementation of the external preview API when building for WASM)
 preview-api = ["preview-external"]
 ## Build in the actual code to act as a preview for slint files.
-preview-engine = ["dep:slint", "dep:slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:image"]
+preview-engine = ["dep:slint", "dep:slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:image", "dep:slint-build"]
 ## Build in the actual code to act as a preview for slint files. Does nothing in WASM!
 preview-builtin = ["preview-engine"]
 ## Support the external preview optionally used by e.g. the VSCode plugin
@@ -110,6 +110,9 @@ wasm-bindgen-futures = "0.4.30"
 
 [dev-dependencies]
 spin_on = "0.1"
+
+[build-dependencies]
+slint-build = { workspace = true, features = ["default"], optional = true }
 
 # [package.metadata.wasm-pack.profile.release]
 # wasm-opt = false

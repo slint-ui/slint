@@ -8,6 +8,8 @@ import { Widget } from "@lumino/widgets";
 
 import { Previewer, Lsp, ResourceUrlMapperFunction } from "./lsp";
 
+const canvas_id = "canvas";
+
 export class PreviewWidget extends Widget {
     #previewer: Previewer | null = null;
 
@@ -15,13 +17,16 @@ export class PreviewWidget extends Widget {
         const node = document.createElement("div");
         node.className = "preview-container";
 
-        const canvas_id = "canvas";
         const canvas = document.createElement("canvas");
 
         canvas.id = canvas_id;
         canvas.className = canvas_id;
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
 
-        canvas.dataset.slintAutoResizeToPreferred = "true";
+        canvas.dataset.slintAutoResizeToPreferred = "false";
 
         node.appendChild(canvas);
 
@@ -47,6 +52,14 @@ export class PreviewWidget extends Widget {
                 console.info("UI should be up!");
             });
         });
+    }
+
+    protected onResize(msg: Widget.ResizeMessage): void {
+        super.onResize(msg);
+
+        const canvas = document.getElementById(canvas_id) as HTMLCanvasElement;
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
     }
 
     protected onCloseRequest(msg: Message): void {
