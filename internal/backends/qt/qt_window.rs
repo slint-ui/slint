@@ -1533,7 +1533,7 @@ impl WindowAdapter for QtWindow {
                 widget_ptr->hide();
                 // Since we don't call close(), this will force Qt to recompute wether there are any
                 // visible windows, and ends the application if needed
-                QEventLoopLocker();
+                auto _locker = QEventLoopLocker();
             }};
             Ok(())
         }
