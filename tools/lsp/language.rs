@@ -943,7 +943,47 @@ fn get_code_actions(
                 title: "Remove element".into(),
                 kind: Some(lsp_types::CodeActionKind::REFACTOR),
                 edit: Some(WorkspaceEdit {
-                    changes: Some(std::iter::once((uri, edits)).collect()),
+                    changes: Some(std::iter::once((uri.clone(), edits)).collect()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }));
+        }
+
+        // We have already checked that the node is a qualified name of an element.
+        // Check whether the element is a direct sub-element of another element
+        // meaning that it can be repeated or made conditional.
+        if node // QualifiedName
+            .parent() // Element
+            .unwrap()
+            .parent()
+            .filter(|n| n.kind() == SyntaxKind::SubElement)
+            .and_then(|p| p.parent())
+            .is_some_and(|n| n.kind() == SyntaxKind::Element)
+        {
+            let edits = vec![TextEdit::new(
+                lsp_types::Range::new(r.start, r.start),
+                "for ${1:name}[index] in ${0:model} : ".to_string(),
+            )];
+            result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Repeat element".into(),
+                kind: Some(lsp_types::CodeActionKind::REFACTOR),
+                edit: Some(WorkspaceEdit {
+                    changes: Some(std::iter::once((uri.clone(), edits)).collect()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }));
+
+            let edits = vec![TextEdit::new(
+                lsp_types::Range::new(r.start, r.start),
+                "if ${0:condition} : ".to_string(),
+            )];
+            result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Make conditional".into(),
+                kind: Some(lsp_types::CodeActionKind::REFACTOR),
+                edit: Some(WorkspaceEdit {
+                    changes: Some(std::iter::once((uri.clone(), edits)).collect()),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -1522,30 +1562,74 @@ export component TestWindow inherits Window {
                     token,
                     &capabilities
                 )),
-                Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: "Wrap in element".into(),
-                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: Some(WorkspaceEdit {
-                        changes: Some(
-                            std::iter::once((
-                                url.clone(),
-                                vec![TextEdit::new(
-                                    text_element,
-                                    r#"${0:element} {
+                Some(vec![
+                    CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                        title: "Wrap in element".into(),
+                        kind: Some(lsp_types::CodeActionKind::REFACTOR),
+                        edit: Some(WorkspaceEdit {
+                            changes: Some(
+                                std::iter::once((
+                                    url.clone(),
+                                    vec![TextEdit::new(
+                                        text_element,
+                                        r#"${0:element} {
             Text {
                 text: "Hello World!";
                 font-size: 20px;
             }
 }"#
-                                    .into()
-                                )]
-                            ))
-                            .collect()
-                        ),
+                                        .into()
+                                    )]
+                                ))
+                                .collect()
+                            ),
+                            ..Default::default()
+                        }),
                         ..Default::default()
                     }),
-                    ..Default::default()
-                }),])
+                    CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                        title: "Repeat element".into(),
+                        kind: Some(lsp_types::CodeActionKind::REFACTOR),
+                        edit: Some(WorkspaceEdit {
+                            changes: Some(
+                                std::iter::once((
+                                    url.clone(),
+                                    vec![TextEdit::new(
+                                        lsp_types::Range::new(
+                                            text_element.start,
+                                            text_element.start
+                                        ),
+                                        r#"for ${1:name}[index] in ${0:model} : "#.into()
+                                    )]
+                                ))
+                                .collect()
+                            ),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }),
+                    CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                        title: "Make conditional".into(),
+                        kind: Some(lsp_types::CodeActionKind::REFACTOR),
+                        edit: Some(WorkspaceEdit {
+                            changes: Some(
+                                std::iter::once((
+                                    url.clone(),
+                                    vec![TextEdit::new(
+                                        lsp_types::Range::new(
+                                            text_element.start,
+                                            text_element.start
+                                        ),
+                                        r#"if ${0:condition} : "#.into()
+                                    )]
+                                ))
+                                .collect()
+                            ),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }),
+                ])
             );
         }
 
