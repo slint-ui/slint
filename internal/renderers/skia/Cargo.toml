@@ -19,8 +19,8 @@ path = "lib.rs"
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-wayland = ["glutin/wayland"]
-x11 = ["glutin/x11", "glutin/glx", "winit/x11"]
+wayland = ["glutin/wayland", "softbuffer/wayland", "softbuffer/wayland-dlopen"]
+x11 = ["glutin/x11", "glutin/glx", "winit/x11", "softbuffer/x11", "softbuffer/x11-dlopen"]
 opengl = ["skia-safe/gl"]
 vulkan = ["skia-safe/vulkan", "ash", "vulkano"]
 default = []
@@ -50,7 +50,7 @@ glutin = { version = "0.30", default-features = false, features = ["egl", "wgl"]
 ash = { version = "^0.37.2", optional = true }
 vulkano = { version = "0.33.0", optional = true, default-features = false }
 
-softbuffer = { workspace = true }
+softbuffer = { workspace = true, default-features = false }
 bytemuck = { workspace = true }
 
 [target.'cfg(target_family = "windows")'.dependencies]

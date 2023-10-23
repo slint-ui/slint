@@ -19,8 +19,8 @@ path = "lib.rs"
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-wayland = ["winit/wayland", "winit/wayland-csd-adwaita", "glutin?/wayland", "glutin-winit?/wayland", "copypasta/wayland", "i-slint-renderer-skia?/wayland"]
-x11 = ["winit/x11", "glutin?/x11", "glutin?/glx", "glutin-winit?/x11", "glutin-winit?/glx", "copypasta/x11", "i-slint-renderer-skia?/x11"]
+wayland = ["winit/wayland", "winit/wayland-csd-adwaita", "glutin?/wayland", "glutin-winit?/wayland", "copypasta/wayland", "i-slint-renderer-skia?/wayland", "softbuffer?/wayland", "softbuffer?/wayland-dlopen"]
+x11 = ["winit/x11", "glutin?/x11", "glutin?/glx", "glutin-winit?/x11", "glutin-winit?/glx", "copypasta/x11", "i-slint-renderer-skia?/x11", "softbuffer?/x11", "softbuffer?/x11-dlopen"]
 renderer-femtovg = ["dep:i-slint-renderer-femtovg", "dep:glutin", "dep:glutin-winit"]
 renderer-skia = ["i-slint-renderer-skia", "winit/rwh_05"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
@@ -58,7 +58,7 @@ i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional 
 i-slint-renderer-skia = {  workspace = true, features = ["default"], optional = true }
 
 # For the software renderer
-softbuffer = { workspace = true, optional = true }
+softbuffer = { workspace = true, optional = true, default-features = false }
 imgref = { version = "1.6.1", optional = true }
 rgb = { version = "0.8.27", optional = true }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
