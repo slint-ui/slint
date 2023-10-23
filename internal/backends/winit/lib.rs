@@ -132,7 +132,7 @@ pub mod native_widgets {}
 ///
 /// ```rust,no_run
 /// # use i_slint_backend_winit::Backend;
-/// slint::platform::set_platform(Box::new(Backend::new()));
+/// slint::platform::set_platform(Box::new(Backend::new().unwrap()));
 /// ```
 pub struct Backend {
     renderer_factory_fn:
@@ -142,23 +142,20 @@ pub struct Backend {
             -> Result<(Box<dyn WinitCompatibleRenderer>, winit::window::Window), PlatformError>,
 }
 
-impl Default for Backend {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Backend {
     #[doc = concat!("Creates a new winit backend with the default renderer that's compiled in. See the [backend documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
     /// details on how to select the default renderer.
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, PlatformError> {
         Self::new_with_renderer_by_name(None)
     }
 
     #[doc = concat!("Creates a new winit backend with the renderer specified by name. See the [backend documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
     /// details on how to select the default renderer.
     /// If the renderer name is `None` or the name is not recognized, the default renderer is selected.
-    pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Self {
+    pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Result<Self, PlatformError> {
+        // Initialize the winit event loop and propagate errors if for example `DISPLAY` or `WAYLAND_DISPLAY` isn't set.
+        crate::event_loop::with_window_target(|_| Ok(()))?;
+
         let renderer_factory_fn = match renderer_name {
             #[cfg(feature = "renderer-femtovg")]
             Some("gl") | Some("femtovg") => renderer::femtovg::GlutinFemtoVGRenderer::new,
@@ -177,7 +174,7 @@ impl Backend {
                 default_renderer_factory
             }
         };
-        Self { renderer_factory_fn }
+        Ok(Self { renderer_factory_fn })
     }
 }
 
@@ -261,14 +258,22 @@ impl i_slint_core::platform::Platform for Backend {
 
     fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
         crate::event_loop::with_window_target(|event_loop_target| {
-            event_loop_target.clipboard(clipboard)?.set_contents(text.into()).ok()
-        });
+            if let Some(mut clipboard) = event_loop_target.clipboard(clipboard) {
+                clipboard.set_contents(text.into()).ok();
+            }
+            Ok(())
+        })
+        .ok();
     }
 
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
         crate::event_loop::with_window_target(|event_loop_target| {
-            event_loop_target.clipboard(clipboard)?.get_contents().ok()
+            Ok(event_loop_target
+                .clipboard(clipboard)
+                .and_then(|mut clipboard| clipboard.get_contents().ok()))
         })
+        .ok()
+        .flatten()
     }
 }
 
@@ -277,8 +282,10 @@ impl i_slint_core::platform::Platform for Backend {
 ///
 /// *Note*: This function can only be called from within the Slint main thread.
 pub fn with_event_loop_window_target<R>(
-    callback: impl FnOnce(&winit::event_loop::EventLoopWindowTarget<SlintUserEvent>) -> R,
-) -> R {
+    callback: impl FnOnce(
+        &winit::event_loop::EventLoopWindowTarget<SlintUserEvent>,
+    ) -> Result<R, Box<dyn std::error::Error + Send + Sync>>,
+) -> Result<R, Box<dyn std::error::Error + Send + Sync>> {
     crate::event_loop::with_window_target(|event_loop_interface| {
         callback(event_loop_interface.event_loop_target())
     })
@@ -337,7 +344,7 @@ mod testui {
 #[cfg(not(any(target_arch = "wasm32", target_os = "macos", target_os = "ios")))]
 #[test]
 fn test_window_accessor() {
-    slint::platform::set_platform(Box::new(crate::Backend::new())).unwrap();
+    slint::platform::set_platform(Box::new(crate::Backend::new().unwrap())).unwrap();
 
     use testui::*;
     let app = App::new().unwrap();

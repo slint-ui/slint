@@ -15,6 +15,7 @@ use corelib::graphics::euclid;
 use corelib::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use corelib::items::PointerEventButton;
 use corelib::lengths::LogicalPoint;
+use corelib::platform::PlatformError;
 use corelib::window::*;
 use i_slint_core as corelib;
 use std::cell::{RefCell, RefMut};
@@ -34,7 +35,7 @@ struct NotRunningEventLoop {
 }
 
 impl NotRunningEventLoop {
-    fn new() -> Self {
+    fn new() -> Result<Self, PlatformError> {
         let mut builder = winit::event_loop::EventLoopBuilder::with_user_event();
 
         #[cfg(all(unix, not(target_os = "macos")))]
@@ -56,10 +57,11 @@ impl NotRunningEventLoop {
             builder.with_any_thread(true);
         }
 
-        let instance = builder.build().expect("FIXME: handle error");
+        let instance =
+            builder.build().map_err(|e| format!("Error initializing winit event loop: {e}"))?;
         let event_loop_proxy = instance.create_proxy();
         let clipboard = RefCell::new(create_clipboard(&instance));
-        Self { clipboard, instance, event_loop_proxy }
+        Ok(Self { clipboard, instance, event_loop_proxy })
     }
 }
 
@@ -130,7 +132,7 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
 
 thread_local! {
     static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>> = RefCell::new(std::collections::HashMap::new());
-    static MAYBE_LOOP_INSTANCE: RefCell<Option<NotRunningEventLoop>> = RefCell::new(Some(NotRunningEventLoop::new()));
+    static MAYBE_LOOP_INSTANCE: RefCell<Option<NotRunningEventLoop>> = RefCell::default();
 }
 
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_WINDOW_TARGET : for<'a> &'a RunningEventLoop<'a>);
@@ -182,13 +184,17 @@ thread_local! {
     pub(crate) static GLOBAL_PROXY: RefCell<Option<GlobalEventLoopProxyOrEventQueue>> = RefCell::new(None)
 }
 
-pub(crate) fn with_window_target<T>(callback: impl FnOnce(&dyn EventLoopInterface) -> T) -> T {
+pub(crate) fn with_window_target<T>(
+    callback: impl FnOnce(
+        &dyn EventLoopInterface,
+    ) -> Result<T, Box<dyn std::error::Error + Send + Sync>>,
+) -> Result<T, Box<dyn std::error::Error + Send + Sync>> {
     if CURRENT_WINDOW_TARGET.is_set() {
         CURRENT_WINDOW_TARGET.with(|current_target| callback(current_target))
     } else {
         MAYBE_LOOP_INSTANCE.with(|loop_instance| {
             if loop_instance.borrow().is_none() {
-                *loop_instance.borrow_mut() = Some(NotRunningEventLoop::new());
+                *loop_instance.borrow_mut() = Some(NotRunningEventLoop::new()?);
             }
             callback(loop_instance.borrow().as_ref().unwrap())
         })
@@ -420,9 +426,12 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
     use winit::event::Event;
     use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 
-    let not_running_loop_instance = MAYBE_LOOP_INSTANCE.with(|loop_instance| {
-        loop_instance.borrow_mut().take().unwrap_or_else(NotRunningEventLoop::new)
-    });
+    let not_running_loop_instance = MAYBE_LOOP_INSTANCE
+        .with(|loop_instance| match loop_instance.borrow_mut().take() {
+            Some(instance) => Ok(instance),
+            None => NotRunningEventLoop::new(),
+        })
+        .map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 
     let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
     #[cfg(not(target_arch = "wasm32"))]

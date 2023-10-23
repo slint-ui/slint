@@ -17,6 +17,7 @@ impl WinitSkiaRenderer {
         let winit_window = crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
                 format!("Error creating native window for Skia rendering: {}", winit_os_error)
+                    .into()
             })
         })?;
 
@@ -32,6 +33,7 @@ impl WinitSkiaRenderer {
         let winit_window = crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
                 format!("Error creating native window for Skia rendering: {}", winit_os_error)
+                    .into()
             })
         })?;
 

@@ -23,7 +23,10 @@ impl GlutinFemtoVGRenderer {
     ) -> Result<(Box<dyn WinitCompatibleRenderer>, winit::window::Window), PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         let (winit_window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
-            glcontext::OpenGLContext::new_context(window_builder, event_loop.event_loop_target())
+            Ok(glcontext::OpenGLContext::new_context(
+                window_builder,
+                event_loop.event_loop_target(),
+            )?)
         })?;
 
         #[cfg(target_arch = "wasm32")]
@@ -33,6 +36,7 @@ impl GlutinFemtoVGRenderer {
                     "FemtoVG Renderer: Could not create winit window wrapper for DOM canvas: {}",
                     winit_os_err
                 )
+                .into()
             })
         })?;
 

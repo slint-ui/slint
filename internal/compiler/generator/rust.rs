@@ -704,14 +704,14 @@ fn generate_sub_component(
 
             quote! {
                 #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated_listview(
-                    || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).into() },
+                    || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
                     #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                 );
             }
         } else {
             quote! {
                 #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
-                    || #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).into()
+                    || #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
                 );
             }
         };
@@ -1265,7 +1265,7 @@ fn generate_item_tree(
         quote!(&self_rc)
     };
 
-    let (window_adapter_functions, new_result, new_end) = if let Some(parent_ctx) = parent_ctx {
+    let (window_adapter_functions, new_end) = if let Some(parent_ctx) = parent_ctx {
         (
             quote!(
                 #[allow(unused)]
@@ -1281,14 +1281,13 @@ fn generate_item_tree(
                         .and_then(|root| root.maybe_window_adapter_impl())
                 }
             ),
-            quote!(vtable::VRc<sp::ItemTreeVTable, Self>),
             if parent_ctx.repeater_index.is_some() {
                 // Repeaters run their user_init() code from RepeatedItemTree::init() after update() initialized model_data/index.
-                quote!(self_rc)
+                quote!(core::result::Result::Ok(self_rc))
             } else {
                 quote! {
                     Self::user_init(sp::VRc::map(self_rc.clone(), |x| x));
-                    self_rc
+                    core::result::Result::Ok(self_rc)
                 }
             },
         )
@@ -1316,9 +1315,6 @@ fn generate_item_tree(
                 fn maybe_window_adapter_impl(&self) -> Option<Rc<dyn sp::WindowAdapter>> {
                     self.window_adapter_.get().cloned()
                 }
-            ),
-            quote!(
-                core::result::Result<vtable::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError>
             ),
             quote!(core::result::Result::Ok(self_rc)),
         )
@@ -1395,9 +1391,9 @@ fn generate_item_tree(
         #sub_comp
 
         impl #inner_component_id {
-            pub fn new(#(parent: #parent_component_type)*) -> #new_result {
+            pub fn new(#(parent: #parent_component_type)*) -> core::result::Result<vtable::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 #![allow(unused)]
-                slint::private_unstable_api::ensure_backend();
+                slint::private_unstable_api::ensure_backend()?;
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = VRc::new(_self);
@@ -2328,7 +2324,7 @@ fn compile_builtin_function_call(
                 quote!(
                     sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                         &VRc::into_dyn({
-                            let instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone());
+                            let instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
                             #popup_window_id::user_init(sp::VRc::map(instance.clone(), |x| x));
                             instance.into()
                         }),
@@ -2557,7 +2553,7 @@ fn box_layout_function(
                 repeater_idx += 1;
                 push_code.push(quote!(
                         #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
-                            || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).into() }
+                            || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() }
                         );
                         let internal_vec = _self.#repeater_id.instances_vec();
                         #ri

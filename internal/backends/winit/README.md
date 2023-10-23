@@ -33,7 +33,7 @@ To ensure that the runtime backend is selected, initialize the backend as the fi
 
 ```rust
 fn main() {
-    slint::platform::set_platform(Box::new(i_slint_backend_winit::Backend::new()));
+    slint::platform::set_platform(Box::new(i_slint_backend_winit::Backend::new().unwrap()));
     // ...
 }
 ```
