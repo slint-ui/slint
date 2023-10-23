@@ -28,7 +28,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "i-slint-backend-winit")] {
         use i_slint_backend_winit as default_backend;
         fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
-            Ok(Box::new(i_slint_backend_winit::Backend::new()))
+            Ok(Box::new(i_slint_backend_winit::Backend::new()?))
         }
     } else if #[cfg(feature = "i-slint-backend-linuxkms")] {
         use i_slint_backend_linuxkms as default_backend;
@@ -65,9 +65,9 @@ cfg_if::cfg_if! {
                 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
                 "qt" => return Ok(Box::new(i_slint_backend_qt::Backend::new())),
                 #[cfg(feature = "i-slint-backend-winit")]
-                "winit" => return Ok(Box::new(i_slint_backend_winit::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then_some(_renderer)))),
+                "winit" => return i_slint_backend_winit::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then_some(_renderer)).map(|b| Box::new(b) as Box<dyn Platform + 'static>),
                 #[cfg(feature = "i-slint-backend-linuxkms")]
-                "linuxkms" => return Ok(Box::new(i_slint_backend_linuxkms::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then(|| _renderer))?)),
+                "linuxkms" => return i_slint_backend_linuxkms::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then(|| _renderer)).map(|b| Box::new(b) as Box<dyn Platform + 'static>),
                 _ => {},
             }
 
