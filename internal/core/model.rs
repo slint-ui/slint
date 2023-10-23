@@ -862,13 +862,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let model = self.data().project_ref().model;
 
         if model.is_dirty() {
-            self.data()
-                .inner
-                .borrow_mut()
-                .instances
-                .iter_mut()
-                .for_each(|c| c.0 = RepeatedInstanceState::Dirty);
-
+            *self.data().inner.borrow_mut() = RepeaterInner::default();
             self.data().is_dirty.set(true);
             let m = model.get();
             let peer = self.project_ref().0.model_peer();
