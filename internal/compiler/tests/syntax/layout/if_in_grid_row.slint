@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export component Test  {
+    property <bool> condition;
+
+    GridLayout {
+        // Issue #3729
+        if (condition) : r := Row {
+//                            ^error{'if' or 'for' expressions are not currently supported in grid layouts}
+            Rectangle {}
+        }
+    }
+}
