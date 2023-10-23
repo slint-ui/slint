@@ -18,23 +18,28 @@ use alloc::boxed::Box;
 use i_slint_core::platform::Platform;
 use i_slint_core::platform::PlatformError;
 
+#[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
+fn create_qt_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
+    Ok(Box::new(default_backend::Backend::new()))
+}
+
+#[cfg(feature = "i-slint-backend-winit")]
+fn create_winit_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
+    Ok(Box::new(i_slint_backend_winit::Backend::new()?))
+}
+
+#[cfg(feature = "i-slint-backend-linuxkms")]
+fn create_linuxkms_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
+    Ok(Box::new(i_slint_backend_linuxkms::Backend::new()?))
+}
+
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))] {
         use i_slint_backend_qt as default_backend;
-
-        fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
-            Ok(Box::new(default_backend::Backend::new()))
-        }
     } else if #[cfg(feature = "i-slint-backend-winit")] {
         use i_slint_backend_winit as default_backend;
-        fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
-            Ok(Box::new(i_slint_backend_winit::Backend::new()?))
-        }
     } else if #[cfg(feature = "i-slint-backend-linuxkms")] {
         use i_slint_backend_linuxkms as default_backend;
-        fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
-            Ok(Box::new(i_slint_backend_linuxkms::Backend::new()?))
-        }
     } else {
 
     }
@@ -46,6 +51,29 @@ cfg_if::cfg_if! {
             feature = "i-slint-backend-winit",
             feature = "i-slint-backend-linuxkms"
         ))] {
+        fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
+            let backends = [
+                #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
+                create_qt_backend,
+                #[cfg(feature = "i-slint-backend-winit")]
+                create_winit_backend,
+                #[cfg(feature = "i-slint-backend-linuxkms")]
+                create_linuxkms_backend,
+                || Err(PlatformError::NoPlatform),
+            ];
+
+            let mut last_err = PlatformError::NoPlatform;
+
+            for backend_factory in backends {
+                match backend_factory() {
+                    Ok(platform) => return Ok(platform),
+                    Err(err) => last_err = err,
+                }
+            }
+
+            Err(last_err)
+        }
+
         pub fn create_backend() -> Result<Box<dyn Platform + 'static>, PlatformError>  {
 
             let backend_config = std::env::var("SLINT_BACKEND").unwrap_or_default();
