@@ -27,17 +27,16 @@ import { initialize as initializeVscodeExtensions } from "vscode/extensions";
 import getConfigurationServiceOverride, {
     updateUserConfiguration,
     onUserConfigurationChange,
-} from "vscode/service-override/configuration";
+} from "@codingame/monaco-vscode-configuration-service-override";
 import getEditorServiceOverride, {
     IReference,
     IEditorOptions,
     IResolvedTextEditorModel,
-} from "vscode/service-override/editor";
-import getLanguagesServiceOverride from "vscode/service-override/languages";
-import getModelServiceOverride from "vscode/service-override/model";
-import getSnippetServiceOverride from "vscode/service-override/snippets";
-import getStorageServiceOverride from "vscode/service-override/storage";
-import { IStandaloneCodeEditor } from "vscode/dist/vscode/vs/editor/standalone/browser/standaloneCodeEditor";
+} from "@codingame/monaco-vscode-editor-service-override";
+import getLanguagesServiceOverride from "@codingame/monaco-vscode-languages-service-override";
+import getModelServiceOverride from "@codingame/monaco-vscode-model-service-override";
+import getSnippetServiceOverride from "@codingame/monaco-vscode-snippets-service-override";
+import getStorageServiceOverride from "@codingame/monaco-vscode-storage-service-override";
 import { DidChangeConfigurationNotification } from "vscode-languageserver-protocol";
 
 function openEditor(
@@ -291,7 +290,7 @@ class EditorPaneWidget extends Widget {
         return mapped_string;
     }
 
-    get editor(): IStandaloneCodeEditor | undefined {
+    get editor(): monaco.editor.IStandaloneCodeEditor | undefined {
         if (this.#editor === null) {
             return undefined;
         }
