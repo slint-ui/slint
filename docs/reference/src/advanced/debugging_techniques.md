@@ -3,9 +3,9 @@
 
 On this page we share different techniques and tools we've built into Slint that help you track down different issues you may be running into, during the design and development.
 
-## Print Debugging Properties
+## Debugging Property Values
 
-The `debug(...)` function accepts one or more properties and prints them to stdout, returning nothing. This function can be used in bindings.
+Use the [`debug()`](../language/builtins/functions.md#debug) function to print the value of properties to stderr.
 
 ## Slow Motion Animations
 
