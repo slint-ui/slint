@@ -98,7 +98,20 @@ fn lower_element_layout(
         return;
     };
     match base_type.name.as_str() {
-        "Row" => panic!("Error caught at element lookup time"),
+        "Row" => {
+            // We shouldn't lower layout if we have a Row in there. Unless the Row is the root of a repeated item,
+            // in which case another error has been reported
+            assert!(
+                diag.has_error()
+                    && Rc::ptr_eq(&component.root_element, elem)
+                    && component
+                        .parent_element
+                        .upgrade()
+                        .map_or(false, |e| e.borrow().repeated.is_some()),
+                "Error should have been caught at element lookup time"
+            );
+            return;
+        }
         "GridLayout" => lower_grid_layout(component, elem, diag),
         "HorizontalLayout" => lower_box_layout(elem, diag, Orientation::Horizontal),
         "VerticalLayout" => lower_box_layout(elem, diag, Orientation::Vertical),
