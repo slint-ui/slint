@@ -2,10 +2,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// import "slint";
-let slint = require("slint-ui");
-// import * as demo from "../ui/todo.slint";
-let demo = require("../ui/todo.slint");
+import * as slint from "slint-ui";
+
+let demo = slint.loadFile("../ui/todo.slint");
 let app = new demo.MainWindow();
 
 let model = new slint.ArrayModel([

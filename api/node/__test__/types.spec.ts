@@ -3,7 +3,7 @@
 
 import test from 'ava';
 
-import { Brush, Color, ArrayModel } from '../index'
+import { Brush, Color, ArrayModel, Timer } from '../index'
 
 test('Color from fromRgb', (t) => {
     let color = Color.fromRgb(100, 110, 120);
@@ -87,3 +87,15 @@ test('ArrayModel remove', (t) => {
     t.is(arrayModel.rowCount(), 1);
     t.is(arrayModel.rowData(0), 1);
 })
+
+test('Timer negative duration', (t) => {
+    t.throws(() => {
+        Timer.singleShot(-1, function () {})
+      },
+        {
+          code: "GenericFailure",
+          message: "Duration cannot be negative"
+        }
+      );
+})
+

@@ -4,8 +4,7 @@
 [workspace]
 members = [
     'api/cpp',
-    'api/node/native',
-    'api/napi',
+    'api/node',
     'api/rs/build',
     'api/rs/macros',
     'api/rs/slint',
@@ -50,7 +49,6 @@ members = [
     'tests/driver/driverlib',
     'tests/driver/interpreter',
     'tests/driver/nodejs',
-    'tests/driver/napi',
     'tests/driver/rust',
     'tests/screenshots',
     'tools/compiler',
@@ -65,7 +63,6 @@ members = [
 default-members = [
     'api/rs/build',
     'api/rs/slint',
-    'api/napi',
     'examples/gallery',
     'examples/memory',
     'examples/printerdemo_old/rust',

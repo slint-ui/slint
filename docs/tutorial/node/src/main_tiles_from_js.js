@@ -3,8 +3,8 @@
 
 // ANCHOR: main
 // main.js
-let slint = require("slint-ui");
-let ui = require("./memory.slint");
+import * as slint from "slint-ui";
+let ui = slint.loadFile("./memory.slint");
 let mainWindow = new ui.MainWindow();
 
 let initial_tiles = mainWindow.memory_tiles;

@@ -1,3 +1,4 @@
-docs
-package-lock.json
-dist
+rust-module.js
+rust-module.d.ts
+index.js
+docs/

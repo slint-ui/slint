@@ -2,8 +2,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-let slint = require("slint-ui");
-let ui = require("./memory.slint");
+import * as slint from "slint-ui";
+
+let ui = slint.loadFile("memory.slint");
 let window = new ui.MainWindow();
 
 let initial_tiles = window.memory_tiles;

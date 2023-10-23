@@ -356,6 +356,12 @@ export function loadFile(path: string) : Object {
     return slint_module;
 }
 
+export namespace Timer {
+    export function singleShot(duration: number, handler: () => void) {
+        napi.singleshotTimer(duration, handler)
+    }
+}
+
 /**
  * @hidden
  */
