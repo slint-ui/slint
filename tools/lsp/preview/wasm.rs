@@ -274,6 +274,18 @@ pub fn send_message_to_lsp(message: crate::common::PreviewToLspMessage) {
     })
 }
 
+pub fn set_busy(busy: bool) {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow_mut();
+            if let Some(ui) = &preview_state.ui {
+                ui.set_is_busy(busy);
+            }
+        });
+    })
+    .unwrap();
+}
+
 pub fn send_status(message: &str, health: Health) {
     send_message_to_lsp(crate::common::PreviewToLspMessage::Status {
         message: message.to_string(),

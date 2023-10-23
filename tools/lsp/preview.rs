@@ -61,7 +61,20 @@ fn set_design_mode(enable: bool) {
     cache.design_mode = enable;
 
     configure_design_mode(enable);
-    send_status(if enable { "Design mode enabled." } else { "Design mode disabled." }, Health::Ok);
+}
+
+pub fn start_parsing() {
+    set_busy(true);
+    send_status("Loading Preview…", Health::Ok);
+}
+
+pub fn finish_parsing(ok: bool) {
+    set_busy(false);
+    if ok {
+        send_status("Preview Loaded", Health::Ok);
+    } else {
+        send_status("Preview not updated", Health::Error);
+    }
 }
 
 pub fn config_changed(
@@ -114,7 +127,7 @@ async fn reload_preview(preview_component: PreviewComponent) {
         return;
     };
 
-    send_status("Loading Preview…", Health::Ok);
+    start_parsing();
 
     let mut builder = slint_interpreter::ComponentCompiler::default();
 
@@ -150,9 +163,9 @@ async fn reload_preview(preview_component: PreviewComponent) {
 
     if let Some(compiled) = compiled {
         update_preview_area(compiled);
-        send_status("Preview Loaded", Health::Ok);
+        finish_parsing(true);
     } else {
-        send_status("Preview not updated", Health::Error);
+        finish_parsing(false);
     }
 
     configure_design_mode(design_mode);

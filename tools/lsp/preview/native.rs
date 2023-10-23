@@ -217,6 +217,18 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
     Some(())
 }
 
+pub fn set_busy(busy: bool) {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow_mut();
+            if let Some(ui) = &preview_state.ui {
+                ui.set_is_busy(busy);
+            }
+        });
+    })
+    .unwrap();
+}
+
 pub fn send_status(message: &str, health: Health) {
     let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
         return;
