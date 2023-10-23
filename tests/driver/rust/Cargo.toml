@@ -23,7 +23,7 @@ build-time = ["i-slint-compiler", "spin_on"]
 [dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"] }
 i-slint-backend-testing = { workspace = true, features = ["default"] }
-slint-interpreter = { workspace = true, features = ["std", "compat-1-2"] }
+slint-interpreter = { workspace = true, features = ["std", "compat-1-2", "internal"] }
 spin_on = "0.1"
 
 [build-dependencies]
