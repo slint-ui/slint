@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+// cSpell: ignore Heade
+
+import { ScrollView, Button, HorizontalBox } from "std-widgets.slint";
+import { HeaderBar } from "header-bar.slint";
+import { Spinner } from "spinner.slint";
+
+export component PreviewUi inherits Window {
+    in property<component-factory> preview-area <=> i-preview-area-container.component-factory;
+    callback design-mode-changed(/* enabled */ bool);
+
+    in property <bool> is-busy;
+
+    min-width: min(i-scroll-view.viewport-width, 100px);
+    min-height: min(i-scroll-view.viewport-height, 100px);
+
+    VerticalLayout {
+        HeaderBar {
+            i-pick-button := Button {
+                icon: self.checked ? @image-url("assets/colorize-light.svg") :
+                    @image-url("assets/colorize.svg");
+                checkable: true;
+
+                clicked => {
+                    root.design-mode-changed(self.checked);
+                }
+            }
+
+            if (root.is-busy) : Spinner {}
+        }
+
+        HorizontalLayout {
+            padding: 1px;
+
+            i-scroll-view := ScrollView {
+                // viewport-width: i-preview-area-container.width;
+                // viewport-height: i-preview-area-container.height;
+
+                HorizontalBox {
+                    Rectangle {
+                        i-preview-area-container := ComponentContainer { }
+                    }
+                }
+            }
+        }
+    }
+}
