@@ -3,40 +3,30 @@
 
 [package]
 name = "slint-node"
+description = "Internal Slint Runtime Library for NodeJS API."
 authors.workspace = true
+documentation.workspace = true
 edition.workspace = true
 homepage.workspace = true
+keywords.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-build = "build.rs"
-# This is not meant to be used as a library from crate.io
-publish = false
+categories = ["gui", "development-tools"]
 
 [lib]
-path = "lib.rs"
 crate-type = ["cdylib"]
-name = "slint_node_native"
 
 [dependencies]
+napi = { version = "2.12.0", default-features = false, features = ["napi8"] }
+napi-derive = "2.12.2"
 i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default"] }
 slint-interpreter = { workspace = true, features = ["default", "display-diagnostics", "internal"] }
-
-vtable = { version = "0.1.6", path="../../../helper_crates/vtable" }
-
+spin_on = "0.1"
 css-color-parser2 = { workspace = true }
-generativity = "1"
 itertools = { workspace = true }
-neon = "0.8.0"
-once_cell = "1.5"
-rand = "0.8"
-scoped-tls-hkt = "0.1"
-spin_on = "0.1" #FIXME: remove and delegate to async JS instead
-
-# Enable image-rs' default features to make all image formats available for nodejs builds
-image = { version = "0.24.0" }
 
 [build-dependencies]
-neon-build = "0.8.0"
+napi-build = "2.0.1"

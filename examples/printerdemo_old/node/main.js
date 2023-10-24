@@ -2,10 +2,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// import "slint";
-require("slint-ui");
-// import * as demo from "../ui/printerdemo.slint";
-let demo = require("../ui/printerdemo.slint");
+import * as slint from "slint-ui";
+let demo = slint.loadFile("../ui/printerdemo.slint");
 let window = new demo.MainWindow();
 
 window.ink_levels = [

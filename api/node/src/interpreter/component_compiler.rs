@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use super::JsComponentDefinition;
@@ -58,6 +59,16 @@ impl JsComponentCompiler {
             .iter()
             .map(|p| p.to_str().unwrap_or_default().to_string())
             .collect()
+    }
+
+    #[napi(setter)]
+    pub fn set_library_paths(&mut self, paths: HashMap<String, String>) {
+        let mut library_paths = HashMap::new();
+        for (key, path) in paths {
+            library_paths.insert(key, PathBuf::from(path));
+        }
+
+        self.internal.set_library_paths(library_paths);
     }
 
     #[napi(setter)]

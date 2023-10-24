@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+import * as path from "path";
+
 import * as napi from "./rust-module";
 export { Diagnostic, DiagnosticLevel, Window, Brush, Color, ImageData, Point, Size, SlintModelNotify } from "./rust-module";
 
@@ -292,9 +294,12 @@ export class CompileError extends Error {
 /**
  * Loads the given slint file and returns a constructor to create an instance of the exported component.
  */
-export function loadFile(path: string) : Object {
+export function loadFile(filePath: string) : Object {
+    // this is a workaround that fixes an issue there resources in slint files cannot be loaded if the
+    // file path is given as relative path
+    let absoluteFilePath = path.resolve(filePath);
     let compiler = new napi.ComponentCompiler;
-    let definition = compiler.buildFromPath(path);
+    let definition = compiler.buildFromPath(absoluteFilePath);
 
     let diagnostics = compiler.diagnostics;
 
@@ -305,7 +310,7 @@ export function loadFile(path: string) : Object {
         let errors = diagnostics.filter((d) => d.level == napi.DiagnosticLevel.Error);
 
         if (errors.length > 0) {
-            throw new CompileError("Could not compile " + path, errors);
+            throw new CompileError("Could not compile " + filePath, errors);
         }
     }
 
@@ -316,7 +321,7 @@ export function loadFile(path: string) : Object {
             let instance = definition!.create();
 
             if (instance == null) {
-                throw Error("Could not create a component handle for" + path);
+                throw Error("Could not create a component handle for" + filePath);
             }
 
             for(var key in properties) {
@@ -354,6 +359,14 @@ export function loadFile(path: string) : Object {
     });
 
     return slint_module;
+}
+
+// This api will be removed after teh event loop handling is merged check PR #3718.
+// After that this in no longer necessary.
+export namespace Timer {
+    export function singleShot(duration: number, handler: () => void) {
+        napi.singleshotTimer(duration, handler)
+    }
 }
 
 /**

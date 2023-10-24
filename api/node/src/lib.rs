@@ -7,6 +7,9 @@ pub use interpreter::*;
 mod types;
 pub use types::*;
 
+mod timer;
+pub use timer::*;
+
 #[macro_use]
 extern crate napi_derive;
 
