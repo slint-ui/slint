@@ -82,14 +82,19 @@ pub fn min_max_size_for_layout_constraints(
     let max_width = constraints_horizontal.max.max(constraints_horizontal.min) as f32;
     let max_height = constraints_vertical.max.max(constraints_vertical.min) as f32;
 
-    let min_size = if min_width > 0. || min_height > 0. {
+    //cfg!(target_arch = "wasm32") is there because wasm32 winit don't like when max size is None:
+    // panicked at 'Property is read only: JsValue(NoModificationAllowedError: CSSStyleDeclaration.removeProperty: Can't remove property 'max-width' from computed style
+
+    let min_size = if min_width > 0. || min_height > 0. || cfg!(target_arch = "wasm32") {
         Some(crate::api::LogicalSize::new(min_width, min_height))
     } else {
         None
     };
-    let max_size = if max_width > 0.
+
+    let max_size = if (max_width > 0.
         && max_height > 0.
-        && (max_width < i32::MAX as f32 || max_height < i32::MAX as f32)
+        && (max_width < i32::MAX as f32 || max_height < i32::MAX as f32))
+        || cfg!(target_arch = "wasm32")
     {
         // maximum widget size for Qt and a workaround for the winit api not allowing partial constraints
         let window_size_max = 16_777_215.;

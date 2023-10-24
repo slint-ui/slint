@@ -37,7 +37,7 @@
       <option value="cupertino">Cupertino</option>
     </select>
   </p>
-  <div id="canvas-parent" width="640" height="480"></div>
+  <div id="canvas-parent"></div>
   <p class="links">
     <a href="https://github.com/slint-ui/slint/blob/master/examples/gallery/gallery.slint">
       View Source Code on GitHub</a> -
@@ -59,6 +59,7 @@
       import(gallery).then(module => {
         let canvas = document.createElement("canvas");
         canvas.id = "canvas";
+        canvas.dataset.slintAutoResizeToPreferred = "true";
 
         document.getElementById("canvas-parent").appendChild(canvas);
         module.default().finally(() => {

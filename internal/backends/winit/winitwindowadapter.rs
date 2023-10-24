@@ -122,9 +122,12 @@ pub struct WinitWindowAdapter {
     window_level: Cell<winit::window::WindowLevel>,
 
     pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
-    // We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
-    // And we wan see the newer value before the Resized event was received, leading to inconsistencies
+    /// We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
+    /// And we wan see the newer value before the Resized event was received, leading to inconsistencies
     size: Cell<PhysicalSize>,
+
+    /// Whether the size has been set explicitly via `set_size`
+    has_explicit_size: Cell<bool>,
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
@@ -166,6 +169,7 @@ impl WinitWindowAdapter {
             window_level: Default::default(),
             winit_window: winit_window.clone(),
             size: Default::default(),
+            has_explicit_size: Default::default(),
             renderer,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
@@ -292,6 +296,15 @@ impl WinitWindowAdapter {
             self.window().dispatch_event(WindowEvent::Resized {
                 size: physical_size.to_logical(scale_factor),
             });
+
+            // Workaround fox winit not sync'ing CSS size of the canvas (the size shown on the browser)
+            // with the width/height attribute (the size of the viewport/GL surface)
+            // If they're not in sync, the UI would be shown as scaled
+            #[cfg(target_arch = "wasm32")]
+            if let Some(html_canvas) = self.winit_window.canvas() {
+                html_canvas.set_width(physical_size.width);
+                html_canvas.set_height(physical_size.height);
+            }
         }
         Ok(())
     }
@@ -344,18 +357,17 @@ impl WindowAdapter for WinitWindowAdapter {
                     html_canvas.client_width() as f32,
                     html_canvas.client_height() as f32,
                 );
-
-                // Try to maintain the existing size of the canvas element. A window created with winit
-                // on the web will always have 1024x768 as size otherwise.
-                if preferred_size.width <= 0. {
+                // Try to maintain the existing size of the canvas element, if any
+                if existing_canvas_size.width > 0. {
                     preferred_size.width = existing_canvas_size.width;
                 }
-                if preferred_size.height <= 0. {
+                if existing_canvas_size.height > 0. {
                     preferred_size.height = existing_canvas_size.height;
                 }
             }
 
             if winit_window.fullscreen().is_none()
+                && !self.has_explicit_size.get()
                 && preferred_size.width > 0 as Coord
                 && preferred_size.height > 0 as Coord
             {
@@ -415,6 +427,7 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 
     fn set_size(&self, size: corelib::api::WindowSize) {
+        self.has_explicit_size.set(true);
         if let Some(size) = self.winit_window().request_inner_size(window_size_to_winit(&size)) {
             self.size.set(physical_size_to_slint(&size));
         }
@@ -524,36 +537,6 @@ impl WindowAdapter for WinitWindowAdapter {
             let winit_max_inner = new_constraints.max.map(into_size);
             winit_window.set_max_inner_size(winit_max_inner);
             winit_window.set_resizable(resizable);
-
-            if let Some(s) = adjust_window_size_to_satisfy_constraints(
-                winit_window,
-                winit_min_inner,
-                winit_max_inner,
-            ) {
-                self.size.set(physical_size_to_slint(&s));
-            }
-
-            #[cfg(target_arch = "wasm32")]
-            if let Some((
-                corelib::api::LogicalSize { width: min_width, height: min_height, .. },
-                corelib::api::LogicalSize { width: max_width, height: max_height, .. },
-            )) = new_constraints.min.zip(new_constraints.max)
-            {
-                // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
-                let existing_size: winit::dpi::LogicalSize<f32> =
-                    winit_window.inner_size().to_logical(sf as f64);
-                if !(min_width..=max_width).contains(&(existing_size.width))
-                    || !(min_height..=max_height).contains(&(existing_size.height))
-                {
-                    let new_size = winit::dpi::LogicalSize::new(
-                        existing_size.width.min(max_width).max(min_width),
-                        existing_size.height.min(max_height).max(min_height),
-                    );
-                    if let Some(size) = winit_window.request_inner_size(new_size) {
-                        self.size.set(physical_size_to_slint(&size));
-                    }
-                }
-            }
 
             // Auto-resize to the preferred size if users (SlintPad) requests it
             #[cfg(target_arch = "wasm32")]
@@ -712,32 +695,5 @@ struct WindowProperties {
 impl Default for WindowProperties {
     fn default() -> Self {
         Self { scale_factor: Property::new(1.0) }
-    }
-}
-
-// Winit doesn't automatically resize the window to satisfy constraints. Qt does it though, and so do we here.
-fn adjust_window_size_to_satisfy_constraints(
-    winit_window: &winit::window::Window,
-    min_size: Option<winit::dpi::PhysicalSize<f32>>,
-    max_size: Option<winit::dpi::PhysicalSize<f32>>,
-) -> Option<winit::dpi::PhysicalSize<u32>> {
-    let mut window_size = winit_window.inner_size();
-
-    if let Some(min_size) = min_size {
-        let min_size = min_size.cast();
-        window_size.width = window_size.width.max(min_size.width);
-        window_size.height = window_size.height.max(min_size.height);
-    }
-
-    if let Some(max_size) = max_size {
-        let max_size = max_size.cast();
-        window_size.width = window_size.width.min(max_size.width);
-        window_size.height = window_size.height.min(max_size.height);
-    }
-
-    if window_size != winit_window.inner_size() {
-        winit_window.request_inner_size(window_size)
-    } else {
-        None
     }
 }
