@@ -27,7 +27,6 @@ slint-interpreter = { workspace = true, features = ["default", "display-diagnost
 spin_on = "0.1"
 css-color-parser2 = { workspace = true }
 itertools = { workspace = true }
-rand = "0.8.5"
 
 [build-dependencies]
 napi-build = "2.0.1"
