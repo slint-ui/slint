@@ -29,10 +29,7 @@
     "install": "npm run build",
     "docs": "npm run build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md index.ts",
     "prepublishOnly": "napi prepublish -t npm",
-    "test": "ava",
-    "syntax_check": "tsc -noEmit index.ts",
-    "universal": "napi universal",
-    "version": "1.3.0"
+    "test": "ava"
   },
   "ava": {
     "require": [
