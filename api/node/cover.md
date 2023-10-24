@@ -71,7 +71,7 @@ The following example shows how to instantiating a Slint component from JavaScri
 
 **`ui/main.slint`**
 
-```slint
+```
 export component MainWindow inherits Window {
     callback clicked <=> i-touch-area.clicked;
 
@@ -116,7 +116,7 @@ usign the `<=>` syntax.
 
 **`ui/my-component.slint`**
 
-```slint
+```
 export component MyComponent inherits Window {
     callback clicked <=> i-touch-area.clicked;
 
