@@ -14,7 +14,7 @@ publish = false
 
 [[bin]]
 path = "main.rs"
-name = "test-driver-napi"
+name = "test-driver-nodejs"
 
 [dev-dependencies]
 test_driver_lib = { path = "../driverlib" }
