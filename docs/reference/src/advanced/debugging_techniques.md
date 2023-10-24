@@ -3,6 +3,10 @@
 
 On this page we share different techniques and tools we've built into Slint that help you track down different issues you may be running into, during the design and development.
 
+## Debugging Property Values
+
+Use the [`debug()`](../language/builtins/functions.md#debug) function to print the values of properties to stderr.
+
 ## Slow Motion Animations
 
 Animations in the user interface need to be carefully designed to have the correct duration and changes in element positioning or size need to follow an easing curve.
