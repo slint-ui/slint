@@ -68,7 +68,7 @@ web-sys = { version = "0.3", features=["HtmlInputElement", "HtmlCanvasElement", 
 wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-glutin = { version = "0.31", optional = true, default-features = false, features = ["egl", "wgl"] }
+glutin = { workspace = true, optional = true, default-features = false, features = ["egl", "wgl"] }
 glutin-winit = { version = "0.4.2", optional = true, default-features = false, features = ["egl", "wgl"] }
 accesskit = { version = "0.11.0", optional = true }
 #accesskit_winit = { version = "0.14.0", optional = true }
