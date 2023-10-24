@@ -310,7 +310,7 @@ export function loadFile(filePath: string) : Object {
         let errors = diagnostics.filter((d) => d.level == napi.DiagnosticLevel.Error);
 
         if (errors.length > 0) {
-            throw new CompileError("Could not compile " + absoluteFilePath, errors);
+            throw new CompileError("Could not compile " + path, errors);
         }
     }
 
@@ -321,7 +321,7 @@ export function loadFile(filePath: string) : Object {
             let instance = definition!.create();
 
             if (instance == null) {
-                throw Error("Could not create a component handle for" + absoluteFilePath);
+                throw Error("Could not create a component handle for" + path);
             }
 
             for(var key in properties) {
