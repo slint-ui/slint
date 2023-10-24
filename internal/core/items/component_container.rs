@@ -17,7 +17,7 @@ use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::{IndexRange, ItemTreeRc, ItemTreeWeak};
 use crate::item_tree::{ItemTreeNode, ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalLength, LogicalSize};
+use crate::lengths::LogicalSize;
 use crate::properties::{Property, PropertyTracker};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -30,19 +30,6 @@ use core::pin::Pin;
 use i_slint_core_macros::*;
 use once_cell::unsync::OnceCell;
 
-fn limit_to_constraints(input: LogicalLength, constraint: LayoutInfo) -> LogicalLength {
-    let input = input.get();
-    LogicalLength::new(if input < constraint.min {
-        constraint.min
-    } else if input > constraint.max {
-        constraint.max
-    } else if input >= constraint.min && input <= constraint.max {
-        input
-    } else {
-        constraint.preferred
-    })
-}
-
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
@@ -50,10 +37,6 @@ fn limit_to_constraints(input: LogicalLength, constraint: LayoutInfo) -> Logical
 pub struct ComponentContainer {
     pub component_factory: Property<ComponentFactory>,
 
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
-    pub width: Property<LogicalLength>,
-    pub height: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
 
     component_tracker: OnceCell<Pin<Box<PropertyTracker>>>,
@@ -83,42 +66,6 @@ impl ComponentContainer {
         };
 
         let product = factory.build(factory_context);
-
-        if let Some(rc) = &product {
-            // The change resulted in a new component to set up:
-            let component = vtable::VRc::borrow_pin(rc);
-            let root_item = component.as_ref().get_item_ref(0);
-            if let Some(window_item) =
-                crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
-            {
-                // Calculate new size for both myself and the embedded window:
-                let new_width = limit_to_constraints(
-                    window_item.width(),
-                    component.as_ref().layout_info(Orientation::Horizontal),
-                );
-                let new_height = limit_to_constraints(
-                    window_item.height(),
-                    component.as_ref().layout_info(Orientation::Vertical),
-                );
-
-                Property::link_two_way(
-                    ComponentContainer::FIELD_OFFSETS.width.apply_pin(self),
-                    super::WindowItem::FIELD_OFFSETS.width.apply_pin(window_item),
-                );
-                Property::link_two_way(
-                    ComponentContainer::FIELD_OFFSETS.height.apply_pin(self),
-                    super::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item),
-                );
-
-                ComponentContainer::FIELD_OFFSETS.width.apply_pin(self).set(new_width);
-                ComponentContainer::FIELD_OFFSETS.height.apply_pin(self).set(new_height);
-            }
-        } else {
-            // There change resulted in no component to embed:
-            ComponentContainer::FIELD_OFFSETS.width.apply_pin(self).set(Default::default());
-            ComponentContainer::FIELD_OFFSETS.height.apply_pin(self).set(Default::default());
-        }
-
         self.item_tree.replace(product);
     }
 
@@ -221,7 +168,7 @@ impl Item for ComponentContainer {
         self: Pin<&Self>,
         backend: &mut super::ItemRendererRef,
         item_rc: &ItemRc,
-        size: LogicalSize,
+        _size: LogicalSize,
     ) -> RenderingResult {
         if let Some(item_tree) = self.item_tree.borrow().clone() {
             let item_tree = vtable::VRc::borrow_pin(&item_tree);
@@ -230,8 +177,9 @@ impl Item for ComponentContainer {
                 crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
             {
                 let mut rect = Rectangle::default();
+                let geometry = item_tree.as_ref().item_geometry(0);
                 rect.background.set(window_item.background());
-                backend.draw_rectangle(core::pin::pin!(rect).as_ref(), item_rc, size);
+                backend.draw_rectangle(core::pin::pin!(rect).as_ref(), item_rc, geometry.size);
             }
         }
 
