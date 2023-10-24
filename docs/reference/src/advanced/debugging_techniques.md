@@ -5,7 +5,7 @@ On this page we share different techniques and tools we've built into Slint that
 
 ## Debugging Property Values
 
-Use the [`debug()`](../language/builtins/functions.md#debug) function to print the value of properties to stderr.
+Use the [`debug()`](../language/builtins/functions.md#debug) function to print the values of properties to stderr.
 
 ## Slow Motion Animations
 
