@@ -59,7 +59,7 @@ mod accesskit;
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm_input_helper;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "renderer-femtovg"))]
 pub fn create_gl_window_with_canvas_id(
     canvas_id: &str,
 ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
