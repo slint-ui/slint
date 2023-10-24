@@ -5,9 +5,6 @@
   "types": "index.d.ts",
   "homepage": "https://github.com/slint-ui/slint",
   "license": "SEE LICENSE IN LICENSE.md",
-  "napi": {
-    "name": "slint-ui"
-  },
   "devDependencies": {
     "@napi-rs/cli": "^2.15.2",
     "@swc-node/register": "^1.5.5",
