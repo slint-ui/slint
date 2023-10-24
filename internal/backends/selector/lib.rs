@@ -14,6 +14,7 @@
 
 extern crate alloc;
 
+use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use i_slint_core::platform::Platform;
 use i_slint_core::platform::PlatformError;
@@ -54,24 +55,30 @@ cfg_if::cfg_if! {
         fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
             let backends = [
                 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
-                create_qt_backend,
+                ("Qt", create_qt_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
                 #[cfg(feature = "i-slint-backend-winit")]
-                create_winit_backend,
+                ("Winit", create_winit_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
                 #[cfg(feature = "i-slint-backend-linuxkms")]
-                create_linuxkms_backend,
-                || Err(PlatformError::NoPlatform),
+                ("LinuxKMS", create_linuxkms_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
+                ("", || Err(PlatformError::NoPlatform)),
             ];
 
-            let mut last_err = PlatformError::NoPlatform;
+            let mut backend_errors: Vec<Cow<str>> = Vec::new();
 
-            for backend_factory in backends {
+            for (backend_name, backend_factory) in backends {
                 match backend_factory() {
                     Ok(platform) => return Ok(platform),
-                    Err(err) => last_err = err,
+                    Err(err) => {
+                        backend_errors.push(if !backend_name.is_empty() {
+                            format!("Error from {} backend: {}", backend_name, err).into()
+                        } else {
+                            "No backends configured.".into()
+                        });
+                    },
                 }
             }
 
-            Err(last_err)
+            Err(PlatformError::Other(format!("Could not initialize backend.\n{}", backend_errors.join("\n"))))
         }
 
         pub fn create_backend() -> Result<Box<dyn Platform + 'static>, PlatformError>  {
