@@ -818,6 +818,7 @@ pub(crate) fn generate_item_tree<'id>(
                 rtti_for::<ClippedImage>(),
                 rtti_for::<Text>(),
                 rtti_for::<Rectangle>(),
+                rtti_for::<BasicBorderRectangle>(),
                 rtti_for::<BorderRectangle>(),
                 rtti_for::<TouchArea>(),
                 rtti_for::<FocusScope>(),

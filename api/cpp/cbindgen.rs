@@ -252,6 +252,7 @@ fn gen_corelib(
     let items = [
         "Empty",
         "Rectangle",
+        "BasicBorderRectangle",
         "BorderRectangle",
         "ImageItem",
         "ClippedImage",
