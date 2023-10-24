@@ -5,6 +5,10 @@
   "types": "index.d.ts",
   "homepage": "https://github.com/slint-ui/slint",
   "license": "SEE LICENSE IN LICENSE.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slint-ui/slint"
+  },
   "devDependencies": {
     "@napi-rs/cli": "^2.15.2",
     "@swc-node/register": "^1.5.5",
@@ -25,7 +29,8 @@
     "build:debug": "napi build --platform --js rust-module.js --dts rust-module.d.ts && npm run compile && npm run syntax_check",
     "install": "npm run build",
     "docs": "npm run build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md index.ts",
-    "test": "ava"
+    "test": "ava",
+    "syntax_check": "tsc -noEmit index.ts"
   },
   "ava": {
     "require": [
