@@ -28,7 +28,6 @@
     "build:debug": "napi build --platform --js rust-module.js --dts rust-module.d.ts && npm run compile && npm run syntax_check",
     "install": "npm run build",
     "docs": "npm run build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md index.ts",
-    "prepublishOnly": "napi prepublish -t npm",
     "test": "ava"
   },
   "ava": {
