@@ -126,7 +126,7 @@ pub struct WinitWindowAdapter {
     /// And we wan see the newer value before the Resized event was received, leading to inconsistencies
     size: Cell<PhysicalSize>,
 
-    /// Whether the size has been set explicitly
+    /// Whether the size has been set explicitly via `set_size`
     has_explicit_size: Cell<bool>,
 
     #[cfg(target_arch = "wasm32")]
