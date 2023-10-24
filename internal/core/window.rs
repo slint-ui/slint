@@ -15,7 +15,7 @@ use crate::input::{
     key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, KeyInputEvent,
     KeyboardModifiers, MouseEvent, MouseInputState, TextCursorBlinker,
 };
-use crate::item_tree::ItemRc;
+use crate::item_tree::{ItemRc, ItemWeak};
 use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
 use crate::items::{ItemRef, MouseCursor};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
@@ -24,6 +24,8 @@ use crate::renderer::Renderer;
 use crate::{Callback, Coord, SharedString};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::num::Zero;
@@ -357,6 +359,8 @@ pub struct WindowInner {
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
+
+    id_ed_items: RefCell<Vec<(String, ItemWeak)>>, // HashMap is in std
 }
 
 impl Drop for WindowInner {
@@ -409,6 +413,7 @@ impl WindowInner {
             active_popup: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
+            id_ed_items: Default::default(),
         }
     }
 
@@ -949,6 +954,19 @@ impl WindowInner {
             CloseRequestResponse::HideWindow => true,
             CloseRequestResponse::KeepWindowShown => false,
         }
+    }
+
+    /// Register an `ItemWeak` under an `id`
+    pub fn register_item(&self, id: String, item: ItemWeak) {
+        // TODO: Sort this?
+        let mut items = self.id_ed_items.borrow_mut();
+        items.push((id, item));
+    }
+
+    /// Get an `ItemWeak`that was registered before or `None`
+    pub fn get_item(&self, id: &str) -> Option<ItemWeak> {
+        let items = self.id_ed_items.borrow();
+        items.iter().find(|i| &i.0 == id).map(|i| i.1.clone())
     }
 
     /// Returns the upgraded window adapter

@@ -22,8 +22,10 @@ use crate::properties::{Property, PropertyTracker};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
+use crate::SharedString;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
+use alloc::string::String;
 use const_field_offset::FieldOffsets;
 use core::cell::RefCell;
 use core::pin::Pin;
@@ -36,6 +38,7 @@ use once_cell::unsync::OnceCell;
 /// The implementation of the `ComponentContainer` element
 pub struct ComponentContainer {
     pub component_factory: Property<ComponentFactory>,
+    pub component_root_item_id: Property<SharedString>,
 
     pub cached_rendering_data: CachedRenderingData,
 
@@ -66,6 +69,21 @@ impl ComponentContainer {
         };
 
         let product = factory.build(factory_context);
+
+        let id = self.component_root_item_id();
+        if !id.is_empty() {
+            let my_component_rc = self.my_component.get().unwrap().upgrade().unwrap();
+            let my_component_pin = vtable::VRc::borrow_pin(&my_component_rc);
+            let mut wa = None;
+            my_component_pin.as_ref().window_adapter(false, &mut wa);
+            if let Some(wa) = wa {
+                let window = wa.window();
+                let inner = crate::window::WindowInner::from_pub(window);
+                let root_item = ItemRc::new(my_component_rc.clone(), 0);
+                inner.register_item(String::from(id.as_str()), root_item.downgrade());
+            }
+        }
+
         self.item_tree.replace(product);
     }
 
