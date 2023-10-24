@@ -29,9 +29,11 @@ pub fn styles() -> Vec<&'static str> {
 pub fn load_file(path: &std::path::Path) -> Option<VirtualFile> {
     match path.strip_prefix("builtin:/") {
         Ok(builtin_path) => builtin_library::load_builtin_file(builtin_path),
-        Err(_) => path.exists().then(|| VirtualFile {
-            canon_path: crate::pathutils::clean_path(path),
-            builtin_contents: None,
+        Err(_) => path.exists().then(|| {
+            let path =
+                crate::pathutils::join(&std::env::current_dir().ok().unwrap_or_default(), path)
+                    .unwrap_or_else(|| path.to_path_buf());
+            VirtualFile { canon_path: crate::pathutils::clean_path(&path), builtin_contents: None }
         }),
     }
 }
