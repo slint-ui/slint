@@ -11,7 +11,9 @@ use i_slint_core::graphics::rendering_metrics_collector::{
 };
 use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Image, Point, SharedImageBuffer};
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
-use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
+use i_slint_core::item_rendering::{
+    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle,
+};
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
     self, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
@@ -613,9 +615,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn draw_border_rectangle(
         &mut self,
-        rect: std::pin::Pin<&items::BorderRectangle>,
+        rect: std::pin::Pin<&dyn RenderBorderRectangle>,
         _: &ItemRc,
         size: LogicalSize,
+        _: &CachedRenderingData,
     ) {
         Self::draw_rectangle_impl(
             &mut self.painter,
@@ -623,7 +626,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             rect.background(),
             rect.border_color(),
             rect.border_width().get(),
-            rect.logical_border_radius(),
+            rect.border_radius(),
         );
     }
 

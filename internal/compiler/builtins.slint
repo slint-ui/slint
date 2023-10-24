@@ -29,14 +29,17 @@ component Rectangle inherits Empty {
     in property <brush> color <=> background;
 }
 
-component BorderRectangle inherits Rectangle {
+component BasicBorderRectangle inherits Rectangle {
     in property <length> border-width;
     in property <length> border-radius;
+    in property <brush> border-color;
+}
+
+component BorderRectangle inherits BasicBorderRectangle {
     in property <length> border-top-left-radius;
     in property <length> border-top-right-radius;
     in property <length> border-bottom-left-radius;
     in property <length> border-bottom-right-radius;
-    in property <brush> border-color;
     //-default_size_binding:expands_to_parent_geometry
 }
 

@@ -142,12 +142,20 @@ fn select_minimal_class() {
             ["border-width".to_owned()].iter()
         )
         .class_name,
-        "BorderRectangle",
+        "BasicBorderRectangle",
     );
     assert_eq!(
         select_minimal_class_based_on_property_usage(
             &rect.native_class,
             ["border-width".to_owned(), "x".to_owned()].iter()
+        )
+        .class_name,
+        "BasicBorderRectangle",
+    );
+    assert_eq!(
+        select_minimal_class_based_on_property_usage(
+            &rect.native_class,
+            ["border-top-left-radius".to_owned(), "x".to_owned()].iter()
         )
         .class_name,
         "BorderRectangle",
