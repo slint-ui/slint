@@ -361,6 +361,8 @@ export function loadFile(filePath: string) : Object {
     return slint_module;
 }
 
+// This api will be removed after teh event loop handling is merged check PR #3718.
+// After that this in no longer necessary.
 export namespace Timer {
     export function singleShot(duration: number, handler: () => void) {
         napi.singleshotTimer(duration, handler)
