@@ -24,10 +24,7 @@ import { createConfiguredEditor, createModelReference } from "vscode/monaco";
 
 import { initialize as initializeMonacoServices } from "vscode/services";
 import { initialize as initializeVscodeExtensions } from "vscode/extensions";
-import getConfigurationServiceOverride, {
-    updateUserConfiguration,
-    onUserConfigurationChange,
-} from "@codingame/monaco-vscode-configuration-service-override";
+import getConfigurationServiceOverride from "@codingame/monaco-vscode-configuration-service-override";
 import getEditorServiceOverride, {
     IReference,
     IEditorOptions,
@@ -37,7 +34,6 @@ import getLanguagesServiceOverride from "@codingame/monaco-vscode-languages-serv
 import getModelServiceOverride from "@codingame/monaco-vscode-model-service-override";
 import getSnippetServiceOverride from "@codingame/monaco-vscode-snippets-service-override";
 import getStorageServiceOverride from "@codingame/monaco-vscode-storage-service-override";
-import { DidChangeConfigurationNotification } from "vscode-languageserver-protocol";
 
 function openEditor(
     _modelRef: IReference<IResolvedTextEditorModel>,
@@ -203,7 +199,6 @@ function tabTitleFromURL(url: monaco.Uri): string {
 
 class EditorPaneWidget extends Widget {
     auto_compile = true;
-    #current_style = "";
     #main_uri: monaco.Uri | null = null;
     #editor_view_states: Map<
         monaco.Uri,
@@ -251,14 +246,6 @@ class EditorPaneWidget extends Widget {
         this.title.caption = `Slint Code Editor`;
 
         this.#edit_era = 0;
-
-        this.set_style("fluent-light");
-
-        onUserConfigurationChange(() => {
-            this.#client?.sendNotification(
-                DidChangeConfigurationNotification.method,
-            );
-        });
 
         this.#client = this.setup_editor(this.contentNode, lsp);
 
@@ -390,16 +377,6 @@ class EditorPaneWidget extends Widget {
 
     get extra_files(): { [key: string]: string } {
         return this.#extra_file_urls;
-    }
-
-    async set_style(value: string) {
-        this.#current_style = value;
-        const config = '{ "slint.preview.style": "' + value + '" }';
-        await updateUserConfiguration(config);
-    }
-
-    style() {
-        return this.#current_style;
     }
 
     public clear_models() {
@@ -705,7 +682,6 @@ export class EditorWidget extends Widget {
         layout.addWidget(this.#tab_bar);
 
         this.#editor = new EditorPaneWidget(lsp);
-        this.set_style("fluent");
         layout.addWidget(this.#editor);
 
         super.layout = layout;
@@ -753,10 +729,6 @@ export class EditorWidget extends Widget {
         const code = params.get("snippet");
         const load_url = params.get("load_url");
         const load_demo = params.get("load_demo");
-        const style = params.get("style");
-        if (style) {
-            this.#editor.set_style(style);
-        }
 
         if (code) {
             this.#editor.clear_models();
@@ -786,14 +758,6 @@ export class EditorWidget extends Widget {
 
     get current_text_document_version(): number | undefined {
         return this.#editor.current_text_document_version;
-    }
-
-    async set_style(value: string) {
-        await this.#editor.set_style(value);
-    }
-
-    style(): string {
-        return this.#editor.style();
     }
 
     async project_from_url(url: string | null) {

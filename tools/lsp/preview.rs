@@ -63,6 +63,20 @@ fn set_design_mode(enable: bool) {
     configure_design_mode(enable);
 }
 
+fn change_style(style: String) {
+    let component = {
+        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        PreviewComponent { style, ..cache.current.clone() }
+    };
+    load_preview(component);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn get_current_style() -> String {
+    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    cache.current.style.clone()
+}
+
 pub fn start_parsing() {
     set_busy(true);
     send_status("Loading Preview…", Health::Ok);
@@ -117,11 +131,17 @@ fn get_file_from_cache(path: PathBuf) -> Option<String> {
 }
 
 async fn reload_preview(preview_component: PreviewComponent) {
-    let (design_mode, ui_is_visible) = {
+    let (preview_component, design_mode, ui_is_visible) = {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        let style = cache.current.style.clone();
         cache.dependency.clear();
-        cache.current = preview_component.clone();
-        (cache.design_mode, cache.ui_is_visible)
+        let component = if preview_component.style.is_empty() {
+            PreviewComponent { style, ..preview_component }
+        } else {
+            preview_component
+        };
+        cache.current = component.clone();
+        (component, cache.design_mode, cache.ui_is_visible)
     };
     if !ui_is_visible {
         return;

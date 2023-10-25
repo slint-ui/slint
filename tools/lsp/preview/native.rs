@@ -143,7 +143,11 @@ pub fn open_ui(sender: &ServerNotifier) {
 
 fn open_ui_impl(preview_state: &mut PreviewState) {
     // TODO: Handle Error!
-    let ui = preview_state.ui.get_or_insert_with(|| super::ui::create_ui().unwrap());
+    let ui = preview_state.ui.get_or_insert_with(|| {
+        let (ui, style) = super::ui::create_ui(String::new()).unwrap();
+        super::change_style(style);
+        ui
+    });
     ui.window().on_close_requested(|| {
         let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.ui_is_visible = false;
@@ -277,13 +281,13 @@ pub fn configure_design_mode(enabled: bool) {
                           start_column: u32,
                           end_line: u32,
                           end_column: u32| {
-                        ask_editor_to_show_document(
+                        let _ = ask_editor_to_show_document(
                             file,
                             start_line,
                             start_column,
                             end_line,
                             end_column,
-                        );
+                        ); // ignore errors
                     },
                 ));
             }
