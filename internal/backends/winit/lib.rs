@@ -140,6 +140,7 @@ pub struct Backend {
             window_builder: winit::window::WindowBuilder,
         )
             -> Result<(Box<dyn WinitCompatibleRenderer>, winit::window::Window), PlatformError>,
+    event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
 }
 
 impl Backend {
@@ -174,7 +175,7 @@ impl Backend {
                 default_renderer_factory
             }
         };
-        Ok(Self { renderer_factory_fn })
+        Ok(Self { renderer_factory_fn, event_loop_state: Default::default() })
     }
 }
 
@@ -233,7 +234,10 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {
-        crate::event_loop::run()
+        let loop_state = self.event_loop_state.borrow_mut().take().unwrap_or_default();
+        let new_state = loop_state.run()?;
+        *self.event_loop_state.borrow_mut() = Some(new_state);
+        Ok(())
     }
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {

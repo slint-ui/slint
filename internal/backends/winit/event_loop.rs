@@ -245,7 +245,7 @@ impl std::fmt::Debug for CustomEvent {
 }
 
 #[derive(Default)]
-struct EventLoopState {
+pub struct EventLoopState {
     // With winit on Windows and with wasm, calling winit::Window::request_redraw() will not always deliver an
     // Event::RedrawRequested (for example when the mouse cursor is outside of the window). So when we get woken
     // up by the event loop to process new events from the operating system (NewEvents), we take note of all windows
@@ -582,39 +582,40 @@ impl EventLoopState {
             event_loop_target.exit();
         }
     }
-}
 
-/// Runs the event loop and renders the items in the provided `component` in its
-/// own window.
-#[allow(unused_mut)] // mut need changes for wasm
-pub fn run() -> Result<(), corelib::platform::PlatformError> {
-    let not_running_loop_instance = MAYBE_LOOP_INSTANCE
-        .with(|loop_instance| match loop_instance.borrow_mut().take() {
-            Some(instance) => Ok(instance),
-            None => NotRunningEventLoop::new(),
-        })
-        .map_err(|e| format!("Error initializing winit event loop: {e}"))?;
+    /// Runs the event loop and renders the items in the provided `component` in its
+    /// own window.
+    #[allow(unused_mut)] // mut need changes for wasm
+    pub fn run(mut self) -> Result<Self, corelib::platform::PlatformError> {
+        let not_running_loop_instance = MAYBE_LOOP_INSTANCE
+            .with(|loop_instance| match loop_instance.borrow_mut().take() {
+                Some(instance) => Ok(instance),
+                None => NotRunningEventLoop::new(),
+            })
+            .map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 
-    let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
-    #[cfg(not(target_arch = "wasm32"))]
-    GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().set_proxy(event_loop_proxy.clone());
-    #[cfg(target_arch = "wasm32")]
-    GLOBAL_PROXY.with(|global_proxy| {
-        global_proxy
-            .borrow_mut()
-            .get_or_insert_with(Default::default)
-            .set_proxy(event_loop_proxy.clone())
-    });
+        let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
+        #[cfg(not(target_arch = "wasm32"))]
+        GLOBAL_PROXY
+            .get_or_init(Default::default)
+            .lock()
+            .unwrap()
+            .set_proxy(event_loop_proxy.clone());
+        #[cfg(target_arch = "wasm32")]
+        GLOBAL_PROXY.with(|global_proxy| {
+            global_proxy
+                .borrow_mut()
+                .get_or_insert_with(Default::default)
+                .set_proxy(event_loop_proxy.clone())
+        });
 
-    let mut winit_loop = not_running_loop_instance.instance;
-    let clipboard = not_running_loop_instance.clipboard;
+        let mut winit_loop = not_running_loop_instance.instance;
+        let clipboard = not_running_loop_instance.clipboard;
 
-    let mut loop_state = EventLoopState::default();
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        use winit::platform::run_on_demand::EventLoopExtRunOnDemand as _;
-        winit_loop
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            use winit::platform::run_on_demand::EventLoopExtRunOnDemand as _;
+            winit_loop
             .run_on_demand(
                 |event: Event<SlintUserEvent>,
                  event_loop_target: &EventLoopWindowTarget<SlintUserEvent>| {
@@ -624,27 +625,28 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                         clipboard: &clipboard,
                     };
                     CURRENT_WINDOW_TARGET.set(&running_instance, || {
-                        loop_state.process_event(event, event_loop_target)
+                        self.process_event(event, event_loop_target)
                     })
                 },
             )
             .map_err(|e| format!("Error running winit event loop: {e}"))?;
 
-        *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
+            *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
 
-        // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
-        // Winit does not support creating multiple instances of the event loop.
-        let nre = NotRunningEventLoop { clipboard, instance: winit_loop, event_loop_proxy };
-        MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre));
+            // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
+            // Winit does not support creating multiple instances of the event loop.
+            let nre = NotRunningEventLoop { clipboard, instance: winit_loop, event_loop_proxy };
+            MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre));
 
-        if let Some(error) = loop_state.loop_error {
-            return Err(error);
+            if let Some(error) = self.loop_error {
+                return Err(error);
+            }
+            Ok(self)
         }
-    }
 
-    #[cfg(target_arch = "wasm32")]
-    {
-        winit_loop
+        #[cfg(target_arch = "wasm32")]
+        {
+            winit_loop
             .run(
                 move |event: Event<SlintUserEvent>,
                       event_loop_target: &EventLoopWindowTarget<SlintUserEvent>| {
@@ -654,13 +656,15 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                         clipboard: &clipboard,
                     };
                     CURRENT_WINDOW_TARGET.set(&running_instance, || {
-                        loop_state.process_event(event, event_loop_target)
+                        self.process_event(event, event_loop_target)
                     })
                 },
             )
             .map_err(|e| format!("Error running winit event loop: {e}"))?;
+            // This can't really happen, as run() doesn't return
+            Ok(Self::default())
+        }
     }
-    Ok(())
 }
 
 #[cfg(target_arch = "wasm32")]
