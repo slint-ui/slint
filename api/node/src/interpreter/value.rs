@@ -106,21 +106,9 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
             Ok(Value::Bool(js_bool.get_value()?))
         }
         Type::Color => {
-            let color_ref = env.create_reference(unknown.coerce_to_object()?)?;
-            if let Some(js_color) = env
-                .get_reference_value::<JsObject>(&color_ref)
-                .ok()
-                .and_then(|obj| obj.get("color").ok().flatten())
-                .and_then(|brush_prop| env.get_value_external::<Brush>(&brush_prop).ok())
-            {
-                return Ok(Value::Brush(js_color.clone()));
-            }
-
-            if let Some(js_brush) = env
-                .get_reference_value::<JsObject>(&color_ref)
-                .ok()
-                .and_then(|js_object| js_object.coerce_to_string().ok())
-                .and_then(|string| string_to_brush(string).ok())
+            // TODO: fix conversion from color interface and brush object
+            if let Some(js_brush) =
+                unknown.coerce_to_string().ok().and_then(|string| string_to_brush(string).ok())
             {
                 return Ok(js_brush);
             } else {
