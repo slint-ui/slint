@@ -97,7 +97,6 @@ pub async fn compile_from_string_with_style(
     resource_url_mapper: Option<ResourceUrlMapperFunction>,
     optional_import_callback: Option<ImportCallbackFunction>,
 ) -> Result<CompilationResult, JsValue> {
-    #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
     let mut compiler = slint_interpreter::ComponentCompiler::default();
