@@ -130,28 +130,26 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
             }
         }
         Type::Brush => {
-            let brush_ref = env.create_reference(unknown.coerce_to_object()?)?;
-            if let Some(js_brush) = env
-                .get_reference_value::<JsObject>(&brush_ref)
-                .ok()
-                .and_then(|obj| obj.get("brush").ok().flatten())
-                .and_then(|brush_prop| env.get_value_external::<Brush>(&brush_prop).ok())
-            {
-                return Ok(Value::Brush(js_brush.clone()));
+            match unknown.get_type() {
+                Ok(ValueType::String) => {
+                    return Ok(unknown.coerce_to_string().and_then(|str| string_to_brush(str))?);
+                }
+                Ok(ValueType::Object) => {
+                    if let Ok(obj) = unknown.coerce_to_object() {
+                        if let Some(js_brush) =
+                            obj.get("brush").ok().flatten().and_then(|brush_prop| {
+                                env.get_value_external::<Brush>(&brush_prop).ok()
+                            })
+                        {
+                            return Ok(Value::Brush(js_brush.clone()));
+                        }
+                    }
+                }
+                _ => {}
             }
-
-            if let Some(js_brush) = env
-                .get_reference_value::<JsObject>(&brush_ref)
-                .ok()
-                .and_then(|js_object| js_object.coerce_to_string().ok())
-                .and_then(|string| string_to_brush(string).ok())
-            {
-                return Ok(js_brush);
-            } else {
-                return Err(napi::Error::from_reason(
-                            "Cannot convert object to brush, because the given object is neither a brush nor a string".to_string()
-                    ));
-            }
+            Err(napi::Error::from_reason(
+                            "Cannot convert object to brush, because the given object is neither a brush, color, nor a string".to_string()
+                    ))
         }
         Type::Image => {
             let object = unknown.coerce_to_object()?;
