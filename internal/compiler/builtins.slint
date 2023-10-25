@@ -60,7 +60,8 @@ export { ClippedImage as Image }
 export component ComponentContainer inherits Empty {
     in property <component-factory> component-factory;
 
-    //-default_size_binding:expands_to_parent_geometry
+    in-out property <length> width;
+    in-out property <length> height;
 }
 
 export component Rotate inherits Empty {
