@@ -201,12 +201,6 @@ impl OpenGLSurface {
         cfg_if::cfg_if! {
             if #[cfg(target_os = "macos")] {
                 let prefs = [glutin::display::DisplayApiPreference::Cgl];
-            } else if #[cfg(all(feature = "x11", not(target_family = "windows"), not(target_os = "android")))] {
-                let mut prefs = vec![glutin::display::DisplayApiPreference::Egl];
-                // GLX can only be supported with xlib, not xcb.
-                if matches!(_window_handle.raw_window_handle(), raw_window_handle::RawWindowHandle::Xlib(..)) {
-                    prefs.push(glutin::display::DisplayApiPreference::Glx(Box::new(winit::platform::x11::register_xlib_error_hook)));
-                }
             } else if #[cfg(not(target_family = "windows"))] {
                 let prefs = [glutin::display::DisplayApiPreference::Egl];
             } else {
