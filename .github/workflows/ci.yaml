@@ -132,6 +132,9 @@ jobs:
     - name: Typescript check
       working-directory: ./api/node
       run: npm run syntax_check
+    - name: Build node plugin in debug
+      run: npm run build:debug
+      working-directory: ./api/node
     - name: Run node tests
       working-directory: ./api/node
       run: npm test
