@@ -243,46 +243,53 @@ impl std::fmt::Debug for CustomEvent {
     }
 }
 
-fn process_window_event(
-    window: Rc<WinitWindowAdapter>,
-    event: WindowEvent,
-    cursor_pos: &mut LogicalPoint,
-    pressed: &mut bool,
-) -> Result<(), i_slint_core::platform::PlatformError> {
-    let runtime_window = WindowInner::from_pub(window.window());
-    match event {
-        WindowEvent::Resized(size) => {
-            window.resize_event(size)?;
-        }
-        WindowEvent::CloseRequested => {
-            window.window().dispatch_event(corelib::platform::WindowEvent::CloseRequested);
-        }
-        WindowEvent::Focused(have_focus) => {
-            let have_focus = have_focus || window.input_method_focused();
-            // We don't render popups as separate windows yet, so treat
-            // focus to be the same as being active.
-            if have_focus != runtime_window.active() {
-                window.window().dispatch_event(
-                    corelib::platform::WindowEvent::WindowActiveChanged(have_focus),
-                );
+#[derive(Default)]
+struct EventLoopState {
+    // last seen cursor position
+    cursor_pos: LogicalPoint,
+    pressed: bool,
+}
+
+impl EventLoopState {
+    fn process_window_event(
+        &mut self,
+        window: Rc<WinitWindowAdapter>,
+        event: WindowEvent,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        let runtime_window = WindowInner::from_pub(window.window());
+        match event {
+            WindowEvent::Resized(size) => {
+                window.resize_event(size)?;
             }
-        }
-
-        WindowEvent::KeyboardInput { event, .. } => {
-            let key_code = event.logical_key;
-            // For now: Match Qt's behavior of mapping command to control and control to meta (LWin/RWin).
-            #[cfg(target_os = "macos")]
-            let key_code = match key_code {
-                winit::keyboard::Key::Named(winit::keyboard::NamedKey::Control) => {
-                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::Super)
+            WindowEvent::CloseRequested => {
+                window.window().dispatch_event(corelib::platform::WindowEvent::CloseRequested);
+            }
+            WindowEvent::Focused(have_focus) => {
+                let have_focus = have_focus || window.input_method_focused();
+                // We don't render popups as separate windows yet, so treat
+                // focus to be the same as being active.
+                if have_focus != runtime_window.active() {
+                    window.window().dispatch_event(
+                        corelib::platform::WindowEvent::WindowActiveChanged(have_focus),
+                    );
                 }
-                winit::keyboard::Key::Named(winit::keyboard::NamedKey::Super) => {
-                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::Control)
-                }
-                code => code,
-            };
+            }
 
-            macro_rules! winit_key_to_char {
+            WindowEvent::KeyboardInput { event, .. } => {
+                let key_code = event.logical_key;
+                // For now: Match Qt's behavior of mapping command to control and control to meta (LWin/RWin).
+                #[cfg(target_os = "macos")]
+                let key_code = match key_code {
+                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::Control) => {
+                        winit::keyboard::Key::Named(winit::keyboard::NamedKey::Super)
+                    }
+                    winit::keyboard::Key::Named(winit::keyboard::NamedKey::Super) => {
+                        winit::keyboard::Key::Named(winit::keyboard::NamedKey::Control)
+                    }
+                    code => code,
+                };
+
+                macro_rules! winit_key_to_char {
                 ($($char:literal # $name:ident # $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|*;)*) => {
                     match key_code {
                         $($(winit::keyboard::Key::Named(winit::keyboard::NamedKey::$winit) $(if event.location == winit::keyboard::KeyLocation::$pos)? => $char.into(),)*)*
@@ -297,126 +304,127 @@ fn process_window_event(
                     }
                 }
             }
-            let text = i_slint_common::for_each_special_keys!(winit_key_to_char);
+                let text = i_slint_common::for_each_special_keys!(winit_key_to_char);
 
-            window.window().dispatch_event(match event.state {
-                winit::event::ElementState::Pressed => {
-                    corelib::platform::WindowEvent::KeyPressed { text }
-                }
-                winit::event::ElementState::Released => {
-                    corelib::platform::WindowEvent::KeyReleased { text }
-                }
-            });
-        }
-        WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
-            let preedit_selection = preedit_selection.unwrap_or((0, 0));
-            let event = KeyInputEvent {
-                event_type: KeyEventType::UpdateComposition,
-                text: string.into(),
-                preedit_selection_start: preedit_selection.0,
-                preedit_selection_end: preedit_selection.1,
-            };
-            runtime_window.process_key_input(event);
-        }
-        WindowEvent::Ime(winit::event::Ime::Commit(string)) => {
-            let event = KeyInputEvent {
-                event_type: KeyEventType::CommitComposition,
-                text: string.into(),
-                ..Default::default()
-            };
-            runtime_window.process_key_input(event);
-        }
-        WindowEvent::CursorMoved { position, .. } => {
-            let position = position.to_logical(runtime_window.scale_factor() as f64);
-            *cursor_pos = euclid::point2(position.x, position.y);
-            runtime_window.process_mouse_input(MouseEvent::Moved { position: *cursor_pos });
-        }
-        WindowEvent::CursorLeft { .. } => {
-            // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
-            if cfg!(target_arch = "wasm32") || !*pressed {
-                *pressed = false;
-                runtime_window.process_mouse_input(MouseEvent::Exit);
-            }
-        }
-        WindowEvent::MouseWheel { delta, .. } => {
-            let (delta_x, delta_y) = match delta {
-                winit::event::MouseScrollDelta::LineDelta(lx, ly) => (lx * 60., ly * 60.),
-                winit::event::MouseScrollDelta::PixelDelta(d) => {
-                    let d = d.to_logical(runtime_window.scale_factor() as f64);
-                    (d.x, d.y)
-                }
-            };
-            runtime_window.process_mouse_input(MouseEvent::Wheel {
-                position: *cursor_pos,
-                delta_x,
-                delta_y,
-            });
-        }
-        WindowEvent::MouseInput { state, button, .. } => {
-            let button = match button {
-                winit::event::MouseButton::Left => PointerEventButton::Left,
-                winit::event::MouseButton::Right => PointerEventButton::Right,
-                winit::event::MouseButton::Middle => PointerEventButton::Middle,
-                winit::event::MouseButton::Other(_) => PointerEventButton::Other,
-                winit::event::MouseButton::Back => PointerEventButton::Other,
-                winit::event::MouseButton::Forward => PointerEventButton::Other,
-            };
-            let ev = match state {
-                winit::event::ElementState::Pressed => {
-                    *pressed = true;
-                    MouseEvent::Pressed { position: *cursor_pos, button, click_count: 0 }
-                }
-                winit::event::ElementState::Released => {
-                    *pressed = false;
-                    MouseEvent::Released { position: *cursor_pos, button, click_count: 0 }
-                }
-            };
-            runtime_window.process_mouse_input(ev);
-        }
-        WindowEvent::Touch(touch) => {
-            let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
-            let position = euclid::point2(location.x, location.y);
-            let ev = match touch.phase {
-                winit::event::TouchPhase::Started => {
-                    *pressed = true;
-                    MouseEvent::Pressed {
-                        position,
-                        button: PointerEventButton::Left,
-                        click_count: 0,
+                window.window().dispatch_event(match event.state {
+                    winit::event::ElementState::Pressed => {
+                        corelib::platform::WindowEvent::KeyPressed { text }
                     }
-                }
-                winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
-                    *pressed = false;
-                    MouseEvent::Released {
-                        position,
-                        button: PointerEventButton::Left,
-                        click_count: 0,
+                    winit::event::ElementState::Released => {
+                        corelib::platform::WindowEvent::KeyReleased { text }
                     }
-                }
-                winit::event::TouchPhase::Moved => MouseEvent::Moved { position },
-            };
-            runtime_window.process_mouse_input(ev);
-        }
-        WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
-            if std::env::var("SLINT_SCALE_FACTOR").is_err() {
-                window.window().dispatch_event(
-                    corelib::platform::WindowEvent::ScaleFactorChanged {
-                        scale_factor: scale_factor as f32,
-                    },
-                );
-                // TODO: send a resize event or try to keep the logical size the same.
-                //window.resize_event(inner_size_writer.???)?;
+                });
             }
+            WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
+                let preedit_selection = preedit_selection.unwrap_or((0, 0));
+                let event = KeyInputEvent {
+                    event_type: KeyEventType::UpdateComposition,
+                    text: string.into(),
+                    preedit_selection_start: preedit_selection.0,
+                    preedit_selection_end: preedit_selection.1,
+                };
+                runtime_window.process_key_input(event);
+            }
+            WindowEvent::Ime(winit::event::Ime::Commit(string)) => {
+                let event = KeyInputEvent {
+                    event_type: KeyEventType::CommitComposition,
+                    text: string.into(),
+                    ..Default::default()
+                };
+                runtime_window.process_key_input(event);
+            }
+            WindowEvent::CursorMoved { position, .. } => {
+                let position = position.to_logical(runtime_window.scale_factor() as f64);
+                self.cursor_pos = euclid::point2(position.x, position.y);
+                runtime_window.process_mouse_input(MouseEvent::Moved { position: self.cursor_pos });
+            }
+            WindowEvent::CursorLeft { .. } => {
+                // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
+                if cfg!(target_arch = "wasm32") || !self.pressed {
+                    self.pressed = false;
+                    runtime_window.process_mouse_input(MouseEvent::Exit);
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                let (delta_x, delta_y) = match delta {
+                    winit::event::MouseScrollDelta::LineDelta(lx, ly) => (lx * 60., ly * 60.),
+                    winit::event::MouseScrollDelta::PixelDelta(d) => {
+                        let d = d.to_logical(runtime_window.scale_factor() as f64);
+                        (d.x, d.y)
+                    }
+                };
+                runtime_window.process_mouse_input(MouseEvent::Wheel {
+                    position: self.cursor_pos,
+                    delta_x,
+                    delta_y,
+                });
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                let button = match button {
+                    winit::event::MouseButton::Left => PointerEventButton::Left,
+                    winit::event::MouseButton::Right => PointerEventButton::Right,
+                    winit::event::MouseButton::Middle => PointerEventButton::Middle,
+                    winit::event::MouseButton::Other(_) => PointerEventButton::Other,
+                    winit::event::MouseButton::Back => PointerEventButton::Other,
+                    winit::event::MouseButton::Forward => PointerEventButton::Other,
+                };
+                let ev = match state {
+                    winit::event::ElementState::Pressed => {
+                        self.pressed = true;
+                        MouseEvent::Pressed { position: self.cursor_pos, button, click_count: 0 }
+                    }
+                    winit::event::ElementState::Released => {
+                        self.pressed = false;
+                        MouseEvent::Released { position: self.cursor_pos, button, click_count: 0 }
+                    }
+                };
+                runtime_window.process_mouse_input(ev);
+            }
+            WindowEvent::Touch(touch) => {
+                let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
+                let position = euclid::point2(location.x, location.y);
+                let ev = match touch.phase {
+                    winit::event::TouchPhase::Started => {
+                        self.pressed = true;
+                        MouseEvent::Pressed {
+                            position,
+                            button: PointerEventButton::Left,
+                            click_count: 0,
+                        }
+                    }
+                    winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
+                        self.pressed = false;
+                        MouseEvent::Released {
+                            position,
+                            button: PointerEventButton::Left,
+                            click_count: 0,
+                        }
+                    }
+                    winit::event::TouchPhase::Moved => MouseEvent::Moved { position },
+                };
+                runtime_window.process_mouse_input(ev);
+            }
+            WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
+                if std::env::var("SLINT_SCALE_FACTOR").is_err() {
+                    window.window().dispatch_event(
+                        corelib::platform::WindowEvent::ScaleFactorChanged {
+                            scale_factor: scale_factor as f32,
+                        },
+                    );
+                    // TODO: send a resize event or try to keep the logical size the same.
+                    //window.resize_event(inner_size_writer.???)?;
+                }
+            }
+            WindowEvent::ThemeChanged(theme) => {
+                window.set_dark_color_scheme(theme == winit::window::Theme::Dark)
+            }
+            WindowEvent::Occluded(x) => {
+                window.renderer.occluded(x);
+            }
+            _ => {}
         }
-        WindowEvent::ThemeChanged(theme) => {
-            window.set_dark_color_scheme(theme == winit::window::Theme::Dark)
-        }
-        WindowEvent::Occluded(x) => {
-            window.renderer.occluded(x);
-        }
-        _ => {}
+        Ok(())
     }
-    Ok(())
 }
 
 /// Runs the event loop and renders the items in the provided `component` in its
@@ -456,9 +464,7 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
     // supplied Event::RedrawRequested, and drains them for drawing at RedrawEventsCleared.
     let mut windows_with_pending_redraw_requests = Vec::new();
 
-    // last seen cursor position
-    let mut cursor_pos = LogicalPoint::default();
-    let mut pressed = false;
+    let mut loop_state = EventLoopState::default();
 
     let outer_event_loop_error = Rc::new(RefCell::new(None));
     let inner_event_loop_error = outer_event_loop_error.clone();
@@ -498,8 +504,7 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
 
                         if process_event {
                             *inner_event_loop_error.borrow_mut() =
-                                process_window_event(window, event, &mut cursor_pos, &mut pressed)
-                                    .err();
+                                loop_state.process_window_event(window, event).err();
                         }
                     };
                 }
