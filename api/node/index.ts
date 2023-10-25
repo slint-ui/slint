@@ -294,12 +294,9 @@ export class CompileError extends Error {
 /**
  * Loads the given slint file and returns a constructor to create an instance of the exported component.
  */
-export function loadFile(filePath: string) : Object {
-    // this is a workaround that fixes an issue there resources in slint files cannot be loaded if the
-    // file path is given as relative path
-    let absoluteFilePath = path.resolve(filePath);
+export function loadFile(filePath: string): Object {
     let compiler = new napi.ComponentCompiler;
-    let definition = compiler.buildFromPath(absoluteFilePath);
+    let definition = compiler.buildFromPath(filePath);
 
     let diagnostics = compiler.diagnostics;
 
