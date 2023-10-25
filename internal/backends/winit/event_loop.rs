@@ -20,7 +20,8 @@ use corelib::window::*;
 use i_slint_core as corelib;
 use std::cell::{RefCell, RefMut};
 use std::rc::{Rc, Weak};
-use winit::event::WindowEvent;
+use winit::event::{Event, WindowEvent};
+use winit::event_loop::EventLoopWindowTarget;
 
 pub(crate) static QUIT_ON_LAST_WINDOW_CLOSED: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(true);
@@ -245,21 +246,28 @@ impl std::fmt::Debug for CustomEvent {
 
 #[derive(Default)]
 struct EventLoopState {
+    // With winit on Windows and with wasm, calling winit::Window::request_redraw() will not always deliver an
+    // Event::RedrawRequested (for example when the mouse cursor is outside of the window). So when we get woken
+    // up by the event loop to process new events from the operating system (NewEvents), we take note of all windows
+    // that called request_redraw() since the last iteration and we will call draw() ourselves, unless they received
+    // an Event::RedrawRequested in this new iteration. This vector collects the window ids of windows with pending
+    // redraw requests in the beginning of the loop iteration, removes ids that are covered by a windowing system
+    // supplied Event::RedrawRequested, and drains them for drawing at RedrawEventsCleared.
+    windows_with_pending_redraw_requests: Vec<winit::window::WindowId>,
+
     // last seen cursor position
     cursor_pos: LogicalPoint,
     pressed: bool,
+
+    loop_error: Option<PlatformError>,
 }
 
 impl EventLoopState {
-    fn process_window_event(
-        &mut self,
-        window: Rc<WinitWindowAdapter>,
-        event: WindowEvent,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    fn process_window_event(&mut self, window: Rc<WinitWindowAdapter>, event: WindowEvent) {
         let runtime_window = WindowInner::from_pub(window.window());
         match event {
             WindowEvent::Resized(size) => {
-                window.resize_event(size)?;
+                self.loop_error = window.resize_event(size).err();
             }
             WindowEvent::CloseRequested => {
                 window.window().dispatch_event(corelib::platform::WindowEvent::CloseRequested);
@@ -298,7 +306,7 @@ impl EventLoopState {
                             if let Some(text) = &event.text {
                                 text.as_str().into()
                             } else {
-                                return Ok(())
+                                return;
                             }
                         }
                     }
@@ -423,7 +431,163 @@ impl EventLoopState {
             }
             _ => {}
         }
-        Ok(())
+    }
+
+    fn process_event(
+        &mut self,
+        event: Event<SlintUserEvent>,
+        event_loop_target: &EventLoopWindowTarget<SlintUserEvent>,
+    ) {
+        use winit::event_loop::ControlFlow;
+
+        match event {
+            Event::WindowEvent { event: WindowEvent::RedrawRequested, window_id: id } => {
+                if let Some(window) = window_by_id(id) {
+                    if let Ok(pos) = self.windows_with_pending_redraw_requests.binary_search(&id) {
+                        self.windows_with_pending_redraw_requests.remove(pos);
+                    }
+                    match window.draw() {
+                        Ok(redraw_requested_during_draw) => {
+                            if redraw_requested_during_draw {
+                                // If during rendering a new redraw_request() was issued (for example in a rendering notifier callback), then
+                                // pretend that an animation is running, so that we return Poll from the event loop to ensure a repaint as
+                                // soon as possible.
+                                event_loop_target.set_control_flow(ControlFlow::Poll);
+                            }
+                        }
+                        Err(rendering_error) => self.loop_error = Some(rendering_error),
+                    };
+                }
+            }
+
+            Event::WindowEvent { event, window_id } => {
+                if let Some(window) = window_by_id(window_id) {
+                    #[cfg(not(enable_accesskit))]
+                    let process_event = true;
+                    #[cfg(enable_accesskit)]
+                    let process_event =
+                        window.accesskit_adapter.on_event(&window.winit_window(), &event);
+
+                    if process_event {
+                        self.process_window_event(window, event);
+                    }
+                };
+            }
+
+            Event::UserEvent(SlintUserEvent::CustomEvent { event: CustomEvent::WindowHidden }) => {
+                if QUIT_ON_LAST_WINDOW_CLOSED.load(std::sync::atomic::Ordering::Relaxed) {
+                    let window_count = ALL_WINDOWS.with(|windows| {
+                        windows
+                            .borrow()
+                            .values()
+                            .filter(|window| window.upgrade().map_or(false, |w| w.is_shown()))
+                            .count()
+                    });
+                    if window_count == 0 {
+                        event_loop_target.exit();
+                    }
+                }
+            }
+
+            Event::UserEvent(SlintUserEvent::CustomEvent { event: CustomEvent::Exit }) => {
+                event_loop_target.exit();
+            }
+
+            Event::UserEvent(SlintUserEvent::CustomEvent {
+                event: CustomEvent::UserEvent(user),
+            }) => {
+                user();
+            }
+
+            #[cfg(target_arch = "wasm32")]
+            Event::UserEvent(SlintUserEvent::CustomEvent {
+                event: CustomEvent::WakeEventLoopWorkaround,
+            }) => {
+                event_loop_target.set_control_flow(ControlFlow::Poll);
+            }
+
+            Event::NewEvents(_) => {
+                event_loop_target.set_control_flow(ControlFlow::Wait);
+
+                self.windows_with_pending_redraw_requests.clear();
+                ALL_WINDOWS.with(|windows| {
+                    for (window_id, window_weak) in windows.borrow().iter() {
+                        if window_weak.upgrade().map_or(false, |window| {
+                            window.is_shown() && window.take_pending_redraw()
+                        }) {
+                            if let Err(insert_pos) =
+                                self.windows_with_pending_redraw_requests.binary_search(window_id)
+                            {
+                                self.windows_with_pending_redraw_requests
+                                    .insert(insert_pos, *window_id);
+                            }
+                        }
+                    }
+                });
+
+                corelib::platform::update_timers_and_animations();
+            }
+
+            Event::Resumed => ALL_WINDOWS.with(|ws| {
+                for (_, window_weak) in ws.borrow().iter() {
+                    if let Some(w) = window_weak.upgrade() {
+                        if let Err(e) = w.renderer.resumed(&w.winit_window()) {
+                            self.loop_error = Some(e);
+                        }
+                    }
+                }
+            }),
+
+            Event::AboutToWait => {
+                if !event_loop_target.exiting()
+                    && ALL_WINDOWS.with(|windows| {
+                        windows.borrow().iter().any(|(_, w)| {
+                            w.upgrade()
+                                .and_then(|w| {
+                                    w.window().has_active_animations().then(|| {
+                                        w.request_redraw();
+                                        true
+                                    })
+                                })
+                                .unwrap_or_default()
+                        })
+                    })
+                {
+                    event_loop_target.set_control_flow(ControlFlow::Poll);
+                }
+
+                for window in
+                    self.windows_with_pending_redraw_requests.drain(..).filter_map(window_by_id)
+                {
+                    match window.draw() {
+                        Ok(redraw_requested_during_draw) => {
+                            if redraw_requested_during_draw {
+                                // If during rendering a new redraw_request() was issued (for example in a rendering notifier callback), then
+                                // pretend that an animation is running, so that we return Poll from the event loop to ensure a repaint as
+                                // soon as possible.
+                                event_loop_target.set_control_flow(ControlFlow::Poll);
+                            }
+                        }
+                        Err(rendering_error) => {
+                            self.loop_error = Some(rendering_error);
+                        }
+                    }
+                }
+
+                if event_loop_target.control_flow() == ControlFlow::Wait {
+                    if let Some(next_timer) = corelib::platform::duration_until_next_timer_update()
+                    {
+                        event_loop_target.set_control_flow(ControlFlow::wait_duration(next_timer));
+                    }
+                }
+            }
+
+            _ => (),
+        };
+
+        if self.loop_error.is_some() {
+            event_loop_target.exit();
+        }
     }
 }
 
@@ -431,9 +595,6 @@ impl EventLoopState {
 /// own window.
 #[allow(unused_mut)] // mut need changes for wasm
 pub fn run() -> Result<(), corelib::platform::PlatformError> {
-    use winit::event::Event;
-    use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
-
     let not_running_loop_instance = MAYBE_LOOP_INSTANCE
         .with(|loop_instance| match loop_instance.borrow_mut().take() {
             Some(instance) => Ok(instance),
@@ -455,179 +616,7 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
     let mut winit_loop = not_running_loop_instance.instance;
     let clipboard = not_running_loop_instance.clipboard;
 
-    // With winit on Windows and with wasm, calling winit::Window::request_redraw() will not always deliver an
-    // Event::RedrawRequested (for example when the mouse cursor is outside of the window). So when we get woken
-    // up by the event loop to process new events from the operating system (NewEvents), we take note of all windows
-    // that called request_redraw() since the last iteration and we will call draw() ourselves, unless they received
-    // an Event::RedrawRequested in this new iteration. This vector collects the window ids of windows with pending
-    // redraw requests in the beginning of the loop iteration, removes ids that are covered by a windowing system
-    // supplied Event::RedrawRequested, and drains them for drawing at RedrawEventsCleared.
-    let mut windows_with_pending_redraw_requests = Vec::new();
-
     let mut loop_state = EventLoopState::default();
-
-    let outer_event_loop_error = Rc::new(RefCell::new(None));
-    let inner_event_loop_error = outer_event_loop_error.clone();
-
-    let mut run_fn =
-        move |event: Event<SlintUserEvent>,
-              event_loop_target: &EventLoopWindowTarget<SlintUserEvent>| {
-            match event {
-                Event::WindowEvent { event: WindowEvent::RedrawRequested, window_id: id } => {
-                    if let Some(window) = window_by_id(id) {
-                        if let Ok(pos) = windows_with_pending_redraw_requests.binary_search(&id) {
-                            windows_with_pending_redraw_requests.remove(pos);
-                        }
-                        match window.draw() {
-                            Ok(redraw_requested_during_draw) => {
-                                if redraw_requested_during_draw {
-                                    // If during rendering a new redraw_request() was issued (for example in a rendering notifier callback), then
-                                    // pretend that an animation is running, so that we return Poll from the event loop to ensure a repaint as
-                                    // soon as possible.
-                                    event_loop_target.set_control_flow(ControlFlow::Poll);
-                                }
-                            }
-                            Err(rendering_error) => {
-                                *inner_event_loop_error.borrow_mut() = Some(rendering_error)
-                            }
-                        };
-                    }
-                }
-
-                Event::WindowEvent { event, window_id } => {
-                    if let Some(window) = window_by_id(window_id) {
-                        #[cfg(not(enable_accesskit))]
-                        let process_event = true;
-                        #[cfg(enable_accesskit)]
-                        let process_event =
-                            window.accesskit_adapter.on_event(&window.winit_window(), &event);
-
-                        if process_event {
-                            *inner_event_loop_error.borrow_mut() =
-                                loop_state.process_window_event(window, event).err();
-                        }
-                    };
-                }
-
-                Event::UserEvent(SlintUserEvent::CustomEvent {
-                    event: CustomEvent::WindowHidden,
-                }) => {
-                    if QUIT_ON_LAST_WINDOW_CLOSED.load(std::sync::atomic::Ordering::Relaxed) {
-                        let window_count = ALL_WINDOWS.with(|windows| {
-                            windows
-                                .borrow()
-                                .values()
-                                .filter(|window| window.upgrade().map_or(false, |w| w.is_shown()))
-                                .count()
-                        });
-                        if window_count == 0 {
-                            event_loop_target.exit();
-                        }
-                    }
-                }
-
-                Event::UserEvent(SlintUserEvent::CustomEvent { event: CustomEvent::Exit }) => {
-                    event_loop_target.exit();
-                }
-
-                Event::UserEvent(SlintUserEvent::CustomEvent {
-                    event: CustomEvent::UserEvent(user),
-                }) => {
-                    user();
-                }
-
-                #[cfg(target_arch = "wasm32")]
-                Event::UserEvent(SlintUserEvent::CustomEvent {
-                    event: CustomEvent::WakeEventLoopWorkaround,
-                }) => {
-                    event_loop_target.set_control_flow(ControlFlow::Poll);
-                }
-
-                Event::NewEvents(_) => {
-                    event_loop_target.set_control_flow(ControlFlow::Wait);
-
-                    windows_with_pending_redraw_requests.clear();
-                    ALL_WINDOWS.with(|windows| {
-                        for (window_id, window_weak) in windows.borrow().iter() {
-                            if window_weak.upgrade().map_or(false, |window| {
-                                window.is_shown() && window.take_pending_redraw()
-                            }) {
-                                if let Err(insert_pos) =
-                                    windows_with_pending_redraw_requests.binary_search(window_id)
-                                {
-                                    windows_with_pending_redraw_requests
-                                        .insert(insert_pos, *window_id);
-                                }
-                            }
-                        }
-                    });
-
-                    corelib::platform::update_timers_and_animations();
-                }
-
-                Event::Resumed => ALL_WINDOWS.with(|ws| {
-                    for (_, window_weak) in ws.borrow().iter() {
-                        if let Some(w) = window_weak.upgrade() {
-                            if let Err(e) = w.renderer.resumed(&w.winit_window()) {
-                                *inner_event_loop_error.borrow_mut() = Some(e);
-                            }
-                        }
-                    }
-                }),
-
-                Event::AboutToWait => {
-                    if !event_loop_target.exiting()
-                        && ALL_WINDOWS.with(|windows| {
-                            windows.borrow().iter().any(|(_, w)| {
-                                w.upgrade()
-                                    .and_then(|w| {
-                                        w.window().has_active_animations().then(|| {
-                                            w.request_redraw();
-                                            true
-                                        })
-                                    })
-                                    .unwrap_or_default()
-                            })
-                        })
-                    {
-                        event_loop_target.set_control_flow(ControlFlow::Poll);
-                    }
-
-                    for window in
-                        windows_with_pending_redraw_requests.drain(..).filter_map(window_by_id)
-                    {
-                        match window.draw() {
-                            Ok(redraw_requested_during_draw) => {
-                                if redraw_requested_during_draw {
-                                    // If during rendering a new redraw_request() was issued (for example in a rendering notifier callback), then
-                                    // pretend that an animation is running, so that we return Poll from the event loop to ensure a repaint as
-                                    // soon as possible.
-                                    event_loop_target.set_control_flow(ControlFlow::Poll);
-                                }
-                            }
-                            Err(rendering_error) => {
-                                *inner_event_loop_error.borrow_mut() = Some(rendering_error);
-                            }
-                        }
-                    }
-
-                    if event_loop_target.control_flow() == ControlFlow::Wait {
-                        if let Some(next_timer) =
-                            corelib::platform::duration_until_next_timer_update()
-                        {
-                            event_loop_target
-                                .set_control_flow(ControlFlow::wait_duration(next_timer));
-                        }
-                    }
-                }
-
-                _ => (),
-            };
-
-            if inner_event_loop_error.borrow().is_some() {
-                event_loop_target.exit();
-            }
-        };
 
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -641,8 +630,9 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                         event_loop_proxy: &event_loop_proxy,
                         clipboard: &clipboard,
                     };
-                    CURRENT_WINDOW_TARGET
-                        .set(&running_instance, || run_fn(event, event_loop_target))
+                    CURRENT_WINDOW_TARGET.set(&running_instance, || {
+                        loop_state.process_event(event, event_loop_target)
+                    })
                 },
             )
             .map_err(|e| format!("Error running winit event loop: {e}"))?;
@@ -653,6 +643,10 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
         // Winit does not support creating multiple instances of the event loop.
         let nre = NotRunningEventLoop { clipboard, instance: winit_loop, event_loop_proxy };
         MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre));
+
+        if let Some(error) = loop_state.loop_error {
+            return Err(error);
+        }
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -666,14 +660,12 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                         event_loop_proxy: &event_loop_proxy,
                         clipboard: &clipboard,
                     };
-                    CURRENT_WINDOW_TARGET
-                        .set(&running_instance, || run_fn(event, event_loop_target))
+                    CURRENT_WINDOW_TARGET.set(&running_instance, || {
+                        loop_state.process_event(event, event_loop_target)
+                    })
                 },
             )
-            .map_err(|e| format!("Error running winit event loop: {e}"))?
-    }
-    if let Some(error) = outer_event_loop_error.borrow_mut().take() {
-        return Err(error);
+            .map_err(|e| format!("Error running winit event loop: {e}"))?;
     }
     Ok(())
 }
