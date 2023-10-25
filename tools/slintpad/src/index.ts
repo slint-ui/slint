@@ -57,37 +57,6 @@ function create_demo_menu(editor: EditorWidget): Menu {
     return menu;
 }
 
-function create_style_menu(editor: EditorWidget): Menu {
-    const menu = new Menu({ commands });
-    menu.title.label = "Style";
-
-    for (const style of [
-        { label: "Fluent", name: "fluent" },
-        { label: "Fluent Light", name: "fluent-light" },
-        { label: "Fluent Dark", name: "fluent-dark" },
-        { label: "Material", name: "material" },
-        { label: "Material Light", name: "material-light" },
-        { label: "Material Dark", name: "material-dark" },
-        { label: "Cupertino", name: "cupertino" },
-        { label: "Cupertino Light", name: "cupertino-light" },
-        { label: "Cupertino Dark", name: "cupertino-dark" },
-    ]) {
-        const command_name = "slint:set_style_" + style.name;
-        commands.addCommand(command_name, {
-            label: style.label,
-            isToggled: () => {
-                return editor.style() === style.name;
-            },
-            execute: () => {
-                editor.set_style(style.name);
-            },
-        });
-        menu.addItem({ command: command_name });
-    }
-
-    return menu;
-}
-
 function create_settings_menu(): Menu {
     const menu = new Menu({ commands });
     menu.title.label = "Settings";
@@ -105,7 +74,10 @@ function create_settings_menu(): Menu {
     return menu;
 }
 
-function create_project_menu(editor: EditorWidget): Menu {
+function create_project_menu(
+    editor: EditorWidget,
+    preview: PreviewWidget,
+): Menu {
     const menu = new Menu({ commands });
     menu.title.label = "Project";
 
@@ -151,14 +123,17 @@ function create_project_menu(editor: EditorWidget): Menu {
     menu.addItem({ type: "submenu", submenu: create_demo_menu(editor) });
     menu.addItem({ type: "separator" });
     menu.addItem({ command: "slint:add_file" });
-    menu.addItem({ type: "submenu", submenu: create_share_menu(editor) });
+    menu.addItem({
+        type: "submenu",
+        submenu: create_share_menu(editor, preview),
+    });
     menu.addItem({ type: "separator" });
     menu.addItem({ type: "submenu", submenu: create_settings_menu() });
 
     return menu;
 }
 
-function create_share_menu(editor: EditorWidget): Menu {
+function create_share_menu(editor: EditorWidget, preview: PreviewWidget): Menu {
     const menu = new Menu({ commands });
     menu.title.label = "Share";
 
@@ -172,7 +147,7 @@ function create_share_menu(editor: EditorWidget): Menu {
         execute: () => {
             const params = new URLSearchParams();
             params.set("snippet", editor.current_editor_content);
-            params.set("style", editor.style());
+            params.set("style", preview.current_style());
             const this_url = new URL(window.location.toString());
             this_url.search = params.toString();
 
@@ -408,18 +383,23 @@ class DockWidgets {
     }
 }
 
+const url_params = new URLSearchParams(window.location.search);
+const url_style = url_params.get("style");
+
 function setup(lsp: Lsp) {
     const editor = new EditorWidget(lsp);
+    const preview = new PreviewWidget(
+        lsp,
+        (url: string) => editor.map_url(url),
+        url_style ?? "",
+    );
+
     const dock = new DockPanel();
 
     const dock_widgets = new DockWidgets(
         dock,
         [
             () => {
-                const preview = new PreviewWidget(lsp, (url: string) =>
-                    editor.map_url(url),
-                );
-
                 return preview;
             },
             {},
@@ -476,8 +456,7 @@ function setup(lsp: Lsp) {
 
     const menu_bar = new MenuBar();
     menu_bar.id = "menuBar";
-    menu_bar.addMenu(create_project_menu(editor));
-    menu_bar.addMenu(create_style_menu(editor));
+    menu_bar.addMenu(create_project_menu(editor, preview));
     menu_bar.addMenu(create_view_menu(dock_widgets));
 
     const main = new SplitPanel({ orientation: "horizontal" });

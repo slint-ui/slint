@@ -3,13 +3,16 @@
 
 // cSpell: ignore Heade
 
-import { ScrollView, Button, HorizontalBox } from "std-widgets.slint";
+import { ScrollView, ComboBox, Button, HorizontalBox } from "std-widgets.slint";
 import { HeaderBar } from "header-bar.slint";
 import { Spinner } from "spinner.slint";
 
 export component PreviewUi inherits Window {
+    in property<[string]> known-styles <=> i-style-select.model;
+    in property<string> current-style <=> i-style-select.current-value;
     in property<component-factory> preview-area <=> i-preview-area-container.component-factory;
     callback design-mode-changed(/* enabled */ bool);
+    callback style-changed(/* style */ string);
 
     in property <bool> is-busy;
 
@@ -25,6 +28,12 @@ export component PreviewUi inherits Window {
 
                 clicked => {
                     root.design-mode-changed(self.checked);
+                }
+            }
+
+            i-style-select := ComboBox {
+                selected(value) => {
+                    root.style-changed(value);
                 }
             }
 
