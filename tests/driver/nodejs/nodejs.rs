@@ -12,15 +12,27 @@ lazy_static::lazy_static! {
         // it tries to emulate CreateProcess.
         let npm = which::which("npm").unwrap();
 
-        // builds and installs the slint node package
+        // installs the slint node package dependencies
         std::process::Command::new(npm.clone())
                 .arg("install")
                 .arg("--no-audit")
+                .arg("--ignore-scripts")
                 .current_dir(node_dir.clone())
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .output()
                 .map_err(|err| format!("Could not launch npm install: {}", err)).unwrap();
+
+        // builds the slint node package in debug
+        std::process::Command::new(npm.clone())
+                .arg("run")
+                .arg("build:debug")
+                .current_dir(node_dir.clone())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .output()
+                .map_err(|err| format!("Could not launch npm install: {}", err)).unwrap();
+
 
         node_dir.join("index.js")
     };

@@ -128,13 +128,13 @@ jobs:
         key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
     - name: Run npm install
       working-directory: ./api/node
-      run: npm install
-    - name: Typescript check
-      working-directory: ./api/node
-      run: npm run syntax_check
+      run: npm install --ignore-scripts
     - name: Build node plugin in debug
       run: npm run build:debug
       working-directory: ./api/node
+    - name: Typescript check
+      working-directory: ./api/node
+      run: npm run syntax_check
     - name: Run node tests
       working-directory: ./api/node
       run: npm test
