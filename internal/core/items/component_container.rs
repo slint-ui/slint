@@ -14,10 +14,10 @@ use crate::input::{
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::item_tree::{IndexRange, ItemTreeRc, ItemTreeWeak};
+use crate::item_tree::{IndexRange, ItemTreeRc, ItemTreeWeak, ItemWeak};
 use crate::item_tree::{ItemTreeNode, ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::LogicalSize;
+use crate::lengths::{LogicalLength, LogicalSize};
 use crate::properties::{Property, PropertyTracker};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -35,6 +35,8 @@ use once_cell::unsync::OnceCell;
 #[pin]
 /// The implementation of the `ComponentContainer` element
 pub struct ComponentContainer {
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub component_factory: Property<ComponentFactory>,
 
     pub cached_rendering_data: CachedRenderingData,
@@ -44,6 +46,7 @@ pub struct ComponentContainer {
 
     my_component: OnceCell<ItemTreeWeak>,
     embedding_item_tree_index: OnceCell<u32>,
+    self_weak: OnceCell<ItemWeak>,
 }
 
 impl ComponentContainer {
@@ -66,6 +69,38 @@ impl ComponentContainer {
         };
 
         let product = factory.build(factory_context);
+        if let Some(item_tree) = product.clone() {
+            let item_tree = vtable::VRc::borrow_pin(&item_tree);
+            let root_item = item_tree.as_ref().get_item_ref(0);
+            if let Some(window_item) =
+                crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+            {
+                // Do _not_ use a two-way binding: That causes evaluations of width and height to
+                // assert on recursive property evaluation.
+                let weak = self.self_weak.get().unwrap().clone();
+                window_item.width.set_binding(Box::new(move || {
+                    if let Some(self_rc) = weak.upgrade() {
+                        let self_pin = self_rc.borrow();
+                        if let Some(self_cc) = crate::items::ItemRef::downcast_pin::<Self>(self_pin)
+                        {
+                            return self_cc.width();
+                        }
+                    }
+                    Default::default()
+                }));
+                let weak = self.self_weak.get().unwrap().clone();
+                window_item.height.set_binding(Box::new(move || {
+                    if let Some(self_rc) = weak.upgrade() {
+                        let self_pin = self_rc.borrow();
+                        if let Some(self_cc) = crate::items::ItemRef::downcast_pin::<Self>(self_pin)
+                        {
+                            return self_cc.height();
+                        }
+                    }
+                    Default::default()
+                }));
+            }
+        }
         self.item_tree.replace(product);
     }
 
@@ -113,6 +148,7 @@ impl Item for ComponentContainer {
         self.embedding_item_tree_index.set(child_item_tree_index).ok().unwrap();
 
         self.component_tracker.set(Box::pin(PropertyTracker::default())).ok().unwrap();
+        self.self_weak.set(self_rc.downgrade()).ok().unwrap();
     }
 
     fn layout_info(
@@ -168,7 +204,7 @@ impl Item for ComponentContainer {
         self: Pin<&Self>,
         backend: &mut super::ItemRendererRef,
         item_rc: &ItemRc,
-        _size: LogicalSize,
+        size: LogicalSize,
     ) -> RenderingResult {
         if let Some(item_tree) = self.item_tree.borrow().clone() {
             let item_tree = vtable::VRc::borrow_pin(&item_tree);
@@ -177,9 +213,8 @@ impl Item for ComponentContainer {
                 crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
             {
                 let mut rect = Rectangle::default();
-                let geometry = item_tree.as_ref().item_geometry(0);
                 rect.background.set(window_item.background());
-                backend.draw_rectangle(core::pin::pin!(rect).as_ref(), item_rc, geometry.size);
+                backend.draw_rectangle(core::pin::pin!(rect).as_ref(), item_rc, size);
             }
         }
 
