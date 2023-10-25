@@ -170,12 +170,16 @@ cpp! {{
             // so we should set this flag.
             QCoreApplication::setAttribute(Qt::AA_PluginApplication, true);
         }
+
+        static QByteArray executable = rust!(Slint_get_executable_name [] -> qttypes::QByteArray as "QByteArray" {
+            std::env::args().next().unwrap_or_default().as_bytes().into()
+        });
+
         static int argc  = 1;
-        static char argv[] = "Slint";
-        static char *argv2[] = { argv };
+        static char *argv[] = { executable.data() };
         // Leak the QApplication, otherwise it crashes on exit
         // (because the QGuiApplication destructor access some Q_GLOBAL_STATIC which are already gone)
-        new QApplication(argc, argv2);
+        new QApplication(argc, argv);
     }
 
     // HACK ALERT: This struct declaration is duplicated in api/cpp/bindgen.rs - keep in sync.
