@@ -96,7 +96,7 @@
                 },
                 "slint.preview.style": {
                     "type": "string",
-                    "description": "The style to be used for the preview (eg: 'fluent', 'material', or 'native')"
+                    "description": "The default style to be used for the preview (eg: 'fluent', 'material', or 'native')"
                 },
                 "slint.preview.providedByEditor": {
                     "type": "boolean",

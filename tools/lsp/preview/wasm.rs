@@ -55,6 +55,7 @@ impl PreviewConnector {
     pub fn create(
         lsp_notifier: SignalLspFunction,
         resource_url_mapper: ResourceUrlMapperFunction,
+        style: String,
     ) -> Result<PreviewConnectorPromise, JsValue> {
         console_error_panic_hook::set_once();
 
@@ -66,15 +67,17 @@ impl PreviewConnector {
         Ok(JsValue::from(js_sys::Promise::new(&mut move |resolve, reject| {
             let resolve = send_wrapper::SendWrapper::new(resolve);
             let reject_c = send_wrapper::SendWrapper::new(reject.clone());
+            let style = style.clone();
             if let Err(e) = slint_interpreter::invoke_from_event_loop(move || {
-                PREVIEW_STATE.with(|preview_state| {
+                PREVIEW_STATE.with(move |preview_state| {
                     if preview_state.borrow().ui.is_some() {
                         reject_c.take().call1(&JsValue::UNDEFINED,
                             &JsValue::from("PreviewConnector already set up.")).unwrap_throw();
                     } else {
-                        match super::ui::create_ui() {
-                            Ok(ui) => {
+                        match super::ui::create_ui(style) {
+                            Ok((ui, style)) => {
                                 preview_state.borrow_mut().ui = Some(ui);
+                                super::change_style(style);
                                 resolve.take().call1(&JsValue::UNDEFINED,
                                     &JsValue::from(Self { })).unwrap_throw()
                             }
@@ -94,6 +97,11 @@ impl PreviewConnector {
                     .unwrap_throw();
             }
         })).unchecked_into::<PreviewConnectorPromise>())
+    }
+
+    #[wasm_bindgen]
+    pub fn current_style(&self) -> JsValue {
+        crate::preview::get_current_style().into()
     }
 
     #[wasm_bindgen]

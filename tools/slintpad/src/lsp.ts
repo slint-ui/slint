@@ -97,6 +97,10 @@ export class Previewer {
     show_ui(): Promise<void> {
         return this.#preview_connector.show_ui();
     }
+
+    current_style(): string {
+        return this.#preview_connector.current_style();
+    }
 }
 
 export class Lsp {
@@ -207,6 +211,7 @@ export class Lsp {
 
     async previewer(
         resource_url_mapper: ResourceUrlMapperFunction,
+        style: string,
     ): Promise<Previewer> {
         if (this.#preview_connector === null) {
             try {
@@ -217,12 +222,16 @@ export class Lsp {
 
             this.#preview_connector =
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                await slint_preview.PreviewConnector.create((data: any) => {
-                    this.language_client.sendNotification(
-                        "slint/preview_to_lsp",
-                        data,
-                    );
-                }, resource_url_mapper);
+                await slint_preview.PreviewConnector.create(
+                    (data) => {
+                        this.language_client.sendNotification(
+                            "slint/preview_to_lsp",
+                            data,
+                        );
+                    },
+                    resource_url_mapper,
+                    style,
+                );
         }
         return new Previewer(this.#preview_connector);
     }
