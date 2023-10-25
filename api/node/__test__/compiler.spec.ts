@@ -15,6 +15,20 @@ test('get/set include paths', (t) => {
   t.deepEqual(compiler.includePaths, ["path/one/", "path/two/", "path/three/"]);
 })
 
+test('get/set library paths', (t) => {
+  let compiler = new private_api.ComponentCompiler;
+
+  compiler.libraryPaths = {
+    "libfile.slint" : "third_party/libfoo/ui/lib.slint",
+    "libdir" : "third_party/libbar/ui/",
+  };
+
+  t.deepEqual(compiler.libraryPaths, {
+    "libfile.slint" : "third_party/libfoo/ui/lib.slint",
+    "libdir" : "third_party/libbar/ui/",
+  });
+})
+
 test('get/set style', (t) => {
   let compiler = new private_api.ComponentCompiler;
 
@@ -209,8 +223,8 @@ test('compiler diagnostics', (t) => {
     level: 0,
     message: 'Parse error',
     lineNumber: 2,
-    column: 12,
-    sourceFile: 'testsource.slint'
+    columnNumber: 12,
+    fileName: 'testsource.slint'
   });
 })
 

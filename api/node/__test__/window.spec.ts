@@ -7,7 +7,7 @@ import { private_api, Window } from '../index'
 
 test('Window constructor', (t) => {
     t.throws(() => {
-        new Window()
+        new private_api.Window()
         },
         {
             code: "GenericFailure",

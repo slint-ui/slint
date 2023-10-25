@@ -128,7 +128,7 @@ export component MyComponent inherits Window {
 }
 ```
 
-The callbacks in JavaScript are exposed as property that has a setHandler function, and that can be called as a function.
+The callbacks in JavaScript are exposed as property and that can be called as a function.
 
 **`main.js`**
 
@@ -139,7 +139,7 @@ let ui = slint.loadFile("ui/my-component.slint");
 let component = new ui.MyComponent();
 
 // connect to a callback
-component.clicked.setHandler(function() { console.log("hello"); })
+component.clicked = function() { console.log("hello"); };
 // emit a callback
 component.clicked();
 ```

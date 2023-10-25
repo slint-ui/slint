@@ -18,7 +18,7 @@ for (let i = tiles.length - 1; i > 0; i--) {
 let model = new slint.ArrayModel(tiles);
 window.memory_tiles = model;
 
-window.check_if_pair_solved.setHandler(function () {
+window.check_if_pair_solved = function () {
     let flipped_tiles = [];
     tiles.forEach((tile, index) => {
         if (tile.image_visible && !tile.solved) {
@@ -58,6 +58,6 @@ window.check_if_pair_solved.setHandler(function () {
 
         }
     }
-})
+};
 
 window.run();

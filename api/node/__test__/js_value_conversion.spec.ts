@@ -190,9 +190,9 @@ test('get/set image properties', async (t) => {
   t.not(instance, null);
 
   let slintImage = instance!.getProperty("image");
-  if (t.true((slintImage instanceof ImageData))) {
-    t.deepEqual((slintImage as ImageData).width, 64);
-    t.deepEqual((slintImage as ImageData).height, 64);
+  if (t.true((slintImage instanceof private_api.ImageData))) {
+    t.deepEqual((slintImage as private_api.ImageData).width, 64);
+    t.deepEqual((slintImage as private_api.ImageData).height, 64);
 
     let image = await Jimp.read(path.join(__dirname, "resources/rgb.png"));
 
@@ -237,6 +237,8 @@ test('get/set brush properties', (t) => {
     in-out property <brush> black: #000000;
     in-out property <brush> trans: transparent;
     in-out property <brush> ref: transparent;
+    in-out property <brush> linerar-gradient: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
+    in-out property <brush> radial-gradient: @radial-gradient(circle, #f00 0%, #0f0 50%, #00f 100%);
   }
   `, "");
   t.not(definition, null);
@@ -271,7 +273,7 @@ test('get/set brush properties', (t) => {
     t.assert((transparent as Brush).isTransparent);
   }
 
-  let ref = Brush.fromColor(Color.fromRgb(100, 110, 120));
+  let ref = new Brush({ red: 100, green: 110, blue: 120, alpha: 255 });
   instance!.setProperty("ref", ref);
 
   let instance_ref = instance!.getProperty("ref");
@@ -281,6 +283,21 @@ test('get/set brush properties', (t) => {
     t.deepEqual(ref_color.red, 100);
     t.deepEqual(ref_color.green, 110);
     t.deepEqual(ref_color.blue, 120);
+    t.deepEqual(ref_color.alpha, 255);
+  }
+
+  let radialGradient = instance!.getProperty("radial-gradient");
+
+  if (t.true((radialGradient instanceof Brush))) {
+      t.is((radialGradient as Brush).toString(),
+        "radial-gradient(circle, rgba(255,0,0, 255) 0%, rgba(0,255,0, 255) 50%, rgba(0,0,255, 255) 100%)");
+  }
+
+  let linearGradient = instance!.getProperty("linerar-gradient");
+
+  if (t.true((linearGradient instanceof Brush))) {
+      t.is((linearGradient as Brush).toString(),
+        "linear-gradient(90deg, rgba(63,135,166, 255) 0%, rgba(235,248,225, 255) 50%, rgba(246,157,60, 255) 100%)");
   }
 })
 

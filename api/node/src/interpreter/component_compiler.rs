@@ -71,6 +71,17 @@ impl JsComponentCompiler {
         self.internal.set_library_paths(library_paths);
     }
 
+    #[napi(getter)]
+    pub fn library_paths(&self) -> HashMap<String, String> {
+        let mut library_paths = HashMap::new();
+
+        for (key, path) in self.internal.library_paths() {
+            library_paths.insert(key.clone(), path.to_str().unwrap_or_default().to_string());
+        }
+
+        library_paths
+    }
+
     #[napi(setter)]
     pub fn set_style(&mut self, style: String) {
         self.internal.set_style(style);

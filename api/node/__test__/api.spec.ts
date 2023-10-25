@@ -22,25 +22,25 @@ test('loadFile', (t) => {
     t.is(error?.message, "Could not compile " + errorPath);
     t.deepEqual(error?.diagnostics, [
         {
-            column: 18,
+            columnNumber: 18,
             level: 0,
             lineNumber: 7,
             message: 'Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type',
-            sourceFile: errorPath
+            fileName: errorPath
         },
         {
-            column: 22,
+            columnNumber: 22,
             level: 0,
             lineNumber: 7,
             message: 'Syntax error: expected \';\'',
-            sourceFile: errorPath
+            fileName: errorPath
         },
         {
-            column: 22,
+            columnNumber: 22,
             level: 0,
             lineNumber: 7,
             message: 'Parse error',
-            sourceFile: errorPath
+            fileName: errorPath
         },
     ]);
 })
@@ -50,7 +50,6 @@ test('constructor parameters', (t) => {
     let hello = "";
     let test = new demo.Test({ say_hello: function() { hello = "hello"; }, check: "test"});
 
-    // test.say_hello.setHandler(function () { blub = "hello"; });
     test.say_hello();
 
     t.is(test.check, "test");

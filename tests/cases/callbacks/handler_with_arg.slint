@@ -84,11 +84,11 @@ try {
 assert.equal(instance.callback_emission_count, 0);
 
 
-/// also test setHandler
-instance.test_callback2.setHandler(function(a) {
+/// also test test_callback2
+instance.test_callback2 = function(a) {
     callback_3_emitted += 100;
     callback_3_string_value = a;
-});
+};
 instance.test_callback2("salùt")
 assert.equal(callback_3_emitted, 101);
 assert.equal(callback_3_string_value, "salùt");

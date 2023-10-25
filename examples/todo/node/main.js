@@ -43,11 +43,11 @@ let model = new slint.ArrayModel([
 ]);
 app.todo_model = model;
 
-app.todo_added.setHandler(function (text) {
+app.todo_added = function (text) {
     model.push({ title: text, checked: false })
-})
+};
 
-app.remove_done.setHandler(function () {
+app.remove_done = function () {
     let offset = 0;
     const length = model.length;
     for (let i = 0; i < length; ++i) {
@@ -56,6 +56,6 @@ app.remove_done.setHandler(function () {
             offset++;
         }
     }
-})
+};
 
 app.run();

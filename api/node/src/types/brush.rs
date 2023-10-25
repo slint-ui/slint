@@ -1,23 +1,39 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use i_slint_core::{Brush, Color};
-use napi::bindgen_prelude::External;
+use i_slint_core::{graphics::GradientStop, Brush, Color};
+use napi::{bindgen_prelude::External, Error, Result};
 
 /// Color represents a color in the Slint run-time, represented using 8-bit channels for red, green, blue and the alpha (opacity).
-#[napi(js_name = Color)]
+#[napi(object, js_name = "Color")]
 pub struct JsColor {
+    /// Represents red channel of the color as u8 in the range 0..255.
+    pub red: f64,
+
+    /// Represents green channel of the color as u8 in the range 0..255.
+    pub green: f64,
+
+    /// Represents blue channel of the color as u8 in the range 0..255.
+    pub blue: f64,
+
+    /// Represents alpha channel of the color as u8 in the range 0..255.
+    pub alpha: f64,
+}
+
+/// Color represents a color in the Slint run-time, represented using 8-bit channels for red, green, blue and the alpha (opacity).
+#[napi(js_name = SlintColor)]
+pub struct JsSlintColor {
     inner: Color,
 }
 
-impl From<Color> for JsColor {
+impl From<Color> for JsSlintColor {
     fn from(color: Color) -> Self {
         Self { inner: color }
     }
 }
 
 #[napi]
-impl JsColor {
+impl JsSlintColor {
     /// Creates a new transparent color.
     #[napi(constructor)]
     pub fn new() -> Self {
@@ -80,8 +96,8 @@ impl JsColor {
     /// So for example `brighter(0.2)` will increase the brightness by 20%, and
     /// calling `brighter(-0.5)` will return a color that's 50% darker.
     #[napi]
-    pub fn brighter(&self, factor: f64) -> JsColor {
-        JsColor::from(self.inner.brighter(factor as f32))
+    pub fn brighter(&self, factor: f64) -> JsSlintColor {
+        JsSlintColor::from(self.inner.brighter(factor as f32))
     }
 
     /// Returns a new version of this color that has the brightness decreased
@@ -90,29 +106,29 @@ impl JsColor {
     /// result is converted back to RGB and the alpha channel is unchanged.
     /// So for example `darker(0.3)` will decrease the brightness by 30%.
     #[napi]
-    pub fn darker(&self, factor: f64) -> JsColor {
-        JsColor::from(self.inner.darker(factor as f32))
+    pub fn darker(&self, factor: f64) -> JsSlintColor {
+        JsSlintColor::from(self.inner.darker(factor as f32))
     }
 
     /// Returns a new version of this color with the opacity decreased by `factor`.
     ///
     /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
     #[napi]
-    pub fn transparentize(&self, amount: f64) -> JsColor {
-        JsColor::from(self.inner.transparentize(amount as f32))
+    pub fn transparentize(&self, amount: f64) -> JsSlintColor {
+        JsSlintColor::from(self.inner.transparentize(amount as f32))
     }
 
     /// Returns a new color that is a mix of `self` and `other`, with a proportion
     /// factor given by `factor` (which will be clamped to be between `0.0` and `1.0`).
     #[napi]
-    pub fn mix(&self, other: &JsColor, factor: f64) -> JsColor {
-        JsColor::from(self.inner.mix(&other.inner, factor as f32))
+    pub fn mix(&self, other: &JsSlintColor, factor: f64) -> JsSlintColor {
+        JsSlintColor::from(self.inner.mix(&other.inner, factor as f32))
     }
 
     /// Returns a new version of this color with the opacity set to `alpha`.
     #[napi]
-    pub fn with_alpha(&self, alpha: f64) -> JsColor {
-        JsColor::from(self.inner.with_alpha(alpha as f32))
+    pub fn with_alpha(&self, alpha: f64) -> JsSlintColor {
+        JsSlintColor::from(self.inner.with_alpha(alpha as f32))
     }
 
     /// Returns the color as string in hex representation e.g. `#000000` for black.
@@ -137,30 +153,38 @@ impl From<Brush> for JsBrush {
     }
 }
 
-impl From<JsColor> for JsBrush {
-    fn from(color: JsColor) -> Self {
+impl From<JsSlintColor> for JsBrush {
+    fn from(color: JsSlintColor) -> Self {
         Self::from(Brush::from(color.inner))
     }
 }
 
 #[napi]
 impl JsBrush {
-    /// Creates a new transparent brush.
     #[napi(constructor)]
-    pub fn new() -> Self {
-        Self { inner: Brush::default() }
+    pub fn new_with_color(color: JsColor) -> Result<Self> {
+        if color.red < 0. || color.green < 0. || color.blue < 0. || color.alpha < 0. {
+            return Err(Error::from_reason("A channel of Color cannot be negative"));
+        }
+
+        Ok(Self {
+            inner: Brush::SolidColor(Color::from_argb_u8(
+                color.alpha.floor() as u8,
+                color.red.floor() as u8,
+                color.green.floor() as u8,
+                color.blue.floor() as u8,
+            )),
+        })
     }
 
     /// Creates a brush form a `Color`.
-    #[napi(factory)]
-    pub fn from_color(color: &JsColor) -> Self {
+    pub fn from_slint_color(color: &JsSlintColor) -> Self {
         Self { inner: Brush::SolidColor(color.inner) }
     }
 
-    /// If the brush is SolidColor, the contained color is returned.
-    /// If the brush is a LinearGradient, the color of the first stop is returned.
+    /// @hidden
     #[napi(getter)]
-    pub fn color(&self) -> JsColor {
+    pub fn color(&self) -> JsSlintColor {
         self.inner.color().into()
     }
 
@@ -217,11 +241,52 @@ impl JsBrush {
     /// It is only implemented for solid color brushes.
     #[napi]
     pub fn to_string(&self) -> String {
-        if let Brush::SolidColor(_) = self.inner {
-            return self.color().to_string();
+        match &self.inner {
+            Brush::SolidColor(_) => {
+                return self.color().to_string();
+            }
+            Brush::LinearGradient(gradient) => {
+                return format!(
+                    "linear-gradient({}deg, {})",
+                    gradient.angle(),
+                    gradient_stops_to_string(gradient.stops())
+                );
+            }
+            Brush::RadialGradient(gradient) => {
+                return format!(
+                    "radial-gradient(circle, {})",
+                    gradient_stops_to_string(gradient.stops())
+                );
+            },
+            _ => String::default()
         }
-
-        println!("toString() is not yet implemented for gradient brushes.");
-        String::default()
     }
+}
+
+fn gradient_stops_to_string<'a>(stops: impl Iterator<Item = &'a GradientStop>) -> String {
+    let stops: Vec<String> = stops
+        .map(|s| {
+            format!(
+                "rgba({},{},{}, {}) {}%",
+                s.color.red(),
+                s.color.green(),
+                s.color.blue(),
+                s.color.alpha(),
+                s.position * 100.
+            )
+        })
+        .collect();
+
+    let mut stops_string = String::default();
+    let len = stops.len();
+
+    for i in 0..len {
+        stops_string.push_str(stops[i].as_str());
+
+        if i < len - 1 {
+            stops_string.push_str(", ");
+        }
+    }
+
+    stops_string
 }
