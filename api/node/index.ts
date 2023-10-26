@@ -4,40 +4,78 @@
 import * as path from "path";
 
 import * as napi from "./rust-module";
-export { Diagnostic, DiagnosticLevel, Window, Brush, Color, ImageData, Point, Size, SlintModelNotify } from "./rust-module";
+export { Diagnostic, DiagnosticLevel, Brush, Color, SlintModelNotify } from "./rust-module";
 
 /**
- * ModelPeer is the interface that the run-time implements. An instance is
- * set on dynamic {@link Model} instances and can be used to notify the run-time
- * of changes in the structure or data of the model.
+ *  Represents a two-dimensional point.
  */
-export interface ModelPeer {
+export interface Point {
+    x: number,
+    y: number
+}
+
+/**
+ *  Represents a two-dimensional size.
+ */
+export interface Size {
+    width: number,
+    height: number
+}
+
+/**
+ * This type represents a window towards the windowing system, that's used to render the
+ * scene of a component. It provides API to control windowing system specific aspects such
+ * as the position on the screen.
+ */
+export interface Window {
     /**
-     * Call this function from our own model to notify that fields of data
-     * in the specified row have changed.
-     * @argument row
+     * Shows the window on the screen. An additional strong reference on the
+     * associated component is maintained while the window is visible.
      */
-    rowDataChanged(row: number): void;
-    /**
-     * Call this function from your own model to notify that one or multiple
-     * rows were added to the model, starting at the specified row.
-     * @param row
-     * @param count
-     */
-    rowAdded(row: number, count: number): void;
-    /**
-     * Call this function from your own model to notify that one or multiple
-     * rows were removed from the model, starting at the specified row.
-     * @param row
-     * @param count
-     */
-    rowRemoved(row: number, count: number): void;
+    show(): void;
+
+    /** Hides the window, so that it is not visible anymore. */
+    hide(): void;
 
     /**
-     * Call this function from your own model to notify that the model has been
-     * changed and everything must be reloaded
+     * Returns the visibility state of the window. This function can return false even if you previously called show()
+     * on it, for example if the user minimized the window.
      */
-    reset(): void;
+    get isVisible(): boolean;
+
+    /** Gets or sets the logical position of the window on the screen. */
+    logicalPosition: Point;
+
+    /** Gets or sets the physical position of the window on the screen. */
+    physicalPosition: Point;
+
+    /** Gets or sets the logical size of the window on the screen, */
+    logicalSize: Size;
+
+    /** Gets or sets the physical size of the window on the screen, */
+    physicalSize: Size;
+}
+
+/**
+ * An image data type that can be displayed by the Image element.
+ *
+ * This interface is inspired by the web [ImageData](https://developer.mozilla.org/en-US/docs/Web/API/ImageData) interface.
+ */
+export interface ImageData {
+    /**
+     *  Returns the image as buffer.
+     */
+    get data(): Uint8Array;
+
+    /**
+     * Returns the width of the image in pixels.
+     */
+    get width(): number;
+
+    /**
+     *  Returns the height of the image in pixels.
+     */
+    get height(): number;
 }
 
 /**
@@ -53,11 +91,10 @@ export interface ModelPeer {
  * ```js
  * export class ArrayModel<T> implements Model<T> {
  *    private a: Array<T>
- *    notify: ModelPeer;
  *
  *   constructor(arr: Array<T>) {
+ *        super();
  *        this.a = arr;
- *        this.notify = new NullPeer();
  *    }
  *
  *    rowCount() {
@@ -98,34 +135,38 @@ export interface ModelPeer {
  *}
  * ```
  */
-export interface Model<T> {
+ export abstract class Model<T> {
+    /**
+     * @hidden
+     */
+    notify: NullPeer;
+
+    constructor() {
+        this.notify = new NullPeer();
+    }
+
     /**
      * Implementations of this function must return the current number of rows.
      */
-    rowCount(): number;
+    abstract rowCount(): number;
     /**
      * Implementations of this function must return the data at the specified row.
      * @param row
      */
-    rowData(row: number): T | undefined;
+    abstract rowData(row: number): T | undefined;
     /**
      * Implementations of this function must store the provided data parameter
      * in the model at the specified row.
      * @param row
      * @param data
      */
-    setRowData(row: number, data: T): void;
-    /**
-     * This public member is set by the run-time and implementation must use this
-     * to notify the run-time of changes in the model.
-     */
-    notify: ModelPeer;
+    abstract setRowData(row: number, data: T): void;
 }
 
 /**
  * @hidden
  */
-class NullPeer implements ModelPeer {
+class NullPeer {
     rowDataChanged(row: number): void { }
     rowAdded(row: number, count: number): void { }
     rowRemoved(row: number, count: number): void { }
@@ -136,12 +177,11 @@ class NullPeer implements ModelPeer {
  * ArrayModel wraps a JavaScript array for use in `.slint` views. The underlying
  * array can be modified with the [[ArrayModel.push]] and [[ArrayModel.remove]] methods.
  */
-export class ArrayModel<T> implements Model<T> {
+export class ArrayModel<T> extends Model<T> {
     /**
      * @hidden
      */
     private a: Array<T>
-    notify: ModelPeer;
 
     /**
      * Creates a new ArrayModel.
@@ -149,8 +189,8 @@ export class ArrayModel<T> implements Model<T> {
      * @param arr
      */
     constructor(arr: Array<T>) {
+        super();
         this.a = arr;
-        this.notify = new NullPeer();
     }
 
     rowCount() {
@@ -176,9 +216,7 @@ export class ArrayModel<T> implements Model<T> {
     // FIXME: should this be named splice and have the splice api?
     /**
      * Removes the specified number of element from the array that's backing
-     * the model, starting at the specified index. This is equivalent to calling
-     * Array.slice() on the array and notifying the run-time about the removed
-     * rows.
+     * the model, starting at the specified index.
      * @param index
      * @param size
      */
@@ -225,7 +263,7 @@ export interface ComponentHandle {
      * Returns the {@link Window} associated with this component instance.
      * The window API can be used to control different aspects of the integration into the windowing system, such as the position on the screen.
      */
-    get window(): napi.Window;
+    get window(): Window;
 }
 
 /**
@@ -253,7 +291,7 @@ class Component implements ComponentHandle {
         this.instance.window().hide();
     }
 
-    get window(): napi.Window {
+    get window(): Window {
         return this.instance.window();
     }
 
@@ -265,13 +303,6 @@ class Component implements ComponentHandle {
     }
 }
 
-/**
- * @hidden
- */
-interface Callback {
-    (): any;
-    setHandler(cb: any): void;
-}
 
 /**
  * Represents an errors that can be emitted by the compiler.
@@ -292,17 +323,65 @@ export class CompileError extends Error {
 }
 
 /**
- * Loads the given slint file and returns a constructor to create an instance of the exported component.
+ * LoadFileOptions are used to defines different optional parameters that can be used to configure the compiler.
  */
-export function loadFile(filePath: string): Object {
+export interface LoadFileOptions {
+    /**
+     * If set to true warnings from the compiler will not be printed to the console.
+     */
+    quiet?: boolean,
+
+    /**
+     * Sets the widget style the compiler is currently using when compiling .slint files.
+     */
+    style?: string
+
+    /**
+     * Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
+     */
+    includePaths?: Array<string>,
+
+    /**
+     * Sets library paths used for looking up `@library` imports to the specified map of library names to paths.
+     */
+    libraryPaths?: Record<string, string>
+}
+
+/**
+ * Loads the given slint file and returns an objects that contains a functions to construct the exported
+ * component of the slint file.
+ *
+ * ```js
+ * import * as slint from "slint-ui";
+ * let ui = slint.loadFile(".ui/main.slint");
+ * let main = new ui.Main();
+ * ```
+ */
+export function loadFile(filePath: string, options?: LoadFileOptions) : Object {
     let compiler = new napi.ComponentCompiler;
+
+    if (typeof options !== 'undefined') {
+        if (typeof options.style !== 'undefined') {
+            compiler.style = options.style;
+        }
+        if (typeof options.includePaths !== 'undefined') {
+            compiler.includePaths = options.includePaths;
+        }
+        if (typeof options.libraryPaths !== 'undefined') {
+            compiler.libraryPaths = options.libraryPaths;
+        }
+    }
+
     let definition = compiler.buildFromPath(filePath);
 
     let diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
         let warnings = diagnostics.filter((d) => d.level == napi.DiagnosticLevel.Warning);
-        warnings.forEach((w) => console.log("Warning: " + w));
+
+        if (typeof options !== 'undefined' && options.quiet !== true) {
+            warnings.forEach((w) => console.warn("Warning: " + w));
+        }
 
         let errors = diagnostics.filter((d) => d.level == napi.DiagnosticLevel.Error);
 
@@ -343,9 +422,10 @@ export function loadFile(filePath: string): Object {
             instance!.definition().callbacks.forEach((cb) => {
                 Object.defineProperty(componentHandle, cb.replace(/-/g, '_') , {
                     get() {
-                        let callback = function () { return instance!.invoke(cb, Array.from(arguments)); } as Callback;
-                        callback.setHandler = function (callback) { instance!.setCallback(cb, callback) };
-                        return callback;
+                        return function () { return instance!.invoke(cb, Array.from(arguments)); };
+                    },
+                    set(callback) {
+                        instance!.setCallback(cb, callback);
                     },
                     enumerable: true,
                 })
@@ -375,6 +455,9 @@ export namespace private_api {
     export import ComponentDefinition = napi.ComponentDefinition;
     export import ComponentInstance = napi.ComponentInstance;
     export import ValueType = napi.ValueType;
+    export import Window = napi.Window;
+    export import ImageData = napi.ImageData;
+    export import SlintColor = napi.SlintColor;
 
     export function send_mouse_click(component: Component, x: number, y: number) {
         component.component_instance.sendMouseClick(x, y);

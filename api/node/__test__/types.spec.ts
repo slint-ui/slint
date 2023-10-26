@@ -3,10 +3,10 @@
 
 import test from 'ava';
 
-import { Brush, Color, ArrayModel, Timer } from '../index'
+import { Brush, ArrayModel, Timer, private_api } from '../index'
 
 test('Color from fromRgb', (t) => {
-    let color = Color.fromRgb(100, 110, 120);
+    let color = private_api.SlintColor.fromRgb(100, 110, 120);
 
     t.deepEqual(color.red, 100);
     t.deepEqual(color.green, 110);
@@ -14,7 +14,7 @@ test('Color from fromRgb', (t) => {
 })
 
 test('Color from fromArgb', (t) => {
-    let color = Color.fromArgb(120, 100, 110, 120);
+    let color = private_api.SlintColor.fromArgb(120, 100, 110, 120);
 
     t.deepEqual(color.red, 100);
     t.deepEqual(color.green, 110);
@@ -23,7 +23,7 @@ test('Color from fromArgb', (t) => {
 })
 
 test('Color from fromArgbEncoded', (t) => {
-    let color = Color.fromArgbEncoded(2019847800);
+    let color = private_api.SlintColor.fromArgbEncoded(2019847800);
 
     t.deepEqual(color.red, 100);
     t.deepEqual(color.green, 110);
@@ -31,7 +31,7 @@ test('Color from fromArgbEncoded', (t) => {
 })
 
 test('Color brighter', (t) => {
-    let color = Color.fromRgb(100, 110, 120).brighter(0.1);
+    let color = private_api.SlintColor.fromRgb(100, 110, 120).brighter(0.1);
 
     t.deepEqual(color.red, 110);
     t.deepEqual(color.green, 121);
@@ -39,7 +39,7 @@ test('Color brighter', (t) => {
 })
 
 test('Color darker', (t) => {
-    let color = Color.fromRgb(100, 110, 120).darker(0.1);
+    let color = private_api.SlintColor.fromRgb(100, 110, 120).darker(0.1);
 
     t.deepEqual(color.red, 91);
     t.deepEqual(color.green, 100);
@@ -47,11 +47,20 @@ test('Color darker', (t) => {
 })
 
 test('Brush from Color', (t) => {
-    let brush = Brush.fromColor(Color.fromRgb(100, 110, 120));
+    let brush = new Brush({ red: 100, green: 110, blue: 120, alpha: 255 });
 
     t.deepEqual(brush.color.red, 100);
     t.deepEqual(brush.color.green, 110);
     t.deepEqual(brush.color.blue, 120);
+
+    t.throws(() => {
+        new Brush({ red: -100, green: 110, blue: 120, alpha: 255 })
+      },
+        {
+          code: "GenericFailure",
+          message: "A channel of Color cannot be negative"
+        }
+      );
 })
 
 test('ArrayModel push', (t) => {

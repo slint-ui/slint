@@ -12,12 +12,12 @@ window.ink_levels = [
     { color: "#ffff00", level: 0.60 },
     { color: "#000000", level: 0.90 }];
 
-window.fax_number_erase.setHandler(function () {
+window.fax_number_erase = function () {
     window.fax_number = window.fax_number.substring(0, window.fax_number.length - 1);
-})
-window.fax_send.setHandler(function () {
+};
+window.fax_send = function () {
     console.log("Send fax to " + window.fax_number);
     window.fax_number = "";
-})
+};
 
 window.run();

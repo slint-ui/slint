@@ -50,7 +50,7 @@ impl JsWindow {
 
     /// Returns the visibility state of the window. This function can return false even if you previously called show()
     /// on it, for example if the user minimized the window.
-    #[napi(getter, js_name = "is_visible")]
+    #[napi(getter)]
     pub fn is_visible(&self) -> bool {
         self.inner.window().is_visible()
     }
