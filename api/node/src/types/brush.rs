@@ -257,8 +257,8 @@ impl JsBrush {
                     "radial-gradient(circle, {})",
                     gradient_stops_to_string(gradient.stops())
                 );
-            },
-            _ => String::default()
+            }
+            _ => String::default(),
         }
     }
 }
