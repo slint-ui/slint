@@ -43,29 +43,17 @@ export interface Window {
      */
     get isVisible(): boolean;
 
-    /** Returns the logical position of the window on the screen. */
-    get logicalPosition(): Point;
+    /** Gets or sets the logical position of the window on the screen. */
+    logicalPosition: Point;
 
-    /** Sets the logical position of the window on the screen. */
-    set logicalPosition(position: Point);
+    /** Gets or sets the physical position of the window on the screen. */
+    physicalPosition: Point;
 
-    /** Returns the physical position of the window on the screen. */
-    get physicalPosition(): Point;
+    /** Gets or sets the logical size of the window on the screen, */
+    logicalSize: Size;
 
-    /** Sets the physical position of the window on the screen. */
-    set physicalPosition(position: Point);
-
-    /** Returns the logical size of the window on the screen, */
-    get logicalSize(): Size;
-
-    /** Sets the logical size of the window on the screen, */
-    set logicalSize(size: Size);
-
-    /** Returns the physical size of the window on the screen, */
-    get physicalSize(): Size;
-
-    /** Sets the logical size of the window on the screen, */
-    set physicalSize(size: Size);
+    /** Gets or sets the physical size of the window on the screen, */
+    physicalSize: Size;
 }
 
 /**

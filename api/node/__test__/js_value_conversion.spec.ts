@@ -237,7 +237,7 @@ test('get/set brush properties', (t) => {
     in-out property <brush> black: #000000;
     in-out property <brush> trans: transparent;
     in-out property <brush> ref: transparent;
-    in-out property <brush> linerar-gradient: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
+    in-out property <brush> linear-gradient: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
     in-out property <brush> radial-gradient: @radial-gradient(circle, #f00 0%, #0f0 50%, #00f 100%);
   }
   `, "");
@@ -293,7 +293,7 @@ test('get/set brush properties', (t) => {
         "radial-gradient(circle, rgba(255,0,0, 255) 0%, rgba(0,255,0, 255) 50%, rgba(0,0,255, 255) 100%)");
   }
 
-  let linearGradient = instance!.getProperty("linerar-gradient");
+  let linearGradient = instance!.getProperty("linear-gradient");
 
   if (t.true((linearGradient instanceof Brush))) {
       t.is((linearGradient as Brush).toString(),
