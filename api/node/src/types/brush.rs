@@ -7,16 +7,16 @@ use napi::{bindgen_prelude::External, Error, Result};
 /// Color represents a color in the Slint run-time, represented using 8-bit channels for red, green, blue and the alpha (opacity).
 #[napi(object, js_name = "Color")]
 pub struct JsColor {
-    /// Represents red channel of the color as u8 in the range 0..255.
+    /// Represents the red channel of the color as u8 in the range 0..255.
     pub red: f64,
 
-    /// Represents green channel of the color as u8 in the range 0..255.
+    /// Represents the green channel of the color as u8 in the range 0..255.
     pub green: f64,
 
-    /// Represents blue channel of the color as u8 in the range 0..255.
+    /// Represents the blue channel of the color as u8 in the range 0..255.
     pub blue: f64,
 
-    /// Represents alpha channel of the color as u8 in the range 0..255.
+    /// Represents the alpha channel of the color as u8 in the range 0..255.
     pub alpha: f64,
 }
 
@@ -267,7 +267,7 @@ fn gradient_stops_to_string<'a>(stops: impl Iterator<Item = &'a GradientStop>) -
     let stops: Vec<String> = stops
         .map(|s| {
             format!(
-                "rgba({},{},{}, {}) {}%",
+                "rgba({}, {}, {}, {}) {}%",
                 s.color.red(),
                 s.color.green(),
                 s.color.blue(),

@@ -58,6 +58,8 @@ export interface Window {
 
 /**
  * An image data type that can be displayed by the Image element.
+ *
+ * This interface is inspired by the web [ImageData](https://developer.mozilla.org/en-US/docs/Web/API/ImageData) interface.
  */
 export interface ImageData {
     /**
@@ -261,7 +263,7 @@ export interface ComponentHandle {
      * Returns the {@link Window} associated with this component instance.
      * The window API can be used to control different aspects of the integration into the windowing system, such as the position on the screen.
      */
-    get window(): napi.Window;
+    get window(): Window;
 }
 
 /**
@@ -289,7 +291,7 @@ class Component implements ComponentHandle {
         this.instance.window().hide();
     }
 
-    get window(): napi.Window {
+    get window(): Window {
         return this.instance.window();
     }
 
@@ -356,8 +358,6 @@ export interface LoadFileOptions {
  * ```
  */
 export function loadFile(filePath: string, options?: LoadFileOptions) : Object {
-    // this is a workaround that fixes an issue there resources in slint files cannot be loaded if the
-    // file path is given as relative path
     let compiler = new napi.ComponentCompiler;
 
     if (typeof options !== 'undefined') {
