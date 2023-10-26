@@ -84,7 +84,7 @@ try {
 assert.equal(instance.callback_emission_count, 0);
 
 
-/// also test test_callback2
+/// also test assigning with a function
 instance.test_callback2 = function(a) {
     callback_3_emitted += 100;
     callback_3_string_value = a;
