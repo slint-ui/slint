@@ -290,14 +290,14 @@ test('get/set brush properties', (t) => {
 
   if (t.true((radialGradient instanceof Brush))) {
       t.is((radialGradient as Brush).toString(),
-        "radial-gradient(circle, rgba(255,0,0, 255) 0%, rgba(0,255,0, 255) 50%, rgba(0,0,255, 255) 100%)");
+        "radial-gradient(circle, rgba(255, 0, 0, 255) 0%, rgba(0, 255, 0, 255) 50%, rgba(0, 0, 255, 255) 100%)");
   }
 
   let linearGradient = instance!.getProperty("linear-gradient");
 
   if (t.true((linearGradient instanceof Brush))) {
       t.is((linearGradient as Brush).toString(),
-        "linear-gradient(90deg, rgba(63,135,166, 255) 0%, rgba(235,248,225, 255) 50%, rgba(246,157,60, 255) 100%)");
+        "linear-gradient(90deg, rgba(63, 135, 166, 255) 0%, rgba(235, 248, 225, 255) 50%, rgba(246, 157, 60, 255) 100%)");
   }
 })
 

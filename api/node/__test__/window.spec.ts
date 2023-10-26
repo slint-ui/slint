@@ -30,9 +30,9 @@ test('Window show / hide', (t) => {
     t.not(instance, null);
 
     let window = instance!.window();
-    t.is(window.is_visible, false);
+    t.is(window.isVisible, false);
     window.show();
-    t.is(window.is_visible, true);
+    t.is(window.isVisible, true);
     window.hide();
-    t.is(window.is_visible, false);
+    t.is(window.isVisible, false);
 })
