@@ -13,14 +13,14 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-categories = ["gui", "rendering::engine", "development-tools", "no-std"]
+categories = ["gui", "rendering::engine", "development-tools"]
 
 [lib]
 path = "lib.rs"
 
 [features]
 
-default = ["std", "backend-winit", "renderer-femtovg", "backend-qt", "accessibility", "compat-1-2"]
+default = ["backend-winit", "renderer-femtovg", "backend-qt", "accessibility", "compat-1-2"]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.2
@@ -39,8 +39,8 @@ ffi = ["spin_on", "i-slint-core/ffi"]
 # NOTE: this is not a semver compatible feature
 highlight = []
 
-## Enable use of the Rust standard library.
-std = ["i-slint-core/std"]
+# unused (std is mandatory for the interpreter)
+std = []
 
 #! ### Backends
 
@@ -103,10 +103,10 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 internal = []
 
 [dependencies]
-i-slint-compiler = { workspace = true, features = ["default"] }
-i-slint-common = { workspace = true, features = ["default"] }
+i-slint-compiler = { workspace = true  }
+i-slint-common = { workspace = true }
 i-slint-core = { workspace = true, features = ["default", "rtti"] }
-i-slint-backend-selector = { workspace = true, features = ["default", "rtti"] }
+i-slint-backend-selector = { workspace = true, features = ["rtti"] }
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 
@@ -116,17 +116,13 @@ lyon_path = { version = "1.0" }
 once_cell = "1.5"
 thiserror = "1"
 document-features = { version = "0.2.0", optional = true }
-
-[dependencies.spin_on]
-version = "0.1"
-optional = true
+spin_on = { version = "0.1", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-i-slint-backend-winit = { workspace = true, features = ["default"] }
+i-slint-backend-winit = { workspace = true }
 
 [dev-dependencies]
-i-slint-backend-testing = { workspace = true, features = ["default"] }
-
+i-slint-backend-testing = { workspace = true }
 spin_on = "0.1"
 
 [package.metadata.docs.rs]
