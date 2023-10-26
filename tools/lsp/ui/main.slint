@@ -16,14 +16,14 @@ export component PreviewUi inherits Window {
 
     in property <bool> is-busy;
 
-    min-width: min(i-scroll-view.viewport-width, 100px);
-    min-height: min(i-scroll-view.viewport-height, 100px);
-
     VerticalLayout {
         HeaderBar {
+            vertical-stretch: 0.0;
+
+            height: self.preferred-height;
+
             i-pick-button := Button {
-                icon: self.checked ? @image-url("assets/colorize-light.svg") :
-                    @image-url("assets/colorize.svg");
+                text: "Design Mode";
                 checkable: true;
 
                 clicked => {
@@ -40,18 +40,11 @@ export component PreviewUi inherits Window {
             if (root.is-busy) : Spinner {}
         }
 
-        HorizontalLayout {
-            padding: 1px;
-
-            i-scroll-view := ScrollView {
-                // viewport-width: i-preview-area-container.width;
-                // viewport-height: i-preview-area-container.height;
-
-                HorizontalBox {
-                    Rectangle {
-                        i-preview-area-container := ComponentContainer { }
-                    }
-                }
+        drawing-rect := Rectangle {
+            /* background: checkerboard pattern; */
+            i-preview-area-container := ComponentContainer {
+                width: max(self.min-width, min(self.max-width, drawing-rect.width));
+                height: max(self.min-height, min(self.max-height, drawing-rect.height));
             }
         }
     }
