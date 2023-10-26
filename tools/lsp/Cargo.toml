@@ -80,10 +80,11 @@ rowan = "0.15.5"
 i-slint-core = { workspace = true, features = ["default"], optional = true }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "highlight", "internal"], optional = true  }
 i-slint-backend-selector = { workspace = true, features = ["default"], optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Enable image-rs' default features to make all image formats available for the preview
 image = { version = "0.24.0", optional = true }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 crossbeam-channel = "0.5"  # must match the version used by lsp-server
 lsp-server = "0.7"
