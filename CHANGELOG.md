@@ -26,8 +26,9 @@ All notable changes to this project are documented in this file.
  - `SpinBox` value can now be incremented and decremented by scroll event
  - Added `focus-changed-event` callback to `FocusScope`
 
-### Rust API
+### Rust
 
+- Improved support of the `slint!` macro for rust-analyzer.
 - Added `source_model()` to `MapModel`, `FilterModel`, `SortModel`, `ReverseModel` to access inner model.
 
 ### C++
