@@ -161,7 +161,7 @@ impl Backend {
             Some("gl") | Some("femtovg") => renderer::femtovg::GlutinFemtoVGRenderer::new,
             #[cfg(enable_skia_renderer)]
             Some("skia") => renderer::skia::WinitSkiaRenderer::new,
-            #[cfg(enable_skia_renderer)]
+            #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
             Some("skia-software") => renderer::skia::WinitSkiaRenderer::new_software,
             #[cfg(feature = "renderer-software")]
             Some("sw") | Some("software") => renderer::sw::WinitSoftwareRenderer::new,

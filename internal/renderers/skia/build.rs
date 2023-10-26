@@ -10,5 +10,6 @@ fn main() {
        skia_backend_metal: { all(target_os = "macos", not(feature = "opengl")) },
        skia_backend_d3d: { all(target_family = "windows", not(feature = "opengl")) },
        skia_backend_vulkan: { feature = "vulkan" },
+       skia_backend_software: { not(target_os = "android") },
     }
 }
