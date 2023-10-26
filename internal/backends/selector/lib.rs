@@ -14,7 +14,6 @@
 
 extern crate alloc;
 
-use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use i_slint_core::platform::Platform;
 use i_slint_core::platform::PlatformError;
@@ -53,6 +52,8 @@ cfg_if::cfg_if! {
             feature = "i-slint-backend-linuxkms"
         ))] {
         fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
+            use alloc::borrow::Cow;
+
             let backends = [
                 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
                 ("Qt", create_qt_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
