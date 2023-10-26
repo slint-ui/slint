@@ -477,26 +477,23 @@ impl WindowInner {
                 }
             });
 
-        let component = embedded_popup_component
-            .as_ref()
-            .and_then(|(popup_component, coordinates)| {
+        let Some(component) = embedded_popup_component.as_ref().map_or_else(
+            || self.component.borrow().upgrade(),
+            |(popup_component, coordinates)| {
                 event.translate(-coordinates.to_vector());
 
-                if let MouseEvent::Pressed { position, .. } = &event {
+                let geom = ItemTreeRc::borrow_pin(popup_component).as_ref().item_geometry(0);
+                if event.position().map_or(false, |pos| !geom.contains(pos)) {
                     // close the popup if one press outside the popup
-                    let geom = ItemTreeRc::borrow_pin(popup_component).as_ref().item_geometry(0);
-                    if !geom.contains(*position) {
+                    if matches!(event, MouseEvent::Pressed { .. }) && close_popup_after_click {
                         self.close_popup();
-                        return None;
                     }
+                    return None;
                 }
-                Some(popup_component.clone())
-            })
-            .or_else(|| self.component.borrow().upgrade());
 
-        let component = if let Some(component) = component {
-            component
-        } else {
+                Some(popup_component.clone())
+            },
+        ) else {
             return;
         };
 
