@@ -26,6 +26,7 @@ impl WinitSkiaRenderer {
         Ok((Box::new(Self { renderer }), winit_window))
     }
 
+    #[cfg(not(target_os = "android"))]
     pub fn new_software(
         window_builder: winit::window::WindowBuilder,
     ) -> Result<(Box<dyn super::WinitCompatibleRenderer>, winit::window::Window), PlatformError>

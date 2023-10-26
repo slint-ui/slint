@@ -31,6 +31,7 @@ mod cached_image;
 mod itemrenderer;
 mod textlayout;
 
+#[cfg(skia_backend_software)]
 mod software_surface;
 
 #[cfg(target_os = "macos")]
@@ -64,6 +65,7 @@ fn create_default_surface(
 ) -> Result<Box<dyn Surface>, PlatformError> {
     match DefaultSurface::new(window_handle.clone(), display_handle.clone(), size) {
         Ok(gpu_surface) => Ok(Box::new(gpu_surface) as Box<dyn Surface>),
+        #[cfg(skia_backend_software)]
         Err(err) => {
             i_slint_core::debug_log!(
                 "Failed to initialize Skia GPU renderer: {} . Falling back to software rendering",
@@ -72,6 +74,8 @@ fn create_default_surface(
             software_surface::SoftwareSurface::new(window_handle, display_handle, size)
                 .map(|r| Box::new(r) as Box<dyn Surface>)
         }
+        #[cfg(not(skia_backend_software))]
+        Err(err) => Err(err),
     }
 }
 
@@ -108,6 +112,7 @@ impl Default for SkiaRenderer {
 }
 
 impl SkiaRenderer {
+    #[cfg(skia_backend_software)]
     /// Creates a new SkiaRenderer that will always use Skia's software renderer.
     pub fn default_software() -> Self {
         Self {
