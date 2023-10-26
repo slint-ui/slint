@@ -347,6 +347,10 @@ export interface LoadFileOptions {
     libraryPaths?: Record<string, string>
 }
 
+let ComponentStore = {
+    callbacks: {}
+};
+
 /**
  * Loads the given slint file and returns an objects that contains a functions to construct the exported
  * component of the slint file.
@@ -425,7 +429,10 @@ export function loadFile(filePath: string, options?: LoadFileOptions) : Object {
                         return function () { return instance!.invoke(cb, Array.from(arguments)); };
                     },
                     set(callback) {
-                        instance!.setCallback(cb, callback);
+                        ComponentStore.callbacks[cb] = callback;
+                        instance!.setCallback(cb, function (args) {
+                            ComponentStore.callbacks[cb](args);
+                        });
                     },
                     enumerable: true,
                 })
