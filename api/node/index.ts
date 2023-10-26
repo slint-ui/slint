@@ -347,10 +347,6 @@ export interface LoadFileOptions {
     libraryPaths?: Record<string, string>
 }
 
-let ComponentStore = {
-    callbacks: {}
-};
-
 /**
  * Loads the given slint file and returns an objects that contains a functions to construct the exported
  * component of the slint file.
@@ -424,14 +420,15 @@ export function loadFile(filePath: string, options?: LoadFileOptions) : Object {
             });
 
             instance!.definition().callbacks.forEach((cb) => {
+                let cbSymbol = Symbol("_callback-" + cb);
                 Object.defineProperty(componentHandle, cb.replace(/-/g, '_') , {
                     get() {
                         return function () { return instance!.invoke(cb, Array.from(arguments)); };
                     },
                     set(callback) {
-                        ComponentStore.callbacks[cb] = callback;
+                        instance![cbSymbol] = callback;
                         instance!.setCallback(cb, function (args) {
-                            ComponentStore.callbacks[cb](args);
+                            instance![cbSymbol](args);
                         });
                     },
                     enumerable: true,
