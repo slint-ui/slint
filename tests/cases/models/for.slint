@@ -7,8 +7,8 @@ ExtraComponent := Rectangle {
 
 
 Extra2 := Rectangle {
-    property<int> top_level;
-    property<int> value;
+    property <int> top_level;
+    property <int> value;
     callback update_value;
     for aaa[r] in [[10, top_level], [2, 3]] : blah := Rectangle {
         width: parent.width;
@@ -32,12 +32,12 @@ export TestCase := Rectangle {
     width: 100phx;
     height: 100phx;
     background: white;
-    property<float> top_level: 42;
-    property<int> value: 0;
+    property <float> top_level: 42;
+    property <int> value: 0;
 
    for pp[idx] in 5: Rectangle {
         s := Rectangle {
-            property<length> within: 88phx;
+            property <length> within: 88phx;
             x: 2phx * idx;
             y: 200phx * pp;
             width: s.within;
@@ -74,7 +74,7 @@ export TestCase := Rectangle {
         }
     }
 
-    property<[{a: int}]> m;
+    property <[{a: int}]> m;
     for x in m : TouchArea {
         width: parent.width;
         height: root.height;

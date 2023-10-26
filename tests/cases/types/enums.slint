@@ -4,8 +4,8 @@
 export enum Foo { bli, bla, blu }
 
 export component TestCase  {
-    in-out property<Foo> foo: Foo.bla;
-    in-out property<Foo> default;
+    in-out property <Foo> foo: Foo.bla;
+    in-out property <Foo> default;
 
     out property <bool> test: foo == Foo.bla && default == Foo.bli;
 }

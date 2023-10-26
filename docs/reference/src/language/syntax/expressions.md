@@ -10,7 +10,7 @@ expression is associated with:
 ```slint,no-preview
 export component Example {
     // declare a property of type int
-    in-out property<int> my-property;
+    in-out property <int> my-property;
 
     // This accesses the property
     width: root.my-property * 20px;

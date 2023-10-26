@@ -11,14 +11,14 @@ export component Button {
 
     callback clicked;
 
-    in property<string> text;
-    in property<bool> enabled <=> i-state-layer.enabled;
-    in property<bool> checkable;
-    in property<image> icon;
+    in property <string> text;
+    in property <bool> enabled <=> i-state-layer.enabled;
+    in property <bool> checkable;
+    in property <image> icon;
     in property <bool> primary;
-    out property<bool> has-focus: i-state-layer.has-focus;
-    out property<bool> pressed: self.enabled &&  i-state-layer.pressed;
-    in-out property<bool> checked;
+    out property <bool> has-focus: i-state-layer.has-focus;
+    out property <bool> pressed: self.enabled &&  i-state-layer.pressed;
+    in-out property <bool> checked;
 
     min-height: max(40px, i-layout.min-height);
     min-width: max(40px, i-layout.min-width);

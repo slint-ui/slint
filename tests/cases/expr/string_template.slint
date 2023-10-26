@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
  TestCase := Rectangle {
-    property<int> a:12;
-    property<string> s1: "hello\{a}\{a}";
-    property<string> s2: "\{10}hello\{5.1}";
-    property<string> s3: "x";
-    property<{ a: string }> obj: { a: "a" };
-    property<string> s4: "\{obj.a}xxx";
+    property <int> a:12;
+    property <string> s1: "hello\{a}\{a}";
+    property <string> s2: "\{10}hello\{5.1}";
+    property <string> s3: "x";
+    property <{ a: string }> obj: { a: "a" };
+    property <string> s4: "\{obj.a}xxx";
     callback foo;
     foo => {
         s3 = "\{s3}\{a+0}\{"\{s3}\{a+0}"}";

@@ -6,23 +6,23 @@ Comp := Rectangle {
 }
 
 export Test := Comp {
-    property<int> foo;
+    property <int> foo;
     foo: 100;
-    property<NonExistent> bar;
+    property <NonExistent> bar;
 //           ^error{Unknown type 'NonExistent'}
-    property<{ a: int, b: NonExistent}> obj;
+    property <{ a: int, b: NonExistent}> obj;
 //                        ^error{Unknown type 'NonExistent'}
-    property<[NonExistent]> array;
+    property <[NonExistent]> array;
 //            ^error{Unknown type 'NonExistent'}
-    property<float> foo;
+    property <float> foo;
 //                  ^error{Cannot override property 'foo'}
-    property<string> text: "property with binding initializer";
-    property<int> x;
+    property <string> text: "property with binding initializer";
+    property <int> x;
 //                ^error{Cannot override property 'x'}
 
-    property<string> colspan;
+    property <string> colspan;
 //                   ^error{Cannot override property 'colspan'}
 
-    property<bool> pressed;
+    property <bool> pressed;
 //                 ^error{Cannot declare property 'pressed' when a callback with the same name exists}
 }

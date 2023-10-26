@@ -12,18 +12,18 @@ export struct Unused {
 }
 
 TestCase := Rectangle {
-    property<Player> player_1: {name : "Player1", score: 12, energy_level: 80% };
-    property<Player> player_2: {name : "Player2", score: 24, energy_level: 40% };
+    property <Player> player_1: {name : "Player1", score: 12, energy_level: 80% };
+    property <Player> player_2: {name : "Player2", score: 24, energy_level: 40% };
 
-    property<[Player]> players: [player_1, player_2];
-    property<[Player]> player_list: [
+    property <[Player]> players: [player_1, player_2];
+    property <[Player]> player_list: [
         {name : "Simon", score: 1, energy_level: 50% },
         {name : "Olivier", score: 10 },
         {name : "NoScore", }
     ];
 
     property player_2_alias <=> player_2;
-    property<int> player_2_score: player_2_alias.score;
+    property <int> player_2_score: player_2_alias.score;
 
     property <bool> test: player_2_score == 24;
 }

@@ -4,11 +4,11 @@
 import { Palette, Typography } from "styling.slint";
 
 export component Ripple inherits Rectangle {
-    in property<length> ripple-x;
-    in property<length> ripple-y;
-    in property<bool> active;
-    in property<bool> has-effect;
-    in property<brush> ripple-color <=> circle.background;
+    in property <length> ripple-x;
+    in property <length> ripple-y;
+    in property <bool> active;
+    in property <bool> has-effect;
+    in property <brush> ripple-color <=> circle.background;
 
     circle := Rectangle {
         x: root.ripple-x  - self.width / 2;
@@ -37,7 +37,7 @@ export component StateLayer inherits TouchArea {
     in property <length> border-radius;
     out property <bool> has-focus <=> i-focus-scope.has-focus;
     in-out property <brush> background;
-    in-out property< bool> checked;
+    in-out property < bool> checked;
 
     forward-focus: i-focus-scope;
 
@@ -94,8 +94,8 @@ export component ListItem inherits Rectangle {
     callback clicked <=> i-state-layer.clicked;
     callback pointer-event <=> i-state-layer.pointer-event;
 
-    in property<bool> selected;
-    in property<string> text;
+    in property <bool> selected;
+    in property <string> text;
     out property <length> mouse-x <=> i-state-layer.mouse-x;
     out property <length> mouse-y <=> i-state-layer.mouse-y;
 

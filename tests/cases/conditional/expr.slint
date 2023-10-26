@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 TestCase := Rectangle {
-    property<bool> condition;
-    property<int> test_value: condition ? 1 : 2;
-    property<bool> condition2;
-    property<int> test_value2: condition ? condition2 ? 1 : 2 : condition2 ? 3 : 4;
+    property <bool> condition;
+    property <int> test_value: condition ? 1 : 2;
+    property <bool> condition2;
+    property <int> test_value2: condition ? condition2 ? 1 : 2 : condition2 ? 3 : 4;
 
-    property<length> test_value3: false ? 0 : 12phx;
+    property <length> test_value3: false ? 0 : 12phx;
 }
 /*
 ```cpp

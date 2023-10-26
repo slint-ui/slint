@@ -530,7 +530,7 @@ export component ToggleSwitch inherits Rectangle {
     callback toggled;
     in-out property <string> text;
     in-out property <bool> checked;
-    in-out property<bool> enabled <=> touch-area.enabled;
+    in-out property <bool> enabled <=> touch-area.enabled;
     height: 20px;
     horizontal-stretch: 0;
     vertical-stretch: 0;
@@ -596,9 +596,9 @@ any point within itself.
 import { VerticalBox } from "std-widgets.slint";
 
 export component MySlider inherits Rectangle {
-    in-out property<float> maximum: 100;
-    in-out property<float> minimum: 0;
-    in-out property<float> value;
+    in-out property <float> maximum: 100;
+    in-out property <float> minimum: 0;
+    in-out property <float> value;
 
     min-height: 24px;
     min-width: 100px;
@@ -657,9 +657,9 @@ The TouchArea is within the handle and moves with the handle.
 import { VerticalBox } from "std-widgets.slint";
 
 export component MySlider inherits Rectangle {
-    in-out property<float> maximum: 100;
-    in-out property<float> minimum: 0;
-    in-out property<float> value;
+    in-out property <float> maximum: 100;
+    in-out property <float> minimum: 0;
+    in-out property <float> value;
 
     min-height: 24px;
     min-width: 100px;

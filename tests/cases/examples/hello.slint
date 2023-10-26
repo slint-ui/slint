@@ -21,7 +21,7 @@ TwoRectangle := Rectangle {
 }
 
 ButtonRectangle := Rectangle {
-    property<string> button_text;
+    property <string> button_text;
     callback clicked;
     width: 100phx;
     height: 75phx;
@@ -97,7 +97,7 @@ Hello := Rectangle {
         clicked => { counter += 1 }
         button_text: "+";
     }
-    property<int> counter;
+    property <int> counter;
     counter_label := Text { x: 100phx; y: 300phx; text: counter; color: black; }
     ButtonRectangle {
         background: #888;

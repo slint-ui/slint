@@ -40,7 +40,7 @@ export global Elevation {
 }
 
 export global Palette {
-    in-out property<bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
+    in-out property <bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
 
     out property <brush> background: !root.dark-color-scheme ? #f8f3f9 : #2a282d;
     out property <brush> surface: !root.dark-color-scheme ? #FFFBFE : #1C1B1F;

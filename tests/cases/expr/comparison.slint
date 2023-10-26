@@ -2,17 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 TestCase := Rectangle {
-    property<int> hello: 44;
+    property <int> hello: 44;
 
-    property<bool> t1: hello == 44 || hello == 45;
-    property<bool> t2: hello > 44 && hello < 46;
-    property<bool> t3: hello >= 44 && hello <= 46;
-    property<bool> t4: t1 || (t2 && t3);
-    property<bool> t5: t2 || hello + 3 != 4*10+4;
-    property<bool> t6: !t1 || 1 == 0;
+    property <bool> t1: hello == 44 || hello == 45;
+    property <bool> t2: hello > 44 && hello < 46;
+    property <bool> t3: hello >= 44 && hello <= 46;
+    property <bool> t4: t1 || (t2 && t3);
+    property <bool> t5: t2 || hello + 3 != 4*10+4;
+    property <bool> t6: !t1 || 1 == 0;
 
-    property<string> my_str: "hello";
-    property<bool> t7: my_str == "hello";
+    property <string> my_str: "hello";
+    property <bool> t7: my_str == "hello";
 }
 /*
 ```cpp

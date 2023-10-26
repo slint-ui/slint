@@ -93,9 +93,9 @@ component TableViewRow inherits Rectangle {
     callback clicked <=> i-state-layer.clicked;
     callback pointer-event <=> i-state-layer.pointer-event;
 
-    in property<bool> selected;
-    out property<length> mouse-x <=> i-state-layer.mouse-x;
-    out property<length> mouse-y <=> i-state-layer.mouse-y;
+    in property <bool> selected;
+    out property <length> mouse-x <=> i-state-layer.mouse-x;
+    out property <length> mouse-y <=> i-state-layer.mouse-y;
 
     min-height: max(42px, i-layout.min-height);
 
@@ -131,7 +131,7 @@ export component StandardTableView {
     in property <[[StandardListViewItem]]> rows;
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
-    in-out property<int> current-row: -1;
+    in-out property <int> current-row: -1;
 
     min-width: 400px;
     min-height: 200px;

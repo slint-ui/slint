@@ -10,8 +10,8 @@ global Glo := {
 }
 
 ExtraComp := Rectangle {
-    property<int> five: Glo.sum(3, 2);
-    property<int> six: Glo.mul(3, 2);
+    property <int> five: Glo.sum(3, 2);
+    property <int> six: Glo.mul(3, 2);
 }
 
 
@@ -20,13 +20,13 @@ TestCase := Window {
     pure callback mul <=> Glo.mul;
 
     x := ExtraComp {}
-    property<int> five: x.five;
-    property<int> six: x.six;
+    property <int> five: x.five;
+    property <int> six: x.six;
 
-    property<int> profit: Glo.calculate-profit();
+    property <int> profit: Glo.calculate-profit();
 
     //mul(α, β) => { return α * β; }
-    property<bool> test: five == 0 && profit == 1000; // because the callback is not set
+    property <bool> test: five == 0 && profit == 1000; // because the callback is not set
 
 }
 

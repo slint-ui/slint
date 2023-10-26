@@ -5,7 +5,7 @@ TestCase := Rectangle {
     callback test_callback;
     callback test_callback2;
     callback test_callback3;
-    property<int> callback_emission_count;
+    property <int> callback_emission_count;
     test_callback => {
         callback_emission_count += 1;
         // This returns something despite the callback isn't supposed to return anything.

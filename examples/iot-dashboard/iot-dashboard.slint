@@ -53,8 +53,8 @@ struct Palette  {
 }
 
 global Skin  {
-    in property<bool> day: !StyleMetrics.dark-color-scheme;
-    out property<Palette> palette : root.day ? {
+    in property <bool> day: !StyleMetrics.dark-color-scheme;
+    out property <Palette> palette : root.day ? {
        menuBar : #6D7BFB,
        mainContent :  #fbfbfb,
        box :   #ffffff,
@@ -702,7 +702,7 @@ component LightDimmer inherits Rectangle {
 
     touch := TouchArea {
 
-        property<float> new-value : min(1, max(0, self.mouse-x / self.height));
+        property <float> new-value : min(1, max(0, self.mouse-x / self.height));
 
         clicked => {
             root.value = self.new-value;
@@ -753,8 +753,8 @@ export component LightIntensity inherits Box {
 // From MenuBar.cpp
 component MenuItem inherits Rectangle {
     in property <image> icon <=> i.source;
-    in property<string> name <=> t.text;
-    in-out property<bool> active;
+    in property <string> name <=> t.text;
+    in-out property <bool> active;
     background: root.active ? rgba(100%, 100%, 100%, 14%) : ma.has-hover ? rgba(100%, 100%, 100%, 9%) : transparent;
     ma := TouchArea {}
     HorizontalLayout {
@@ -777,7 +777,7 @@ component MenuItem inherits Rectangle {
 // From MenuBar.cpp
 export component MenuBar inherits Rectangle {
     background: Skin.palette.menuBar;
-    out property<int> active: 0;
+    out property <int> active: 0;
     min-width: 140px;
     VerticalLayout {
         padding-left: 0px;

@@ -17,7 +17,7 @@ export component TestCase inherits Window {
 
     in-out property pos <=> lv.viewport-y;
     out property <int> clicked-idx: -1;
-    in-out property<[color]> the_model: [Colors.red, Colors.blue, Colors.yellow, Colors.pink, Colors.orange, Colors.aliceblue, Colors.limegreen];
+    in-out property <[color]> the_model: [Colors.red, Colors.blue, Colors.yellow, Colors.pink, Colors.orange, Colors.aliceblue, Colors.limegreen];
     lv := ListView {
         for col[idx] in the_model: Rectangle {
             height: 100px;

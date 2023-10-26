@@ -11,12 +11,12 @@ export component MainWindow inherits Window {
 
     in property <[Circle]> model;
 
-    private property<int> clicked-idx: -1;
-    private property<Circle> selected-circle;
+    private property <int> clicked-idx: -1;
+    private property <Circle> selected-circle;
     callback background_clicked(length,length);
 
-    in property<bool> undoable: false;
-    in property<bool> redoable: false;
+    in property <bool> undoable: false;
+    in property <bool> redoable: false;
     callback undo_clicked();
     callback redo_clicked();
 

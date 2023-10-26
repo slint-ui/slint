@@ -10,7 +10,7 @@ SubElement := Rectangle {
 
 TestCase := Rectangle {
     // This binding allow the test to set the style's default color so that we can compare it
-    property<color> binding_to_default_text_color <=> StyleMetrics.default-text-color;
+    property <color> binding_to_default_text_color <=> StyleMetrics.default-text-color;
 
     default_text := Text { text: "default"; }
     text_with_color := Text {

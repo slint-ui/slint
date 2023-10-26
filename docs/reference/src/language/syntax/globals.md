@@ -8,8 +8,8 @@ For example, this can be useful for a common color palette:
 
 ```slint,no-preview
 global Palette  {
-    in-out property<color> primary: blue;
-    in-out property<color> secondary: green;
+    in-out property <color> primary: blue;
+    in-out property <color> secondary: green;
 }
 
 export component Example inherits Rectangle {

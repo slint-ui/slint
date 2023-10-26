@@ -2,25 +2,25 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 TestCase := Rectangle {
-    property<physical_length> l1: 12phx;
-    property<physical_length> l2: 12px;
-    property<physical_length> l3: 100phx + 12px;
-    property<physical_length> l4: 120 * 1phx;
+    property <physical_length> l1: 12phx;
+    property <physical_length> l2: 12px;
+    property <physical_length> l3: 100phx + 12px;
+    property <physical_length> l4: 120 * 1phx;
 
-    property<length> ll1: 12phx;
-    property<length> ll2: 12px;
-    property<length> ll3: 100phx + 12px;
-    property<length> ll4: 120 * 1phx;
+    property <length> ll1: 12phx;
+    property <length> ll2: 12px;
+    property <length> ll3: 100phx + 12px;
+    property <length> ll4: 120 * 1phx;
 
-    property<bool> value: l1 == 10phx + 2phx;
+    property <bool> value: l1 == 10phx + 2phx;
 
-    property<length> zero1: 0;
-    property<length> zero2: 0 + 1phx - 0 - 1phx;
-    property<bool> test_zero: zero2 == 0;
+    property <length> zero1: 0;
+    property <length> zero2: 0 + 1phx - 0 - 1phx;
+    property <bool> test_zero: zero2 == 0;
 
     property <float> ratio: 1px / 1phx;
 
-    property<bool> test: (8phx * 5px * 3ms / 2phx)  == (8px * (3ms / 2phx) * 5px) / ratio
+    property <bool> test: (8phx * 5px * 3ms / 2phx)  == (8px * (3ms / 2phx) * 5px) / ratio
         && l1*l2 - ll1*ll2 == 0cm*0phx && value;
 
 }

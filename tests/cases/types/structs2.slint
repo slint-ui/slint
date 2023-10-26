@@ -19,19 +19,19 @@ export component TestCase inherits Rectangle {
     pure callback cb1(Foo2) -> Foo3;
     cb1(foo) => { return { b: foo.a.member+1 }; }
 
-    in-out property<Foo2> xx;
+    in-out property <Foo2> xx;
     pure callback cb2(Foo2, Foo2)->Foo2;
-    in-out property<Foo2> xx2: root.cb2(root.xx, root.xx);
+    in-out property <Foo2> xx2: root.cb2(root.xx, root.xx);
 
 
     // Based on Issue #1733
     Rectangle {
-        property<[DeleteMe]> data;
+        property <[DeleteMe]> data;
         for d[i] in self.data: Rectangle { }
     }
 
     // Bug #2765
-    out property<Palette> palette : xx.a.member > 32 ? {
+    out property <Palette> palette : xx.a.member > 32 ? {
        menuBar : #6D7BFB,
        mainContent :  #fbfbfb,
        box :   #ffffff,

@@ -6,7 +6,7 @@ import { Label, Page, Preview } from "common.slint";
 
 export component FaxPage inherits Page {
 
-    in-out property<string> fax-number <=> text.text;
+    in-out property <string> fax-number <=> text.text;
     callback fax-number-erase;
     callback fax-send;
 

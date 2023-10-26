@@ -7,7 +7,7 @@ export Hello := Rectangle {
         bbb := Text{ text: "bbb"; }
     }
 
-    property<int> count: 5;
+    property <int> count: 5;
 
     for foo[idx] in count: Rectangle {
         x: idx * 1phx;
@@ -58,7 +58,7 @@ export Hello := Rectangle {
         text: pp.b;
         y: pp.b;
 //         ^error{Cannot convert string to length}
-        property<int> ggg: pp;
+        property <int> ggg: pp;
 //                         ^error{Cannot convert \{ a: physical-length,b: string,\} to int}
     }
 

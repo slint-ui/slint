@@ -54,8 +54,8 @@ Color literals follow the syntax of CSS:
 ```slint,no-preview
 export component Example inherits Window {
     background: blue;
-    property<color> c1: #ffaaff;
-    property<brush> b2: Colors.red;
+    property <color> c1: #ffaaff;
+    property <brush> b2: Colors.red;
 }
 ```
 
@@ -185,7 +185,7 @@ export struct Player  {
 }
 
 export component Example {
-    in-out property<Player> player: { name: "Foo", score: 100 };
+    in-out property <Player> player: { name: "Foo", score: 100 };
 }
 ```
 
@@ -201,8 +201,8 @@ You may have a trailing `,` after the last expression or type.
 
 ```slint,no-preview
 export component Example {
-    in-out property<{name: string, score: int}> player: { name: "Foo", score: 100 };
-    in-out property<{a: int, }> foo: { a: 3 };
+    in-out property <{name: string, score: int}> player: { name: "Foo", score: 100 };
+    in-out property <{a: int, }> foo: { a: 3 };
 }
 ```
 
@@ -214,8 +214,8 @@ Define an enumeration with the `enum` keyword:
 export enum CardSuit { clubs, diamonds, hearts, spade }
 
 export component Example {
-    in-out property<CardSuit> card: spade;
-    out property<bool> is-clubs: card == CardSuit.clubs;
+    in-out property <CardSuit> card: spade;
+    out property <bool> is-clubs: card == CardSuit.clubs;
 }
 ```
 
@@ -235,8 +235,8 @@ Array literals as well as properties holding arrays act as models in `for` expre
 
 ```slint,no-preview
 export component Example {
-    in-out property<[int]> list-of-int: [1,2,3];
-    in-out property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
+    in-out property <[int]> list-of-int: [1,2,3];
+    in-out property <[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
 }
 ```
 
@@ -249,7 +249,7 @@ Out of bound access into an array will return default-constructed values.
 
 ```slint,no-preview
 export component Example {
-    in-out property<[int]> list-of-int: [1,2,3];
+    in-out property <[int]> list-of-int: [1,2,3];
 
     out property <int> list-len: list-of-int.length;
     out property <int> first-int: list-of-int[0];
@@ -282,16 +282,16 @@ The following conversions are possible:
 ```slint,no-preview
 export component Example {
     // OK: int converts to string
-    property<{a: string, b: int}> prop1: {a: 12, b: 12 };
+    property <{a: string, b: int}> prop1: {a: 12, b: 12 };
     // OK: even if a is missing, it will just have the default value ("")
-    property<{a: string, b: int}> prop2: { b: 12 };
+    property <{a: string, b: int}> prop2: { b: 12 };
     // OK: even if c is too many, it will be discarded
-    property<{a: string, b: int}> prop3: { a: "x", b: 12, c: 42 };
+    property <{a: string, b: int}> prop3: { a: "x", b: 12, c: 42 };
     // ERROR: b is missing and c is extra, this doesn't compile, because it could be a typo.
-    // property<{a: string, b: int}> prop4: { a: "x", c: 42 };
+    // property <{a: string, b: int}> prop4: { a: "x", c: 42 };
 
-    property<string> xxx: "42.1";
-    property<float> xxx1: xxx.to-float(); // 42.1
-    property<bool> xxx2: xxx.is-float(); // true
+    property <string> xxx: "42.1";
+    property <float> xxx1: xxx.to-float(); // 42.1
+    property <bool> xxx2: xxx.is-float(); // true
 }
 ```

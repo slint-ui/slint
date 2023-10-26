@@ -2,17 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 export SuperSimple := Rectangle {
-    property<bool> zz: aa > bb == cc
+    property <bool> zz: aa > bb == cc
 //                             ^error{Use parentheses to disambiguate equality expression on the same level}
                 < dd;
 //              ^error{Use parentheses to disambiguate equality expression on the same level}
 
-    property<bool> yy: aa <= bb <= cc;
+    property <bool> yy: aa <= bb <= cc;
 //                              ^error{Use parentheses to disambiguate equality expression on the same level}
-    property<bool> xx: aa<bb>(d);
+    property <bool> xx: aa<bb>(d);
 //                          ^error{Use parentheses to disambiguate equality expression on the same level}
 
-    property<bool> ww: aa && dd && ee || cc ==
+    property <bool> ww: aa && dd && ee || cc ==
 //                                    ^error{Use parentheses to disambiguate between && and \|\|}
         dd == ee;
 //         ^error{Use parentheses to disambiguate equality expression on the same level}

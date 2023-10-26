@@ -814,7 +814,7 @@ mod tests {
     fn function_no_when_in_state() {
         let source = r#"
             component Foo {
-                property<bool> bar: false;
+                property <bool> bar: false;
                 states [
                     foo when root.bar: { }
                     🔺

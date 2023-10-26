@@ -6,10 +6,10 @@ import { StateLayer } from "../components/state_layer.slint";
 
 component ScrollBar inherits Rectangle {
     in-out property <bool> horizontal;
-    in-out property<length> maximum;
-    in-out property<length> page-size;
+    in-out property <length> maximum;
+    in-out property <length> page-size;
     // this is always negative and bigger than  -maximum
-    in-out property<length> value;
+    in-out property <length> value;
 
     background: Theme.palette.pure-black;
     border-width: 1px;

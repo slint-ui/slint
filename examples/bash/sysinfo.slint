@@ -165,11 +165,11 @@ export component SysInfo inherits Dialog {
     in-out property cpu_count <=> cpu-count.text;
     in-out property cpu_model <=> cpu-model.text;
     in-out property cpu_vendor <=> cpu-vendor.text;
-    in-out property<int> mem_size_kb;
-    in-out property<int> buffer_mem_size_kb;
-    in-out property<int> swap_total_kb;
-    in-out property<int> swap_used_kb;
-    in-out property<int> swap_free_kb;
+    in-out property <int> mem_size_kb;
+    in-out property <int> buffer_mem_size_kb;
+    in-out property <int> swap_total_kb;
+    in-out property <int> swap_used_kb;
+    in-out property <int> swap_free_kb;
     in-out property <[{dev: string, mnt: string, total: int, free: int}]> partitions;
 
     function human-unit(unit : int) -> string {

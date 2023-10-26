@@ -22,10 +22,10 @@ export component TestCase inherits Window {
         }
     }
 
-    in property<bool> click-to-focus-on-outer <=> f1.enabled;
-    out property<string> r1;
-    out property<string> r2;
-    out property<bool> correct_focus: !f1.has_focus && f2.has_focus;
+    in property <bool> click-to-focus-on-outer <=> f1.enabled;
+    out property <string> r1;
+    out property <string> r2;
+    out property <bool> correct_focus: !f1.has_focus && f2.has_focus;
 }
 
 /*

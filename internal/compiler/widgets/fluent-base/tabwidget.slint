@@ -105,9 +105,9 @@ export component TabImpl inherits Rectangle {
 
 export component TabBarImpl {
     // injected properties:
-    in-out property<int> current; // The currently selected tab
-    in-out property<int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1; // The currently focused tab
-    in-out property<int> num-tabs; // The total number of tabs
+    in-out property <int> current; // The currently selected tab
+    in-out property <int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1; // The currently focused tab
+    in-out property <int> num-tabs; // The total number of tabs
 
     HorizontalLayout {
         alignment: start;
@@ -119,7 +119,7 @@ export component TabBarImpl {
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
 
     i-focus-scope := FocusScope {
-        property<int> focused-tab: 0;
+        property <int> focused-tab: 0;
 
         x: 0;
         width: 0px; // Do not react on clicks

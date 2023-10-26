@@ -13,46 +13,13 @@ export component StandardTableView {
     callback current-row-changed(int /* current-row */);
 
     out property <int> current-sort-column: -1;
-    in-out property <[TableColumn]> columns;
     in property <[[StandardListViewItem]]> rows;
-    in-out property<int> current-row: -1;
+    in-out property <[TableColumn]> columns;
+    in-out property <int> current-row: -1;
 
     horizontal-stretch: 1;
     vertical-stretch: 1;
     forward-focus: i-focus-scope;
-
-    public function set-current-row(index: int) {
-        if(index < 0 || index >= rows.length) {
-            return;
-        }
-
-        current-row = index;
-        current-row-changed(current-row);
-
-        if(current-item-y < 0) {
-            scroll-view.viewport-y += 0 - current-item-y;
-        }
-
-        if(current-item-y + item-height > scroll-view.visible-height) {
-            scroll-view.viewport-y -= current-item-y + item-height - scroll-view.visible-height;
-        }
-    }
-
-    function sort(index: int) {
-        if (current-sort-column != index) {
-            columns[current-sort-column].sort-order = SortOrder.unsorted;
-        }
-
-        if(columns[index].sort-order == SortOrder.ascending) {
-            columns[index].sort-order = SortOrder.descending;
-            sort-descending(index);
-        } else {
-            columns[index].sort-order = SortOrder.ascending;
-            sort-ascending(index);
-        }
-
-        current-sort-column = index;
-    }
 
     scroll-view := ListView {
         header-height: header-layout.preferred-height;
@@ -142,5 +109,38 @@ export component StandardTableView {
             }
             reject
         }
+    }
+
+    public function set-current-row(index: int) {
+        if(index < 0 || index >= rows.length) {
+            return;
+        }
+
+        current-row = index;
+        current-row-changed(current-row);
+
+        if(current-item-y < 0) {
+            scroll-view.viewport-y += 0 - current-item-y;
+        }
+
+        if(current-item-y + item-height > scroll-view.visible-height) {
+            scroll-view.viewport-y -= current-item-y + item-height - scroll-view.visible-height;
+        }
+    }
+
+    function sort(index: int) {
+        if (current-sort-column != index) {
+            columns[current-sort-column].sort-order = SortOrder.unsorted;
+        }
+
+        if(columns[index].sort-order == SortOrder.ascending) {
+            columns[index].sort-order = SortOrder.descending;
+            sort-descending(index);
+        } else {
+            columns[index].sort-order = SortOrder.ascending;
+            sort-ascending(index);
+        }
+
+        current-sort-column = index;
     }
 }

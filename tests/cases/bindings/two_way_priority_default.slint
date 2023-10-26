@@ -5,8 +5,8 @@
 // But when overridden by an alias, the overridden value should take precedence.
 
 export Button := Rectangle {
-    property<bool> the_enabled <=> touch.enabled;
-    property<bool> the_visible <=> touch.visible;
+    property <bool> the_enabled <=> touch.enabled;
+    property <bool> the_visible <=> touch.visible;
     background: !the_enabled ? blue : red;
     border-color: !the_visible ? green : yellow;
     border-width: 15px;

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 TestCase := Rectangle {
-    property<string> text: "init";
-    property<string> text2: { debug(text); text }
+    property <string> text: "init";
+    property <string> text2: { debug(text); text }
     callback foo;
     foo => {
         debug("callback");

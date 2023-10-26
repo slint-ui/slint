@@ -2,17 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 TestCase := Rectangle {
-    property<brush> extra_background <=> background;
-    property<length> sub_width1 <=> sub.width;
-    property<length> sub_width2: sub.width;
+    property <brush> extra_background <=> background;
+    property <length> sub_width1 <=> sub.width;
+    property <length> sub_width2: sub.width;
 
-    property<int> sub_foo1: 44;
-    property<int> sub_foo2: sub.foo;
+    property <int> sub_foo1: 44;
+    property <int> sub_foo2: sub.foo;
 
 
     sub := Rectangle {
         width: 80phx;
-        property<int> foo <=> root.sub_foo1;
+        property <int> foo <=> root.sub_foo1;
     }
 
     if (true) : Rectangle { background: root.extra_background; }

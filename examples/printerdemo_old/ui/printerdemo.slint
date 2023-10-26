@@ -9,7 +9,7 @@ import { PrintPage } from "print_page.slint";
 import { SettingsPage } from "settings_page.slint";
 
 component TopPanel inherits Rectangle {
-   in-out property<int> active-page: 0;
+   in-out property <int> active-page: 0;
    callback quit();
 
    background: white;
@@ -78,7 +78,7 @@ export component MainWindow inherits Window {
     fax-number-erase => { root.fax-number = ""; }
     callback fax-send;
 
-    in-out property<int> active-page: 0;
+    in-out property <int> active-page: 0;
 
     panel := TopPanel {
         y:0;

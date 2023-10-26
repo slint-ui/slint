@@ -8,8 +8,8 @@ TestCase := Rectangle {
     width: 100phx;
     height: 100phx;
 
-    property<length> xx: 50phx;
-    property<length> ww <=> first.width;
+    property <length> xx: 50phx;
+    property <length> ww <=> first.width;
 
     first := TouchArea {
         x <=> parent.xx;

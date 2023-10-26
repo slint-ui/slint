@@ -26,9 +26,9 @@ pub mod generated_code {
     /// This is the source code:
     /// ```slint,no-preview
     /// export component SampleComponent inherits Window {
-    ///     in-out property<int> counter;
+    ///     in-out property <int> counter;
     ///     // note that dashes will be replaced by underscores in the generated code
-    ///     in-out property<string> user-name;
+    ///     in-out property <string> user-name;
     ///     callback hello();
     ///     // ... maybe more elements here
     /// }

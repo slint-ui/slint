@@ -24,12 +24,12 @@ SubComp := SubSubComp {
 }
 
 TestCase := Rectangle {
-    property<int> top_level: 4;
-    property<int> active_index: 0;
-    property<int> some_prop: 5;
+    property <int> top_level: 4;
+    property <int> active_index: 0;
+    property <int> some_prop: 5;
     text1 := Text {
         text: "hello";
-        property<int> foo: 85 + top_level;
+        property <int> foo: 85 + top_level;
     }
 
     states [
@@ -43,7 +43,7 @@ TestCase := Rectangle {
         }
     ]
 
-    property<int> text1_foo: text1.foo;
+    property <int> text1_foo: text1.foo;
 
     for xx in [1, 2] : Rectangle {
         states [

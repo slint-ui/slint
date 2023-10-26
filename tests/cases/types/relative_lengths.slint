@@ -12,16 +12,16 @@ TestCase := Rectangle {
         width: 50%;
         inner_inner := Sub { }
     }
-    property<length> test_length: inner_rect.width;
-    property<length> test_inner_inner_length: inner_inner.width;
+    property <length> test_length: inner_rect.width;
+    property <length> test_inner_inner_length: inner_inner.width;
 
 
     height: 200phx;
-    property<percent> controller: 10%;
+    property <percent> controller: 10%;
     inner_rect_2 := Rectangle {
         height: parent.controller;
     }
-    property<length> controlled_test_length: inner_rect_2.height;
+    property <length> controlled_test_length: inner_rect_2.height;
 }
 
 

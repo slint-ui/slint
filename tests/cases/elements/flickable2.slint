@@ -9,7 +9,7 @@ TestCase := Window {
 
     Flickable {
         r1 := Rectangle {
-            property<bool> ok: height == root.height && width == root.width;
+            property <bool> ok: height == root.height && width == root.width;
         }
     }
 
@@ -17,7 +17,7 @@ TestCase := Window {
         width: 123phx;
         viewport_height: 456phx;
         r2 := Rectangle {
-            property<bool> ok: height == 456phx && width == 123phx;
+            property <bool> ok: height == 456phx && width == 123phx;
         }
     }
 
@@ -26,7 +26,7 @@ TestCase := Window {
             spacing: 0phx;
             padding: 0phx;
             r3 := Rectangle {
-                property<bool> ok: height == root.height/2 && width == 888phx && f3.viewport_width == 888phx && f3.min-width == 0phx;
+                property <bool> ok: height == root.height/2 && width == 888phx && f3.viewport_width == 888phx && f3.min-width == 0phx;
             }
             Rectangle {
                 min-width: 888phx;
@@ -39,7 +39,7 @@ TestCase := Window {
             spacing: 0phx;
             padding: 0phx;
             r4 := Rectangle {
-                property<bool> ok: f4.max-height == 6000phx && r4.height == root.height;
+                property <bool> ok: f4.max-height == 6000phx && r4.height == root.height;
             }
             Rectangle {
                 max-height: 6000phx;
@@ -49,8 +49,8 @@ TestCase := Window {
 
     Flickable { for i in 5: Rectangle {} }
 
-    property<bool> all_ok: r1.ok && r2.ok && r3.ok && r4.ok;
-    property<bool> test: all_ok;
+    property <bool> all_ok: r1.ok && r2.ok && r3.ok && r4.ok;
+    property <bool> test: all_ok;
 }
 
 /*

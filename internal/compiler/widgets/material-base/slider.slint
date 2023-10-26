@@ -9,7 +9,7 @@ export component Slider {
     callback changed(float /* value */);
 
     in property <Orientation> orientation: horizontal;
-    private property<bool> vertical: orientation == Orientation.vertical;
+    private property <bool> vertical: orientation == Orientation.vertical;
     in property <float> maximum: 100;
     in property <bool> enabled <=> i-touch-area.enabled;
     in property <float> minimum: 0;

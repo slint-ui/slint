@@ -4,11 +4,11 @@
 TestCase := TextInput {
     width: 120phx;
     height: 100phx;
-    property<string> test_text <=> self.text;
-    property<int> test_cursor_pos: self.cursor_position_byte_offset;
-    property<int> test_anchor_pos: self.anchor_position_byte_offset;
-    property<bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
-    property<bool> input_focused: self.has_focus;
+    property <string> test_text <=> self.text;
+    property <int> test_cursor_pos: self.cursor_position_byte_offset;
+    property <int> test_anchor_pos: self.anchor_position_byte_offset;
+    property <bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
+    property <bool> input_focused: self.has_focus;
 }
 
 /*

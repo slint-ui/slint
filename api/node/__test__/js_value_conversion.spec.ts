@@ -372,8 +372,8 @@ test('Model notify', (t) => {
     width: 300px;
     height: 300px;
 
-    out property<length> layout-height: layout.height;
-    in-out property<[length]> fixed-height-model;
+    out property <length> layout-height: layout.height;
+    in-out property <[length]> fixed-height-model;
 
     VerticalLayout {
       alignment: start;

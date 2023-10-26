@@ -5,7 +5,7 @@ App := Rectangle {
     property <string> hello: "ooo";
     if (hello != "") : Text { text <=> hello; }
 
-    property<bool> test1: hello == "ooo";
+    property <bool> test1: hello == "ooo";
 
     // Another crash:
     property <string> directory: "hello";
@@ -20,7 +20,7 @@ App := Rectangle {
         }
     }
     ref := Text { text: "hello"; }
-    property<bool> test2: vl.preferred-width == ref.preferred-width;
+    property <bool> test2: vl.preferred-width == ref.preferred-width;
 
-    property<bool> test: test1 && test2;
+    property <bool> test: test1 && test2;
 }

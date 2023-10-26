@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 global MyGlobal := {
-    property<length> custom_prop;
-    property<color> color_prop;
+    property <length> custom_prop;
+    property <color> color_prop;
     color_prop: red;
 }
 
 export SomeComp := Rectangle {
-    property<length> foo;
+    property <length> foo;
 }
 
 global my_lowercase := {
@@ -29,10 +29,10 @@ export X := Rectangle {
 
     property <int> my_lowercase: 45;
 
-    property<brush> xxx: my_lowercase.background;
-    property<int> yyy: my_lowercase.glob; // error because this is not the global, but the local element
+    property <brush> xxx: my_lowercase.background;
+    property <int> yyy: my_lowercase.glob; // error because this is not the global, but the local element
     //                              ^error{Element 'Rectangle' does not have a property 'glob'}
 
-    property<int> zzz: self.my_lowercase;
+    property <int> zzz: self.my_lowercase;
 
 }

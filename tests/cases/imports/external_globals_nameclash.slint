@@ -5,19 +5,19 @@
 import { UseGlobal, ExportedGlobal as FromExport } from "export_globals.slint";
 
 global NotExported := {
-    property<int> abc: 1000;
-    property<string> prop: "_";
+    property <int> abc: 1000;
+    property <string> prop: "_";
 }
 
 global ExportedGlobal := {
-    property<int> abc: 1001;
+    property <int> abc: 1001;
 }
 
 TestCase := Rectangle {
     ug := UseGlobal {}
-    property<int> p1: ug.used42;
-    property<int> p2: ug.used44;
-    property<int> p3: NotExported.abc + ExportedGlobal.abc;
+    property <int> p1: ug.used42;
+    property <int> p2: ug.used44;
+    property <int> p3: NotExported.abc + ExportedGlobal.abc;
 
     property <bool> test: p1 == 42 && p2 == 44 && p3 == 2001 ;//&& NotExported.prop == "_";
 }

@@ -6,11 +6,11 @@ import { Palette } from "styling.slint";
 
 component ScrollBar inherits Rectangle {
     in-out property <bool> horizontal;
-    in-out property<length> maximum;
-    in-out property<length> page-size;
+    in-out property <length> maximum;
+    in-out property <length> page-size;
     // this is always negative and bigger than  -maximum
-    in-out property<length> value;
-    in-out property<bool> enabled <=> i-touch-area.enabled;
+    in-out property <length> value;
+    in-out property <bool> enabled <=> i-touch-area.enabled;
 
     i-state-layer := Rectangle {
         width: 100%;

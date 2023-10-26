@@ -7,7 +7,7 @@ export component TestCase {
 
     ti := TextInput {}
 
-    in-out property<string> test_text <=> ti.text;
+    in-out property <string> test_text <=> ti.text;
 
     callback do_select();
     do_select => {
@@ -34,7 +34,7 @@ export component TestCase {
         ti.clear-selection();
     }
 
-    out property<bool> has_selection: ti.cursor_position_byte_offset != ti.anchor_position_byte_offset;
+    out property <bool> has_selection: ti.cursor_position_byte_offset != ti.anchor_position_byte_offset;
 }
 
 /*

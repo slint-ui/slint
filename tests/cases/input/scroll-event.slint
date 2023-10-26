@@ -5,7 +5,7 @@
 export component TestCase inherits Window {
     width: 500px;
     height: 500px;
-    in-out property<string> result;
+    in-out property <string> result;
     f := Flickable {
         viewport_width: 2100px;
         viewport_height: 2100px;
@@ -35,8 +35,8 @@ export component TestCase inherits Window {
     }
 
 
-    out property<length> offset_x: -f.viewport_x;
-    out property<length> offset_y: -f.viewport_y;
+    out property <length> offset_x: -f.viewport_x;
+    out property <length> offset_y: -f.viewport_y;
 }
 
 /*

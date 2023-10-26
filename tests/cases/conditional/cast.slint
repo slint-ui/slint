@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 TestCase := Rectangle {
-    property<bool> condition;
-    property<color> extra_color;
+    property <bool> condition;
+    property <color> extra_color;
     background: condition ? root.extra_color : red;
-    property<string> s1 : condition ? "abc" : 123;
-    property<string> s2 : condition ? 123 : "abc";
+    property <string> s1 : condition ? "abc" : 123;
+    property <string> s2 : condition ? 123 : "abc";
 
     property <bool> test: s1 == "123" && s2 == "abc";
 }

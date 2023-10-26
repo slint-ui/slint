@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 TestCase := Rectangle {
-    property<{a: string, b: int}> foo: {a : "444", b: 12 };
-    property<{a: string, b: int}> obj_conversion: { b: 12, a : 444, c: "nothing" };
-    property<{a: string, b: int}> obj_conversion2: { a: "hello" };
-    property<{a: string, b: int}> obj_cond: true ? { b: 12, a : "ddd" } :  { a: 12, b : 444, c: "nothing" };
-    property<{a: int, b: int}> obj_cond_merge : true ? { a: 1 } : { b: 10 };
-    property<bool> obj_binop_merge : { foo: 0, x: 1 } == { bar: 0, x: 1 };
+    property <{a: string, b: int}> foo: {a : "444", b: 12 };
+    property <{a: string, b: int}> obj_conversion: { b: 12, a : 444, c: "nothing" };
+    property <{a: string, b: int}> obj_conversion2: { a: "hello" };
+    property <{a: string, b: int}> obj_cond: true ? { b: 12, a : "ddd" } :  { a: 12, b : 444, c: "nothing" };
+    property <{a: int, b: int}> obj_cond_merge : true ? { a: 1 } : { b: 10 };
+    property <bool> obj_binop_merge : { foo: 0, x: 1 } == { bar: 0, x: 1 };
 
-    property<string> foo_a : foo.a;
-    property<int> foo_b : foo.b;
-    property<int> obj_cond_merge_b : obj_cond_merge.b;
+    property <string> foo_a : foo.a;
+    property <int> foo_b : foo.b;
+    property <int> obj_cond_merge_b : obj_cond_merge.b;
     callback change_foo;
     change_foo => {
         foo.a = obj_conversion2.a;

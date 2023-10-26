@@ -3,16 +3,16 @@
 
  TestCase := Rectangle {
 
-    property<int> bar: 5;
-    property<int> foo: 3;
+    property <int> bar: 5;
+    property <int> foo: 3;
     foo := Rectangle {
-        property<int> bar: 7;
-        property<int> foo: 9;
-        property<int> inner: bar * 10 + self.bar * 100 + parent.bar * 1000;
+        property <int> bar: 7;
+        property <int> foo: 9;
+        property <int> inner: bar * 10 + self.bar * 100 + parent.bar * 1000;
     }
 
-    property<int> p1: foo.inner;
-    property<int> p2: self.foo *10 + foo.foo * 100 + bar *1000;
+    property <int> p1: foo.inner;
+    property <int> p2: self.foo *10 + foo.foo * 100 + bar *1000;
 }
 /*
 ```cpp

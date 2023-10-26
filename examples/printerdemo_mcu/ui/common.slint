@@ -55,7 +55,7 @@ export global DemoPalette  {
 }
 
 export component Page inherits Rectangle {
-    in property<string> header <=> h.text;
+    in property <string> header <=> h.text;
     background: DemoPalette.page-background-color;
     in property <bool> has-back-button: false;
     callback back;
@@ -109,7 +109,7 @@ export component Label inherits Text {
 
 component SquareButton inherits Rectangle {
     callback clicked;
-    in property<image> img;
+    in property <image> img;
     border-radius: 3px;
     border-width: 2px;
     border-color: DemoPalette.control-outline-color;
@@ -181,8 +181,8 @@ export component SpinBox inherits Rectangle {
 }
 
 export component ComboBox inherits Rectangle {
-    in-out property<string> value;
-    in property<[string]> choices;
+    in-out property <string> value;
+    in property <[string]> choices;
     border-radius: 3px;
     border-width: 2px;
     border-color: DemoPalette.control-outline-color;

@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
  TestCase := Rectangle {
-    property<int> active_index: 0;
-    property<int> some_prop: 5;
+    property <int> active_index: 0;
+    property <int> some_prop: 5;
     text1 := Text {
-        property<int> foo; // this one is not initialized
+        property <int> foo; // this one is not initialized
         animate foo { duration: 100ms; }
     }
 
@@ -19,7 +19,7 @@
     animate some_prop { duration: 100ms; }
 
 
-    property<int> text1_foo: text1.foo;
+    property <int> text1_foo: text1.foo;
 
 }
 

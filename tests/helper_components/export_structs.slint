@@ -11,7 +11,7 @@ export enum ExportEnum { Hello, Bonjour }
 export struct ExportedStruct := { d: int, e: NotExportedStruct0 }
 
 export UseStruct := Rectangle {
-    property<ExportedStruct> exp;
-    property<NotExportedStruct1> nexp;
-    property<[NotExportedStruct2]> arr;
+    property <ExportedStruct> exp;
+    property <NotExportedStruct1> nexp;
+    property <[NotExportedStruct2]> arr;
 }

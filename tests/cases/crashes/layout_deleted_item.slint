@@ -10,7 +10,7 @@ export TestCase := Window {
     callback clicked;
     clicked => { debug("Hello"); model= []; }
     property <bool> hover: under.has-hover;
-    property<[int]> model: [1];
+    property <[int]> model: [1];
     VerticalLayout {
         under := TouchArea {
             HorizontalLayout {

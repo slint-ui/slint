@@ -4,7 +4,7 @@
 MyTextInput := TextInput { }
 
 TextComponent := Rectangle {
-    property<bool> has_focus: my_text_input.has_focus;
+    property <bool> has_focus: my_text_input.has_focus;
     forward-focus: my_text_input;
     my_text_input := MyTextInput { }
 
@@ -31,8 +31,8 @@ TestCase := Rectangle {
       input1.focus();
     }
 
-    property<bool> input1_focused: input1.has_focus;
-    property<bool> input2_focused: input2.has_focus;
+    property <bool> input1_focused: input1.has_focus;
+    property <bool> input2_focused: input2.has_focus;
 }
 
 /*

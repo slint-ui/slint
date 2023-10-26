@@ -3,14 +3,14 @@
 
 
 global NotExported := {
-    property<int> prop: 42;
+    property <int> prop: 42;
 }
 
 export global ExportedGlobal := {
-    property<int> foo: 44;
+    property <int> foo: 44;
 }
 
 export UseGlobal := Rectangle {
-    property<int> used42: NotExported.prop;
-    property<int> used44: ExportedGlobal.foo;
+    property <int> used42: NotExported.prop;
+    property <int> used44: ExportedGlobal.foo;
 }

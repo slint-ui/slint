@@ -15,8 +15,8 @@ component StandardListViewBase inherits ListView {
     callback current-item-changed(int /* current-item */);
     callback item-pointer-event(int /* item-index */, PointerEvent /* event */, Point /* absolute mouse position */);
 
-    in property<[StandardListViewItem]> model;
-    in-out property<int> current-item: -1;
+    in property <[StandardListViewItem]> model;
+    in-out property <int> current-item: -1;
 
     for item[index] in root.model : ListItem {
         height: self.min-height;

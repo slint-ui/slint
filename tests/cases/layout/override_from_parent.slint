@@ -36,5 +36,5 @@ TestCase := Rectangle {
     // FIXME: the HorizontalLayout is required here because the sc3.max-width takes the existing binding instead of being re-materialized
     sc3 := HorizontalLayout { SubComp3 { width: 200px; } }
     sc4 := SubComp4 {}
-    property<bool> test: sc1.min-width == 200px && sc2.min-width == 200px && sc3.max-width == 200px && sc4.min-width == 200px;
+    property <bool> test: sc1.min-width == 200px && sc2.min-width == 200px && sc3.max-width == 200px && sc4.min-width == 200px;
 }

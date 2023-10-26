@@ -52,8 +52,8 @@ export component Example inherits Window {
     preferred-height: 100px;
 
     text := Text { text: "hello"; }
-    in-out property<bool> pressed;
-    in-out property<bool> is-enabled;
+    in-out property <bool> pressed;
+    in-out property <bool> is-enabled;
 
     states [
         disabled when !root.is-enabled : {

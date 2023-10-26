@@ -2,30 +2,30 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 export X := Rectangle {
-    property<brush> g1: @linear-gradient();
+    property <brush> g1: @linear-gradient();
 //                      ^error{Expected angle expression}
-    property<brush> g2: @linear-gradient(to left, blue, red);
+    property <brush> g2: @linear-gradient(to left, blue, red);
 //                      ^error{Angle expression must be an angle followed by a comma}
-    property<brush> g3: @linear-gradient(0deg, blue, red);
-    property<brush> g4: @linear-gradient(45deg, blue 45%, red red);
+    property <brush> g3: @linear-gradient(0deg, blue, red);
+    property <brush> g4: @linear-gradient(45deg, blue 45%, red red);
 //                                                            ^error{Cannot convert color to float}
-    property<brush> g5: @linear-gradient(128deg, blue 45%, red);
-    property<brush> g6: @linear-gradient(90deg, blue 45%, red 88%);
-    property<brush> g7: @linear-gradient(90deg, 42 45%, red 0.3);
+    property <brush> g5: @linear-gradient(128deg, blue 45%, red);
+    property <brush> g6: @linear-gradient(90deg, blue 45%, red 88%);
+    property <brush> g7: @linear-gradient(90deg, 42 45%, red 0.3);
 //                                              ^error{Cannot convert float to color}
-    property<brush> g8: @linear-gradient(90deg, blue red green);
+    property <brush> g8: @linear-gradient(90deg, blue red green);
 //                                                   ^error{Cannot convert color to float}
 //                                                       ^^error{Expected comma}
-    property<brush> g9: @linear-gradient(0deg blue, blue, red);
+    property <brush> g9: @linear-gradient(0deg blue, blue, red);
 //                      ^error{Angle expression must be an angle followed by a comma}
-    property<brush> g10: @linear-gradient(90deg, blue 10% red 20%, yellow);
+    property <brush> g10: @linear-gradient(90deg, blue 10% red 20%, yellow);
 //                                                        ^error{Expected comma}
-    property<brush> g11: @linear-gradient(20deg,);
-    property<brush> g12: @linear-gradient(2, blue 45%, red 88%);
+    property <brush> g11: @linear-gradient(20deg,);
+    property <brush> g12: @linear-gradient(2, blue 45%, red 88%);
 //                                        ^error{Cannot convert float to angle. Use an unit, or multiply by 1deg to convert explicitly}
-    property<brush> g13: @linear-gradient(90deg + 0.5turn, true ? blue : red 45%, red 88% + 0.1);
+    property <brush> g13: @linear-gradient(90deg + 0.5turn, true ? blue : red 45%, red 88% + 0.1);
 
-    property<brush> g14: @linear-gradient(-128deg, white, blue r);
+    property <brush> g14: @linear-gradient(-128deg, white, blue r);
 //                                                             ^error{Unknown unqualified identifier 'r'}
     property <brush> g15: @linear-gradient(90deg, brown o, green); // #3241
 //                                                      ^error{Unknown unqualified identifier 'o'}

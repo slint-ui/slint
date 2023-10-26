@@ -13,12 +13,12 @@ TestCase := Rectangle {
     }
 
     a := TouchArea {
-        property<int> hello: 40;
+        property <int> hello: 40;
         animate hello {
             duration: 1200ms;
         }
-        property<bool> condition: true;
-        property<int> binding_dep: condition ? 100 : 150;
+        property <bool> condition: true;
+        property <int> binding_dep: condition ? 100 : 150;
         animate binding_dep {
             duration: 1200ms;
         }

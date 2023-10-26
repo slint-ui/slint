@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 global MyGlobal := {
-    property<int> bar: 5;
-    property<int> foo: 3;
+    property <int> bar: 5;
+    property <int> foo: 3;
     callback glob_callback;
 }
 
 Foo := Rectangle {
-    property<int> foo_prop: MyGlobal.foo;
+    property <int> foo_prop: MyGlobal.foo;
     for ha in 3: Rectangle {
         x: (ha + MyGlobal.bar) * 1px;
     }
@@ -23,8 +23,8 @@ TestCase := Rectangle {
     Foo {}
     foo := Foo {}
     Foo {}
-    property<int> p1: 10 * MyGlobal.bar + 1;
-    property<int> p2: foo.foo_prop;
+    property <int> p1: 10 * MyGlobal.bar + 1;
+    property <int> p2: foo.foo_prop;
 
 }
 /*

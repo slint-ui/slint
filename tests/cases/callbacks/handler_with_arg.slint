@@ -5,7 +5,7 @@ TestCase := Rectangle {
     callback test_callback(int);
     callback test_callback2(string);
     callback test_callback3(int, string);
-    property<int> callback_emission_count;
+    property <int> callback_emission_count;
     test_callback => { callback_emission_count += 1; }
     test_callback2(xx) => { callback_emission_count = 88; root.test_callback3(55, xx); }
 }

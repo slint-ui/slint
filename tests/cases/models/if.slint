@@ -5,16 +5,16 @@ TestCase := Rectangle {
     width: 100phx;
     height: 100phx;
     background: white;
-    property<int> top_level: 42;
+    property <int> top_level: 42;
 
-    property<bool> cond1;
-    property<bool> cond2;
-    property<bool> cond3;
+    property <bool> cond1;
+    property <bool> cond2;
+    property <bool> cond3;
 
     if (cond1) : TouchArea {
         width: parent.width;
         height: root.height;
-        property<int> xx: root.top_level;
+        property <int> xx: root.top_level;
         clicked => {
             root.top_level += self.xx + 8;
         }

@@ -7,12 +7,12 @@ export component Slider {
     callback changed(float /* value */);
 
     in property <Orientation> orientation: horizontal;
-    private property<bool> vertical: orientation == Orientation.vertical;
-    in property<float> maximum: 100;
-    in property<float> minimum: 0;
-    in property<bool> enabled <=> i-touch-area.enabled;
-    out property<bool> has-focus: i-focus-scope.has-focus;
-    in-out property<float> value;
+    private property <bool> vertical: orientation == Orientation.vertical;
+    in property <float> maximum: 100;
+    in property <float> minimum: 0;
+    in property <bool> enabled <=> i-touch-area.enabled;
+    out property <bool> has-focus: i-focus-scope.has-focus;
+    in-out property <float> value;
 
     min-width: vertical ? 20px : 0px;
     min-height: vertical ? 0px : 20px;

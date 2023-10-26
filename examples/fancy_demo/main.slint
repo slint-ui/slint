@@ -248,10 +248,10 @@ component SelectableLabel inherits TouchArea {
 }
 
 component Slider inherits Rectangle {
-    in property<float> maximum: 100;
-    in property<float> minimum: 0;
-    in-out property<float> value;
-    in property<bool> enabled <=> touch.enabled;
+    in property <float> maximum: 100;
+    in property <float> minimum: 0;
+    in-out property <float> value;
+    in property <bool> enabled <=> touch.enabled;
     callback changed(float);
 
     min-height: 24px;
@@ -299,7 +299,7 @@ component Slider inherits Rectangle {
 component Hyperlink inherits Text {
     color: Palette.hyper-blue;
     TouchArea { mouse-cursor: pointer; }
-    in-out property<string> link;
+    in-out property <string> link;
 }
 
 component DragValue inherits TouchArea {

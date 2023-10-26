@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 TestButtonImpl := Rectangle {
-    property<string> button_text;
+    property <string> button_text;
     Text {
         x: 10phx;
         y: 10phx;
@@ -12,5 +12,5 @@ TestButtonImpl := Rectangle {
 export { TestButtonImpl as TestButton }
 
 export ColorButton := TestButtonImpl {
-    property<color> button_color;
+    property <color> button_color;
 }

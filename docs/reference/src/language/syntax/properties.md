@@ -23,10 +23,10 @@ name, the type, and optionally a default value:
 ```slint,no-preview
 export component Example {
     // declare a property of type int with the name `my-property`
-    property<int> my-property;
+    property <int> my-property;
 
     // declare a property with a default value
-    property<int> my-second-property: 42;
+    property <int> my-second-property: 42;
 }
 ```
 
@@ -98,7 +98,7 @@ The property type is optional with two-way bindings, it will be inferred if not 
 
 ```slint,no-preview
 export component Example  {
-    in property<brush> rect-color <=> r.background;
+    in property <brush> rect-color <=> r.background;
     // It's allowed to omit the type to have it automatically inferred
     in property rect-color2 <=> r.background;
     r:= Rectangle {

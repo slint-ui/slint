@@ -47,12 +47,12 @@ TestCase := Rectangle {
 
     for t in ["abc"] : Text { text: t; accessible-description: t;  }
 
-    property<AccessibleRole> materialized_b1_role: b1.accessible_role;
-    property<string> materialized_b2_label: b2.accessible-label;
-    property<string> materialized_vl_label: vl.accessible-label;
-    property<AccessibleRole> materialized_vl_role: vl.accessible-role;
-    property<AccessibleRole> materialized_txt_role: txt.accessible-role;
-    property<string> materialized_txt_label: txt.accessible-label;
+    property <AccessibleRole> materialized_b1_role: b1.accessible_role;
+    property <string> materialized_b2_label: b2.accessible-label;
+    property <string> materialized_vl_label: vl.accessible-label;
+    property <AccessibleRole> materialized_vl_role: vl.accessible-role;
+    property <AccessibleRole> materialized_txt_role: txt.accessible-role;
+    property <string> materialized_txt_label: txt.accessible-label;
 
     property <bool> test:
         materialized_b1_role == AccessibleRole.button && materialized_b2_label == "minus"

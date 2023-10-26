@@ -5,8 +5,8 @@
 import { ExportedStruct, ExportEnum } from "export_structs.slint";
 export { ExportedStruct as NamedStruct, ExportEnum as NamedEnum  }
 component TestCase inherits Rectangle {
-    in-out property<ExportedStruct> st;
-    in-out property<ExportEnum> en: ExportEnum.Bonjour;
+    in-out property <ExportedStruct> st;
+    in-out property <ExportEnum> en: ExportEnum.Bonjour;
 }
 export { TestCase as NamedTestCase }
 

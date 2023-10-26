@@ -6,15 +6,15 @@ export Hello := Rectangle {
     width: 100phx;
     height: 100phx;
     background: white;
-    property<length> top_level: 42phx;
+    property <length> top_level: 42phx;
 
-    property<bool> cond1;
-    property<bool> cond2;
-    property<bool> cond3;
+    property <bool> cond1;
+    property <bool> cond2;
+    property <bool> cond3;
 
     if (cond1) : Rectangle {
         background: root.background;
-        property<length> xx: root.top_level;
+        property <length> xx: root.top_level;
     }
 
     if (cond1 ? cond2 : cond3) : Rectangle {

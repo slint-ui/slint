@@ -3,16 +3,16 @@
 
  Test-Case := Rectangle {
 
-    property<length> property-x1: xxx-foo.border-width;
-    property<length> property-x2: xxx_foo.border_width;
+    property <length> property-x1: xxx-foo.border-width;
+    property <length> property-x2: xxx_foo.border_width;
 
     xxx-foo := Rectangle {
         border-width: 42phx;
     }
 
-    property<int> hello-42: 42;
-    property<int> hello--world: -hello-42 - 2; // -42 - 2 = -44
-    property<int> this--has-6-slashes--: 42-hello--world; // 42 - -44  = 86
+    property <int> hello-42: 42;
+    property <int> hello--world: -hello-42 - 2; // -42 - 2 = -44
+    property <int> this--has-6-slashes--: 42-hello--world; // 42 - -44  = 86
 
 }
 /*

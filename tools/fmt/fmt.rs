@@ -841,7 +841,7 @@ mod tests {
     fn complex_formatting() {
         assert_formatting(
             r#"
-Main :=Window{callback some-fn(string,string)->bool;some-fn(a, b)=>{a<=b} property<bool>prop-x;
+Main :=Window{callback some-fn(string,string)->bool;some-fn(a, b)=>{a<=b} property <bool>prop-x;
     VerticalBox {      combo:=ComboBox{}    }
     pure   callback   some-fn  ({x: int},string);  in property <  int >  foo: 42; }
             "#,

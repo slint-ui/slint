@@ -17,7 +17,7 @@ export component Test {
     out property t5 <=> b.xyz;
 //                        ^error{Element 'Bug' does not have a property 'xyz'}
 //  ^^error{Could not infer type of property 't5'}
-    out property<int> t6 <=> b.foo;
+    out property <int> t6 <=> b.foo;
 //                             ^error{Element 'Bug' does not have a property 'foo'}
     b := Bug {}
 }
