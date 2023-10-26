@@ -5,14 +5,23 @@ import { Typography, Palette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component Switch {
-    private property <color> text-color: Palette.text-secondary;
-
-    callback toggled;
-
-    in property<bool> enabled: true;
+    in property <bool> enabled: true;
     in property <string> text;
     in-out property <bool> checked: true;
     out property <bool> has-focus: i-focus-scope.has-focus;
+
+    callback toggled;
+
+    private property <color> text-color: Palette.text-secondary;
+
+    function toggle-checked() {
+        if(!root.enabled) {
+            return;
+        }
+
+        root.checked = !root.checked;
+        root.toggled();
+    }
 
     min-width: 40px;
     min-height: 20px;
@@ -23,6 +32,35 @@ export component Switch {
     accessible-checked <=> root.checked;
     accessible-role: checkbox;
     forward-focus: i-focus-scope;
+
+    states [
+        disabled when !root.enabled : {
+            i-rail.background: root.checked ? Palette.accent-disabled : transparent;
+            i-rail.border-color: Palette.control-strong-stroke-disabled;
+            i-thumb.background: Palette.text-disabled;
+            root.text-color: Palette.text-disabled;
+            i-thumb.background: root.checked ? Palette.text-on-accent-disabled : Palette.text-secondary;
+        }
+        pressed when i-touch-area.pressed : {
+            i-rail.background: root.checked ? Palette.accent-tertiary : Palette.control-alt-quartiary;
+            i-thumb.width: 17px;
+            i-thumb.height: 14px;
+            i-thumb.border-width: root.checked ? 1px : 0;
+            i-thumb.background: root.checked ? Palette.text-on-accent-primary : Palette.text-secondary;
+        }
+        hover when i-touch-area.has-hover : {
+            i-rail.background:  root.checked ? Palette.accent-secondary : Palette.control-alt-tertiary;
+            i-thumb.width: 14px;
+            i-thumb.border-width: root.checked ? 1px : 0;
+            i-thumb.background: root.checked ? Palette.text-on-accent-primary : Palette.text-secondary;
+        }
+        selected when root.checked : {
+            i-rail.background: Palette.accent-default;
+            i-thumb.border-width: 1px;
+            i-thumb.border-color: Palette.circle-border;
+            i-thumb.background: Palette.text-on-accent-primary;
+        }
+    ]
 
     i-layout := HorizontalLayout {
         spacing: 12px;
@@ -52,8 +90,6 @@ export component Switch {
 
                     animate background, width { duration: 150ms; easing: linear; }
                 }
-
-                animate background, border-color { duration: 150ms; easing: linear; }
 
                 // focus border
                 if (root.has-focus && root.enabled) : FocusBorder {
@@ -93,42 +129,4 @@ export component Switch {
             return reject;
         }
     }
-
-    function toggle-checked() {
-        if(!root.enabled) {
-            return;
-        }
-
-        root.checked = !root.checked;
-        root.toggled();
-    }
-
-    states [
-        disabled when !root.enabled : {
-            i-rail.background: root.checked ? Palette.accent-disabled : transparent;
-            i-rail.border-color: Palette.control-strong-stroke-disabled;
-            i-thumb.background: Palette.text-disabled;
-            root.text-color: Palette.text-disabled;
-            i-thumb.background: root.checked ? Palette.text-on-accent-disabled : Palette.text-secondary;
-        }
-        pressed when i-touch-area.pressed : {
-            i-rail.background: root.checked ? Palette.accent-tertiary : Palette.control-alt-quartiary;
-            i-thumb.width: 17px;
-            i-thumb.height: 14px;
-            i-thumb.border-width: root.checked ? 1px : 0;
-            i-thumb.background: root.checked ? Palette.text-on-accent-primary : Palette.text-secondary;
-        }
-        hover when i-touch-area.has-hover : {
-            i-rail.background:  root.checked ? Palette.accent-secondary : Palette.control-alt-tertiary;
-            i-thumb.width: 14px;
-            i-thumb.border-width: root.checked ? 1px : 0;
-            i-thumb.background: root.checked ? Palette.text-on-accent-primary : Palette.text-secondary;
-        }
-        selected when root.checked : {
-            i-rail.background: Palette.accent-default;
-            i-thumb.border-width: 1px;
-            i-thumb.border-color: Palette.circle-border;
-            i-thumb.background: Palette.text-on-accent-primary;
-        }
-    ]
 }

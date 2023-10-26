@@ -40,8 +40,6 @@ export global Elevation {
 }
 
 export global Palette {
-    in-out property<bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
-
     out property <brush> background: !root.dark-color-scheme ? #f8f3f9 : #2a282d;
     out property <brush> surface: !root.dark-color-scheme ? #FFFBFE : #1C1B1F;
     out property <brush> surface-variant: !root.dark-color-scheme ? #E7E0EC.darker(0.2) : #49454F;
@@ -58,6 +56,7 @@ export global Palette {
     out property <brush> secondary-container:  !root.dark-color-scheme ? #E8DEF8 : #4A4458;
     out property <brush> on-secondary-container:  !root.dark-color-scheme ? #1E192B : #E8DEF8;
     out property <brush> secondary-ripple: !root.dark-color-scheme ? #fffc : #000000;
+    in-out property <bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
 }
 
 export global Icons {

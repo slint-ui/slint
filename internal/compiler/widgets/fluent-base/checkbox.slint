@@ -5,21 +5,42 @@ import { Typography, Palette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component CheckBox {
-    private property <color> text-color: Palette.text-secondary;
-
-    callback toggled;
-
     in property <string> text;
     in property <bool> enabled <=> i-touch-area.enabled;
     out property <bool> has-focus: i-focus-scope.has-focus;
     in-out property <bool> checked;
 
-    min-height: max(32px, i-layout.min-height);
+    callback toggled;
 
+    private property <color> text-color: Palette.text-secondary;
+
+    min-height: max(32px, i-layout.min-height);
     accessible-checkable: true;
     accessible-label: root.text;
     accessible-checked <=> root.checked;
     accessible-role: checkbox;
+
+    states [
+        disabled when !root.enabled : {
+            i-border.border-color: Palette.control-strong-stroke-disabled;
+            i-background.background: root.checked ? Palette.accent-disabled : Palette.control-alt-disabled;
+            i-icon.colorize: Palette.text-on-accent-disabled;
+            root.text-color: Palette.text-disabled;
+        }
+        pressed when i-touch-area.pressed : {
+            i-border.border-color: Palette.control-strong-stroke-disabled;
+            i-background.background: root.checked ? Palette.accent-tertiary : Palette.control-alt-quartiary;
+            i-icon.colorize: Palette.text-on-accent-secondary;
+        }
+        hover when i-touch-area.has-hover : {
+            i-background.background: root.checked ?  Palette.accent-secondary : Palette.control-alt-tertiary;
+        }
+        checked when root.checked && root.enabled : {
+            i-background.background: Palette.accent-default;
+        }
+    ]
+
+    animate text-color { duration: 200ms; }
 
     i-layout := HorizontalLayout {
         padding-left: 8px;
@@ -32,6 +53,8 @@ export component CheckBox {
             y: (parent.height - self.height) / 2;
             background: Palette.control-alt-secondary;
             border-radius: 2px;
+
+            animate background, border-color { duration: 150ms; }
 
             i-border := Rectangle {
                 border-color: Palette.control-strong-stroke;
@@ -48,8 +71,6 @@ export component CheckBox {
 
                 animate colorize { duration: 150ms; }
             }
-
-            animate background, border-color { duration: 150ms; }
         }
 
         if (root.text != "") : Text {
@@ -89,26 +110,4 @@ export component CheckBox {
     if (root.has-focus && root.enabled) : FocusBorder {
         border-radius: 4px;
     }
-
-    states [
-        disabled when !root.enabled : {
-            i-border.border-color: Palette.control-strong-stroke-disabled;
-            i-background.background: root.checked ? Palette.accent-disabled : Palette.control-alt-disabled;
-            i-icon.colorize: Palette.text-on-accent-disabled;
-            root.text-color: Palette.text-disabled;
-        }
-        pressed when i-touch-area.pressed : {
-            i-border.border-color: Palette.control-strong-stroke-disabled;
-            i-background.background: root.checked ? Palette.accent-tertiary : Palette.control-alt-quartiary;
-            i-icon.colorize: Palette.text-on-accent-secondary;
-        }
-        hover when i-touch-area.has-hover : {
-            i-background.background: root.checked ?  Palette.accent-secondary : Palette.control-alt-tertiary;
-        }
-        checked when root.checked && root.enabled : {
-            i-background.background: Palette.accent-default;
-        }
-    ]
-
-    animate text-color { duration: 200ms; }
 }

@@ -5,15 +5,24 @@ import { Typography, Palette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component Switch {
-    private property <brush> background: checked && root.enabled ? Palette.accent : Palette.surface-alt;
-    private property <color> text-color: Palette.foreground;
-
-    callback toggled;
-
-    in property<bool> enabled: true;
+    in property <bool> enabled: true;
     in property <string> text;
     out property <bool> has-focus: i-focus-scope.has-focus;
     in-out property <bool> checked: true;
+
+    callback toggled;
+
+    private property <brush> background: checked && root.enabled ? Palette.accent : Palette.surface-alt;
+    private property <color> text-color: Palette.foreground;
+
+    function toggle-checked() {
+        if(!root.enabled) {
+            return;
+        }
+
+        root.checked = !root.checked;
+        root.toggled();
+    }
 
     min-width: 26px;
     min-height: 15px;
@@ -24,6 +33,18 @@ export component Switch {
     accessible-checked <=> root.checked;
     accessible-role: checkbox;
     forward-focus: i-focus-scope;
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.5;
+        }
+        pressed when i-touch-area.pressed : {
+            root.background: root.checked ? Palette.accent-secondary : Palette.surface-secondary;
+        }
+        selected when root.checked : {
+            i-rail.background: Palette.accent;
+        }
+    ]
 
     i-layout := HorizontalLayout {
         spacing: 12px;
@@ -104,25 +125,4 @@ export component Switch {
             return reject;
         }
     }
-
-    function toggle-checked() {
-        if(!root.enabled) {
-            return;
-        }
-
-        root.checked = !root.checked;
-        root.toggled();
-    }
-
-    states [
-        disabled when !root.enabled : {
-            root.opacity: 0.5;
-        }
-        pressed when i-touch-area.pressed : {
-            root.background: root.checked ? Palette.accent-secondary : Palette.surface-secondary;
-        }
-        selected when root.checked : {
-            i-rail.background: Palette.accent;
-        }
-    ]
 }

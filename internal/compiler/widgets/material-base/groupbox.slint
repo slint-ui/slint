@@ -8,6 +8,14 @@ export component GroupBox {
     in property <string> title <=> i-text.text;
     in property <bool> enabled: true;
 
+    states [
+        disabled when !root.enabled : {
+            i-background.border-color: Palette.on-surface;
+            i-background.opacity: 0.38;
+            i-text.opacity: 0.38;
+        }
+    ]
+
     VerticalLayout {
         spacing: 4px;
 
@@ -37,12 +45,4 @@ export component GroupBox {
             }
         }
     }
-
-    states [
-        disabled when !root.enabled : {
-            i-background.border-color: Palette.on-surface;
-            i-background.opacity: 0.38;
-            i-text.opacity: 0.38;
-        }
-    ]
 }

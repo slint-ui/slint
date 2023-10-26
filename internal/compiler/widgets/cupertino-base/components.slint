@@ -44,19 +44,27 @@ export component MenuBorder inherits Rectangle {
 }
 
 export component ListItem {
-    callback clicked <=> i-touch-area.clicked;
-    callback pointer-event <=> i-touch-area.pointer-event;
-
     in property <bool> selected;
     in property <string> text <=> i-text.text;
     in property <length> padding-horizontal: 12px;
     out property <length> mouse-x <=> i-touch-area.mouse-x;
     out property <length> mouse-y <=> i-touch-area.mouse-y;
 
+    callback clicked <=> i-touch-area.clicked;
+    callback pointer-event <=> i-touch-area.pointer-event;
+
     min-width: i-layout.min-width;
     min-height: max(22px, i-layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 1;
+
+    states [
+        hover when i-touch-area.has-hover : {
+            i-background.background: Palette.accent;
+            i-text.color: Palette.on-surface;
+            i-icon.colorize: Palette.on-surface;
+        }
+    ]
 
     i-layout := VerticalLayout {
         padding-left: root.padding-horizontal;
@@ -92,12 +100,4 @@ export component ListItem {
     }
 
     i-touch-area := TouchArea {}
-
-    states [
-        hover when i-touch-area.has-hover : {
-            i-background.background: Palette.accent;
-            i-text.color: Palette.on-surface;
-            i-icon.colorize: Palette.on-surface;
-        }
-    ]
 }

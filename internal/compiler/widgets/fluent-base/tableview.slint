@@ -5,12 +5,21 @@ import { Palette, Typography, Icons } from "styling.slint";
 import { ListView } from "listview.slint";
 
 component TableViewColumn inherits Rectangle {
+    in property <SortOrder> sort-order: SortOrder.unsorted;
+
     callback clicked <=> i-touch-area.clicked;
     callback adjust_size(length);
 
-    in property <SortOrder> sort-order: SortOrder.unsorted;
-
     background: Palette.background;
+
+    states [
+        pressed when i-touch-area.pressed : {
+            background: Palette.control-secondary;
+        }
+        hover when i-touch-area.has-hover : {
+            background: Palette.sub-title-tertiary;
+        }
+    ]
 
     i-touch-area := TouchArea {
         width: parent.width - 11px;
@@ -49,6 +58,14 @@ component TableViewColumn inherits Rectangle {
         x: parent.width - 1px;
         width: 1px;
 
+        states [
+            hover when i-movable-touch-area.has-hover : {
+                background: Palette.control-secondary;
+            }
+        ]
+
+        animate background { duration: 150ms; }
+
         i-movable-touch-area := TouchArea {
             width: 10px;
             mouse-cursor: ew-resize;
@@ -59,24 +76,7 @@ component TableViewColumn inherits Rectangle {
                 }
             }
         }
-
-        animate background { duration: 150ms; }
-
-        states [
-            hover when i-movable-touch-area.has-hover : {
-                background: Palette.control-secondary;
-            }
-        ]
     }
-
-    states [
-        pressed when i-touch-area.pressed : {
-            background: Palette.control-secondary;
-        }
-        hover when i-touch-area.has-hover : {
-            background: Palette.sub-title-tertiary;
-        }
-    ]
 }
 
 component TableViewCell inherits Rectangle {
@@ -93,16 +93,30 @@ component TableViewCell inherits Rectangle {
 }
 
 component TableViewRow inherits Rectangle {
-    callback clicked <=> i-touch-area.clicked;
-    callback pointer-event(PointerEvent /* event */, Point /* absolute mouse position */);
-
-    in property<bool> selected;
+    in property <bool> selected;
     in property <bool> even;
+
+    callback clicked <=> i-touch-area.clicked;
+    callback pointer-event(/* event */ PointerEvent, /* absolute mouse position */ Point);
 
     min-width: i-layout.min-width;
     min-height: max(34px, i-layout.min-height);
     border-radius: 4px;
     background: root.even ? Palette.control-default : transparent;
+
+    states [
+        pressed when i-touch-area.pressed : {
+            root.background: selected ? Palette.subtle-secondary : Palette.subtle-tertiary;
+        }
+        hover when i-touch-area.has-hover : {
+            root.background: selected ? Palette.subtle-tertiary : Palette.subtle-secondary;
+            i-selector.height: root.selected ? 16px : 0;
+        }
+        selected when root.selected : {
+            root.background: Palette.subtle-secondary;
+            i-selector.height: 16px;
+        }
+    ]
 
     i-touch-area := TouchArea {
         pointer-event(pe) => {
@@ -127,37 +141,55 @@ component TableViewRow inherits Rectangle {
 
         animate height { duration: 150ms; easing: ease-out; }
     }
-
-    states [
-        pressed when i-touch-area.pressed : {
-            root.background: selected ? Palette.subtle-secondary : Palette.subtle-tertiary;
-        }
-        hover when i-touch-area.has-hover : {
-            root.background: selected ? Palette.subtle-tertiary : Palette.subtle-secondary;
-            i-selector.height: root.selected ? 16px : 0;
-        }
-        selected when root.selected : {
-            root.background: Palette.subtle-secondary;
-            i-selector.height: 16px;
-        }
-    ]
 }
 
 export component StandardTableView {
-    private property <length> min-header-height: 42px;
-    private property <length> item-height: i-scroll-view.viewport-height / rows.length;
-    private property <length> current-item-y: i-scroll-view.viewport-y + current-row * item-height;
-
-    callback sort-ascending(int /* column-index */);
-    callback sort-descending(int /* column-index */);
-    callback row-pointer-event(int /* row-index */, PointerEvent /* event */, Point /* absolute mouse position */);
-    callback current-row-changed(int /* current-row */);
-
     in property <[[StandardListViewItem]]> rows;
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
     in-out property <int> current-row: -1;
 
+    callback sort-ascending(/* column-index */ int);
+    callback sort-descending(/* column-index */ int);
+    callback row-pointer-event(/* row-index */ int, /* event */ PointerEvent,  /* absolute mouse position */ Point);
+    callback current-row-changed(/* current-row */ int);
+
+    public function set-current-row(index: int) {
+        if (index < 0 || index >= rows.length) {
+            return;
+        }
+
+        current-row = index;
+        current-row-changed(current-row);
+
+        if (current-item-y < 0) {
+            i-scroll-view.viewport-y += 0 - current-item-y;
+        }
+
+        if (current-item-y + item-height > i-scroll-view.visible-height) {
+            i-scroll-view.viewport-y -= current-item-y + item-height - i-scroll-view.visible-height;
+        }
+    }
+
+    private property <length> min-header-height: 42px;
+    private property <length> item-height: i-scroll-view.viewport-height / rows.length;
+    private property <length> current-item-y: i-scroll-view.viewport-y + current-row * item-height;
+
+    function sort(index: int) {
+        if (root.current-sort-column != index) {
+            root.columns[root.current-sort-column].sort-order = SortOrder.unsorted;
+        }
+
+        if(root.columns[index].sort-order == SortOrder.ascending) {
+            root.columns[index].sort-order = SortOrder.descending;
+            root.sort-descending(index);
+        } else {
+            root.columns[index].sort-order = SortOrder.ascending;
+            root.sort-ascending(index);
+        }
+
+        root.current-sort-column = index;
+    }
 
     min-width: 400px;
     min-height: 200px;
@@ -184,6 +216,14 @@ export component StandardTableView {
                     preferred-width: self.min-width;
                     max-width: (index < columns.length && column.width >= 1px) ? max(column.min-width, column.width) : 100000px;
 
+                    clicked => {
+                        root.sort(index);
+                    }
+
+                    adjust-size(diff) => {
+                        column.width = max(1px, self.width + diff);
+                    }
+
                     Text {
                         vertical-alignment: center;
                         text: column.title;
@@ -191,14 +231,6 @@ export component StandardTableView {
                         font-size: Typography.body.font-size;
                         color: Palette.text-secondary;
                         overflow: elide;
-                    }
-
-                    clicked => {
-                        root.sort(index);
-                    }
-
-                    adjust-size(diff) => {
-                        column.width = max(1px, self.width + diff);
                     }
                 }
             }
@@ -208,6 +240,18 @@ export component StandardTableView {
             for row[idx] in root.rows : TableViewRow {
                 selected: idx == root.current-row;
                 even: mod(idx, 2) == 0;
+
+                pointer-event(pe, pos) => {
+                    root.row-pointer-event(idx, pe, {
+                        x: pos.x - root.absolute-position.x,
+                        y: pos.y - root.absolute-position.y,
+                    });
+                }
+
+                clicked => {
+                    root.focus();
+                    root.set-current-row(idx);
+                }
 
                 for cell[index] in row : TableViewCell {
                     private property <bool> has_inner_focus;
@@ -230,18 +274,6 @@ export component StandardTableView {
                         }
                     }
                 }
-
-                pointer-event(pe, pos) => {
-                    root.row-pointer-event(idx, pe, {
-                        x: pos.x - root.absolute-position.x,
-                        y: pos.y - root.absolute-position.y,
-                    });
-                }
-
-                clicked => {
-                    root.focus();
-                    root.set-current-row(idx);
-                }
             }
         }
     }
@@ -259,39 +291,6 @@ export component StandardTableView {
                 return accept;
             }
             reject
-        }
-    }
-
-    function sort(index: int) {
-        if (root.current-sort-column != index) {
-            root.columns[root.current-sort-column].sort-order = SortOrder.unsorted;
-        }
-
-        if(root.columns[index].sort-order == SortOrder.ascending) {
-            root.columns[index].sort-order = SortOrder.descending;
-            root.sort-descending(index);
-        } else {
-            root.columns[index].sort-order = SortOrder.ascending;
-            root.sort-ascending(index);
-        }
-
-        root.current-sort-column = index;
-    }
-
-    public function set-current-row(index: int) {
-        if (index < 0 || index >= rows.length) {
-            return;
-        }
-
-        current-row = index;
-        current-row-changed(current-row);
-
-        if (current-item-y < 0) {
-            i-scroll-view.viewport-y += 0 - current-item-y;
-        }
-
-        if (current-item-y + item-height > i-scroll-view.visible-height) {
-            i-scroll-view.viewport-y -= current-item-y + item-height - i-scroll-view.visible-height;
         }
     }
 }

@@ -6,11 +6,24 @@ import { Palette } from "styling.slint";
 
 component ScrollBar inherits Rectangle {
     in-out property <bool> horizontal;
-    in-out property<length> maximum;
-    in-out property<length> page-size;
+    in-out property <length> maximum;
+    in-out property <length> page-size;
     // this is always negative and bigger than  -maximum
-    in-out property<length> value;
-    in-out property<bool> enabled <=> i-touch-area.enabled;
+    in-out property <length> value;
+    in-out property <bool> enabled <=> i-touch-area.enabled;
+
+    states [
+        disabled when !i-touch-area.enabled : {
+            i-background.border-color: Palette.on-surface;
+            i-handle.opacity: 0.12;
+        }
+        hover when i-touch-area.has-hover : {
+            i-state-layer.opacity: 0.08;
+        }
+        pressed when i-touch-area.has-hover : {
+            i-state-layer.opacity: 0.12;
+        }
+    ]
 
     i-state-layer := Rectangle {
         width: 100%;
@@ -70,31 +83,18 @@ component ScrollBar inherits Rectangle {
             reject
         }
     }
-
-    states [
-        disabled when !i-touch-area.enabled : {
-            i-background.border-color: Palette.on-surface;
-            i-handle.opacity: 0.12;
-        }
-        hover when i-touch-area.has-hover : {
-            i-state-layer.opacity: 0.08;
-        }
-        pressed when i-touch-area.has-hover : {
-            i-state-layer.opacity: 0.12;
-        }
-    ]
 }
 
 // Scrollview contains a viewport that is bigger than the view and can be scrolled.
 export component ScrollView {
+    in property <bool> enabled: true;
+    out property <length> visible-width <=> i-flickable.width;
+    out property <length> visible-height <=> i-flickable.height;
+    in-out property <bool> has-focus;
     in-out property <length> viewport-width <=> i-flickable.viewport-width;
     in-out property <length> viewport-height <=> i-flickable.viewport-height;
     in-out property <length> viewport-x <=> i-flickable.viewport-x;
     in-out property <length> viewport-y <=> i-flickable.viewport-y;
-    out property <length> visible-width <=> i-flickable.width;
-    out property <length> visible-height <=> i-flickable.height;
-    in property <bool> enabled: true;
-    in-out property <bool> has-focus;
 
     min-height: 50px;
     min-width: 50px;

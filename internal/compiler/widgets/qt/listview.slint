@@ -1,11 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+import { ScrollView  } from "std-widgets-impl.slint";
 
-import { ScrollView } from "scrollview.slint";
-import { ListItem } from "components.slint";
-
-// `ListView` is like a `Scrollview` but it should have a `for` element, and the content is automatically laid out in a list.
 export component ListView inherits ScrollView {
     @children
 }
@@ -22,8 +19,8 @@ component StandardListViewBase inherits ListView {
             return;
         }
 
-        current-item = index;
-        current-item-changed(current-item);
+        root.current-item = index;
+        root.current-item-changed(current-item);
 
         if(current-item-y < 0) {
             self.viewport-y += 0 - current-item-y;
@@ -37,29 +34,29 @@ component StandardListViewBase inherits ListView {
     private property <length> item-height: self.viewport-height / self.model.length;
     private property <length> current-item-y: self.viewport-y + current-item * item-height;
 
-    for item[idx] in root.model : ListItem {
-        selected: idx == root.current-item;
-        text: item.text;
+    for item[i] in root.model : NativeStandardListViewItem {
+        item: item;
+        index: i;
+        is-selected: root.current-item == i;
+        has-hover: i-touch-area.has-hover;
 
-        clicked => {
-            set-current-item(idx);
-        }
+        i-touch-area := TouchArea {
+            clicked => {
+                set-current-item(i);
+            }
 
-        pointer-event(pe) => {
-            root.item-pointer-event(idx, pe, {
-                x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
-                y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
-            });
+            pointer-event(pe) => {
+                root.item-pointer-event(i, pe, {
+                    x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
+                    y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
+                });
+            }
         }
     }
 }
 
-// Like `ListView`, but with a default delegate, and a `model` property which is a model of type `StandardListViewItem`.
 export component StandardListView inherits StandardListViewBase {
     FocusScope {
-        x: 0;
-        width: 0;  // Do not react on clicks
-
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
                 root.set-current-item(root.current-item - 1);
