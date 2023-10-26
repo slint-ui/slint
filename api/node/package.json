@@ -30,7 +30,7 @@
     "install": "npm run build",
     "docs": "npm run build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md index.ts",
     "test": "ava",
-    "syntax_check": "tsc -noEmit index.ts"
+    "syntax_check": "tsc -noEmit"
   },
   "ava": {
     "require": [

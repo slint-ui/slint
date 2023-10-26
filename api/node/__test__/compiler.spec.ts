@@ -19,13 +19,13 @@ test('get/set library paths', (t) => {
   let compiler = new private_api.ComponentCompiler;
 
   compiler.libraryPaths = {
-    "libfile.slint" : "third_party/libfoo/ui/lib.slint",
-    "libdir" : "third_party/libbar/ui/",
+    "libfile.slint": "third_party/libfoo/ui/lib.slint",
+    "libdir": "third_party/libbar/ui/",
   };
 
   t.deepEqual(compiler.libraryPaths, {
-    "libfile.slint" : "third_party/libfoo/ui/lib.slint",
-    "libdir" : "third_party/libbar/ui/",
+    "libfile.slint": "third_party/libfoo/ui/lib.slint",
+    "libdir": "third_party/libbar/ui/",
   });
 })
 
@@ -241,13 +241,13 @@ test('non-existent properties and callbacks', (t) => {
 
   const prop_err = t.throws(() => {
     instance!.setProperty("non-existent", 42);
-  });
+  }) as any;
   t.is(prop_err!.code, 'GenericFailure');
   t.is(prop_err!.message, 'Property non-existent not found in the component');
 
   const callback_err = t.throws(() => {
     instance!.setCallback("non-existent-callback", () => { });
-  });
+  }) as any;
   t.is(callback_err!.code, 'GenericFailure');
   t.is(callback_err!.message, 'Callback non-existent-callback not found in the component');
 })
