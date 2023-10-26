@@ -157,7 +157,7 @@ test('set struct properties', (t) => {
   }, {
     instanceOf: Error
   }
-  );
+  ) as any;
   t.is(incomplete_struct_err!.code, 'InvalidArg');
   t.is(incomplete_struct_err!.message, 'expect Number, got: Undefined');
 

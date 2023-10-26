@@ -7,16 +7,16 @@ const path = require('node:path');
 import { loadFile, CompileError } from '../index'
 
 test('loadFile', (t) => {
-    let demo = loadFile(path.join(__dirname, "resources/test.slint"));
+    let demo = loadFile(path.join(__dirname, "resources/test.slint")) as any;
     let test = new demo.Test();
     t.is(test.check, "Test");
 
     let errorPath = path.join(__dirname, "resources/error.slint");
 
     const error = t.throws(() => {
-            loadFile(errorPath)
-        },
-        {instanceOf: CompileError}
+        loadFile(errorPath)
+    },
+        { instanceOf: CompileError }
     );
 
     t.is(error?.message, "Could not compile " + errorPath);
@@ -46,9 +46,9 @@ test('loadFile', (t) => {
 })
 
 test('constructor parameters', (t) => {
-    let demo = loadFile(path.join(__dirname, "resources/test-constructor.slint"));
+    let demo = loadFile(path.join(__dirname, "resources/test-constructor.slint")) as any;
     let hello = "";
-    let test = new demo.Test({ say_hello: function() { hello = "hello"; }, check: "test"});
+    let test = new demo.Test({ say_hello: function () { hello = "hello"; }, check: "test" });
 
     test.say_hello();
 
