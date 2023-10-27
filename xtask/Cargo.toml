@@ -24,5 +24,5 @@ xshell = "0.2.1"
 serde_json = "1.0"
 cbindgen = { workspace = true }
 proc-macro2 = "1.0.11"
-which = "4.2.4"
+which = "5.0"
 i-slint-common = { workspace = true, features = ["default"] }
