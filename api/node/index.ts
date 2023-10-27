@@ -420,12 +420,16 @@ export function loadFile(filePath: string, options?: LoadFileOptions) : Object {
             });
 
             instance!.definition().callbacks.forEach((cb) => {
+                let cbSymbol = Symbol("_callback-" + cb);
                 Object.defineProperty(componentHandle, cb.replace(/-/g, '_') , {
                     get() {
                         return function () { return instance!.invoke(cb, Array.from(arguments)); };
                     },
                     set(callback) {
-                        instance!.setCallback(cb, callback);
+                        instance![cbSymbol] = callback;
+                        instance!.setCallback(cb, function (args) {
+                            instance![cbSymbol](args);
+                        });
                     },
                     enumerable: true,
                 })
