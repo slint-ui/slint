@@ -25,6 +25,7 @@ const TestCase &instance = *handle;
 assert(instance.get_test_is_float());
 assert(fuzzy_compare(instance.get_number_as_float(), 42.56));
 assert(fuzzy_compare(instance.get_negative_as_float(), -1200000.1));
+assert(instance.get_test());
 ```
 
 ```rust
@@ -32,6 +33,7 @@ let instance = TestCase::new().unwrap();
 assert!(instance.get_test_is_float());
 assert_eq!(instance.get_number_as_float(), 42.56);
 assert_eq!(instance.get_negative_as_float(), -1200000.1);
+assert!(instance.get_test());
 ```
 
 ```js
@@ -40,6 +42,7 @@ var instance = new slint.TestCase({});
 assert(instance.test_is_float);
 assert.equal(n(instance.number_as_float), n(42.56));
 assert.equal(n(instance.negative_as_float/1000), n(-1200000.1/1000));
+assert(instance.test);
 ```
 
 */
