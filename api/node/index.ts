@@ -135,7 +135,7 @@ export interface ImageData {
  *}
  * ```
  */
- export abstract class Model<T> {
+export abstract class Model<T> {
     /**
      * @hidden
      */
@@ -357,7 +357,7 @@ export interface LoadFileOptions {
  * let main = new ui.Main();
  * ```
  */
-export function loadFile(filePath: string, options?: LoadFileOptions) : Object {
+export function loadFile(filePath: string, options?: LoadFileOptions): Object {
     let compiler = new napi.ComponentCompiler;
 
     if (typeof options !== 'undefined') {
@@ -393,14 +393,14 @@ export function loadFile(filePath: string, options?: LoadFileOptions) : Object {
     let slint_module = Object.create({});
 
     Object.defineProperty(slint_module, definition!.name.replace(/-/g, '_'), {
-        value: function(properties: any) {
+        value: function (properties: any) {
             let instance = definition!.create();
 
             if (instance == null) {
                 throw Error("Could not create a component handle for" + filePath);
             }
 
-            for(var key in properties) {
+            for (var key in properties) {
                 let value = properties[key];
 
                 if (value instanceof Function) {
@@ -412,7 +412,7 @@ export function loadFile(filePath: string, options?: LoadFileOptions) : Object {
 
             let componentHandle = new Component(instance!);
             instance!.definition().properties.forEach((prop) => {
-                Object.defineProperty(componentHandle, prop.name.replace(/-/g, '_') , {
+                Object.defineProperty(componentHandle, prop.name.replace(/-/g, '_'), {
                     get() { return instance!.getProperty(prop.name); },
                     set(value) { instance!.setProperty(prop.name, value); },
                     enumerable: true
@@ -420,7 +420,7 @@ export function loadFile(filePath: string, options?: LoadFileOptions) : Object {
             });
 
             instance!.definition().callbacks.forEach((cb) => {
-                Object.defineProperty(componentHandle, cb.replace(/-/g, '_') , {
+                Object.defineProperty(componentHandle, cb.replace(/-/g, '_'), {
                     get() {
                         return function () { return instance!.invoke(cb, Array.from(arguments)); };
                     },
