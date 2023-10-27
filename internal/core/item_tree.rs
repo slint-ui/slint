@@ -361,6 +361,9 @@ impl ItemRc {
     ) -> LogicalPoint {
         let mut current = self.clone();
         let mut result = p;
+        if current.is_root_item_of(item_tree) {
+            return result;
+        }
         while let Some(parent) = current.parent_item() {
             if parent.is_root_item_of(item_tree) {
                 break;
