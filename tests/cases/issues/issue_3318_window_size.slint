@@ -17,4 +17,11 @@ instance.window().set_size(slint::PhysicalSize::new(300, 500));
 assert_eq!(instance.get_t_width(), 300);
 
 ```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.window().set_size(slint::PhysicalSize({300, 500}));
+assert_eq(instance.get_t_width(), 300);
+```
 */

@@ -770,3 +770,45 @@ fn check_no_layout_properties(item: &ElementRc, diag: &mut BuildDiagnostics) {
         }
     }
 }
+
+/// For fixed layout, we need to dissociate the width and the height property of the WindowItem from width and height property
+/// in slint such that the width and height property are actually constants.
+///
+/// The Slint runtime will change the width and height property of the native WindowItem to match those of the actual
+/// window, but we don't want that to happen if we have a fixed layout.
+pub fn check_window_layout(component: &Rc<Component>) {
+    if component.root_constraints.borrow().fixed_height {
+        adjust_window_layout(component, "height");
+    }
+    if component.root_constraints.borrow().fixed_width {
+        adjust_window_layout(component, "width");
+    }
+}
+
+fn adjust_window_layout(component: &Rc<Component>, prop: &str) {
+    let new_prop = crate::layout::create_new_prop(
+        &component.root_element,
+        &format!("fixed-{prop}"),
+        Type::LogicalLength,
+    );
+    {
+        let mut root = component.root_element.borrow_mut();
+        if let Some(b) = root.bindings.remove(prop) {
+            root.bindings.insert(new_prop.name().to_string(), b);
+        };
+        if let Some(a) = root.property_analysis.borrow_mut().remove(prop) {
+            root.property_analysis.borrow_mut().insert(new_prop.name().to_string(), a);
+        };
+        root.bindings.insert(
+            prop.to_string(),
+            RefCell::new(Expression::PropertyReference(new_prop.clone()).into()),
+        );
+    }
+
+    let old_prop = NamedReference::new(&component.root_element, prop);
+    crate::object_tree::visit_all_named_references(component, &mut |nr| {
+        if nr == &old_prop {
+            *nr = new_prop.clone()
+        }
+    });
+}
