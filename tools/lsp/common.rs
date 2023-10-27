@@ -84,7 +84,7 @@ pub struct Diagnostic {
 }
 
 #[allow(unused)]
-#[derive(Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToLspMessage {
     Status {
         message: String,
