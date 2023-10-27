@@ -21,7 +21,7 @@ pub struct ServerStatusParams {
     pub message: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum Health {
     Ok,
