@@ -25,7 +25,7 @@ use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEventResult,
     KeyEventType, MouseEvent,
 };
-use crate::item_rendering::CachedRenderingData;
+use crate::item_rendering::{CachedRenderingData, RenderBorderRectangle};
 pub use crate::item_tree::ItemRc;
 use crate::layout::LayoutInfo;
 use crate::lengths::{
@@ -394,19 +394,28 @@ impl Item for BorderRectangle {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult {
-        (*backend).draw_border_rectangle(self, self_rc, size);
+        (*backend).draw_border_rectangle(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
     }
 }
 
-impl BorderRectangle {
-    pub fn logical_border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
+impl RenderBorderRectangle for BorderRectangle {
+    fn background(self: Pin<&Self>) -> Brush {
+        self.background()
+    }
+    fn border_width(self: Pin<&Self>) -> LogicalLength {
+        self.border_width()
+    }
+    fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
         LogicalBorderRadius::from_lengths(
             self.border_top_left_radius(),
             self.border_top_right_radius(),
             self.border_bottom_right_radius(),
             self.border_bottom_left_radius(),
         )
+    }
+    fn border_color(self: Pin<&Self>) -> Brush {
+        self.border_color()
     }
 }
 

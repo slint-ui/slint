@@ -9,7 +9,7 @@ use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, P
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
-use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
+use i_slint_core::item_rendering::{CachedRenderingData, ItemCache, ItemRenderer};
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
@@ -304,9 +304,10 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
 
     fn draw_border_rectangle(
         &mut self,
-        rect: std::pin::Pin<&i_slint_core::items::BorderRectangle>,
+        rect: std::pin::Pin<&dyn i_slint_core::item_rendering::RenderBorderRectangle>,
         _self_rc: &i_slint_core::items::ItemRc,
         size: LogicalSize,
+        _: &CachedRenderingData,
     ) {
         let mut geometry = PhysicalRect::from(size * self.scale_factor);
         if geometry.is_empty() {
@@ -322,7 +323,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
         };
 
         // Radius of rounded rect if we were to just fill the rectangle, without a border.
-        let mut fill_radius = rect.logical_border_radius() * self.scale_factor;
+        let mut fill_radius = rect.border_radius() * self.scale_factor;
         // Skia's border radius on stroke is in the middle of the border. But we want it to be the radius of the rectangle itself.
         // This is incorrect if fill_radius < border_width/2, but this can't be fixed. Better to have a radius a bit too big than no radius at all
         fill_radius = fill_radius.outer(border_width / 2. + PhysicalLength::new(0.01));
