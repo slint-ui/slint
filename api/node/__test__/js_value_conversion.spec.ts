@@ -193,7 +193,7 @@ test('get/set image properties', async (t) => {
   if (t.true((slintImage instanceof private_api.ImageData))) {
     t.deepEqual((slintImage as private_api.ImageData).width, 64);
     t.deepEqual((slintImage as private_api.ImageData).height, 64);
-    t.true((slintImage as ImageData).path.endsWith("resources/rgb.png"));
+    t.true((slintImage as ImageData).path.endsWith("rgb.png"));
 
     let image = await Jimp.read(path.join(__dirname, "resources/rgb.png"));
 
