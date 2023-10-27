@@ -61,7 +61,12 @@ The Qt renderer comes with the [Qt backend](backend_qt.md) and renders using QPa
 - Supports partial rendering.
 - Supports line-by-line rendering (Rust only).
 - Suitable for Microcontrollers.
-- No support for `Path` rendering and image rotation yet.
+- Some features haven't been implemented yet.
+  * No support for `Path`.
+  * No image rotation or smooth scaling.
+  * No drop shadow.
+  * No radius clipping.
+  * No circular gradient.
 - Text rendering currently limited to western scripts.
 - Available in the [Winit backend](backend_winit.md).
 - Public [Rust](slint-rust:platform/software_renderer/) and [C++](slint-cpp:api/classslint_1_1platform_1_1SoftwareRenderer) API.
@@ -112,6 +117,6 @@ issues we're aware of and how to resolve them.
 
   The solve this, set the `BINDGEN_EXTRA_CLANG_ARGS` environment variable to contain the same
   flags that your build environment also passes to the C++ compiler.
-  
+
   For example, if you're building against a Yocto SDK, then you can find these flags in the
   `OECORE_TUNE_CCARGS` environment variable.
