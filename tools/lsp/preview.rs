@@ -34,6 +34,7 @@ struct ContentCache {
     highlight: Option<(PathBuf, u32)>,
     ui_is_visible: bool,
     design_mode: bool,
+    default_style: String,
 }
 
 static CONTENT_CACHE: std::sync::OnceLock<Mutex<ContentCache>> = std::sync::OnceLock::new();
@@ -103,15 +104,16 @@ pub fn config_changed(
             || cache.current.include_paths != include_paths
             || cache.current.library_paths != *library_paths
         {
-            cache.current.style = style;
             cache.current.include_paths = include_paths.to_vec();
             cache.current.library_paths = library_paths.clone();
+
             let current = cache.current.clone();
             let ui_is_visible = cache.ui_is_visible;
 
             drop(cache);
 
             let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+            cache.default_style = style;
             cache.ui_is_visible = ui_is_visible;
 
             if ui_is_visible {
