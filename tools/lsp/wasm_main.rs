@@ -45,6 +45,7 @@ pub mod wasm_prelude {
 
 struct Previewer {
     server_notifier: ServerNotifier,
+    to_show: RefCell<Option<common::PreviewComponent>>,
 }
 
 impl PreviewApi for Previewer {
@@ -69,6 +70,10 @@ impl PreviewApi for Previewer {
                 &documents.compiler_config.include_paths,
                 &documents.compiler_config.library_paths,
             );
+
+            if let Some(c) = self.to_show.take() {
+                self.load_preview(c);
+            }
         }
     }
 
@@ -84,6 +89,8 @@ impl PreviewApi for Previewer {
     }
 
     fn load_preview(&self, component: common::PreviewComponent) {
+        self.to_show.replace(Some(component.clone()));
+
         #[cfg(feature = "preview-external")]
         let _ = self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
@@ -293,7 +300,7 @@ pub fn create(
             document_cache,
             init_param,
             server_notifier: server_notifier.clone(),
-            preview: Box::new(Previewer { server_notifier }),
+            preview: Box::new(Previewer { server_notifier, to_show: Default::default() }),
         }),
         reentry_guard,
         rh: Rc::new(rh),
