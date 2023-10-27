@@ -461,7 +461,7 @@ impl core::fmt::Debug for PropertyHandle {
         let handle = self.handle.get();
         write!(
             f,
-            "PropertyHandle {{ handle: {}, is_locked: {}, is_list: {} }}",
+            "PropertyHandle {{ handle: 0x{:x}, locked: {}, binding: {} }}",
             handle & !0b11,
             (handle & 0b01) == 0b01,
             (handle & 0b10) == 0b10
