@@ -121,7 +121,7 @@ pub fn open_ui(sender: &ServerNotifier) {
         }
     }
 
-    {
+    let default_style = {
         let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         if cache.ui_is_visible {
             return; // UI is already up!
@@ -129,22 +129,24 @@ pub fn open_ui(sender: &ServerNotifier) {
         cache.ui_is_visible = true;
 
         let mut s = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap();
-        *s = Some(sender.clone())
-    }
+        *s = Some(sender.clone());
+
+        cache.default_style.clone()
+    };
 
     i_slint_core::api::invoke_from_event_loop(move || {
         PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
-            open_ui_impl(&mut preview_state);
+            open_ui_impl(&mut preview_state, default_style);
         });
     })
     .unwrap();
 }
 
-fn open_ui_impl(preview_state: &mut PreviewState) {
+fn open_ui_impl(preview_state: &mut PreviewState, default_style: String) {
     // TODO: Handle Error!
     let ui = preview_state.ui.get_or_insert_with(|| {
-        let (ui, style) = super::ui::create_ui(String::new()).unwrap();
+        let (ui, style) = super::ui::create_ui(default_style).unwrap();
         super::change_style(style);
         ui
     });
@@ -297,10 +299,15 @@ pub fn configure_design_mode(enabled: bool) {
 
 /// This runs `set_preview_factory` in the UI thread
 pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
+    let default_style = {
+        let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        cache.default_style.clone()
+    };
+
     PREVIEW_STATE.with(|preview_state| {
         let mut preview_state = preview_state.borrow_mut();
 
-        open_ui_impl(&mut preview_state);
+        open_ui_impl(&mut preview_state, default_style);
 
         let shared_handle = preview_state.handle.clone();
 
