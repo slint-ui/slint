@@ -14,7 +14,7 @@ use self::fonts::GlyphRenderer;
 use crate::api::Window;
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use crate::graphics::{BorderRadius, IntRect, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
-use crate::item_rendering::ItemRenderer;
+use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderBorderRectangle};
 use crate::items::{ImageFit, ItemRc, TextOverflow};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -1766,14 +1766,15 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     #[allow(clippy::unnecessary_cast)] // Coord
     fn draw_border_rectangle(
         &mut self,
-        rect: Pin<&crate::items::BorderRectangle>,
+        rect: Pin<&dyn RenderBorderRectangle>,
         _: &ItemRc,
         size: LogicalSize,
+        _: &CachedRenderingData,
     ) {
         let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
             let mut border = rect.border_width();
-            let radius = rect.logical_border_radius();
+            let radius = rect.border_radius();
             // FIXME: gradients
             let color = self.alpha_color(rect.background().color());
             let border_color = if border.get() as f32 > 0.01 {

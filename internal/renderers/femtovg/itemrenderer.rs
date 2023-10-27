@@ -11,7 +11,9 @@ use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{Image, IntRect, Point, Size};
-use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
+use i_slint_core::item_rendering::{
+    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle,
+};
 use i_slint_core::items::{
     self, Clip, FillRule, ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult,
     TextHorizontalAlignment,
@@ -204,9 +206,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
     fn draw_border_rectangle(
         &mut self,
-        rect: Pin<&items::BorderRectangle>,
+        rect: Pin<&dyn RenderBorderRectangle>,
         _: &ItemRc,
         size: LogicalSize,
+        _: &CachedRenderingData,
     ) {
         let mut geometry = PhysicalRect::from(size * self.scale_factor);
         if geometry.is_empty() {
@@ -225,7 +228,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         };
 
         // Radius of rounded rect if we were to just fill the rectangle, without a border.
-        let mut fill_radius = rect.logical_border_radius() * self.scale_factor;
+        let mut fill_radius = rect.border_radius() * self.scale_factor;
 
         // FemtoVG's border radius on stroke is in the middle of the border. But we want it to be the radius of the rectangle itself.
         // This is incorrect if fill_radius < border_width/2, but this can't be fixed. Better to have a radius a bit too big than no radius at all

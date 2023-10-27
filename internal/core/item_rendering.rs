@@ -16,7 +16,7 @@ use crate::lengths::{
     LogicalVector,
 };
 use crate::properties::PropertyTracker;
-use crate::Coord;
+use crate::{Brush, Coord};
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
@@ -278,6 +278,14 @@ pub fn item_children_bounding_rect(
     bounding_rect
 }
 
+#[allow(missing_docs)]
+pub trait RenderBorderRectangle {
+    fn background(self: Pin<&Self>) -> Brush;
+    fn border_width(self: Pin<&Self>) -> LogicalLength;
+    fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius;
+    fn border_color(self: Pin<&Self>) -> Brush;
+}
+
 /// Trait used to render each items.
 ///
 /// The item needs to be rendered relative to its (x,y) position. For example,
@@ -287,9 +295,10 @@ pub trait ItemRenderer {
     fn draw_rectangle(&mut self, rect: Pin<&Rectangle>, _self_rc: &ItemRc, _size: LogicalSize);
     fn draw_border_rectangle(
         &mut self,
-        rect: Pin<&BorderRectangle>,
+        rect: Pin<&dyn RenderBorderRectangle>,
         _self_rc: &ItemRc,
         _size: LogicalSize,
+        _cache: &CachedRenderingData,
     );
     fn draw_image(&mut self, image: Pin<&ImageItem>, _self_rc: &ItemRc, _size: LogicalSize);
     fn draw_clipped_image(
@@ -597,6 +606,19 @@ macro_rules! forward_rendering_call {
     };
 }
 
+macro_rules! forward_rendering_call2 {
+    (fn $fn:ident($Ty:ty) $(-> $Ret:ty)?) => {
+        fn $fn(&mut self, obj: Pin<&$Ty>, item_rc: &ItemRc, size: LogicalSize, cache: &CachedRenderingData) $(-> $Ret)? {
+            let mut ret = None;
+            Self::do_rendering(&self.cache, &cache, || {
+                ret = Some(self.actual_renderer.$fn(obj, item_rc, size, &cache));
+                item_rc.geometry()
+            });
+            ret.unwrap_or_default()
+        }
+    };
+}
+
 impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
     fn filter_item(&mut self, item_rc: &ItemRc) -> (bool, LogicalRect) {
         let item = item_rc.borrow();
@@ -635,7 +657,7 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
     }
 
     forward_rendering_call!(fn draw_rectangle(Rectangle));
-    forward_rendering_call!(fn draw_border_rectangle(BorderRectangle));
+    forward_rendering_call2!(fn draw_border_rectangle(dyn RenderBorderRectangle));
     forward_rendering_call!(fn draw_image(ImageItem));
     forward_rendering_call!(fn draw_clipped_image(ClippedImage));
     forward_rendering_call!(fn draw_text(Text));
