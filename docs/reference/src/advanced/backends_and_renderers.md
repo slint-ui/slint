@@ -61,12 +61,12 @@ The Qt renderer comes with the [Qt backend](backend_qt.md) and renders using QPa
 - Supports partial rendering.
 - Supports line-by-line rendering (Rust only).
 - Suitable for Microcontrollers.
-- Some features haven't been implemented yet.
+- Some features haven't been implemented yet:
   * No support for `Path`.
   * No image rotation or smooth scaling.
-  * No drop shadow.
-  * No radius clipping.
-  * No circular gradient.
+  * No support for `drop-shadow-*` properties.
+  * No support for `border-radius` in combination with `clip: true`.
+  * No circular gradients.
 - Text rendering currently limited to western scripts.
 - Available in the [Winit backend](backend_winit.md).
 - Public [Rust](slint-rust:platform/software_renderer/) and [C++](slint-cpp:api/classslint_1_1platform_1_1SoftwareRenderer) API.
