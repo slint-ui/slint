@@ -265,10 +265,12 @@ pub fn convert_diagnostics(
 ) -> HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> {
     let mut result: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> = Default::default();
     for d in diagnostics {
-        if d.source_file().map_or(true, |f| f.is_relative()) {
+        if d.source_file().map_or(true, |f| !i_slint_compiler::pathutils::is_absolute(f)) {
             continue;
         }
-        let uri = lsp_types::Url::from_file_path(d.source_file().unwrap()).unwrap();
+        let uri = lsp_types::Url::from_file_path(d.source_file().unwrap())
+            .ok()
+            .unwrap_or_else(|| lsp_types::Url::parse("file:/unknown").unwrap());
         result.entry(uri).or_default().push(crate::util::to_lsp_diag(d));
     }
     result
