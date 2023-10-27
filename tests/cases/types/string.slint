@@ -1,12 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-TestCase := Rectangle {
-    property<string> p1: "hello";
-    property<string> p2: "fox:🦊";
-    property<string> p3: "with\"quote\\\"\u{8}";
-    property<bool> e1: p2 == "fox:🦊";
-    property<bool> e2: p2 == "fox:🦍";
+export component TestCase  {
+    in-out property<string> p1: "hello";
+    in-out property<string> p2: "fox:🦊";
+    in-out property<string> p3: "with\"quote\\\"\u{8}";
+    in-out property<bool> e1: p2 == "fox:🦊";
+    in-out property<bool> e2: p2 == "fox:🦍";
+
+    // conversion from float
+    in property<float> value: 98.7654321;
+    out property <string> converted_value: round(value * 100)/100;
+    out property <bool> test: e1 && !e2 && converted_value == "98.77";
 }
 
 
@@ -20,6 +25,7 @@ assert_eq(instance.get_p2(), "fox:🦊");
 assert_eq(instance.get_p3(), "with\"quote\\\"\x08");
 assert(instance.get_e1());
 assert(!instance.get_e2());
+assert(instance.get_test());
 ```
 
 ```rust
@@ -29,6 +35,7 @@ assert_eq!(instance.get_p2(), "fox:🦊");
 assert_eq!(instance.get_p3(), "with\"quote\\\"\u{8}");
 assert!(instance.get_e1());
 assert!(!instance.get_e2());
+assert!(instance.get_test());
 ```
 
 ```js
@@ -38,6 +45,7 @@ assert.equal(instance.p2, "fox:🦊");
 assert.equal(instance.p3, "with\"quote\\\"\u0008");
 assert(instance.e1);
 assert(!instance.e2);
+assert(instance.test);
 ```
 
 */
