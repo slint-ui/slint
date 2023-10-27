@@ -81,7 +81,7 @@ export interface ImageData {
      * Returns the path of the image, if it was loaded from disk. Otherwise
      * the property is undefined.
      */
-    readonly path: string | undefined;
+    readonly path?: string;
 }
 
 /**
