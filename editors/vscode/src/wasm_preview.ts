@@ -85,9 +85,12 @@ function open_preview(context: vscode.ExtensionContext): boolean {
     return true;
 }
 
-function getPreviewHtml(slint_wasm_preview_url: Uri): string {
+function getPreviewHtml(
+    slint_wasm_preview_url: Uri,
+    default_style: string,
+): string {
     const result = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="height: 100%; width: 100%;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -105,6 +108,30 @@ function getPreviewHtml(slint_wasm_preview_url: Uri): string {
         // This is actually not an error:-/
     }
 
+    const canvas_id = "canvas";
+
+    const canvas = document.createElement("canvas");
+
+    canvas.id = canvas_id;
+    canvas.className = canvas_id;
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    canvas.dataset.slintAutoResizeToPreferred = "false";
+
+    document.body.replaceChildren(canvas);
+
+    new ResizeObserver(() => {
+        canvas.style.minWidth = "100%";
+        canvas.style.width = "100%";
+        canvas.style.maxWidth = "100%";
+        canvas.style.minHeight = "100%";
+        canvas.style.height = "100%";
+        canvas.style.maxHeight = "100%";
+    }).observe(document.body)
+
     let preview_connector = await slint_preview.PreviewConnector.create(
         (data) => { vscode.postMessage({ command: "slint/preview_to_lsp", params: data }); },
         (url) => { return new Promise((resolve, _) => {
@@ -116,6 +143,7 @@ function getPreviewHtml(slint_wasm_preview_url: Uri): string {
             );
             vscode.postMessage({ command: "map_url", url: url }, [reply.port1]);
         })},
+        "${default_style}",
     );
 
     window.addEventListener('message', async message => {
@@ -129,10 +157,10 @@ function getPreviewHtml(slint_wasm_preview_url: Uri): string {
     });
 
     preview_connector.show_ui().then(() => vscode.postMessage({ command: 'preview_ready' }));
+
     </script>
 </head>
-<body>
-  <canvas style="margin-top: 10px; width: 100%; height:100%" id="canvas"></canvas>
+<body style="padding: 0; height: 100%; width: 100%" data-vscode-context='{"webviewSection": "slint-previewer"}'>>
 </body>
 </html>`;
 
@@ -192,8 +220,12 @@ function initPreviewPanel(
         context.extensionUri,
         "out/slint_lsp_wasm.js",
     );
+    const default_style = vscode.workspace
+        .getConfiguration("slint")
+        .get("preview.style", "");
     panel.webview.html = getPreviewHtml(
         panel.webview.asWebviewUri(lsp_wasm_url),
+        default_style,
     );
     panel.onDidDispose(
         () => {
