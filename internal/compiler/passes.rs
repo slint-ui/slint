@@ -180,6 +180,7 @@ pub async fn run_passes(
         collect_init_code::collect_init_code(component);
         materialize_fake_properties::materialize_fake_properties(component);
     }
+    lower_layout::check_window_layout(root_component);
     collect_globals::collect_globals(doc, diag);
 
     if compiler_config.inline_all_elements {
