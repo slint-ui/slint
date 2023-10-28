@@ -14,6 +14,7 @@ pub fn main() {
 mod virtual_keyboard {
     use super::*;
     use slint::*;
+    use slint::private_unstable_api::re_exports::TextInputInterface;
 
     pub fn init(app: &MainWindow) {
         let weak = app.as_weak();
@@ -26,6 +27,12 @@ mod virtual_keyboard {
                     .window()
                     .dispatch_event(slint::platform::WindowEvent::KeyReleased { text: key });
             }
+        });
+
+        // An example of the text input focus callback.
+        // Can be used to show or hide the virtual keyboard using system's APIs.
+        app.global::<TextInputInterface>().on_text_input_focus_changed(|change| {
+            println!("text-input-focus-changed: {:?}", change);
         });
     }
 }

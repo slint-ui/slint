@@ -20,6 +20,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundant
 
+use crate::api::{ComponentHandle, Global};
 use crate::graphics::{Brush, Color, Point};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEventResult,
@@ -1381,4 +1382,43 @@ pub unsafe extern "C" fn slint_item_absolute_position(
 ) -> LogicalPoint {
     let self_rc = ItemRc::new(self_component.clone(), self_index);
     self_rc.map_to_window(Default::default())
+}
+
+/// This enum describes a text input focus change event.
+/// It is the return type of the callback provided to [TextInputInterface::on_text_input_focus_changed].
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[repr(u8)]
+pub enum TextInputFocusChangeEvent {
+    /// The text input is focused.
+    #[default]
+    Focused = 0,
+    /// The text input is unfocused.
+    Unfocused = 1,
+}
+
+/// Describes `text_input_focus_changed` callback argument and return types.
+pub type TextInputFocusChangeCallback = Callback<TextInputFocusChangeEvent, ()>;
+
+/// The implementation of the `TextInputInterface` global
+#[repr(C)]
+#[derive(FieldOffsets, SlintElement)]
+#[pin]
+pub struct TextInputInterface {
+    w: WindowAdapterRc,
+}
+
+impl<'a, T: ComponentHandle> Global<'a, T> for TextInputInterface {
+    fn get(root: &'a T) -> Self {
+        TextInputInterface {
+            w: root.window().0.window_adapter()
+        }
+    }
+}
+
+impl TextInputInterface {
+    pub fn init<T>(self: Pin<Rc<Self>>, _self_rc: &VRc<crate::item_tree::ItemTreeVTable, T>) {}
+
+    pub fn on_text_input_focus_changed(&self, mut f: impl FnMut(&TextInputFocusChangeEvent) -> () + 'static) {
+        self.w.window().0.set_on_text_input_focus_changed(move |change| f(change));
+    }
 }

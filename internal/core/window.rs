@@ -17,7 +17,7 @@ use crate::input::{
 };
 use crate::item_tree::ItemRc;
 use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
-use crate::items::{ItemRef, MouseCursor};
+use crate::items::{ItemRef, MouseCursor, TextInputFocusChangeCallback, TextInputFocusChangeEvent};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
@@ -357,6 +357,7 @@ pub struct WindowInner {
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
+    text_input_focus_changed: TextInputFocusChangeCallback,
 }
 
 impl Drop for WindowInner {
@@ -409,6 +410,7 @@ impl WindowInner {
             active_popup: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
+            text_input_focus_changed: Default::default(),
         }
     }
 
@@ -900,14 +902,29 @@ impl WindowInner {
         self.pinned_fields.scale_factor.set(factor)
     }
 
-    /// Returns the scale factor set on the window, as provided by the windowing system.
+    /// Returns `true` if some text input field is currently focused.
     pub fn text_input_focused(&self) -> bool {
         self.pinned_fields.as_ref().project_ref().text_input_focused.get()
     }
 
-    /// Sets the scale factor for the window. This is set by the backend or for testing.
+    /// Sets whether a text field is focused or not.
     pub fn set_text_input_focused(&self, value: bool) {
+        if self.text_input_focused() != value {
+            let change = if self.text_input_focused() {
+                TextInputFocusChangeEvent::Focused
+            } else {
+                TextInputFocusChangeEvent::Unfocused
+            };
+
+            self.text_input_focus_changed.call(&change);
+        }
+
         self.pinned_fields.text_input_focused.set(value)
+    }
+
+    /// Sets the close_requested callback. The callback will be run when the user tries to close a window.
+    pub fn set_on_text_input_focus_changed(&self, mut callback: impl FnMut(&TextInputFocusChangeEvent) -> () + 'static) {
+        self.text_input_focus_changed.set_handler(move |change| callback(change));
     }
 
     /// Returns true if the window is visible
