@@ -13,8 +13,8 @@ pub fn main() {
 
 mod virtual_keyboard {
     use super::*;
-    use slint::*;
     use slint::private_unstable_api::re_exports::TextInputInterface;
+    use slint::*;
 
     pub fn init(app: &MainWindow) {
         let weak = app.as_weak();

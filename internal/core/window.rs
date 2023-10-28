@@ -923,7 +923,10 @@ impl WindowInner {
     }
 
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.
-    pub fn set_on_text_input_focus_changed(&self, mut callback: impl FnMut(&TextInputFocusChangeEvent) -> () + 'static) {
+    pub fn set_on_text_input_focus_changed(
+        &self,
+        mut callback: impl FnMut(&TextInputFocusChangeEvent) -> () + 'static,
+    ) {
         self.text_input_focus_changed.set_handler(move |change| callback(change));
     }
 

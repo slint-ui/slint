@@ -1409,16 +1409,17 @@ pub struct TextInputInterface {
 
 impl<'a, T: ComponentHandle> Global<'a, T> for TextInputInterface {
     fn get(root: &'a T) -> Self {
-        TextInputInterface {
-            w: root.window().0.window_adapter()
-        }
+        TextInputInterface { w: root.window().0.window_adapter() }
     }
 }
 
 impl TextInputInterface {
     pub fn init<T>(self: Pin<Rc<Self>>, _self_rc: &VRc<crate::item_tree::ItemTreeVTable, T>) {}
 
-    pub fn on_text_input_focus_changed(&self, mut f: impl FnMut(&TextInputFocusChangeEvent) -> () + 'static) {
+    pub fn on_text_input_focus_changed(
+        &self,
+        mut f: impl FnMut(&TextInputFocusChangeEvent) -> () + 'static,
+    ) {
         self.w.window().0.set_on_text_input_focus_changed(move |change| f(change));
     }
 }
