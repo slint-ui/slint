@@ -460,9 +460,7 @@ fn resolve_expression_scope(lookup_context: &LookupCtx) -> Option<Vec<Completion
     let mut r = Vec::new();
     let global = i_slint_compiler::lookup::global_lookup();
     global.for_each_entry(lookup_context, &mut |str, expr| -> Option<()> {
-        if str != "SlintInternal" {
-            r.push(completion_item_from_expression(str, expr));
-        }
+        r.push(completion_item_from_expression(str, expr));
         None
     });
     Some(r)
@@ -758,10 +756,16 @@ mod tests {
             res.iter().find(|ci| ci.label == "true").unwrap();
             res.iter().find(|ci| ci.label == "self").unwrap();
             res.iter().find(|ci| ci.label == "root").unwrap();
+            res.iter().find(|ci| ci.label == "TextInputInterface").unwrap();
 
             assert!(!res.iter().any(|ci| ci.label == "text"));
             assert!(!res.iter().any(|ci| ci.label == "red"));
             assert!(!res.iter().any(|ci| ci.label == "nope"));
+
+            assert!(!res.iter().any(|ci| ci.label == "Rectangle"));
+            assert!(!res.iter().any(|ci| ci.label == "Clip"));
+            assert!(!res.iter().any(|ci| ci.label == "NativeStyleMetrics"));
+            assert!(!res.iter().any(|ci| ci.label == "SlintInternal"));
         }
     }
 
@@ -860,6 +864,7 @@ mod tests {
         "#;
         let res = get_completions(source).unwrap();
         res.iter().find(|ci| ci.label == "LineEdit").unwrap();
+        res.iter().find(|ci| ci.label == "StyleMetrics").unwrap();
 
         let source = r#"
             import { Foo, 🔺} from "std-widgets.slint"

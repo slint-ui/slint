@@ -41,10 +41,15 @@ export X := Rectangle {
 //              ^error{Element 'Comp' does not have a property 'not_exist'}
     }
 
+    img := Image{}
+
     callback dummy;
     dummy => {
-        SlintInternal.dark-color-scheme = false;
+        ["hello"].length = 45;
 //      ^error{Assignment needs to be done on a property}
+        img.source.width = 45;
+//      ^error{Assignment needs to be done on a property}
+
     }
 
 }

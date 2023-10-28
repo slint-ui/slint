@@ -451,7 +451,6 @@ fn expression_from_reference(
 }
 
 /// Lookup for Globals and Enum.
-/// Note: for enums, the expression's value is `usize::MAX`
 struct LookupType;
 impl LookupObject for LookupType {
     fn for_each_entry<R>(
@@ -465,7 +464,7 @@ impl LookupObject for LookupType {
             }
         }
         for (name, ty) in ctx.type_register.all_elements() {
-            if let Some(r) = Self::from_element(ty).and_then(|e| f(&name, e)) {
+            if let Some(r) = Self::from_element(ty, ctx, &name).and_then(|e| f(&name, e)) {
                 return Some(r);
             }
         }
@@ -474,7 +473,7 @@ impl LookupObject for LookupType {
 
     fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         Self::from_type(ctx.type_register.lookup(name))
-            .or_else(|| Self::from_element(ctx.type_register.lookup_element(name).ok()?))
+            .or_else(|| Self::from_element(ctx.type_register.lookup_element(name).ok()?, ctx, name))
     }
 }
 impl LookupType {
@@ -485,10 +484,20 @@ impl LookupType {
         }
     }
 
-    fn from_element(el: ElementType) -> Option<LookupResult> {
+    fn from_element(el: ElementType, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         match el {
             ElementType::Component(c) if c.is_global() => {
-                Some(Expression::ElementReference(Rc::downgrade(&c.root_element)).into())
+                // Check if it is internal, but allow re-export (different name) eg: NativeStyleMetrics re-exported as StyleMetrics
+                if c.root_element
+                    .borrow()
+                    .builtin_type()
+                    .map_or(false, |x| x.is_internal && x.name == name)
+                    && !ctx.type_register.expose_internal_types
+                {
+                    None
+                } else {
+                    Some(Expression::ElementReference(Rc::downgrade(&c.root_element)).into())
+                }
             }
             _ => None,
         }
@@ -731,14 +740,18 @@ struct BuiltinNamespaceLookup;
 impl LookupObject for BuiltinNamespaceLookup {
     fn for_each_entry<R>(
         &self,
-        _ctx: &LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         None.or_else(|| f("Colors", LookupResult::Namespace(BuiltinNamespace::Colors)))
             .or_else(|| f("Math", LookupResult::Namespace(BuiltinNamespace::Math)))
             .or_else(|| f("Key", LookupResult::Namespace(BuiltinNamespace::Key)))
             .or_else(|| {
-                f("SlintInternal", LookupResult::Namespace(BuiltinNamespace::SlintInternal))
+                if ctx.type_register.expose_internal_types {
+                    f("SlintInternal", LookupResult::Namespace(BuiltinNamespace::SlintInternal))
+                } else {
+                    None
+                }
             })
     }
 }
