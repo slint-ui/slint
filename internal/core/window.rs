@@ -922,7 +922,7 @@ impl WindowInner {
         self.pinned_fields.text_input_focused.set(value)
     }
 
-    /// Sets the close_requested callback. The callback will be run when the user tries to close a window.
+    /// Sets the text_input_focus_changed callback. The callback will be run when the text input component is focused or unfocused.
     pub fn set_on_text_input_focus_changed(
         &self,
         mut callback: impl FnMut(&TextInputFocusChangeEvent) -> () + 'static,
