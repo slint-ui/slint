@@ -24,7 +24,10 @@ export X := Rectangle {
 //     ^error{Cannot access id 'SomeComp'}
 
     my_lowercase := Rectangle {
-
+        clip: NativeStyleMetrics.dark-color-scheme;
+        //    ^error{Cannot access id 'NativeStyleMetrics'}
+        visible: SlintInternal.dark-color-scheme;
+        //       ^error{Cannot access id 'SlintInternal'}
     }
 
     property <int> my_lowercase: 45;
