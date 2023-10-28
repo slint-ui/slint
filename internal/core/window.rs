@@ -910,7 +910,7 @@ impl WindowInner {
     /// Sets whether a text field is focused or not.
     pub fn set_text_input_focused(&self, value: bool) {
         if self.text_input_focused() != value {
-            let change = if self.text_input_focused() {
+            let change = if value {
                 TextInputFocusChangeEvent::Focused
             } else {
                 TextInputFocusChangeEvent::Unfocused
