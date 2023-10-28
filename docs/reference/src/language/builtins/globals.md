@@ -8,7 +8,19 @@ If you're implementing your own virtual keyboard, this property is an indicator 
 
 ### Properties
 
--   **`text-input-focused`** (_bool_): True if an `TextInput` element has the focus; false otherwise.
+-   **`text-input-focused`** (_bool_): True if an `TextInput` element has the focus; false otherwise. 
+
+### Callbacks (only available in Rust)
+
+-   **`text-input-focus-changed`** (_change_): a callback that gets invoked every time a text input is focused or unfocused.
+    
+    Example:
+    ```rust
+    window.global::<TextInputInterface>.on_text_input_focus_changed(|change| match change {
+        TextInputFocusChangeEvent::Focused => system::show_popup_keyboard(),
+        TextInputFocusChangeEvent::Unfocused => system::hide_popup_keyboard(),
+    });
+    ```
 
 ### Example
 
