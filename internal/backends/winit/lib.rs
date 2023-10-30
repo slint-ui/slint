@@ -277,6 +277,12 @@ impl i_slint_core::platform::Platform for Backend {
     }
 }
 
+/// Spawn the event loop, using [`winit::platform::web::EventLoopExtWebSys::spawn()`]
+#[cfg(target_arch = "wasm32")]
+pub fn spawn_event_loop() -> Result<(), PlatformError> {
+    crate::event_loop::spawn()
+}
+
 /// Invokes the specified callback with a reference to the [`winit::event_loop::EventLoopWindowTarget`].
 /// Use this to get access to the display connection or create new windows with [`winit::window::WindowBuilder`].
 ///
