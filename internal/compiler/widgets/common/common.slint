@@ -4,9 +4,6 @@
 import { StyleMetrics, ScrollView } from "std-widgets-impl.slint";
 
 export component LineEditInner inherits Rectangle {
-    callback accepted(string /* text */);
-    callback edited(string /* text */);
-
     in-out property <string> placeholder-text;
     in-out property <length> font-size <=> i-text-input.font-size;
     in-out property <string> text <=> i-text-input.text;
@@ -16,6 +13,29 @@ export component LineEditInner inherits Rectangle {
     in-out property <InputType> input-type <=> i-text-input.input-type;
     in-out property <TextHorizontalAlignment> horizontal-alignment <=> i-text-input.horizontal-alignment;
     in-out property <bool> read-only <=> i-text-input.read-only;
+
+    callback accepted( /* text */ string);
+    callback edited(/* text */ string);
+
+    public function select-all() {
+        i-text-input.select-all();
+    }
+
+    public function clear-selection() {
+        i-text-input.clear-selection();
+    }
+
+    public function cut() {
+        i-text-input.cut();
+    }
+
+    public function copy() {
+        i-text-input.copy();
+    }
+
+    public function paste() {
+        i-text-input.paste();
+    }
 
     min-height: i-text-input.preferred-height;
     min-width: max(50px, i-placeholder.min-width);
@@ -55,6 +75,16 @@ export component LineEditInner inherits Rectangle {
 
         edited => { root.edited(self.text); }
     }
+}
+
+export component TextEdit inherits ScrollView {
+    in property <TextWrap> wrap <=> i-text-input.wrap;
+    in property horizontal-alignment <=> i-text-input.horizontal-alignment;
+    in property read-only <=> i-text-input.read-only;
+    in property <length> font-size <=> i-text-input.font-size;
+    in-out property <string> text <=> i-text-input.text;
+
+    callback edited(/* text */ string);
 
     public function select-all() {
         i-text-input.select-all();
@@ -75,16 +105,6 @@ export component LineEditInner inherits Rectangle {
     public function paste() {
         i-text-input.paste();
     }
-}
-
-export component TextEdit inherits ScrollView {
-    callback edited(string /* text */);
-
-    in property <TextWrap> wrap <=> i-text-input.wrap;
-    in property horizontal-alignment <=> i-text-input.horizontal-alignment;
-    in property read-only <=> i-text-input.read-only;
-    in property <length> font-size <=> i-text-input.font-size;
-    in-out property <string> text <=> i-text-input.text;
 
     forward-focus: i-text-input;
     has-focus: i-text-input.has-focus;
@@ -121,26 +141,6 @@ export component TextEdit inherits ScrollView {
                 root.viewport-y = min(0px, max(parent.visible-height - self.height,  parent.visible-height - cpos.y - StyleMetrics.layout-padding - 20px));
             }
         }
-    }
-
-    public function select-all() {
-        i-text-input.select-all();
-    }
-
-    public function clear-selection() {
-        i-text-input.clear-selection();
-    }
-
-    public function cut() {
-        i-text-input.cut();
-    }
-
-    public function copy() {
-        i-text-input.copy();
-    }
-
-    public function paste() {
-        i-text-input.paste();
     }
 }
 export component AboutSlint {

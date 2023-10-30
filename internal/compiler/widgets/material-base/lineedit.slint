@@ -5,9 +5,6 @@ import { Palette, Typography } from "styling.slint";
 
 // Single line text input field with Material Design Outline TextField look and feel.
 export component LineEdit {
-    callback accepted(string /* text */);
-    callback edited(string /* text */);
-
     in property <length> font-size <=> i-text-input.font-size;
     in property <string> placeholder-text <=> i-placeholder.text;
     in property <bool> enabled <=> i-text-input.enabled;
@@ -17,9 +14,42 @@ export component LineEdit {
     out property <bool> has-focus: i-text-input.has-focus;
     in-out property <string> text <=> i-text-input.text;
 
+    callback accepted(/* text */ string);
+    callback edited(/* text */ string);
+
+    public function select-all() {
+        i-text-input.select-all();
+    }
+    public function clear-selection() {
+        i-text-input.clear-selection();
+    }
+    public function cut() {
+        i-text-input.cut();
+    }
+    public function copy() {
+        i-text-input.copy();
+    }
+    public function paste() {
+        i-text-input.paste();
+    }
+
     min-width: max(120px, i-layout.min-width);
     min-height: max(56px, i-layout.min-height);
     forward-focus: i-text-input;
+
+    states [
+        disabled when !root.enabled : {
+            i-background.border-color: Palette.on-surface;
+            i-background.opacity: 0.38;
+            i-text-input.opacity: 0.38;
+            i-placeholder.opacity: 0.38;
+        }
+        focused when root.has-focus : {
+            i-background.border-width: 2px;
+            i-background.border-color: Palette.primary;
+            i-text-input.color: Palette.primary;
+        }
+    ]
 
     i-background := Rectangle {
         width: 100%;
@@ -63,6 +93,7 @@ export component LineEdit {
                 vertical-alignment: center;
                 font-size: Typography.body-large.font-size;
                 font-weight: Typography.body-large.font-weight;
+                selection-foreground-color: Palette.primary;
 
                 accepted => {
                     root.accepted(self.text);
@@ -82,34 +113,4 @@ export component LineEdit {
             }
         }
     }
-
-    public function select-all() {
-        i-text-input.select-all();
-    }
-    public function clear-selection() {
-        i-text-input.clear-selection();
-    }
-    public function cut() {
-        i-text-input.cut();
-    }
-    public function copy() {
-        i-text-input.copy();
-    }
-    public function paste() {
-        i-text-input.paste();
-    }
-
-    states [
-        disabled when !root.enabled : {
-            i-background.border-color: Palette.on-surface;
-            i-background.opacity: 0.38;
-            i-text-input.opacity: 0.38;
-            i-placeholder.opacity: 0.38;
-        }
-        focused when root.has-focus : {
-            i-background.border-width: 2px;
-            i-background.border-color: Palette.primary;
-            i-text-input.color: Palette.primary;
-        }
-    ]
 }

@@ -1,0 +1,56 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { ComboBoxBase } from "../common/combobox-base.slint";
+
+export component ComboBox inherits NativeComboBox {
+    in property <[string]> model <=> i-base.model;
+    in-out property <int> current-index <=> i-base.current-index;
+    out property has-focus <=> i-base.has-focus;
+
+    callback selected <=> i-base.selected;
+
+    enabled: true;
+    accessible-role: combobox;
+    accessible-value <=> root.current-value;
+    current-value: root.model[root.current-index];
+    forward-focus: i-base;
+
+    i-base := ComboBoxBase {
+        width: 100%;
+        height: 100%;
+        current-value <=> root.current-value;
+
+        show-popup => {
+            i-popup.show();
+        }
+    }
+
+    i-popup := PopupWindow {
+        x: 0;
+        y: root.height;
+        width: root.width;
+
+        NativeComboBoxPopup {
+            width: 100%;
+            height: 100%;
+        }
+
+        VerticalLayout {
+            spacing: 0px;
+
+            for value[index] in root.model: NativeStandardListViewItem {
+                item: { text: value };
+                is-selected: root.current-index == index;
+                has-hover: ta.has-hover;
+                combobox: true;
+
+                ta := TouchArea {
+                    clicked => {
+                        i-base.select(index);
+                    }
+                }
+            }
+        }
+    }
+}

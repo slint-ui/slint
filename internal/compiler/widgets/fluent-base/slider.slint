@@ -4,15 +4,16 @@
 import { Palette } from "styling.slint";
 
 export component Slider {
-    callback changed(float /* value */);
-
     in property <Orientation> orientation: horizontal;
-    private property<bool> vertical: orientation == Orientation.vertical;
-    in property<float> maximum: 100;
-    in property<float> minimum: 0;
-    in property<bool> enabled <=> i-touch-area.enabled;
-    out property<bool> has-focus: i-focus-scope.has-focus;
-    in-out property<float> value;
+    in property <float> maximum: 100;
+    in property <float> minimum: 0;
+    in property <bool> enabled <=> i-touch-area.enabled;
+    out property <bool> has-focus: i-focus-scope.has-focus;
+    in-out property <float> value;
+
+    callback changed( /* value */ float);
+
+    private property <bool> vertical: orientation == Orientation.vertical;
 
     min-width: vertical ? 20px : 0px;
     min-height: vertical ? 0px : 20px;
@@ -23,6 +24,23 @@ export component Slider {
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
+
+    states [
+        disabled when !root.enabled : {
+            i-track.background: Palette.accent-disabled;
+            i-rail.background: Palette.accent-disabled;
+            i-thumb-inner.background: Palette.accent-disabled;
+        }
+        pressed when ( i-touch-area.pressed &&  i-touch-area.has-hover) || i-focus-scope.has-focus : {
+            i-thumb-inner.width: 10px;
+            i-thumb-inner.background: Palette.accent-tertiary;
+            i-thumb.border-color: Palette.control-stroke;
+        }
+        hover when i-touch-area.has-hover : {
+            i-thumb-inner.width: 14px;
+            i-thumb-inner.background: Palette.accent-secondary;
+        }
+    ]
 
     i-rail := Rectangle {
         width: vertical ? 4px : parent.width;
@@ -118,21 +136,4 @@ export component Slider {
             }
         }
     }
-
-    states [
-        disabled when !root.enabled : {
-            i-track.background: Palette.accent-disabled;
-            i-rail.background: Palette.accent-disabled;
-            i-thumb-inner.background: Palette.accent-disabled;
-        }
-        pressed when ( i-touch-area.pressed &&  i-touch-area.has-hover) || i-focus-scope.has-focus : {
-            i-thumb-inner.width: 10px;
-            i-thumb-inner.background: Palette.accent-tertiary;
-            i-thumb.border-color: Palette.control-stroke;
-        }
-        hover when i-touch-area.has-hover : {
-            i-thumb-inner.width: 14px;
-            i-thumb-inner.background: Palette.accent-secondary;
-        }
-    ]
 }

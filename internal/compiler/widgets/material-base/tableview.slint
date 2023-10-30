@@ -7,10 +7,10 @@ import { StateLayer } from "components.slint";
 import { Palette, Icons } from "styling.slint";
 
 component TableViewColumn inherits Rectangle {
-    callback clicked <=> i-state-layer.clicked;
-    callback adjust_size(length);
-
     in property <SortOrder> sort-order: SortOrder.unsorted;
+
+    callback clicked <=> i-state-layer.clicked;
+    callback adjust-size(/* size */ length);
 
     i-state-layer := StateLayer {
         background: Palette.primary;
@@ -53,6 +53,8 @@ component TableViewColumn inherits Rectangle {
         width: 1px;
         background: i-movable-touch-area.has-hover ? Palette.outline : transparent;
 
+        animate background { duration: 250ms; }
+
         i-movable-touch-area := TouchArea {
             width: 10px;
 
@@ -63,8 +65,6 @@ component TableViewColumn inherits Rectangle {
             }
             mouse-cursor: ew-resize;
         }
-
-        animate background { duration: 250ms; }
     }
 }
 
@@ -90,14 +90,20 @@ component TableViewCell inherits Rectangle {
 }
 
 component TableViewRow inherits Rectangle {
+    in property <bool> selected;
+    out property <length> mouse-x <=> i-state-layer.mouse-x;
+    out property <length> mouse-y <=> i-state-layer.mouse-y;
+
     callback clicked <=> i-state-layer.clicked;
     callback pointer-event <=> i-state-layer.pointer-event;
 
-    in property<bool> selected;
-    out property<length> mouse-x <=> i-state-layer.mouse-x;
-    out property<length> mouse-y <=> i-state-layer.mouse-y;
-
     min-height: max(42px, i-layout.min-height);
+
+    states [
+        selected when root.selected : {
+            i-state-layer.background: Palette.secondary-container;
+        }
+    ]
 
     i-state-layer := StateLayer {
         checked: root.selected;
@@ -110,12 +116,6 @@ component TableViewRow inherits Rectangle {
     i-layout := HorizontalLayout {
        @children
     }
-
-    states [
-        selected when root.selected : {
-            i-state-layer.background: Palette.secondary-container;
-        }
-    ]
 }
 
 export component StandardTableView {
@@ -123,15 +123,48 @@ export component StandardTableView {
     private property <length> current-item-y: i-scroll-view.viewport-y + current-row * item-height;
     private property <length> min-header-height: 42px;
 
-    callback sort-ascending(int /* column-index */);
-    callback sort-descending(int /* column-index */);
-    callback row-pointer-event(int /* row-index */, PointerEvent /* event */, Point /* absolute mouse position */);
-    callback current-row-changed(int /* current-row */);
-
     in property <[[StandardListViewItem]]> rows;
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
-    in-out property<int> current-row: -1;
+    in-out property <int> current-row: -1;
+
+    callback sort-ascending(/* column-index */ int);
+    callback sort-descending(/* column-index */ int);
+    callback row-pointer-event(/* row-index */ int, /* event */ PointerEvent,  /* absolute mouse position */ Point);
+    callback current-row-changed(/* current-row */ int);
+
+    public function set-current-row(index: int) {
+        if(index < 0 || index >= rows.length) {
+            return;
+        }
+
+        current-row = index;
+        current-row-changed(current-row);
+
+        if(current-item-y < 0) {
+            i-scroll-view.viewport-y += 0 - current-item-y;
+        }
+
+        if(current-item-y + item-height > i-scroll-view.visible-height) {
+            i-scroll-view.viewport-y -= current-item-y + item-height - i-scroll-view.visible-height;
+        }
+    }
+
+    function sort(index: int) {
+        if (root.current-sort-column != index) {
+            root.columns[root.current-sort-column].sort-order = SortOrder.unsorted;
+        }
+
+        if(root.columns[index].sort-order == SortOrder.ascending) {
+            root.columns[index].sort-order = SortOrder.descending;
+            root.sort-descending(index);
+        } else {
+            root.columns[index].sort-order = SortOrder.ascending;
+            root.sort-ascending(index);
+        }
+
+        root.current-sort-column = index;
+    }
 
     min-width: 400px;
     min-height: 200px;
@@ -184,8 +217,21 @@ export component StandardTableView {
                 for row[idx] in root.rows : TableViewRow {
                     selected: idx == root.current-row;
 
+                    clicked => {
+                        root.focus();
+                        root.set-current-row(idx);
+                    }
+
+                    pointer-event(pe) => {
+                        root.row-pointer-event(idx, pe, {
+                            x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
+                            y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
+                        });
+                    }
+
                     for cell[index] in row : TableViewCell {
                         private property <bool> has_inner_focus;
+
                         horizontal-stretch: root.columns[index].horizontal-stretch;
                         min-width: max(columns[index].min-width, columns[index].width);
                         preferred-width: self.min-width;
@@ -200,18 +246,6 @@ export component StandardTableView {
                                 text: cell.text;
                             }
                         }
-                    }
-
-                    clicked => {
-                        root.focus();
-                        root.set-current-row(idx);
-                    }
-
-                    pointer-event(pe) => {
-                        root.row-pointer-event(idx, pe, {
-                            x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
-                            y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
-                        });
                     }
                 }
             }
@@ -232,39 +266,6 @@ export component StandardTableView {
             }
 
             reject
-        }
-    }
-
-    function sort(index: int) {
-        if (root.current-sort-column != index) {
-            root.columns[root.current-sort-column].sort-order = SortOrder.unsorted;
-        }
-
-        if(root.columns[index].sort-order == SortOrder.ascending) {
-            root.columns[index].sort-order = SortOrder.descending;
-            root.sort-descending(index);
-        } else {
-            root.columns[index].sort-order = SortOrder.ascending;
-            root.sort-ascending(index);
-        }
-
-        root.current-sort-column = index;
-    }
-
-    public function set-current-row(index: int) {
-        if(index < 0 || index >= rows.length) {
-            return;
-        }
-
-        current-row = index;
-        current-row-changed(current-row);
-
-        if(current-item-y < 0) {
-            i-scroll-view.viewport-y += 0 - current-item-y;
-        }
-
-        if(current-item-y + item-height > i-scroll-view.visible-height) {
-            i-scroll-view.viewport-y -= current-item-y + item-height - i-scroll-view.visible-height;
         }
     }
 }
