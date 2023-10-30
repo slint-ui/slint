@@ -25,8 +25,8 @@ pub unsafe extern "C" fn slint_interpreter_value_clone(other: &Box<Value>) -> Bo
 
 /// Destruct the value in that memory location
 #[no_mangle]
-pub unsafe extern "C" fn slint_interpreter_value_destructor(val: *mut Box<Value>) {
-    drop(std::ptr::read(val))
+pub unsafe extern "C" fn slint_interpreter_value_destructor(val: Box<Value>) {
+    drop(val);
 }
 
 #[no_mangle]

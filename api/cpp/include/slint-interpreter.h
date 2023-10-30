@@ -258,7 +258,7 @@ public:
     {
         if (this == &other)
             return *this;
-        cbindgen_private::slint_interpreter_value_destructor(&inner);
+        cbindgen_private::slint_interpreter_value_destructor(inner);
         inner = slint_interpreter_value_clone(&other.inner);
         return *this;
     }
@@ -267,13 +267,13 @@ public:
     {
         if (this == &other)
             return *this;
-        cbindgen_private::slint_interpreter_value_destructor(&inner);
+        cbindgen_private::slint_interpreter_value_destructor(inner);
         inner = other.inner;
         other.inner = cbindgen_private::slint_interpreter_value_new();
         return *this;
     }
     /// Destroys the value.
-    ~Value() { cbindgen_private::slint_interpreter_value_destructor(&inner); }
+    ~Value() { cbindgen_private::slint_interpreter_value_destructor(inner); }
 
     /// A convenience alias for the value type enum.
     using Type = ValueType;
