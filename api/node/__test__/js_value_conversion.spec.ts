@@ -5,7 +5,7 @@ import test from 'ava';
 const path = require('node:path');
 var Jimp = require("jimp");
 
-import { private_api, SlintBrush, SlintImageData, ImageData, ArrayModel } from '../index'
+import { private_api, SlintBrush, SlintImageData, ImageData, ArrayModel, SlintRgbaColor } from '../index'
 
 test('get/set string properties', (t) => {
   let compiler = new private_api.ComponentCompiler;
@@ -242,6 +242,7 @@ test('get/set brush properties', (t) => {
     in-out property <brush> ref: transparent;
     in-out property <brush> linear-gradient: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
     in-out property <brush> radial-gradient: @radial-gradient(circle, #f00 0%, #0f0 50%, #00f 100%);
+    in-out property <color> ref-color;
   }
   `, "");
   t.not(definition, null);
@@ -313,7 +314,79 @@ test('get/set brush properties', (t) => {
   if (t.true((linearGradient instanceof SlintBrush))) {
     t.is((linearGradient as SlintBrush).toString(),
       "linear-gradient(90deg, rgba(63, 135, 166, 255) 0%, rgba(235, 248, 225, 255) 50%, rgba(246, 157, 60, 255) 100%)");
-  }
+  };
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { red: "abc", blue: 0, green: 0, alpha: 0} );
+  },
+    {
+      code: 'NumberExpected',
+      message: 'Failed to convert napi value String into rust type `f64`',
+    }
+  );
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { red: 0, blue: true, green: 0, alpha: 0} );
+  },
+    {
+      code: 'NumberExpected',
+      message: 'Failed to convert napi value Boolean into rust type `f64`',
+    }
+  );
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { red: 0, blue: 0, green: true, alpha: 0} );
+  },
+    {
+      code: 'NumberExpected',
+      message: 'Failed to convert napi value Boolean into rust type `f64`',
+    }
+  );
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { red: 0, blue: 0, green: 0, alpha: new SlintRgbaColor()} );
+  },
+    {
+      code: 'NumberExpected',
+      message: 'Failed to convert napi value Object into rust type `f64`',
+    }
+  );
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { blue: 0, green: 0, alpha: 0} );
+  },
+    {
+      code: 'GenericFailure',
+      message: 'Property red is missing',
+    }
+  );
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { red: 0, green: 0, alpha: 0} );
+  },
+    {
+      code: 'GenericFailure',
+      message: 'Property blue is missing',
+    }
+  );
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { red: 0, blue: 0, alpha: 0} );
+  },
+    {
+      code: 'GenericFailure',
+      message: 'Property green is missing',
+    }
+  );
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { red: 0, green: 0, blue: 0 } );
+  },
+    {
+      code: 'GenericFailure',
+      message: 'Property alpha is missing',
+    }
+  );
 })
 
 test('ArrayModel', (t) => {

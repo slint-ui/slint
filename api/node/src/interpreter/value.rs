@@ -113,10 +113,18 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 }
                 Ok(ValueType::Object) => {
                     if let Ok(rgb_color) = unknown.coerce_to_object() {
-                        let red: f64 = rgb_color.get("red")?.unwrap();
-                        let green: f64 = rgb_color.get("green")?.unwrap();
-                        let blue: f64 = rgb_color.get("blue")?.unwrap();
-                        let alpha: f64 = rgb_color.get("alpha")?.unwrap();
+                        let red: f64 = rgb_color
+                            .get("red")?
+                            .ok_or(Error::from_reason("Property red is missing"))?;
+                        let green: f64 = rgb_color
+                            .get("green")?
+                            .ok_or(Error::from_reason("Property green is missing"))?;
+                        let blue: f64 = rgb_color
+                            .get("blue")?
+                            .ok_or(Error::from_reason("Property blue is missing"))?;
+                        let alpha: f64 = rgb_color
+                            .get("alpha")?
+                            .ok_or(Error::from_reason("Property alpha is missing"))?;
 
                         if red < 0. || green < 0. || blue < 0. || alpha < 0. {
                             return Err(Error::from_reason(
