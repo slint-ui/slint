@@ -7,8 +7,6 @@ import { Page } from "../page.slint";
 import { IconButton, CheckBox, RadioButton, Switch, ScrollView, Item, ItemGroupBox } from "../../widgets/widgets.slint";
 
 export global SettingsAdapter {
-    callback check-radio-option(int /* index */);
-
     // functions
     in-out property <bool> function-one-checked: true;
     in-out property <bool> kiosk-mode-checked;
@@ -23,6 +21,8 @@ export global SettingsAdapter {
     in-out property <bool> check-option-two-checked;
     in-out property <bool> check-option-three-checked;
 
+    callback check-radio-option(int /* index */);
+
     check-radio-option(index) => {
         if(index == 0) {
             radio-option-one-checked = true;
@@ -36,9 +36,6 @@ export global SettingsAdapter {
 }
 
 export component Settings inherits Page {
-    callback close();
-    callback check-radio-option <=> SettingsAdapter.check-radio-option;
-
     // functions
     in-out property <bool> function-one-checked <=> SettingsAdapter.function-one-checked;
     in-out property <bool> kiosk-mode-checked <=> SettingsAdapter.kiosk-mode-checked;
@@ -52,6 +49,9 @@ export component Settings inherits Page {
     in-out property <bool> check-option-one-checked <=> SettingsAdapter.check-option-one-checked;
     in-out property <bool> check-option-two-checked <=> SettingsAdapter.check-option-two-checked;
     in-out property <bool> check-option-three-checked <=> SettingsAdapter.check-option-three-checked;
+
+    callback close();
+    callback check-radio-option <=> SettingsAdapter.check-radio-option;
 
     padding-left: 0;
     padding-right: 0;
@@ -72,50 +72,52 @@ export component Settings inherits Page {
                 spacing: Theme.spaces.medium;
 
                 Item {
+                    clicked => {
+                        i-function-one-check-box.clicked();
+                    }
+
                     text: "Function One";
 
                     i-function-one-check-box := CheckBox {
                         checked <=> root.function-one-checked;
                     }
-
-                    clicked => {
-                        i-function-one-check-box.clicked();
-                    }
                 }
 
                 ItemGroupBox {
                     title: "Subtitle";
 
                     Item {
+                        clicked => {
+                            i-radio-option-one.clicked();
+                        }
+
                         text: "Option One";
                         has-separator: true;
 
                         i-radio-option-one := RadioButton {
-                            checked: root.radio-option-one-checked;
-
                             clicked => {
                                 root.check-radio-option(0);
                             }
-                        }
 
-                        clicked => {
-                            i-radio-option-one.clicked();
+                            checked: root.radio-option-one-checked;
+
+
                         }
                     }
 
                     Item {
+                        clicked => {
+                            i-radio-option-two.clicked();
+                        }
+
                         text: "Option Two";
 
                         i-radio-option-two := RadioButton {
-                            checked: root.radio-option-two-checked;
-
                             clicked => {
                                 root.check-radio-option(1);
                             }
-                        }
 
-                        clicked => {
-                            i-radio-option-two.clicked();
+                            checked: root.radio-option-two-checked;
                         }
                     }
                 }
@@ -124,69 +126,69 @@ export component Settings inherits Page {
                     title: "Subtitle";
 
                     Item {
+                        clicked => {
+                            i-check-option-one.clicked();
+                        }
+
                         text: "Option One";
                         has-separator: true;
 
                         i-check-option-one := CheckBox {
                             checked <=> root.check-option-one-checked;
                         }
-
-                        clicked => {
-                            i-check-option-one.clicked();
-                        }
                     }
 
                     Item {
+                        clicked => {
+                            i-check-option-two.clicked();
+                        }
+
                         text: "Option Two";
                         has-separator: true;
 
                         i-check-option-two := CheckBox {
                             checked <=> root.check-option-two-checked;
                         }
-
-                        clicked => {
-                            i-check-option-two.clicked();
-                        }
                     }
 
                     Item {
+                        clicked => {
+                            i-check-option-three.clicked();
+                        }
+
                         text: "Option Three";
 
                         i-check-option-three := CheckBox {
                             checked <=> root.check-option-three-checked;
                         }
-
-                        clicked => {
-                            i-check-option-three.clicked();
-                        }
                     }
                 }
 
                 Item {
-                    text: "Kiosk mode";
-
-                    i-kiosk-mode := Switch {
-                        checked <=> root.kiosk-mode-checked;
-
-                        changed => {
-                            close();
-                        }
-                    }
-
                     clicked => {
                         i-kiosk-mode.clicked();
                     }
+
+                    text: "Kiosk mode";
+
+                    i-kiosk-mode := Switch {
+                        changed => {
+                            close();
+                        }
+
+                        checked <=> root.kiosk-mode-checked;
+                    }
                 }
 
                 Item {
+                    clicked => {
+                        i-function-three.clicked();
+                    }
+
                     text: "Function Three";
 
                     i-function-three := Switch {
                         checked <=> root.function-three-checked;
-                    }
-
-                    clicked => {
-                        i-function-three.clicked();
                     }
                 }
             }

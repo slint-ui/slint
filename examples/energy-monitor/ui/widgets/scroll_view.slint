@@ -6,10 +6,10 @@ import { StateLayer } from "../components/state_layer.slint";
 
 component ScrollBar inherits Rectangle {
     in-out property <bool> horizontal;
-    in-out property<length> maximum;
-    in-out property<length> page-size;
+    in-out property <length> maximum;
+    in-out property <length> page-size;
     // this is always negative and bigger than  -maximum
-    in-out property<length> value;
+    in-out property <length> value;
 
     background: Theme.palette.pure-black;
     border-width: 1px;
@@ -27,9 +27,6 @@ component ScrollBar inherits Rectangle {
     i-touch-area := StateLayer {
         private property <length> pressed-value;
 
-        width: parent.width;
-        height: parent.height;
-
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
                 self.pressed-value = -root.value;
@@ -43,19 +40,22 @@ component ScrollBar inherits Rectangle {
                 )));
             }
         }
+
+        width: parent.width;
+        height: parent.height;
     }
 }
 
 export component ScrollView {
+    in property <bool> enabled: true;
+    out property <length> visible-width <=>  i-flickable.width;
+    out property <length> visible-height <=>  i-flickable.height;
+    // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
+    in-out property <bool> has-focus;
     in-out property <length> viewport-width <=> i-flickable.viewport-width;
     in-out property <length> viewport-height <=> i-flickable.viewport-height;
     in-out property <length> viewport-x <=> i-flickable.viewport-x;
     in-out property <length> viewport-y <=> i-flickable.viewport-y;
-    out property <length> visible-width <=>  i-flickable.width;
-    out property <length> visible-height <=>  i-flickable.height;
-    in property <bool> enabled: true;
-    // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
-    in-out property <bool> has-focus;
 
     min-height: 50px;
     min-width: 50px;
@@ -76,8 +76,8 @@ export component ScrollView {
     i-ver-bar := ScrollBar {
         visible: viewport-height > visible-height;
         width: 5px;
-        x:  i-flickable.width + i-flickable.x + Theme.spaces.medium;
-        y:  i-flickable.y;
+        x: i-flickable.width + i-flickable.x + Theme.spaces.medium;
+        y: i-flickable.y;
         height:  i-flickable.height;
         horizontal: false;
         maximum:  i-flickable.viewport-height - i-flickable.height;

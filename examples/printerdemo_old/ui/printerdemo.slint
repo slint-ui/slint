@@ -9,7 +9,8 @@ import { PrintPage } from "print_page.slint";
 import { SettingsPage } from "settings_page.slint";
 
 component TopPanel inherits Rectangle {
-   in-out property<int> active-page: 0;
+   in-out property <int> active-page: 0;
+
    callback quit();
 
    background: white;
@@ -19,18 +20,20 @@ component TopPanel inherits Rectangle {
         Text {
             text: "PrintMachine";
             color: root.active-page == 0 ? black : #0000;
-            animate color { duration: 200ms; }
             font-size: root.width * 5%;
             horizontal-alignment: center;
             vertical-alignment: center;
+
+            animate color { duration: 200ms; }
         }
         Text {
             text: "2000";
             color: root.active-page == 0 ? #918e8c : #0000;
-            animate color { duration: 200ms; }
             font-size: root.width * 5%;
             horizontal-alignment: center;
             vertical-alignment: center;
+
+            animate color { duration: 200ms; }
 
         }
     }
@@ -55,37 +58,38 @@ struct InkLevel  {
 }
 
 export component MainWindow inherits Window {
+     /// Note that this property is overwritten in the .cpp and .rs code.
+    /// The data is only in this file so it looks good in the viewer
+    in-out property <[InkLevel]> ink-levels: [
+        {color: #0ff, level: 60%},
+        {color: #ff0, level: 80%},
+        {color: #f0f, level: 70%},
+        {color: #000, level: 30%},
+    ];
+    /// Aliased to the fax number in the fax page
+    in-out property <string> fax-number;
+    in-out property <int> active-page: 0;
+
     callback quit();
+    callback fax-number-erase;
+    callback fax-send;
+
+    /// That's just a default implementation for the viewer, but the .cpp and .rs code
+    /// overwrite that to erase only the last character
+    fax-number-erase => { root.fax-number = ""; }
 
     width: 800px;
     height: 600px;
     title: "Slint printer demo";
     background: white;
 
-    /// Note that this property is overwritten in the .cpp and .rs code.
-    /// The data is only in this file so it looks good in the viewer
-    in-out property <[InkLevel]> ink-levels: [
-                {color: #0ff, level: 60%},
-                {color: #ff0, level: 80%},
-                {color: #f0f, level: 70%},
-                {color: #000, level: 30%},
-            ];
-    /// Aliased to the fax number in the fax page
-    in-out property <string> fax-number;
-    callback fax-number-erase;
-    /// That's just a default implementation for the viewer, but the .cpp and .rs code
-    /// overwrite that to erase only the last character
-    fax-number-erase => { root.fax-number = ""; }
-    callback fax-send;
-
-    in-out property<int> active-page: 0;
-
     panel := TopPanel {
-        y:0;
+        quit => { root.quit(); }
+
+        y: 0;
         active-page: root.active-page;
         width: 100%;
         height: 12.5%;
-        quit => { root.quit(); }
     }
 
     for page-info[idx] in [
@@ -95,44 +99,13 @@ export component MainWindow inherits Window {
         { color: #009dc8, text: "Settings", img-small: @image-url("images/list.svg") },
     ] : Rectangle {
         property <length> w: root.width / 5;
+
         width: self.w;
         height: root.height / 3;
         y: root.height / 4;
         x: idx * (self.w + (root.width - self.w*4) / 5) + (root.width - self.w*4)/5;
         border-radius: 25px;
         background: page-info.color;
-        img := Image {
-            y: 5px;
-            x: (w - (root.width / 6.25)) / 2;
-            width: root.width / 6.25;
-            height: root.height / 4.68;
-            source: page-info.img-small;
-            animate width, height, x, y {
-                duration: 300ms;
-                easing: ease-in-out;
-            }
-        }
-        text := Text {
-            y: root.height / 10;
-            x: 5px;
-            width: 100%;
-            height: 100%;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            text: page-info.text;
-            font-size: 28px;
-            animate x, y {
-                duration: 300ms;
-                easing: ease-in-out;
-            }
-        }
-        touch := TouchArea {
-            clicked => {
-                if (root.active-page == 0) {
-                    root.active-page = idx + 1;
-                }
-            }
-        }
 
         animate x, y, height, width, background, border-radius {
             duration: 300ms;
@@ -163,12 +136,49 @@ export component MainWindow inherits Window {
                 text.color: #0000;
             }
         ]
+
+        img := Image {
+            y: 5px;
+            x: (w - (root.width / 6.25)) / 2;
+            width: root.width / 6.25;
+            height: root.height / 4.68;
+            source: page-info.img-small;
+
+            animate width, height, x, y {
+                duration: 300ms;
+                easing: ease-in-out;
+            }
+        }
+
+        text := Text {
+            y: root.height / 10;
+            x: 5px;
+            width: 100%;
+            height: 100%;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            text: page-info.text;
+            font-size: 28px;
+
+            animate x, y {
+                duration: 300ms;
+                easing: ease-in-out;
+            }
+        }
+        touch := TouchArea {
+            clicked => {
+                if (root.active-page == 0) {
+                    root.active-page = idx + 1;
+                }
+            }
+        }
     }
 
     if (root.active-page != 0) : Rectangle {
         x:0;y:0;
         width: self.height;
         height: 12.5%;
+
         Text {
             width: 100%;
             height: 100%;
@@ -178,6 +188,7 @@ export component MainWindow inherits Window {
             horizontal-alignment: center;
             vertical-alignment: center;
         }
+
         TouchArea {
             clicked => { root.active-page = 0; }
         }
@@ -185,22 +196,35 @@ export component MainWindow inherits Window {
 
 
     Rectangle {
+        property <bool> full-screen;
+
         width: root.width / 5;
         height: root.height / 5;
         x: root.width - self.width - 20px;
         y: root.height - self.height - 20px;
         background: #eee;
 
+        states [
+            full-screen when self.full-screen : {
+                width: root.width - 35px;
+                height: 7/8 * root.height - 40px ;
+            }
+        ]
+        animate width, height { duration: 200ms; easing: ease;  }
+
         HorizontalLayout {
             spacing: 10px;
             padding: 10px;
+
             for color-info[idx] in root.ink-levels : Rectangle {
                 background: white;
+
                 Rectangle {
                     width: parent.width;
                     height: parent.height * color-info.level;
                     y: parent.height - self.height;
                     background: color-info.color;
+
                     states [
                         inactive when root.active-page != 0 : {
                             height: 0phx;
@@ -214,14 +238,6 @@ export component MainWindow inherits Window {
             }
         }
 
-        property <bool> full-screen;
-        states [
-            full-screen when self.full-screen : {
-                width: root.width - 35px;
-                height: 7/8 * root.height - 40px ;
-            }
-        ]
-        animate width, height { duration: 200ms; easing: ease;  }
         TouchArea {
             clicked => {
                 if (root.active-page == 0) {
@@ -235,6 +251,7 @@ export component MainWindow inherits Window {
         height: root.height - root.height / 8;
         width: 100%;
         y: root.height;
+
         states [
             active when root.active-page == 1: {
                 y: root.height / 8;
@@ -243,23 +260,26 @@ export component MainWindow inherits Window {
     }
 
     FaxPage {
+        fax-number-erase => { root.fax-number-erase(); }
+        fax-send => { root.fax-send(); }
+
         height: root.height - root.height / 8;
         width: 100%;
         y: root.height;
+        fax-number <=> root.fax-number;
+
         states [
             active when root.active-page == 2: {
                 y: root.height / 8;
             }
         ]
-        fax-number <=> root.fax-number;
-        fax-number-erase => { root.fax-number-erase(); }
-        fax-send => { root.fax-send(); }
     }
 
     PrintPage {
         height: root.height - root.height / 8;
         width: 100%;
         y: root.height;
+
         states [
             active when root.active-page == 3: {
                 y: root.height / 8;
@@ -271,6 +291,7 @@ export component MainWindow inherits Window {
         height: root.height - root.height / 8;
         width: 100%;
         y: root.height;
+
         states [
             active when root.active-page == 4: {
                 y: root.height / 8;
