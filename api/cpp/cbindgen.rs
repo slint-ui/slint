@@ -768,13 +768,13 @@ fn gen_interpreter(
     dependencies: &mut Vec<PathBuf>,
 ) -> anyhow::Result<()> {
     let mut config = default_config();
-    // Avoid Value, just export ValueOpaque.
     config.export.exclude = IntoIterator::into_iter([
         "Value",
         "ValueType",
         "PropertyDescriptor",
         "Diagnostic",
         "PropertyDescriptor",
+        "Box",
     ])
     .map(String::from)
     .collect();
@@ -795,7 +795,7 @@ fn gen_interpreter(
         "StructIteratorOpaque",
         "ComponentInstance",
         "StructIteratorResult",
-        "ValueOpaque",
+        "Value",
         "StructOpaque",
         "ModelNotifyOpaque",
     ])
@@ -821,6 +821,7 @@ fn gen_interpreter(
                 using slint::interpreter::ValueType;
                 using slint::interpreter::PropertyDescriptor;
                 using slint::interpreter::Diagnostic;
+                template <typename T> using Box = T*;
             }",
         )
         .generate()
