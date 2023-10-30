@@ -670,6 +670,43 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
     Ok(())
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn spawn() -> Result<(), corelib::platform::PlatformError> {
+    use winit::platform::web::EventLoopExtWebSys;
+    let not_running_loop_instance = MAYBE_LOOP_INSTANCE
+        .with(|loop_instance| match loop_instance.borrow_mut().take() {
+            Some(instance) => Ok(instance),
+            None => NotRunningEventLoop::new(),
+        })
+        .map_err(|e| format!("Error initializing winit event loop: {e}"))?;
+
+    let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
+    GLOBAL_PROXY.with(|global_proxy| {
+        global_proxy
+            .borrow_mut()
+            .get_or_insert_with(Default::default)
+            .set_proxy(event_loop_proxy.clone())
+    });
+
+    let clipboard = not_running_loop_instance.clipboard;
+    let mut loop_state = EventLoopState::default();
+
+    not_running_loop_instance.instance.spawn(
+        move |event: Event<SlintUserEvent>,
+              event_loop_target: &EventLoopWindowTarget<SlintUserEvent>| {
+            let running_instance = RunningEventLoop {
+                event_loop_target,
+                event_loop_proxy: &event_loop_proxy,
+                clipboard: &clipboard,
+            };
+            CURRENT_WINDOW_TARGET
+                .set(&running_instance, || loop_state.process_event(event, event_loop_target))
+        },
+    );
+
+    Ok(())
+}
+
 fn create_clipboard<T>(_event_loop: &winit::event_loop::EventLoopWindowTarget<T>) -> ClipboardPair {
     // Provide a truly silent no-op clipboard context, as copypasta's NoopClipboard spams stdout with
     // println.
