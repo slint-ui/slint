@@ -1,15 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import * as path from "path";
-
 import * as napi from "./rust-module";
 export {
     Diagnostic,
     DiagnosticLevel,
+    RgbaColor,
+    SlintBrush,
     Brush,
-    Color,
+    SlintRgbaColor,
     SlintModelNotify,
+    SlintSize,
+    SlintPoint,
+    SlintImageData
 } from "./rust-module";
 
 /**
@@ -491,8 +494,6 @@ export namespace private_api {
     export import ComponentInstance = napi.ComponentInstance;
     export import ValueType = napi.ValueType;
     export import Window = napi.Window;
-    export import ImageData = napi.ImageData;
-    export import SlintColor = napi.SlintColor;
 
     export function send_mouse_click(
         component: Component,

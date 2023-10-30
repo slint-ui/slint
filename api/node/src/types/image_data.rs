@@ -15,20 +15,20 @@ use napi::{
 // This is needed for typedoc check JsImageData::image
 pub type ImageData = Image;
 
-/// An image data type that can be displayed by the Image element
-#[napi(js_name = ImageData)]
-pub struct JsImageData {
+/// SlintPoint implements {@link ImageData}.
+#[napi]
+pub struct SlintImageData {
     inner: Image,
 }
 
-impl From<Image> for JsImageData {
+impl From<Image> for SlintImageData {
     fn from(image: Image) -> Self {
         Self { inner: image }
     }
 }
 
 #[napi]
-impl JsImageData {
+impl SlintImageData {
     /// Constructs a new image with the given width and height.
     /// Each pixel will set to red = 0, green = 0, blue = 0 and alpha = 0.
     #[napi(constructor)]

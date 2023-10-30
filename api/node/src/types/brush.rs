@@ -4,9 +4,9 @@
 use i_slint_core::{graphics::GradientStop, Brush, Color};
 use napi::{bindgen_prelude::External, Error, Result};
 
-/// Color represents a color in the Slint run-time, represented using 8-bit channels for red, green, blue and the alpha (opacity).
-#[napi(object, js_name = "Color")]
-pub struct JsColor {
+/// RgbaColor represents a color in the Slint run-time, represented using 8-bit channels for red, green, blue and the alpha (opacity).
+#[napi(object)]
+pub struct RgbaColor {
     /// Represents the red channel of the color as u8 in the range 0..255.
     pub red: f64,
 
@@ -20,30 +20,35 @@ pub struct JsColor {
     pub alpha: f64,
 }
 
-/// Color represents a color in the Slint run-time, represented using 8-bit channels for red, green, blue and the alpha (opacity).
-#[napi(js_name = SlintColor)]
-pub struct JsSlintColor {
+/// SlintRgbaColor implements {@link RgbaColor}.
+#[napi]
+pub struct SlintRgbaColor {
     inner: Color,
 }
 
-impl From<Color> for JsSlintColor {
+impl From<Color> for SlintRgbaColor {
     fn from(color: Color) -> Self {
         Self { inner: color }
     }
 }
 
+impl From<SlintRgbaColor> for RgbaColor {
+    fn from(color: SlintRgbaColor) -> Self {
+        Self {
+            red: color.red() as f64,
+            green: color.green() as f64,
+            blue: color.blue() as f64,
+            alpha: color.alpha() as f64,
+        }
+    }
+}
+
 #[napi]
-impl JsSlintColor {
+impl SlintRgbaColor {
     /// Creates a new transparent color.
     #[napi(constructor)]
     pub fn new() -> Self {
         Self { inner: Color::default() }
-    }
-
-    /// Construct a color from an integer encoded as `0xAARRGGBB`
-    #[napi(factory)]
-    pub fn from_argb_encoded(encoded: u32) -> Self {
-        Self { inner: Color::from_argb_encoded(encoded) }
     }
 
     /// Construct a color from the red, green and blue color channel parameters. The alpha
@@ -57,12 +62,6 @@ impl JsSlintColor {
     #[napi(factory)]
     pub fn from_argb(alpha: u8, red: u8, green: u8, blue: u8) -> Self {
         Self { inner: Color::from_argb_u8(alpha, red, green, blue) }
-    }
-
-    /// Returns `(alpha, red, green, blue)` encoded as number.
-    #[napi(getter)]
-    pub fn as_argb_encoded(&self) -> u32 {
-        self.inner.as_argb_encoded()
     }
 
     /// Returns the red channel of the color as number in the range 0..255.
@@ -96,8 +95,8 @@ impl JsSlintColor {
     /// So for example `brighter(0.2)` will increase the brightness by 20%, and
     /// calling `brighter(-0.5)` will return a color that's 50% darker.
     #[napi]
-    pub fn brighter(&self, factor: f64) -> JsSlintColor {
-        JsSlintColor::from(self.inner.brighter(factor as f32))
+    pub fn brighter(&self, factor: f64) -> SlintRgbaColor {
+        SlintRgbaColor::from(self.inner.brighter(factor as f32))
     }
 
     /// Returns a new version of this color that has the brightness decreased
@@ -106,29 +105,29 @@ impl JsSlintColor {
     /// result is converted back to RGB and the alpha channel is unchanged.
     /// So for example `darker(0.3)` will decrease the brightness by 30%.
     #[napi]
-    pub fn darker(&self, factor: f64) -> JsSlintColor {
-        JsSlintColor::from(self.inner.darker(factor as f32))
+    pub fn darker(&self, factor: f64) -> SlintRgbaColor {
+        SlintRgbaColor::from(self.inner.darker(factor as f32))
     }
 
     /// Returns a new version of this color with the opacity decreased by `factor`.
     ///
     /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
     #[napi]
-    pub fn transparentize(&self, amount: f64) -> JsSlintColor {
-        JsSlintColor::from(self.inner.transparentize(amount as f32))
+    pub fn transparentize(&self, amount: f64) -> SlintRgbaColor {
+        SlintRgbaColor::from(self.inner.transparentize(amount as f32))
     }
 
     /// Returns a new color that is a mix of `self` and `other`, with a proportion
     /// factor given by `factor` (which will be clamped to be between `0.0` and `1.0`).
     #[napi]
-    pub fn mix(&self, other: &JsSlintColor, factor: f64) -> JsSlintColor {
-        JsSlintColor::from(self.inner.mix(&other.inner, factor as f32))
+    pub fn mix(&self, other: &SlintRgbaColor, factor: f64) -> SlintRgbaColor {
+        SlintRgbaColor::from(self.inner.mix(&other.inner, factor as f32))
     }
 
     /// Returns a new version of this color with the opacity set to `alpha`.
     #[napi]
-    pub fn with_alpha(&self, alpha: f64) -> JsSlintColor {
-        JsSlintColor::from(self.inner.with_alpha(alpha as f32))
+    pub fn with_alpha(&self, alpha: f64) -> SlintRgbaColor {
+        SlintRgbaColor::from(self.inner.with_alpha(alpha as f32))
     }
 
     /// Returns the color as string in hex representation e.g. `#000000` for black.
@@ -142,27 +141,33 @@ impl JsSlintColor {
 /// a shape, such as a rectangle, path or even text, shall be filled.
 /// A brush can also be applied to the outline of a shape, that means
 /// the fill of the outline itself.
-#[napi(js_name = Brush)]
+#[napi(object, js_name = "Brush")]
 pub struct JsBrush {
+    pub color: RgbaColor,
+}
+
+/// SlintBrush implements {@link Brush}.
+#[napi]
+pub struct SlintBrush {
     inner: Brush,
 }
 
-impl From<Brush> for JsBrush {
+impl From<Brush> for SlintBrush {
     fn from(brush: Brush) -> Self {
         Self { inner: brush }
     }
 }
 
-impl From<JsSlintColor> for JsBrush {
-    fn from(color: JsSlintColor) -> Self {
+impl From<SlintRgbaColor> for SlintBrush {
+    fn from(color: SlintRgbaColor) -> Self {
         Self::from(Brush::from(color.inner))
     }
 }
 
 #[napi]
-impl JsBrush {
+impl SlintBrush {
     #[napi(constructor)]
-    pub fn new_with_color(color: JsColor) -> Result<Self> {
+    pub fn new_with_color(color: RgbaColor) -> Result<Self> {
         if color.red < 0. || color.green < 0. || color.blue < 0. || color.alpha < 0. {
             return Err(Error::from_reason("A channel of Color cannot be negative"));
         }
@@ -177,14 +182,24 @@ impl JsBrush {
         })
     }
 
+    #[napi(factory)]
+    pub fn from_brush(brush: JsBrush) -> Result<Self> {
+        SlintBrush::new_with_color(brush.color)
+    }
+
     /// Creates a brush form a `Color`.
-    pub fn from_slint_color(color: &JsSlintColor) -> Self {
+    pub fn from_slint_color(color: &SlintRgbaColor) -> Self {
         Self { inner: Brush::SolidColor(color.inner) }
+    }
+
+    #[napi(getter)]
+    pub fn color(&self) -> RgbaColor {
+        self.slint_color().into()
     }
 
     /// @hidden
     #[napi(getter)]
-    pub fn color(&self) -> JsSlintColor {
+    pub fn slint_color(&self) -> SlintRgbaColor {
         self.inner.color().into()
     }
 
@@ -204,31 +219,31 @@ impl JsBrush {
     /// by the specified factor. This is done by calling [`Color::brighter`] on
     /// all the colors of this brush.
     #[napi]
-    pub fn brighter(&self, factor: f64) -> JsBrush {
-        JsBrush::from(self.inner.brighter(factor as f32))
+    pub fn brighter(&self, factor: f64) -> SlintBrush {
+        SlintBrush::from(self.inner.brighter(factor as f32))
     }
 
     /// Returns a new version of this brush that has the brightness decreased
     /// by the specified factor. This is done by calling [`Color::darker`] on
     /// all the color of this brush.
     #[napi]
-    pub fn darker(&self, factor: f64) -> JsBrush {
-        JsBrush::from(self.inner.darker(factor as f32))
+    pub fn darker(&self, factor: f64) -> SlintBrush {
+        SlintBrush::from(self.inner.darker(factor as f32))
     }
 
     /// Returns a new version of this brush with the opacity decreased by `factor`.
     ///
     /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
     #[napi]
-    pub fn transparentize(&self, amount: f64) -> JsBrush {
-        JsBrush::from(self.inner.transparentize(amount as f32))
+    pub fn transparentize(&self, amount: f64) -> SlintBrush {
+        SlintBrush::from(self.inner.transparentize(amount as f32))
     }
 
     /// Returns a new version of this brush with the related color's opacities
     /// set to `alpha`.
     #[napi]
-    pub fn with_alpha(&self, alpha: f64) -> JsBrush {
-        JsBrush::from(self.inner.with_alpha(alpha as f32))
+    pub fn with_alpha(&self, alpha: f64) -> SlintBrush {
+        SlintBrush::from(self.inner.with_alpha(alpha as f32))
     }
 
     /// @hidden
@@ -243,7 +258,7 @@ impl JsBrush {
     pub fn to_string(&self) -> String {
         match &self.inner {
             Brush::SolidColor(_) => {
-                return self.color().to_string();
+                return self.slint_color().to_string();
             }
             Brush::LinearGradient(gradient) => {
                 return format!(

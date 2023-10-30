@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use crate::{JsBrush, JsImageData, JsModel};
+use crate::{JsModel, RgbaColor, SlintBrush, SlintImageData};
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::model::{Model, ModelRc, SharedVectorModel};
@@ -49,9 +49,10 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
         Value::Number(number) => env.create_double(*number).map(|v| v.into_unknown()),
         Value::String(string) => env.create_string(string).map(|v| v.into_unknown()),
         Value::Bool(value) => env.get_boolean(*value).map(|v| v.into_unknown()),
-        Value::Image(image) => {
-            Ok(JsImageData::from(image.clone()).into_instance(*env)?.as_object(*env).into_unknown())
-        }
+        Value::Image(image) => Ok(SlintImageData::from(image.clone())
+            .into_instance(*env)?
+            .as_object(*env)
+            .into_unknown()),
         Value::Struct(struct_value) => {
             let mut o = env.create_object()?;
             for (field_name, field_value) in struct_value.iter() {
@@ -63,7 +64,7 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
             Ok(o.into_unknown())
         }
         Value::Brush(brush) => {
-            Ok(JsBrush::from(brush.clone()).into_instance(*env)?.as_object(*env).into_unknown())
+            Ok(SlintBrush::from(brush.clone()).into_instance(*env)?.as_object(*env).into_unknown())
         }
         Value::Model(model) => {
             if let Some(js_model) = model.as_any().downcast_ref::<JsModel>() {
@@ -106,16 +107,36 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
             Ok(Value::Bool(js_bool.get_value()?))
         }
         Type::Color => {
-            // TODO: fix conversion from color interface and brush object
-            if let Some(js_brush) =
-                unknown.coerce_to_string().ok().and_then(|string| string_to_brush(string).ok())
-            {
-                return Ok(js_brush);
-            } else {
-                return Err(napi::Error::from_reason(
-                            "Cannot convert object to brush, because the given object is neither a brush nor a string".to_string()
-                    ));
+            match unknown.get_type() {
+                Ok(ValueType::String) => {
+                    return Ok(unknown.coerce_to_string().and_then(|str| string_to_brush(str))?);
+                }
+                Ok(ValueType::Object) => {
+                    if let Ok(rgb_color) = unknown.coerce_to_object() {
+                        let red: f64 = rgb_color.get("red")?.unwrap();
+                        let green: f64 = rgb_color.get("green")?.unwrap();
+                        let blue: f64 = rgb_color.get("blue")?.unwrap();
+                        let alpha: f64 = rgb_color.get("alpha")?.unwrap();
+
+                        if red < 0. || green < 0. || blue < 0. || alpha < 0. {
+                            return Err(Error::from_reason(
+                                "A channel of Color cannot be negative",
+                            ));
+                        }
+
+                        return Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
+                            alpha as u8,
+                            red as u8,
+                            green as u8,
+                            blue as u8,
+                        ))));
+                    }
+                }
+                _ => {}
             }
+            Err(napi::Error::from_reason(
+                            "Cannot convert object to brush, because the given object is neither a brush, color, nor a string".to_string()
+                    ))
         }
         Type::Brush => {
             match unknown.get_type() {
@@ -124,12 +145,23 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 }
                 Ok(ValueType::Object) => {
                     if let Ok(obj) = unknown.coerce_to_object() {
-                        if let Some(js_brush) =
-                            obj.get("brush").ok().flatten().and_then(|brush_prop| {
-                                env.get_value_external::<Brush>(&brush_prop).ok()
-                            })
-                        {
-                            return Ok(Value::Brush(js_brush.clone()));
+                        if let Some(color) = obj.get::<&str, RgbaColor>("color").ok().flatten() {
+                            if color.red < 0.
+                                || color.green < 0.
+                                || color.blue < 0.
+                                || color.alpha < 0.
+                            {
+                                return Err(Error::from_reason(
+                                    "A channel of Color cannot be negative",
+                                ));
+                            }
+
+                            return Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
+                                color.alpha as u8,
+                                color.red as u8,
+                                color.green as u8,
+                                color.blue as u8,
+                            ))));
                         }
                     }
                 }
