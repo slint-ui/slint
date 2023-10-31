@@ -54,7 +54,10 @@ impl ModelNotify {
             if inner.tracked_rows.borrow().binary_search(&row).is_ok() {
                 inner.model_row_data_dirty_property.mark_dirty();
             }
-            inner.as_ref().project_ref().peers.for_each(|p| unsafe { &**p }.row_changed(row))
+            inner.as_ref().project_ref().peers.for_each(|p| {
+                // Safety: The peers contain a list of pinned ModelChangedListener
+                unsafe { Pin::new_unchecked(&**p) }.row_changed(row)
+            })
         }
     }
     /// Notify the peers that rows were added
@@ -63,7 +66,10 @@ impl ModelNotify {
             inner.model_row_count_dirty_property.mark_dirty();
             inner.tracked_rows.borrow_mut().clear();
             inner.model_row_data_dirty_property.mark_dirty();
-            inner.as_ref().project_ref().peers.for_each(|p| unsafe { &**p }.row_added(index, count))
+            inner.as_ref().project_ref().peers.for_each(|p| {
+                // Safety: The peers contain a list of pinned ModelChangedListener
+                unsafe { Pin::new_unchecked(&**p) }.row_added(index, count)
+            })
         }
     }
     /// Notify the peers that rows were removed
@@ -72,11 +78,10 @@ impl ModelNotify {
             inner.model_row_count_dirty_property.mark_dirty();
             inner.tracked_rows.borrow_mut().clear();
             inner.model_row_data_dirty_property.mark_dirty();
-            inner
-                .as_ref()
-                .project_ref()
-                .peers
-                .for_each(|p| unsafe { &**p }.row_removed(index, count))
+            inner.as_ref().project_ref().peers.for_each(|p| {
+                // Safety: The peers contain a list of pinned ModelChangedListener
+                unsafe { Pin::new_unchecked(&**p) }.row_removed(index, count)
+            })
         }
     }
 
@@ -87,7 +92,10 @@ impl ModelNotify {
             inner.model_row_count_dirty_property.mark_dirty();
             inner.tracked_rows.borrow_mut().clear();
             inner.model_row_data_dirty_property.mark_dirty();
-            inner.as_ref().project_ref().peers.for_each(|p| unsafe { &**p }.reset())
+            inner.as_ref().project_ref().peers.for_each(|p| {
+                // Safety: The peers contain a list of pinned ModelChangedListener
+                unsafe { Pin::new_unchecked(&**p) }.reset()
+            })
         }
     }
 }
@@ -117,10 +125,10 @@ impl ModelTracker for ModelNotify {
 }
 
 pub trait ModelChangeListener {
-    fn row_changed(&self, row: usize);
-    fn row_added(&self, index: usize, count: usize);
-    fn row_removed(&self, index: usize, count: usize);
-    fn reset(&self);
+    fn row_changed(self: Pin<&Self>, row: usize);
+    fn row_added(self: Pin<&Self>, index: usize, count: usize);
+    fn row_removed(self: Pin<&Self>, index: usize, count: usize);
+    fn reset(self: Pin<&Self>);
 }
 
 #[pin_project(PinnedDrop)]
