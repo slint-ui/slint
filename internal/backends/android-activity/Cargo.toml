@@ -20,10 +20,17 @@ game-activity = ["android-activity/game-activity"]
 native-activity = ["android-activity/native-activity"]
 
 [target.'cfg(target_os = "android")'.dependencies]
-# FIXME: we shoudln't depend on slint, but the other way around
-slint = { workspace = true, features = ["compat-1-2"] }
 i-slint-renderer-skia = { workspace = true }
-i-slint-core = { workspace = true }
+i-slint-core = { workspace = true, features = ["std"] }
 raw-window-handle = { version = "0.5.2" }
 android-activity = { version = "0.5" }
 ndk = { version = "0.8.0", features = ["rwh_05"] }
+
+[package.metadata.docs.rs]
+targets = [
+    "aarch64-linux-android",
+    "armv7-linux-androideabi",
+    "i686-linux-android",
+    "x86_64-linux-android",
+]
+features = ["native-activity"]
