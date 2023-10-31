@@ -21,15 +21,20 @@ on:
   schedule:
     - cron: '0 4 * * *'
 
+env:
+  SLINT_BINARY_FEATURES: "backend-winit,renderer-femtovg,renderer-skia"
+
 jobs:
   slint-viewer-binary:
     uses: ./.github/workflows/slint_tool_binary.yaml
     with:
       program: "viewer"
+      features: ${{ env.SLINT_BINARY_FEATURES }}
   slint-lsp-binary:
     uses: ./.github/workflows/slint_tool_binary.yaml
     with:
       program: "lsp"
+      features: ${{ env.SLINT_BINARY_FEATURES }}
   docs:
     uses: ./.github/workflows/build_docs.yaml
   wasm_demo:
@@ -81,7 +86,7 @@ jobs:
       with:
         old-ubuntu: true
     - name: Build LSP
-      run: cargo build --target ${{ matrix.toolchain }} --release -p slint-lsp
+      run: cargo build --target ${{ matrix.toolchain }} --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
@@ -106,7 +111,7 @@ jobs:
       run: cargo install cargo-bundle
     - name: Build Main LSP Bundle
       working-directory: tools/lsp
-      run: cargo bundle --release
+      run: cargo bundle --release --features ${{ env.SLINT_BINARY_FEATURES }} 
     - name: Create artifact directory
       run: |
           mkdir bin
@@ -128,7 +133,7 @@ jobs:
       with:
         target: aarch64-apple-darwin
     - name: Build AArch64 LSP
-      run: cargo build --target aarch64-apple-darwin --release -p slint-lsp
+      run: cargo build --target aarch64-apple-darwin --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
@@ -180,7 +185,7 @@ jobs:
       with:
         crate: cross
     - name: Build LSP
-      run: cross build --target ${{ matrix.target }} --release -p slint-lsp
+      run: cross build --target ${{ matrix.target }} --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
