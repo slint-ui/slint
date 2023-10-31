@@ -6,15 +6,15 @@ use napi::{
     JsUnknown,
 };
 
-/// Represents a two dimensional point.
-#[napi(js_name = Point)]
-pub struct JsPoint {
+/// SlintPoint implements {@link Point}.
+#[napi]
+pub struct SlintPoint {
     pub x: f64,
     pub y: f64,
 }
 
 #[napi]
-impl JsPoint {
+impl SlintPoint {
     /// Constructs new point from x and y.
     #[napi(constructor)]
     pub fn new(x: f64, y: f64) -> Self {
@@ -22,7 +22,7 @@ impl JsPoint {
     }
 }
 
-impl FromNapiValue for JsPoint {
+impl FromNapiValue for SlintPoint {
     unsafe fn from_napi_value(
         env: napi::sys::napi_env,
         napi_val: napi::sys::napi_value,
@@ -49,6 +49,6 @@ impl FromNapiValue for JsPoint {
                     "Cannot convert object to Point, because the provided object does not have an f64 y property".to_string()
             ))?;
 
-        Ok(JsPoint { x, y })
+        Ok(SlintPoint { x, y })
     }
 }

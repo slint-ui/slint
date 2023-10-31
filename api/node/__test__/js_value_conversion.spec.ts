@@ -5,7 +5,7 @@ import test from 'ava';
 const path = require('node:path');
 var Jimp = require("jimp");
 
-import { private_api, Brush, Color, ImageData, ArrayModel } from '../index'
+import { private_api, SlintBrush, SlintImageData, ImageData, ArrayModel, SlintRgbaColor, RgbaColor } from '../index'
 
 test('get/set string properties', (t) => {
   let compiler = new private_api.ComponentCompiler;
@@ -190,9 +190,9 @@ test('get/set image properties', async (t) => {
   t.not(instance, null);
 
   let slintImage = instance!.getProperty("image");
-  if (t.true((slintImage instanceof private_api.ImageData))) {
-    t.deepEqual((slintImage as private_api.ImageData).width, 64);
-    t.deepEqual((slintImage as private_api.ImageData).height, 64);
+  if (t.true((slintImage instanceof SlintImageData))) {
+    t.deepEqual((slintImage as SlintImageData).width, 64);
+    t.deepEqual((slintImage as SlintImageData).height, 64);
     t.true((slintImage as ImageData).path.endsWith("rgb.png"));
 
     let image = await Jimp.read(path.join(__dirname, "resources/rgb.png"));
@@ -242,6 +242,7 @@ test('get/set brush properties', (t) => {
     in-out property <brush> ref: transparent;
     in-out property <brush> linear-gradient: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
     in-out property <brush> radial-gradient: @radial-gradient(circle, #f00 0%, #0f0 50%, #00f 100%);
+    in-out property <color> ref-color;
   }
   `, "");
   t.not(definition, null);
@@ -251,56 +252,145 @@ test('get/set brush properties', (t) => {
 
   let black = instance!.getProperty("black");
 
-  t.is((black as Brush).toString(), "#000000ff");
+  t.is((black as SlintBrush).toString(), "#000000ff");
 
-  if (t.true((black instanceof Brush))) {
-    let blackColor = (black as Brush).color;
-    t.deepEqual(blackColor.red, 0);
-    t.deepEqual(blackColor.green, 0);
-    t.deepEqual(blackColor.blue, 0);
+  if (t.true((black instanceof SlintBrush))) {
+    let blackSlintRgbaColor = (black as SlintBrush).color;
+    t.deepEqual(blackSlintRgbaColor.red, 0);
+    t.deepEqual(blackSlintRgbaColor.green, 0);
+    t.deepEqual(blackSlintRgbaColor.blue, 0);
   }
 
   instance?.setProperty("black", "#ffffff");
   let white = instance!.getProperty("black");
 
-  if (t.true((white instanceof Brush))) {
-    let whiteColor = (white as Brush).color;
-    t.deepEqual(whiteColor.red, 255);
-    t.deepEqual(whiteColor.green, 255);
-    t.deepEqual(whiteColor.blue, 255);
+  if (t.true((white instanceof SlintBrush))) {
+    let whiteSlintRgbaColor = (white as SlintBrush).color;
+    t.deepEqual(whiteSlintRgbaColor.red, 255);
+    t.deepEqual(whiteSlintRgbaColor.green, 255);
+    t.deepEqual(whiteSlintRgbaColor.blue, 255);
   }
 
   let transparent = instance!.getProperty("trans");
 
-  if (t.true((black instanceof Brush))) {
-    t.assert((transparent as Brush).isTransparent);
+  if (t.true((black instanceof SlintBrush))) {
+    t.assert((transparent as SlintBrush).isTransparent);
   }
 
-  let ref = new Brush({ red: 100, green: 110, blue: 120, alpha: 255 });
+  let ref = new SlintBrush({ red: 100, green: 110, blue: 120, alpha: 255 });
   instance!.setProperty("ref", ref);
 
   let instance_ref = instance!.getProperty("ref");
 
-  if (t.true((instance_ref instanceof Brush))) {
-    let ref_color = (instance_ref as Brush).color;
+  if (t.true((instance_ref instanceof SlintBrush))) {
+    let ref_color = (instance_ref as SlintBrush).color;
     t.deepEqual(ref_color.red, 100);
     t.deepEqual(ref_color.green, 110);
     t.deepEqual(ref_color.blue, 120);
     t.deepEqual(ref_color.alpha, 255);
   }
 
+  instance!.setProperty("ref", { color: { red: 110, green: 120, blue: 125, alpha: 255 }});
+
+  instance_ref = instance!.getProperty("ref");
+
+  if (t.true((instance_ref instanceof SlintBrush))) {
+    let ref_color = (instance_ref as SlintBrush).color;
+    t.deepEqual(ref_color.red, 110);
+    t.deepEqual(ref_color.green, 120);
+    t.deepEqual(ref_color.blue, 125);
+    t.deepEqual(ref_color.alpha, 255);
+  }
+
+  instance!.setProperty("ref", { red: 110, green: 120, blue: 125, alpha: 255 });
+
+  instance_ref = instance!.getProperty("ref");
+
+  if (t.true((instance_ref instanceof SlintBrush))) {
+    let ref_color = (instance_ref as SlintBrush).color;
+    t.deepEqual(ref_color.red, 110);
+    t.deepEqual(ref_color.green, 120);
+    t.deepEqual(ref_color.blue, 125);
+    t.deepEqual(ref_color.alpha, 255);
+  }
+
   let radialGradient = instance!.getProperty("radial-gradient");
 
-  if (t.true((radialGradient instanceof Brush))) {
-    t.is((radialGradient as Brush).toString(),
+  if (t.true((radialGradient instanceof SlintBrush))) {
+    t.is((radialGradient as SlintBrush).toString(),
       "radial-gradient(circle, rgba(255, 0, 0, 255) 0%, rgba(0, 255, 0, 255) 50%, rgba(0, 0, 255, 255) 100%)");
   }
 
   let linearGradient = instance!.getProperty("linear-gradient");
 
-  if (t.true((linearGradient instanceof Brush))) {
-    t.is((linearGradient as Brush).toString(),
+  if (t.true((linearGradient instanceof SlintBrush))) {
+    t.is((linearGradient as SlintBrush).toString(),
       "linear-gradient(90deg, rgba(63, 135, 166, 255) 0%, rgba(235, 248, 225, 255) 50%, rgba(246, 157, 60, 255) 100%)");
+  };
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { red: "abc", blue: 0, green: 0, alpha: 0} );
+  },
+    {
+      code: 'NumberExpected',
+      message: 'Failed to convert napi value String into rust type `f64`',
+    }
+  );
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { red: 0, blue: true, green: 0, alpha: 0} );
+  },
+    {
+      code: 'NumberExpected',
+      message: 'Failed to convert napi value Boolean into rust type `f64`',
+    }
+  );
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { red: 0, blue: 0, green: true, alpha: 0} );
+  },
+    {
+      code: 'NumberExpected',
+      message: 'Failed to convert napi value Boolean into rust type `f64`',
+    }
+  );
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { red: 0, blue: 0, green: 0, alpha: new SlintRgbaColor()} );
+  },
+    {
+      code: 'NumberExpected',
+      message: 'Failed to convert napi value Object into rust type `f64`',
+    }
+  );
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { blue: 0, green: 0, alpha: 0} );
+  },
+    {
+      code: 'GenericFailure',
+      message: 'Property red is missing',
+    }
+  );
+
+  t.throws(() => {
+    instance.setProperty("ref-color", { red: 0, green: 0, alpha: 0} );
+  },
+    {
+      code: 'GenericFailure',
+      message: 'Property blue is missing',
+    }
+  );
+
+  instance.setProperty("ref-color", { red: 0,  green: 0, blue: 0 } );
+  instance_ref = instance!.getProperty("ref-color");
+
+  if (t.true((instance_ref instanceof SlintBrush))) {
+    let ref_color = (instance_ref as SlintBrush).color;
+    t.deepEqual(ref_color.red, 0);
+    t.deepEqual(ref_color.green, 0);
+    t.deepEqual(ref_color.blue, 0);
+    t.deepEqual(ref_color.alpha, 255);
   }
 })
 
