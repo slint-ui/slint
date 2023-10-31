@@ -361,6 +361,8 @@ export interface LoadFileOptions {
     libraryPaths?: Record<string, string>;
 }
 
+class SlintGlobal {}
+
 /**
  * Loads the given slint file and returns an objects that contains a functions to construct the exported
  * component of the slint file.
@@ -463,6 +465,60 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
                         },
                         set(callback) {
                             instance!.setCallback(cb, callback);
+                        },
+                        enumerable: true,
+                    });
+                }
+            });
+
+            // globals
+            instance!.definition().globals.forEach((globalName) => {
+                if (componentHandle[globalName] !== undefined) {
+                    console.warn("Duplicated property name " + globalName);
+                } else {
+                    let globalObject = new SlintGlobal;
+
+                    instance!.definition().globalProperties(globalName).forEach((prop) => {
+                        let propName = prop.name.replace(/-/g, "_");
+
+                        if (globalObject[propName] !== undefined) {
+                            console.warn("Duplicated property name " + propName + " on global " + global);
+                        } else {
+                            Object.defineProperty(globalObject, propName, {
+                                get() {
+                                    return instance!.getGlobalProperty(globalName, prop.name);
+                                },
+                                set(value) {
+                                    instance!.setGlobalProperty(globalName, prop.name, value);
+                                },
+                                enumerable: true,
+                            });
+                        }
+                    });
+
+                    instance!.definition().globalCallbacks(globalName).forEach((cb) => {
+                        let callbackName = cb.replace(/-/g, "_");
+
+                        if (globalObject[callbackName] !== undefined) {
+                            console.warn("Duplicated property name " + cb + " on global " + global);
+                        } else {
+                            Object.defineProperty(globalObject, cb.replace(/-/g, "_"), {
+                                get() {
+                                    return function () {
+                                        return instance!.invokeGlobal(globalName, cb, Array.from(arguments));
+                                    };
+                                },
+                                set(callback) {
+                                    instance!.setGlobalCallback(globalName, cb, callback);
+                                },
+                                enumerable: true,
+                            });
+                        }
+                    });
+
+                    Object.defineProperty(componentHandle, globalName, {
+                        get() {
+                            return globalObject;
                         },
                         enumerable: true,
                     });
