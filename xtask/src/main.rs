@@ -21,6 +21,8 @@ pub enum TaskCommand {
     CppDocs(CppDocsCommand),
     #[command(name = "node_package")]
     NodePackage,
+    #[command(name = "node_publish")]
+    NodePublish,
     #[command(name = "check_reuse_compliance")]
     ReuseComplianceCheck(reuse_compliance_check::ReuseComplianceCheck),
     #[command(name = "slintdocs")]
@@ -94,6 +96,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.show_warnings)?,
         TaskCommand::SlintDocs(cmd) => slintdocs::generate(cmd.show_warnings)?,
         TaskCommand::NodePackage => nodepackage::generate()?,
+        TaskCommand::NodePublish => nodepackage::publish()?,
         TaskCommand::ReuseComplianceCheck(cmd) => cmd.check_reuse_compliance()?,
     };
 

@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use std::path::PathBuf;
+
 use anyhow::Context;
 use xshell::{cmd, Shell};
 
@@ -28,11 +30,11 @@ fn cp_r(
     }
 }
 
-pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
+pub fn create_package() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let root = super::root_dir();
     let node_dir = root.join("api").join("node");
 
-    let cargo_toml_path = node_dir.join("native").join("Cargo.toml");
+    let cargo_toml_path = node_dir.join("Cargo.toml");
 
     println!("Removing relative paths from {}", cargo_toml_path.to_string_lossy());
 
@@ -92,7 +94,30 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
 
     sh.remove_path(node_dir.join("LICENSE.md")).context("Error deleting LICENSE.md copy")?;
 
+    Ok(file_name)
+}
+
+pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
+    let file_name = create_package()?;
+
     println!("Source package created and located in {}", file_name.to_string_lossy());
+
+    Ok(())
+}
+
+pub fn publish() -> Result<(), Box<dyn std::error::Error>> {
+    let root = super::root_dir();
+
+    let file_name = create_package()?;
+
+    println!("Running npm publish to publish the tarball at {}", file_name.to_string_lossy());
+
+    let sh = Shell::new()?;
+
+    {
+        let _p = sh.push_dir(root);
+        cmd!(sh, "npm publish {file_name}").run()?;
+    }
 
     Ok(())
 }
