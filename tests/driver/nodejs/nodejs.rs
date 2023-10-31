@@ -4,6 +4,18 @@
 use std::error::Error;
 use std::{fs::File, io::Write, path::PathBuf};
 
+#[track_caller]
+fn check_output(o: std::process::Output) {
+    if !o.status.success() {
+        eprintln!(
+            "STDERR:\n{}\nSTDOUT:\n{}",
+            String::from_utf8_lossy(&o.stderr),
+            String::from_utf8_lossy(&o.stdout),
+        );
+        panic!("Build Failed {:?}", o.status);
+    }
+}
+
 lazy_static::lazy_static! {
     static ref NODE_API_JS_PATH: PathBuf = {
         let node_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../api/node");
@@ -13,7 +25,7 @@ lazy_static::lazy_static! {
         let npm = which::which("npm").unwrap();
 
         // installs the slint node package dependencies
-        std::process::Command::new(npm.clone())
+        let o = std::process::Command::new(npm.clone())
                 .arg("install")
                 .arg("--no-audit")
                 .arg("--ignore-scripts")
@@ -23,8 +35,10 @@ lazy_static::lazy_static! {
                 .output()
                 .map_err(|err| format!("Could not launch npm install: {}", err)).unwrap();
 
+        check_output(o);
+
         // builds the slint node package in debug
-        std::process::Command::new(npm.clone())
+        let o = std::process::Command::new(npm.clone())
                 .arg("run")
                 .arg("build:debug")
                 .current_dir(node_dir.clone())
@@ -33,6 +47,7 @@ lazy_static::lazy_static! {
                 .output()
                 .map_err(|err| format!("Could not launch npm install: {}", err)).unwrap();
 
+        check_output(o);
 
         node_dir.join("index.js")
     };
