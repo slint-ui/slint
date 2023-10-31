@@ -1476,6 +1476,12 @@ pub enum EasingCurve {
     #[default]
     Linear,
     CubicBezier(f32, f32, f32, f32),
+    EaseInElastic,
+    EaseOutElastic,
+    EaseInOutElastic,
+    EaseInBounce,
+    EaseOutBounce,
+    EaseInOutBounce,
     // CubicBezierNonConst([Box<Expression>; 4]),
     // Custom(Box<dyn Fn(f32)->f32>),
 }

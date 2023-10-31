@@ -905,10 +905,34 @@ mod tests {
             }
         "#;
         let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-quad").unwrap();
+        res.iter().find(|ci| ci.label == "ease-out-quad").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-out-quad").unwrap();
         res.iter().find(|ci| ci.label == "ease").unwrap();
         res.iter().find(|ci| ci.label == "ease-in").unwrap();
         res.iter().find(|ci| ci.label == "ease-out").unwrap();
         res.iter().find(|ci| ci.label == "ease-in-out").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-quartic").unwrap();
+        res.iter().find(|ci| ci.label == "ease-out-quartic").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-out-quartic").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-quint").unwrap();
+        res.iter().find(|ci| ci.label == "ease-out-quint").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-out-quint").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-expo").unwrap();
+        res.iter().find(|ci| ci.label == "ease-out-expo").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-out-expo").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-sine").unwrap();
+        res.iter().find(|ci| ci.label == "ease-out-sine").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-out-sine").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-back").unwrap();
+        res.iter().find(|ci| ci.label == "ease-out-back").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-out-back").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-elastic").unwrap();
+        res.iter().find(|ci| ci.label == "ease-out-elastic").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-out-elastic").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-bounce").unwrap();
+        res.iter().find(|ci| ci.label == "ease-out-bounce").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-out-bounce").unwrap();
         res.iter().find(|ci| ci.label == "linear").unwrap();
         res.iter().find(|ci| ci.label == "cubic-bezier").unwrap();
     }

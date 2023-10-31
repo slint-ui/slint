@@ -343,6 +343,12 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::EasingCurve(curve) => Value::EasingCurve(match curve {
             EasingCurve::Linear => corelib::animations::EasingCurve::Linear,
+            EasingCurve::EaseInElastic => corelib::animations::EasingCurve::EaseInElastic,
+            EasingCurve::EaseOutElastic => corelib::animations::EasingCurve::EaseOutElastic,
+            EasingCurve::EaseInOutElastic => corelib::animations::EasingCurve::EaseInOutElastic,
+            EasingCurve::EaseInBounce => corelib::animations::EasingCurve::EaseInBounce,
+            EasingCurve::EaseOutBounce => corelib::animations::EasingCurve::EaseOutBounce,
+            EasingCurve::EaseInOutBounce => corelib::animations::EasingCurve::EaseInOutBounce,
             EasingCurve::CubicBezier(a, b, c, d) => {
                 corelib::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
