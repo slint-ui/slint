@@ -17,7 +17,26 @@ pub struct RgbaColor {
     pub blue: f64,
 
     /// Represents the alpha channel of the color as u8 in the range 0..255.
-    pub alpha: f64,
+    pub alpha: Option<f64>,
+}
+
+// no public api only available internal because in js/ts it's exported as interface
+impl RgbaColor {
+    pub fn red(&self) -> f64 {
+        self.red
+    }
+
+    pub fn green(&self) -> f64 {
+        self.green
+    }
+
+    pub fn blue(&self) -> f64 {
+        self.blue
+    }
+
+    pub fn alpha(&self) -> f64 {
+        self.alpha.unwrap_or(255.)
+    }
 }
 
 /// SlintRgbaColor implements {@link RgbaColor}.
@@ -38,7 +57,7 @@ impl From<SlintRgbaColor> for RgbaColor {
             red: color.red() as f64,
             green: color.green() as f64,
             blue: color.blue() as f64,
-            alpha: color.alpha() as f64,
+            alpha: Some(color.alpha() as f64),
         }
     }
 }
@@ -168,16 +187,16 @@ impl From<SlintRgbaColor> for SlintBrush {
 impl SlintBrush {
     #[napi(constructor)]
     pub fn new_with_color(color: RgbaColor) -> Result<Self> {
-        if color.red < 0. || color.green < 0. || color.blue < 0. || color.alpha < 0. {
+        if color.red() < 0. || color.green() < 0. || color.blue() < 0. || color.alpha() < 0. {
             return Err(Error::from_reason("A channel of Color cannot be negative"));
         }
 
         Ok(Self {
             inner: Brush::SolidColor(Color::from_argb_u8(
-                color.alpha.floor() as u8,
-                color.red.floor() as u8,
-                color.green.floor() as u8,
-                color.blue.floor() as u8,
+                color.alpha().floor() as u8,
+                color.red().floor() as u8,
+                color.green().floor() as u8,
+                color.blue().floor() as u8,
             )),
         })
     }

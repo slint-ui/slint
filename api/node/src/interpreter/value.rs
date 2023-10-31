@@ -113,31 +113,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 }
                 Ok(ValueType::Object) => {
                     if let Ok(rgb_color) = unknown.coerce_to_object() {
-                        let red: f64 = rgb_color
-                            .get("red")?
-                            .ok_or(Error::from_reason("Property red is missing"))?;
-                        let green: f64 = rgb_color
-                            .get("green")?
-                            .ok_or(Error::from_reason("Property green is missing"))?;
-                        let blue: f64 = rgb_color
-                            .get("blue")?
-                            .ok_or(Error::from_reason("Property blue is missing"))?;
-                        let alpha: f64 = rgb_color
-                            .get("alpha")?
-                            .ok_or(Error::from_reason("Property alpha is missing"))?;
-
-                        if red < 0. || green < 0. || blue < 0. || alpha < 0. {
-                            return Err(Error::from_reason(
-                                "A channel of Color cannot be negative",
-                            ));
-                        }
-
-                        return Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
-                            alpha as u8,
-                            red as u8,
-                            green as u8,
-                            blue as u8,
-                        ))));
+                        return brush_from_color(rgb_color);
                     }
                 }
                 _ => {}
@@ -154,10 +130,10 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 Ok(ValueType::Object) => {
                     if let Ok(obj) = unknown.coerce_to_object() {
                         if let Some(color) = obj.get::<&str, RgbaColor>("color").ok().flatten() {
-                            if color.red < 0.
-                                || color.green < 0.
-                                || color.blue < 0.
-                                || color.alpha < 0.
+                            if color.red() < 0.
+                                || color.green() < 0.
+                                || color.blue() < 0.
+                                || color.alpha() < 0.
                             {
                                 return Err(Error::from_reason(
                                     "A channel of Color cannot be negative",
@@ -165,11 +141,13 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                             }
 
                             return Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
-                                color.alpha as u8,
-                                color.red as u8,
-                                color.green as u8,
-                                color.blue as u8,
+                                color.alpha() as u8,
+                                color.red() as u8,
+                                color.green() as u8,
+                                color.blue() as u8,
                             ))));
+                        } else {
+                            return brush_from_color(obj);
                         }
                     }
                 }
@@ -297,4 +275,23 @@ fn string_to_brush(js_string: JsString) -> Result<Value> {
         .map_err(|_| napi::Error::from_reason(format!("Could not convert {string} to Brush.")))?;
 
     Ok(Value::Brush(Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into()))
+}
+
+fn brush_from_color(rgb_color: Object) -> Result<Value> {
+    let red: f64 = rgb_color.get("red")?.ok_or(Error::from_reason("Property red is missing"))?;
+    let green: f64 =
+        rgb_color.get("green")?.ok_or(Error::from_reason("Property green is missing"))?;
+    let blue: f64 = rgb_color.get("blue")?.ok_or(Error::from_reason("Property blue is missing"))?;
+    let alpha: f64 = rgb_color.get("alpha")?.unwrap_or(255.);
+
+    if red < 0. || green < 0. || blue < 0. || alpha < 0. {
+        return Err(Error::from_reason("A channel of Color cannot be negative"));
+    }
+
+    return Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
+        alpha as u8,
+        red as u8,
+        green as u8,
+        blue as u8,
+    ))));
 }

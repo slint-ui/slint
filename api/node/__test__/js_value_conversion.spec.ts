@@ -5,7 +5,7 @@ import test from 'ava';
 const path = require('node:path');
 var Jimp = require("jimp");
 
-import { private_api, SlintBrush, SlintImageData, ImageData, ArrayModel, SlintRgbaColor } from '../index'
+import { private_api, SlintBrush, SlintImageData, ImageData, ArrayModel, SlintRgbaColor, RgbaColor } from '../index'
 
 test('get/set string properties', (t) => {
   let compiler = new private_api.ComponentCompiler;
@@ -302,6 +302,18 @@ test('get/set brush properties', (t) => {
     t.deepEqual(ref_color.alpha, 255);
   }
 
+  instance!.setProperty("ref", { red: 110, green: 120, blue: 125, alpha: 255 });
+
+  instance_ref = instance!.getProperty("ref");
+
+  if (t.true((instance_ref instanceof SlintBrush))) {
+    let ref_color = (instance_ref as SlintBrush).color;
+    t.deepEqual(ref_color.red, 110);
+    t.deepEqual(ref_color.green, 120);
+    t.deepEqual(ref_color.blue, 125);
+    t.deepEqual(ref_color.alpha, 255);
+  }
+
   let radialGradient = instance!.getProperty("radial-gradient");
 
   if (t.true((radialGradient instanceof SlintBrush))) {
@@ -370,23 +382,16 @@ test('get/set brush properties', (t) => {
     }
   );
 
-  t.throws(() => {
-    instance.setProperty("ref-color", { red: 0, blue: 0, alpha: 0} );
-  },
-    {
-      code: 'GenericFailure',
-      message: 'Property green is missing',
-    }
-  );
+  instance.setProperty("ref-color", { red: 0,  green: 0, blue: 0 } );
+  instance_ref = instance!.getProperty("ref-color");
 
-  t.throws(() => {
-    instance.setProperty("ref-color", { red: 0, green: 0, blue: 0 } );
-  },
-    {
-      code: 'GenericFailure',
-      message: 'Property alpha is missing',
-    }
-  );
+  if (t.true((instance_ref instanceof SlintBrush))) {
+    let ref_color = (instance_ref as SlintBrush).color;
+    t.deepEqual(ref_color.red, 0);
+    t.deepEqual(ref_color.green, 0);
+    t.deepEqual(ref_color.blue, 0);
+    t.deepEqual(ref_color.alpha, 255);
+  }
 })
 
 test('ArrayModel', (t) => {
