@@ -10,9 +10,10 @@ use android_activity::input::{InputEvent, KeyAction, Keycode, MotionAction, Moti
 pub use android_activity::AndroidApp;
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use core::ops::ControlFlow;
+use i_slint_core::api::{EventLoopError, PhysicalPosition, PhysicalSize, PlatformError, Window};
+use i_slint_core::platform::{Key, PointerEventButton, WindowAdapter, WindowEvent};
+use i_slint_core::SharedString;
 use raw_window_handle::HasRawWindowHandle;
-use slint::platform::{Key, WindowAdapter, WindowEvent};
-use slint::{PlatformError, SharedString};
 use std::cell::Cell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -26,7 +27,7 @@ pub struct AndroidPlatform {
 impl AndroidPlatform {
     /// Instantiate a new Android backend given the [`android_activity::AndroidApp`]
     ///
-    /// Pass the returned value to [`slint::platform::set_platform()`]
+    /// Pass the returned value to [`slint::platform::set_platform()`][i_slint_core::platform::set_platform]
     ///
     /// # Example
     /// ```
@@ -45,7 +46,7 @@ impl AndroidPlatform {
             app: app.clone(),
             window: Rc::<AndroidWindowAdapter>::new_cyclic(|w| AndroidWindowAdapter {
                 app,
-                window: slint::Window::new(w.clone()),
+                window: Window::new(w.clone()),
                 renderer: i_slint_renderer_skia::SkiaRenderer::default(),
                 event_queue: Default::default(),
                 pending_redraw: Default::default(),
@@ -60,7 +61,7 @@ impl AndroidPlatform {
     /// This is the same as [`AndroidPlatform::new()`], but it allow you to get notified
     /// of events.
     ///
-    /// Pass the returned value to [`slint::platform::set_platform()`]
+    /// Pass the returned value to [`slint::platform::set_platform()`][i_slint_core::platform::set_platform]
     ///
     /// # Example
     /// ```
@@ -87,13 +88,13 @@ impl AndroidPlatform {
     }
 }
 
-impl slint::platform::Platform for AndroidPlatform {
+impl i_slint_core::platform::Platform for AndroidPlatform {
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
         Ok(self.window.clone())
     }
     fn run_event_loop(&self) -> Result<(), PlatformError> {
         loop {
-            let mut timeout = slint::platform::duration_until_next_timer_update();
+            let mut timeout = i_slint_core::platform::duration_until_next_timer_update();
             if self.window.window.has_active_animations() {
                 // FIXME: we should not hardcode a value here
                 let frame_duration = std::time::Duration::from_millis(10);
@@ -104,7 +105,7 @@ impl slint::platform::Platform for AndroidPlatform {
             }
             let mut r = Ok(ControlFlow::Continue(()));
             self.app.poll_events(timeout, |e| {
-                slint::platform::update_timers_and_animations();
+                i_slint_core::platform::update_timers_and_animations();
                 r = self.window.process_event(&e);
                 if let Some(event_listener) = &self.event_listener {
                     event_listener(&e)
@@ -120,7 +121,7 @@ impl slint::platform::Platform for AndroidPlatform {
         }
     }
 
-    fn new_event_loop_proxy(&self) -> Option<Box<dyn slint::platform::EventLoopProxy>> {
+    fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
         Some(Box::new(AndroidEventLoopProxy {
             event_queue: self.window.event_queue.clone(),
             waker: self.app.create_waker(),
@@ -140,8 +141,8 @@ struct AndroidEventLoopProxy {
     waker: android_activity::AndroidAppWaker,
 }
 
-impl slint::platform::EventLoopProxy for AndroidEventLoopProxy {
-    fn quit_event_loop(&self) -> Result<(), slint::EventLoopError> {
+impl i_slint_core::platform::EventLoopProxy for AndroidEventLoopProxy {
+    fn quit_event_loop(&self) -> Result<(), EventLoopError> {
         self.event_queue.lock().unwrap().push(Event::Quit);
         self.waker.wake();
         Ok(())
@@ -150,7 +151,7 @@ impl slint::platform::EventLoopProxy for AndroidEventLoopProxy {
     fn invoke_from_event_loop(
         &self,
         event: Box<dyn FnOnce() + Send>,
-    ) -> Result<(), slint::EventLoopError> {
+    ) -> Result<(), EventLoopError> {
         self.event_queue.lock().unwrap().push(Event::Other(event));
         self.waker.wake();
         Ok(())
@@ -159,23 +160,23 @@ impl slint::platform::EventLoopProxy for AndroidEventLoopProxy {
 
 struct AndroidWindowAdapter {
     app: AndroidApp,
-    window: slint::Window,
+    window: Window,
     renderer: i_slint_renderer_skia::SkiaRenderer,
     event_queue: EventQueue,
     pending_redraw: Cell<bool>,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
-    fn window(&self) -> &slint::Window {
+    fn window(&self) -> &Window {
         &self.window
     }
-    fn size(&self) -> slint::PhysicalSize {
-        self.app.native_window().map_or_else(Default::default, |w| slint::PhysicalSize {
+    fn size(&self) -> PhysicalSize {
+        self.app.native_window().map_or_else(Default::default, |w| PhysicalSize {
             width: w.width() as u32,
             height: w.height() as u32,
         })
     }
-    fn renderer(&self) -> &dyn slint::platform::Renderer {
+    fn renderer(&self) -> &dyn i_slint_core::platform::Renderer {
         &self.renderer
     }
 
@@ -222,8 +223,7 @@ impl AndroidWindowAdapter {
             }
             PollEvent::Main(MainEvent::InitWindow { .. }) => {
                 if let Some(w) = self.app.native_window() {
-                    let size =
-                        slint::PhysicalSize { width: w.width() as u32, height: w.height() as u32 };
+                    let size = PhysicalSize { width: w.width() as u32, height: w.height() as u32 };
 
                     let scale_factor =
                         self.app.config().density().map(|dpi| dpi as f32 / 160.0).unwrap_or(1.0);
@@ -303,7 +303,7 @@ impl AndroidWindowAdapter {
                         self.window.dispatch_event(WindowEvent::PointerPressed {
                             position: position_for_event(motion_event)
                                 .to_logical(self.window.scale_factor()),
-                            button: slint::platform::PointerEventButton::Left,
+                            button: PointerEventButton::Left,
                         });
                         InputStatus::Handled
                     }
@@ -311,7 +311,7 @@ impl AndroidWindowAdapter {
                         self.window.dispatch_event(WindowEvent::PointerReleased {
                             position: position_for_event(motion_event)
                                 .to_logical(self.window.scale_factor()),
-                            button: slint::platform::PointerEventButton::Left,
+                            button: PointerEventButton::Left,
                         });
                         InputStatus::Handled
                     }
@@ -319,7 +319,7 @@ impl AndroidWindowAdapter {
                         self.window.dispatch_event(WindowEvent::PointerReleased {
                             position: position_for_event(motion_event)
                                 .to_logical(self.window.scale_factor()),
-                            button: slint::platform::PointerEventButton::Left,
+                            button: PointerEventButton::Left,
                         });
                         // Also send exit to avoid remaining hover state
                         self.window.dispatch_event(WindowEvent::PointerExited);
@@ -350,11 +350,11 @@ impl AndroidWindowAdapter {
     }
 }
 
-fn position_for_event(motion_event: &MotionEvent) -> slint::PhysicalPosition {
-    motion_event.pointers().next().map_or_else(Default::default, |p| slint::PhysicalPosition {
-        x: p.x() as i32,
-        y: p.y() as i32,
-    })
+fn position_for_event(motion_event: &MotionEvent) -> PhysicalPosition {
+    motion_event
+        .pointers()
+        .next()
+        .map_or_else(Default::default, |p| PhysicalPosition { x: p.x() as i32, y: p.y() as i32 })
 }
 
 fn map_key_event(key_event: &android_activity::input::KeyEvent) -> Option<WindowEvent> {
