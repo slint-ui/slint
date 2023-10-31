@@ -4,7 +4,7 @@
 The Qt backend uses the [Qt](https://www.qt.io) library to interact with the windowing system, for
 rendering, as well as widget style for a native look and feel.
 
-The Qt backend is only available on linux-like system
+The Qt backend is only available on Linux-like operating systems.
 
 The Qt backend only supports software rendering at the moment. That means it runs with any graphics driver,
 but it does not utilize GPU hardware acceleration.

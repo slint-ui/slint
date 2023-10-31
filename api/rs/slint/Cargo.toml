@@ -108,7 +108,7 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 ## This backend also provides the `qt` style.
 ## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
 ## backend will not be operational.
-## This backend is only available on Linux-like. This feature has no effect on other platforms.
+## This backend is only available on Linux-like operating systems. This feature has no effect on other platforms.
 backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
 
 ## The [winit](https://crates.io/crates/log) crate is used for the event loop and windowing system integration.

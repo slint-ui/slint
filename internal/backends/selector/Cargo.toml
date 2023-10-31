@@ -41,7 +41,7 @@ i-slint-backend-winit = { workspace = true, features = ["default"], optional = t
 i-slint-backend-linuxkms = { workspace = true, features = ["default"], optional = true }
 i-slint-renderer-skia = { workspace = true, optional = true }
 
-[target.'cfg(not(any(target_os = "android", target_os="windows", target_os = "macos")))'.dependencies]
+[target.'cfg(not(any(target_os = "android", target_os = "windows", target_os = "macos")))'.dependencies]
 i-slint-backend-qt = { workspace = true, features = ["default"], optional = true }
 
 [build-dependencies]
