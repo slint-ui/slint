@@ -20,7 +20,7 @@ import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
 import { Message as LuminoMessage } from "@lumino/messaging";
 
 import { MonacoLanguageClient } from "monaco-languageclient";
-import { createConfiguredEditor, createModelReference } from "vscode/monaco";
+import { createConfiguredEditor } from "vscode/monaco";
 
 import { initialize as initializeMonacoServices } from "vscode/services";
 import { initialize as initializeVscodeExtensions } from "vscode/extensions";
@@ -170,10 +170,7 @@ async function createModel(
         return Promise.resolve(model);
     }
 
-    const modelRef = await createModelReference(url, source);
-    modelRef.object.setLanguageId("slint");
-
-    return Promise.resolve(modelRef.object.textEditorModel);
+    return monaco.editor.createModel(source, "slint", url);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
