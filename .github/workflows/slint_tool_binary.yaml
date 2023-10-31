@@ -96,7 +96,7 @@ jobs:
             path: slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
 
   build_macos:
-    runs-on: macos-11
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/setup-rust
