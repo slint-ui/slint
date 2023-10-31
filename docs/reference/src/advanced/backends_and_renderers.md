@@ -22,7 +22,7 @@ capabilities and their configuration options, see the respective sub-pages.
 
 | Backend Name | Description                                                                                             | Built-in by Default   |
 |--------------|---------------------------------------------------------------------------------------------------------|-----------------------|
-| qt           | The Qt library is used for windowing system integration, rendering, and native widget styling.          | Yes (if Qt installed) |
+| qt           | On Linux, The Qt library is used for windowing system integration, rendering, and native widget styling.| Yes (if Qt installed) |
 | winit        | The [winit](https://docs.rs/winit/latest/winit/) library is used to interact with the windowing system. | Yes                   |
 | linuxkms     | Linux's KMS/DRI infrastructure is used for rendering. No windowing system or compositor is required.    | No                    |
 

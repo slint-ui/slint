@@ -26,25 +26,12 @@ typically located in the `bin` sub-directory of a Qt installation that was produ
 Alternatively, you can set the `QMAKE` environment variable to point to the `qmake` executable.
 (more info: <https://docs.rs/qttypes/*/qttypes/#finding-qt> )
 
-### Linux
-
 Many distributions may provide Qt 5.15 in the distribution package. In that case you can install these packages
 and there isn't much more to do. On many distributions, you also need the **-dev** packages. For distributions that
 split the packages in different modules, you just need `qtbase` (for QtWidgets) and `qtsvg` for the SVG plugin.
 
 If when running your Slint application you get an error that libQt5Core.so.5 or such can't be found, you need to
 adjust the `LD_LIBRARY_PATH` environment variable to contain a path that contains the Qt libraries.
-
-### macOS
-
-In addition to either having `qmake` in your `PATH` or setting `QMAKE`, you also need to modify the `DYLD_FRAMEWORK_PATH`
-environment variable. It needs to be set to the `lib` directory of your Qt installation, for example `$HOME/Qt/6.2.0/macos/lib`,
-in order for the dynamic linker to find the Qt libraries when starting an application.
-
-### Windows
-
-For Windows it's necessary to have the `bin` directory of your Qt installation in the list of paths in the `PATH`
-environment variable, in order for the build system to locate `qmake` and to find the Qt DLLs when starting an application.
 
 ## How To Disable the Qt Backend
 
