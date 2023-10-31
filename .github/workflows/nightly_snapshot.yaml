@@ -99,7 +99,7 @@ jobs:
   build_vscode_lsp_macos_x86_64:
     env:
       SLINT_NO_QT: 1
-    runs-on: macos-11
+    runs-on: macos-latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
