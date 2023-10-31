@@ -7,7 +7,10 @@ use i_slint_core::{
     graphics::{Image, SharedImageBuffer, SharedPixelBuffer},
     ImageInner,
 };
-use napi::bindgen_prelude::{Buffer, External};
+use napi::{
+    bindgen_prelude::{Buffer, External},
+    Env, JsUnknown,
+};
 
 // This is needed for typedoc check JsImageData::image
 pub type ImageData = Image;
@@ -69,6 +72,14 @@ impl JsImageData {
         }
 
         Buffer::from(vec![0; (self.width() * self.height() * 4) as usize])
+    }
+
+    #[napi(getter)]
+    pub fn path(&self, env: Env) -> napi::Result<JsUnknown> {
+        self.inner.path().map_or_else(
+            || env.get_undefined().map(|v| v.into_unknown()),
+            |p| env.create_string(p.to_string_lossy().as_ref()).map(|v| v.into_unknown()),
+        )
     }
 
     /// @hidden

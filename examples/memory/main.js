@@ -40,7 +40,7 @@ window.check_if_pair_solved = function () {
             index: tile2_index
         } = flipped_tiles[1];
 
-        let is_pair_solved = tile1.image === tile2.image;
+        let is_pair_solved = tile1.image.path === tile2.image.path;
         if (is_pair_solved) {
             tile1.solved = true;
             model.setRowData(tile1_index, tile1);
