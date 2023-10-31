@@ -246,7 +246,7 @@ public:
     Value() : inner(cbindgen_private::slint_interpreter_value_new()) { }
 
     /// Constructs a new value by copying \a other.
-    Value(const Value &other) : inner(slint_interpreter_value_clone(&other.inner)) { }
+    Value(const Value &other) : inner(slint_interpreter_value_clone(other.inner)) { }
     /// Constructs a new value by moving \a other to this.
     Value(Value &&other)
     {
@@ -259,7 +259,7 @@ public:
         if (this == &other)
             return *this;
         cbindgen_private::slint_interpreter_value_destructor(inner);
-        inner = slint_interpreter_value_clone(&other.inner);
+        inner = slint_interpreter_value_clone(other.inner);
         return *this;
     }
     /// Moves the value \a other to this.
@@ -284,7 +284,7 @@ public:
     /// Type::Double, otherwise an empty optional is returned.
     std::optional<double> to_number() const
     {
-        if (auto *number = cbindgen_private::slint_interpreter_value_to_number(&inner)) {
+        if (auto *number = cbindgen_private::slint_interpreter_value_to_number(inner)) {
             return *number;
         } else {
             return {};
@@ -295,7 +295,7 @@ public:
     /// Type::String, otherwise an empty optional is returned.
     std::optional<slint::SharedString> to_string() const
     {
-        if (auto *str = cbindgen_private::slint_interpreter_value_to_string(&inner)) {
+        if (auto *str = cbindgen_private::slint_interpreter_value_to_string(inner)) {
             return *str;
         } else {
             return {};
@@ -306,7 +306,7 @@ public:
     /// Type::Bool, otherwise an empty optional is returned.
     std::optional<bool> to_bool() const
     {
-        if (auto *b = cbindgen_private::slint_interpreter_value_to_bool(&inner)) {
+        if (auto *b = cbindgen_private::slint_interpreter_value_to_bool(inner)) {
             return *b;
         } else {
             return {};
@@ -323,7 +323,7 @@ public:
     /// Type::Brush, otherwise an empty optional is returned.
     std::optional<slint::Brush> to_brush() const
     {
-        if (auto *brush = cbindgen_private::slint_interpreter_value_to_brush(&inner)) {
+        if (auto *brush = cbindgen_private::slint_interpreter_value_to_brush(inner)) {
             return *brush;
         } else {
             return {};
@@ -334,7 +334,7 @@ public:
     /// Type::Struct, otherwise an empty optional is returned.
     std::optional<Struct> to_struct() const
     {
-        if (auto *opaque_struct = cbindgen_private::slint_interpreter_value_to_struct(&inner)) {
+        if (auto *opaque_struct = cbindgen_private::slint_interpreter_value_to_struct(inner)) {
             return Struct(*opaque_struct);
         } else {
             return {};
@@ -345,7 +345,7 @@ public:
     /// Type::Image, otherwise an empty optional is returned.
     std::optional<Image> to_image() const
     {
-        if (auto *img = cbindgen_private::slint_interpreter_value_to_image(&inner)) {
+        if (auto *img = cbindgen_private::slint_interpreter_value_to_image(inner)) {
             return *reinterpret_cast<const Image *>(img);
         } else {
             return {};
@@ -385,28 +385,28 @@ public:
     Value(const Image &img) : inner(cbindgen_private::slint_interpreter_value_new_image(&img)) { }
 
     /// Returns the type the variant holds.
-    Type type() const { return cbindgen_private::slint_interpreter_value_type(&inner); }
+    Type type() const { return cbindgen_private::slint_interpreter_value_type(inner); }
 
     /// Returns true if \a a and \a b hold values of the same type and the underlying vales are
     /// equal.
     friend bool operator==(const Value &a, const Value &b)
     {
-        return cbindgen_private::slint_interpreter_value_eq(&a.inner, &b.inner);
+        return cbindgen_private::slint_interpreter_value_eq(a.inner, b.inner);
     }
 
 private:
     inline Value(const void *) = delete; // Avoid that for example Value("foo") turns to Value(bool)
-    using ValueBox = slint::cbindgen_private::Box<slint::cbindgen_private::Value>;
-    ValueBox inner;
+    slint::cbindgen_private::Value *inner;
     friend struct Struct;
     friend class ComponentInstance;
     // Internal constructor that takes ownership of the value
-    explicit Value(ValueBox &&inner) : inner(inner) { }
+    explicit Value(slint::cbindgen_private::Value *&&inner) : inner(inner) { }
 };
 
 inline Value::Value(const slint::SharedVector<Value> &array)
     : inner(cbindgen_private::slint_interpreter_value_new_array_model(
-            reinterpret_cast<const slint::SharedVector<ValueBox> *>(&array)))
+            reinterpret_cast<const slint::SharedVector<slint::cbindgen_private::Value *> *>(
+                    &array)))
 {
 }
 
@@ -414,7 +414,9 @@ inline std::optional<slint::SharedVector<Value>> Value::to_array() const
 {
     slint::SharedVector<Value> array;
     if (cbindgen_private::slint_interpreter_value_to_array(
-                &inner, reinterpret_cast<slint::SharedVector<ValueBox> *>(&array))) {
+                &inner,
+                reinterpret_cast<slint::SharedVector<slint::cbindgen_private::Value *> *>(
+                        &array))) {
         return array;
     } else {
         return {};
@@ -457,7 +459,8 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
     auto row_count = [](VRef<ModelAdaptorVTable> self) -> uintptr_t {
         return reinterpret_cast<ModelWrapper *>(self.instance)->model->row_count();
     };
-    auto row_data = [](VRef<ModelAdaptorVTable> self, uintptr_t row, ValueBox *out) {
+    auto row_data = [](VRef<ModelAdaptorVTable> self, uintptr_t row,
+                       slint::cbindgen_private::Value **out) {
         std::optional<Value> v =
                 reinterpret_cast<ModelWrapper *>(self.instance)->model->row_data(int(row));
         if (v.has_value()) {
@@ -467,7 +470,8 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
         }
         return false;
     };
-    auto set_row_data = [](VRef<ModelAdaptorVTable> self, uintptr_t row, ValueBox value) {
+    auto set_row_data = [](VRef<ModelAdaptorVTable> self, uintptr_t row,
+                           slint::cbindgen_private::Value *value) {
         Value v(std::move(value));
         reinterpret_cast<ModelWrapper *>(self.instance)->model->set_row_data(int(row), v);
     };
@@ -509,7 +513,7 @@ inline void Struct::set_field(std::string_view name, const Value &value)
         const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(name.data())),
         name.size()
     };
-    cbindgen_private::slint_interpreter_struct_set_field(&inner, name_view, &value.inner);
+    cbindgen_private::slint_interpreter_struct_set_field(&inner, name_view, value.inner);
 }
 
 inline void Struct::iterator::next()
@@ -620,7 +624,7 @@ public:
     {
         using namespace cbindgen_private;
         return slint_interpreter_component_instance_set_property(
-                inner(), slint::private_api::string_to_slice(name), &value.inner);
+                inner(), slint::private_api::string_to_slice(name), value.inner);
     }
     /// Returns the value behind a property declared in .slint.
     std::optional<Value> get_property(std::string_view name) const
@@ -726,7 +730,7 @@ public:
         using namespace cbindgen_private;
         return slint_interpreter_component_instance_set_global_property(
                 inner(), slint::private_api::string_to_slice(global),
-                slint::private_api::string_to_slice(prop_name), &value.inner);
+                slint::private_api::string_to_slice(prop_name), value.inner);
     }
     /// Returns the value behind a property in an exported global singleton.
     std::optional<Value> get_global_property(std::string_view global,

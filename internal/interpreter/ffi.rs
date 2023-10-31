@@ -19,8 +19,8 @@ pub unsafe extern "C" fn slint_interpreter_value_new() -> Box<Value> {
 
 /// Construct a new Value in the given memory location
 #[no_mangle]
-pub unsafe extern "C" fn slint_interpreter_value_clone(other: &Box<Value>) -> Box<Value> {
-    other.clone()
+pub unsafe extern "C" fn slint_interpreter_value_clone(other: &Value) -> Box<Value> {
+    Box::new(other.clone())
 }
 
 /// Destruct the value in that memory location
@@ -30,8 +30,8 @@ pub unsafe extern "C" fn slint_interpreter_value_destructor(val: Box<Value>) {
 }
 
 #[no_mangle]
-pub extern "C" fn slint_interpreter_value_eq(a: &Box<Value>, b: &Box<Value>) -> bool {
-    *a == *b
+pub extern "C" fn slint_interpreter_value_eq(a: &Value, b: &Value) -> bool {
+    a == b
 }
 
 /// Construct a new Value in the given memory location as string
@@ -92,29 +92,29 @@ pub unsafe extern "C" fn slint_interpreter_value_new_model(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn slint_interpreter_value_type(val: &Box<Value>) -> ValueType {
+pub unsafe extern "C" fn slint_interpreter_value_type(val: &Value) -> ValueType {
     val.value_type()
 }
 
 #[no_mangle]
-pub extern "C" fn slint_interpreter_value_to_string(val: &Box<Value>) -> Option<&SharedString> {
-    match val.as_ref() {
+pub extern "C" fn slint_interpreter_value_to_string(val: &Value) -> Option<&SharedString> {
+    match val {
         Value::String(v) => Some(v),
         _ => None,
     }
 }
 
 #[no_mangle]
-pub extern "C" fn slint_interpreter_value_to_number(val: &Box<Value>) -> Option<&f64> {
-    match val.as_ref() {
+pub extern "C" fn slint_interpreter_value_to_number(val: &Value) -> Option<&f64> {
+    match val {
         Value::Number(v) => Some(v),
         _ => None,
     }
 }
 
 #[no_mangle]
-pub extern "C" fn slint_interpreter_value_to_bool(val: &Box<Value>) -> Option<&bool> {
-    match val.as_ref() {
+pub extern "C" fn slint_interpreter_value_to_bool(val: &Value) -> Option<&bool> {
+    match val {
         Value::Bool(v) => Some(v),
         _ => None,
     }
@@ -142,24 +142,24 @@ pub extern "C" fn slint_interpreter_value_to_array(
 }
 
 #[no_mangle]
-pub extern "C" fn slint_interpreter_value_to_brush(val: &Box<Value>) -> Option<&Brush> {
-    match val.as_ref() {
+pub extern "C" fn slint_interpreter_value_to_brush(val: &Value) -> Option<&Brush> {
+    match val {
         Value::Brush(b) => Some(b),
         _ => None,
     }
 }
 
 #[no_mangle]
-pub extern "C" fn slint_interpreter_value_to_struct(val: &Box<Value>) -> *const StructOpaque {
-    match val.as_ref() {
+pub extern "C" fn slint_interpreter_value_to_struct(val: &Value) -> *const StructOpaque {
+    match val {
         Value::Struct(s) => s as *const Struct as *const StructOpaque,
         _ => std::ptr::null(),
     }
 }
 
 #[no_mangle]
-pub extern "C" fn slint_interpreter_value_to_image(val: &Box<Value>) -> Option<&Image> {
-    match val.as_ref() {
+pub extern "C" fn slint_interpreter_value_to_image(val: &Value) -> Option<&Image> {
+    match val {
         Value::Image(img) => Some(img),
         _ => None,
     }
@@ -222,10 +222,9 @@ pub extern "C" fn slint_interpreter_struct_get_field(
 pub extern "C" fn slint_interpreter_struct_set_field<'a>(
     stru: &'a mut StructOpaque,
     name: Slice<u8>,
-    value: &Box<Value>,
+    value: &Value,
 ) {
-    stru.as_struct_mut()
-        .set_field(std::str::from_utf8(&name).unwrap().into(), value.as_ref().clone())
+    stru.as_struct_mut().set_field(std::str::from_utf8(&name).unwrap().into(), value.clone())
 }
 
 type StructIterator<'a> = std::collections::hash_map::Iter<'a, String, Value>;
@@ -289,7 +288,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_get_property(
 pub extern "C" fn slint_interpreter_component_instance_set_property(
     inst: &ErasedItemTreeBox,
     name: Slice<u8>,
-    val: &Box<Value>,
+    val: &Value,
 ) -> bool {
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
@@ -297,7 +296,7 @@ pub extern "C" fn slint_interpreter_component_instance_set_property(
         .set_property(
             comp.borrow(),
             &normalize_identifier(std::str::from_utf8(&name).unwrap()),
-            val.as_ref().clone(),
+            val.clone(),
         )
         .is_ok()
 }
@@ -396,7 +395,7 @@ pub extern "C" fn slint_interpreter_component_instance_set_global_property(
     inst: &ErasedItemTreeBox,
     global: Slice<u8>,
     property_name: Slice<u8>,
-    val: &Box<Value>,
+    val: &Value,
 ) -> bool {
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
@@ -406,7 +405,7 @@ pub extern "C" fn slint_interpreter_component_instance_set_global_property(
             g.as_ref()
                 .set_property(
                     &normalize_identifier(std::str::from_utf8(&property_name).unwrap()),
-                    val.as_ref().clone(),
+                    val.clone(),
                 )
                 .map_err(|_| ())
         })
