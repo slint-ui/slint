@@ -431,7 +431,7 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
             instance!.definition().properties.forEach((prop) => {
                 let propName = prop.name.replace(/-/g, "_");
 
-                if (componentHandle[propName] !== undefined) {
+                if (Object.hasOwn(componentHandle, propName)) {
                     console.warn("Duplicated property name " + propName);
                 } else {
                     Object.defineProperty(componentHandle, propName, {
@@ -449,7 +449,7 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
             instance!.definition().callbacks.forEach((cb) => {
                 let callbackName = cb.replace(/-/g, "_");
 
-                if (componentHandle[callbackName] !== undefined) {
+                if (Object.hasOwn(componentHandle, callbackName)) {
                     console.warn("Duplicated callback name " + callbackName);
                 } else {
                     Object.defineProperty(componentHandle, cb.replace(/-/g, "_"), {
