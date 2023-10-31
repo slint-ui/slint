@@ -524,8 +524,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_create(
 #[repr(C)]
 pub struct ModelAdaptorVTable {
     pub row_count: extern "C" fn(VRef<ModelAdaptorVTable>) -> usize,
-    pub row_data:
-        unsafe extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, &mut Box<Value>) -> bool,
+    pub row_data: unsafe extern "C" fn(VRef<ModelAdaptorVTable>, row: usize) -> *mut Value,
     pub set_row_data: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, value: Box<Value>),
     pub get_notify: extern "C" fn(VRef<ModelAdaptorVTable>) -> &ModelNotifyOpaque,
     pub drop: extern "C" fn(VRefMut<ModelAdaptorVTable>),
@@ -540,11 +539,11 @@ impl Model for ModelAdaptorWrapper {
     }
 
     fn row_data(&self, row: usize) -> Option<Value> {
-        let mut val = Box::default();
-        if unsafe { self.0.row_data(row, &mut val) } {
-            Some(val.as_ref().clone())
-        } else {
+        let val_ptr = unsafe { self.0.row_data(row) };
+        if val_ptr.is_null() {
             None
+        } else {
+            Some(*unsafe { Box::from_raw(val_ptr) })
         }
     }
 

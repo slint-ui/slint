@@ -459,16 +459,17 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
     auto row_count = [](VRef<ModelAdaptorVTable> self) -> uintptr_t {
         return reinterpret_cast<ModelWrapper *>(self.instance)->model->row_count();
     };
-    auto row_data = [](VRef<ModelAdaptorVTable> self, uintptr_t row,
-                       slint::cbindgen_private::Value **out) {
+    auto row_data = [](VRef<ModelAdaptorVTable> self,
+                       uintptr_t row) -> slint::cbindgen_private::Value * {
         std::optional<Value> v =
                 reinterpret_cast<ModelWrapper *>(self.instance)->model->row_data(int(row));
         if (v.has_value()) {
-            *out = v->inner;
+            slint::cbindgen_private::Value *rval = v->inner;
             v->inner = cbindgen_private::slint_interpreter_value_new();
-            return true;
+            return rval;
+        } else {
+            return nullptr;
         }
-        return false;
     };
     auto set_row_data = [](VRef<ModelAdaptorVTable> self, uintptr_t row,
                            slint::cbindgen_private::Value *value) {
