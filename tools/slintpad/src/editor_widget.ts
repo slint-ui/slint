@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 // cSpell: ignore edcore lumino mimetypes printerdemo
-//
+
 import * as monaco from "monaco-editor";
 
 import { slint_language } from "./highlighting";
@@ -559,12 +559,14 @@ class EditorPaneWidget extends Widget {
             return Promise.resolve("Error: Can not map URL.");
         }
 
-        return this.safely_open_editor_with_url_content(
-            era,
-            uri,
-            internal_uri,
-            false,
-        );
+        return (
+            await this.safely_open_editor_with_url_content(
+                era,
+                uri,
+                internal_uri,
+                false,
+            )
+        )[1];
     }
 
     private async safely_open_editor_with_url_content(
@@ -572,10 +574,10 @@ class EditorPaneWidget extends Widget {
         uri: monaco.Uri,
         internal_uri: monaco.Uri,
         raise_alert: boolean,
-    ): Promise<string> {
+    ): Promise<[monaco.Uri | null, string]> {
         let model = monaco.editor.getModel(internal_uri);
         if (model != null) {
-            return model.getValue();
+            return [model.uri, model.getValue()];
         }
 
         let doc = "";
@@ -592,28 +594,34 @@ class EditorPaneWidget extends Widget {
                             response.statusText,
                     );
                 }
-                return "";
+                return [null, ""];
             }
             doc = await response.text();
         } catch (e) {
             if (raise_alert) {
                 alert("Failed to download data from " + uri + ".");
             }
-            return "";
+            return [null, ""];
         }
 
         model = monaco.editor.getModel(internal_uri);
         if (model != null) {
-            return model.getValue();
+            return [model.uri, model.getValue()];
         }
 
+        let result_uri = null;
         if (era == this.#edit_era) {
-            createModel(this.internal_uuid, doc, internal_uri);
+            model = await createModel(this.internal_uuid, doc, internal_uri);
+            if (model) {
+                result_uri = model.uri;
+            }
         }
-        return doc;
+        return [result_uri, doc];
     }
 
-    async open_tab_from_url(input_url: monaco.Uri): Promise<string> {
+    async open_tab_from_url(
+        input_url: monaco.Uri,
+    ): Promise<[monaco.Uri | null, string]> {
         const [url, file_name, mapper] = await github.open_url(
             this.#internal_uuid,
             input_url.toString(),
@@ -757,14 +765,14 @@ export class EditorWidget extends Widget {
         return this.#editor.current_text_document_version;
     }
 
-    async project_from_url(url: string | null) {
+    async project_from_url(url: string | null): Promise<monaco.Uri | null> {
         if (url == null) {
-            return;
+            return null;
         }
 
         this.#editor.clear_models();
         const uri = monaco.Uri.parse(url);
-        await this.#editor.open_tab_from_url(uri);
+        return (await this.#editor.open_tab_from_url(uri))[0];
     }
 
     known_demos(): [string, string][] {
@@ -790,6 +798,7 @@ export class EditorWidget extends Widget {
     }
 
     async set_demo(location: string) {
+        let result_uri: monaco.Uri | null = null;
         if (location) {
             const default_tag = "XXXX_DEFAULT_TAG_XXXX";
             let tag = default_tag.startsWith("XXXX_DEFAULT_TAG_")
@@ -805,12 +814,32 @@ export class EditorWidget extends Widget {
                     tag = "v" + found[1];
                 }
             }
-            await this.project_from_url(
+            result_uri = await this.project_from_url(
                 `https://raw.githubusercontent.com/slint-ui/slint/${tag}/${location}`,
             );
         } else {
             this.#editor.clear_models();
-            createModel(this.#editor.internal_uuid, hello_world);
+            const model = await createModel(
+                this.#editor.internal_uuid,
+                hello_world,
+            );
+            if (model) {
+                result_uri = model.uri;
+            }
+        }
+
+        if (result_uri) {
+            setTimeout(
+                () =>
+                    this.language_client?.sendRequest(
+                        "workspace/executeCommand",
+                        {
+                            command: "slint/showPreview",
+                            arguments: [result_uri?.toString() ?? "", ""],
+                        },
+                    ),
+                1000,
+            );
         }
     }
 
