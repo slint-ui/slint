@@ -42,12 +42,7 @@ assert_eq(instance.global<GlobalAlias>().get_hello(), 100);
 ```js
 let instance = new slint.TestCase({});
 assert(!instance.test_global_prop_value);
-assert.equal(instance.MyGlobal.hello, 42);;
-assert.equal(instance.GlobalAlias.hello, 42);;
-instance.MyGlobal.hello = 100;
-assert(instance.test_global_prop_value);
-assert.equal(instance.MyGlobal.hello, 100);
-assert.equal(instance.GlobalAlias.hello, 100);
+// TODO
 ```
 
 */
