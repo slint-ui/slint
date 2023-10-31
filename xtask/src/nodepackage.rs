@@ -1,10 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::path::PathBuf;
-
 use anyhow::Context;
 use xshell::{cmd, Shell};
+
+#[derive(Debug, clap::Parser)]
+pub struct NodePackageOptions {
+    #[arg(long, action)]
+    pub sha1: Option<String>,
+}
 
 fn cp_r(
     sh: &Shell,
@@ -30,7 +34,7 @@ fn cp_r(
     }
 }
 
-pub fn create_package() -> Result<PathBuf, Box<dyn std::error::Error>> {
+pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
     let node_dir = root.join("api").join("node");
 
@@ -40,12 +44,63 @@ pub fn create_package() -> Result<PathBuf, Box<dyn std::error::Error>> {
 
     let sh = Shell::new()?;
 
+    let workspace_source =
+        sh.read_file(root.join("Cargo.toml")).context("Failed to read workspace Cargo.toml")?;
+    let workspace_toml: toml_edit::Document =
+        workspace_source.parse().context("Error parsing workspace Cargo.toml")?;
+
+    let workspace_package_fields = workspace_toml
+        .get("workspace")
+        .and_then(|workspace_table| workspace_table.get("package"))
+        .ok_or_else(|| {
+            "Could not locate workspace.package table in workspace Cargo.toml".to_string()
+        })?;
+
+    let workspace_dependency_fields = workspace_toml
+        .get("workspace")
+        .and_then(|workspace_table| workspace_table.get("dependencies"))
+        .ok_or_else(|| {
+            "Could not locate workspace.dependencies table in workspace Cargo.toml".to_string()
+        })?;
+
     let toml_source =
         sh.read_file(cargo_toml_path.clone()).context("Failed to read Node Cargo.toml")?;
 
     let mut toml: toml_edit::Document = toml_source.parse().context("Error parsing Cargo.toml")?;
 
-    // Remove all `path = ` entries from dependencies
+    // Replace workspace fields
+    let package_table = toml["package"]
+        .as_table_mut()
+        .ok_or("Error locating [package] table in Node Cargo.toml".to_string())?;
+    let keys_for_workspace_replacement = package_table
+        .iter()
+        .filter_map(|(name, value)| {
+            if value
+                .as_table()
+                .and_then(|entry| entry.get("workspace"))
+                .and_then(|maybe_workspace| maybe_workspace.as_bool())
+                .unwrap_or(false)
+            {
+                Some(name.to_string())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    for key_to_replace in keys_for_workspace_replacement {
+        let data = workspace_package_fields
+            .get(key_to_replace.to_string())
+            .ok_or_else(|| {
+                format!(
+                    "Could not locate workspace field for {key_to_replace} in workspace toml file"
+                )
+            })?
+            .clone();
+        toml["package"][&key_to_replace] = data;
+    }
+
+    // Remove all `path = ` entries from dependencies and subsitute workspace = true
     for dep_key in ["dependencies", "build-dependencies"].iter() {
         let dep_table = match toml[dep_key].as_table_mut() {
             Some(table) => table,
@@ -53,7 +108,27 @@ pub fn create_package() -> Result<PathBuf, Box<dyn std::error::Error>> {
         };
         let deps: Vec<_> = dep_table.iter().map(|(name, _)| name.to_string()).collect();
         deps.iter().for_each(|name| {
-            dep_table[name].as_inline_table_mut().map(|dep_config| dep_config.remove("path"));
+            if let Some(dep_config) = dep_table[name].as_inline_table_mut() {
+                if name.contains("slint") {
+                    if let Some(sha1) = &sha1 {
+                        dep_config.insert("git", "https://github.com/slint-ui/slint".into());
+                        dep_config.insert("rev", sha1.into());
+                    }
+                }
+                if dep_config.remove("workspace").is_some() {
+                    let workspace_config = &workspace_dependency_fields[name];
+                    if let Some(data) = workspace_config.as_inline_table() {
+                        for (k, v) in data.iter() {
+                            if k == "features" {
+                                // TODO: merge features = []; for now preserve what's in Cargo.toml
+                                continue;
+                            }
+                            dep_config.insert(k, v.clone());
+                        }
+                    }
+                }
+                dep_config.remove("path");
+            }
         });
     }
 
@@ -94,30 +169,7 @@ pub fn create_package() -> Result<PathBuf, Box<dyn std::error::Error>> {
 
     sh.remove_path(node_dir.join("LICENSE.md")).context("Error deleting LICENSE.md copy")?;
 
-    Ok(file_name)
-}
-
-pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
-    let file_name = create_package()?;
-
     println!("Source package created and located in {}", file_name.to_string_lossy());
-
-    Ok(())
-}
-
-pub fn publish() -> Result<(), Box<dyn std::error::Error>> {
-    let root = super::root_dir();
-
-    let file_name = create_package()?;
-
-    println!("Running npm publish to publish the tarball at {}", file_name.to_string_lossy());
-
-    let sh = Shell::new()?;
-
-    {
-        let _p = sh.push_dir(root);
-        cmd!(sh, "npm publish {file_name}").run()?;
-    }
 
     Ok(())
 }
