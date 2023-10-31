@@ -29,12 +29,10 @@ jobs:
     uses: ./.github/workflows/slint_tool_binary.yaml
     with:
       program: "viewer"
-      features: ${{ env.SLINT_BINARY_FEATURES }}
   slint-lsp-binary:
     uses: ./.github/workflows/slint_tool_binary.yaml
     with:
       program: "lsp"
-      features: ${{ env.SLINT_BINARY_FEATURES }}
   docs:
     uses: ./.github/workflows/build_docs.yaml
   wasm_demo:
