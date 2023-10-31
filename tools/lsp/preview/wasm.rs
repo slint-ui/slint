@@ -378,6 +378,6 @@ impl WrappedInstance {
 /// to ignore.
 #[wasm_bindgen]
 pub fn run_event_loop() -> Result<(), JsValue> {
-    slint_interpreter::run_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })?;
+    slint_interpreter::spawn_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })?;
     Ok(())
 }
