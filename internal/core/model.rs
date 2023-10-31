@@ -767,16 +767,23 @@ pub struct RepeaterTracker<T: RepeatedItemTree> {
 
 impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     /// Notify the peers that a specific row was changed
-    fn row_changed(&self, row: usize) {
-        self.is_dirty.set(true);
+    fn row_changed(self: Pin<&Self>, row: usize) {
         let mut inner = self.inner.borrow_mut();
         let inner = &mut *inner;
         if let Some(c) = inner.instances.get_mut(row.wrapping_sub(inner.offset)) {
-            c.0 = RepeatedInstanceState::Dirty;
+            if !self.model.is_dirty() {
+                if let Some(comp) = c.1.as_ref() {
+                    let model = self.project_ref().model.get_untracked();
+                    comp.update(row, model.row_data(row).unwrap());
+                    c.0 = RepeatedInstanceState::Clean;
+                }
+            } else {
+                c.0 = RepeatedInstanceState::Dirty;
+            }
         }
     }
     /// Notify the peers that rows were added
-    fn row_added(&self, mut index: usize, mut count: usize) {
+    fn row_added(self: Pin<&Self>, mut index: usize, mut count: usize) {
         let mut inner = self.inner.borrow_mut();
         if index < inner.offset {
             if index + count < inner.offset {
@@ -801,7 +808,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         }
     }
     /// Notify the peers that rows were removed
-    fn row_removed(&self, mut index: usize, mut count: usize) {
+    fn row_removed(self: Pin<&Self>, mut index: usize, mut count: usize) {
         let mut inner = self.inner.borrow_mut();
         if index < inner.offset {
             if index + count < inner.offset {
@@ -826,7 +833,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         }
     }
 
-    fn reset(&self) {
+    fn reset(self: Pin<&Self>) {
         self.is_dirty.set(true);
         self.inner.borrow_mut().instances.clear();
     }
@@ -1124,14 +1131,6 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     pub fn model_set_row_data(self: Pin<&Self>, row: usize, data: C::Data) {
         let model = self.model();
         model.set_row_data(row, data);
-        if let Some(c) = self.data().inner.borrow_mut().instances.get_mut(row) {
-            if c.0 == RepeatedInstanceState::Dirty {
-                if let Some(comp) = c.1.as_ref() {
-                    comp.update(row, model.row_data(row).unwrap());
-                    c.0 = RepeatedInstanceState::Clean;
-                }
-            }
-        }
     }
 
     /// Set the model binding
@@ -1319,18 +1318,18 @@ fn test_vecmodel_set_vec() {
         }
     }
     impl ModelChangeListener for TestView {
-        fn row_changed(&self, row: usize) {
+        fn row_changed(self: Pin<&Self>, row: usize) {
             self.changed_rows.borrow_mut().push((row, self.row_count()));
         }
 
-        fn row_added(&self, index: usize, count: usize) {
+        fn row_added(self: Pin<&Self>, index: usize, count: usize) {
             self.added_rows.borrow_mut().push((index, count, self.row_count()));
         }
 
-        fn row_removed(&self, index: usize, count: usize) {
+        fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
             self.removed_rows.borrow_mut().push((index, count, self.row_count()));
         }
-        fn reset(&self) {
+        fn reset(self: Pin<&Self>) {
             *self.reset.borrow_mut() += 1;
         }
     }

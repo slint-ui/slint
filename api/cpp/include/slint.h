@@ -1091,17 +1091,27 @@ class Repeater
         };
         std::vector<RepeatedInstanceWithState> data;
         private_api::Property<bool> is_dirty { true };
+        std::shared_ptr<Model<ModelData>> model;
 
         void row_added(size_t index, size_t count) override
         {
             is_dirty.set(true);
             data.resize(data.size() + count);
             std::rotate(data.begin() + index, data.end() - count, data.end());
+            for (std::size_t i = index; i < data.size(); ++i) {
+                // all the indexes are dirty
+                data[i].state = State::Dirty;
+            }
         }
         void row_changed(size_t index) override
         {
-            is_dirty.set(true);
-            data[index].state = State::Dirty;
+            auto &c = data[index];
+            if (model && c.ptr) {
+                (*c.ptr)->update_data(index, *model->row_data(index));
+                c.state = State::Clean;
+            } else {
+                c.state = State::Dirty;
+            }
         }
         void row_removed(size_t index, size_t count) override
         {
@@ -1135,6 +1145,7 @@ public:
         if (model.is_dirty()) {
             inner = std::make_shared<RepeaterInner>();
             if (auto m = model.get()) {
+                inner->model = m;
                 m->attach_peer(inner);
             }
         }
@@ -1236,12 +1247,6 @@ public:
         if (auto m = model.get()) {
             if (row < m->row_count()) {
                 m->set_row_data(row, data);
-                if (inner && inner->is_dirty.get()) {
-                    auto &c = inner->data[row];
-                    if (c.state == RepeaterInner::State::Dirty && c.ptr) {
-                        (*c.ptr)->update_data(row, *m->row_data(row));
-                    }
-                }
             }
         }
     }
