@@ -1,9 +1,9 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 <!-- cSpell: ignore ccmake dslint femtovg -->
 
-# Setup Developer Environment
+# Set Up Development Environment
 
-## Prerequisite
+## Prerequisites
 
 * A C++ compiler that supports C++20 (e.g., **MSVC 2019 16.6** on Windows)
 
@@ -11,11 +11,11 @@
 
   * Slint comes with a CMake integration that automates the compilation step of the `.slint` markup language files and offers a CMake target for convenient linkage.
 
-  * *Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.slint` dependency tracking. Install [Ninja](https://ninja-build.org) and select the CMake Ninja backend by passing `-GNinja` or setting the `CMAKE_GENERATOR` environment variable to `Ninja`.
+  * *Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.slint` dependency tracking. Install [Ninja](https://ninja-build.org) and select the CMake Ninja backend by passing `-GNinja` or set the `CMAKE_GENERATOR` environment variable to `Ninja`.
 
-## Setup Slint
+## Install Slint
 
-To setup Slint, you can either download the [binary packages](#install-binary-packages) or [build from sources](#build-from-sources).  
+To install Slint, either download the [binary packages](#install-binary-packages) or [build from sources](#build-from-sources).  
 
 *Note*: Binary packages are available for only Linux and Windows on x86-64 architecture. The recommended and most flexible way to use the C++ API is to build Slint from sources.
   
