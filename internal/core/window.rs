@@ -12,8 +12,8 @@ use crate::api::{
 };
 use crate::graphics::Point;
 use crate::input::{
-    key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, KeyInputEvent,
-    KeyboardModifiers, MouseEvent, MouseInputState, TextCursorBlinker,
+    key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, MouseEvent,
+    MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::ItemRc;
 use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
@@ -35,17 +35,6 @@ fn next_focus_item(item: ItemRc) -> ItemRc {
 
 fn previous_focus_item(item: ItemRc) -> ItemRc {
     item.previous_focus_item()
-}
-
-/// Transforms a `KeyInputEvent` into an `KeyEvent` with the given `KeyboardModifiers`.
-fn input_as_key_event(input: KeyInputEvent, modifiers: KeyboardModifiers) -> KeyEvent {
-    KeyEvent {
-        modifiers,
-        text: input.text,
-        event_type: input.event_type,
-        preedit_selection_start: input.preedit_selection_start,
-        preedit_selection_end: input.preedit_selection_end,
-    }
 }
 
 /// This trait represents the adaptation layer between the [`Window`] API and then
@@ -538,7 +527,7 @@ impl WindowInner {
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
     /// * `component`: The Slint compiled component that provides the tree of items.
-    pub fn process_key_input(&self, event: KeyInputEvent) {
+    pub fn process_key_input(&self, mut event: KeyEvent) {
         if let Some(updated_modifier) = self
             .modifiers
             .get()
@@ -548,7 +537,7 @@ impl WindowInner {
             self.modifiers.set(updated_modifier);
         }
 
-        let event = input_as_key_event(event, self.modifiers.get().into());
+        event.modifiers = self.modifiers.get().into();
 
         let mut item = self.focus_item.borrow().clone().upgrade();
         while let Some(focus_item) = item {
@@ -1310,10 +1299,15 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_dispatch_key_event(
         handle: *const WindowAdapterRcOpaque,
-        event: &crate::input::KeyInputEvent,
+        event_type: crate::input::KeyEventType,
+        text: &SharedString,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().0.process_key_input(event.clone());
+        window_adapter.window().0.process_key_input(crate::items::KeyEvent {
+            text: text.clone(),
+            event_type,
+            ..Default::default()
+        });
     }
 
     /// Dispatch a mouse event
