@@ -3,15 +3,31 @@
 
 export global Foo {
     in-out property<bool> bo: false;
-    pure function return_bool() -> bool {
+    public pure function return_bool() -> bool {
         if (bo) {
             return true;
         }
         false
     }
+
+    callback cycle_instrument_param_end();
 }
 
-component TestCase {
+
+// extracted from chiptrack
+export component StepsFocusScope inherits FocusScope {
+    callback root_key_released(KeyEvent) -> EventResult;
+    key_released(e) => {
+        if (e.text == Key.Control) { Foo.cycle_instrument_param_end(); }
+        else {
+            return root_key_released(e);
+        }
+        accept
+    }
+}
+
+
+export component TestCase {
 
     function return_false() -> bool { return false; }
 
@@ -80,6 +96,14 @@ component TestCase {
         return false;
         false;
     }
+
+    out property <bool> check_ok;
+    public function test-key() -> bool {
+        fs.key-released({text: "hi"}) == EventResult.reject
+    }
+    fs := StepsFocusScope {
+        root-key-released(e) => { check-ok = e.text == "hi"; EventResult.reject }
+    }
 }
 
 
@@ -90,6 +114,10 @@ const TestCase &instance = *handle;
 assert(instance.get_test());
 instance.invoke_proceed();
 assert_eq(instance.get_val(), "1234");
+
+assert_eq(instance.invoke_test_key(), true);
+assert_eq(instance.get_check_ok(), true);
+
 ```
 
 ```rust
@@ -97,6 +125,12 @@ let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
 instance.invoke_proceed();
 assert_eq!(instance.get_val(), "1234");
+
+instance.global::<Foo<'_>>().on_cycle_instrument_param_end(|| panic!("should not happen"));
+assert_eq!(instance.invoke_test_key(), true);
+assert_eq!(instance.get_check_ok(), true);
+
+
 ```
 
 

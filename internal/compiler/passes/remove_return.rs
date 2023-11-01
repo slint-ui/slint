@@ -319,16 +319,30 @@ impl ExpressionResult {
                 returned_value,
                 actual_value,
             } => {
+                let mut true_expr = ExpressionResult::Just(
+                    actual_value.unwrap_or_else(|| Expression::default_value_for_type(ty)),
+                )
+                .into_return_object(ty, ret_ty);
+                let mut false_expr =
+                    ExpressionResult::Return(returned_value).into_return_object(ty, ret_ty);
+                let true_ty = true_expr.ty();
+                let false_ty = false_expr.ty();
+                if true_ty != false_ty {
+                    let common_ty = Expression::common_target_type_for_type_list(
+                        [&true_ty, &false_ty].into_iter().cloned(),
+                    );
+                    if common_ty != true_ty {
+                        true_expr =
+                            convert_struct(std::mem::take(&mut true_expr), common_ty.clone())
+                    }
+                    if common_ty != false_ty {
+                        false_expr = convert_struct(std::mem::take(&mut false_expr), common_ty)
+                    }
+                }
                 let o = Expression::Condition {
                     condition: condition.into(),
-                    true_expr: ExpressionResult::Just(
-                        actual_value.unwrap_or_else(|| Expression::default_value_for_type(ty)),
-                    )
-                    .into_return_object(ty, ret_ty)
-                    .into(),
-                    false_expr: ExpressionResult::Return(returned_value)
-                        .into_return_object(ty, ret_ty)
-                        .into(),
+                    true_expr: true_expr.into(),
+                    false_expr: false_expr.into(),
                 };
                 codeblock_with_expr(pre_statements, o)
             }
@@ -375,4 +389,48 @@ fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Ex
             values,
         },
     )
+}
+
+/// Given an expression `from` of type Struct, convert to another type struct with more fields
+/// Add missing members in `from`
+fn convert_struct(from: Expression, to: Type) -> Expression {
+    let Type::Struct { fields, .. } = &to else {
+        assert_eq!(to, Type::Invalid);
+        return Expression::Invalid;
+    };
+    if let Expression::Struct { mut values, .. } = from {
+        let mut new_values = HashMap::new();
+        for (key, ty) in fields {
+            let (key, expression) = values
+                .remove_entry(key)
+                .unwrap_or_else(|| (key.clone(), Expression::default_value_for_type(&ty)));
+            new_values.insert(key, expression);
+        }
+        return Expression::Struct { values: new_values, ty: to };
+    }
+    let var_name = "tmpobj";
+    let from_ty = from.ty();
+    let mut new_values = HashMap::new();
+    let Type::Struct { fields: form_fields, .. } = &from_ty else {
+        assert_eq!(from_ty, Type::Invalid);
+        return Expression::Invalid;
+    };
+    for (key, ty) in fields {
+        let expression = if form_fields.contains_key(key) {
+            Expression::StructFieldAccess {
+                base: Box::new(Expression::ReadLocalVariable {
+                    name: var_name.into(),
+                    ty: from_ty.clone(),
+                }),
+                name: key.clone(),
+            }
+        } else {
+            Expression::default_value_for_type(&ty)
+        };
+        new_values.insert(key.clone(), expression);
+    }
+    Expression::CodeBlock(vec![
+        Expression::StoreLocalVariable { name: var_name.into(), value: Box::new(from) },
+        Expression::Struct { values: new_values, ty: to },
+    ])
 }
