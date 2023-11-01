@@ -553,10 +553,14 @@ impl Item for TextInput {
 
                 if let Some(r) = &event.replacement_range {
                     // Set the selection so the call to insert erases it
-                    self.anchor_position_byte_offset.set(cursor + r.start);
-                    self.cursor_position_byte_offset.set(cursor + r.end);
+                    self.anchor_position_byte_offset.set(cursor.saturating_add(r.start));
+                    self.cursor_position_byte_offset.set(cursor.saturating_add(r.end));
                 }
                 self.insert(&event.text, window_adapter, self_rc);
+                if let Some(cursor) = event.cursor_position {
+                    self.anchor_position_byte_offset.set(event.anchor_position.unwrap_or(cursor));
+                    self.set_cursor_position(cursor, true, window_adapter, self_rc);
+                }
                 KeyEventResult::EventAccepted
             }
             _ => KeyEventResult::EventIgnored,
