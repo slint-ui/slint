@@ -461,15 +461,9 @@ impl EventLoopState {
 
             Event::WindowEvent { event, window_id } => {
                 if let Some(window) = window_by_id(window_id) {
-                    #[cfg(not(enable_accesskit))]
-                    let process_event = true;
                     #[cfg(enable_accesskit)]
-                    let process_event =
-                        window.accesskit_adapter.on_event(&window.winit_window(), &event);
-
-                    if process_event {
-                        self.process_window_event(window, event);
-                    }
+                    window.accesskit_adapter.process_event(&window.winit_window(), &event);
+                    self.process_window_event(window, event);
                 };
             }
 
