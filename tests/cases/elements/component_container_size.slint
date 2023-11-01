@@ -1,0 +1,124 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+// FIXME: Skip embedding test on C++ and NodeJS since ComponentFactory is not
+// implemented there!
+//ignore: cpp,js
+
+import { Button } from "std-widgets.slint";
+
+export component TestCase inherits Rectangle {
+    in property <component-factory> cc <=> cc.component-factory;
+    out property <length> container-x <=> cc.x;
+    out property <length> container-y <=> cc.y;
+    in-out property <length> container-width <=> cc.width;
+    in-out property <length> container-height <=> cc.height;
+
+    width: 500px;
+    height: 500px;
+
+    cc := ComponentContainer {
+        x: 15px;
+        y: 20px;
+    }
+
+}
+
+/*
+```cpp
+// ComponentFactory not supported yet!
+```
+
+```rust
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use slint_interpreter::ComponentInstance;
+
+let embedded_instance: Rc<RefCell<Option<ComponentInstance>>> = Default::default();
+
+let ei = embedded_instance.clone();
+
+let dyn_factory = slint::ComponentFactory::new(move |ctx| {
+    let mut compiler = slint_interpreter::ComponentCompiler::new();
+    let e = spin_on::spin_on(compiler.build_from_source(
+        r#"export component E1 inherits Rectangle {
+    out property <length> embedded-width <=> self.width;
+    out property <length> embedded-height <=> self.height;
+    out property <length> embedded-x <=> self.x;
+    out property <length> embedded-y <=> self.y;
+
+    min-width: 10px;
+    preferred-width: 50px;
+    max-width: 100px;
+    min-height: 10px;
+    preferred-height: 50px;
+    max-height: 100px;
+
+}"#.into(),
+        std::path::PathBuf::from("embedded.slint"),
+     )).unwrap();
+     let instance = e.create_embedded(ctx).ok();
+
+     ei.replace(instance.as_ref().map(|i| i.clone_strong()));
+
+     instance
+});
+
+let instance = TestCase::new().unwrap();
+
+let ei = embedded_instance.take();
+
+assert_eq!(instance.get_container_x(), 15.0);
+assert_eq!(instance.get_container_y(), 20.0);
+assert_eq!(instance.get_container_width(), 0.0);
+assert_eq!(instance.get_container_height(), 0.0);
+assert!(ei.is_none());
+drop(ei);
+
+instance.set_cc(dyn_factory.clone());
+
+assert_eq!(instance.get_container_x(), 15.0);
+assert_eq!(instance.get_container_y(), 20.0);
+assert_eq!(instance.get_container_width(), 50.0);
+assert_eq!(instance.get_container_height(), 50.0);
+
+let ei = embedded_instance.take().unwrap();
+assert_eq!(ei.get_property("embedded-width").unwrap(), instance.get_container_width().into());
+assert_eq!(ei.get_property("embedded-height").unwrap(), instance.get_container_height().into());
+assert_eq!(ei.get_property("embedded-x").unwrap(), slint_interpreter::Value::Number(0.0));
+assert_eq!(ei.get_property("embedded-y").unwrap(), slint_interpreter::Value::Number(0.0));
+
+// Set a valid size:
+instance.set_container_width(20.0);
+instance.set_container_height(70.0);
+
+assert_eq!(instance.get_container_x(), 15.0);
+assert_eq!(instance.get_container_y(), 20.0);
+assert_eq!(instance.get_container_width(), 20.0);
+assert_eq!(instance.get_container_height(), 70.0);
+
+assert_eq!(ei.get_property("embedded-width").unwrap(), instance.get_container_width().into());
+assert_eq!(ei.get_property("embedded-height").unwrap(), instance.get_container_height().into());
+assert_eq!(ei.get_property("embedded-x").unwrap(), slint_interpreter::Value::Number(0.0));
+assert_eq!(ei.get_property("embedded-y").unwrap(), slint_interpreter::Value::Number(0.0));
+
+// Set an invalid size:
+instance.set_container_width(5.0);
+instance.set_container_height(700.0);
+
+assert_eq!(instance.get_container_x(), 15.0);
+assert_eq!(instance.get_container_y(), 20.0);
+assert_eq!(instance.get_container_width(), 5.0);
+assert_eq!(instance.get_container_height(), 700.0);
+
+assert_eq!(ei.get_property("embedded-width").unwrap(), instance.get_container_width().into());
+assert_eq!(ei.get_property("embedded-height").unwrap(), instance.get_container_height().into());
+assert_eq!(ei.get_property("embedded-x").unwrap(), slint_interpreter::Value::Number(0.0));
+assert_eq!(ei.get_property("embedded-y").unwrap(), slint_interpreter::Value::Number(0.0));
+```
+
+```js
+// Not supported yet
+```
+*/
