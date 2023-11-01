@@ -264,18 +264,17 @@ cpp! {{
             QString commit_string = event->commitString();
             QString preedit_string = event->preeditString();
             int replacement_start = event->replacementStart();
+            QStringView ime_text(this->ime_text);
+            replacement_start = replacement_start < 0 ?
+                -ime_text.mid(ime_cursor,-replacement_start).toUtf8().size() :
+                ime_text.mid(ime_cursor,replacement_start).toUtf8().size();
             int replacement_length = qMax(0, event->replacementLength());
-            if (replacement_start < 0) {
-                // Not sure if this can happen yet, but this way we can safely cast to usize below.
-                replacement_start = 0;
-                replacement_length = 0;
-            }
-
+            ime_text.mid(ime_cursor + replacement_start, replacement_length).toUtf8().size();
             int preedit_cursor = -1;
             for (const QInputMethodEvent::Attribute &attribute: event->attributes()) {
                 if (attribute.type == QInputMethodEvent::Cursor) {
                     if (attribute.length > 0) {
-                        preedit_cursor = attribute.start;
+                        preedit_cursor = QStringView(preedit_string).left(attribute.start).toUtf8().size();
                     }
                 }
             }
@@ -287,21 +286,13 @@ cpp! {{
 
                     let event = KeyEvent {
                         event_type: KeyEventType::UpdateComposition,
-                        text: preedit_string.to_string().into(),
-                        preedit_selection_start: replacement_start as usize,
-                        preedit_selection_end: replacement_start as usize + replacement_length as usize,
+                        text: i_slint_core::format!("{}", commit_string),
+                        preedit_text: i_slint_core::format!("{}", preedit_string),
+                        preedit_selection: (preedit_cursor >= 0).then_some(preedit_cursor..preedit_cursor),
+                        replacement_range: Some(replacement_start..replacement_start+replacement_length),
                         ..Default::default()
                     };
                     runtime_window.process_key_input(event);
-
-                    if !commit_string.is_empty() {
-                        let event = KeyEvent {
-                            event_type: KeyEventType::CommitComposition,
-                            text: commit_string.to_string().into(),
-                            ..Default::default()
-                        };
-                        runtime_window.process_key_input(event);
-                    }
                 });
         }
     };

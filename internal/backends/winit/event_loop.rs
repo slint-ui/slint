@@ -324,12 +324,10 @@ impl EventLoopState {
                 });
             }
             WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
-                let preedit_selection = preedit_selection.unwrap_or((0, 0));
                 let event = KeyEvent {
                     event_type: KeyEventType::UpdateComposition,
-                    text: string.into(),
-                    preedit_selection_start: preedit_selection.0,
-                    preedit_selection_end: preedit_selection.1,
+                    preedit_text: string.into(),
+                    preedit_selection: preedit_selection.map(|e| e.0 as i32..e.1 as i32),
                     ..Default::default()
                 };
                 runtime_window.process_key_input(event);

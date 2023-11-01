@@ -232,8 +232,8 @@ pub struct TextInput {
     pub single_line: Property<bool>,
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
-    pub preedit_selection_start: Property<i32>, // byte offset, relative to cursor
-    pub preedit_selection_end: Property<i32>,   // byte offset, relative to cursor
+    /// A selection within the preedit (cursor and anchor)
+    preedit_selection: Property<Option<core::ops::Range<i32>>>,
     pub cached_rendering_data: CachedRenderingData,
     // The x position where the cursor wants to be.
     // It is not updated when moving up and down even when the line is shorter.
@@ -385,7 +385,6 @@ impl Item for TextInput {
         if !self.enabled() {
             return KeyEventResult::EventIgnored;
         }
-
         match event.event_type {
             KeyEventType::KeyPressed => {
                 match event.text_shortcut() {
@@ -524,15 +523,16 @@ impl Item for TextInput {
 
                 KeyEventResult::EventAccepted
             }
-            KeyEventType::UpdateComposition => {
-                self.as_ref().preedit_text.set(event.text.clone());
+            KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
+                let cursor = self.cursor_position(&self.text()) as i32;
+                self.as_ref().preedit_text.set(event.preedit_text.clone());
+                self.as_ref().preedit_selection.set(event.preedit_selection.clone());
 
-                self.as_ref().preedit_selection_start.set(event.preedit_selection_start as i32);
-                self.as_ref().preedit_selection_end.set(event.preedit_selection_end as i32);
-
-                KeyEventResult::EventAccepted
-            }
-            KeyEventType::CommitComposition => {
+                if let Some(r) = &event.replacement_range {
+                    // Set the selection so the call to insert erases it
+                    self.anchor_position_byte_offset.set(cursor + r.start);
+                    self.cursor_position_byte_offset.set(cursor + r.end);
+                }
                 self.insert(&event.text, window_adapter, self_rc);
                 KeyEventResult::EventAccepted
             }
@@ -573,8 +573,6 @@ impl Item for TextInput {
                     if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
                         window_adapter.input_method_request(InputMethodRequest::Disable);
                         self.preedit_text.set(Default::default());
-                        self.preedit_selection_start.set(0);
-                        self.preedit_selection_end.set(0);
                     }
                 }
             }
@@ -673,6 +671,7 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
 /// This struct holds the fields needed for rendering a TextInput item after applying any
 /// on-going composition. This way the renderer's don't have to duplicate the code for extracting
 /// and applying the pre-edit text, cursor placement within, etc.
+#[derive(Debug)]
 pub struct TextInputVisualRepresentation {
     /// The text to be rendered including any pre-edit string
     pub text: String,
@@ -979,16 +978,12 @@ impl TextInput {
         anchor_pos != cursor_pos
     }
 
-    pub fn insert(
+    fn insert(
         self: Pin<&Self>,
         text_to_insert: &str,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) {
-        self.preedit_text.set(Default::default());
-        self.preedit_selection_start.set(0);
-        self.preedit_selection_end.set(0);
-
         self.delete_selection(window_adapter, self_rc);
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
@@ -1088,6 +1083,7 @@ impl TextInput {
         if let Some(text) = crate::platform::PLATFORM_INSTANCE
             .with(|p| p.get().and_then(|p| p.clipboard_text(clipboard)))
         {
+            self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);
         }
     }
@@ -1135,33 +1131,27 @@ impl TextInput {
         let mut text: String = self.text().into();
 
         let preedit_text = self.preedit_text();
-
         let (preedit_range, selection_range, cursor_position) = if !preedit_text.is_empty() {
             let cursor_position = self.cursor_position(&text);
 
             text.insert_str(cursor_position, &preedit_text);
-
-            let preedit_selection_start = self.preedit_selection_start() as usize;
-            let preedit_selection_end = self.preedit_selection_end() as usize;
-
-            let selection_range =
-                cursor_position + preedit_selection_start..cursor_position + preedit_selection_end;
-
             let preedit_range = cursor_position..cursor_position + preedit_text.len();
 
-            let cursor_position = Some(cursor_position + preedit_selection_end);
-
-            (preedit_range, selection_range, cursor_position)
+            if let Some(preedit_sel) = self.preedit_selection() {
+                let preedit_selection = cursor_position + preedit_sel.start as usize
+                    ..cursor_position + preedit_sel.end as usize;
+                (preedit_range, preedit_selection, Some(cursor_position + preedit_sel.end as usize))
+            } else {
+                let cur = preedit_range.end;
+                (preedit_range, cur..cur, None)
+            }
         } else {
             let preedit_range = Default::default();
-
             let (selection_anchor_pos, selection_cursor_pos) = self.selection_anchor_and_cursor();
             let selection_range = selection_anchor_pos..selection_cursor_pos;
-
             let cursor_position = self.cursor_position(&text);
             let cursor_visible = self.cursor_visible() && self.enabled() && !self.read_only();
             let cursor_position = if cursor_visible { Some(cursor_position) } else { None };
-
             (preedit_range, selection_range, cursor_position)
         };
 
