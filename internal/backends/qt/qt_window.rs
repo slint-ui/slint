@@ -83,7 +83,10 @@ cpp! {{
     struct SlintWidget : QWidget {
         void *rust_window;
         bool isMouseButtonDown = false;
-        QPoint ime_position;
+        QRect ime_position;
+        QString ime_text;
+        int ime_cursor;
+        int ime_anchor;
 
         SlintWidget() {
             setMouseTracking(true);
@@ -245,9 +248,13 @@ cpp! {{
 
         QVariant inputMethodQuery(Qt::InputMethodQuery query) const override {
             switch (query) {
-            case Qt::ImCursorRectangle: {
-                return QRect(ime_position.x(), ime_position.y(), 1, 1);
-            }
+            case Qt::ImCursorRectangle: return ime_position;
+            case Qt::ImCursorPosition: return ime_cursor;
+            case Qt::ImSurroundingText: return ime_text;
+            case Qt::ImCurrentSelection: return ime_text.mid(qMin(ime_cursor, ime_anchor), qAbs(ime_cursor - ime_anchor));
+            case Qt::ImAnchorPosition: return ime_anchor;
+            case Qt::ImTextBeforeCursor: return ime_text.left(ime_cursor);
+            case Qt::ImTextAfterCursor: return ime_text.right(ime_cursor);
             default: break;
             }
             return QWidget::inputMethodQuery(query);
@@ -1752,28 +1759,43 @@ impl WindowAdapterInternal for QtWindow {
 
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
         let widget_ptr = self.widget_ptr();
-        match request {
-            i_slint_core::window::InputMethodRequest::Enable { input_type, .. } => {
-                let enable: bool = matches!(input_type, i_slint_core::items::InputType::Text);
-                cpp! {unsafe [widget_ptr as "QWidget*", enable as "bool"] {
-                    widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, enable);
-                }};
-            }
-            i_slint_core::window::InputMethodRequest::Disable { .. } => {
+        let props = match request {
+            i_slint_core::window::InputMethodRequest::Enable(props) => {
                 cpp! {unsafe [widget_ptr as "QWidget*"] {
+                    widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, true);
+                }};
+                props
+            }
+            i_slint_core::window::InputMethodRequest::Disable => {
+                cpp! {unsafe [widget_ptr as "SlintWidget*"] {
+                    widget_ptr->ime_text = "";
+                    widget_ptr->ime_cursor = 0;
+                    widget_ptr->ime_anchor = 0;
                     widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, false);
                 }};
+                return;
             }
-            i_slint_core::window::InputMethodRequest::SetPosition { position, .. } => {
-                let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
-                let widget_ptr = self.widget_ptr();
-                cpp! {unsafe [widget_ptr as "SlintWidget*", pos as "QPoint"]  {
-                    widget_ptr->ime_position = pos;
-                    QGuiApplication::inputMethod()->update(Qt::ImQueryInput);
-                }};
-            }
-            _ => {}
-        }
+            i_slint_core::window::InputMethodRequest::Update(props) => props,
+            _ => return,
+        };
+
+        let rect = qttypes::QRectF {
+            x: props.cursor_rect_origin.x as _,
+            y: props.cursor_rect_origin.y as _,
+            width: props.cursor_rect_size.width as _,
+            height: props.cursor_rect_size.height as _,
+        };
+        let cursor: i32 = props.text[..props.cursor_position].encode_utf16().count() as _;
+        let anchor: i32 =
+            props.anchor_position.map_or(cursor, |a| props.text[..a].encode_utf16().count() as _);
+        let text: qttypes::QString = props.text.as_str().into();
+        cpp! {unsafe [widget_ptr as "SlintWidget*", rect as "QRectF", cursor as "int", anchor as "int", text as "QString"]  {
+            widget_ptr->ime_position = rect.toRect();
+            widget_ptr->ime_text = text;
+            widget_ptr->ime_cursor = cursor;
+            widget_ptr->ime_anchor = anchor;
+            QGuiApplication::inputMethod()->update(Qt::ImQueryInput);
+        }};
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

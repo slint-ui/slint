@@ -149,6 +149,10 @@ impl LogicalSize {
     pub(crate) fn to_euclid(self) -> crate::lengths::LogicalSize {
         [self.width as _, self.height as _].into()
     }
+
+    pub(crate) fn from_euclid(p: crate::lengths::LogicalSize) -> Self {
+        Self::new(p.width as _, p.height as _)
+    }
 }
 
 /// A size represented in the coordinate space of physical device pixels. That is the space after applying
