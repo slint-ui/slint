@@ -25,8 +25,10 @@ mod r#type;
 /// Each parser submodule would simply do `use super::prelude::*` to import typically used items
 mod prelude {
     #[cfg(test)]
+    pub use super::DefaultParser;
+    #[cfg(test)]
     pub use super::{syntax_nodes, SyntaxNode, SyntaxNodeVerify};
-    pub use super::{DefaultParser, Parser, SyntaxKind};
+    pub use super::{Parser, SyntaxKind};
     #[cfg(test)]
     pub use i_slint_parser_test_macro::parser_test;
 }
