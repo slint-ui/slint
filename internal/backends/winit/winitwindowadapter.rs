@@ -608,24 +608,30 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     fn input_method_request(&self, request: corelib::window::InputMethodRequest) {
         #[cfg(not(target_arch = "wasm32"))]
         self.with_window_handle(&mut |winit_window| {
-            match request {
-                corelib::window::InputMethodRequest::Enable { input_type, .. } => winit_window
-                    .set_ime_allowed(matches!(input_type, corelib::items::InputType::Text)),
-                corelib::window::InputMethodRequest::Disable { .. } => {
-                    winit_window.set_ime_allowed(false)
+            let props = match &request {
+                corelib::window::InputMethodRequest::Enable(props) => {
+                    winit_window.set_ime_allowed(true);
+                    props
                 }
-                corelib::window::InputMethodRequest::SetPosition { position, .. } => winit_window
-                    .set_ime_cursor_area(
-                        position_to_winit(&position.into()),
-                        winit::dpi::LogicalSize::new(1, 1),
-                    ),
-                _ => {}
+                corelib::window::InputMethodRequest::Disable => {
+                    return winit_window.set_ime_allowed(false)
+                }
+                corelib::window::InputMethodRequest::Update(props) => props,
+                _ => return,
             };
+            winit_window.set_ime_purpose(match props.input_type {
+                corelib::items::InputType::Password => winit::window::ImePurpose::Password,
+                _ => winit::window::ImePurpose::Normal,
+            });
+            winit_window.set_ime_cursor_area(
+                position_to_winit(&props.cursor_rect_origin.into()),
+                window_size_to_winit(&props.cursor_rect_size.into()),
+            );
         });
 
         #[cfg(target_arch = "wasm32")]
         match request {
-            corelib::window::InputMethodRequest::Enable { .. } => {
+            corelib::window::InputMethodRequest::Enable(..) => {
                 let mut vkh = self.virtual_keyboard_helper.borrow_mut();
                 let Some(canvas) = self.winit_window().canvas() else { return };
                 let h = vkh.get_or_insert_with(|| {
@@ -633,7 +639,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 });
                 h.show();
             }
-            corelib::window::InputMethodRequest::Disable { .. } => {
+            corelib::window::InputMethodRequest::Disable => {
                 if let Some(h) = &*self.virtual_keyboard_helper.borrow() {
                     h.hide()
                 }

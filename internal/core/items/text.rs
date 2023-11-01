@@ -23,7 +23,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, Scal
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::{InputMethodRequest, WindowAdapter, WindowInner};
+use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -544,7 +544,7 @@ impl Item for TextInput {
         self: Pin<&Self>,
         event: &FocusEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> FocusEventResult {
         match event {
             FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
@@ -553,10 +553,10 @@ impl Item for TextInput {
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
                 // FIXME: This should be tracked by a PropertyTracker in window and toggled when read_only() toggles.
                 if !self.read_only() {
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.input_method_request(InputMethodRequest::Enable {
-                            input_type: self.input_type(),
-                        });
+                    if let Some(w) = window_adapter.internal(crate::InternalToken) {
+                        w.input_method_request(InputMethodRequest::Enable(
+                            self.ime_properties(window_adapter, self_rc),
+                        ));
                     }
                 }
             }
@@ -571,7 +571,7 @@ impl Item for TextInput {
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 if !self.read_only() {
                     if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.input_method_request(InputMethodRequest::Disable {});
+                        window_adapter.input_method_request(InputMethodRequest::Disable);
                         self.preedit_text.set(Default::default());
                         self.preedit_selection_start.set(0);
                         self.preedit_selection_end.set(0);
@@ -878,26 +878,18 @@ impl TextInput {
                 self.preferred_x_pos.set(pos.x);
             }
             Self::FIELD_OFFSETS.cursor_position_changed.apply_pin(self).call(&(pos,));
-            self.update_ime_position(window_adapter, self_rc);
+            self.update_ime(window_adapter, self_rc);
         }
     }
 
-    fn update_ime_position(
-        self: Pin<&Self>,
-        window_adapter: &Rc<dyn WindowAdapter>,
-        self_rc: &ItemRc,
-    ) {
+    fn update_ime(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         if self.read_only() {
             return;
         }
         if let Some(w) = window_adapter.internal(crate::InternalToken) {
-            let cursor_position = self.cursor_position(&self.text());
-            let cursor_point_relative =
-                self.cursor_rect_for_byte_offset(cursor_position, window_adapter).to_box2d().max;
-            let cursor_point_absolute = self_rc.map_to_window(cursor_point_relative);
-            w.input_method_request(InputMethodRequest::SetPosition {
-                position: crate::api::LogicalPosition::from_euclid(cursor_point_absolute),
-            });
+            w.input_method_request(InputMethodRequest::Update(
+                self.ime_properties(window_adapter, self_rc),
+            ));
         }
     }
 
@@ -941,6 +933,31 @@ impl TextInput {
 
     pub fn cursor_position(self: Pin<&Self>, text: &str) -> usize {
         safe_byte_offset(self.cursor_position_byte_offset(), text)
+    }
+
+    fn ime_properties(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) -> InputMethodProperties {
+        let text = self.text();
+        let cursor_position = self.cursor_position(&text);
+        let anchor_position = self.anchor_position(&text);
+        let cursor_relative = self.cursor_rect_for_byte_offset(cursor_position, window_adapter);
+        let cursor_rect_origin =
+            crate::api::LogicalPosition::from_euclid(self_rc.map_to_window(cursor_relative.origin));
+        let cursor_rect_size = crate::api::LogicalSize::from_euclid(cursor_relative.size);
+
+        InputMethodProperties {
+            text,
+            cursor_position,
+            anchor_position: (cursor_position != anchor_position).then_some(anchor_position),
+            preedit_text: self.preedit_text(),
+            preedit_offset: cursor_position,
+            cursor_rect_origin,
+            cursor_rect_size,
+            input_type: self.input_type(),
+        }
     }
 
     // Avoid accessing self.cursor_position()/self.anchor_position() directly, always
