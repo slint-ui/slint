@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { CheckBox, StandardListView, StyleMetrics } from "std-widgets.slint";
-import { AboutPage, ControlsPage, ListViewPage, TableViewPage, TableViewPageAdapter, TextEditPage } from "ui/pages/pages.slint";
+import { AboutPage, ControlsPage, EasingsPage, ListViewPage, TableViewPage, TableViewPageAdapter, TextEditPage } from "ui/pages/pages.slint";
 import { GallerySettings } from "ui/gallery_settings.slint";
 import { SideBar } from "ui/side_bar.slint";
 
@@ -17,13 +17,14 @@ component App inherits Window {
     HorizontalLayout {
         side-bar := SideBar {
             title: @tr("Slint Widgets Gallery");
-            model: [@tr("Menu" => "Controls"), @tr("Menu" => "ListView"), @tr("Menu" => "TableView"), @tr("Menu" => "TextEdit"), @tr("Menu" => "About")];
+            model: [@tr("Menu" => "Controls"), @tr("Menu" => "ListView"), @tr("Menu" => "TableView"), @tr("Menu" => "TextEdit"), @tr("Menu" => "Easings"), @tr("Menu" => "About")];
         }
 
         if(side-bar.current-item == 0) : ControlsPage {}
         if(side-bar.current-item == 1) : ListViewPage {}
         if(side-bar.current-item == 2) : TableViewPage {}
         if(side-bar.current-item == 3) : TextEditPage {}
-        if(side-bar.current-item == 4) : AboutPage {}
+        if(side-bar.current-item == 4) : EasingsPage {}
+        if(side-bar.current-item == 5) : AboutPage {}
     }
 }

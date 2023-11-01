@@ -2821,12 +2821,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             "slint::cbindgen_private::EasingCurve(slint::cbindgen_private::EasingCurve::Tag::CubicBezier, {}, {}, {}, {})",
             a, b, c, d
         ),
-        Expression::EasingCurve(EasingCurve::EaseInElastic) => "slint::cbindgen_private::EasingCurve()".into(),
-        Expression::EasingCurve(EasingCurve::EaseOutElastic) => "slint::cbindgen_private::EasingCurve()".into(),
-        Expression::EasingCurve(EasingCurve::EaseInOutElastic) => "slint::cbindgen_private::EasingCurve()".into(),
-        Expression::EasingCurve(EasingCurve::EaseInBounce) => "slint::cbindgen_private::EasingCurve()".into(),
-        Expression::EasingCurve(EasingCurve::EaseOutBounce) => "slint::cbindgen_private::EasingCurve()".into(),
-        Expression::EasingCurve(EasingCurve::EaseInOutBounce) => "slint::cbindgen_private::EasingCurve()".into(),
+        Expression::EasingCurve(EasingCurve::EaseInElastic) => "slint::cbindgen_private::EasingCurve::Tag::EaseInElastic".into(),
+        Expression::EasingCurve(EasingCurve::EaseOutElastic) => "slint::cbindgen_private::EasingCurve::Tag::EaseOutElastic".into(),
+        Expression::EasingCurve(EasingCurve::EaseInOutElastic) => "slint::cbindgen_private::EasingCurve::Tag::EaseInOutElastic".into(),
+        Expression::EasingCurve(EasingCurve::EaseInBounce) => "slint::cbindgen_private::EasingCurve::Tag::EaseInBounce".into(),
+        Expression::EasingCurve(EasingCurve::EaseOutBounce) => "slint::cbindgen_private::EasingCurve::Tag::EaseOutElastic".into(),
+        Expression::EasingCurve(EasingCurve::EaseInOutBounce) => "slint::cbindgen_private::EasingCurve::Tag::EaseInOutElastic".into(),
         Expression::LinearGradient{angle, stops} => {
             let angle = compile_expression(angle, ctx);
             let mut stops_it = stops.iter().map(|(color, stop)| {

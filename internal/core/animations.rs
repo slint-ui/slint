@@ -296,14 +296,14 @@ fn ease_out_bounce_curve(value: f32) -> f32 {
     if value < 1.0 / D1 {
         N1 * value * value
     } else if value < 2.0 / D1 {
-        let value2 = value - 1.5 / D1;
-        N1 * value2 * value2 + 0.75
+        let value = value - (1.5 / D1);
+        N1 * value * value + 0.75
     } else if value < 2.5 / D1 {
-        let value2 = value - 2.25 / D1;
-        N1 * value2 * value2 + 0.9375
+        let value = value - (2.25 / D1);
+        N1 * value * value + 0.9375
     } else {
-        let value2 = value - 2.25 / D1;
-        N1 * value2 * value2 + 0.984375
+        let value = value - (2.625 / D1);
+        N1 * value * value + 0.984375
     }
 }
 
@@ -324,7 +324,7 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
             curve.y(curve.solve_t_for_x(value, 0.0..1.0, 0.01))
         }
         EasingCurve::EaseInElastic => {
-            const C4: f32 = 2.0 * std::f32::consts::PI / 3.0;
+            const C4: f32 = 2.0 * core::f32::consts::PI / 3.0;
 
             if value == 0.0 {
                 0.0
@@ -335,7 +335,7 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
             }
         }
         EasingCurve::EaseOutElastic => {
-            let c4 = (2.0 * std::f32::consts::PI) / 3.0;
+            let c4 = (2.0 * core::f32::consts::PI) / 3.0;
 
             if value == 0.0 {
                 0.0
@@ -346,7 +346,7 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
             }
         }
         EasingCurve::EaseInOutElastic => {
-            const C5: f32 = 2.0 * std::f32::consts::PI / 4.5;
+            const C5: f32 = 2.0 * core::f32::consts::PI / 4.5;
 
             if value == 0.0 {
                 0.0
