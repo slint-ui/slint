@@ -50,4 +50,14 @@ export X := Rectangle {
 //                               ^error{Cannot convert string to int}  (FIXME: error location)
 //                               ^^error{Cannot convert string to int}  (FIXME: duplicated)
 
+    property <int> arr1: [];
+//                       ^error{Cannot convert \[void\] to int}
+
+    property <{a: int}> arr2: {a: []};
+    //                        ^error{Cannot convert \[void\] to int}
+
+    property <int> arr3: false ? [] : 45;  //(FIXME: error not ideal)
+//                                    ^error{Cannot convert float to \[void\]}
+//                       ^^error{Cannot convert void to int}
+
 }
