@@ -12,7 +12,7 @@ use crate::SlintUserEvent;
 use copypasta::ClipboardProvider;
 use corelib::api::EventLoopError;
 use corelib::graphics::euclid;
-use corelib::input::{KeyEventType, KeyInputEvent, MouseEvent};
+use corelib::input::{KeyEvent, KeyEventType, MouseEvent};
 use corelib::items::PointerEventButton;
 use corelib::lengths::LogicalPoint;
 use corelib::platform::PlatformError;
@@ -325,16 +325,17 @@ impl EventLoopState {
             }
             WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
                 let preedit_selection = preedit_selection.unwrap_or((0, 0));
-                let event = KeyInputEvent {
+                let event = KeyEvent {
                     event_type: KeyEventType::UpdateComposition,
                     text: string.into(),
                     preedit_selection_start: preedit_selection.0,
                     preedit_selection_end: preedit_selection.1,
+                    ..Default::default()
                 };
                 runtime_window.process_key_input(event);
             }
             WindowEvent::Ime(winit::event::Ime::Commit(string)) => {
-                let event = KeyInputEvent {
+                let event = KeyEvent {
                     event_type: KeyEventType::CommitComposition,
                     text: string.into(),
                     ..Default::default()

@@ -9,7 +9,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #[cfg(target_has_atomic = "ptr")]
 pub use crate::future::*;
-use crate::input::{KeyEventType, KeyInputEvent, MouseEvent};
+use crate::input::{KeyEventType, MouseEvent};
 use crate::item_tree::ItemTreeVTable;
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
@@ -486,14 +486,14 @@ impl Window {
             }
 
             crate::platform::WindowEvent::KeyPressed { text } => {
-                self.0.process_key_input(KeyInputEvent {
+                self.0.process_key_input(crate::input::KeyEvent {
                     text,
                     event_type: KeyEventType::KeyPressed,
                     ..Default::default()
                 })
             }
             crate::platform::WindowEvent::KeyReleased { text } => {
-                self.0.process_key_input(KeyInputEvent {
+                self.0.process_key_input(crate::input::KeyEvent {
                     text,
                     event_type: KeyEventType::KeyReleased,
                     ..Default::default()

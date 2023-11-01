@@ -177,12 +177,6 @@ public:
         cbindgen_private::slint_windowrc_set_physical_size(&inner, &size);
     }
 
-    void dispatch_key_event(const cbindgen_private::KeyInputEvent &event)
-    {
-        private_api::assert_main_thread();
-        cbindgen_private::slint_windowrc_dispatch_key_event(&inner, &event);
-    }
-
     /// Send a pointer event to this window
     void dispatch_pointer_event(const cbindgen_private::MouseEvent &event)
     {
@@ -333,9 +327,9 @@ public:
     /// The \a text is the unicode representation of the key.
     void dispatch_key_press_event(const SharedString &text)
     {
-        cbindgen_private::KeyInputEvent event { text, cbindgen_private::KeyEventType::KeyPressed, 0,
-                                                0 };
-        inner.dispatch_key_event(event);
+        private_api::assert_main_thread();
+        cbindgen_private::slint_windowrc_dispatch_key_event(
+                &inner.handle(), cbindgen_private::KeyEventType::KeyPressed, &text);
     }
 
     /// Dispatch a key release event to the scene.
@@ -345,9 +339,9 @@ public:
     /// The \a text is the unicode representation of the key.
     void dispatch_key_release_event(const SharedString &text)
     {
-        cbindgen_private::KeyInputEvent event { text, cbindgen_private::KeyEventType::KeyReleased,
-                                                0, 0 };
-        inner.dispatch_key_event(event);
+        private_api::assert_main_thread();
+        cbindgen_private::slint_windowrc_dispatch_key_event(
+                &inner.handle(), cbindgen_private::KeyEventType::KeyReleased, &text);
     }
 
     /// Dispatches a pointer or mouse press event to the scene.

@@ -10,7 +10,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Image, Point, SharedImageBuffer};
-use i_slint_core::input::{KeyEventType, KeyInputEvent, MouseEvent};
+use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
@@ -285,16 +285,17 @@ cpp! {{
                 preedit_cursor: i32 as "int"] {
                     let runtime_window = WindowInner::from_pub(&rust_window.window);
 
-                    let event = KeyInputEvent {
+                    let event = KeyEvent {
                         event_type: KeyEventType::UpdateComposition,
                         text: preedit_string.to_string().into(),
                         preedit_selection_start: replacement_start as usize,
                         preedit_selection_end: replacement_start as usize + replacement_length as usize,
+                        ..Default::default()
                     };
                     runtime_window.process_key_input(event);
 
                     if !commit_string.is_empty() {
-                        let event = KeyInputEvent {
+                        let event = KeyEvent {
                             event_type: KeyEventType::CommitComposition,
                             text: commit_string.to_string().into(),
                             ..Default::default()
