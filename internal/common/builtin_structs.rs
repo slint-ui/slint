@@ -104,6 +104,7 @@ macro_rules! for_each_builtin_structs {
                     preedit_selection: Option<core::ops::Range<i32>>,
                     /// The new cursor position, when None, the cursor is put after the text that was just inserted
                     cursor_position: Option<i32>,
+                    anchor_position: Option<i32>,
                 }
             }
 

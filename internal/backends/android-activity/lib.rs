@@ -6,7 +6,9 @@
 #![cfg(target_os = "android")]
 
 pub use android_activity;
-use android_activity::input::{InputEvent, KeyAction, Keycode, MotionAction, MotionEvent};
+use android_activity::input::{
+    InputEvent, KeyAction, Keycode, MotionAction, MotionEvent, TextInputState, TextSpan,
+};
 pub use android_activity::AndroidApp;
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use core::ops::ControlFlow;
@@ -194,15 +196,33 @@ impl WindowAdapter for AndroidWindowAdapter {
 
 impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
-        match request {
-            i_slint_core::window::InputMethodRequest::Enable { .. } => {
+        let props = match request {
+            i_slint_core::window::InputMethodRequest::Enable(props) => {
                 self.app.show_soft_input(true);
+                props
             }
-            i_slint_core::window::InputMethodRequest::Disable { .. } => {
+            i_slint_core::window::InputMethodRequest::Update(props) => props,
+            i_slint_core::window::InputMethodRequest::Disable => {
                 self.app.hide_soft_input(true);
+                return;
             }
-            _ => {}
+            _ => return,
         };
+        let mut text = props.text.to_string();
+        if !props.preedit_text.is_empty() {
+            text.insert_str(props.preedit_offset, props.preedit_text.as_str());
+        }
+        self.app.set_text_input_state(TextInputState {
+            text,
+            selection: TextSpan {
+                start: props.anchor_position.unwrap_or(props.cursor_position),
+                end: props.cursor_position,
+            },
+            compose_region: (!props.preedit_text.is_empty()).then_some(TextSpan {
+                start: props.preedit_offset,
+                end: props.preedit_offset + props.preedit_text.len(),
+            }),
+        });
     }
 }
 
@@ -340,6 +360,39 @@ impl AndroidWindowAdapter {
                     MotionAction::HoverEnter | MotionAction::HoverExit => InputStatus::Unhandled,
                     _ => InputStatus::Unhandled,
                 },
+                InputEvent::TextEvent(state) => {
+                    let runtime_window = i_slint_core::window::WindowInner::from_pub(&self.window);
+                    // remove the pre_edit
+                    let event = if let Some(r) = state.compose_region {
+                        let adjust =
+                            |pos| if pos > r.start { pos - r.start + r.end } else { pos } as i32;
+                        i_slint_core::input::KeyEvent {
+                            event_type: i_slint_core::input::KeyEventType::UpdateComposition,
+                            text: i_slint_core::format!(
+                                "{}{}",
+                                &state.text[..r.start],
+                                &state.text[r.end..]
+                            ),
+                            preedit_text: state.text[r.start..r.end].into(),
+                            preedit_selection: Some(0..(r.end - r.start) as i32),
+                            replacement_range: Some(i32::MIN..i32::MAX),
+                            cursor_position: Some(adjust(state.selection.end)),
+                            anchor_position: Some(adjust(state.selection.start)),
+                            ..Default::default()
+                        }
+                    } else {
+                        i_slint_core::input::KeyEvent {
+                            event_type: i_slint_core::input::KeyEventType::CommitComposition,
+                            text: state.text.as_str().into(),
+                            replacement_range: Some(i32::MIN..i32::MAX),
+                            cursor_position: Some(state.selection.end as _),
+                            anchor_position: Some(state.selection.start as _),
+                            ..Default::default()
+                        }
+                    };
+                    runtime_window.process_key_input(event);
+                    InputStatus::Handled
+                }
                 _ => InputStatus::Unhandled,
             });
 
