@@ -349,8 +349,9 @@ impl ImageInner {
     /// Return or render the image into a buffer
     ///
     /// `target_size_for_scalable_source` is the size to use if the image is scalable.
+    /// (when unspecified, will default to the intrinsic size of the image)
     ///
-    /// Returns None if the image can't be rendered in a buffer
+    /// Returns None if the image can't be rendered in a buffer or if the image is empty
     pub fn render_to_buffer(
         &self,
         _target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
@@ -358,15 +359,15 @@ impl ImageInner {
         match self {
             ImageInner::EmbeddedImage { buffer, .. } => Some(buffer.clone()),
             #[cfg(feature = "svg")]
-            ImageInner::Svg(svg) => {
-                match svg.render(_target_size_for_scalable_source.unwrap_or_default()) {
-                    Ok(b) => Some(b),
-                    Err(err) => {
-                        eprintln!("Error rendering SVG: {}", err);
-                        None
-                    }
+            ImageInner::Svg(svg) => match svg.render(_target_size_for_scalable_source) {
+                Ok(b) => Some(b),
+                // Ignore error when rendering a 0x0 image, that's just an empty image
+                Err(resvg::usvg::Error::InvalidSize) => None,
+                Err(err) => {
+                    eprintln!("Error rendering SVG: {err}");
+                    None
                 }
-            }
+            },
             ImageInner::StaticTextures(ts) => {
                 let mut buffer =
                     SharedPixelBuffer::<Rgba8Pixel>::new(ts.size.width, ts.size.height);

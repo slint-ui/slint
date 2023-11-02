@@ -8,7 +8,6 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use i_slint_core::api::{LogicalPosition, PhysicalSize as PhysicalWindowSize};
-use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::Image;
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::WindowEvent;
@@ -97,7 +96,7 @@ fn mouse_cursor_image() -> Image {
     let mouse_pointer_inner: &i_slint_core::graphics::ImageInner = (&mouse_pointer_svg).into();
     match mouse_pointer_inner {
         i_slint_core::ImageInner::Svg(svg) => {
-            let pixels = svg.render(euclid::Size2D::from_untyped(svg.size())).unwrap();
+            let pixels = svg.render(None).unwrap();
             let cache_key = svg.cache_key();
             let mouse_pointer_pixel_image = i_slint_core::graphics::ImageInner::EmbeddedImage {
                 cache_key: cache_key.clone(),
