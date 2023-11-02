@@ -53,31 +53,6 @@ impl PreviewApi for Previewer {
         }
     }
 
-    fn request_state(&self, _ctx: &Rc<crate::language::Context>) {
-        #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-        {
-            let documents = &_ctx.document_cache.borrow().documents;
-
-            for (p, d) in documents.all_file_documents() {
-                let Some(node) = &d.node else {
-                    continue;
-                };
-                self.set_contents(p, &node.text().to_string());
-            }
-            let cc = &documents.compiler_config;
-            let empty = String::new();
-            self.config_changed(
-                cc.style.as_ref().unwrap_or(&empty),
-                &cc.include_paths,
-                &cc.library_paths,
-            );
-
-            if let Some(c) = self.to_show.take() {
-                self.load_preview(c);
-            }
-        }
-    }
-
     fn set_contents(&self, _path: &std::path::Path, _contents: &str) {
         if *self.use_external_previewer.borrow() {
             #[cfg(feature = "preview-external")]
@@ -172,6 +147,10 @@ impl PreviewApi for Previewer {
                 Ok(())
             }
         }
+    }
+
+    fn current_component(&self) -> Option<crate::common::PreviewComponent> {
+        self.to_show.borrow().clone()
     }
 }
 
@@ -492,7 +471,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                     ctx.preview.set_use_external_previewer(is_external);
                 }
                 M::RequestState { .. } => {
-                    ctx.preview.request_state(ctx);
+                    crate::language::request_state(ctx);
                 }
             }
         }
