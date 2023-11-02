@@ -601,7 +601,7 @@ fn gen_corelib(
         "CachedRenderingData".to_owned(),
         "    constexpr CachedRenderingData() : cache_index{}, cache_generation{} {}".to_owned(),
     );
-    config.export.body.insert( 
+    config.export.body.insert(
         "EasingCurve".to_owned(), 
         "    constexpr EasingCurve(EasingCurve::Tag tag = Tag::Linear , float a = 0, float b = 0, float c = 1, float d = 1) : tag(tag), cubic_bezier{{a,b,c,d}} {}".into() 
     );
