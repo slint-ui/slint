@@ -6,7 +6,7 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 
 # Slint Android Activity Backend
 
-This crate implements the android backend/platform for Slint.
+This crate implements the Android backend/platform for Slint.
 
 It uses the [android-activity](https://github.com/rust-mobile/android-activity) crate
 to initialize the app and provide events handling.
@@ -22,7 +22,7 @@ It is crucial that the version of this crate matches the version of Slint you ar
 To specify the exact version of this crate, include the `=` symbol in the version string.
 
 You are required to add either the `native-activity` or the `game-activity` feature.
-The `native-activity` feature is a good starting point as it does not require Java stub.
+The `native-activity` feature is a good starting point as it does not require Java stubs.
 However, it is more limited and may not work well with keyboard input.
 For more details, refer to the [documentation of android-activity](https://github.com/rust-mobile/android-activity#should-i-use-nativeactivity-or-gameactivity).
 
@@ -40,7 +40,7 @@ i-slint-backend-android-activity = { version = "=1.3.0", features = ["native-act
 ```
 
 As with any application using `android-activity`, you need to implement the `android_init` function as `#[no_mangle]`.
-In it, create a [`AndroidPlatform`] which you give to [`slint::platform::set_platform`][i_slint_core::platform::set_platform].
+In it, create a [`AndroidPlatform`] and pass it to [`slint::platform::set_platform`][i_slint_core::platform::set_platform].
 
 Here is an example:
 
