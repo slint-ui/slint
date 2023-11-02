@@ -201,6 +201,7 @@ pub fn generate(doc: &Document) -> TokenStream {
         #[allow(clippy::cmp_owned)] // The generated code will do this
         #[allow(clippy::redundant_clone)] // TODO: We clone properties more often then needed
                                           // according to clippy!
+        #[allow(clippy::overly_complex_bool_expr)]
         mod #compo_module {
             use slint::private_unstable_api::re_exports::*;
             use slint::private_unstable_api::re_exports as sp;
