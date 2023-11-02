@@ -61,7 +61,6 @@ jobs:
           - "https://github.com/lechos22/p2ptun"
           - "https://github.com/ChronosWS/asma"
           - "https://github.com/LeeeSe/MessAuto"
-          - "https://github.com/Martoni/QRNote"
           - "https://github.com/jpnurmi/jpos-weather"
           - "https://github.com/zebra-sh/zebra-pass"
           - "https://github.com/planet0104/satellite_wallpaper"
@@ -109,7 +108,7 @@ jobs:
           #  sub_path: "bin/tasker_gui"
           - git_url: "https://github.com/matthiasbeyer/distrox"
             sub_path: "distrox-gui"
-          - git_url: "https://github.com/Kllngii/Wetterstation/tree/main/wetterstation-ui"
+          - git_url: "https://github.com/Kllngii/Wetterstation"
             sub_path: "wetterstation-ui"
           - git_url: "https://github.com/plule/theremotion"
             sub_path: "theremotion-ui"
@@ -117,6 +116,9 @@ jobs:
             sub_path: "frontend"
           - git_url: "https://github.com/malwaredb/malwaredb-rs"
             extra_args: "--features=admin-gui"
+            sub_path: "."
+          - git_url: "https://github.com/Martoni/QRNote"
+            sub_path: "qr-note"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
