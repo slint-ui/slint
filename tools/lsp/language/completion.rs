@@ -912,9 +912,9 @@ mod tests {
         res.iter().find(|ci| ci.label == "ease-in").unwrap();
         res.iter().find(|ci| ci.label == "ease-out").unwrap();
         res.iter().find(|ci| ci.label == "ease-in-out").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-quartic").unwrap();
-        res.iter().find(|ci| ci.label == "ease-out-quartic").unwrap();
-        res.iter().find(|ci| ci.label == "ease-in-out-quartic").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-quart").unwrap();
+        res.iter().find(|ci| ci.label == "ease-out-quart").unwrap();
+        res.iter().find(|ci| ci.label == "ease-in-out-quart").unwrap();
         res.iter().find(|ci| ci.label == "ease-in-quint").unwrap();
         res.iter().find(|ci| ci.label == "ease-out-quint").unwrap();
         res.iter().find(|ci| ci.label == "ease-in-out-quint").unwrap();
