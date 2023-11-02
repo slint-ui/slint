@@ -6,7 +6,6 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    rc::Rc,
 };
 
 pub type Error = Box<dyn std::error::Error>;
@@ -16,7 +15,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// ServerNotifier
 pub trait PreviewApi {
     fn set_use_external_previewer(&self, use_external: bool);
-    fn request_state(&self, ctx: &Rc<crate::language::Context>);
     fn set_contents(&self, path: &Path, contents: &str);
     fn load_preview(&self, component: PreviewComponent);
     fn config_changed(
@@ -26,6 +24,9 @@ pub trait PreviewApi {
         library_paths: &HashMap<String, PathBuf>,
     );
     fn highlight(&self, path: Option<PathBuf>, offset: u32) -> Result<()>;
+
+    /// What is the current component to preview?
+    fn current_component(&self) -> Option<PreviewComponent>;
 }
 
 /// The Component to preview

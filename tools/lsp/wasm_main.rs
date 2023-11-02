@@ -53,30 +53,6 @@ impl PreviewApi for Previewer {
         // The WASM LSP always needs to use the WASM preview!
     }
 
-    fn request_state(&self, ctx: &std::rc::Rc<crate::language::Context>) {
-        #[cfg(feature = "preview-external")]
-        {
-            let documents = &ctx.document_cache.borrow().documents;
-
-            for (p, d) in documents.all_file_documents() {
-                let Some(node) = &d.node else {
-                    continue;
-                };
-                self.set_contents(p, &node.text().to_string());
-            }
-            let style = documents.compiler_config.style.clone().unwrap_or_default();
-            self.config_changed(
-                &style,
-                &documents.compiler_config.include_paths,
-                &documents.compiler_config.library_paths,
-            );
-
-            if let Some(c) = self.to_show.take() {
-                self.load_preview(c);
-            }
-        }
-    }
-
     fn set_contents(&self, path: &std::path::Path, contents: &str) {
         #[cfg(feature = "preview-external")]
         let _ = self.server_notifier.send_notification(
@@ -145,6 +121,10 @@ impl PreviewApi for Previewer {
             },
         )
     }
+
+    fn current_component(&self) -> Option<crate::common::PreviewComponent> {
+        self.to_show.borrow().clone()
+    }
 }
 
 #[derive(Clone)]
@@ -152,6 +132,7 @@ pub struct ServerNotifier {
     send_notification: Function,
     send_request: Function,
 }
+
 impl ServerNotifier {
     pub fn send_notification(&self, method: String, params: impl Serialize) -> Result<()> {
         self.send_notification
@@ -346,7 +327,7 @@ impl SlintServer {
                 // Nothing to do!
             }
             M::RequestState { .. } => {
-                // Nothing to do!
+                crate::language::request_state(&self.ctx);
             }
         }
         Ok(())
