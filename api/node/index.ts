@@ -361,8 +361,6 @@ export interface LoadFileOptions {
     libraryPaths?: Record<string, string>;
 }
 
-class SlintGlobal {}
-
 /**
  * Loads the given slint file and returns an objects that contains a functions to construct the exported
  * component of the slint file.
@@ -476,7 +474,7 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
                 if (componentHandle[globalName] !== undefined) {
                     console.warn("Duplicated property name " + globalName);
                 } else {
-                    let globalObject = new SlintGlobal;
+                    let globalObject = Object.create({});
 
                     instance!.definition().globalProperties(globalName).forEach((prop) => {
                         let propName = prop.name.replace(/-/g, "_");
