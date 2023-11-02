@@ -7,6 +7,7 @@ import { StateLayer } from "../components/state_layer.slint";
 export component FloatButton {
     in property <image> icon <=> i-icon.source;
     in property <bool> enabled <=> i-state-layer.enabled;
+
     callback clicked <=> i-state-layer.clicked;
 
     min_width: 50px;

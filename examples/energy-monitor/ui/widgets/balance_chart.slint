@@ -39,8 +39,6 @@ component DownBar {
 }
 
 export component BalanceChart {
-    private property <length> zero: root.height * (1 - (0. - min) / (max - min));
-
     in property <float> min;
     in property <float> max;
     in property <[string]> x-axis-model;
@@ -48,6 +46,8 @@ export component BalanceChart {
     in property <string> y-unit;
     in property <[float]> model;
     in property <bool> active;
+
+    private property <length> zero: root.height * (1 - (0. - min) / (max - min));
 
     i-zero-pattern := ChartPattern {
         preferred-width: 100%;

@@ -25,6 +25,7 @@ export component Demo inherits Window {
             title: "Info";
             GridBox {
                 Row { Rectangle {} }
+
                 Row {
                     Text {
                         colspan: 2;
@@ -34,6 +35,7 @@ export component Demo inherits Window {
                         font-weight: 600;
                     }
                 }
+
                 Row {
                     HorizontalLayout {
                         colspan: 2;
@@ -43,45 +45,55 @@ export component Demo inherits Window {
                         }
                     }
                 }
+
                 Row {
                     Text { text: "Firmware vendor:"; horizontal-alignment: right;  }
                     Text { text: firmware-vendor; }
                 }
+
                 Row {
                     Text { text: "Firmware version:"; horizontal-alignment: right; }
                     Text { text: firmware-version; }
                 }
+
                 Row {
                     Text { text: "UEFI version:"; horizontal-alignment: right; }
                     Text { text: uefi-version; }
                 }
+
                 Row {
                     Text { text: "Secure boot:"; horizontal-alignment: right; }
                     Text { text: secure-boot ? "enabled" : "disabled"; }
                 }
+
                 Row {
                     Text { text: "Resolution:"; horizontal-alignment: right; }
                     Text { text: "\{floor(root.width / 1px)}x\{floor(root.height / 1px)}"; }
                 }
+
                 Row { Rectangle {} }
             }
         }
 
         Tab {
             title: "Widgets";
+
             VerticalBox {
                 enabler := Button {
                     checked: true;
                     checkable: true;
                     text: "Widgets enabled";
                 }
+
                 LineEdit {
                     enabled: enabler.checked;
                     placeholder-text: "Edit Me!";
                 }
+
                 Slider {
                     enabled: enabler.checked;
                 }
+
                 StandardListView {
                     vertical-stretch: 1;
                     enabled: enabler.checked;
@@ -91,8 +103,10 @@ export component Demo inherits Window {
                         { text: "Earth" }, { text: "Langara" },  { text: "Tollana"},
                     ];
                 }
+
                 HorizontalBox {
                     alignment: center;
+
                     StandardButton { enabled: enabler.checked; kind: ok; }
                     StandardButton { enabled: enabler.checked; kind: reset; }
                     StandardButton { enabled: enabler.checked; kind: abort; }
@@ -102,6 +116,7 @@ export component Demo inherits Window {
 
         Tab {
             title: "V-Sync";
+
             Rectangle {
                 for color[index] in [
                         #fff, #f00, #0f0,

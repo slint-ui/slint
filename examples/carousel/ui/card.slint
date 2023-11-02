@@ -5,11 +5,12 @@ import { Theme } from "theme.slint";
 import { TitleLabel } from "title_label.slint";
 
 export component Card inherits Rectangle {
-    callback clicked <=> touch-area.clicked;
-
     in property <string> title: "title";
     in property <bool> is-selected: false;
     in property <image> image-source <=> image.source;
+
+    callback clicked <=> touch-area.clicked;
+
     private property <length> spacing: Theme.spacing-medium;
     private property <length> title-spacing: Theme.spacing-medium;
     private property <length> title-area-height: Theme.size-small;
@@ -19,27 +20,6 @@ export component Card inherits Rectangle {
     width: Theme.size-medium;
     height: Theme.size-medium;
     clip: false;
-
-    touch-area := TouchArea {}
-
-    image := Image {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: 80%;
-        height: 80%;
-        colorize: Theme.foreground;
-
-        animate colorize { duration: Theme.duration-fast; }
-    }
-
-    // Selection text
-    title-label := TitleLabel {
-        x: (parent.width - self.width) / 2;
-        y: parent.height;
-        text <=> root.title;
-        visible: false;
-        color: Theme.foreground;
-    }
 
     states [
         pressed-selected when touch-area.pressed && root.is-selected  : {
@@ -77,4 +57,25 @@ export component Card inherits Rectangle {
      animate width { duration: Theme.duration-regular; easing: ease-in; }
      animate height { duration: Theme.duration-regular; easing: ease-in; }
      animate background { duration: Theme.duration-fast; }
+
+    touch-area := TouchArea {}
+
+    image := Image {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 80%;
+        height: 80%;
+        colorize: Theme.foreground;
+
+        animate colorize { duration: Theme.duration-fast; }
+    }
+
+    // Selection text
+    title-label := TitleLabel {
+        x: (parent.width - self.width) / 2;
+        y: parent.height;
+        text <=> root.title;
+        visible: false;
+        color: Theme.foreground;
+    }
 }

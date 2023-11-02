@@ -8,9 +8,9 @@ import { Theme } from "../theme.slint";
 component ScrollBar {
     private property <length> ref-width: self.width - 4px;
 
-    in-out property<length> page-size;
-    in-out property<length> value;
-    in-out property<length> maximum;
+    in-out property <length> page-size;
+    in-out property <length> value;
+    in-out property <length> maximum;
     in property <bool> enabled <=> i-ta.enabled;
 
     min-height: 14px;

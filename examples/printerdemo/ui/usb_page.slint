@@ -8,9 +8,6 @@ import { PrinterQueue } from "./printer_queue.slint";
 struct File  { name: string, preview: image }
 
 export component UsbPage inherits Page {
-    has-back-button: true;
-    header: @tr("USB");
-
     in property <[File]> files: [
         { name: ".." },
         { name: "cat.jpg", preview: @image-url("images/cat.jpg") },
@@ -18,6 +15,9 @@ export component UsbPage inherits Page {
         { name: "elephant.jpg",preview: @image-url("images/elephant.jpg") },
         { name: "snake.jpg", preview: @image-url("images/snake.jpg") },
     ];
+
+    has-back-button: true;
+    header: @tr("USB");
 
     GridLayout {
         padding-top: 46px /* header line height in design */
@@ -70,6 +70,7 @@ export component UsbPage inherits Page {
                 minimum: 1;
             }
         }
+
         Row {
             Label { col: 1; text: @tr("Color"); }
             ComboBox {
@@ -77,6 +78,7 @@ export component UsbPage inherits Page {
                 choices: [@tr("Grayscale"), @tr("Color")];
             }
         }
+
         HorizontalLayout {
             row: 4;
             col: 1;

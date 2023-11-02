@@ -18,30 +18,30 @@ export global MenuPageAdapter {
 }
 
 export component MenuPage {
-    private property <bool> show-settings;
+    in-out property <int> current-index;
 
-    callback page-changed(int /* index */);
+    callback page-changed(/* index */ int);
     callback close;
 
-    in-out property <int> current-index;
+    private property <bool> show-settings;
+
+    function back() {
+        current-index = 0;
+    }
 
     Rectangle {
         x: -parent.width * current-index;
         width: 2 * parent.width;
         clip: true;
 
-        if(current-index == 0) : Settings {
-            width: root.width;
+        animate x { duration: Theme.durations.fast; }
 
+        if(current-index == 0) : Settings {
             close => {
                 root.close();
             }
+
+            width: root.width;
         }
-
-        animate x { duration: Theme.durations.fast; }
-    }
-
-    function back() {
-         current-index = 0;
     }
  }

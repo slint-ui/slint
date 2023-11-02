@@ -15,6 +15,7 @@ import "./fonts/NotoSans-Bold.ttf";
 
 component SideBarIcon inherits Rectangle {
     in-out property <bool> active;
+
     callback activate;
 
     GridLayout {
@@ -28,6 +29,16 @@ component SideBarIcon inherits Rectangle {
 }
 
 component MainWindow inherits Window {
+      /// Note that this property is overwritten in the .cpp and .rs code.
+    /// The data is only in this file so it looks good in the viewer
+    in property <[InkLevel]> ink-levels: [
+        {color: #0ff, level: 60%},
+        {color: #ff0, level: 80%},
+        {color: #f0f, level: 70%},
+        {color: #000, level: 30%},
+    ];
+    out property <int> active-page: 0;
+
     callback quit();
 
     width: 772px;
@@ -36,17 +47,6 @@ component MainWindow inherits Window {
     background: DemoPalette.main-background;
     default-font-family: "Noto Sans";
     default-font-size: DemoPalette.base-font-size;
-
-    /// Note that this property is overwritten in the .cpp and .rs code.
-    /// The data is only in this file so it looks good in the viewer
-    in property <[InkLevel]> ink-levels: [
-                {color: #0ff, level: 60%},
-                {color: #ff0, level: 80%},
-                {color: #f0f, level: 70%},
-                {color: #000, level: 30%},
-            ];
-
-    out property<int> active-page: 0;
 
     HorizontalLayout {
         padding: 10px;
@@ -68,39 +68,42 @@ component MainWindow inherits Window {
                     y: root.active-page == 0 ? 0 : root.active-page < 0 ? - self.height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
                 }
+
                 SettingsPage {
                     y: root.active-page == 1 ? 0 : root.active-page < 1 ? - self.height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
                 }
+
                 InkPage {
                     y: root.active-page == 2 ? 0 : root.active-page < 2 ? - self.height - 1px : parent.height + 1px;
-                    animate y { duration: 125ms; easing: ease; }
                     ink-levels <=> root.ink-levels;
                     page-visible: root.active-page == 2;
+                    animate y { duration: 125ms; easing: ease; }
                 }
             }
         }
     }
 
     sidebar := Rectangle {
-        width: 57px;
-        x: 10px;
-
         function icon-y(index: int) -> length {
             return 100px // top padding
                 + index * 72px;
         }
 
+        width: 57px;
+        x: 10px;
+
+
         Image {
             x:0;
             source: @image-url("images/page_selection.svg");
             y: sidebar.icon-y(root.active-page) - self.width / 2;
-            animate y {
-                duration: 125ms;
-            }
             width: main-view.x - sidebar.x + 1px;
             height: 1.75 * self.width;
             colorize: DemoPalette.page-background-color;
+            animate y {
+                duration: 125ms;
+            }
         }
 
         for page-icon[idx] in [
@@ -108,6 +111,10 @@ component MainWindow inherits Window {
             @image-url("images/settings.svg"),
             @image-url("images/ink.svg"),
         ] : SideBarIcon {
+            activate => {
+                root.active-page = idx;
+            }
+
             y: sidebar.icon-y(idx);
             x: 16px;
             height: 35px;
@@ -123,10 +130,6 @@ component MainWindow inherits Window {
                 width: 100%;
                 height: 100%;
             }
-
-            activate => {
-                root.active-page = idx;
-            }
         }
 
         Rectangle {
@@ -138,6 +141,10 @@ component MainWindow inherits Window {
         }
 
         SideBarIcon {
+            activate => {
+                DemoPalette.night-mode = !DemoPalette.night-mode;
+            }
+
             y: sidebar.icon-y(4);
             x: 16px;
             height: 35px;
@@ -150,11 +157,6 @@ component MainWindow inherits Window {
                 width: 100%;
                 height: 100%;
             }
-
-            activate => {
-                DemoPalette.night-mode = !DemoPalette.night-mode;
-            }
         }
-
     }
 }

@@ -17,21 +17,22 @@ import "./fonts/NotoSans-Bold.ttf";
 
 component SideBarIcon inherits Rectangle {
     in-out property <bool> active;
+
     callback activate;
+
     TouchArea {
-        width: 170%;
-        height: 150%;
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
                 root.activate();
             }
         }
+
+        width: 170%;
+        height: 150%;
     }
 }
 
 component MainWindow inherits Window {
-    callback quit();
-
     width: 320px;
     height: 240px;
     title: "Slint printer demo";
@@ -48,10 +49,13 @@ component MainWindow inherits Window {
                 {color: #000, level: 30%},
             ];
 
-    in-out property<int> active-page: 0;
+    in-out property <int> active-page: 0;
+
+    callback quit();
 
     main-view := Rectangle {
         property <length> margin: 5px;
+
         x: sidebar.x + sidebar.width;
         y: self.margin;
         height: parent.height - self.margin * 2;
@@ -70,10 +74,12 @@ component MainWindow inherits Window {
                 y: root.active-page == 0 ? 0 : root.active-page > 0 ? - self.height - 1px : parent.height + 1px;
                 //animate y { duration: 125ms; easing: ease; }
             }
+
             SettingsPage {
                 y: root.active-page == 1 ? 0 : root.active-page > 1 ? - self.height - 1px : parent.height + 1px;
                 //animate y { duration: 125ms; easing: ease; }
             }
+
             InkPage {
                 y: root.active-page == 2 ? 0 : root.active-page > 2 ? - self.height - 1px : parent.height + 1px;
                 //animate y { duration: 125ms; easing: ease; }
@@ -85,24 +91,26 @@ component MainWindow inherits Window {
 
 
     sidebar := Rectangle {
-        width: 48px;
-        x: 5px;
-
         function icon-y(index: int) -> length {
             return 34px // top padding
                 + index * 50px;
         }
 
+
+        width: 48px;
+        x: 5px;
+
         Image {
             x:0;
             source: @image-url("images/page_selection.svg");
             y: sidebar.icon-y(root.active-page) - 23px;
-            animate y {
-                duration: 125ms;
-            }
             width: 49px;
             height: 86px;
             colorize: DemoPalette.page-background-color;
+
+            animate y {
+                duration: 125ms;
+            }
         }
 
         for page-icon[idx] in [
@@ -110,6 +118,11 @@ component MainWindow inherits Window {
             @image-url("images/settings.svg"),
             @image-url("images/ink.svg"),
         ] : SideBarIcon {
+            activate => {
+                home-page.current-subpage = 0;
+                root.active-page = idx;
+            }
+
             y: sidebar.icon-y(idx)+3px;
             x: (parent.width - self.width) / 2;
             height: 30px;
@@ -117,18 +130,14 @@ component MainWindow inherits Window {
 
             icon := Image {
                 colorize: (root.active-page == idx) ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
-                animate colorize {
-                    duration: 125ms;
-                }
                 source: page-icon;
                 image-fit: contain;
                 width: 100%;
                 height: 100%;
-            }
 
-            activate => {
-                home-page.current-subpage = 0;
-                root.active-page = idx;
+                animate colorize {
+                    duration: 125ms;
+                }
             }
         }
 
@@ -141,6 +150,10 @@ component MainWindow inherits Window {
         }
 
         SideBarIcon {
+            activate => {
+                DemoPalette.night-mode = !DemoPalette.night-mode;
+            }
+
             //y: sidebar.icon-y(3) + 10px;
             y: parent.height - self.height - main-view.margin * 2;
             x: (parent.width - self.width) / 2;
@@ -154,11 +167,6 @@ component MainWindow inherits Window {
                 width: 100%;
                 height: 100%;
             }
-
-            activate => {
-                DemoPalette.night-mode = !DemoPalette.night-mode;
-            }
         }
-
     }
 }

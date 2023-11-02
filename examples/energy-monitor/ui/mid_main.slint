@@ -22,52 +22,62 @@ export component MidMain {
                 page-count: 5;
 
                 PageContainer {
+                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
+
                     index: 0;
                     selected <=> i-page-scroll-view.selection;
                     selected-width: i-page-scroll-view.selected-width;
                     selected-height: i-page-scroll-view.selected-height;
                     selected-h-offset: i-page-scroll-view.selected-h-offset;
-                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
+
                     Overview {}
                 }
 
                 PageContainer {
+                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
+
                     index: 1;
                     selected <=> i-page-scroll-view.selection;
                     selected-width: i-page-scroll-view.selected-width;
                     selected-height: i-page-scroll-view.selected-height;
                     selected-h-offset: i-page-scroll-view.selected-h-offset;
-                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
+
                     Usage {}
                 }
 
                 PageContainer {
+                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
+
                     index: 2;
                     selected <=> i-page-scroll-view.selection;
                     selected-width: i-page-scroll-view.selected-width;
                     selected-height: i-page-scroll-view.selected-height;
                     selected-h-offset: i-page-scroll-view.selected-h-offset;
-                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
+
                     Balance {}
                 }
 
                 PageContainer {
+                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
+
                     index: 3;
                     selected <=> i-page-scroll-view.selection;
                     selected-width: i-page-scroll-view.selected-width;
                     selected-height: i-page-scroll-view.selected-height;
                     selected-h-offset: i-page-scroll-view.selected-h-offset;
-                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
+
                     Weather {}
                 }
 
                 PageContainer {
+                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
+
                     index: 4;
                     selected <=> i-page-scroll-view.selection;
                     selected-width: i-page-scroll-view.selected-width;
                     selected-height: i-page-scroll-view.selected-height;
                     selected-h-offset: i-page-scroll-view.selected-h-offset;
-                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
+
                     About {}
                 }
             }
@@ -82,17 +92,17 @@ export component MidMain {
             menu-width: root.width / 3;
             menu-height: root.height - 75px;
 
-            i-menu-page := MenuPage {
-                preferred-width: 100%;
-                preferred-height: 100%;
+            opend => {
+                i-menu-page.current-index = 0;
+            }
 
+            i-menu-page := MenuPage {
                 close => {
                     i-menu.hide();
                 }
-            }
 
-            opend => {
-                i-menu-page.current-index = 0;
+                preferred-width: 100%;
+                preferred-height: 100%;
             }
         }
     }

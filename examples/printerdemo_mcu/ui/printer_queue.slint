@@ -19,15 +19,15 @@ export struct PrinterQueueItem  {
 }
 
 export global PrinterQueue  {
-    callback start-job(string);
-    callback cancel-job(int);
-    callback pause-job(int);
-
     in property <[PrinterQueueItem]> printer-queue: [
         { status: JobStatus.Printing, progress: 63, title: "Slint-Demo.jpeg", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
         { status: JobStatus.Waiting, title: "Adressliste.docx", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
         { status: JobStatus.Waiting, title: "210106-FinalPresentation.pdf", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
     ];
+
+    callback start-job(string);
+    callback cancel-job(int);
+    callback pause-job(int);
 
     public pure function statusString(status: JobStatus) -> string {
         if (status == JobStatus.Printing) {
@@ -39,7 +39,6 @@ export global PrinterQueue  {
         }
     }
 }
-
 
 component PrintQueueDetailsLabel inherits Text {
     font-weight: 500;
@@ -57,12 +56,14 @@ component PrintQueueSeparator inherits Rectangle {
 
 component PrintDetails inherits GridLayout {
     in property <PrinterQueueItem> queue-item;
+
     spacing: 3px;
 
     Row {
         PrintQueueDetailsLabel {
             text: "Owner";
         }
+
         Text {
             text: root.queue-item.owner;
             color: DemoPalette.secondary-foreground-color;
@@ -71,15 +72,18 @@ component PrintDetails inherits GridLayout {
             font-size: DemoPalette.base-font-size * 0.9375;
         }
     }
+
     Row {
         PrintQueueSeparator {
             colspan: 2;
         }
     }
+
     Row {
         PrintQueueDetailsLabel {
             text: "Pages";
         }
+
         Text {
             text: root.queue-item.pages;
             color: DemoPalette.secondary-foreground-color;
@@ -88,15 +92,18 @@ component PrintDetails inherits GridLayout {
             font-size: DemoPalette.base-font-size * 0.9375;
         }
     }
+
     Row {
         PrintQueueSeparator {
             colspan: 2;
         }
     }
+
     Row {
         PrintQueueDetailsLabel {
             text: "Size";
         }
+
         Text {
             text: root.queue-item.pages;
             color: DemoPalette.secondary-foreground-color;
@@ -105,15 +112,18 @@ component PrintDetails inherits GridLayout {
             font-size: DemoPalette.base-font-size * 0.9375;
         }
     }
+
     Row {
         PrintQueueSeparator {
             colspan: 2;
         }
     }
+
     Row {
         PrintQueueDetailsLabel {
             text: "Submitted";
         }
+
         Text {
             text: root.queue-item.submission-date;
             color: DemoPalette.secondary-foreground-color;
@@ -126,6 +136,10 @@ component PrintDetails inherits GridLayout {
 
 component NarrowPrintQueueElement inherits Rectangle {
     in property <PrinterQueueItem> queue-item;
+    in-out property <bool> expanded;
+
+    private property <float> expanded-opacity: 0;
+
     callback cancel-job();
 
     border-color: DemoPalette.control-outline-color;
@@ -133,11 +147,8 @@ component NarrowPrintQueueElement inherits Rectangle {
     border-width: 1px;
     background: DemoPalette.printer-queue-item-background-color;
     clip: true;
-
-    in-out property <bool> expanded;
-    private property <float> expanded-opacity: 0;
-
     height: always-visible.min-height + layout.padding * 2;
+
     states [
         expanded when root.expanded : {
             height: layout.min-height;
@@ -152,8 +163,6 @@ component NarrowPrintQueueElement inherits Rectangle {
             }
         }
     ]
-
-
 
     TouchArea {
         pointer-event(ev) => {
@@ -210,12 +219,15 @@ component NarrowPrintQueueElement inherits Rectangle {
                     horizontal-stretch: 0;
                     width: 10%;
                 }
+
                 PushButton {
+                    clicked => { root.cancel-job(); }
+
                     opacity: root.expanded-opacity;
                     text: "Delete";
                     icon: @image-url("images/delete.svg");
-                    clicked => { root.cancel-job(); }
                 }
+
                 Rectangle {
                     horizontal-stretch: 0;
                     width: 10%;
@@ -232,17 +244,17 @@ component NarrowPrinterQueueList inherits Flickable {
         spacing: 6px;
 
         for queue-item[idx] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
-            width: root.width;
-            queue-item: queue-item;
             cancel-job => {
                 PrinterQueue.cancel-job(idx)
             }
+
+            width: root.width;
+            queue-item: queue-item;
         }
     }
 }
 
 export component PrinterQueueView inherits Rectangle {
-
     border-radius: 18px;
     background: DemoPalette.night-mode ? DemoPalette.printer-action-background-color : #F4F6FF;
 

@@ -34,13 +34,34 @@ struct Theme  {
     piece-spacing: float,
 }
 
-
-
 component Checkbox inherits Rectangle {
+    in property <color> checked-color;
+    in property <color> unchecked-color;
     in-out property <bool> checked;
+
     callback toggled(bool);
-    in property<color> checked-color;
-    in property<color> unchecked-color;
+
+    states [
+        /* pressed when ta.pressed : {
+             clip.width: root.width;
+             root.border-color: checked_color;
+             root.border-width: root.width;
+         }*/
+         checked when root.checked : {
+             clip.width: root.width;
+             checkbox-rect.border-color: root.checked-color;
+             checkbox-rect.border-width: root.width;
+             in {
+                 animate clip.width { duration: 200ms; easing: ease-in; }
+                 animate checkbox-rect.border-width { duration: 100ms; easing: ease-out; }
+             }
+             out {
+                 animate clip.width { duration: 100ms; easing: ease; }
+                 animate checkbox-rect.border-width { duration: 200ms; easing: ease-in-out; }
+                 animate checkbox-rect.border-color { duration: 200ms; easing: cubic-bezier(1,1,1,0); }
+             }
+         }
+     ]
 
     hover-rect := Rectangle {
         background: #f5f5f5;
@@ -65,15 +86,16 @@ component Checkbox inherits Rectangle {
                 x:0;y:0;
                 width: root.width;
                 height: root.height;
-
                 text: "✓";
                 font-size: self.height * 80%;
                 color: white;
-                animate color { duration: 200ms; }
                 vertical-alignment: center;
                 horizontal-alignment: center;
+
+                animate color { duration: 200ms; }
             }
         }
+
         ta := TouchArea {
             clicked => {
                 root.checked = !root.checked;
@@ -82,41 +104,11 @@ component Checkbox inherits Rectangle {
         }
 
     }
-
-    states [
-       /* pressed when ta.pressed : {
-            clip.width: root.width;
-            root.border-color: checked_color;
-            root.border-width: root.width;
-        }*/
-        checked when root.checked : {
-            clip.width: root.width;
-            checkbox-rect.border-color: root.checked-color;
-            checkbox-rect.border-width: root.width;
-            in {
-                animate clip.width { duration: 200ms; easing: ease-in; }
-                animate checkbox-rect.border-width { duration: 100ms; easing: ease-out; }
-            }
-            out {
-                animate clip.width { duration: 100ms; easing: ease; }
-                animate checkbox-rect.border-width { duration: 200ms; easing: ease-in-out; }
-                animate checkbox-rect.border-color { duration: 200ms; easing: cubic-bezier(1,1,1,0); }
-            }
-        }
-    ]
 }
 
 import "./plaster-font/Plaster-Regular.ttf";
 
 export component MainWindow inherits Window {
-    title: "Slide Puzzle - Slint Demo";
-
-    callback piece-clicked(int);
-    callback reset();
-    callback enable-auto-mode(bool);
-    in-out property <bool> auto-play;
-    in-out property <int> moves;
-    in-out property <int> tiles-left;
     in property <[Piece]> pieces: [
         { pos-x: 0, pos-y: 0 },
         { pos-x: 0, pos-y: 1 },
@@ -134,6 +126,14 @@ export component MainWindow inherits Window {
         { pos-x: 3, pos-y: 1 },
         { pos-x: 3, pos-y: 2 },
     ];
+    out property <int> current-theme-index;
+    in-out property <bool> auto-play;
+    in-out property <int> moves;
+    in-out property <int> tiles-left;
+
+    callback piece-clicked(int);
+    callback reset();
+    callback enable-auto-mode(bool);
 
     private property <[Theme]> themes: [
         {
@@ -204,13 +204,14 @@ export component MainWindow inherits Window {
             piece-spacing: 10%,
         },
     ];
-
-    out property<int> current-theme-index;
     private property <Theme> current-theme: root.themes[root.current-theme-index];
-
-    private property<length> pieces-size: min(root.width, root.height) / 6;
-    private property<length> pieces-spacing: root.current-theme.game-use-background-image && root.tiles-left == 0 ?
+    private property <length> pieces-size: min(root.width, root.height) / 6;
+    private property <length> pieces-spacing: root.current-theme.game-use-background-image && root.tiles-left == 0 ?
         2px : (root.pieces-size * root.current-theme.piece-spacing);
+
+
+
+    title: "Slide Puzzle - Slint Demo";
 
     animate pieces-spacing { duration: 500ms; easing: ease-out; }
 
@@ -247,8 +248,10 @@ export component MainWindow inherits Window {
             width: parent.width * 90%;
             height: root.pieces-size/2;
             x: (parent.width - self.width) / 2;
+
             HorizontalLayout {
                 spacing: 0px;
+
                 for theme[idx] in root.themes: TouchArea {
                     t := Text {
                         width: 100%; height: 100%;
@@ -272,14 +275,16 @@ export component MainWindow inherits Window {
 
 
         for p[i] in root.pieces : Rectangle {
+            property <float> px: p.pos-x;
+            property <float> py: p.pos-y;
+            property <bool> is-correct: i == p.pos-x * 4 + p.pos-y;
+
             x: self.py * (root.pieces-size + root.pieces-spacing) + p.offset-x
                 + (parent.width - (4*root.pieces-size + 3*root.pieces-spacing))/2;
             y: self.px * (root.pieces-size + root.pieces-spacing) + p.offset-y
                 + (parent.height - (4*root.pieces-size + 3*root.pieces-spacing))/2;
             width: root.pieces-size;
             height: root.pieces-size;
-            property <bool> is-correct: i == p.pos-x * 4 + p.pos-y;
-
             drop-shadow-offset-x: 1px;
             drop-shadow-offset-y: 1px;
             drop-shadow-blur: 3px;
@@ -287,8 +292,23 @@ export component MainWindow inherits Window {
             border-radius: root.current-theme.piece-radius;
             clip: true;
 
-            property<float> px: p.pos-x;
-            property<float> py: p.pos-y;
+            states [
+                pressed when touch.pressed : {
+                    shadow.color: #0002;
+                    circle.width: shadow.width * 2 * 1.4142;
+                in  {
+                    animate shadow.color { duration: 50ms; }
+                    animate circle.width { duration: 2s; easing: ease-out; }
+                }
+                out  {
+                    animate shadow.color { duration: 50ms; }
+                }
+                }
+                hover when touch.has-hover: {
+                    shadow.color: #0000000d;
+                }
+            ]
+
             animate px , py { duration: 170ms; easing: cubic-bezier(0.17,0.76,0.4,1.75); }
 
             if (root.current-theme.game-use-background-image) : Image {
@@ -315,6 +335,7 @@ export component MainWindow inherits Window {
                 border-color: i >= 8 ? root.current-theme.piece-border-color-2 : root.current-theme.piece-border-color-1;
                 border-width: root.current-theme.piece-border;
                 border-radius: root.current-theme.piece-radius;
+
                 animate border-width, border-radius { duration: 500ms; easing: ease-out; }
             }
 
@@ -343,25 +364,6 @@ export component MainWindow inherits Window {
                     y: touch.pressed-y - self.width/2;
                 }
             }
-
-            states [
-                pressed when touch.pressed : {
-                    shadow.color: #0002;
-                    circle.width: shadow.width * 2 * 1.4142;
-                in  {
-                    animate shadow.color { duration: 50ms; }
-                    animate circle.width { duration: 2s; easing: ease-out; }
-                }
-                out  {
-                    animate shadow.color { duration: 50ms; }
-                }
-                }
-                hover when touch.has-hover: {
-                    shadow.color: #0000000d;
-                }
-
-            ]
-
         }
 
         if (root.tiles-left == 0) : Text {
@@ -401,6 +403,7 @@ export component MainWindow inherits Window {
             y: parent.height - root.pieces-size / 2;
             width: parent.width;
             padding: self.height * 25%;
+
             Text {
                 text: " ↻ ";
                 font-size: parent.height * 40%;
@@ -410,29 +413,36 @@ export component MainWindow inherits Window {
                     clicked => { root.reset(); }
                 }
             }
+
             Checkbox {
+                toggled(checked) => { root.enable-auto-mode(self.checked) }
+
                 width: parent.height - 2 * parent.padding;
                 checked <=> root.auto-play;
-                toggled(checked) => { root.enable-auto-mode(self.checked) }
                 checked-color: root.current-theme.game-highlight-color;
                 unchecked-color: root.current-theme.game-text-color;
             }
+
             Rectangle {} // stretch
+
             Text {
                 text: root.moves;
                 color: root.current-theme.game-highlight-color;
                 vertical-alignment: center;
             }
+
             Text {
                 text: "Moves ";
                 color: root.current-theme.game-text-color;
                 vertical-alignment: center;
             }
+
             Text {
                 text: root.tiles-left;
                 color: root.current-theme.game-highlight-color;
                 vertical-alignment: center;
             }
+
             Text {
                 text: "Tiles left";
                 color: root.current-theme.game-text-color;
