@@ -6,6 +6,7 @@
 
 use alloc::boxed::Box;
 use core::cell::Cell;
+#[cfg(not(feature = "std"))]
 use num_traits::Float;
 
 mod cubic_bezier {
