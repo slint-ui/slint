@@ -505,3 +505,28 @@ jobs:
         run: |
           . ${IDF_PATH}/export.sh
           idf.py build
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Cache cargo-apk
+        id: cargo-apk-cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/bin/cargo-apk
+      # Only build cargo-apk if not cached
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+      - name: Install cargo-apk
+        if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+        run: cargo install cargo-apk
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          target: aarch64-linux-android
+
+      - name: Build todo demo
+        run: |
+          sed -i "s/#wasm# //" Cargo.toml
+          cargo apk build -p todo --target aarch64-linux-android --lib
+        working-directory: examples/todo/rust
