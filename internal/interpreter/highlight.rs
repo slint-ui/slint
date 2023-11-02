@@ -187,16 +187,6 @@ pub fn on_element_selected(
     );
 }
 
-fn design_mode(component: &std::pin::Pin<&ItemTreeBox>) -> bool {
-    matches!(
-        component
-            .description()
-            .get_property(component.borrow(), DESIGN_MODE_PROP)
-            .unwrap_or_default(),
-        Value::Bool(true)
-    )
-}
-
 pub fn set_design_mode(component_instance: &DynamicComponentVRc, active: bool) {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
@@ -237,10 +227,6 @@ pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset
     let c = component_instance.unerase(guard);
 
     let path = pathutils::clean_path(&path);
-
-    if design_mode(&c) {
-        return;
-    }
 
     let elements = find_element_at_offset(&c.description().original, path, offset);
     if elements.is_empty() {

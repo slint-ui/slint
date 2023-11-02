@@ -216,23 +216,7 @@ pub fn configure_design_mode(enabled: bool) {
             let preview_state = preview_state.borrow();
             let handle = preview_state.handle.borrow();
             if let Some(handle) = &*handle {
-                handle.set_design_mode(enabled);
-
-                handle.on_element_selected(Box::new(
-                    move |file: &str,
-                          start_line: u32,
-                          start_column: u32,
-                          end_line: u32,
-                          end_column: u32| {
-                        ask_editor_to_show_document(
-                            file,
-                            start_line,
-                            start_column,
-                            end_line,
-                            end_column,
-                        );
-                    },
-                ));
+                super::configure_handle_for_design_mode(&handle, enabled);
             }
         })
     })
@@ -326,7 +310,7 @@ pub fn ask_editor_to_show_document(
     })
 }
 
-pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
+pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition, design_mode: bool) {
     PREVIEW_STATE.with(|preview_state| {
         let preview_state = preview_state.borrow_mut();
 
@@ -338,6 +322,7 @@ pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
             Box::new(move |instance| {
                 shared_handle.replace(Some(instance));
             }),
+            design_mode,
         );
     })
 }

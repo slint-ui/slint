@@ -333,7 +333,7 @@ impl SlintServer {
                 crate::preview::notify_lsp_diagnostics(&self.ctx.server_notifier, uri, diagnostics);
             }
             M::ShowDocument { file, start_line, start_column, end_line, end_column } => {
-                crate::preview::ask_editor_to_show_document(
+                crate::preview::send_show_document_to_editor(
                     &self.ctx.server_notifier,
                     &file,
                     start_line,
