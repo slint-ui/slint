@@ -4,12 +4,28 @@
 import { StyleMetrics } from "std-widgets.slint";
 
 component SideBarItem inherits Rectangle {
+    in property <bool> selected;
+    in property <bool> has-focus;
+    in-out property <string> text <=> label.text;
+
     callback clicked <=> touch.clicked;
-    in-out property<string> text <=> label.text;
-    in property<bool> selected;
-    in property<bool> has-focus;
 
     min-height: l.preferred-height;
+
+    states [
+        pressed when touch.pressed : {
+            state.opacity: 0.8;
+        }
+        hover when touch.has-hover : {
+            state.opacity: 0.6;
+        }
+        selected when root.selected : {
+            state.opacity: 1;
+        }
+        focused when root.has-focus : {
+            state.opacity: 0.8;
+        }
+    ]
 
     state := Rectangle {
         opacity: 0;
@@ -33,32 +49,16 @@ component SideBarItem inherits Rectangle {
         width: 100%;
         height: 100%;
     }
-
-    states [
-        pressed when touch.pressed : {
-            state.opacity: 0.8;
-        }
-        hover when touch.has-hover : {
-            state.opacity: 0.6;
-        }
-        selected when root.selected : {
-            state.opacity: 1;
-        }
-        focused when root.has-focus : {
-            state.opacity: 0.8;
-        }
-    ]
 }
 
 export component SideBar inherits Rectangle {
-    in property<[string]> model: [];
-    out property<int> current-item: 0;
-    in property<string> title <=> label.text;
-    out property<int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
+    in property <[string]> model: [];
+    in property <string> title <=> label.text;
+    out property <int> current-item: 0;
+    out property <int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
+
     width: 180px;
-
     forward-focus: fs;
-
     accessible-role: tab;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-item;
 
@@ -66,10 +66,6 @@ export component SideBar inherits Rectangle {
         background: StyleMetrics.window-background.darker(0.2);
 
         fs := FocusScope {
-            x:0;
-            width: 0px; // Do not react on clicks
-            property<int> focused-tab: 0;
-
             key-pressed(event) => {
                 if (event.text == "\n") {
                      root.current-item = root.current-focused;
@@ -93,6 +89,11 @@ export component SideBar inherits Rectangle {
                 }
                 return reject;
             }
+
+            property <int> focused-tab: 0;
+
+            x: 0;
+            width: 0; // Do not react on clicks
         }
     }
 
@@ -111,10 +112,11 @@ export component SideBar inherits Rectangle {
             alignment: start;
             vertical-stretch: 0;
             for item[index] in root.model : SideBarItem {
+                clicked => { root.current-item = index; }
+
                 has-focus: index == root.current-focused;
                 text: item;
                 selected: index == root.current-item;
-                clicked => { root.current-item = index; }
             }
         }
 

@@ -1,0 +1,72 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+name: Publish npm package to npm registry
+
+on:
+  workflow_dispatch:
+    inputs:
+      private:
+        type: boolean
+        default: true
+        required: false
+        description: "Private build? True means artifacts are only built. False means the package will be published to the NPM registry"
+      release:
+        type: boolean
+        default: false
+        required: false
+        description: "Release? Enable options for building binaries for a release (i.e. apply a nightly tag, nightly version)"
+
+  schedule:
+    - cron: '0 5 * * *'      
+
+jobs:
+  build_and_publish_npm_package:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ./.github/actions/install-linux-dependencies    
+    - uses: ./.github/actions/setup-rust
+    # Setup .npmrc file to publish to npm
+    - uses: actions/setup-node@v3
+      with:
+        node-version: '20.x'
+        registry-url: 'https://registry.npmjs.org'
+    - name: Determine version
+      env:
+        RELEASE_INPUT: ${{ github.event.inputs.release }}
+      working-directory: api/node
+      run: |
+         version=`npm pkg get version | jq -r`
+         if [ "$RELEASE_INPUT" != "true" ]; then
+             nightly_version_suffix=`git log -1 --format=%cd --date="format:%Y%-m%-d%H"`
+             version="$version-nightly.$nightly_version_suffix"
+             npm version $version
+         fi
+         echo $version
+         echo "PKG_VERSION=$version" >> $GITHUB_ENV
+    - name: Select git revision
+      if: github.event.inputs.release != 'true'
+      run: |
+        echo "PKG_EXTRA_ARGS=--sha1=$GITHUB_SHA" >> $GITHUB_ENV
+        echo "PUBLISH_TAG=--tag nightly" >> $GITHUB_ENV
+    - name: Build package
+      run: |
+          cargo xtask node_package $PKG_EXTRA_ARGS
+    - name: "Upload npm package Artifact"
+      uses: actions/upload-artifact@v3
+      with:
+          name: slint-ui-node-package
+          path: |
+              api/node/slint-ui-${{ env.PKG_VERSION }}.tgz
+    - name: Smoke test package to see if it builds at least
+      run: |
+          mkdir /tmp/nodetest
+          cd /tmp/nodetest
+          npm init -y
+          npm install --verbose $GITHUB_WORKSPACE/api/node/slint-ui-$PKG_VERSION.tgz
+    - name: Build and publish package
+      if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
+      run: npm publish $PUBLISH_TAG api/node/slint-ui-$PKG_VERSION.tgz
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}

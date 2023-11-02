@@ -20,7 +20,7 @@ pub enum TaskCommand {
     #[command(name = "cppdocs")]
     CppDocs(CppDocsCommand),
     #[command(name = "node_package")]
-    NodePackage,
+    NodePackage(nodepackage::NodePackageOptions),
     #[command(name = "check_reuse_compliance")]
     ReuseComplianceCheck(reuse_compliance_check::ReuseComplianceCheck),
     #[command(name = "slintdocs")]
@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
         TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.show_warnings)?,
         TaskCommand::SlintDocs(cmd) => slintdocs::generate(cmd.show_warnings)?,
-        TaskCommand::NodePackage => nodepackage::generate()?,
+        TaskCommand::NodePackage(cmd) => nodepackage::generate(cmd.sha1)?,
         TaskCommand::ReuseComplianceCheck(cmd) => cmd.check_reuse_compliance()?,
     };
 

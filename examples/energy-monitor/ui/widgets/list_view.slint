@@ -8,11 +8,19 @@ import { Images } from "../images.slint";
 import { StateLayer } from "../components/state_layer.slint";
 
 component ListViewItem {
-    callback clicked <=> i-state-layer.clicked;
     in property <string> text <=> i-text.text;
     in property <bool> selected;
 
+    callback clicked <=> i-state-layer.clicked;
+
     min-height: 40px;
+
+    states [
+        selected when selected : {
+            i-container.border-color: Theme.palette.lemon-green;
+            i-icon.visible: true;
+        }
+    ]
 
     i-container := Rectangle {
         background: Theme.palette.dark-deep-blue;
@@ -49,20 +57,18 @@ component ListViewItem {
         height: i-container.height;
         border-radius: i-container.border-radius;
     }
-
-    states [
-        selected when selected : {
-            i-container.border-color: Theme.palette.lemon-green;
-            i-icon.visible: true;
-        }
-    ]
 }
 
 export component ListView {
-    callback selection-changed(int /* index */);
-
     in property <[StandardListViewItem]> model;
     in-out property <int> selected-index;
+
+    callback selection-changed(/* index */ int);
+
+    function select(index: int) {
+        selected-index = index;
+        selection-changed(index);
+    }
 
     i-scroll-view := ScrollView {
        i-blub := VerticalLayout {
@@ -70,22 +76,17 @@ export component ListView {
             spacing: Theme.spaces.medium;
 
             for item[index] in model : ListViewItem {
+                clicked => {
+                    select(index);
+                }
+
                 private property <length> offset: i-scroll-view.viewport-y + index * (self.height + parent.spacing);
 
                 text: item.text;
                 selected: index == selected-index;
 
                 animate opacity { duration: Theme.durations.fast;  }
-
-                clicked => {
-                    select(index);
-                }
             }
        }
-    }
-
-    function select(index: int) {
-        selected-index = index;
-        selection-changed(index);
     }
 }

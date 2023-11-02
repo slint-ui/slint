@@ -1,0 +1,1 @@
+../../../../LICENSES/LicenseRef-Slint-Royalty-free-1.1.md

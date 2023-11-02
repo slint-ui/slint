@@ -1151,9 +1151,11 @@ impl Expression {
         let mut values: Vec<Expression> =
             node.Expression().map(|e| Expression::from_expression_node(e, ctx)).collect();
 
-        // FIXME: what's the type of an empty array ?
-        let element_ty =
-            Self::common_target_type_for_type_list(values.iter().map(|expr| expr.ty()));
+        let element_ty = if values.is_empty() {
+            Type::Void
+        } else {
+            Self::common_target_type_for_type_list(values.iter().map(|expr| expr.ty()))
+        };
 
         for e in values.iter_mut() {
             *e = core::mem::replace(e, Expression::Invalid).maybe_convert_to(
@@ -1191,7 +1193,7 @@ impl Expression {
     /// This function is used to find a type that's suitable for casting each instance of a bunch of expressions
     /// to a type that captures most aspects. For example for an array of object literals the result is a merge of
     /// all seen fields.
-    fn common_target_type_for_type_list(types: impl Iterator<Item = Type>) -> Type {
+    pub fn common_target_type_for_type_list(types: impl Iterator<Item = Type>) -> Type {
         types.fold(Type::Invalid, |target_type, expr_ty| {
             if target_type == expr_ty {
                 target_type
@@ -1235,9 +1237,13 @@ impl Expression {
                             rust_attributes: rust_attributes.or(derived),
                         }
                     }
-                    (Type::Array(lhs), Type::Array(rhs)) => Type::Array(
-                        Self::common_target_type_for_type_list([*lhs, *rhs].into_iter()).into(),
-                    ),
+                    (Type::Array(lhs), Type::Array(rhs)) => Type::Array(if *lhs == Type::Void {
+                        rhs
+                    } else if *rhs == Type::Void {
+                        lhs
+                    } else {
+                        Self::common_target_type_for_type_list([*lhs, *rhs].into_iter()).into()
+                    }),
                     (Type::Color, Type::Brush) | (Type::Brush, Type::Color) => Type::Brush,
                     (target_type, expr_ty) => {
                         if expr_ty.can_convert(&target_type) {

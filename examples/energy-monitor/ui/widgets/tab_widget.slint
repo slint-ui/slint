@@ -4,13 +4,22 @@
 import { Theme } from "../theme.slint";
 
 component Tab {
-    private property <angle> angle: Math.atan(self.height / 2 / self.width);
-    callback clicked <=> i-touch-area.clicked;
-
     in property <string> title;
     in property <bool> selected;
 
+    callback clicked <=> i-touch-area.clicked;
+
+    private property <angle> angle: Math.atan(self.height / 2 / self.width);
+
     preferred-width: 200px;
+
+    states [
+        selected when selected : {
+            i-initiator.width: root.width;
+            i-title.color: Theme.palette.lemon-green;
+            i-gradient.opacity: 1.0;
+        }
+    ]
 
     GridLayout {
         padding: 25px;
@@ -29,6 +38,7 @@ component Tab {
 
     i-gradient := Rectangle {
         opacity: 0;
+
         Rectangle {
             y: 0;
             width: 50%;
@@ -59,14 +69,6 @@ component Tab {
     }
 
     i-touch-area := TouchArea {}
-
-    states [
-        selected when selected : {
-            i-initiator.width: root.width;
-            i-title.color: Theme.palette.lemon-green;
-            i-gradient.opacity: 1.0;
-        }
-    ]
 }
 
 export component TabWidget {

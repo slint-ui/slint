@@ -201,6 +201,7 @@ pub fn generate(doc: &Document) -> TokenStream {
         #[allow(clippy::cmp_owned)] // The generated code will do this
         #[allow(clippy::redundant_clone)] // TODO: We clone properties more often then needed
                                           // according to clippy!
+        #[allow(clippy::overly_complex_bool_expr)]
         mod #compo_module {
             use slint::private_unstable_api::re_exports::*;
             use slint::private_unstable_api::re_exports as sp;
@@ -212,6 +213,7 @@ pub fn generate(doc: &Document) -> TokenStream {
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         pub use #compo_module::{#compo_id #(,#structs_and_enums_ids)* #(,#globals_ids)* #(,#named_exports)*};
+        #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     }
 }

@@ -445,7 +445,7 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
 }
 
 #[repr(transparent)]
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct PropertyHandle {
     /// The handle can either be a pointer to a binding, or a pointer to the list of dependent properties.
     /// The two least significant bit of the pointer are flags, as the pointer will be aligned.
@@ -454,6 +454,19 @@ struct PropertyHandle {
     /// The second to last bit (`0b10`) tells that the pointer points to a binding. Otherwise, it is the head
     /// node of the linked list of dependent binding
     handle: Cell<usize>,
+}
+
+impl core::fmt::Debug for PropertyHandle {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let handle = self.handle.get();
+        write!(
+            f,
+            "PropertyHandle {{ handle: 0x{:x}, locked: {}, binding: {} }}",
+            handle & !0b11,
+            (handle & 0b01) == 0b01,
+            (handle & 0b10) == 0b10
+        )
+    }
 }
 
 impl PropertyHandle {

@@ -16,12 +16,13 @@ export struct AxisValue {
 }
 
 export component ChartAxis {
-    private property <length> y-zero: root.height * (1 - (0 - y-min) / (y-max - y-min));
     in property <[string]> x-model;
     in property <[int]> y-model;
     in property <int> y-min;
     in property <int> y-max;
     in property <string> y-unit;
+
+    private property <length> y-zero: root.height * (1 - (0 - y-min) / (y-max - y-min));
 
     VerticalLayout {
         horizontal-stretch: 1;

@@ -10,7 +10,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Image, Point, SharedImageBuffer};
-use i_slint_core::input::{KeyEventType, KeyInputEvent, MouseEvent};
+use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
@@ -83,7 +83,10 @@ cpp! {{
     struct SlintWidget : QWidget {
         void *rust_window;
         bool isMouseButtonDown = false;
-        QPoint ime_position;
+        QRect ime_position;
+        QString ime_text;
+        int ime_cursor;
+        int ime_anchor;
 
         SlintWidget() {
             setMouseTracking(true);
@@ -245,9 +248,13 @@ cpp! {{
 
         QVariant inputMethodQuery(Qt::InputMethodQuery query) const override {
             switch (query) {
-            case Qt::ImCursorRectangle: {
-                return QRect(ime_position.x(), ime_position.y(), 1, 1);
-            }
+            case Qt::ImCursorRectangle: return ime_position;
+            case Qt::ImCursorPosition: return ime_cursor;
+            case Qt::ImSurroundingText: return ime_text;
+            case Qt::ImCurrentSelection: return ime_text.mid(qMin(ime_cursor, ime_anchor), qAbs(ime_cursor - ime_anchor));
+            case Qt::ImAnchorPosition: return ime_anchor;
+            case Qt::ImTextBeforeCursor: return ime_text.left(ime_cursor);
+            case Qt::ImTextAfterCursor: return ime_text.right(ime_cursor);
             default: break;
             }
             return QWidget::inputMethodQuery(query);
@@ -257,18 +264,17 @@ cpp! {{
             QString commit_string = event->commitString();
             QString preedit_string = event->preeditString();
             int replacement_start = event->replacementStart();
+            QStringView ime_text(this->ime_text);
+            replacement_start = replacement_start < 0 ?
+                -ime_text.mid(ime_cursor,-replacement_start).toUtf8().size() :
+                ime_text.mid(ime_cursor,replacement_start).toUtf8().size();
             int replacement_length = qMax(0, event->replacementLength());
-            if (replacement_start < 0) {
-                // Not sure if this can happen yet, but this way we can safely cast to usize below.
-                replacement_start = 0;
-                replacement_length = 0;
-            }
-
+            ime_text.mid(ime_cursor + replacement_start, replacement_length).toUtf8().size();
             int preedit_cursor = -1;
             for (const QInputMethodEvent::Attribute &attribute: event->attributes()) {
                 if (attribute.type == QInputMethodEvent::Cursor) {
                     if (attribute.length > 0) {
-                        preedit_cursor = attribute.start;
+                        preedit_cursor = QStringView(preedit_string).left(attribute.start).toUtf8().size();
                     }
                 }
             }
@@ -278,22 +284,15 @@ cpp! {{
                 preedit_cursor: i32 as "int"] {
                     let runtime_window = WindowInner::from_pub(&rust_window.window);
 
-                    let event = KeyInputEvent {
+                    let event = KeyEvent {
                         event_type: KeyEventType::UpdateComposition,
-                        text: preedit_string.to_string().into(),
-                        preedit_selection_start: replacement_start as usize,
-                        preedit_selection_end: replacement_start as usize + replacement_length as usize,
+                        text: i_slint_core::format!("{}", commit_string),
+                        preedit_text: i_slint_core::format!("{}", preedit_string),
+                        preedit_selection: (preedit_cursor >= 0).then_some(preedit_cursor..preedit_cursor),
+                        replacement_range: Some(replacement_start..replacement_start+replacement_length),
+                        ..Default::default()
                     };
                     runtime_window.process_key_input(event);
-
-                    if !commit_string.is_empty() {
-                        let event = KeyInputEvent {
-                            event_type: KeyEventType::CommitComposition,
-                            text: commit_string.to_string().into(),
-                            ..Default::default()
-                        };
-                        runtime_window.process_key_input(event);
-                    }
                 });
         }
     };
@@ -1752,28 +1751,43 @@ impl WindowAdapterInternal for QtWindow {
 
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
         let widget_ptr = self.widget_ptr();
-        match request {
-            i_slint_core::window::InputMethodRequest::Enable { input_type, .. } => {
-                let enable: bool = matches!(input_type, i_slint_core::items::InputType::Text);
-                cpp! {unsafe [widget_ptr as "QWidget*", enable as "bool"] {
-                    widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, enable);
-                }};
-            }
-            i_slint_core::window::InputMethodRequest::Disable { .. } => {
+        let props = match request {
+            i_slint_core::window::InputMethodRequest::Enable(props) => {
                 cpp! {unsafe [widget_ptr as "QWidget*"] {
+                    widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, true);
+                }};
+                props
+            }
+            i_slint_core::window::InputMethodRequest::Disable => {
+                cpp! {unsafe [widget_ptr as "SlintWidget*"] {
+                    widget_ptr->ime_text = "";
+                    widget_ptr->ime_cursor = 0;
+                    widget_ptr->ime_anchor = 0;
                     widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, false);
                 }};
+                return;
             }
-            i_slint_core::window::InputMethodRequest::SetPosition { position, .. } => {
-                let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
-                let widget_ptr = self.widget_ptr();
-                cpp! {unsafe [widget_ptr as "SlintWidget*", pos as "QPoint"]  {
-                    widget_ptr->ime_position = pos;
-                    QGuiApplication::inputMethod()->update(Qt::ImQueryInput);
-                }};
-            }
-            _ => {}
-        }
+            i_slint_core::window::InputMethodRequest::Update(props) => props,
+            _ => return,
+        };
+
+        let rect = qttypes::QRectF {
+            x: props.cursor_rect_origin.x as _,
+            y: props.cursor_rect_origin.y as _,
+            width: props.cursor_rect_size.width as _,
+            height: props.cursor_rect_size.height as _,
+        };
+        let cursor: i32 = props.text[..props.cursor_position].encode_utf16().count() as _;
+        let anchor: i32 =
+            props.anchor_position.map_or(cursor, |a| props.text[..a].encode_utf16().count() as _);
+        let text: qttypes::QString = props.text.as_str().into();
+        cpp! {unsafe [widget_ptr as "SlintWidget*", rect as "QRectF", cursor as "int", anchor as "int", text as "QString"]  {
+            widget_ptr->ime_position = rect.toRect();
+            widget_ptr->ime_text = text;
+            widget_ptr->ime_cursor = cursor;
+            widget_ptr->ime_anchor = anchor;
+            QGuiApplication::inputMethod()->update(Qt::ImQueryInput);
+        }};
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

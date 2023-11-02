@@ -7,13 +7,17 @@ export TestCase := Rectangle {
     property<int> n: ints[ints[4] - ints[1]];
     property<int> operations: ints.length < 1 ? ints.length : ints.length + ints.length;
     property<[{a: [int]}]> empty_model;
-    property<[[int]]> array_of_array: [ints, ints, ints];
+    property<[{a: [int]}]> empty_model2 : [];
+    property<[{a: [int]}]> empty_model3 : [{a:[]}];
+    property<[[int]]> array_of_array: [ints, ints, ints, []];
 
     property<bool> test: num_ints == 5 && operations == 10
         && hello_world == (["", "world"])[1] && empty_model.length == 0 && empty_model[45].a.length == 0
-        && array_of_array[1][1] == 2;
+        && array_of_array[1][1] == 2 && [].length == 0;
     property<int> third_int: ints[2];
     property<string> hello_world: [{t: "hello"}, {t: "world"}][1].t;
+
+    for xxx in (third_int == 0) ? ints : [] : Rectangle {}
 }
 
 /*

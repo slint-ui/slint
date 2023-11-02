@@ -2,11 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 export component ComboBoxBase {
-    private property <length> scroll-delta: 2px;
-
-    callback selected(string /* current-value */);
-    callback show-popup();
-
     in property <[string]> model;
     in property <bool> enabled <=> i-focus-scope.enabled;
     out property <bool> has-focus <=> i-focus-scope.has-focus;
@@ -14,6 +9,29 @@ export component ComboBoxBase {
     out property <bool> has-hover: i-touch-area.has-hover;
     in-out property <int> current-index: 0;
     in-out property <string> current-value: root.model[root.current-index];
+
+    callback selected( /* current-value */ string);
+    callback show-popup();
+
+    public function select(index: int) {
+        if (!root.enabled) {
+            return;
+        }
+
+        root.current-index = index;
+        root.current-value = root.model[root.current-index];
+        root.selected(root.current-value);
+    }
+
+    public function move-selection-up() {
+        root.select(Math.max(root.current-index - 1, 0));
+    }
+
+    public function move-selection-down() {
+        root.select(Math.min(root.current-index + 1, root.model.length - 1));
+    }
+
+    private property <length> scroll-delta: 2px;
 
     forward-focus: i-focus-scope;
 
@@ -51,23 +69,5 @@ export component ComboBoxBase {
                 reject
             }
         }
-    }
-
-    public function select(index: int) {
-        if (!root.enabled) {
-            return;
-        }
-
-        root.current-index = index;
-        root.current-value = root.model[root.current-index];
-        root.selected(root.current-value);
-    }
-
-    public function move-selection-up() {
-        root.select(Math.max(root.current-index - 1, 0));
-    }
-
-    public function move-selection-down() {
-        root.select(Math.min(root.current-index + 1, root.model.length - 1));
     }
 }

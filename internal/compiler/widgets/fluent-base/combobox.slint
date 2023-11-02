@@ -6,19 +6,37 @@ import { MenuBorder, ListItem, FocusBorder } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
 
 export component ComboBox {
-    callback selected <=> i-base.selected;
-
     in property <[string]> model <=> i-base.model;
     in property <bool> enabled <=> i-base.enabled;
     out property <bool> has-focus <=> i-base.has-focus;
     in-out property <int> current-index <=> i-base.current-index;
     in-out property <string> current-value <=> i-base.current-value;
 
+    callback selected <=> i-base.selected;
+
     min-width: max(160px, i-layout.min-height);
     min-height: max(32px, i-layout.min-height);
     horizontal-stretch: 1;
     vertical-stretch: 0;
     forward-focus: i-base;
+
+    states [
+        disabled when !root.enabled : {
+            i-background.background: Palette.control-disabled;
+            i-background.border-color: Palette.control-stroke;
+            i-text.color: Palette.text-disabled;
+            i-icon.colorize: Palette.text-disabled;
+        }
+        pressed when i-base.pressed : {
+            i-background.background: Palette.control-alt-tertiary;
+            i-background.border-color: Palette.control-stroke;
+            i-text.color: Palette.text-secondary;
+            i-icon.colorize: Palette.text-tertiary;
+        }
+        hover when i-base.has-hover : {
+            i-background.background: Palette.control-secondary;
+        }
+    ]
 
     i-base := ComboBoxBase {
         width: 100%;
@@ -34,6 +52,8 @@ export component ComboBox {
         background: Palette.control-default;
         border-width: 1px;
         border-color: Palette.control-border;
+
+        animate border-color { duration: 200ms; }
 
         i-layout := HorizontalLayout {
             padding-left: 11px;
@@ -58,8 +78,6 @@ export component ComboBox {
                 animate colorize { duration: 150ms; }
             }
         }
-
-        animate border-color { duration: 200ms; }
     }
 
     // focus border
@@ -87,22 +105,4 @@ export component ComboBox {
             }
         }
     }
-
-    states [
-        disabled when !root.enabled : {
-            i-background.background: Palette.control-disabled;
-            i-background.border-color: Palette.control-stroke;
-            i-text.color: Palette.text-disabled;
-            i-icon.colorize: Palette.text-disabled;
-        }
-        pressed when i-base.pressed : {
-            i-background.background: Palette.control-alt-tertiary;
-            i-background.border-color: Palette.control-stroke;
-            i-text.color: Palette.text-secondary;
-            i-icon.colorize: Palette.text-tertiary;
-        }
-        hover when i-base.has-hover : {
-            i-background.background: Palette.control-secondary;
-        }
-    ]
 }

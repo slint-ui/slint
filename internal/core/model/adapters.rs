@@ -28,18 +28,18 @@ impl TestView {
 
 #[cfg(test)]
 impl ModelChangeListener for TestView {
-    fn row_changed(&self, row: usize) {
+    fn row_changed(self: Pin<&Self>, row: usize) {
         self.changed_rows.borrow_mut().push(row);
     }
 
-    fn row_added(&self, index: usize, count: usize) {
+    fn row_added(self: Pin<&Self>, index: usize, count: usize) {
         self.added_rows.borrow_mut().push((index, count));
     }
 
-    fn row_removed(&self, index: usize, count: usize) {
+    fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
         self.removed_rows.borrow_mut().push((index, count));
     }
-    fn reset(&self) {
+    fn reset(self: Pin<&Self>) {
         *self.reset.borrow_mut() += 1;
     }
 }
@@ -222,7 +222,7 @@ where
     M: Model + 'static,
     F: Fn(&M::Data) -> bool + 'static,
 {
-    fn row_changed(&self, row: usize) {
+    fn row_changed(self: Pin<&Self>, row: usize) {
         let mut mapping = self.mapping.borrow_mut();
 
         let (index, is_contained) = match mapping.binary_search(&row) {
@@ -247,7 +247,7 @@ where
         }
     }
 
-    fn row_added(&self, index: usize, count: usize) {
+    fn row_added(self: Pin<&Self>, index: usize, count: usize) {
         if count == 0 {
             return;
         }
@@ -278,7 +278,7 @@ where
         }
     }
 
-    fn row_removed(&self, index: usize, count: usize) {
+    fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
         if count == 0 {
             return;
         }
@@ -300,7 +300,7 @@ where
         }
     }
 
-    fn reset(&self) {
+    fn reset(self: Pin<&Self>) {
         self.build_mapping_vec();
         self.notify.reset();
     }
@@ -398,7 +398,7 @@ where
     /// Manually reapply the filter. You need to run this e.g. if the filtering function depends on
     /// mutable state and it has changed.
     pub fn reset(&self) {
-        self.0.reset();
+        self.0.as_ref().get().reset();
     }
 
     /// Gets the row index of the underlying unfiltered model for a given filtered row index.
@@ -568,7 +568,7 @@ where
     M: Model + 'static,
     S: SortHelper<M::Data> + 'static,
 {
-    fn row_changed(&self, row: usize) {
+    fn row_changed(self: Pin<&Self>, row: usize) {
         if self.sorted_rows_dirty.get() {
             self.reset();
             return;
@@ -598,7 +598,7 @@ where
         }
     }
 
-    fn row_added(&self, index: usize, count: usize) {
+    fn row_added(self: Pin<&Self>, index: usize, count: usize) {
         if count == 0 {
             return;
         }
@@ -629,7 +629,7 @@ where
         }
     }
 
-    fn row_removed(&self, index: usize, count: usize) {
+    fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
         if count == 0 {
             return;
         }
@@ -668,7 +668,7 @@ where
         }
     }
 
-    fn reset(&self) {
+    fn reset(self: Pin<&Self>) {
         self.sorted_rows_dirty.set(true);
         self.notify.reset();
     }
@@ -833,7 +833,7 @@ where
     /// Manually reapply the sorting. You need to run this e.g. if the sort function depends
     /// on mutable state and it has changed.
     pub fn reset(&self) {
-        self.0.reset();
+        self.0.as_ref().get().reset();
     }
 
     /// Gets the row index of the underlying unsorted model for a given sorted row index.
@@ -1089,25 +1089,25 @@ impl<M> ModelChangeListener for ReverseModelInner<M>
 where
     M: Model + 'static,
 {
-    fn row_changed(&self, row: usize) {
+    fn row_changed(self: Pin<&Self>, row: usize) {
         self.notify.row_changed(self.wrapped_model.row_count() - 1 - row);
     }
 
-    fn row_added(&self, index: usize, count: usize) {
+    fn row_added(self: Pin<&Self>, index: usize, count: usize) {
         let row_count = self.wrapped_model.row_count();
         let old_row_count = row_count - count;
         let index = old_row_count - index;
         self.notify.row_added(index, count);
     }
 
-    fn row_removed(&self, index: usize, count: usize) {
+    fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
         let row_count = self.wrapped_model.row_count();
         let old_row_count = row_count + count;
         let index = old_row_count - index - 1;
         self.notify.row_removed(index, count);
     }
 
-    fn reset(&self) {
+    fn reset(self: Pin<&Self>) {
         self.notify.reset()
     }
 }

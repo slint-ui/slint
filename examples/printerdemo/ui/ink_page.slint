@@ -9,10 +9,10 @@ export struct InkLevel  {
 }
 
 export component InkPage inherits Page {
-    header: @tr("Ink Level");
-
     in property <[InkLevel]> ink-levels;
     in property <bool> page-visible;
+
+    header: @tr("Ink Level");
 
 
     Rectangle {
@@ -23,19 +23,14 @@ export component InkPage inherits Page {
 
         HorizontalLayout {
             spacing: root.width * 5%;
+
             for color-info in root.ink-levels : Rectangle {
                 ink := Rectangle {
                     width: parent.width;
                     height: parent.height * color-info.level;
                     y: parent.height - self.height;
                     clip: true;
-                    Rectangle {
-                        background: color-info.color;
-                        border-radius: self.width / 2;
-                        border-width: 2px;
-                        height: parent.height + parent.y;
-                        y: -parent.y;
-                    }
+
                     states [
                         inactive when !root.page-visible : {
                             height: 0;
@@ -47,14 +42,22 @@ export component InkPage inherits Page {
                             }
                         }
                     ]
+                    Rectangle {
+                        background: color-info.color;
+                        border-radius: self.width / 2;
+                        border-width: 2px;
+                        height: parent.height + parent.y;
+                        y: -parent.y;
+                    }
                 }
 
                 Rectangle {
+                    property <length> r: (parent.width - self.height) / 2;
+                    property <length> y2: max(0phx, max(self.r - self.y, self.y - parent.height + self.r));
+
                     y: max(ink.y - self.height, 0phx);
                     height: 2px;
                     // w = 2*sqrt(r² - (max(0, min(r-y , y-h+r)))²)
-                    property <length> r: (parent.width - self.height) / 2;
-                    property <length> y2: max(0phx, max(self.r - self.y, self.y - parent.height + self.r));
                     width: 2*sqrt((self.r*self.r - self.y2*self.y2)/(1phx * 1phx))*1phx;  // FIXME: it would be nice if sqrt could do proper unit handling
                     x: (parent.width - self.width) / 2;
                     background: DemoPalette.neutral-box;
@@ -67,7 +70,5 @@ export component InkPage inherits Page {
                 }
             }
         }
-
     }
-
 }

@@ -3,15 +3,32 @@
 
 
 export component SpinBoxBase {
-    private property <length> scroll-delta: 2px;
-
-    callback edited(/* value */ int);
-    callback update-text(/* text */ string);
-
     in property <int> minimum;
     in property <int> maximum: 100;
     in property <bool> enabled;
     in-out property <int> value;
+
+    callback edited(/* value */ int);
+    callback update-text(/* text */ string);
+
+    public function update-value(value: int) {
+        if (value < root.minimum || value > root.maximum) {
+            return;
+        }
+
+        root.value = value;
+        root.edited(value);
+    }
+
+    public function increment() {
+        root.update-value(root.value + 1);
+    }
+
+    public function decrement() {
+        root.update-value(root.value - 1);
+    }
+
+    private property <length> scroll-delta: 2px;
 
     TouchArea {
         enabled: root.enabled;
@@ -29,22 +46,5 @@ export component SpinBoxBase {
 
             return reject;
         }
-    }
-
-    public function update-value(value: int) {
-        if (value < root.minimum || value > root.maximum) {
-            return;
-        }
-
-        root.value = value;
-        root.edited(value);
-    }
-
-    public function increment() {
-        root.update-value(root.value + 1);
-    }
-
-    public function decrement() {
-        root.update-value(root.value - 1);
     }
 }

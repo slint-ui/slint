@@ -20,7 +20,7 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
-use i_slint_core::input::{KeyEventType, KeyInputEvent};
+use i_slint_core::input::{KeyEvent, KeyEventType};
 use i_slint_core::platform::WindowEvent;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::SharedString;
@@ -207,7 +207,7 @@ impl WasmInputHelper {
         h.add_event_listener("compositionend", move |e: web_sys::CompositionEvent| {
             if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
-                window_inner.process_key_input(KeyInputEvent {
+                window_inner.process_key_input(KeyEvent {
                     text: data.into(),
                     event_type: KeyEventType::CommitComposition,
                     ..Default::default()
@@ -220,13 +220,9 @@ impl WasmInputHelper {
         h.add_event_listener("compositionupdate", move |e: web_sys::CompositionEvent| {
             if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
-                let text: SharedString = data.into();
-                let preedit_cursor_pos = text.len();
-                window_inner.process_key_input(KeyInputEvent {
-                    text,
+                window_inner.process_key_input(KeyEvent {
+                    preedit_text: data.into(),
                     event_type: KeyEventType::UpdateComposition,
-                    preedit_selection_start: preedit_cursor_pos,
-                    preedit_selection_end: preedit_cursor_pos,
                     ..Default::default()
                 });
             }

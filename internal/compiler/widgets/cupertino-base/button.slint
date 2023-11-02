@@ -5,11 +5,6 @@ import { Typography, Palette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component Button {
-    private property <brush> background: primary && root.enabled ? Palette.accent : Palette.surface;
-    private property <brush> text-color: primary && root.enabled ? Palette.on-surface : Palette.foreground;
-
-    callback clicked;
-
     in property <string> text;
     in property <image> icon;
     in property <bool> primary;
@@ -19,12 +14,33 @@ export component Button {
     out property <bool> pressed: self.enabled && i-touch-area.pressed;
     in-out property <bool> checked;
 
+    callback clicked;
+
+    private property <brush> background: primary && root.enabled ? Palette.accent : Palette.surface;
+    private property <brush> text-color: primary && root.enabled ? Palette.on-surface : Palette.foreground;
+
     min-width: max(20px, i-layout.min-width);
     min-height: max(20px, i-layout.min-height);
     horizontal-stretch: 0;
     vertical-stretch: 0;
     accessible-label: text;
     accessible-role: button;
+    forward-focus: i-focus-scope;
+
+    states [
+        disabled when !i-touch-area.enabled : {
+            root.text-color: Palette.foreground-secondary;
+            root.background: Palette.surface-quaternary;
+        }
+        pressed when root.pressed : {
+            root.background: root.primary ? Palette.accent-secondary : Palette.surface-secondary;
+        }
+        checked when root.checked : {
+            root.text-color: Palette.accent-secondary;
+        }
+    ]
+
+    animate background { duration: 150ms; }
 
     FocusBorder {
         x: (parent.width - self.width) / 2;
@@ -135,19 +151,4 @@ export component Button {
             return reject;
         }
     }
-
-    states [
-        disabled when !i-touch-area.enabled : {
-            root.text-color: Palette.foreground-secondary;
-            root.background: Palette.surface-quaternary;
-        }
-        pressed when root.pressed : {
-            root.background: root.primary ? Palette.accent-secondary : Palette.surface-secondary;
-        }
-        checked when root.checked : {
-            root.text-color: Palette.accent-secondary;
-        }
-    ]
-
-    animate background { duration: 150ms; }
 }

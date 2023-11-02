@@ -7,18 +7,18 @@
 //! Exposed Window API
 
 use crate::api::{
-    CloseRequestResponse, PhysicalPosition, PhysicalSize, PlatformError, Window, WindowPosition,
-    WindowSize,
+    CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window,
+    WindowPosition, WindowSize,
 };
 use crate::graphics::Point;
 use crate::input::{
-    key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, KeyInputEvent,
-    KeyboardModifiers, MouseEvent, MouseInputState, TextCursorBlinker,
+    key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, MouseEvent,
+    MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::ItemRc;
 use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
-use crate::items::{ItemRef, MouseCursor};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
+use crate::items::{InputType, ItemRef, MouseCursor};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
 use crate::{Callback, Coord, SharedString};
@@ -35,17 +35,6 @@ fn next_focus_item(item: ItemRc) -> ItemRc {
 
 fn previous_focus_item(item: ItemRc) -> ItemRc {
     item.previous_focus_item()
-}
-
-/// Transforms a `KeyInputEvent` into an `KeyEvent` with the given `KeyboardModifiers`.
-fn input_as_key_event(input: KeyInputEvent, modifiers: KeyboardModifiers) -> KeyEvent {
-    KeyEvent {
-        modifiers,
-        text: input.text,
-        event_type: input.event_type,
-        preedit_selection_start: input.preedit_selection_start,
-        preedit_selection_end: input.preedit_selection_end,
-    }
 }
 
 /// This trait represents the adaptation layer between the [`Window`] API and then
@@ -152,8 +141,6 @@ pub trait WindowAdapter {
 /// Implementation details behind [`WindowAdapter`], but since this
 /// trait is not exported in the public API, it is not possible for the
 /// users to call or re-implement these functions.
-// TODO: instead of a sealed trait, have an WindowAdapterInternal trait and have a secret function in WindowAdapter:
-// `#[doc(hidden)] fn internal(&self, InternalToken) -> Option<&WindowAdapterInternal> {None}`
 // TODO: add events for window receiving and loosing focus
 #[doc(hidden)]
 pub trait WindowAdapterInternal {
@@ -204,28 +191,42 @@ pub trait WindowAdapterInternal {
 
 /// This is the parameter from [`WindowAdapterInternal::input_method_request()`] which lets the editable text input field
 /// communicate with the platform about input methods.
-#[derive(Debug, Clone)]
 #[non_exhaustive]
+#[derive(Debug, Clone)]
 pub enum InputMethodRequest {
-    /// This request is sent when an editable text input field has received the focus and input methods such as
-    /// a virtual keyboard should be shown.
-    #[non_exhaustive]
-    Enable {
-        /// The type of input that is requesting an input method.
-        input_type: crate::items::InputType,
-    },
-    /// This request is sent when the focused text input field lost focus and any active input method should
-    /// be disabled.
-    #[non_exhaustive]
-    Disable {},
-    /// Request an update of the position of the text cursor, so that for example the input method can adjust
-    /// the location of completion popups.
-    #[non_exhaustive]
-    SetPosition {
-        /// The position of the text cursor in window coordinates.
-        // FIXME: this should be a rectangle
-        position: crate::api::LogicalPosition,
-    },
+    /// Enables the input method with the specified properties.
+    Enable(InputMethodProperties),
+    /// Updates the input method with new properties.
+    Update(InputMethodProperties),
+    /// Disables the input method.
+    Disable,
+}
+
+/// This struct holds properties related to an input method.
+#[non_exhaustive]
+#[derive(Clone, Default, Debug)]
+pub struct InputMethodProperties {
+    /// The text surrounding the cursor.
+    ///
+    /// This field does not include pre-edit text or composition.
+    pub text: SharedString,
+    /// The position of the cursor in bytes within the `text`.
+    pub cursor_position: usize,
+    /// When there is a selection, this is the position of the second anchor
+    /// for the beginning (or the end) of the selection.
+    pub anchor_position: Option<usize>,
+    /// The current value of the pre-edit text as known by the input method.
+    /// This is the text currently being edited but not yet committed.
+    /// When empty, there is no pre-edit text.
+    pub preedit_text: SharedString,
+    /// When the `preedit_text` is not empty, this is the offset of the pre-edit within the `text`.
+    pub preedit_offset: usize,
+    /// The top-left corner of the cursor rectangle in window coordinates.
+    pub cursor_rect_origin: LogicalPosition,
+    /// The size of the cursor rectangle.
+    pub cursor_rect_size: crate::api::LogicalSize,
+    /// The type of input for the text edit.
+    pub input_type: InputType,
 }
 
 /// This struct describes layout constraints of a resizable element, such as a window.
@@ -526,7 +527,7 @@ impl WindowInner {
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
     /// * `component`: The Slint compiled component that provides the tree of items.
-    pub fn process_key_input(&self, event: KeyInputEvent) {
+    pub fn process_key_input(&self, mut event: KeyEvent) {
         if let Some(updated_modifier) = self
             .modifiers
             .get()
@@ -536,7 +537,7 @@ impl WindowInner {
             self.modifiers.set(updated_modifier);
         }
 
-        let event = input_as_key_event(event, self.modifiers.get().into());
+        event.modifiers = self.modifiers.get().into();
 
         let mut item = self.focus_item.borrow().clone().upgrade();
         while let Some(focus_item) = item {
@@ -827,7 +828,7 @@ impl WindowInner {
         w = w.max(LogicalLength::new(layout_info_h.min)).min(LogicalLength::new(layout_info_h.max));
         h = h.max(LogicalLength::new(layout_info_v.min)).min(LogicalLength::new(layout_info_v.max));
 
-        let size = LogicalSize::from_lengths(w, h);
+        let size = crate::lengths::LogicalSize::from_lengths(w, h);
 
         if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
             let width_property =
@@ -921,7 +922,7 @@ impl WindowInner {
 
     /// Sets the size of the window item. This method is typically called in response to receiving a
     /// window resize event from the windowing system.
-    pub(crate) fn set_window_item_geometry(&self, size: LogicalSize) {
+    pub(crate) fn set_window_item_geometry(&self, size: crate::lengths::LogicalSize) {
         if let Some(component_rc) = self.try_component() {
             let component = ItemTreeRc::borrow_pin(&component_rc);
             let root_item = component.as_ref().get_item_ref(0);
@@ -1252,7 +1253,7 @@ pub mod ffi {
         pos: &euclid::default::Point2D<f32>,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.set_position(crate::api::LogicalPosition::new(pos.x, pos.y).into());
+        window_adapter.set_position(LogicalPosition::new(pos.x, pos.y).into());
     }
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
@@ -1298,10 +1299,15 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_dispatch_key_event(
         handle: *const WindowAdapterRcOpaque,
-        event: &crate::input::KeyInputEvent,
+        event_type: crate::input::KeyEventType,
+        text: &SharedString,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().0.process_key_input(event.clone());
+        window_adapter.window().0.process_key_input(crate::items::KeyEvent {
+            text: text.clone(),
+            event_type,
+            ..Default::default()
+        });
     }
 
     /// Dispatch a mouse event

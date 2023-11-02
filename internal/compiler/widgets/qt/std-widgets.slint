@@ -1,344 +1,43 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { LineEditInner, TextEdit, AboutSlint } from "../common/common.slint";
+import { TextEdit, AboutSlint } from "../common/common.slint";
 import { StyleMetrics, ScrollView  } from "std-widgets-impl.slint";
 import { StandardTableView } from "tableview.slint";
 export { StyleMetrics, ScrollView, TextEdit, AboutSlint, StandardTableView }
-import { ComboBoxBase } from "../common/combobox-base.slint";
 
-export component Button {
-    in property<string> text <=> native.text;
-    out property<bool> has-focus <=> native.has-focus;
-    out property<bool> pressed <=> native.pressed;
-    in property<bool> enabled <=> native.enabled;
-    in property<bool> checkable <=> native.checkable;
-    in-out property<bool> checked <=> native.checked;
-    in property<image> icon <=> native.icon;
-    in property <bool> primary <=> native.primary;
-    callback clicked <=> native.clicked;
+import { Button, StandardButton } from "button.slint";
+export { Button, StandardButton }
 
-    accessible-checkable: root.checkable;
-    accessible-checked: root.checked;
-    accessible-label: root.text;
-    accessible-role: button;
+import { CheckBox } from "checkbox.slint";
+export { CheckBox }
 
-    HorizontalLayout {
-        native := NativeButton {
-            checkable: false;
-            enabled: true;
-        }
-    }
-}
+import { SpinBox } from "spinbox.slint";
+export { SpinBox }
 
-export component StandardButton {
-    in property<StandardButtonKind> kind <=> native.standard-button-kind;
-    out property<bool> has-focus <=> native.has-focus;
-    out property<bool> pressed <=> native.pressed;
-    in property<bool> enabled <=> native.enabled;
-    callback clicked <=> native.clicked;
+import { Slider } from "slider.slint";
+export { Slider }
 
-    accessible-label: native.text;
-    accessible-role: button;
+import { Switch } from "switch.slint";
+export { Switch }
 
-    HorizontalLayout {
-        native := NativeButton {
-            is-standard-button: true;
-            checkable: false;
-        }
-    }
-}
+import { GroupBox } from "groupbox.slint";
+export { GroupBox }
 
-export component CheckBox inherits NativeCheckBox {
-    accessible-checkable: true;
-    accessible-checked <=> root.checked;
-    accessible-label <=> root.text;
-    accessible-role: checkbox;
-}
-export component SpinBox inherits NativeSpinBox {
-    accessible-role: spinbox;
-    accessible-value: root.value;
-    accessible-value-minimum: root.minimum;
-    accessible-value-maximum: root.maximum;
-    accessible-value-step: (root.maximum - root.minimum) / 100;
-}
+import { LineEdit } from "lineedit.slint";
+export { LineEdit }
 
-export component Slider inherits NativeSlider {
-    accessible-role: slider;
-    accessible-value: root.value;
-    accessible-value-minimum: root.minimum;
-    accessible-value-maximum: root.maximum;
-    accessible-value-step: (root.maximum - root.minimum) / 100;
+import { ListView, StandardListView } from "listview.slint";
+export { ListView, StandardListView }
 
-    out property <bool> has-focus: fs.has-focus;
+import { ComboBox } from "combobox.slint";
+export { ComboBox }
 
-    fs := FocusScope {
-        x:0;
-        width: 0px;
+import { TabWidget, TabWidgetImpl, TabImpl, TabBarImpl } from "tabwidget.slint";
+export { TabWidget, TabWidgetImpl, TabImpl, TabBarImpl }
 
-        key-pressed(event) => {
-            if (root.enabled && event.text == Key.RightArrow) {
-                root.value = Math.min(root.value + 1, root.maximum);
-                accept
-            } else if (root.enabled && event.text == Key.LeftArrow) {
-                root.value = Math.max(root.value - 1, root.minimum);
-                accept
-            } else {
-                reject
-            }
-        }
-    }
-}
+import { HorizontalBox, VerticalBox, GridBox } from "layouts.slint";
+export { HorizontalBox, VerticalBox, GridBox }
 
-export component Switch inherits NativeCheckBox {
-    accessible-checkable: true;
-    accessible-checked <=> root.checked;
-    accessible-label <=> root.text;
-    accessible-role: checkbox;
-}
-
-export component GroupBox {
-    in property title <=> native.title;
-    in property enabled <=> native.enabled;
-    native := NativeGroupBox {
-        GridLayout {
-            padding-left: native.native-padding-left;
-            padding-right: native.native-padding-right;
-            padding-top: native.native-padding-top;
-            padding-bottom: native.native-padding-bottom;
-            @children
-        }
-    }
-}
-
-export component LineEdit {
-    in property <length> font-size <=> inner.font-size;
-    in-out property <string> text <=> inner.text;
-    in property <string> placeholder-text <=> inner.placeholder-text;
-    in property input-type <=> inner.input-type;
-    in property horizontal-alignment <=> inner.horizontal-alignment;
-    in property read-only <=> inner.read-only;
-    out property<bool> has-focus <=> inner.has-focus;
-    in property<bool> enabled: true;
-    forward-focus: inner;
-    callback accepted <=> inner.accepted;
-    callback edited <=> inner.edited;
-    horizontal-stretch: 1;
-    vertical-stretch: 0;
-    min-width: max(160px, layout.min-height);
-    min-height: max(32px, layout.min-height);
-
-    public function select-all() {
-        inner.select-all();
-    }
-    public function clear-selection() {
-        inner.clear-selection();
-    }
-    public function cut() {
-        inner.cut();
-    }
-    public function copy() {
-        inner.copy();
-    }
-    public function paste() {
-        inner.paste();
-    }
-
-    native := NativeLineEdit {
-        has-focus <=> root.has-focus;
-        enabled: root.enabled;
-        width: 100%;
-        height: 100%;
-    }
-
-    layout := HorizontalLayout {
-        padding-left: native.native-padding-left;
-        padding-right: native.native-padding-right;
-        padding-top: native.native-padding-top;
-        padding-bottom: native.native-padding-bottom;
-        inner := LineEditInner {
-            placeholder-color: self.enabled ? StyleMetrics.placeholder-color : StyleMetrics.placeholder-color-disabled;
-            enabled: root.enabled;
-        }
-    }
-}
-
-export component ListView inherits ScrollView {
-    @children
-}
-
-component StandardListViewBase inherits ListView {
-    private property <length> item-height: self.viewport-height / self.model.length;
-    private property <length> current-item-y: self.viewport-y + current-item * item-height;
-
-    callback current-item-changed(int /* current-item */);
-    callback item-pointer-event(int /* item-index */, PointerEvent /* event */, Point /* absolute mouse position */);
-
-    in property<[StandardListViewItem]> model;
-    in-out property<int> current-item: -1;
-
-    for item[i] in root.model : NativeStandardListViewItem {
-        item: item;
-        index: i;
-        is-selected: root.current-item == i;
-        has-hover: ta.has-hover;
-
-        ta := TouchArea {
-            clicked => {
-                set-current-item(i);
-            }
-
-            pointer-event(pe) => {
-                root.item-pointer-event(i, pe, {
-                    x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
-                    y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
-                });
-            }
-        }
-    }
-
-    public function set-current-item(index: int) {
-        if(index < 0 || index >= model.length) {
-            return;
-        }
-
-        root.current-item = index;
-        root.current-item-changed(current-item);
-
-        if(current-item-y < 0) {
-            self.viewport-y += 0 - current-item-y;
-        }
-
-        if(current-item-y + item-height > self.visible-height) {
-            self.viewport-y -= current-item-y + item-height - self.visible-height;
-        }
-    }
-}
-
-export component StandardListView inherits StandardListViewBase {
-    FocusScope {
-        key-pressed(event) => {
-            if (event.text == Key.UpArrow) {
-                root.set-current-item(root.current-item - 1);
-                return accept;
-            } else if (event.text == Key.DownArrow) {
-                root.set-current-item(root.current-item + 1);
-                return accept;
-            }
-            reject
-        }
-    }
-}
-
-export component ComboBox inherits NativeComboBox {
-    callback selected <=> i-base.selected;
-
-    in property <[string]> model <=> i-base.model;
-    in-out property <int> current-index <=> i-base.current-index;
-    out property has-focus <=> i-base.has-focus;
-
-    enabled: true;
-    accessible-role: combobox;
-    accessible-value <=> root.current-value;
-    current-value: root.model[root.current-index];
-    forward-focus: i-base;
-
-    i-base := ComboBoxBase {
-        width: 100%;
-        height: 100%;
-        current-value <=> root.current-value;
-
-        show-popup => {
-            i-popup.show();
-        }
-    }
-
-    i-popup := PopupWindow {
-        x: 0;
-        y: root.height;
-        width: root.width;
-
-        NativeComboBoxPopup {
-            width: 100%;
-            height: 100%;
-        }
-
-        VerticalLayout {
-            spacing: 0px;
-
-            for value[index] in root.model: NativeStandardListViewItem {
-                item: { text: value };
-                is-selected: root.current-index == index;
-                has-hover: ta.has-hover;
-                combobox: true;
-
-                ta := TouchArea {
-                    clicked => {
-                        i-base.select(index);
-                    }
-                }
-            }
-        }
-    }
-}
-
-export component TabWidgetImpl inherits NativeTabWidget { }
-
-export component TabImpl inherits NativeTab {
-    accessible-role: tab;
-    accessible-label <=> root.title;
-}
-
-export component TabBarImpl {
-    // injected properties:
-    in-out property<int> current; // The currently selected tab
-    in-out property<int> current-focused: fs.has-focus ? root.current : -1; // The currently focused tab
-    in-out property<int> num-tabs; // The total number of tabs
-
-    accessible-role: tab;
-    accessible-delegate-focus: root.current;
-
-    Rectangle {
-        clip: true; // The breeze style draws outside of the tab bar, which is clip by default with Qt
-        HorizontalLayout {
-            spacing: 0px; // Qt renders Tabs next to each other and renders "spacing" as part of the tab itself
-            alignment: NativeStyleMetrics.tab-bar-alignment;
-            @children
-        }
-    }
-
-    fs := FocusScope {
-        x:0;
-        width: 0px; // Do not react on clicks
-        key-pressed(event) => {
-            if (event.text == Key.LeftArrow) {
-                 root.current = Math.max(root.current - 1,  0);
-                 return accept;
-            }
-            if (event.text == Key.RightArrow) {
-                 root.current = Math.min(root.current + 1, root.num-tabs - 1);
-                 return accept;
-            }
-            return reject;
-        }
-    }
-}
-
-export component TabWidget inherits TabWidget {}
-
-export component VerticalBox inherits VerticalLayout {
-    spacing: NativeStyleMetrics.layout-spacing;
-    padding: NativeStyleMetrics.layout-spacing;
-}
-
-export component HorizontalBox inherits HorizontalLayout {
-    spacing: NativeStyleMetrics.layout-spacing;
-    padding: NativeStyleMetrics.layout-spacing;
-}
-
-export component GridBox inherits GridLayout {
-    spacing: NativeStyleMetrics.layout-spacing;
-    padding: NativeStyleMetrics.layout-spacing;
-}
-
-export component ProgressIndicator inherits NativeProgressIndicator {}
+import { ProgressIndicator } from "progressindicator.slint";
+export { ProgressIndicator }

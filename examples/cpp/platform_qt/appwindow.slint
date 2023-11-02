@@ -4,16 +4,19 @@
 import {Button, AboutSlint, LineEdit } from "std-widgets.slint";
 
 export component App inherits Window {
+    property <int> count;
+
     preferred-width: 800px;
     preferred-height: 600px;
-    property <int> count;
 
     VerticalLayout {
         AboutSlint {  }
+
         Button {
-            text: "Hello";
             clicked => { count += 1; }
+            text: "Hello";
         }
+
         Text { text: count; }
         LineEdit {}
         Rectangle {  }

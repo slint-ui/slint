@@ -188,7 +188,8 @@ impl WrappedCompiledComp {
     #[wasm_bindgen]
     pub fn run(&self, canvas_id: String) {
         let component = self.0.create_with_canvas_id(&canvas_id).unwrap();
-        component.run().unwrap();
+        component.show().unwrap();
+        slint_interpreter::spawn_event_loop().unwrap();
     }
     /// Creates this compiled component in a canvas, wrapped in a promise.
     /// The HTML must contains a <canvas> element with the given `canvas_id`
@@ -377,6 +378,6 @@ impl WrappedInstance {
 /// to ignore.
 #[wasm_bindgen]
 pub fn run_event_loop() -> Result<(), JsValue> {
-    slint_interpreter::run_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })?;
+    slint_interpreter::spawn_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })?;
     Ok(())
 }

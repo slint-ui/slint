@@ -23,7 +23,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, Scal
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::{InputMethodRequest, WindowAdapter, WindowInner};
+use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -200,6 +200,29 @@ impl Text {
     }
 }
 
+#[repr(C)]
+#[derive(Default, Clone, Copy, PartialEq)]
+/// Similar as `Option<core::ops::Range<i32>>` but `repr(C)`
+///
+/// This is the selection within a preedit
+struct PreEditSelection {
+    valid: bool,
+    start: i32,
+    end: i32,
+}
+
+impl From<Option<core::ops::Range<i32>>> for PreEditSelection {
+    fn from(value: Option<core::ops::Range<i32>>) -> Self {
+        value.map_or_else(Default::default, |r| Self { valid: true, start: r.start, end: r.end })
+    }
+}
+
+impl PreEditSelection {
+    fn as_option(self) -> Option<core::ops::Range<i32>> {
+        self.valid.then_some(self.start..self.end)
+    }
+}
+
 /// The implementation of the `TextInput` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
@@ -232,8 +255,8 @@ pub struct TextInput {
     pub single_line: Property<bool>,
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
-    pub preedit_selection_start: Property<i32>, // byte offset, relative to cursor
-    pub preedit_selection_end: Property<i32>,   // byte offset, relative to cursor
+    /// A selection within the preedit (cursor and anchor)
+    preedit_selection: Property<PreEditSelection>,
     pub cached_rendering_data: CachedRenderingData,
     // The x position where the cursor wants to be.
     // It is not updated when moving up and down even when the line is shorter.
@@ -385,7 +408,6 @@ impl Item for TextInput {
         if !self.enabled() {
             return KeyEventResult::EventIgnored;
         }
-
         match event.event_type {
             KeyEventType::KeyPressed => {
                 match event.text_shortcut() {
@@ -524,16 +546,21 @@ impl Item for TextInput {
 
                 KeyEventResult::EventAccepted
             }
-            KeyEventType::UpdateComposition => {
-                self.as_ref().preedit_text.set(event.text.clone());
+            KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
+                let cursor = self.cursor_position(&self.text()) as i32;
+                self.preedit_text.set(event.preedit_text.clone());
+                self.preedit_selection.set(event.preedit_selection.clone().into());
 
-                self.as_ref().preedit_selection_start.set(event.preedit_selection_start as i32);
-                self.as_ref().preedit_selection_end.set(event.preedit_selection_end as i32);
-
-                KeyEventResult::EventAccepted
-            }
-            KeyEventType::CommitComposition => {
+                if let Some(r) = &event.replacement_range {
+                    // Set the selection so the call to insert erases it
+                    self.anchor_position_byte_offset.set(cursor.saturating_add(r.start));
+                    self.cursor_position_byte_offset.set(cursor.saturating_add(r.end));
+                }
                 self.insert(&event.text, window_adapter, self_rc);
+                if let Some(cursor) = event.cursor_position {
+                    self.anchor_position_byte_offset.set(event.anchor_position.unwrap_or(cursor));
+                    self.set_cursor_position(cursor, true, window_adapter, self_rc);
+                }
                 KeyEventResult::EventAccepted
             }
             _ => KeyEventResult::EventIgnored,
@@ -544,7 +571,7 @@ impl Item for TextInput {
         self: Pin<&Self>,
         event: &FocusEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> FocusEventResult {
         match event {
             FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
@@ -553,10 +580,10 @@ impl Item for TextInput {
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
                 // FIXME: This should be tracked by a PropertyTracker in window and toggled when read_only() toggles.
                 if !self.read_only() {
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.input_method_request(InputMethodRequest::Enable {
-                            input_type: self.input_type(),
-                        });
+                    if let Some(w) = window_adapter.internal(crate::InternalToken) {
+                        w.input_method_request(InputMethodRequest::Enable(
+                            self.ime_properties(window_adapter, self_rc),
+                        ));
                     }
                 }
             }
@@ -571,10 +598,8 @@ impl Item for TextInput {
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 if !self.read_only() {
                     if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.input_method_request(InputMethodRequest::Disable {});
+                        window_adapter.input_method_request(InputMethodRequest::Disable);
                         self.preedit_text.set(Default::default());
-                        self.preedit_selection_start.set(0);
-                        self.preedit_selection_end.set(0);
                     }
                 }
             }
@@ -673,6 +698,7 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
 /// This struct holds the fields needed for rendering a TextInput item after applying any
 /// on-going composition. This way the renderer's don't have to duplicate the code for extracting
 /// and applying the pre-edit text, cursor placement within, etc.
+#[derive(Debug)]
 pub struct TextInputVisualRepresentation {
     /// The text to be rendered including any pre-edit string
     pub text: String,
@@ -878,26 +904,18 @@ impl TextInput {
                 self.preferred_x_pos.set(pos.x);
             }
             Self::FIELD_OFFSETS.cursor_position_changed.apply_pin(self).call(&(pos,));
-            self.update_ime_position(window_adapter, self_rc);
+            self.update_ime(window_adapter, self_rc);
         }
     }
 
-    fn update_ime_position(
-        self: Pin<&Self>,
-        window_adapter: &Rc<dyn WindowAdapter>,
-        self_rc: &ItemRc,
-    ) {
+    fn update_ime(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         if self.read_only() {
             return;
         }
         if let Some(w) = window_adapter.internal(crate::InternalToken) {
-            let cursor_position = self.cursor_position(&self.text());
-            let cursor_point_relative =
-                self.cursor_rect_for_byte_offset(cursor_position, window_adapter).to_box2d().max;
-            let cursor_point_absolute = self_rc.map_to_window(cursor_point_relative);
-            w.input_method_request(InputMethodRequest::SetPosition {
-                position: crate::api::LogicalPosition::from_euclid(cursor_point_absolute),
-            });
+            w.input_method_request(InputMethodRequest::Update(
+                self.ime_properties(window_adapter, self_rc),
+            ));
         }
     }
 
@@ -943,6 +961,31 @@ impl TextInput {
         safe_byte_offset(self.cursor_position_byte_offset(), text)
     }
 
+    fn ime_properties(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) -> InputMethodProperties {
+        let text = self.text();
+        let cursor_position = self.cursor_position(&text);
+        let anchor_position = self.anchor_position(&text);
+        let cursor_relative = self.cursor_rect_for_byte_offset(cursor_position, window_adapter);
+        let cursor_rect_origin =
+            crate::api::LogicalPosition::from_euclid(self_rc.map_to_window(cursor_relative.origin));
+        let cursor_rect_size = crate::api::LogicalSize::from_euclid(cursor_relative.size);
+
+        InputMethodProperties {
+            text,
+            cursor_position,
+            anchor_position: (cursor_position != anchor_position).then_some(anchor_position),
+            preedit_text: self.preedit_text(),
+            preedit_offset: cursor_position,
+            cursor_rect_origin,
+            cursor_rect_size,
+            input_type: self.input_type(),
+        }
+    }
+
     // Avoid accessing self.cursor_position()/self.anchor_position() directly, always
     // use this bounds-checking function.
     pub fn selection_anchor_and_cursor(self: Pin<&Self>) -> (usize, usize) {
@@ -962,16 +1005,12 @@ impl TextInput {
         anchor_pos != cursor_pos
     }
 
-    pub fn insert(
+    fn insert(
         self: Pin<&Self>,
         text_to_insert: &str,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) {
-        self.preedit_text.set(Default::default());
-        self.preedit_selection_start.set(0);
-        self.preedit_selection_end.set(0);
-
         self.delete_selection(window_adapter, self_rc);
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
@@ -1071,6 +1110,7 @@ impl TextInput {
         if let Some(text) = crate::platform::PLATFORM_INSTANCE
             .with(|p| p.get().and_then(|p| p.clipboard_text(clipboard)))
         {
+            self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);
         }
     }
@@ -1118,33 +1158,27 @@ impl TextInput {
         let mut text: String = self.text().into();
 
         let preedit_text = self.preedit_text();
-
         let (preedit_range, selection_range, cursor_position) = if !preedit_text.is_empty() {
             let cursor_position = self.cursor_position(&text);
 
             text.insert_str(cursor_position, &preedit_text);
-
-            let preedit_selection_start = self.preedit_selection_start() as usize;
-            let preedit_selection_end = self.preedit_selection_end() as usize;
-
-            let selection_range =
-                cursor_position + preedit_selection_start..cursor_position + preedit_selection_end;
-
             let preedit_range = cursor_position..cursor_position + preedit_text.len();
 
-            let cursor_position = Some(cursor_position + preedit_selection_end);
-
-            (preedit_range, selection_range, cursor_position)
+            if let Some(preedit_sel) = self.preedit_selection().as_option() {
+                let preedit_selection = cursor_position + preedit_sel.start as usize
+                    ..cursor_position + preedit_sel.end as usize;
+                (preedit_range, preedit_selection, Some(cursor_position + preedit_sel.end as usize))
+            } else {
+                let cur = preedit_range.end;
+                (preedit_range, cur..cur, None)
+            }
         } else {
             let preedit_range = Default::default();
-
             let (selection_anchor_pos, selection_cursor_pos) = self.selection_anchor_and_cursor();
             let selection_range = selection_anchor_pos..selection_cursor_pos;
-
             let cursor_position = self.cursor_position(&text);
             let cursor_visible = self.cursor_visible() && self.enabled() && !self.read_only();
             let cursor_position = if cursor_visible { Some(cursor_position) } else { None };
-
             (preedit_range, selection_range, cursor_position)
         };
 

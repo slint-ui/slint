@@ -10,38 +10,6 @@ export struct TodoItem  {
 }
 
 component MainWindow inherits Window {
-    preferred-width: 400px;
-    preferred-height: 600px;
-    callback todo-added(string);
-    callback remove-done();
-
-    callback popup_confirmed;
-    callback show_confirm_popup;
-
-    callback apply_sorting_and_filtering();
-
-    show_confirm_popup => { confirm_popup.show(); }
-
-    confirm_popup := PopupWindow {
-        x: 40px;
-        y: 100px;
-        width: min(confirm_popup_layout.preferred-width, root.width - 80px);
-        Rectangle {
-            background: root.background;
-            border-color: confirm_popup_text.color;
-            border-width: 1px;
-        }
-        confirm_popup_layout := Dialog {
-            height:100%; width: 100%;
-            confirm_popup_text := Text {
-                text: "Some items are not done, are you sure you wish to quit?";
-                wrap: word-wrap;
-            }
-            StandardButton { kind: yes; clicked => { root.popup_confirmed(); } }
-            StandardButton { kind: no; }
-        }
-    }
-
     in property <[TodoItem]> todo-model: [
         { title: "Implement the .slint file", checked: true },
         { title: "Do the Rust part", checked: false },
@@ -57,23 +25,62 @@ component MainWindow inherits Window {
     in-out property <bool> is-sort-by-name: false;
     in-out property <bool> hide-done-items: false;
 
+    callback todo-added(string);
+    callback remove-done();
+    callback popup_confirmed;
+    callback show_confirm_popup;
+    callback apply_sorting_and_filtering();
+
+    show_confirm_popup => { confirm_popup.show(); }
+
+    preferred-width: 400px;
+    preferred-height: 600px;
+
+    confirm_popup := PopupWindow {
+        x: 40px;
+        y: 100px;
+        width: min(confirm_popup_layout.preferred-width, root.width - 80px);
+
+        Rectangle {
+            background: root.background;
+            border-color: confirm_popup_text.color;
+            border-width: 1px;
+        }
+
+        confirm_popup_layout := Dialog {
+            height:100%; width: 100%;
+
+            confirm_popup_text := Text {
+                text: "Some items are not done, are you sure you wish to quit?";
+                wrap: word-wrap;
+            }
+
+            StandardButton { kind: yes; clicked => { root.popup_confirmed(); } }
+            StandardButton { kind: no; }
+        }
+    }
+
+
     VerticalBox {
         HorizontalBox {
             padding: 0px;
             text-edit := LineEdit {
-                placeholder-text: "What needs to be done?";
                 accepted(text) => {
                     root.todo-added(self.text);
                     self.text = "";
                 }
+
+                placeholder-text: "What needs to be done?";
             }
+
             btn := Button {
-                text: "Add New Entry";
-                enabled: text-edit.text != "";
                 clicked => {
                     root.todo-added(text-edit.text);
                     text-edit.text = "";
                 }
+
+                text: "Add New Entry";
+                enabled: text-edit.text != "";
             }
         }
 
@@ -82,32 +89,33 @@ component MainWindow inherits Window {
             alignment: start;
 
             CheckBox {
-                text: "Sort by name";
-                checked <=> root.is-sort-by-name;
-
                 toggled => {
                     root.apply_sorting_and_filtering();
                 }
+
+                text: "Sort by name";
+                checked <=> root.is-sort-by-name;
             }
 
             CheckBox {
-                text: "Hide done items";
-                checked <=> root.hide-done-items;
-
                 toggled => {
                     root.apply_sorting_and_filtering();
                 }
+
+                text: "Hide done items";
+                checked <=> root.hide-done-items;
             }
         }
 
         list-view := ListView {
             for todo in root.todo-model:  HorizontalLayout {
                 CheckBox {
-                    text: todo.title;
-                    checked: todo.checked;
                     toggled => {
                         todo.checked = self.checked;
                     }
+
+                    text: todo.title;
+                    checked: todo.checked;
                 }
             }
         }
@@ -116,8 +124,9 @@ component MainWindow inherits Window {
             alignment: end;
 
             Button {
-                text: "Remove Done Items";
                 clicked => { root.remove-done(); }
+
+                text: "Remove Done Items";
             }
         }
     }

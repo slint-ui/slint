@@ -4,18 +4,35 @@
 import { Theme } from "../theme.slint";
 
 export component Switch {
-    callback changed(bool /* checked */);
+    in-out property <bool> checked;
+
+    callback changed(/* checked */ bool);
     callback clicked <=> i-touch-area.clicked;
 
-    in-out property <bool> checked;
+    function toggle-checked() {
+        checked = !checked;
+        changed(checked);
+    }
 
     min-height: 18px;
     width: 2 * self.height;
+
+    states [
+        checked when checked : {
+            i-container.background: Theme.palette.lemon-green-op10;
+            i-container.border-color: Theme.palette.lemon-green;
+            i-indicator.background: Theme.palette.lemon-green;
+            i-indicator.x: i-container.width - i-indicator.width - 2 * i-container.border-width;
+        }
+    ]
 
     i-container := Rectangle {
         border-color: Theme.palette.slint-blue-300;
         border-width: 2px;
         border-radius: self.height / 2;
+
+        animate border-color { duration: Theme.durations.fast; }
+        animate background { duration: Theme.durations.fast; }
 
         i-indicator := Rectangle {
             x: 2 * parent.border-width;
@@ -27,9 +44,6 @@ export component Switch {
             animate background { duration: Theme.durations.fast; }
             animate x { duration: Theme.durations.fast; }
         }
-
-        animate border-color { duration: Theme.durations.fast; }
-        animate background { duration: Theme.durations.fast; }
     }
 
     i-touch-area := TouchArea {
@@ -37,18 +51,4 @@ export component Switch {
             toggle-checked();
         }
     }
-
-    function toggle-checked() {
-        checked = !checked;
-        changed(checked);
-    }
-
-    states [
-        checked when checked : {
-            i-container.background: Theme.palette.lemon-green-op10;
-            i-container.border-color: Theme.palette.lemon-green;
-            i-indicator.background: Theme.palette.lemon-green;
-            i-indicator.x: i-container.width - i-indicator.width - 2 * i-container.border-width;
-        }
-    ]
 }

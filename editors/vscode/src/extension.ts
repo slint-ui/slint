@@ -66,7 +66,7 @@ function lspPlatform(): Platform | null {
         }
     } else if (process.platform === "win32") {
         return {
-            program_name: "slint-lsp-x86_64-pc-windows-gnu.exe",
+            program_name: "slint-lsp-x86_64-pc-windows-msvc.exe",
         };
     }
     return null;
