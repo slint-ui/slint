@@ -3,6 +3,7 @@
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
+#![cfg_attr(not(target_os = "android"), allow(rustdoc::broken_intra_doc_links))]
 #![cfg(target_os = "android")]
 
 pub use android_activity;
