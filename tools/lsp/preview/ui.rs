@@ -10,7 +10,8 @@ use slint_interpreter::PlatformError;
 slint::include_modules!();
 
 pub fn create_ui(style: String) -> Result<(PreviewUi, String), PlatformError> {
-    let default_style = "fluent-light";
+    let default_style =
+        i_slint_common::get_native_style(false, &std::env::var("TARGET").unwrap_or_default());
 
     let ui = PreviewUi::new()?;
 
@@ -28,7 +29,7 @@ pub fn create_ui(style: String) -> Result<(PreviewUi, String), PlatformError> {
     } else if known_styles.contains(&default_style) {
         default_style.to_string()
     } else {
-        known_styles.get(0).map(|s| s.to_string()).unwrap_or_default()
+        known_styles.first().map(|s| s.to_string()).unwrap_or_default()
     };
 
     let style_model = std::rc::Rc::new({
