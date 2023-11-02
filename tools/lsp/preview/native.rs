@@ -254,19 +254,14 @@ pub fn ask_editor_to_show_document(
         return;
     };
 
-    let Some(params) = super::show_document_request_from_element_callback(
+    super::send_show_document_to_editor(
+        &sender,
         file,
         start_line,
         start_column,
         end_line,
         end_column,
-    ) else {
-        return;
-    };
-    let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
-        return;
-    };
-    i_slint_core::future::spawn_local(fut).unwrap();
+    );
 }
 
 pub fn configure_design_mode(enabled: bool) {
@@ -275,30 +270,14 @@ pub fn configure_design_mode(enabled: bool) {
             let preview_state = preview_state.borrow();
             let handle = preview_state.handle.borrow();
             if let Some(handle) = &*handle {
-                handle.set_design_mode(enabled);
-
-                handle.on_element_selected(Box::new(
-                    move |file: &str,
-                          start_line: u32,
-                          start_column: u32,
-                          end_line: u32,
-                          end_column: u32| {
-                        let _ = ask_editor_to_show_document(
-                            file,
-                            start_line,
-                            start_column,
-                            end_line,
-                            end_column,
-                        ); // ignore errors
-                    },
-                ));
+                super::configure_handle_for_design_mode(&handle, enabled);
             }
         })
     });
 }
 
 /// This runs `set_preview_factory` in the UI thread
-pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
+pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition, design_mode: bool) {
     let default_style = {
         let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.default_style.clone()
@@ -317,6 +296,7 @@ pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
             Box::new(move |instance| {
                 shared_handle.replace(Some(instance));
             }),
+            design_mode,
         );
     });
 }

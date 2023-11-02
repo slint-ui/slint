@@ -7,7 +7,7 @@ use std::{
     sync::Mutex,
 };
 
-use crate::{common::PreviewComponent, lsp_ext::Health};
+use crate::{common::PreviewComponent, lsp_ext::Health, ServerNotifier};
 use i_slint_core::component_factory::FactoryContext;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 
@@ -41,8 +41,13 @@ static CONTENT_CACHE: std::sync::OnceLock<Mutex<ContentCache>> = std::sync::Once
 
 pub fn set_contents(path: &Path, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    cache.source_code.insert(path.to_owned(), content);
+    let old = cache.source_code.insert(path.to_owned(), content.clone());
     if cache.dependency.contains(path) {
+        if let Some(old) = old {
+            if content == old {
+                return;
+            }
+        }
         let current = cache.current.clone();
         let ui_is_visible = cache.ui_is_visible;
 
@@ -184,15 +189,24 @@ async fn reload_preview(preview_component: PreviewComponent) {
     notify_diagnostics(builder.diagnostics());
 
     if let Some(compiled) = compiled {
-        update_preview_area(compiled);
+        update_preview_area(compiled, design_mode);
         finish_parsing(true);
     } else {
         finish_parsing(false);
     }
-
-    configure_design_mode(design_mode);
 }
 
+fn configure_handle_for_design_mode(handle: &ComponentInstance, enabled: bool) {
+    handle.set_design_mode(enabled);
+
+    handle.on_element_selected(Box::new(
+        move |file: &str, start_line: u32, start_column: u32, end_line: u32, end_column: u32| {
+            let _ =
+                ask_editor_to_show_document(file, start_line, start_column, end_line, end_column);
+            // ignore errors
+        },
+    ));
+}
 /// This sets up the preview area to show the ComponentInstance
 ///
 /// This must be run in the UI thread.
@@ -200,9 +214,11 @@ pub fn set_preview_factory(
     ui: &ui::PreviewUi,
     compiled: ComponentDefinition,
     callback: Box<dyn Fn(ComponentInstance)>,
+    design_mode: bool,
 ) {
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
+        configure_handle_for_design_mode(&instance, design_mode);
 
         if let Some((path, offset)) =
             CONTENT_CACHE.get().and_then(|c| c.lock().unwrap().highlight.clone())
@@ -302,9 +318,8 @@ pub fn send_status_notification(sender: &crate::ServerNotifier, message: &str, h
         .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
 }
 
-#[cfg(feature = "preview-external")]
-pub fn ask_editor_to_show_document(
-    sender: &crate::ServerNotifier,
+pub fn send_show_document_to_editor(
+    sender: &ServerNotifier,
     file: &str,
     start_line: u32,
     start_column: u32,
