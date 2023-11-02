@@ -6,6 +6,7 @@
 
 use alloc::boxed::Box;
 use core::cell::Cell;
+use num_traits::Float;
 
 mod cubic_bezier {
     //! This is a copy from lyon_algorithms::geom::cubic_bezier implementation
@@ -145,17 +146,17 @@ pub enum EasingCurve {
     Linear,
     /// A Cubic bezier curve, with its 4 parameters
     CubicBezier([f32; 4]),
-    /// Easing curve as defined at: https://easings.net/#easeInElastic
+    /// Easing curve as defined at: <https://easings.net/#easeInElastic>
     EaseInElastic,
-    /// Easing curve as defined at: https://easings.net/#easeOutElastic
+    /// Easing curve as defined at: <https://easings.net/#easeOutElastic>
     EaseOutElastic,
-    /// Easing curve as defined at: https://easings.net/#easeInOutElastic
+    /// Easing curve as defined at: <https://easings.net/#easeInOutElastic>
     EaseInOutElastic,
-    /// Easing curve as defined at: https://easings.net/#easeInBounce
+    /// Easing curve as defined at: <https://easings.net/#easeInBounce>
     EaseInBounce,
-    /// Easing curve as defined at: https://easings.net/#easeOutBounce
+    /// Easing curve as defined at: <https://easings.net/#easeOutBounce>
     EaseOutBounce,
-    /// Easing curve as defined at: https://easings.net/#easeInOutBounce
+    /// Easing curve as defined at: <https://easings.net/#easeInOutBounce>
     EaseInOutBounce,
     // Custom(Box<dyn Fn(f32) -> f32>),
 }
