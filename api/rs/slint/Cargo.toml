@@ -83,7 +83,7 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 
 #! Slint needs a backend that will act as liaison between Slint and the OS.
 #! By default, Slint will use the Qt backend, if Qt is installed, otherwise, it
-#! will use [Winit](https://crates.io/crates/winit) with [Femtovg](https://crates.io/crates/femtovg).
+#! will use [Winit](https://crates.io/crates/winit) with [FemtoVG](https://crates.io/crates/femtovg).
 #! Both backends are compiled in. If you want to not compile one of these you need
 #! to disable the default feature and re-enable one backend. It is also possible
 #! to use Slint without backend if you provide the platform abstraction yourself
@@ -96,7 +96,7 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 #! are enabled, using the `SLINT_BACKEND`  environment variable.
 #!  * `SLINT_BACKEND=Qt` selects the Qt backend
 #!  * `SLINT_BACKEND=winit` selects the winit backend
-#!  * `SLINT_BACKEND=winit-femtovg` selects the winit backend with the femtovg renderer
+#!  * `SLINT_BACKEND=winit-femtovg` selects the winit backend with the FemtoVG renderer
 #!  * `SLINT_BACKEND=winit-skia` selects the winit backend with the skia renderer
 #!  * `SLINT_BACKEND=winit-software` selects the winit backend with the software renderer
 #!
@@ -131,7 +131,7 @@ renderer-winit-skia-opengl= ["renderer-skia-opengl"]
 renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
-## Render using the [femtovg](https://crates.io/crates/femtovg) crate.
+## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate.
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "dep:i-slint-renderer-femtovg", "std"]
 
 ## Render using [Skia](https://skia.org/).
@@ -154,7 +154,6 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 i-slint-core = { workspace = true }
 slint-macros = { workspace = true, features = ["default"] }
 i-slint-backend-selector = { workspace = true, features = ["default"] }
-i-slint-renderer-femtovg = { workspace = true, optional = true }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }
@@ -165,6 +164,11 @@ pin-weak = { version = "1.1", default-features = false }
 num-traits = { version = "0.2", default-features = false }
 
 log = { version = "0.4.17", optional = true }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+# FemtoVG is disabled on android because it doesn't compile without setting RUST_FONTCONFIG_DLOPEN=on
+# end even then wouldn't work because it can't load fonts
+i-slint-renderer-femtovg = { workspace = true, optional = true }
 
 [dev-dependencies]
 slint-build = { workspace = true, features = ["default"] }
