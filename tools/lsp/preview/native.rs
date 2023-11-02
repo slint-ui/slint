@@ -23,7 +23,7 @@ enum RequestedGuiEventLoopState {
     /// But the loop hasn't been started yet
     StartLoop,
     /// The Loop is now started so the LSP thread can start posting events
-    LoopStated,
+    LoopStarted,
     /// The LSP thread requested the application to be terminated
     QuitLoop,
 }
@@ -72,7 +72,7 @@ pub fn start_ui_event_loop() {
             i_slint_core::api::invoke_from_event_loop(|| {
                 let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
                 if *state_request == RequestedGuiEventLoopState::StartLoop {
-                    *state_request = RequestedGuiEventLoopState::LoopStated;
+                    *state_request = RequestedGuiEventLoopState::LoopStarted;
                     GUI_EVENT_LOOP_NOTIFIER.notify_one();
                 }
             })
