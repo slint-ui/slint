@@ -137,6 +137,9 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
                     let pri_type = match stringify!($pri_type) {
                         "usize" => "uintptr_t",
                         "crate::animations::Instant" => "uint64_t",
+                        // This shouldn't be accessed by the C++ anyway, just need to have the same ABI in a struct
+                        "Option<i32>" => "std::pair<int32_t, int32_t>",
+                        "Option<core::ops::Range<i32>>" => "std::tuple<int32_t, int32_t, int32_t>",
                         other => other,
                     };
                     writeln!(file, "    {} {};", pri_type, stringify!($pri_field))?;

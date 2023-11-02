@@ -200,6 +200,29 @@ impl Text {
     }
 }
 
+#[repr(C)]
+#[derive(Default, Clone, Copy, PartialEq)]
+/// Similar as `Option<core::ops::Range<i32>>` but `repr(C)`
+///
+/// This is the selection within a preedit
+struct PreEditSelection {
+    valid: bool,
+    start: i32,
+    end: i32,
+}
+
+impl From<Option<core::ops::Range<i32>>> for PreEditSelection {
+    fn from(value: Option<core::ops::Range<i32>>) -> Self {
+        value.map_or_else(Default::default, |r| Self { valid: true, start: r.start, end: r.end })
+    }
+}
+
+impl PreEditSelection {
+    fn as_option(self) -> Option<core::ops::Range<i32>> {
+        self.valid.then_some(self.start..self.end)
+    }
+}
+
 /// The implementation of the `TextInput` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
@@ -233,7 +256,7 @@ pub struct TextInput {
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
     /// A selection within the preedit (cursor and anchor)
-    preedit_selection: Property<Option<core::ops::Range<i32>>>,
+    preedit_selection: Property<PreEditSelection>,
     pub cached_rendering_data: CachedRenderingData,
     // The x position where the cursor wants to be.
     // It is not updated when moving up and down even when the line is shorter.
@@ -525,8 +548,8 @@ impl Item for TextInput {
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
                 let cursor = self.cursor_position(&self.text()) as i32;
-                self.as_ref().preedit_text.set(event.preedit_text.clone());
-                self.as_ref().preedit_selection.set(event.preedit_selection.clone());
+                self.preedit_text.set(event.preedit_text.clone());
+                self.preedit_selection.set(event.preedit_selection.clone().into());
 
                 if let Some(r) = &event.replacement_range {
                     // Set the selection so the call to insert erases it
@@ -1137,7 +1160,7 @@ impl TextInput {
             text.insert_str(cursor_position, &preedit_text);
             let preedit_range = cursor_position..cursor_position + preedit_text.len();
 
-            if let Some(preedit_sel) = self.preedit_selection() {
+            if let Some(preedit_sel) = self.preedit_selection().as_option() {
                 let preedit_selection = cursor_position + preedit_sel.start as usize
                     ..cursor_position + preedit_sel.end as usize;
                 (preedit_range, preedit_selection, Some(cursor_position + preedit_sel.end as usize))
