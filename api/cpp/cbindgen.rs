@@ -600,7 +600,7 @@ fn gen_corelib(
     );
     config.export.body.insert( 
         "EasingCurve".to_owned(), 
-        "    constexpr explicit EasingCurve(EasingCurve::Tag tag = Tag::Linear , float a = 0, float b = 0, float c = 1, float d = 1) : tag(tag), cubic_bezier{{a,b,c,d}} {}".into() 
+        "    constexpr EasingCurve(EasingCurve::Tag tag = Tag::Linear , float a = 0, float b = 0, float c = 1, float d = 1) : tag(tag), cubic_bezier{{a,b,c,d}} {}".into() 
     );
     config.export.body.insert(
         "LayoutInfo".to_owned(),
