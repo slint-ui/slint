@@ -56,7 +56,7 @@ pub(crate) fn as_skia_image(
             let (target_width, target_height) = target_size_fn();
             let target_size = LogicalSize::from_lengths(target_width, target_height) * scale_factor;
             let target_size = i_slint_core::graphics::fit_size(image_fit, target_size, svg.size());
-            let pixels = match svg.render(target_size.cast()).ok()? {
+            let pixels = match svg.render(Some(target_size.cast())).ok()? {
                 SharedImageBuffer::RGB8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,

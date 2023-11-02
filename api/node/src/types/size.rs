@@ -6,15 +6,15 @@ use napi::{
     JsUnknown, Result,
 };
 
-/// Represents a two-dimensional size.
-#[napi(js_name = Size)]
-pub struct JsSize {
+/// SlintPoint implements {@link Size}.
+#[napi]
+pub struct SlintSize {
     pub width: f64,
     pub height: f64,
 }
 
 #[napi]
-impl JsSize {
+impl SlintSize {
     /// Constructs a size from the given width and height.
     #[napi(constructor)]
     pub fn new(width: f64, height: f64) -> Result<Self> {
@@ -30,7 +30,7 @@ impl JsSize {
     }
 }
 
-impl FromNapiValue for JsSize {
+impl FromNapiValue for SlintSize {
     unsafe fn from_napi_value(
         env: napi::sys::napi_env,
         napi_val: napi::sys::napi_value,
@@ -57,6 +57,6 @@ impl FromNapiValue for JsSize {
                     "Cannot convert object to Size, because the provided object does not have an f64 height property".to_string()
             ))?;
 
-        Ok(JsSize { width, height })
+        Ok(SlintSize { width, height })
     }
 }

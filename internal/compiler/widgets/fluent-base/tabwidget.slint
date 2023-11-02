@@ -27,9 +27,6 @@ export component TabWidgetImpl inherits Rectangle {
 }
 
 export component TabImpl inherits Rectangle {
-    private property <bool> hide-right-border: root.tab-index == root.num-tabs - 1 || tab-index + 1 == current;
-    private property <bool> is-current: root.tab-index == root.current;
-
     in property <int> current-focused; // The currently focused tab
     in property <int> tab-index; // The index of this tab
     in property <int> num-tabs; // The total number of tabs
@@ -37,6 +34,9 @@ export component TabImpl inherits Rectangle {
     in property <bool> enabled: true;
     out property <bool> has-focus: root.current-focused == root.tab-index;
     in-out property <int> current; // The currently selected tab
+
+    private property <bool> hide-right-border: root.tab-index == root.num-tabs - 1 || tab-index + 1 == current;
+    private property <bool> is-current: root.tab-index == root.current;
 
     min-width: max(160px, i-text.min-width);
     min-height: max(32px, i-text.min-height);
@@ -105,9 +105,9 @@ export component TabImpl inherits Rectangle {
 
 export component TabBarImpl {
     // injected properties:
-    in-out property<int> current; // The currently selected tab
-    in-out property<int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1; // The currently focused tab
-    in-out property<int> num-tabs; // The total number of tabs
+    in-out property <int> current; // The currently selected tab
+    in-out property <int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1; // The currently focused tab
+    in-out property <int> num-tabs; // The total number of tabs
 
     HorizontalLayout {
         alignment: start;
@@ -119,7 +119,7 @@ export component TabBarImpl {
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
 
     i-focus-scope := FocusScope {
-        property<int> focused-tab: 0;
+        property <int> focused-tab: 0;
 
         x: 0;
         width: 0px; // Do not react on clicks

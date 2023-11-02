@@ -33,13 +33,14 @@ accessibility = ["i-slint-backend-winit?/accessibility"]
 default = []
 
 [dependencies]
+cfg-if = "1"
 i-slint-core = { workspace = true }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
 i-slint-backend-winit = { workspace = true, features = ["default"], optional = true }
 i-slint-backend-qt = { workspace = true, features = ["default"], optional = true }
 i-slint-backend-linuxkms = { workspace = true, features = ["default"], optional = true }
 i-slint-renderer-skia = { workspace = true, optional = true }
-
-cfg-if = "1"
 
 [build-dependencies]
 i-slint-common = { workspace = true }

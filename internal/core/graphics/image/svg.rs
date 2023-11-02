@@ -43,23 +43,29 @@ impl ParsedSVG {
         self.cache_key.clone()
     }
 
-    /// Renders the SVG with the specified size.
+    /// Renders the SVG with the specified size, if no size is specified, get the size from the image
     #[allow(clippy::unnecessary_cast)] // Coord
     pub fn render(
         &self,
-        size: euclid::Size2D<u32, PhysicalPx>,
+        size: Option<euclid::Size2D<u32, PhysicalPx>>,
     ) -> Result<SharedImageBuffer, usvg::Error> {
         let tree = &self.svg_tree;
 
-        let target_size = tree.size.to_int_size().scale_to(
-            tiny_skia::IntSize::from_wh(size.width, size.height).ok_or(usvg::Error::InvalidSize)?,
-        );
-        let target_size_f = target_size.to_size();
+        let (target_size, transform) = match size {
+            Some(size) => {
+                let target_size = tiny_skia::IntSize::from_wh(size.width, size.height)
+                    .ok_or(usvg::Error::InvalidSize)?;
+                let target_size = tree.size.to_int_size().scale_to(target_size);
+                let target_size_f = target_size.to_size();
 
-        let transform = tiny_skia::Transform::from_scale(
-            target_size_f.width() as f32 / tree.size.width() as f32,
-            target_size_f.height() as f32 / tree.size.height() as f32,
-        );
+                let transform = tiny_skia::Transform::from_scale(
+                    target_size_f.width() as f32 / tree.size.width() as f32,
+                    target_size_f.height() as f32 / tree.size.height() as f32,
+                );
+                (target_size, transform)
+            }
+            None => (tree.size.to_int_size(), tiny_skia::Transform::default()),
+        };
 
         let mut buffer = SharedPixelBuffer::new(target_size.width(), target_size.height());
         let mut skia_buffer = tiny_skia::PixmapMut::from_bytes(

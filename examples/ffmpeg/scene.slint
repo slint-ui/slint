@@ -4,6 +4,11 @@
 import { VerticalBox, StyleMetrics } from "std-widgets.slint";
 
 export component App inherits Window {
+    in property <image> video-frame <=> image.source;
+    in property <bool> playing;
+
+    pure callback toggle-pause-play();
+
     preferred-width: 500px;
     preferred-height: 300px;
     min-width: 500px;
@@ -11,35 +16,6 @@ export component App inherits Window {
     title: "Slint FFmpeg Example";
     background: #000000;
     icon: @image-url("../../logo/slint-logo-small-light.png");
-
-    in property <image> video-frame <=> image.source;
-    in property <bool> playing;
-    pure callback toggle-pause-play();
-
-    VerticalBox {
-        image := Image {
-        }
-    }
-
-    area := TouchArea {
-        width: 50%;
-        height: self.preferred-height;
-        y: root.height - self.height - 40px;
-        controls := Rectangle {
-            border-radius: 4px;
-            background: StyleMetrics.dark-color-scheme ? #3737378c : #ffffff82;
-            Image {
-                width: 64px;
-                height: 64px;
-                source: root.playing ? @image-url("pause.svg") : @image-url("play.svg");
-            }
-            TouchArea {
-                clicked => {
-                    root.toggle-pause-play();
-                }
-            }
-        }
-    }
 
     states [
         shown when area.has-hover || animation-tick() < 5s : {
@@ -60,4 +36,30 @@ export component App inherits Window {
             }
         }
     ]
+
+    VerticalBox {
+        image := Image {}
+    }
+
+    area := TouchArea {
+        width: 50%;
+        height: self.preferred-height;
+        y: root.height - self.height - 40px;
+        controls := Rectangle {
+            border-radius: 4px;
+            background: StyleMetrics.dark-color-scheme ? #3737378c : #ffffff82;
+
+            Image {
+                width: 64px;
+                height: 64px;
+                source: root.playing ? @image-url("pause.svg") : @image-url("play.svg");
+            }
+
+            TouchArea {
+                clicked => {
+                    root.toggle-pause-play();
+                }
+            }
+        }
+    }
 }

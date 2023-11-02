@@ -7,13 +7,29 @@ import { Theme } from "../theme.slint";
 import { Images } from "../images.slint";
 
 export component Navigation {
-    private property <bool> show-navigation;
+    in-out property <int> current-index <=> i-pagination.selected-index;
+    in property <int> page-count <=> i-pagination.count;
 
     callback pagination-clicked <=> i-pagination.clicked;
     callback clicked;
 
-    in-out property <int> current-index <=> i-pagination.selected-index;
-    in property <int> page-count <=> i-pagination.count;
+    public function hide() {
+        show-navigation = false;
+    }
+
+    private property <bool> show-navigation;
+
+    function toggle-show-navigation() {
+        show-navigation = !self.show-navigation;
+    }
+
+    function increment() {
+        current-index = max(current-index - 1, 0);
+    }
+
+    function decrement() {
+        current-index = min(current-index + 1, page-count - 1);
+    }
 
     preferred-width: 100%;
     preferred-height: 100%;
@@ -37,12 +53,14 @@ export component Navigation {
         i-pagination := Pagination {}
     }
 
-    if(show-navigation) : HorizontalLayout {
+    if (show-navigation) : HorizontalLayout {
         Rectangle {
             visible: current-index > 0;
             opacity: self.visible ? 1 : 0;
             min_width: 129px;
             background: Theme.palette.dark-left-gradient;
+
+            animate opacity { duration: Theme.durations.fast; }
 
             VerticalLayout {
                 alignment: center;
@@ -60,8 +78,6 @@ export component Navigation {
                     }
                 }
             }
-
-            animate opacity { duration: Theme.durations.fast; }
         }
 
         Rectangle {}
@@ -71,6 +87,8 @@ export component Navigation {
             opacity: self.visible ? 1 : 0;
             min_width: 129px;
             background: Theme.palette.dark-right-gradient;
+
+            animate opacity { duration: Theme.durations.fast; }
 
             VerticalLayout {
                 alignment: center;
@@ -88,24 +106,6 @@ export component Navigation {
                     }
                 }
             }
-
-            animate opacity { duration: Theme.durations.fast; }
         }
-    }
-
-    function toggle-show-navigation() {
-        show-navigation = !self.show-navigation;
-    }
-
-    function increment() {
-        current-index = max(current-index - 1, 0);
-    }
-
-    function decrement() {
-        current-index = min(current-index + 1, page-count - 1);
-    }
-
-    public function hide() {
-        show-navigation = false;
     }
 }

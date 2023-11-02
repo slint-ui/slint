@@ -21,6 +21,9 @@ on:
   schedule:
     - cron: '0 4 * * *'
 
+env:
+  SLINT_BINARY_FEATURES: "backend-winit,renderer-femtovg,renderer-skia"
+
 jobs:
   slint-viewer-binary:
     uses: ./.github/workflows/slint_tool_binary.yaml
@@ -68,9 +71,9 @@ jobs:
             binary_built: slint-lsp
             artifact_name: slint-lsp-x86_64-unknown-linux-gnu
           - os: windows-2022
-            toolchain: x86_64-pc-windows-gnu
+            toolchain: x86_64-pc-windows-msvc
             binary_built: slint-lsp.exe
-            artifact_name: slint-lsp-x86_64-pc-windows-gnu.exe
+            artifact_name: slint-lsp-x86_64-pc-windows-msvc.exe
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
@@ -81,7 +84,7 @@ jobs:
       with:
         old-ubuntu: true
     - name: Build LSP
-      run: cargo build --target ${{ matrix.toolchain }} --release -p slint-lsp
+      run: cargo build --target ${{ matrix.toolchain }} --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
@@ -96,7 +99,7 @@ jobs:
   build_vscode_lsp_macos_x86_64:
     env:
       SLINT_NO_QT: 1
-    runs-on: macos-11
+    runs-on: macos-latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
@@ -106,7 +109,7 @@ jobs:
       run: cargo install cargo-bundle
     - name: Build Main LSP Bundle
       working-directory: tools/lsp
-      run: cargo bundle --release
+      run: cargo bundle --release --features ${{ env.SLINT_BINARY_FEATURES }} 
     - name: Create artifact directory
       run: |
           mkdir bin
@@ -121,14 +124,14 @@ jobs:
   build_vscode_lsp_macos_aarch64:
     env:
       SLINT_NO_QT: 1
-    runs-on: macos-11
+    runs-on: macos-latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
         target: aarch64-apple-darwin
     - name: Build AArch64 LSP
-      run: cargo build --target aarch64-apple-darwin --release -p slint-lsp
+      run: cargo build --target aarch64-apple-darwin --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
@@ -180,7 +183,7 @@ jobs:
       with:
         crate: cross
     - name: Build LSP
-      run: cross build --target ${{ matrix.target }} --release -p slint-lsp
+      run: cross build --target ${{ matrix.target }} --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
@@ -204,7 +207,7 @@ jobs:
         path: editors/vscode/bin
     - uses: actions/download-artifact@v3
       with:
-        name: vscode-lsp-binary-x86_64-pc-windows-gnu
+        name: vscode-lsp-binary-x86_64-pc-windows-msvc
         path: editors/vscode/bin
     - uses: actions/download-artifact@v3
       with:

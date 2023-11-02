@@ -11,6 +11,7 @@
     )),
     no_std
 )]
+#![allow(unused)]
 
 extern crate alloc;
 
@@ -18,23 +19,24 @@ use alloc::boxed::Box;
 use i_slint_core::platform::Platform;
 use i_slint_core::platform::PlatformError;
 
-#[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
+#[cfg(all(feature = "i-slint-backend-qt", not(no_qt), not(target_os = "android")))]
 fn create_qt_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
     Ok(Box::new(default_backend::Backend::new()))
 }
 
-#[cfg(feature = "i-slint-backend-winit")]
+#[cfg(all(feature = "i-slint-backend-winit", not(target_os = "android")))]
 fn create_winit_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
     Ok(Box::new(i_slint_backend_winit::Backend::new()?))
 }
 
-#[cfg(feature = "i-slint-backend-linuxkms")]
+#[cfg(all(feature = "i-slint-backend-linuxkms", not(target_os = "android")))]
 fn create_linuxkms_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
     Ok(Box::new(i_slint_backend_linuxkms::Backend::new()?))
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))] {
+    if #[cfg(target_os = "android")] {
+    } else if #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))] {
         use i_slint_backend_qt as default_backend;
     } else if #[cfg(feature = "i-slint-backend-winit")] {
         use i_slint_backend_winit as default_backend;
@@ -46,11 +48,11 @@ cfg_if::cfg_if! {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(any(
+    if #[cfg(all(not(target_os = "android"), any(
             all(feature = "i-slint-backend-qt", not(no_qt)),
             feature = "i-slint-backend-winit",
             feature = "i-slint-backend-linuxkms"
-        ))] {
+        )))] {
         fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
             use alloc::borrow::Cow;
 

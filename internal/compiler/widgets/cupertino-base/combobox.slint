@@ -6,21 +6,33 @@ import { MenuBorder, ListItem, FocusBorder } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
 
 export component ComboBox {
-    private property <brush> background: Palette.surface;
-
-    callback selected <=> i-base.selected;
-
     in property <[string]> model <=> i-base.model;
     in property <bool> enabled <=> i-base.enabled;
     out property <bool> has-focus <=> i-base.has-focus;
     in-out property <int> current-index <=> i-base.current-index;
     in-out property <string> current-value <=> i-base.current-value;
 
+    callback selected <=> i-base.selected;
+
+    private property <brush> background: Palette.surface;
+
     min-width: max(160px, i-layout.min-width);
     min-height: max(22px, i-layout.min-height);
     horizontal-stretch: 1;
     vertical-stretch: 0;
     forward-focus: i-base;
+
+    states [
+        disabled when !root.enabled : {
+            i-text.color: Palette.foreground-secondary;
+            i-top-icon.colorize: Palette.foreground-secondary;
+            i-bottom-icon.colorize: Palette.foreground-secondary;
+            root.background: Palette.surface-tertiary;
+        }
+        pressed when i-base.pressed : {
+            root.background: Palette.surface-secondary;
+        }
+    ]
 
     i-base := ComboBoxBase {
         width: 100%;
@@ -152,16 +164,4 @@ export component ComboBox {
             }
         }
     }
-
-    states [
-        disabled when !root.enabled : {
-            i-text.color: Palette.foreground-secondary;
-            i-top-icon.colorize: Palette.foreground-secondary;
-            i-bottom-icon.colorize: Palette.foreground-secondary;
-            root.background: Palette.surface-tertiary;
-        }
-        pressed when i-base.pressed : {
-            root.background: Palette.surface-secondary;
-        }
-    ]
 }

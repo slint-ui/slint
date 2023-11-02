@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
  - LinuxKMS backend: Add support for absolute motion pointer events, fixed support for touch input on
    scaled screens, and improved encoder/CRTC handling for EGL rendering.
  - Skia renderer / winit backend: Fall back to Skia software rendering when GPU acceleration is not available.
+ - Fixed bug where accessing model data in a callback after changing it within the same callback did not reflect the update. (#3740)
 
 ### Slint Language
 

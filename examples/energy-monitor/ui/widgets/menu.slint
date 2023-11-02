@@ -5,11 +5,6 @@ import { Theme } from "../theme.slint";
 import { MenuButton } from "menu_button.slint";
 
 export component Menu {
-    private property <int> container-visibility;
-
-    callback opend();
-    callback closed();
-
     in-out property <bool> menu-button-visible;
     in property <length> start-y;
     in property <length> end-y;
@@ -18,7 +13,40 @@ export component Menu {
     in property <length> menu-height <=> i-menu-container.height;
     out property <bool> open;
 
-    if(open) : Rectangle {
+    callback opend();
+    callback closed();
+
+    public function hide-button() {
+        menu-button-visible = false;
+    }
+
+    public function open-menu() {
+        open = true;
+    }
+
+    public function hide() {
+        menu-button-visible = false;
+        open = false;
+        closed();
+    }
+
+    private property <int> container-visibility;
+
+    states [
+        open when root.open : {
+            container-visibility: 1.0;
+            i-menu-container.y: end-y;
+
+            in {
+                animate i-menu-container.y { duration: Theme.durations.medium; }
+            }
+            out {
+                animate container-visibility, i-menu-container.y { duration: Theme.durations.medium; }
+            }
+        }
+    ]
+
+    if (open) : Rectangle {
         background: Theme.palette.pure-black;
         opacity: 0.5;
 
@@ -66,32 +94,4 @@ export component Menu {
             }
         }
     }
-
-    public function hide-button() {
-        menu-button-visible = false;
-    }
-
-    public function open-menu() {
-        open = true;
-    }
-
-    public function hide() {
-        menu-button-visible = false;
-        open = false;
-        closed();
-    }
-
-    states [
-        open when root.open : {
-            container-visibility: 1.0;
-            i-menu-container.y: end-y;
-
-            in {
-                animate i-menu-container.y { duration: Theme.durations.medium; }
-            }
-            out {
-                animate container-visibility, i-menu-container.y { duration: Theme.durations.medium; }
-            }
-        }
-    ]
 }

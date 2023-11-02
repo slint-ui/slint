@@ -4,13 +4,23 @@
 import { Theme } from "../theme.slint";
 
 component ValueDelegate {
-    private property <float> display-value;
-
     in property <bool> active;
     in property <string> title <=> i-title.text;
     in property <string> unit <=> i-unit.text;
     in property <float> value;
     in property <bool> alternative-colors;
+
+    private property <float> display-value;
+
+    states [
+        active when active : {
+            display-value: value;
+
+            in {
+                animate display-value { duration: Theme.durations.slow; }
+            }
+        }
+    ]
 
     HorizontalLayout {
         spacing: 15px;
@@ -53,16 +63,6 @@ component ValueDelegate {
             }
         }
     }
-
-    states [
-        active when active : {
-            display-value: value;
-
-            in {
-                animate display-value { duration: Theme.durations.slow; }
-            }
-        }
-    ]
 }
 
 export struct Value {

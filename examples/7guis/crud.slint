@@ -4,6 +4,15 @@
 import { LineEdit, Button, Slider, StandardListView, GridBox, HorizontalBox } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
+    in property <[StandardListViewItem]> names-list;
+    out property <int> current-item: list.current-item;
+    out property <string> name;
+    out property <string> surname;
+    out property <string> prefix;
+    callback prefixEdited();
+    callback createClicked();
+    callback updateClicked();
+    callback deleteClicked();
 
     GridBox {
         Text {
@@ -11,6 +20,7 @@ export component MainWindow inherits Window {
             vertical-alignment: center;
             horizontal-alignment: right;
         }
+
         LineEdit {
             text <=> root.prefix;
             edited => { root.prefixEdited() }
@@ -30,6 +40,7 @@ export component MainWindow inherits Window {
             vertical-alignment: center;
             horizontal-alignment: right;
         }
+
         LineEdit { text <=> root.name; }
 
         Text {
@@ -39,6 +50,7 @@ export component MainWindow inherits Window {
             vertical-alignment: center;
             horizontal-alignment: right;
         }
+
         LineEdit { text <=> root.surname; }
 
         HorizontalBox {
@@ -46,33 +58,25 @@ export component MainWindow inherits Window {
             padding-bottom: 0;
             row: 4;
             alignment: start;
+
             Button {
-                text: "Create";
                 clicked => { root.createClicked() }
+
+                text: "Create";
             }
             Button {
+                clicked => { root.updateClicked() }
+
                 text: "Update";
                 enabled: list.current-item != -1 && list.current-item < root.names-list.length;
-                clicked => { root.updateClicked() }
+
             }
             Button {
+                clicked => { root.deleteClicked() }
+
                 text: "Delete";
                 enabled: list.current-item != -1 && list.current-item < root.names-list.length;
-                clicked => { root.deleteClicked() }
             }
         }
-
     }
-    in property <[StandardListViewItem]> names-list;
-    out property <int> current-item: list.current-item;
-
-    out property <string> name;
-    out property <string> surname;
-
-    out property <string> prefix;
-
-    callback prefixEdited();
-    callback createClicked();
-    callback updateClicked();
-    callback deleteClicked();
 }

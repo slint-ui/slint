@@ -1,25 +1,34 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import * as path from "path";
-
 import * as napi from "./rust-module";
-export { Diagnostic, DiagnosticLevel, Brush, Color, SlintModelNotify } from "./rust-module";
+export {
+    Diagnostic,
+    DiagnosticLevel,
+    RgbaColor,
+    SlintBrush,
+    Brush,
+    SlintRgbaColor,
+    SlintModelNotify,
+    SlintSize,
+    SlintPoint,
+    SlintImageData
+} from "./rust-module";
 
 /**
  *  Represents a two-dimensional point.
  */
 export interface Point {
-    x: number,
-    y: number
+    x: number;
+    y: number;
 }
 
 /**
  *  Represents a two-dimensional size.
  */
 export interface Size {
-    width: number,
-    height: number
+    width: number;
+    height: number;
 }
 
 /**
@@ -76,6 +85,12 @@ export interface ImageData {
      *  Returns the height of the image in pixels.
      */
     get height(): number;
+
+    /**
+     * Returns the path of the image, if it was loaded from disk. Otherwise
+     * the property is undefined.
+     */
+    readonly path?: string;
 }
 
 /**
@@ -167,10 +182,10 @@ export abstract class Model<T> {
  * @hidden
  */
 class NullPeer {
-    rowDataChanged(row: number): void { }
-    rowAdded(row: number, count: number): void { }
-    rowRemoved(row: number, count: number): void { }
-    reset(): void { }
+    rowDataChanged(row: number): void {}
+    rowAdded(row: number, count: number): void {}
+    rowRemoved(row: number, count: number): void {}
+    reset(): void {}
 }
 
 /**
@@ -181,7 +196,7 @@ export class ArrayModel<T> extends Model<T> {
     /**
      * @hidden
      */
-    private a: Array<T>
+    private a: Array<T>;
 
     /**
      * Creates a new ArrayModel.
@@ -234,7 +249,7 @@ export class ArrayModel<T> extends Model<T> {
     }
 
     entries(): IterableIterator<[number, T]> {
-        return this.a.entries()
+        return this.a.entries();
     }
 }
 
@@ -273,8 +288,8 @@ class Component implements ComponentHandle {
     private instance: napi.ComponentInstance;
 
     /**
-    * @hidden
-    */
+     * @hidden
+     */
     constructor(instance: napi.ComponentInstance) {
         this.instance = instance;
     }
@@ -296,13 +311,12 @@ class Component implements ComponentHandle {
     }
 
     /**
-    * @hidden
-    */
+     * @hidden
+     */
     get component_instance(): napi.ComponentInstance {
         return this.instance;
     }
 }
-
 
 /**
  * Represents an errors that can be emitted by the compiler.
@@ -329,22 +343,22 @@ export interface LoadFileOptions {
     /**
      * If set to true warnings from the compiler will not be printed to the console.
      */
-    quiet?: boolean,
+    quiet?: boolean;
 
     /**
      * Sets the widget style the compiler is currently using when compiling .slint files.
      */
-    style?: string
+    style?: string;
 
     /**
      * Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
      */
-    includePaths?: Array<string>,
+    includePaths?: Array<string>;
 
     /**
      * Sets library paths used for looking up `@library` imports to the specified map of library names to paths.
      */
-    libraryPaths?: Record<string, string>
+    libraryPaths?: Record<string, string>;
 }
 
 /**
@@ -358,16 +372,16 @@ export interface LoadFileOptions {
  * ```
  */
 export function loadFile(filePath: string, options?: LoadFileOptions): Object {
-    let compiler = new napi.ComponentCompiler;
+    let compiler = new napi.ComponentCompiler();
 
-    if (typeof options !== 'undefined') {
-        if (typeof options.style !== 'undefined') {
+    if (typeof options !== "undefined") {
+        if (typeof options.style !== "undefined") {
             compiler.style = options.style;
         }
-        if (typeof options.includePaths !== 'undefined') {
+        if (typeof options.includePaths !== "undefined") {
             compiler.includePaths = options.includePaths;
         }
-        if (typeof options.libraryPaths !== 'undefined') {
+        if (typeof options.libraryPaths !== "undefined") {
             compiler.libraryPaths = options.libraryPaths;
         }
     }
@@ -377,13 +391,17 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
     let diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
-        let warnings = diagnostics.filter((d) => d.level == napi.DiagnosticLevel.Warning);
+        let warnings = diagnostics.filter(
+            (d) => d.level == napi.DiagnosticLevel.Warning
+        );
 
-        if (typeof options !== 'undefined' && options.quiet !== true) {
+        if (typeof options !== "undefined" && options.quiet !== true) {
             warnings.forEach((w) => console.warn("Warning: " + w));
         }
 
-        let errors = diagnostics.filter((d) => d.level == napi.DiagnosticLevel.Error);
+        let errors = diagnostics.filter(
+            (d) => d.level == napi.DiagnosticLevel.Error
+        );
 
         if (errors.length > 0) {
             throw new CompileError("Could not compile " + filePath, errors);
@@ -392,12 +410,14 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
 
     let slint_module = Object.create({});
 
-    Object.defineProperty(slint_module, definition!.name.replace(/-/g, '_'), {
+    Object.defineProperty(slint_module, definition!.name.replace(/-/g, "_"), {
         value: function (properties: any) {
             let instance = definition!.create();
 
             if (instance == null) {
-                throw Error("Could not create a component handle for" + filePath);
+                throw Error(
+                    "Could not create a component handle for" + filePath
+                );
             }
 
             for (var key in properties) {
@@ -412,23 +432,95 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
 
             let componentHandle = new Component(instance!);
             instance!.definition().properties.forEach((prop) => {
-                Object.defineProperty(componentHandle, prop.name.replace(/-/g, '_'), {
-                    get() { return instance!.getProperty(prop.name); },
-                    set(value) { instance!.setProperty(prop.name, value); },
-                    enumerable: true
-                })
+                let propName = prop.name.replace(/-/g, "_");
+
+                if (componentHandle[propName] !== undefined) {
+                    console.warn("Duplicated property name " + propName);
+                } else {
+                    Object.defineProperty(componentHandle, propName, {
+                        get() {
+                            return instance!.getProperty(prop.name);
+                        },
+                        set(value) {
+                            instance!.setProperty(prop.name, value);
+                        },
+                        enumerable: true,
+                    });
+                }
             });
 
             instance!.definition().callbacks.forEach((cb) => {
-                Object.defineProperty(componentHandle, cb.replace(/-/g, '_'), {
-                    get() {
-                        return function () { return instance!.invoke(cb, Array.from(arguments)); };
-                    },
-                    set(callback) {
-                        instance!.setCallback(cb, callback);
-                    },
-                    enumerable: true,
-                })
+                let callbackName = cb.replace(/-/g, "_");
+
+                if (componentHandle[callbackName] !== undefined) {
+                    console.warn("Duplicated callback name " + callbackName);
+                } else {
+                    Object.defineProperty(componentHandle, cb.replace(/-/g, "_"), {
+                        get() {
+                            return function () {
+                                return instance!.invoke(cb, Array.from(arguments));
+                            };
+                        },
+                        set(callback) {
+                            instance!.setCallback(cb, callback);
+                        },
+                        enumerable: true,
+                    });
+                }
+            });
+
+            // globals
+            instance!.definition().globals.forEach((globalName) => {
+                if (componentHandle[globalName] !== undefined) {
+                    console.warn("Duplicated property name " + globalName);
+                } else {
+                    let globalObject = Object.create({});
+
+                    instance!.definition().globalProperties(globalName).forEach((prop) => {
+                        let propName = prop.name.replace(/-/g, "_");
+
+                        if (globalObject[propName] !== undefined) {
+                            console.warn("Duplicated property name " + propName + " on global " + global);
+                        } else {
+                            Object.defineProperty(globalObject, propName, {
+                                get() {
+                                    return instance!.getGlobalProperty(globalName, prop.name);
+                                },
+                                set(value) {
+                                    instance!.setGlobalProperty(globalName, prop.name, value);
+                                },
+                                enumerable: true,
+                            });
+                        }
+                    });
+
+                    instance!.definition().globalCallbacks(globalName).forEach((cb) => {
+                        let callbackName = cb.replace(/-/g, "_");
+
+                        if (globalObject[callbackName] !== undefined) {
+                            console.warn("Duplicated property name " + cb + " on global " + global);
+                        } else {
+                            Object.defineProperty(globalObject, cb.replace(/-/g, "_"), {
+                                get() {
+                                    return function () {
+                                        return instance!.invokeGlobal(globalName, cb, Array.from(arguments));
+                                    };
+                                },
+                                set(callback) {
+                                    instance!.setGlobalCallback(globalName, cb, callback);
+                                },
+                                enumerable: true,
+                            });
+                        }
+                    });
+
+                    Object.defineProperty(componentHandle, globalName, {
+                        get() {
+                            return globalObject;
+                        },
+                        enumerable: true,
+                    });
+                }
             });
 
             return componentHandle;
@@ -442,7 +534,7 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
 // After that this in no longer necessary.
 export namespace Timer {
     export function singleShot(duration: number, handler: () => void) {
-        napi.singleshotTimer(duration, handler)
+        napi.singleshotTimer(duration, handler);
     }
 }
 
@@ -456,14 +548,19 @@ export namespace private_api {
     export import ComponentInstance = napi.ComponentInstance;
     export import ValueType = napi.ValueType;
     export import Window = napi.Window;
-    export import ImageData = napi.ImageData;
-    export import SlintColor = napi.SlintColor;
 
-    export function send_mouse_click(component: Component, x: number, y: number) {
+    export function send_mouse_click(
+        component: Component,
+        x: number,
+        y: number
+    ) {
         component.component_instance.sendMouseClick(x, y);
     }
 
-    export function send_keyboard_string_sequence(component: Component, s: string) {
+    export function send_keyboard_string_sequence(
+        component: Component,
+        s: string
+    ) {
         component.component_instance.sendKeyboardStringSequence(s);
     }
 }

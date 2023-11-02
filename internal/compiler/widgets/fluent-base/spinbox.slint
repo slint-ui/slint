@@ -12,6 +12,12 @@ component SpinBoxButton {
     min-width: 28px;
     horizontal-stretch: 0;
 
+    states [
+        pressed when i-touch-area.pressed : {
+            i-background.background: Palette.subtle;
+        }
+    ]
+
     i-background := Rectangle {
         border-radius: 3px;
 
@@ -25,22 +31,16 @@ component SpinBoxButton {
     }
 
     i-touch-area := TouchArea {}
-
-    states [
-        pressed when i-touch-area.pressed : {
-            i-background.background: Palette.subtle;
-        }
-    ]
 }
 
 export component SpinBox {
-    callback edited(int /* value */);
-
     in property <int> minimum <=> i-base.minimum;
     in property <int> maximum <=> i-base.maximum;
     in property <bool> enabled <=> i-base.enabled;
     out property <bool> has-focus <=> i-text-input.has-focus;
     in-out property <int> value <=> i-base.value;
+
+    callback edited( /* value */ int);
 
     min-width: 128px;
     min-height: 30px;
@@ -51,6 +51,20 @@ export component SpinBox {
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
+
+    states [
+        disabled when !root.enabled : {
+            i-background.background: Palette.control-disabled;
+            i-background.border-color: Palette.control-stroke;
+            i-text-input.color: Palette.text-disabled;
+            i-text-input.selection-foreground-color: Palette.text-on-accent-disabled;
+        }
+        focused when root.has-focus : {
+            i-background.background: Palette.control-input-active;
+            i-background.border-color: Palette.control-stroke;
+            i-focus-border.background: Palette.accent-default;
+        }
+    ]
 
     i-base := SpinBoxBase {
         width: 100%;
@@ -136,18 +150,4 @@ export component SpinBox {
             height: 2px;
         }
     }
-
-    states [
-        disabled when !root.enabled : {
-            i-background.background: Palette.control-disabled;
-            i-background.border-color: Palette.control-stroke;
-            i-text-input.color: Palette.text-disabled;
-            i-text-input.selection-foreground-color: Palette.text-on-accent-disabled;
-        }
-        focused when root.has-focus : {
-            i-background.background: Palette.control-input-active;
-            i-background.border-color: Palette.control-stroke;
-            i-focus-border.background: Palette.accent-default;
-        }
-    ]
 }

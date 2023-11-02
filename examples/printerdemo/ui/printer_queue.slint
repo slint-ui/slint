@@ -19,10 +19,6 @@ export struct PrinterQueueItem  {
 }
 
 export global PrinterQueue  {
-    callback start-job(string);
-    callback cancel-job(int);
-    callback pause-job(int);
-
     in property <[PrinterQueueItem]> printer-queue: [
         { status: JobStatus.Printing, progress: 63, title: "210106-FinalPresentation.pdf", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
         { status: JobStatus.Waiting, title: "Adressliste.docx", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
@@ -37,7 +33,11 @@ export global PrinterQueue  {
         } else {
             @tr("Unknown job status")
         }
-    }    
+    }
+
+    callback start-job(string);
+    callback cancel-job(int);
+    callback pause-job(int);
 }
 
 
@@ -57,12 +57,14 @@ component PrintQueueSeparator inherits Rectangle {
 
 component PrintDetails inherits GridLayout {
     in property <PrinterQueueItem> queue-item;
+
     spacing: 3px;
 
     Row {
         PrintQueueDetailsLabel {
             text: @tr("Job Owner");
         }
+
         Text {
             text: root.queue-item.owner;
             color: DemoPalette.secondary-foreground-color;
@@ -76,10 +78,12 @@ component PrintDetails inherits GridLayout {
             colspan: 2;
         }
     }
+
     Row {
         PrintQueueDetailsLabel {
             text: @tr("Pages");
         }
+
         Text {
             text: root.queue-item.pages;
             color: DemoPalette.secondary-foreground-color;
@@ -88,15 +92,18 @@ component PrintDetails inherits GridLayout {
             font-size: DemoPalette.base-font-size * 0.9375;
         }
     }
+
     Row {
         PrintQueueSeparator {
             colspan: 2;
         }
     }
+
     Row {
         PrintQueueDetailsLabel {
             text: @tr("Size");
         }
+
         Text {
             text: root.queue-item.pages;
             color: DemoPalette.secondary-foreground-color;
@@ -105,15 +112,18 @@ component PrintDetails inherits GridLayout {
             font-size: DemoPalette.base-font-size * 0.9375;
         }
     }
+
     Row {
         PrintQueueSeparator {
             colspan: 2;
         }
     }
+
     Row {
         PrintQueueDetailsLabel {
             text: @tr("Submitted");
         }
+
         Text {
             text: root.queue-item.submission-date;
             color: DemoPalette.secondary-foreground-color;
@@ -126,18 +136,19 @@ component PrintDetails inherits GridLayout {
 
 component NarrowPrintQueueElement inherits Rectangle {
     in property <PrinterQueueItem> queue-item;
+    in-out property <bool> expanded;
+
     callback show-job-details();
+
+    private property <float> expanded-opacity: 0;
 
     border-color: DemoPalette.control-outline-color;
     border-radius: 14px;
     border-width: 2px;
     background: DemoPalette.printer-queue-item-background-color;
     clip: true;
-
-    in-out property <bool> expanded;
-    private property <float> expanded-opacity: 0;
-
     height: always-visible.min-height + layout.padding * 2;
+
     states [
         expanded when root.expanded : {
             height: layout.min-height;
@@ -207,13 +218,15 @@ component NarrowPrintQueueElement inherits Rectangle {
                     horizontal-stretch: 0;
                     width: 10%;
                 }
+
                 PushButton {
-                    opacity: root.expanded-opacity;
-                    text: @tr("More   ");
                     clicked => {
                         root.show-job-details();
                     }
+                    opacity: root.expanded-opacity;
+                    text: @tr("More   ");
                 }
+
                 Rectangle {
                     horizontal-stretch: 0;
                     width: 10%;
@@ -225,17 +238,19 @@ component NarrowPrintQueueElement inherits Rectangle {
 
 component NarrowPrinterQueueList inherits Flickable {
     callback show-job-details(int);
+
     VerticalLayout {
         alignment: start;
         padding: 0px;
         spacing: 13.5px;
 
         for queue-item[idx] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
-            width: root.width;
-            queue-item: queue-item;
             show-job-details => {
                 root.show-job-details(idx)
             }
+
+            width: root.width;
+            queue-item: queue-item;
         }
     }
 }
@@ -264,10 +279,10 @@ component ProgressBar inherits Rectangle {
 }
 
 component WidePrintQueueElement inherits Rectangle {
+    in property <PrinterQueueItem> queue-item;
+
     callback cancel-job();
     callback pause-job();
-
-    in property <PrinterQueueItem> queue-item;
 
     border-color: DemoPalette.neutral-box;
     border-radius: 14px;
@@ -295,6 +310,7 @@ component WidePrintQueueElement inherits Rectangle {
                 letter-spacing: 1.56px;
                 horizontal-stretch: 1;
             }
+
             ProgressBar {
                 // Each progress bar should have the same size
                 // In principle it should be the smaller size which would fit next to the text foe each entry
@@ -323,15 +339,17 @@ component WidePrintQueueElement inherits Rectangle {
             vertical-stretch: 0;
 
             PushButton {
+                clicked => { root.pause-job(); }
+
                 text: @tr("Pause");
                 icon: @image-url("images/pause.svg");
-                clicked => { root.pause-job(); }
             }
+
             PushButton {
+                clicked => { root.cancel-job(); }
                 primary: false;
                 text: @tr("Delete");
                 icon: @image-url("images/delete.svg");
-                clicked => { root.cancel-job(); }
             }
         }
 
@@ -350,16 +368,16 @@ component WidePrintQueueElement inherits Rectangle {
 
 
 export component WidePrinterQueueList inherits Flickable {
-
     VerticalLayout {
         alignment: start;
         padding: 0px;
         spacing: 13.5px;
 
         for queue-item[idx] in PrinterQueue.printer-queue: WidePrintQueueElement {
-            queue-item: queue-item;
             cancel-job => { PrinterQueue.cancel-job(idx) }
             pause-job => { PrinterQueue.pause-job(idx) }
+
+            queue-item: queue-item;
         }
     }
 }
@@ -382,10 +400,11 @@ export component PrinterQueueView inherits Rectangle {
         }
 
         queue-list := NarrowPrinterQueueList {
-            width: root.width - 2*parent.padding; // FIXME why do we need this? bug in layout?
             show-job-details(idx) => {
                 root.show-job-details(idx)
             }
+
+            width: root.width - 2*parent.padding; // FIXME why do we need this? bug in layout?
         }
     }
 }

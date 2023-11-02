@@ -4,14 +4,14 @@
 import { Slider, GroupBox, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
+    in-out property <float> pitch: 0.15;
+    in-out property <float> yaw: 0.5;
+
+    pure callback render_plot(/* pitch */ float, /* yaw */ float, /* amplitude */ float) -> image;
+
     title: "Slint Plotter Integration Example";
     preferred-width: 800px;
     preferred-height: 600px;
-
-    pure callback render_plot(float /* pitch */, float /* yaw */, float /* amplitude */) -> image;
-
-    in-out property <float> pitch: 0.15;
-    in-out property <float> yaw: 0.5;
 
     VerticalBox {
         Text {
@@ -19,11 +19,13 @@ export component MainWindow inherits Window {
             text: "2D Gaussian PDF";
             horizontal-alignment: center;
         }
+
         Image {
             source: root.render_plot(root.pitch, root.yaw, amplitude-slider.value / 10);
             touch := TouchArea {
                 property <float> pressed-pitch;
                 property <float> pressed-yaw;
+
                 pointer-event(event) => {
                     if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
                         self.pressed-pitch = root.pitch;
@@ -39,12 +41,14 @@ export component MainWindow inherits Window {
                 mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
             }
         }
+
         HorizontalBox {
             Text {
                 text: "Amplitude:";
                 font-weight: 600;
                 vertical-alignment: center;
             }
+
             amplitude-slider := Slider {
                 minimum: 0;
                 maximum: 100;

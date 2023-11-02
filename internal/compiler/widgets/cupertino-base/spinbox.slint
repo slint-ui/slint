@@ -6,21 +6,33 @@ import { FocusBorder } from "components.slint";
 import { SpinBoxBase } from "../common/spinbox-base.slint";
 
 component SpinBoxButton {
-    private property <brush> background: Palette.accent;
-    private property <brush> icon-color: Palette.on-surface;
-
-    callback clicked <=> i-touch-area.clicked;
-
     in property <bool> enabled <=> i-touch-area.enabled;
     in property <image> icon <=> i-icon.source;
 
+    callback clicked <=> i-touch-area.clicked;
+
+    private property <brush> background: Palette.accent;
+    private property <brush> icon-color: Palette.on-surface;
+
     min-width: 16px;
     horizontal-stretch: 0;
+
+    states [
+        disabled when !i-touch-area.enabled : {
+            opacity: 0.5;
+            icon-color: Palette.foreground-secondary;
+        }
+        pressed when i-touch-area.pressed : {
+            root.background: Palette.accent-secondary;
+        }
+    ]
 
     Rectangle {
         y: (parent.height - self.height) / 2;
         width: 14px;
         height: self.width;
+
+        animate background { duration: 150ms; }
 
         if (root.enabled) : Rectangle {
             width: 100%;
@@ -62,33 +74,21 @@ component SpinBoxButton {
 
             animate colorize { duration: 150ms; }
         }
-
-        animate background { duration: 150ms; }
     }
 
     i-touch-area := TouchArea {}
-
-    states [
-        disabled when !i-touch-area.enabled : {
-            opacity: 0.5;
-            icon-color: Palette.foreground-secondary;
-        }
-        pressed when i-touch-area.pressed : {
-            root.background: Palette.accent-secondary;
-        }
-    ]
 }
 
 export component SpinBox {
-    private property <brush> background: Palette.surface;
-
-    callback edited(int /* value */);
-
     in property <int> minimum <=> i-base.minimum;
     in property <int> maximum <=> i-base.maximum;
     in property <bool> enabled <=> i-base.enabled;
     out property <bool> has-focus <=> i-text-input.has-focus;
     in-out property <int> value <=> i-base.value;
+
+    callback edited(int /* value */);
+
+    private property <brush> background: Palette.surface;
 
     min-width: 128px;
     min-height: max(22px, i-layout.min-height);
@@ -99,6 +99,13 @@ export component SpinBox {
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
+
+    states [
+        disabled when !root.enabled : {
+            i-text-input.color: Palette.foreground-secondary;
+            root.background: Palette.surface-tertiary;
+        }
+    ]
 
     i-base := SpinBoxBase {
         width: 100%;
@@ -206,11 +213,4 @@ export component SpinBox {
             }
         }
     }
-
-    states [
-        disabled when !root.enabled : {
-            i-text-input.color: Palette.foreground-secondary;
-            root.background: Palette.surface-tertiary;
-        }
-    ]
 }

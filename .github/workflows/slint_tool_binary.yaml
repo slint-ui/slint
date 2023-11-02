@@ -12,11 +12,20 @@ on:
         options:
           - viewer
           - lsp
+      features:
+        type: string
+        description: features to enable for build
+        default: "backend-winit,renderer-femtovg,renderer-skia"
+
   workflow_call:
     inputs:
       program:
         type: string
         description: binary to build
+      features:
+        type: string
+        description: features to enable for build
+        default: "backend-winit,renderer-femtovg,renderer-skia"
 
 jobs:
   build_windows:
@@ -35,7 +44,7 @@ jobs:
         with:
           crate: cargo-about
       - name: Build
-        run: cargo build --verbose --no-default-features --features backend-qt --release -p slint-${{ github.event.inputs.program || inputs.program }}
+        run: cargo build --verbose --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
       - name: Create artifact directory
         run: |
             mkdir pkg
@@ -43,16 +52,6 @@ jobs:
             mkdir slint-${{ github.event.inputs.program || inputs.program }}
             cd slint-${{ github.event.inputs.program || inputs.program }}
             cp ..\..\target/release/slint-${{ github.event.inputs.program || inputs.program }}.exe ./
-            cp ..\..\..\Qt\6.5.1\msvc2019_64\bin/Qt6Core.dll ./
-            cp ..\..\..\Qt\6.5.1\msvc2019_64\bin/Qt6Gui.dll ./
-            cp ..\..\..\Qt\6.5.1\msvc2019_64\bin/Qt6Widgets.dll ./
-            cp ..\..\..\Qt\6.5.1\msvc2019_64\bin/Qt6Svg.dll ./
-            mkdir .\plugins\platforms
-            cp ..\..\..\Qt\6.5.1\msvc2019_64\plugins\platforms\qwindows.dll ./plugins/platforms
-            mkdir .\plugins\styles
-            cp ..\..\..\Qt\6.5.1\msvc2019_64\plugins\styles\qwindowsvistastyle.dll ./plugins/styles
-            mkdir .\plugins\imageformats
-            cp ..\..\..\Qt\6.5.1\msvc2019_64\plugins\imageformats\qsvg.dll ./plugins/imageformats
             cd ..
             cd ..
             cd tools\${{ github.event.inputs.program || inputs.program }}
@@ -81,7 +80,7 @@ jobs:
         with:
           crate: cargo-about
       - name: Build
-        run: cargo build --verbose --no-default-features --features backend-qt --release -p slint-${{ github.event.inputs.program || inputs.program }}
+        run: cargo build --verbose --no-default-features --features backend-qt,${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
       - name: Create artifact directory
         run: |
             mkdir -p slint-${{ github.event.inputs.program || inputs.program }}
@@ -97,7 +96,7 @@ jobs:
             path: slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
 
   build_macos:
-    runs-on: macos-11
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/setup-rust
@@ -106,35 +105,22 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with:
           target: aarch64-apple-darwin
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v3
-        with:
-          version: 6.5.1
-          cache: true
       - uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-about
       - name: Build x86_64
-        run: cargo build --verbose --target x86_64-apple-darwin --no-default-features --features backend-qt --release -p slint-${{ github.event.inputs.program || inputs.program }}
+        run: cargo build --verbose --target x86_64-apple-darwin --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
       - name: Build aarch64
-        run: cargo build --verbose --target aarch64-apple-darwin --no-default-features --features backend-qt --release -p slint-${{ github.event.inputs.program || inputs.program }}
+        run: cargo build --verbose --target aarch64-apple-darwin --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
       - name: Create artifact directory
         run: |
             mkdir -p slint-${{ github.event.inputs.program || inputs.program }}
             cd slint-${{ github.event.inputs.program || inputs.program }}
             lipo -create -output ./slint-${{ github.event.inputs.program || inputs.program }} ../target/x86_64-apple-darwin/release/slint-${{ github.event.inputs.program || inputs.program }} ../target/aarch64-apple-darwin/release/slint-${{ github.event.inputs.program || inputs.program }}
             install_name_tool -add_rpath @executable_path/. ./slint-${{ github.event.inputs.program || inputs.program }}
-            cp -a ~/work/slint/Qt/6.5.1/macos/lib/QtCore.framework ./
-            cp -a ~/work/slint/Qt/6.5.1/macos/lib/QtGui.framework ./
-            cp -a ~/work/slint/Qt/6.5.1/macos/lib/QtWidgets.framework ./
-            cp -a ~/work/slint/Qt/6.5.1/macos/lib/QtDBus.framework ./
-            cp -a ~/work/slint/Qt/6.5.1/macos/lib/QtSvg.framework ./
-            mkdir -p ./plugins/platforms ./plugins/imageformats
-            cp -a ~/work/slint/Qt/6.5.1/macos/plugins/platforms/libqcocoa.dylib ./plugins/platforms
-            cp -a ~/work/slint/Qt/6.5.1/macos/plugins/imageformats/libqsvg.dylib ./plugins/imageformats
             cd ..
             cd tools/${{ github.event.inputs.program || inputs.program }}
-            ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --with-qt
+            ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}
       - name: Tar artifacts to preserve permissions
         run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
       - name: Upload artifact

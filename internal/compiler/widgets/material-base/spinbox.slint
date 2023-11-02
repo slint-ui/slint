@@ -5,14 +5,29 @@ import { Palette, Typography, Icons } from "styling.slint";
 import { SpinBoxBase } from "../common/spinbox-base.slint";
 
 component SpinBoxButton inherits Rectangle {
-    callback clicked <=> i-touch-area.clicked;
-
     in-out property <bool> pressed: self.enabled && i-touch-area.pressed;
     in-out property <bool> enabled <=> i-touch-area.enabled;
     in-out property <float> icon-opacity: 1;
     in-out property <brush> icon-fill: Palette.on-primary;
 
+    callback clicked <=> i-touch-area.clicked;
+
     width: root.height;
+
+    states [
+        disabled when !root.enabled : {
+            i-background.background: Palette.on-surface;
+            i-background.opacity: 0.12;
+            icon-opacity: 0.38;
+            icon-fill: Palette.on-surface;
+        }
+        pressed when i-touch-area.pressed : {
+            i-state-layer.opacity: 0.12;
+        }
+        hover when i-touch-area.has-hover : {
+            i-state-layer.opacity: 0.08;
+        }
+    ]
 
     i-background := Rectangle {
         width: 100%;
@@ -41,32 +56,17 @@ component SpinBoxButton inherits Rectangle {
     }
 
     i-touch-area := TouchArea { }
-
-    states [
-        disabled when !root.enabled : {
-            i-background.background: Palette.on-surface;
-            i-background.opacity: 0.12;
-            icon-opacity: 0.38;
-            icon-fill: Palette.on-surface;
-        }
-        pressed when i-touch-area.pressed : {
-            i-state-layer.opacity: 0.12;
-        }
-        hover when i-touch-area.has-hover : {
-            i-state-layer.opacity: 0.08;
-        }
-    ]
 }
 
 // Increment and decrement a value in the given range.
 export component SpinBox {
-    callback edited(int /* value */);
-
     in property <int> minimum <=> i-base.minimum;
     in property <int> maximum <=> i-base.maximum;
     in property <bool> enabled <=> i-base.enabled;
     out property <bool> has-focus <=> i-text-input.has-focus;
     in-out property <int> value <=> i-base.value;
+
+    callback edited(/* value */ int);
 
     forward-focus: i-text-input;
     horizontal-stretch: 1;
@@ -78,6 +78,19 @@ export component SpinBox {
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
+
+    states [
+        disabled when !root.enabled : {
+            i-background.border-color: Palette.on-surface;
+            i-background.opacity: 0.38;
+            i-text-input.opacity: 0.38;
+        }
+        focused when root.has-focus : {
+            i-background.border-width: 2px;
+            i-background.border-color: Palette.primary;
+            i-text-input.color: Palette.primary;
+        }
+    ]
 
     i-base := SpinBoxBase {
         width: 100%;
@@ -182,17 +195,4 @@ export component SpinBox {
             }
         }
     }
-
-    states [
-        disabled when !root.enabled : {
-            i-background.border-color: Palette.on-surface;
-            i-background.opacity: 0.38;
-            i-text-input.opacity: 0.38;
-        }
-        focused when root.has-focus : {
-            i-background.border-width: 2px;
-            i-background.border-color: Palette.primary;
-            i-text-input.color: Palette.primary;
-        }
-    ]
 }

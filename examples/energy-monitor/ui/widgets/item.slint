@@ -7,10 +7,10 @@ import { Theme } from "../theme.slint";
 import { StateLayer } from "../components/state_layer.slint";
 
 export component Item {
-    callback clicked <=> i-touch-area.clicked;
-
     in property <string> text <=> i-text.text;
     in property <bool> has-separator;
+
+    callback clicked <=> i-touch-area.clicked;
 
     min-height: 40px;
 
@@ -39,7 +39,7 @@ export component Item {
         @children
     }
 
-    if(has-separator) : Rectangle {
+    if (has-separator) : Rectangle {
         width: parent.width - 2 * Theme.spaces.medium;
         height: 1px;
         x: Theme.spaces.medium;

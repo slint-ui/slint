@@ -5,10 +5,10 @@ import { StyleMetrics, Button } from "std-widgets-impl.slint";
 
 export component StandardButton {
     in property <StandardButtonKind> kind;
+    in property <bool> enabled <=> btn.enabled;
+    out property <bool> has-focus <=> btn.has-focus;
+    out property <bool> pressed <=> btn.pressed;
 
-    out property<bool> has-focus <=> btn.has-focus;
-    out property<bool> pressed <=> btn.pressed;
-    in property<bool> enabled <=> btn.enabled;
     callback clicked <=> btn.clicked;
 
     btn := Button {

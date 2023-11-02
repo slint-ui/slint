@@ -5,8 +5,6 @@ import { Typography, Palette } from "styling.slint";
 import { ScrollView } from "scrollview.slint";
 
 export component TextEdit {
-    callback edited(string /* text */);
-
     in property <TextWrap> wrap <=> i-text-input.wrap;
     in property <TextHorizontalAlignment> horizontal-alignment <=> i-text-input.horizontal-alignment;
     in property <bool> read-only <=> i-text-input.read-only;
@@ -21,9 +19,45 @@ export component TextEdit {
     in-out property <length> viewport-width <=> i-scroll-view.viewport-width;
     in-out property <length> viewport-height <=> i-scroll-view.viewport-height;
 
+    callback edited(/* text */ string);
+
+    public function select-all() {
+        i-text-input.select-all();
+    }
+
+    public function clear-selection() {
+        i-text-input.clear-selection();
+    }
+
+    public function cut() {
+        i-text-input.cut();
+    }
+
+    public function copy() {
+        i-text-input.copy();
+    }
+
+    public function paste() {
+        i-text-input.paste();
+    }
+
     forward-focus: i-text-input;
     horizontal-stretch: 1;
     vertical-stretch: 1;
+
+    states [
+        disabled when !root.enabled : {
+            i-background.background: Palette.control-disabled;
+            i-background.border-color: Palette.control-stroke;
+            i-text-input.color: Palette.text-disabled;
+            i-text-input.selection-foreground-color: Palette.text-on-accent-disabled;
+        }
+        focused when root.has-focus : {
+            i-background.background: Palette.control-input-active;
+            i-background.border-color: Palette.control-stroke;
+            i-focus-border.background: Palette.accent-default;
+        }
+    ]
 
     i-background := Rectangle {
         width: 100%;
@@ -78,38 +112,4 @@ export component TextEdit {
             height: 2px;
         }
     }
-
-    public function select-all() {
-        i-text-input.select-all();
-    }
-
-    public function clear-selection() {
-        i-text-input.clear-selection();
-    }
-
-    public function cut() {
-        i-text-input.cut();
-    }
-
-    public function copy() {
-        i-text-input.copy();
-    }
-
-    public function paste() {
-        i-text-input.paste();
-    }
-
-    states [
-        disabled when !root.enabled : {
-            i-background.background: Palette.control-disabled;
-            i-background.border-color: Palette.control-stroke;
-            i-text-input.color: Palette.text-disabled;
-            i-text-input.selection-foreground-color: Palette.text-on-accent-disabled;
-        }
-        focused when root.has-focus : {
-            i-background.background: Palette.control-input-active;
-            i-background.border-color: Palette.control-stroke;
-            i-focus-border.background: Palette.accent-default;
-        }
-    ]
 }

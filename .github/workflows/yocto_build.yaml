@@ -20,7 +20,6 @@ jobs:
           - sdk_url: https://nextcloud.slint.dev/s/BTL5NtLACjgS7Pf/download/poky-glibc-x86_64-core-image-weston-cortexa15t2hf-neon-qemuarm-toolchain-4.0.9.sh
             env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
             target: armv7-unknown-linux-gnueabihf
-            extra_args: -DSLINT_FEATURE_INTERPRETER=OFF
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
@@ -43,5 +42,5 @@ jobs:
           # f5c3908b7ec5131b7b19ff642b5975660c7484f8
           export BINDGEN_EXTRA_CLANG_ARGS=$OECORE_TUNE_CCARGS
           mkdir ${{ runner.workspace }}/cppbuild
-          cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON ${{ matrix.extra_args }}
+          cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
           cmake --build ${{ runner.workspace }}/cppbuild

@@ -4,16 +4,19 @@
 import {Button, AboutSlint} from "std-widgets.slint";
 
 export component AppWindow inherits Window {
+    property <int> count;
+
     preferred-width: 600px;
     preferred-height: 300px;
-    property <int> count;
 
     VerticalLayout {
         AboutSlint { }
+
         Button {
-            text: "Press me";
             clicked => { count += 1; }
+            text: "Press me";
         }
+
         Text { text: count; }
         Rectangle {  }
     }

@@ -152,7 +152,7 @@ The types used for properties in .slint design markup each translate to specific
 | `int` | `Number` | |
 | `float` | `Number` | |
 | `string` | `String` | |
-| `color` | {@link Color} |  |
+| `color` | {@link RgbaColor} |  |
 | `brush` | {@link Brush} |  |
 | `image` | {@link ImageData} |  |
 | `length` | `Number` | |

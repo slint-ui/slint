@@ -6,24 +6,41 @@ import { Palette, Elevation } from "styling.slint";
 
 // Allows to select a value from a range of values.
 export component Slider {
-    callback changed(float /* value */);
-
     in property <Orientation> orientation: horizontal;
-    private property<bool> vertical: orientation == Orientation.vertical;
+    private property <bool> vertical: orientation == Orientation.vertical;
     in property <float> maximum: 100;
     in property <bool> enabled <=> i-touch-area.enabled;
     in property <float> minimum: 0;
     out property <bool> has-focus: i-focus-scope.has-focus;
     in-out property <float> value;
 
+    callback changed(/* value */ float);
+
     min-width: vertical ? 20px : 0px;
     min-height: vertical ? 0px : 20px;
-
     accessible-role: slider;
     accessible-value: root.value;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
+
+    states [
+        disabled when !root.enabled : {
+            i-handle.background: Palette.on-surface;
+            i-handle.drop-shadow-blur: Elevation.level0;
+            i-track.background: Palette.on-surface;
+            i-background.background: Palette.on-surface;
+            root.opacity: 0.38;
+        }
+        pressed when (i-touch-area.pressed && i-touch-area.i-handle-hover) || i-focus-scope.has-focus : {
+            i-state-layer.opacity: 0.12;
+            i-handle.drop-shadow-blur: Elevation.level0;
+        }
+        hover when i-touch-area.i-handle-hover : {
+            i-state-layer.background: Palette.on-surface;
+            i-state-layer.opacity: 0.08;
+        }
+    ]
 
     i-background := Rectangle {
         background: Palette.surface-variant;
@@ -119,22 +136,4 @@ export component Slider {
             }
         }
     }
-
-    states [
-        disabled when !root.enabled : {
-            i-handle.background: Palette.on-surface;
-            i-handle.drop-shadow-blur: Elevation.level0;
-            i-track.background: Palette.on-surface;
-            i-background.background: Palette.on-surface;
-            root.opacity: 0.38;
-        }
-        pressed when (i-touch-area.pressed && i-touch-area.i-handle-hover) || i-focus-scope.has-focus : {
-            i-state-layer.opacity: 0.12;
-            i-handle.drop-shadow-blur: Elevation.level0;
-        }
-        hover when i-touch-area.i-handle-hover : {
-            i-state-layer.background: Palette.on-surface;
-            i-state-layer.opacity: 0.08;
-        }
-    ]
 }

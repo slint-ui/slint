@@ -9,29 +9,37 @@ export component SettingsPage inherits Page {
         spacing: 10px;
         padding: 15px;
         alignment: start;
+
         GroupBox {
             title: "Color Management";
+
             CheckBox {
                 text: "Black and White";
             }
         }
+
         GroupBox {
             title: "Scanning";
+
             HorizontalLayout {
                 spacing: 10px;
+
                 Text {
                     text: "Resolution (DPI)";
                 }
-                Slider {
-                }
+
+                Slider {}
             }
         }
+
         GroupBox {
             title: "Power Management";
+
             CheckBox { text: "Eco Mode"; }
         }
         GroupBox {
             title: "Performance";
+
             CheckBox {
                 text: "TURBO";
                 checked: true;

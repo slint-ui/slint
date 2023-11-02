@@ -1,0 +1,36 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+[package]
+name = "i-slint-backend-android-activity"
+description = "OpenGL rendering backend for Slint"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[features]
+game-activity = ["android-activity/game-activity"]
+native-activity = ["android-activity/native-activity"]
+
+[target.'cfg(target_os = "android")'.dependencies]
+i-slint-renderer-skia = { workspace = true }
+i-slint-core = { workspace = true, features = ["std"] }
+raw-window-handle = { version = "0.5.2" }
+android-activity = { version = "0.5" }
+ndk = { version = "0.8.0", features = ["rwh_05"] }
+
+[package.metadata.docs.rs]
+targets = [
+    "aarch64-linux-android",
+    "armv7-linux-androideabi",
+    "i686-linux-android",
+    "x86_64-linux-android",
+]
+features = ["native-activity"]

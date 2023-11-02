@@ -4,9 +4,6 @@
 import { Typography, Palette } from "styling.slint";
 
 export component LineEdit {
-    callback accepted(string /* text */);
-    callback edited(string /* text */);
-
     in property <bool> enabled <=> i-text-input.enabled;
     in property <InputType> input-type <=> i-text-input.input-type;
     in property <TextHorizontalAlignment> horizontal-alignment <=> i-text-input.horizontal-alignment;
@@ -16,11 +13,50 @@ export component LineEdit {
     out property <bool> has-focus <=> i-text-input.has-focus;
     in-out property <string> text <=> i-text-input.text;
 
+    callback accepted(/* text */ string);
+    callback edited(/* text */ string);
+
+    public function select-all() {
+        i-text-input.select-all();
+    }
+
+    public function clear-selection() {
+        i-text-input.clear-selection();
+    }
+
+    public function cut() {
+        i-text-input.cut();
+    }
+
+    public function copy() {
+        i-text-input.copy();
+    }
+
+    public function paste() {
+        i-text-input.paste();
+    }
+
     vertical-stretch: 0;
     horizontal-stretch: 1;
     min-width: max(160px, i-layout.min-height);
     min-height: max(32px, i-layout.min-height);
     forward-focus: i-text-input;
+
+    states [
+        disabled when !root.enabled : {
+            i-background.background: Palette.control-disabled;
+            i-background.border-color: Palette.control-stroke;
+            i-text-input.color: Palette.text-disabled;
+            i-text-input.selection-foreground-color: Palette.text-on-accent-disabled;
+            i-placeholder.color: Palette.text-disabled;
+        }
+        focused when root.has-focus : {
+            i-background.background: Palette.control-input-active;
+            i-background.border-color: Palette.control-stroke;
+            i-focus-border.background: Palette.accent-default;
+            i-placeholder.color: Palette.text-tertiary;
+        }
+    ]
 
     i-background := Rectangle {
         border-radius: 4px;
@@ -85,40 +121,4 @@ export component LineEdit {
             height: 2px;
         }
     }
-
-    public function select-all() {
-        i-text-input.select-all();
-    }
-
-    public function clear-selection() {
-        i-text-input.clear-selection();
-    }
-
-    public function cut() {
-        i-text-input.cut();
-    }
-
-    public function copy() {
-        i-text-input.copy();
-    }
-
-    public function paste() {
-        i-text-input.paste();
-    }
-
-    states [
-        disabled when !root.enabled : {
-            i-background.background: Palette.control-disabled;
-            i-background.border-color: Palette.control-stroke;
-            i-text-input.color: Palette.text-disabled;
-            i-text-input.selection-foreground-color: Palette.text-on-accent-disabled;
-            i-placeholder.color: Palette.text-disabled;
-        }
-        focused when root.has-focus : {
-            i-background.background: Palette.control-input-active;
-            i-background.border-color: Palette.control-stroke;
-            i-focus-border.background: Palette.accent-default;
-            i-placeholder.color: Palette.text-tertiary;
-        }
-    ]
 }

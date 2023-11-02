@@ -6,25 +6,25 @@ import { Theme } from "../theme.slint";
 component Bubble inherits Rectangle {
     in property <bool> selected;
 
+    states [
+        selected when selected : {
+            background: Theme.palette.white;
+        }
+    ]
+
     min_width: 5px;
     min_height: 5px;
     border-radius: max(self.width, self.height) / 2;
     background: Theme.palette.slint-blue;
 
     i-touch-area := TouchArea {}
-
-    states [
-        selected when selected : {
-            background: Theme.palette.white;
-        }
-    ]
 }
 
 export component Pagination {
-    callback clicked <=> i-touch-area.clicked;
-
     in property <int> count;
     in property <int> selected_index;
+
+    callback clicked <=> i-touch-area.clicked;
 
     min-height: 26px;
     vertical-stretch: 0;

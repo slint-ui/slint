@@ -409,8 +409,10 @@ impl BuildDiagnostics {
             })
             .collect();
 
-        let mut emitter = emitter_factory(output, Some(&codemap));
-        emitter.emit(&diags);
+        if !diags.is_empty() {
+            let mut emitter = emitter_factory(output, Some(&codemap));
+            emitter.emit(&diags);
+        }
     }
 
     #[cfg(feature = "display-diagnostics")]

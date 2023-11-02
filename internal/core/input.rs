@@ -266,25 +266,6 @@ pub enum KeyEventType {
     CommitComposition = 3,
 }
 
-/// Represents a key event sent by the windowing system.
-#[derive(Debug, Clone, PartialEq, Default)]
-#[repr(C)]
-pub struct KeyInputEvent {
-    /// The unicode representation of the key pressed.
-    pub text: SharedString,
-
-    // note: this field is not exported in the .slint in the KeyEvent builtin struct
-    /// Indicates whether the key was pressed or released
-    pub event_type: KeyEventType,
-
-    /// If the event type is KeyEventType::UpdateComposition, then this field specifies
-    /// the start of the selection as byte offsets within the preedit text.
-    pub preedit_selection_start: usize,
-    /// If the event type is KeyEventType::UpdateComposition, then this field specifies
-    /// the end of the selection as byte offsets within the preedit text.
-    pub preedit_selection_end: usize,
-}
-
 impl KeyEvent {
     /// If a shortcut was pressed, this function returns `Some(StandardShortcut)`.
     /// Otherwise it returns None.
