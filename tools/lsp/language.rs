@@ -77,6 +77,30 @@ fn create_show_preview_command(
     )
 }
 
+pub fn request_state(ctx: &std::rc::Rc<Context>) {
+    #[cfg(feature = "preview-external")]
+    {
+        let documents = &ctx.document_cache.borrow().documents;
+
+        for (p, d) in documents.all_file_documents() {
+            let Some(node) = &d.node else {
+                continue;
+            };
+            ctx.preview.set_contents(p, &node.text().to_string());
+        }
+        let style = documents.compiler_config.style.clone().unwrap_or_default();
+        ctx.preview.config_changed(
+            &style,
+            &documents.compiler_config.include_paths,
+            &documents.compiler_config.library_paths,
+        );
+
+        if let Some(c) = ctx.preview.current_component() {
+            ctx.preview.load_preview(c);
+        }
+    }
+}
+
 /// A cache of loaded documents
 pub struct DocumentCache {
     pub(crate) documents: TypeLoader,
