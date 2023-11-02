@@ -65,15 +65,15 @@ Fine-tune animations using the following parameters:
 
     Easing examples can also be found on the `Easings` tab of the `gallery` example.
 
-It's also possible to animate several properties with the same animation:
+It's also possible to animate several properties with the same animation, so:
 
 ```slint,ignore
-animate x, y { duration: 100ms; }
+animate x, y { duration: 100ms; easing: ease-out-bounce; }
 ```
 
-is the same as
+is the same as:
 
 ```slint,ignore
-animate x { duration: 100ms; }
-animate y { duration: 100ms; }
+animate x { duration: 100ms; easing: ease-out-bounce; }
+animate y { duration: 100ms; easing: ease-out-bounce; }
 ```
