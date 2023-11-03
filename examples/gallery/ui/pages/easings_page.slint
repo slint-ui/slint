@@ -59,49 +59,47 @@ export component EasingsPage inherits Page {
         padding: 10px;
         spacing: 10px;
 
-        Button {
-            text: "Animate All";
-            clicked => {
-                linear-test.animate();
-                ease-in-quad-test.animate();
-                ease-out-quad-test.animate();
-                ease-in-out-quad-test.animate();
-                ease-test.animate();
-                ease-in-test.animate();
-                ease-out-test.animate();
-                ease-in-out-test.animate();
-                ease-in-quart-test.animate();
-                ease-out-quart-test.animate();
-                ease-in-out-quart-test.animate();
-                ease-in-quint-test.animate();
-                ease-out-quint-test.animate();
-                ease-in-out-quint-test.animate();
-                ease-in-expo-test.animate();
-                ease-out-expo-test.animate();
-                ease-in-out-expo-test.animate();
-                ease-in-sine-test.animate();
-                ease-out-sine-test.animate();
-                ease-in-out-sine-test.animate();
-                ease-in-back-test.animate();
-                ease-out-back-test.animate();
-                ease-in-out-back-test.animate();
-                ease-in-circ-test.animate();
-                ease-out-circ-test.animate();
-                ease-in-out-circ-test.animate();
-                ease-in-elastic-test.animate();
-                ease-out-elastic-test.animate();
-                ease-in-out-elastic-test.animate();
-                ease-in-bounce-test.animate();
-                ease-out-bounce-test.animate();
-                ease-in-out-bounce-test.animate();
+        HorizontalBox {
+            Button {
+                text: "Animate All";
+                clicked => {
+                    linear-test.animate();
+                    ease-in-quad-test.animate();
+                    ease-out-quad-test.animate();
+                    ease-in-out-quad-test.animate();
+                    ease-test.animate();
+                    ease-in-test.animate();
+                    ease-out-test.animate();
+                    ease-in-out-test.animate();
+                    ease-in-quart-test.animate();
+                    ease-out-quart-test.animate();
+                    ease-in-out-quart-test.animate();
+                    ease-in-quint-test.animate();
+                    ease-out-quint-test.animate();
+                    ease-in-out-quint-test.animate();
+                    ease-in-expo-test.animate();
+                    ease-out-expo-test.animate();
+                    ease-in-out-expo-test.animate();
+                    ease-in-sine-test.animate();
+                    ease-out-sine-test.animate();
+                    ease-in-out-sine-test.animate();
+                    ease-in-back-test.animate();
+                    ease-out-back-test.animate();
+                    ease-in-out-back-test.animate();
+                    ease-in-circ-test.animate();
+                    ease-out-circ-test.animate();
+                    ease-in-out-circ-test.animate();
+                    ease-in-elastic-test.animate();
+                    ease-out-elastic-test.animate();
+                    ease-in-out-elastic-test.animate();
+                    ease-in-bounce-test.animate();
+                    ease-out-bounce-test.animate();
+                    ease-in-out-bounce-test.animate();
+                }
             }
-        }
-
-        HorizontalLayout {
-            spacing: 10px;
-            Text { text: "Duration"; }
+            Text { text: "Duration:"; vertical-alignment: center ;}
             slider := Slider { minimum: 100; maximum: 5000; value: 1000; }
-            Text { text: "" + round(slider.value) + "ms"; }
+            Text { text: "" + round(slider.value) + "ms"; vertical-alignment: center; }
         }
     }
 
