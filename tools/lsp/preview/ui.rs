@@ -9,7 +9,7 @@ use slint_interpreter::PlatformError;
 
 slint::include_modules!();
 
-pub fn create_ui(style: String) -> Result<(PreviewUi, String), PlatformError> {
+pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
     let default_style =
         i_slint_common::get_native_style(false, &std::env::var("TARGET").unwrap_or_default());
 
@@ -39,9 +39,9 @@ pub fn create_ui(style: String) -> Result<(PreviewUi, String), PlatformError> {
         model
     });
 
-    ui.on_style_changed(|style| super::change_style(style.into()));
+    ui.on_style_changed(|| super::change_style());
     ui.set_known_styles(style_model.into());
     ui.set_current_style(style.clone().into());
 
-    Ok((ui, style))
+    Ok(ui)
 }

@@ -9,10 +9,10 @@ import { Spinner } from "spinner.slint";
 
 export component PreviewUi inherits Window {
     in property<[string]> known-styles <=> i-style-select.model;
-    in property<string> current-style <=> i-style-select.current-value;
     in property<component-factory> preview-area <=> i-preview-area-container.component-factory;
+    in-out property<string> current-style <=> i-style-select.current-value;
     callback design-mode-changed(/* enabled */ bool);
-    callback style-changed(/* style */ string);
+    callback style-changed();
 
     in property <bool> is-busy;
 
@@ -33,7 +33,7 @@ export component PreviewUi inherits Window {
 
             i-style-select := ComboBox {
                 selected(value) => {
-                    root.style-changed(value);
+                    root.style-changed();
                 }
             }
 
