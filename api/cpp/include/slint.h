@@ -269,6 +269,15 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
                         std::max(preferred, other.preferred),
                         std::min(stretch, other.stretch) };
 }
+inline bool operator==(const EasingCurve &a, const EasingCurve &b)
+{
+    if (a.tag != b.tag) {
+        return false;
+    } else if (a.tag == EasingCurve::Tag::CubicBezier) {
+        return std::equal(a.cubic_bezier._0, a.cubic_bezier._0 + 4, b.cubic_bezier._0);
+    }
+    return true;
+}
 }
 
 namespace private_api {
