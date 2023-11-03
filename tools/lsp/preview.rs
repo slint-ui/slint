@@ -7,7 +7,7 @@ use std::{
     sync::Mutex,
 };
 
-use crate::{common::PreviewComponent, lsp_ext::Health, ServerNotifier};
+use crate::{common::PreviewComponent, lsp_ext::Health};
 use i_slint_core::component_factory::FactoryContext;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 
@@ -201,8 +201,13 @@ fn configure_handle_for_design_mode(handle: &ComponentInstance, enabled: bool) {
 
     handle.on_element_selected(Box::new(
         move |file: &str, start_line: u32, start_column: u32, end_line: u32, end_column: u32| {
-            let _ =
-                ask_editor_to_show_document(file, start_line, start_column, end_line, end_column);
+            let _ = ask_editor_to_show_document(
+                file.to_string(),
+                start_line,
+                start_column,
+                end_line,
+                end_column,
+            );
             // ignore errors
         },
     ));
@@ -316,27 +321,4 @@ pub fn send_status_notification(sender: &crate::ServerNotifier, message: &str, h
             },
         )
         .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
-}
-
-pub fn send_show_document_to_editor(
-    sender: &ServerNotifier,
-    file: &str,
-    start_line: u32,
-    start_column: u32,
-    end_line: u32,
-    end_column: u32,
-) {
-    let Some(params) = crate::preview::show_document_request_from_element_callback(
-        file,
-        start_line,
-        start_column,
-        end_line,
-        end_column,
-    ) else {
-        return;
-    };
-    let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
-        return;
-    };
-    i_slint_core::future::spawn_local(fut).unwrap();
 }
