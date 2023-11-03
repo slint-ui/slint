@@ -377,6 +377,7 @@ impl CppType for Type {
             }
             Type::Brush => Some("slint::Brush".to_owned()),
             Type::LayoutCache => Some("slint::SharedVector<float>".into()),
+            Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             _ => None,
         }
     }
