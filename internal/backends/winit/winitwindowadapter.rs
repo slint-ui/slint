@@ -285,6 +285,19 @@ impl WinitWindowAdapter {
         false
     }
 
+    // Requests for the window to be resized. Returns true if the window was resized immediately,
+    // or if it will be resized later (false).
+    fn resize_window(&self, size: winit::dpi::Size) -> Result<bool, PlatformError> {
+        if let Some(size) = self.winit_window().request_inner_size(size) {
+            // On wayland we might not get a WindowEvent::Resized, so resize the EGL surface right away.
+            self.resize_event(size)?;
+            Ok(true)
+        } else {
+            // None means that we'll get a `WindowEvent::Resized` later
+            Ok(false)
+        }
+    }
+
     pub fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) -> Result<(), PlatformError> {
         // When a window is minimized on Windows, we get a move event to an off-screen position
         // and a resize even with a zero size. Don't forward that, especially not to the renderer,
@@ -372,11 +385,8 @@ impl WindowAdapter for WinitWindowAdapter {
                 && preferred_size.height > 0 as Coord
             {
                 // use the Slint's window Scale factor to take in account the override
-                let mut size = preferred_size.to_physical::<u32>(scale_factor);
-                if let Some(s) = winit_window.request_inner_size(size) {
-                    size = s
-                }
-                self.size.set(physical_size_to_slint(&size));
+                let size = preferred_size.to_physical::<u32>(scale_factor);
+                self.resize_window(size.into())?;
             };
 
             winit_window.set_visible(true);
@@ -428,9 +438,8 @@ impl WindowAdapter for WinitWindowAdapter {
 
     fn set_size(&self, size: corelib::api::WindowSize) {
         self.has_explicit_size.set(true);
-        if let Some(size) = self.winit_window().request_inner_size(window_size_to_winit(&size)) {
-            self.size.set(physical_size_to_slint(&size));
-        }
+        // TODO: don't ignore error, propgate to caller
+        self.resize_window(window_size_to_winit(&size)).ok();
     }
 
     fn size(&self) -> corelib::api::PhysicalSize {
@@ -494,10 +503,13 @@ impl WindowAdapter for WinitWindowAdapter {
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it
             // when we create a surface that's bigger than the screen due to constraints (#532).
             if winit_window.fullscreen().is_none() {
-                if let Some(size) =
-                    winit_window.request_inner_size(winit::dpi::LogicalSize::new(width, height))
-                {
-                    self.size.set(physical_size_to_slint(&size));
+                // TODO: don't ignore error, propgate to caller
+                let immediately_resized = self
+                    .resize_window(winit::dpi::LogicalSize::new(width, height).into())
+                    .unwrap_or_default();
+                if immediately_resized {
+                    // The resize event was already dispatched
+                    must_resize = false;
                 }
             }
         }
@@ -550,11 +562,11 @@ impl WindowAdapter for WinitWindowAdapter {
                     let pref_width = new_constraints.preferred.width;
                     let pref_height = new_constraints.preferred.height;
                     if pref_width > 0 as Coord || pref_height > 0 as Coord {
-                        if let Some(size) = winit_window.request_inner_size(
-                            winit::dpi::LogicalSize::new(pref_width, pref_height),
-                        ) {
-                            self.size.set(physical_size_to_slint(&size));
-                        }
+                        // TODO: don't ignore error, propgate to caller
+                        self.resize_window(
+                            winit::dpi::LogicalSize::new(pref_width, pref_height).into(),
+                        )
+                        .ok();
                     };
                 }
             }
