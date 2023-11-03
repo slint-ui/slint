@@ -75,9 +75,8 @@ impl PreviewConnector {
                             &JsValue::from("PreviewConnector already set up.")).unwrap_throw();
                     } else {
                         match super::ui::create_ui(style) {
-                            Ok((ui, style)) => {
+                            Ok(ui) => {
                                 preview_state.borrow_mut().ui = Some(ui);
-                                super::change_style(style);
                                 resolve.take().call1(&JsValue::UNDEFINED,
                                     &JsValue::from(Self { })).unwrap_throw()
                             }
@@ -101,7 +100,7 @@ impl PreviewConnector {
 
     #[wasm_bindgen]
     pub fn current_style(&self) -> JsValue {
-        crate::preview::get_current_style().into()
+        crate::preview::wasm::get_current_style().into()
     }
 
     #[wasm_bindgen]
@@ -232,7 +231,10 @@ pub fn load_preview(component: PreviewComponent) {
     PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
     slint::invoke_from_event_loop(move || {
         PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);
-        i_slint_core::future::spawn_local(super::reload_preview(component)).unwrap();
+        i_slint_core::future::spawn_local(async move {
+            set_current_style(super::reload_preview(component, get_current_style()).await);
+        })
+        .unwrap();
     })
     .unwrap();
 }
@@ -262,6 +264,26 @@ pub fn send_message_to_lsp(message: crate::common::PreviewToLspMessage) {
             let callback = js_sys::Function::from((*callback).clone());
             let value = serde_wasm_bindgen::to_value(&message).unwrap();
             let _ = callback.call1(&JsValue::UNDEFINED, &value);
+        }
+    })
+}
+
+fn set_current_style(style: String) {
+    PREVIEW_STATE.with(move |preview_state| {
+        let preview_state = preview_state.borrow_mut();
+        if let Some(ui) = &preview_state.ui {
+            ui.set_current_style(style.into())
+        }
+    });
+}
+
+fn get_current_style() -> String {
+    PREVIEW_STATE.with(|preview_state| {
+        let preview_state = preview_state.borrow();
+        if let Some(ui) = &preview_state.ui {
+            ui.get_current_style().as_str().to_string()
+        } else {
+            String::new()
         }
     })
 }
