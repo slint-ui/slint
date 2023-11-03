@@ -295,7 +295,7 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
 }
 
 pub fn ask_editor_to_show_document(
-    file: &str,
+    file: String,
     start_line: u32,
     start_column: u32,
     end_line: u32,

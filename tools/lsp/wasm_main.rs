@@ -314,9 +314,9 @@ impl SlintServer {
                 crate::preview::notify_lsp_diagnostics(&self.ctx.server_notifier, uri, diagnostics);
             }
             M::ShowDocument { file, start_line, start_column, end_line, end_column } => {
-                crate::preview::send_show_document_to_editor(
-                    &self.ctx.server_notifier,
-                    &file,
+                send_show_document_to_editor(
+                    self.ctx.server_notifier.clone(),
+                    file,
                     start_line,
                     start_column,
                     end_line,
@@ -393,4 +393,31 @@ fn to_value<T: serde::Serialize + ?Sized>(
     value: &T,
 ) -> std::result::Result<wasm_bindgen::JsValue, serde_wasm_bindgen::Error> {
     value.serialize(&serde_wasm_bindgen::Serializer::json_compatible())
+}
+
+pub fn send_show_document_to_editor(
+    sender: ServerNotifier,
+    file: String,
+    start_line: u32,
+    start_column: u32,
+    end_line: u32,
+    end_column: u32,
+) {
+    wasm_bindgen_futures::spawn_local(async move {
+        i_slint_core::debug_log!("send_show_document_to_editor: {file}");
+        let Some(params) = crate::preview::show_document_request_from_element_callback(
+            &file,
+            start_line,
+            start_column,
+            end_line,
+            end_column,
+        ) else {
+            return;
+        };
+        let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
+            return;
+        };
+        fut.await.unwrap();
+        i_slint_core::debug_log!("send_show_document_to_editor: {file} -> DONE");
+    });
 }
