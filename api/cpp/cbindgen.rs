@@ -602,8 +602,8 @@ fn gen_corelib(
         "    constexpr CachedRenderingData() : cache_index{}, cache_generation{} {}".to_owned(),
     );
     config.export.body.insert(
-        "EasingCurve".to_owned(), 
-        "    constexpr EasingCurve(EasingCurve::Tag tag = Tag::Linear , float a = 0, float b = 0, float c = 1, float d = 1) : tag(tag), cubic_bezier{{a,b,c,d}} {}".into() 
+        "EasingCurve".to_owned(),
+        "    constexpr EasingCurve(EasingCurve::Tag tag = Tag::Linear, float a = 0, float b = 0, float c = 1, float d = 1) : tag(tag), cubic_bezier{{a,b,c,d}} {}".into()
     );
     config.export.body.insert(
         "LayoutInfo".to_owned(),
