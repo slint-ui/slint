@@ -543,12 +543,12 @@ impl WindowAdapter for WinitWindowAdapter {
             };
 
             let resizable = window_is_resizable(new_constraints.min, new_constraints.max);
-
+            // we must call set_resizable before setting the min and max size otherwise setting the min and max size don't work on X11
+            winit_window.set_resizable(resizable);
             let winit_min_inner = new_constraints.min.map(into_size);
             winit_window.set_min_inner_size(winit_min_inner);
             let winit_max_inner = new_constraints.max.map(into_size);
             winit_window.set_max_inner_size(winit_max_inner);
-            winit_window.set_resizable(resizable);
 
             // Auto-resize to the preferred size if users (SlintPad) requests it
             #[cfg(target_arch = "wasm32")]
