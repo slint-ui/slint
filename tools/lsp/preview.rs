@@ -69,18 +69,12 @@ fn set_design_mode(enable: bool) {
     configure_design_mode(enable);
 }
 
-fn change_style(style: String) {
+fn change_style() {
     let component = {
         let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        PreviewComponent { style, ..cache.current.clone() }
+        cache.current.clone()
     };
     load_preview(component);
-}
-
-#[cfg(target_arch = "wasm32")]
-fn get_current_style() -> String {
-    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    cache.current.style.clone()
 }
 
 pub fn start_parsing() {
@@ -137,21 +131,25 @@ fn get_file_from_cache(path: PathBuf) -> Option<String> {
     r
 }
 
-async fn reload_preview(preview_component: PreviewComponent) {
-    let (preview_component, design_mode, ui_is_visible) = {
-        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        let style = cache.current.style.clone();
-        cache.dependency.clear();
-        let component = if preview_component.style.is_empty() {
-            PreviewComponent { style, ..preview_component }
-        } else {
-            preview_component
-        };
-        cache.current = component.clone();
-        (component, cache.design_mode, cache.ui_is_visible)
+// Most be inside the thread running the slint event loop
+async fn reload_preview(preview_component: PreviewComponent, current_style: String) -> String {
+    let style = if preview_component.style.is_empty() {
+        current_style
+    } else {
+        preview_component.style.clone()
     };
+
+    let component = PreviewComponent { style: String::new(), ..preview_component };
+
+    let (design_mode, ui_is_visible) = {
+        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        cache.dependency.clear();
+        cache.current = component.clone();
+        (cache.design_mode, cache.ui_is_visible)
+    };
+
     if !ui_is_visible {
-        return;
+        return style;
     };
 
     start_parsing();
@@ -164,26 +162,26 @@ async fn reload_preview(preview_component: PreviewComponent) {
         cc.resource_url_mapper = resource_url_mapper();
     }
 
-    if !preview_component.style.is_empty() {
-        builder.set_style(preview_component.style);
+    if !style.is_empty() {
+        builder.set_style(style.clone());
     }
-    builder.set_include_paths(preview_component.include_paths);
-    builder.set_library_paths(preview_component.library_paths);
+    builder.set_include_paths(component.include_paths);
+    builder.set_library_paths(component.library_paths);
 
     builder.set_file_loader(|path| {
         let path = path.to_owned();
         Box::pin(async move { get_file_from_cache(path).map(Result::Ok) })
     });
 
-    let compiled = if let Some(mut from_cache) = get_file_from_cache(preview_component.path.clone())
-    {
-        if let Some(component) = &preview_component.component {
-            from_cache =
-                format!("{}\nexport component _Preview inherits {} {{ }}\n", from_cache, component);
+    let compiled = if let Some(mut from_cache) = get_file_from_cache(component.path.clone()) {
+        if let Some(component_name) = &component.component {
+            from_cache = format!(
+                "{from_cache}\nexport component _Preview inherits {component_name} {{ }}\n"
+            );
         }
-        builder.build_from_source(from_cache, preview_component.path).await
+        builder.build_from_source(from_cache, component.path).await
     } else {
-        builder.build_from_path(preview_component.path).await
+        builder.build_from_path(component.path).await
     };
 
     notify_diagnostics(builder.diagnostics());
@@ -193,7 +191,9 @@ async fn reload_preview(preview_component: PreviewComponent) {
         finish_parsing(true);
     } else {
         finish_parsing(false);
-    }
+    };
+
+    style
 }
 
 fn configure_handle_for_design_mode(handle: &ComponentInstance, enabled: bool) {

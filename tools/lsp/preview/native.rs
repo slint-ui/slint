@@ -145,11 +145,7 @@ pub fn open_ui(sender: &ServerNotifier) {
 
 fn open_ui_impl(preview_state: &mut PreviewState, default_style: String) {
     // TODO: Handle Error!
-    let ui = preview_state.ui.get_or_insert_with(|| {
-        let (ui, style) = super::ui::create_ui(default_style).unwrap();
-        super::change_style(style);
-        ui
-    });
+    let ui = preview_state.ui.get_or_insert_with(|| super::ui::create_ui(default_style).unwrap());
     ui.window().on_close_requested(|| {
         let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.ui_is_visible = false;
@@ -196,7 +192,8 @@ pub fn load_preview(component: PreviewComponent) {
     PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
     run_in_ui_thread(move || async move {
         PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);
-        super::reload_preview(component).await
+
+        set_current_style(super::reload_preview(component, get_current_style()).await);
     });
 }
 
@@ -221,6 +218,26 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
         crate::preview::notify_lsp_diagnostics(&sender, url, diagnostics)?;
     }
     Some(())
+}
+
+fn set_current_style(style: String) {
+    PREVIEW_STATE.with(move |preview_state| {
+        let preview_state = preview_state.borrow_mut();
+        if let Some(ui) = &preview_state.ui {
+            ui.set_current_style(style.into())
+        }
+    });
+}
+
+fn get_current_style() -> String {
+    PREVIEW_STATE.with(|preview_state| -> String {
+        let preview_state = preview_state.borrow();
+        if let Some(ui) = &preview_state.ui {
+            ui.get_current_style().as_str().to_string()
+        } else {
+            String::new()
+        }
+    })
 }
 
 pub fn set_busy(busy: bool) {
