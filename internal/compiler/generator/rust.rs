@@ -114,6 +114,7 @@ fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
 fn rust_property_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::LogicalLength => Some(quote!(sp::LogicalLength)),
+        Type::Easing => Some(quote!(sp::EasingCurve)),
         _ => rust_primitive_type(ty),
     }
 }
