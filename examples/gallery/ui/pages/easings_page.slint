@@ -51,9 +51,7 @@ export component EasingsPage inherits Page {
     title: "Easings";
     description: "Easing demos";
 
-    private property <int> curr-duration: 1000;
-    // Swap to the line below to crash the Rust code generator
-    // private property <int> curr-duration: slider.value;
+    private property <int> curr-duration: slider.value;
 
     VerticalLayout {
         padding: 10px;

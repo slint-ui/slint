@@ -143,6 +143,7 @@ fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &Evaluati
 pub(crate) struct PropertyInfoResult<'a> {
     pub analysis: Option<&'a PropertyAnalysis>,
     pub binding: Option<(&'a BindingExpression, ContextMap)>,
+    pub animation: Option<(&'a Expression, ContextMap)>,
     pub property_decl: Option<&'a Property>,
 }
 
@@ -165,10 +166,22 @@ pub(crate) fn property_binding_and_analysis<'a>(
             } else {
                 None
             };
+        let animation = sc.animations.get(prop).map(|a| (a, map.clone()));
         if let Some(a) = sc.prop_analysis.get(prop) {
             let binding = a.property_init.map(|i| (&sc.property_init[i].1, map));
-            return PropertyInfoResult { analysis: Some(&a.analysis), binding, property_decl };
+            return PropertyInfoResult {
+                analysis: Some(&a.analysis),
+                binding,
+                animation,
+                property_decl,
+            };
         }
+        let apply_animation = |mut r: PropertyInfoResult<'a>| -> PropertyInfoResult<'a> {
+            if animation.is_some() {
+                r.animation = animation
+            };
+            r
+        };
         match prop {
             PropertyReference::Local { sub_component_path, property_index } => {
                 if !sub_component_path.is_empty() {
@@ -177,11 +190,11 @@ pub(crate) fn property_binding_and_analysis<'a>(
                         property_index: *property_index,
                     };
                     let idx = sub_component_path[0];
-                    return match_in_sub_component(
+                    return apply_animation(match_in_sub_component(
                         &sc.sub_components[idx].ty,
                         &prop2,
                         map.deeper_in_sub_component(idx),
-                    );
+                    ));
                 }
             }
             PropertyReference::InNativeItem { item_index, sub_component_path, prop_name } => {
@@ -192,16 +205,16 @@ pub(crate) fn property_binding_and_analysis<'a>(
                         item_index: *item_index,
                     };
                     let idx = sub_component_path[0];
-                    return match_in_sub_component(
+                    return apply_animation(match_in_sub_component(
                         &sc.sub_components[idx].ty,
                         &prop2,
                         map.deeper_in_sub_component(idx),
-                    );
+                    ));
                 }
             }
             _ => unreachable!(),
         }
-        PropertyInfoResult { property_decl, ..Default::default() }
+        apply_animation(PropertyInfoResult { property_decl, ..Default::default() })
     }
 
     match prop {
@@ -212,6 +225,7 @@ pub(crate) fn property_binding_and_analysis<'a>(
                     binding: g.init_values[*property_index]
                         .as_ref()
                         .map(|b| (b, ContextMap::Identity)),
+                    animation: None,
                     property_decl: Some(&g.properties[*property_index]),
                 };
             } else if let Some(sc) = ctx.current_sub_component.as_ref() {
@@ -231,6 +245,7 @@ pub(crate) fn property_binding_and_analysis<'a>(
             let g = &ctx.public_component.globals[*global_index];
             return PropertyInfoResult {
                 analysis: Some(&g.prop_analysis[*property_index]),
+                animation: None,
                 binding: g
                     .init_values
                     .get(*property_index)

@@ -5,7 +5,10 @@
 //!
 //! This pass assume that use_count of all properties is zero
 
-use crate::llr::{EvaluationContext, Expression, ParentCtx, PropertyReference, PublicComponent};
+use crate::llr::{
+    Animation, BindingExpression, EvaluationContext, Expression, ParentCtx, PropertyReference,
+    PublicComponent,
+};
 
 pub fn count_property_use(root: &PublicComponent) {
     // Visit the root properties that are used.
@@ -52,7 +55,7 @@ pub fn count_property_use(root: &PublicComponent) {
                 _ => unreachable!(),
             }
             expr.use_count.set(c + 1);
-            expr.expression.borrow().visit_recursive(&mut |e| visit_expression(e, ctx));
+            visit_binding_expression(expr, ctx)
         }
         // 3. the init code
         for expr in &sc.init_code {
@@ -128,8 +131,18 @@ fn visit_property(pr: &PropertyReference, ctx: &EvaluationContext) {
         binding.use_count.set(c + 1);
         if c == 0 {
             let ctx2 = map.map_context(ctx);
-            binding.expression.borrow().visit_recursive(&mut |e| visit_expression(e, &ctx2))
+            visit_binding_expression(binding, &ctx2);
         }
+    }
+}
+
+fn visit_binding_expression(binding: &BindingExpression, ctx: &EvaluationContext) {
+    binding.expression.borrow().visit_recursive(&mut |e| visit_expression(e, ctx));
+    match &binding.animation {
+        Some(Animation::Static(e) | Animation::Transition(e)) => {
+            e.visit_recursive(&mut |e| visit_expression(e, ctx))
+        }
+        None => (),
     }
 }
 
@@ -137,7 +150,15 @@ fn visit_expression(expr: &Expression, ctx: &EvaluationContext) {
     let p = match expr {
         Expression::PropertyReference(p) => p,
         Expression::CallBackCall { callback, .. } => callback,
-        Expression::PropertyAssignment { property, .. } => property,
+        Expression::PropertyAssignment { property, .. } => {
+            if let Some((a, map)) =
+                &super::inline_expressions::property_binding_and_analysis(ctx, property).animation
+            {
+                let ctx2 = map.map_context(ctx);
+                a.visit_recursive(&mut |e| visit_expression(e, &ctx2))
+            }
+            property
+        }
         // FIXME  (should be fine anyway because we mark these as not optimizable)
         Expression::ModelDataAssignment { .. } => return,
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => layout_cache_prop,

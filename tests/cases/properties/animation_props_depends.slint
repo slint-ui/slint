@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+component Slider {
+    in-out property <int> value;
+    TouchArea {
+        clicked => { value += 1; }
+    }
+}
+
+export global Glob { in-out property <bool> cond; }
+
+component Animated {
+    public function animate() {
+        r.x += 500px;
+    }
+
+    in property <easing> ease;
+    in property <int> duration;
+    in property <duration> delay;
+    r := Rectangle {
+        background: Glob.cond ? blue : red;
+        animate background { easing: ease; duration: duration * 1ms;   }
+        animate x { easing: ease; duration: 260ms; delay: delay; }
+    }
+}
+
+export component Main {
+    slider1 := Slider {}
+    slider2 := Slider {}
+    property <int> value1: slider1.value;
+    property <int> value2: slider2.value;
+    public function anunimate() { a1.animate(); }
+    HorizontalLayout {
+        a1 := Animated { ease: ease-out; duration: value1; delay: value2 * 2ms; }
+        Animated { ease: ease-in; duration: value1; delay: value2 * 2ms; }
+    }
+}
