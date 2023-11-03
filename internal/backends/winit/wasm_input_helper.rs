@@ -76,41 +76,44 @@ impl WasmInputHelper {
                         return;
                     };
                     e.prevent_default();
-                    if let Some(focus_item) = WindowInner::from_pub(&window_adapter.window())
-                        .focus_item
-                        .borrow()
-                        .upgrade()
-                    {
-                        if let Some(text_input) =
-                            focus_item.downcast::<i_slint_core::items::TextInput>()
+                    let synthetic_clipboard_data = RefCell::new(text);
+                    CURRENT_WASM_CLIPBOARD_DATA.set(&synthetic_clipboard_data, || {
+                        if let Some(focus_item) = WindowInner::from_pub(&window_adapter.window())
+                            .focus_item
+                            .borrow()
+                            .upgrade()
                         {
-                            text_input.as_pin_ref().insert(&text, &window_adapter, &focus_item);
+                            if let Some(text_input) =
+                                focus_item.downcast::<i_slint_core::items::TextInput>()
+                            {
+                                text_input.as_pin_ref().paste(&window_adapter, &focus_item);
+                            }
                         }
-                    }
+                    })
                 }
             });
             let win = window_adapter.clone();
             h.add_event_listener("copy", move |e: web_sys::ClipboardEvent| {
                 if let Some(window_adapter) = win.upgrade() {
                     e.prevent_default();
-                    if let Some(focus_item) = WindowInner::from_pub(&window_adapter.window())
-                        .focus_item
-                        .borrow()
-                        .upgrade()
-                    {
-                        if let Some(text_input) =
-                            focus_item.downcast::<i_slint_core::items::TextInput>()
+
+                    let synthetic_clipboard_data = RefCell::new(String::default());
+                    CURRENT_WASM_CLIPBOARD_DATA.set(&synthetic_clipboard_data, || {
+                        if let Some(focus_item) = WindowInner::from_pub(&window_adapter.window())
+                            .focus_item
+                            .borrow()
+                            .upgrade()
                         {
-                            let (anchor, cursor) =
-                                text_input.as_pin_ref().selection_anchor_and_cursor();
-                            if anchor == cursor {
-                                return;
-                            }
-                            let text = text_input.as_pin_ref().text();
-                            if let Some(data) = e.clipboard_data() {
-                                data.set_data("text", &text[anchor..cursor]).ok();
+                            if let Some(text_input) =
+                                focus_item.downcast::<i_slint_core::items::TextInput>()
+                            {
+                                let text =
+                                    text_input.as_pin_ref().copy(&window_adapter, &focus_item);
                             }
                         }
+                    });
+                    if let Some(data) = e.clipboard_data() {
+                        data.set_data("text", &synthetic_clipboard_data.into_inner()).ok();
                     }
                 }
             });
@@ -305,5 +308,25 @@ fn event_text(e: &web_sys::KeyboardEvent) -> Option<SharedString> {
     match chars.next() {
         Some(first_char) if chars.next().is_none() => Some(first_char.into()),
         _ => None,
+    }
+}
+
+scoped_tls_hkt::scoped_thread_local!(static CURRENT_WASM_CLIPBOARD_DATA : for<'a> &'a RefCell<String>);
+
+pub(crate) fn set_clipboard_text(data: String, clipboard: i_slint_core::platform::Clipboard) {
+    if CURRENT_WASM_CLIPBOARD_DATA.is_set()
+        && matches!(clipboard, i_slint_core::platform::Clipboard::DefaultClipboard)
+    {
+        CURRENT_WASM_CLIPBOARD_DATA.with(|current_data| *current_data.borrow_mut() = data)
+    }
+}
+
+pub(crate) fn get_clipboard_text(clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
+    if CURRENT_WASM_CLIPBOARD_DATA.is_set()
+        && matches!(clipboard, i_slint_core::platform::Clipboard::DefaultClipboard)
+    {
+        Some(CURRENT_WASM_CLIPBOARD_DATA.with(|current_data| current_data.borrow().clone()))
+    } else {
+        None
     }
 }
