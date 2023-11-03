@@ -244,7 +244,7 @@ pub fn send_status(message: &str, health: Health) {
 }
 
 pub fn ask_editor_to_show_document(
-    file: &str,
+    file: String,
     start_line: u32,
     start_column: u32,
     end_line: u32,
@@ -254,14 +254,16 @@ pub fn ask_editor_to_show_document(
         return;
     };
 
-    super::send_show_document_to_editor(
-        &sender,
+    let fut = crate::send_show_document_to_editor(
+        sender,
         file,
         start_line,
         start_column,
         end_line,
         end_column,
     );
+
+    let _ = slint_interpreter::spawn_local(fut); // Fire and forget.
 }
 
 pub fn configure_design_mode(enabled: bool) {
