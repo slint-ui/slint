@@ -514,6 +514,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cargo/bin/cargo-apk
+          key: cargo-apk-cache
       # Only build cargo-apk if not cached
       - uses: dtolnay/rust-toolchain@stable
         if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
