@@ -6,6 +6,8 @@
 
 use alloc::boxed::Box;
 use core::cell::Cell;
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 mod cubic_bezier {
     //! This is a copy from lyon_algorithms::geom::cubic_bezier implementation
@@ -143,9 +145,21 @@ pub enum EasingCurve {
     /// The linear curve
     #[default]
     Linear,
-    /// A Cubic bezier curve, with its 4 parameter
+    /// A Cubic bezier curve, with its 4 parameters
     CubicBezier([f32; 4]),
-    //Custom(Box<dyn Fn(f32) -> f32>),
+    /// Easing curve as defined at: <https://easings.net/#easeInElastic>
+    EaseInElastic,
+    /// Easing curve as defined at: <https://easings.net/#easeOutElastic>
+    EaseOutElastic,
+    /// Easing curve as defined at: <https://easings.net/#easeInOutElastic>
+    EaseInOutElastic,
+    /// Easing curve as defined at: <https://easings.net/#easeInBounce>
+    EaseInBounce,
+    /// Easing curve as defined at: <https://easings.net/#easeOutBounce>
+    EaseOutBounce,
+    /// Easing curve as defined at: <https://easings.net/#easeInOutBounce>
+    EaseInOutBounce,
+    // Custom(Box<dyn Fn(f32) -> f32>),
 }
 
 /// Represent an instant, in milliseconds since the AnimationDriver's initial_instant
@@ -277,6 +291,24 @@ pub fn animation_tick() -> u64 {
     })
 }
 
+fn ease_out_bounce_curve(value: f32) -> f32 {
+    const N1: f32 = 7.5625;
+    const D1: f32 = 2.75;
+
+    if value < 1.0 / D1 {
+        N1 * value * value
+    } else if value < 2.0 / D1 {
+        let value = value - (1.5 / D1);
+        N1 * value * value + 0.75
+    } else if value < 2.5 / D1 {
+        let value = value - (2.25 / D1);
+        N1 * value * value + 0.9375
+    } else {
+        let value = value - (2.625 / D1);
+        N1 * value * value + 0.984375
+    }
+}
+
 /// map a value between 0 and 1 to another value between 0 and 1 according to the curve
 pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
     match curve {
@@ -292,6 +324,53 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
                 to: (1., 1.).into(),
             };
             curve.y(curve.solve_t_for_x(value, 0.0..1.0, 0.01))
+        }
+        EasingCurve::EaseInElastic => {
+            const C4: f32 = 2.0 * core::f32::consts::PI / 3.0;
+
+            if value == 0.0 {
+                0.0
+            } else if value == 1.0 {
+                1.0
+            } else {
+                -f32::powf(2.0, 10.0 * value - 10.0) * f32::sin((value * 10.0 - 10.75) * C4)
+            }
+        }
+        EasingCurve::EaseOutElastic => {
+            let c4 = (2.0 * core::f32::consts::PI) / 3.0;
+
+            if value == 0.0 {
+                0.0
+            } else if value == 1.0 {
+                1.0
+            } else {
+                2.0f32.powf(-10.0 * value) * ((value * 10.0 - 0.75) * c4).sin() + 1.0
+            }
+        }
+        EasingCurve::EaseInOutElastic => {
+            const C5: f32 = 2.0 * core::f32::consts::PI / 4.5;
+
+            if value == 0.0 {
+                0.0
+            } else if value == 1.0 {
+                1.0
+            } else if value < 0.5 {
+                -(f32::powf(2.0, 20.0 * value - 10.0) * f32::sin((20.0 * value - 11.125) * C5))
+                    / 2.0
+            } else {
+                (f32::powf(2.0, -20.0 * value + 10.0) * f32::sin((20.0 * value - 11.125) * C5))
+                    / 2.0
+                    + 1.0
+            }
+        }
+        EasingCurve::EaseInBounce => 1.0 - ease_out_bounce_curve(1.0 - value),
+        EasingCurve::EaseOutBounce => ease_out_bounce_curve(value),
+        EasingCurve::EaseInOutBounce => {
+            if value < 0.5 {
+                (1.0 - ease_out_bounce_curve(1.0 - 2.0 * value)) / 2.0
+            } else {
+                (1.0 + ease_out_bounce_curve(2.0 * value - 1.0)) / 2.0
+            }
         }
     }
 }
