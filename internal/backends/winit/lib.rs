@@ -256,6 +256,12 @@ impl i_slint_core::platform::Platform for Backend {
         Some(Box::new(Proxy))
     }
 
+    #[cfg(target_arch = "wasm32")]
+    fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
+        crate::wasm_input_helper::set_clipboard_text(text.into(), clipboard);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
         crate::event_loop::with_window_target(|event_loop_target| {
             if let Some(mut clipboard) = event_loop_target.clipboard(clipboard) {
@@ -266,6 +272,12 @@ impl i_slint_core::platform::Platform for Backend {
         .ok();
     }
 
+    #[cfg(target_arch = "wasm32")]
+    fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
+        crate::wasm_input_helper::get_clipboard_text(clipboard)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
         crate::event_loop::with_window_target(|event_loop_target| {
             Ok(event_loop_target
