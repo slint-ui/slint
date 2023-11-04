@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2023-11-03 03:04+0000\n"
+"POT-Creation-Date: 2023-11-04 03:03+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -37,6 +37,11 @@ msgstr ""
 #: gallery.slint:20
 msgctxt "Menu"
 msgid "TextEdit"
+msgstr ""
+
+#: gallery.slint:20
+msgctxt "Menu"
+msgid "Easings"
 msgstr ""
 
 #: gallery.slint:20
@@ -236,7 +241,7 @@ msgctxt "ControlsPage"
 msgid "Content of tab 3"
 msgstr ""
 
-#: ui/pages/page.slint:25
+#: ui/pages/page.slint:26
 msgctxt "Page"
 msgid "Widgets enabled"
 msgstr ""
