@@ -9,7 +9,7 @@ use std::rc::Weak;
 use std::sync::{Arc, Condvar, Mutex};
 
 use accesskit::{
-    Action, ActionRequest, CheckedState, Node, NodeBuilder, NodeId, Role, Tree, TreeUpdate,
+    Action, ActionRequest, Checked, Node, NodeBuilder, NodeId, Role, Tree, TreeUpdate,
 };
 use i_slint_core::accessibility::AccessibleStringProperty;
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
@@ -42,10 +42,11 @@ pub struct AccessKitAdapter {
     window_adapter_weak: Weak<WinitWindowAdapter>,
 
     node_classes: RefCell<accesskit::NodeClassSet>,
-    next_component_id: Cell<usize>,
-    components_by_id: RefCell<HashMap<usize, ItemTreeWeak>>,
-    component_ids: RefCell<HashMap<NonNull<u8>, usize>>,
+    next_component_id: Cell<u32>,
+    components_by_id: RefCell<HashMap<u32, ItemTreeWeak>>,
+    component_ids: RefCell<HashMap<NonNull<u8>, u32>>,
     all_nodes: RefCell<Vec<CachedNode>>,
+    root_node_id: Cell<NodeId>,
     global_property_tracker: Pin<Box<PropertyTracker<AccessibilitiesPropertyTracker>>>,
 }
 
@@ -71,27 +72,21 @@ impl AccessKitAdapter {
             global_property_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
                 AccessibilitiesPropertyTracker { window_adapter_weak: window_adapter_weak.clone() },
             )),
+            root_node_id: Cell::new(NodeId(0)),
         }
     }
 
-    pub fn on_event(
-        &self,
-        window: &winit::window::Window,
-        event: &winit::event::WindowEvent<'_>,
-    ) -> bool {
-        match event {
-            winit::event::WindowEvent::Focused(_) => {
-                self.global_property_tracker.set_dirty();
-                let win = self.window_adapter_weak.clone();
-                i_slint_core::timers::Timer::single_shot(Default::default(), move || {
-                    if let Some(window_adapter) = win.upgrade() {
-                        window_adapter.accesskit_adapter.rebuild_tree_of_dirty_nodes();
-                    };
-                });
-                true // keep processing
-            }
-            _ => self.inner.on_event(window, event),
+    pub fn process_event(&self, window: &winit::window::Window, event: &winit::event::WindowEvent) {
+        if matches!(event, winit::event::WindowEvent::Focused(_)) {
+            self.global_property_tracker.set_dirty();
+            let win = self.window_adapter_weak.clone();
+            i_slint_core::timers::Timer::single_shot(Default::default(), move || {
+                if let Some(window_adapter) = win.upgrade() {
+                    window_adapter.accesskit_adapter.rebuild_tree_of_dirty_nodes();
+                };
+            });
         }
+        self.inner.process_event(window, event);
     }
 
     pub fn handle_focus_item_change(&self) {
@@ -102,16 +97,24 @@ impl AccessKitAdapter {
         })
     }
 
-    fn focus_node(&self) -> Option<NodeId> {
-        let window_adapter = self.window_adapter_weak.upgrade()?;
-        if !window_adapter.winit_window().has_focus() {
-            return None;
-        }
-        let window_inner = WindowInner::from_pub(window_adapter.window());
-        let focus_item = window_inner.focus_item.borrow().upgrade().or_else(|| {
-            window_inner.try_component().map(|component_rc| ItemRc::new(component_rc, 0))
-        })?;
-        self.find_node_id_by_item_rc(focus_item)
+    fn focus_node(&self) -> NodeId {
+        self.window_adapter_weak
+            .upgrade()
+            .filter(|window_adapter| window_adapter.winit_window().has_focus())
+            .and_then(|window_adapter| {
+                let window_inner = WindowInner::from_pub(window_adapter.window());
+                window_inner
+                    .focus_item
+                    .borrow()
+                    .upgrade()
+                    .or_else(|| {
+                        window_inner
+                            .try_component()
+                            .map(|component_rc| ItemRc::new(component_rc, 0))
+                    })
+                    .and_then(|focus_item| self.find_node_id_by_item_rc(focus_item))
+            })
+            .unwrap_or_else(|| self.root_node_id.get())
     }
 
     fn handle_request(&self, request: ActionRequest) {
@@ -149,8 +152,8 @@ impl AccessKitAdapter {
     }
 
     fn item_rc_for_node_id(&self, id: NodeId) -> Option<ItemRc> {
-        let component_id: usize = (id.0.get() >> usize::BITS) as _;
-        let index: u32 = (id.0.get() & u32::MAX as u128) as _;
+        let component_id: u32 = (id.0 >> u32::BITS) as _;
+        let index: u32 = (id.0 & u32::MAX as u64) as _;
         let component = self.components_by_id.borrow().get(&component_id)?.upgrade()?;
         Some(ItemRc::new(component, index))
     }
@@ -172,12 +175,7 @@ impl AccessKitAdapter {
         let component_ptr = ItemTreeRef::as_ptr(ItemTreeRc::borrow(component));
         let component_id = *(self.component_ids.borrow().get(&component_ptr)?);
         let index = item.index();
-        Some(NodeId(
-            std::num::NonZeroU128::new(
-                (component_id as u128) << usize::BITS | (index as u128 & usize::MAX as u128),
-            )
-            .unwrap(),
-        ))
+        Some(NodeId((component_id as u64) << u32::BITS | (index as u64 & u32::MAX as u64)))
     }
 
     fn rebuild_tree_of_dirty_nodes(&self) {
@@ -256,7 +254,11 @@ impl AccessKitAdapter {
 
     fn build_new_tree(&self) -> TreeUpdate {
         let Some(window_adapter) = self.window_adapter_weak.upgrade() else {
-            return Default::default();
+            return TreeUpdate {
+                nodes: Default::default(),
+                tree: Default::default(),
+                focus: self.root_node_id.get(),
+            };
         };
         let window = window_adapter.window();
         let window_inner = i_slint_core::window::WindowInner::from_pub(window);
@@ -273,6 +275,7 @@ impl AccessKitAdapter {
                 ScaleFactor::new(window.scale_factor()),
             )
         });
+        self.root_node_id.set(root_id);
 
         TreeUpdate { nodes, tree: Some(Tree::new(root_id)), focus: self.focus_node() }
     }
@@ -298,14 +301,14 @@ impl AccessKitAdapter {
                         };
                     });
 
-                    let dummy_node_id = NodeId(std::num::NonZeroU128::new(1).unwrap());
+                    let dummy_node_id = NodeId(0);
                     TreeUpdate {
                         nodes: vec![(
                             dummy_node_id,
                             NodeBuilder::new(Role::Window).build(&mut Default::default()),
                         )],
                         tree: Some(Tree::new(dummy_node_id)),
-                        ..Default::default()
+                        focus: dummy_node_id,
                     }
                 });
         }
@@ -324,7 +327,17 @@ impl AccessKitAdapter {
         });
 
         if update_result.is_err() {
-            return Default::default();
+            // If we're having trouble calling `invoke_from_event_loop` then the event loop is probably
+            // dead. Fall back to returning a dummy tree.
+            let dummy_node_id = NodeId(0);
+            return TreeUpdate {
+                nodes: vec![(
+                    dummy_node_id,
+                    NodeBuilder::new(Role::Window).build(&mut Default::default()),
+                )],
+                tree: Some(Tree::new(dummy_node_id)),
+                focus: dummy_node_id,
+            };
         }
 
         let (lock, wait_condition) = &*update_from_main_thread;
@@ -345,7 +358,7 @@ impl AccessKitAdapter {
                     i_slint_core::items::AccessibleRole::None => Role::Unknown,
                     i_slint_core::items::AccessibleRole::Button => Role::Button,
                     i_slint_core::items::AccessibleRole::Checkbox => Role::CheckBox,
-                    i_slint_core::items::AccessibleRole::Combobox => Role::ComboBoxGrouping,
+                    i_slint_core::items::AccessibleRole::Combobox => Role::ComboBox,
                     i_slint_core::items::AccessibleRole::Slider => Role::Slider,
                     i_slint_core::items::AccessibleRole::Spinbox => Role::SpinButton,
                     i_slint_core::items::AccessibleRole::Tab => Role::Tab,
@@ -374,11 +387,11 @@ impl AccessKitAdapter {
         });
 
         if item.accessible_string_property(AccessibleStringProperty::Checkable) == "true" {
-            builder.set_checked_state(
+            builder.set_checked(
                 if item.accessible_string_property(AccessibleStringProperty::Checked) == "true" {
-                    CheckedState::True
+                    Checked::True
                 } else {
-                    CheckedState::False
+                    Checked::False
                 },
             );
         }
@@ -391,7 +404,7 @@ impl AccessKitAdapter {
             role,
             Role::Button
                 | Role::CheckBox
-                | Role::ComboBoxGrouping
+                | Role::ComboBox
                 | Role::Slider
                 | Role::SpinButton
                 | Role::Tab
@@ -456,7 +469,7 @@ impl ActionForwarder {
 }
 
 impl accesskit::ActionHandler for ActionForwarder {
-    fn do_action(&self, request: ActionRequest) {
+    fn do_action(&mut self, request: ActionRequest) {
         let wrapped_window_adapter_weak = self.wrapped_window_adapter_weak.clone();
         i_slint_core::api::invoke_from_event_loop(move || {
             let Some(window_adapter) =

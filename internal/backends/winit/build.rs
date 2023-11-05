@@ -7,6 +7,6 @@ fn main() {
     // Setup cfg aliases
     cfg_aliases! {
        enable_skia_renderer: { any(feature = "renderer-skia", feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan")},
-     // TODO  enable_accesskit: { all(feature = "accessibility", not(target_arch = "wasm32")) },
+       enable_accesskit: { all(feature = "accessibility", not(target_arch = "wasm32")) },
     }
 }
