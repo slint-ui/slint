@@ -87,7 +87,9 @@ export component ComboBox {
 
     i-popup := PopupWindow {
         x: 0;
-        y: -46px;
+        // Position the popup so that the first element is over the popup.
+        // Ideally it should be so that the current element is over the popup.
+        y: -4px;
         width: root.width;
 
         MenuBorder {
