@@ -404,7 +404,6 @@ pub fn send_show_document_to_editor(
     end_column: u32,
 ) {
     wasm_bindgen_futures::spawn_local(async move {
-        i_slint_core::debug_log!("send_show_document_to_editor: {file}");
         let Some(params) = crate::preview::show_document_request_from_element_callback(
             &file,
             start_line,
@@ -418,6 +417,5 @@ pub fn send_show_document_to_editor(
             return;
         };
         fut.await.unwrap();
-        i_slint_core::debug_log!("send_show_document_to_editor: {file} -> DONE");
     });
 }

@@ -7,7 +7,7 @@ use i_slint_core::{
     model::{Model, VecModel},
     SharedString,
 };
-use slint_interpreter::PlatformError;
+use slint_interpreter::{DiagnosticLevel, PlatformError};
 
 slint::include_modules!();
 
@@ -41,4 +41,25 @@ pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
     ui.set_current_style(style.clone().into());
 
     Ok(ui)
+}
+
+pub fn convert_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Vec<Diagnostics> {
+    diagnostics
+        .iter()
+        .filter(|d| d.level() == DiagnosticLevel::Error)
+        .map(|d| {
+            let (line, column) = d.line_column();
+
+            Diagnostics {
+                level: format!("{:?}", d.level()).into(),
+                message: d.message().into(),
+                url: d
+                    .source_file()
+                    .map(|p| p.to_string_lossy().to_string().into())
+                    .unwrap_or_default(),
+                line: line as i32,
+                column: column as i32,
+            }
+        })
+        .collect::<Vec<_>>()
 }

@@ -3,18 +3,28 @@
 
 // cSpell: ignore Heade
 
-import { ScrollView, ComboBox, Button, HorizontalBox } from "std-widgets.slint";
+import { Button, ComboBox, HorizontalBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
 import { HeaderBar } from "header-bar.slint";
 import { Spinner } from "spinner.slint";
 
+export struct Diagnostics {
+    level: string,
+    message: string,
+    url: string,
+    line: int,
+    column: int,
+}
+
 export component PreviewUi inherits Window {
     in property<[string]> known-styles <=> i-style-select.model;
+    in property<[Diagnostics]> diagnostics;
+    in property<string> status-text;
     in property<component-factory> preview-area <=> i-preview-area-container.component-factory;
     in-out property<string> current-style <=> i-style-select.current-value;
+
     callback design-mode-changed(/* enabled */ bool);
     callback style-changed();
-
-    in property <bool> is-busy;
+    callback show-document(/* url */ string, /* line */ int, /* column */ int);
 
     VerticalLayout {
         HeaderBar {
@@ -41,7 +51,10 @@ export component PreviewUi inherits Window {
                 }
             }
 
-            if (root.is-busy) : Spinner {}
+            Text {
+                text: root.status-text;
+                vertical-alignment: center;
+            }
         }
 
         drawing-rect := Rectangle {
@@ -49,6 +62,37 @@ export component PreviewUi inherits Window {
             i-preview-area-container := ComponentContainer {
                 width: max(self.min-width, min(self.max-width, drawing-rect.width));
                 height: max(self.min-height, min(self.max-height, drawing-rect.height));
+            }
+
+            // Diagnostics overlay:
+            if (root.diagnostics.length != 0): Rectangle {
+                background: #fff;
+
+                VerticalBox {
+
+                    Text {
+                        color: #000;
+                        text: "Compilation failed:";
+                    }
+
+                    ListView {
+                        width: parent.width - 10px;
+                        height: parent.height - 10px;
+
+                        padding: 5px;
+
+                        for diag in root.diagnostics: Rectangle {
+                            TouchArea {
+                                clicked => { root.show_document(diag.url, diag.line, diag.column); }
+
+                                Text {
+                                    color: #000;
+                                    text: diag.level + ": " + diag.message;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
