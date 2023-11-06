@@ -4,7 +4,7 @@
     "main": "main.js",
     "type": "module",
     "dependencies": {
-        "slint-ui": "^1.0.0"
+        "slint-ui": "^1.3.0"
     },
     "scripts": {
         "start": "node ."
