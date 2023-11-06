@@ -62,6 +62,6 @@ mainWindow.check_if_pair_solved = function () {
     }
 };
 
-mainWindow.run();
+await mainWindow.run();
 
 // ANCHOR_END: game_logic

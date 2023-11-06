@@ -7,6 +7,6 @@ import * as slint from "slint-ui";
 
 let ui = slint.loadFile("./memory.slint");
 let mainWindow = new ui.MainWindow();
-mainWindow.run();
+await mainWindow.run();
 
 // ANCHOR_END: main

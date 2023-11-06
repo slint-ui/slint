@@ -18,6 +18,6 @@ for (let i = tiles.length - 1; i > 0; i--) {
 let model = new slint.ArrayModel(tiles);
 mainWindow.memory_tiles = model;
 
-mainWindow.run();
+await mainWindow.run();
 
 // ANCHOR_END: main
