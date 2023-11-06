@@ -529,11 +529,11 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
                 }
             });
 
-            return componentHandle;
+            return Object.seal(componentHandle);
         },
     });
 
-    return slint_module;
+    return Object.seal(slint_module);
 }
 
 class EventLoop {

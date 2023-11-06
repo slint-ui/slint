@@ -55,3 +55,19 @@ test('constructor parameters', (t) => {
     t.is(test.check, "test");
     t.is(hello, "hello");
 })
+
+test('component instances and modules are sealed', (t) => {
+    "use strict";
+    let demo = loadFile(path.join(__dirname, "resources/test.slint")) as any;
+
+    t.throws(() => {
+        demo.no_such_property = 42;
+    }, { instanceOf: TypeError });
+
+    let test = new demo.Test();
+    t.is(test.check, "Test");
+
+    t.throws(() => {
+        test.no_such_callback = () => { };
+    }, { instanceOf: TypeError });
+})
