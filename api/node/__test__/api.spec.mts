@@ -4,6 +4,11 @@
 import test from 'ava'
 import * as path from 'node:path';
 import { fileURLToPath } from 'url';
+import { setFlagsFromString } from 'v8';
+import { runInNewContext } from 'vm';
+
+setFlagsFromString('--expose_gc');
+const gc = runInNewContext('gc');
 
 import { loadFile, loadSource, CompileError } from '../index.js'
 
@@ -158,4 +163,49 @@ test('loadSource component instances and modules are sealed', (t) => {
     t.throws(() => {
         test.no_such_callback = () => { };
     }, { instanceOf: TypeError });
+})
+
+test('callback closure cyclic references do not prevent GC', async (t) => {
+
+    // Setup:
+    // A component instance with a callback installed from JS:
+    //    * The callback captures the surrounding environment, which
+    //      includes an extra reference to the component instance itself
+    //      --> a cyclic reference
+    //    * Invoking the callback clears the reference in the outer captured
+    //      environment.
+    //
+    // Note: WeakRef's deref is used to observe the GC. This means that we must
+    // separate the test into different jobs with await, to permit for collection.
+    // (See https://tc39.es/ecma262/multipage/managing-memory.html#sec-weak-ref.prototype.deref)
+
+    let demo = loadFile(path.join(__dirname, "resources/test-constructor.slint")) as any;
+    let callback_invoked = false;
+    let demo_weak = new WeakRef(demo);
+
+    demo.my_callback = () => {
+        demo = null;
+        callback_invoked = true;
+    };
+
+    t.true(demo_weak.deref() !== undefined);
+
+    // After the first GC, the instance should not have been collected because the
+    // current environment's demo variable is a strong reference.
+    await new Promise(resolve => setTimeout(resolve, 0));
+    gc();
+
+    t.true(demo_weak.deref() !== undefined);
+
+    // Invoke the callback, to clear "demo"
+    demo.my_callback();
+    t.true(callback_invoked);
+    t.true(demo === null);
+
+    // After the this GC call, the instance should have been collected. Strong references
+    // in Rust should not keep it alive.
+    await new Promise(resolve => setTimeout(resolve, 0));
+    gc();
+
+    t.is(demo_weak.deref(), undefined, "The demo instance should have been collected and the weak ref should deref to undefined");
 })
