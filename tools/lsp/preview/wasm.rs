@@ -8,6 +8,7 @@ use std::{cell::RefCell, collections::HashMap, future::Future, path::PathBuf, pi
 
 use wasm_bindgen::prelude::*;
 
+use slint::VecModel;
 use slint_interpreter::ComponentHandle;
 
 use crate::{common::PreviewComponent, lsp_ext::Health};
@@ -76,6 +77,7 @@ impl PreviewConnector {
                     } else {
                         match super::ui::create_ui(style) {
                             Ok(ui) => {
+                                ui.on_show_document(|url, line, column| ask_editor_to_show_document(url.as_str().to_string(), line as u32, column as u32, line as u32, column as u32));
                                 preview_state.borrow_mut().ui = Some(ui);
                                 resolve.take().call1(&JsValue::UNDEFINED,
                                     &JsValue::from(Self { })).unwrap_throw()
@@ -288,12 +290,29 @@ fn get_current_style() -> String {
     })
 }
 
-pub fn set_busy(busy: bool) {
+pub fn set_status_text(text: &str) {
+    let text = text.to_string();
+
     i_slint_core::api::invoke_from_event_loop(move || {
         PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow_mut();
             if let Some(ui) = &preview_state.ui {
-                ui.set_is_busy(busy);
+                ui.set_status_text(text.into());
+            }
+        });
+    })
+    .unwrap();
+}
+
+pub fn set_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) {
+    let data = crate::preview::ui::convert_diagnostics(diagnostics);
+
+    i_slint_core::api::invoke_from_event_loop(move || {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow_mut();
+            if let Some(ui) = &preview_state.ui {
+                let model = VecModel::from(data);
+                ui.set_diagnostics(Rc::new(model).into());
             }
         });
     })
@@ -308,6 +327,7 @@ pub fn send_status(message: &str, health: Health) {
 }
 
 pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Option<()> {
+    set_diagnostics(diagnostics);
     let diags = crate::preview::convert_diagnostics(diagnostics);
 
     for (uri, diagnostics) in diags {
@@ -324,7 +344,7 @@ pub fn ask_editor_to_show_document(
     end_column: u32,
 ) {
     send_message_to_lsp(crate::common::PreviewToLspMessage::ShowDocument {
-        file: file.to_string(),
+        file,
         start_line,
         start_column,
         end_line,

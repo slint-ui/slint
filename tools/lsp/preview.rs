@@ -78,12 +78,13 @@ fn change_style() {
 }
 
 pub fn start_parsing() {
-    set_busy(true);
+    set_status_text("Updating Preview...");
+    set_diagnostics(&[]);
     send_status("Loading Preview…", Health::Ok);
 }
 
 pub fn finish_parsing(ok: bool) {
-    set_busy(false);
+    set_status_text("");
     if ok {
         send_status("Preview Loaded", Health::Ok);
     } else {

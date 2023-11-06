@@ -7,8 +7,10 @@ use crate::common::PreviewComponent;
 use crate::lsp_ext::Health;
 use crate::ServerNotifier;
 
-use once_cell::sync::Lazy;
+use slint::VecModel;
 use slint_interpreter::ComponentHandle;
+
+use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::future::Future;
 use std::path::PathBuf;
@@ -146,6 +148,15 @@ pub fn open_ui(sender: &ServerNotifier) {
 fn open_ui_impl(preview_state: &mut PreviewState, default_style: String) {
     // TODO: Handle Error!
     let ui = preview_state.ui.get_or_insert_with(|| super::ui::create_ui(default_style).unwrap());
+    ui.on_show_document(|url, line, column| {
+        ask_editor_to_show_document(
+            url.as_str().to_string(),
+            line as u32,
+            column as u32,
+            line as u32,
+            column as u32,
+        )
+    });
     ui.window().on_close_requested(|| {
         let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.ui_is_visible = false;
@@ -208,6 +219,8 @@ struct PreviewState {
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
 pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Option<()> {
+    set_diagnostics(diagnostics);
+
     let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
         return Some(());
     };
@@ -240,12 +253,29 @@ fn get_current_style() -> String {
     })
 }
 
-pub fn set_busy(busy: bool) {
+pub fn set_status_text(text: &str) {
+    let text = text.to_string();
+
     i_slint_core::api::invoke_from_event_loop(move || {
         PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow_mut();
             if let Some(ui) = &preview_state.ui {
-                ui.set_is_busy(busy);
+                ui.set_status_text(text.into());
+            }
+        });
+    })
+    .unwrap();
+}
+
+pub fn set_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) {
+    let data = crate::preview::ui::convert_diagnostics(diagnostics);
+
+    i_slint_core::api::invoke_from_event_loop(move || {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow_mut();
+            if let Some(ui) = &preview_state.ui {
+                let model = VecModel::from(data);
+                ui.set_diagnostics(Rc::new(model).into());
             }
         });
     })
