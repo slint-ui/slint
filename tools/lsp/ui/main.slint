@@ -22,15 +22,19 @@ export component PreviewUi inherits Window {
 
             height: self.preferred-height;
 
-            i-pick-button := Button {
-                text: "Design Mode";
-                checkable: true;
+            // i-pick-button := Button {
+            //     text: "Design Mode";
+            //     checkable: true;
+            //
+            //     clicked => {
+            //         root.design-mode-changed(self.checked);
+            //     }
+            // }
 
-                clicked => {
-                    root.design-mode-changed(self.checked);
-                }
+            Text {
+                text: "Style:";
+                vertical-alignment: center;
             }
-
             i-style-select := ComboBox {
                 selected(value) => {
                     root.style-changed();
