@@ -74,9 +74,8 @@ export component Demo {
             font-size: 24px;
             horizontal-alignment: center;
         }
-        Image {
-            source: @image-url("https://slint.dev/logo/slint-logo-full-light.svg");
-            height: 100px;
+        AboutSlint {
+            preferred-height: 150px;
         }
         HorizontalLayout { alignment: center; Button { text: "OK!"; } }
     }
