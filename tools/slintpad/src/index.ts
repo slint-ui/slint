@@ -441,7 +441,7 @@ function setup(lsp: Lsp) {
 
                 return properties;
             },
-            { mode: "tab-after", ref: "welcome" },
+            { mode: "tab-after", ref: "Welcome" },
         ],
     );
 
