@@ -169,27 +169,28 @@ test('callback closure cyclic references do not prevent GC', async (t) => {
 
     // Setup:
     // A component instance with a callback installed from JS:
-    //    * The callback captures the surrounding environment, which
-    //      includes an extra reference to the component instance itself
-    //      --> a cyclic reference
-    //    * Invoking the callback clears the reference in the outer captured
-    //      environment.
+    // The callback captures the surrounding environment, which
+    // includes an extra reference to the component instance itself
+    // --> a cyclic reference
     //
     // Note: WeakRef's deref is used to observe the GC. This means that we must
     // separate the test into different jobs with await, to permit for collection.
     // (See https://tc39.es/ecma262/multipage/managing-memory.html#sec-weak-ref.prototype.deref)
 
-    let demo_module = loadFile(path.join(__dirname, "resources/test-gc.slint")) as any;
+    let demo_module = loadFile(path.join(dirname, "resources/test-gc.slint")) as any;
     let demo = new demo_module.Test();
     t.is(demo.check, "initial value");
     t.true(Object.hasOwn(demo, "say_hello"));
-    let callback_invoked = false;
+
     let demo_weak = new WeakRef(demo);
 
-    demo.say_hello = () => {
-        demo = null;
-        callback_invoked = true;
-    };
+    function scope() {
+        let copy = demo;
+        copy.say_hello = () => {
+            console.log(copy.check);
+        };
+    }
+    scope();
 
     t.true(demo_weak.deref() !== undefined);
 
@@ -200,10 +201,8 @@ test('callback closure cyclic references do not prevent GC', async (t) => {
 
     t.true(demo_weak.deref() !== undefined);
 
-    // Invoke the callback, to clear "demo"
-    demo.say_hello();
-    t.true(callback_invoked);
-    t.true(demo === null);
+    // Clear the strong reference here
+    demo = null;
 
     // After the this GC call, the instance should have been collected. Strong references
     // in Rust should not keep it alive.
