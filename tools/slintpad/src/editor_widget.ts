@@ -65,7 +65,7 @@ export function initialize(): Promise<void> {
     });
 }
 
-const hello_world = `import { Button, VerticalBox } from "std-widgets.slint";
+const hello_world = `import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
 export component Demo {
     VerticalBox {
         alignment: start;
