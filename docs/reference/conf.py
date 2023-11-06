@@ -98,6 +98,7 @@ myst_enable_extensions = [
 myst_url_schemes = {
     "slint-cpp": f"https://slint.dev/releases/{version}/docs/cpp/{{{{path}}}}",
     "slint-rust": f"https://slint.dev/releases/{version}/docs/rust/slint/{{{{path}}}}",
+    "slint-build-rust": f"https://slint.dev/releases/{version}/docs/rust/slint_build/{{{{path}}}}",
     "slint-node": f"https://slint.dev/releases/{version}/docs/node/{{{{path}}}}",
     'http': None, 'https': None, 'mailto': None,
 }

@@ -110,3 +110,27 @@ export { MySwitch as Alias1, MyButton as Alias2 };
 // Re-export all types from other module
 export * from "other_module.slint";
 ```
+
+## Component Libraries
+
+Splitting your code base into separate module files promotes re-use and
+improves encapsulation by allow you to hide helper components. This works
+well within a project's own directory structure. To share libraries of
+components between projects without hardcoding their relative paths, use
+the component library syntax:
+
+```slint,ignore
+import { MySwitch } from "@mylibrary";
+```
+
+In the above example, the `MySwitch` component will be imported from a component
+library called "mylibrary". The path to this library must be defined separately at compilation time.
+Use one of the following methods to help the Slint compiler resolve "mylibrary" to the correct
+path on disk:
+
+* When using Rust and `build.rs`, call [`with_library_paths`](slint-build-rust:struct.CompilerConfiguration#method.with_library_paths)
+  to provide a mapping from library name to path.
+* When invoking the `slint-viewer` from the command line, pass `-Lmylibrary=/path/to/my/library` for each component
+  library.
+* When using the live-preview in the VS code extension, configure the Slint extension's library path
+  using the `Slint: Library Paths` setting.
