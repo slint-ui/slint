@@ -179,7 +179,9 @@ test('callback closure cyclic references do not prevent GC', async (t) => {
     // separate the test into different jobs with await, to permit for collection.
     // (See https://tc39.es/ecma262/multipage/managing-memory.html#sec-weak-ref.prototype.deref)
 
-    let demo = loadFile(path.join(__dirname, "resources/test-constructor.slint")) as any;
+    let demo_module = loadFile(path.join(__dirname, "resources/test-gc.slint")) as any;
+    let demo = new demo_module.Test();
+    t.is(demo.check, "initial value");
     let callback_invoked = false;
     let demo_weak = new WeakRef(demo);
 
