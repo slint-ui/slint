@@ -23,6 +23,8 @@ export class PreviewWidget extends Widget {
         canvas.className = canvas_id;
         canvas.style.width = "100%";
         canvas.style.height = "100%";
+        canvas.style.outline = "none";
+        canvas.style.touchAction = "none";
         canvas.width = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
 
