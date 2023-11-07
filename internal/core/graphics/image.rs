@@ -330,19 +330,19 @@ impl ImageCacheKey {
 pub enum ImageInner {
     /// A resource that does not represent any data.
     #[default]
-    None,
+    None = 0,
     EmbeddedImage {
         cache_key: ImageCacheKey,
         buffer: SharedImageBuffer,
-    },
+    } = 1,
     #[cfg(feature = "svg")]
-    Svg(vtable::VRc<OpaqueImageVTable, svg::ParsedSVG>),
-    StaticTextures(&'static StaticTextures),
+    Svg(vtable::VRc<OpaqueImageVTable, svg::ParsedSVG>) = 2,
+    StaticTextures(&'static StaticTextures) = 3,
     #[cfg(target_arch = "wasm32")]
-    HTMLImage(vtable::VRc<OpaqueImageVTable, htmlimage::HTMLImage>),
-    BackendStorage(vtable::VRc<OpaqueImageVTable>),
+    HTMLImage(vtable::VRc<OpaqueImageVTable, htmlimage::HTMLImage>) = 4,
+    BackendStorage(vtable::VRc<OpaqueImageVTable>) = 5,
     #[cfg(not(target_arch = "wasm32"))]
-    BorrowedOpenGLTexture(BorrowedOpenGLTexture),
+    BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
 }
 
 impl ImageInner {
