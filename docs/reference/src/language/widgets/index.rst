@@ -24,6 +24,7 @@ Widgets
    scrollview.md
    slider.md
    spinbox.md
+   spinner.md
    standardbutton.md
    standardlistview.md
    standardtableview.md

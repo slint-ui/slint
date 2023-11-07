@@ -27,6 +27,7 @@ All notable changes to this project are documented in this file.
  - `SpinBox` value can now be incremented and decremented by scroll event
  - Added `focus-changed-event` callback to `FocusScope`
  - Added many new easing curves.
+ - Added `Spinner`
 
 ### Rust
 

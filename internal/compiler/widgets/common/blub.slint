@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export component SpinnerBase {
+    in property <float> progress: 0.25;
+    in property <bool> indeterminate;
+    in property <length> stroke-width <=> path.stroke-width;
+    in property <brush> stroke <=> path.stroke;
+
+    private property <float> pi: 3.1415926535;
+    private property <angle> start-angle: 0deg;
+    private property <angle> end-angle: root.progress * 360deg;
+    private property <float> radius: max(root.width, root.height) / 2px;
+    private property <float> offset-x: root.width / 2px;
+    private property <float> offset-y: 0;
+    private property <float> start-x: 15;//offset-x + radius * cos(start-angle * pi / 180);
+    private property <float> start-y: 0;//offset-y + radius * sin(start-angle * pi / 180);
+    private property <float> end-x:  30 * cos(end-angle);////offset-x + radius * cos(end-angle * pi / 180);
+    private property <float> end-y: 15 + radius * sin(end-angle);//offset-y + radius * sin(end-angle * pi / 180);
+
+    width: 30px;
+    height: 30px;
+
+
+    path := Path {
+        width: 100%;
+        height: 100%;
+        stroke-width: 2px;
+        stroke: green;
+
+        MoveTo {
+            x: root.start-x;
+            y: root.start-y;
+        }
+
+        ArcTo {
+            radius-x: 1;
+            radius-y: 1;
+            x: root.end-x;
+            y: root.end-y;
+            sweep: true;
+        }
+    }
+
+    Text {
+        x: 0;
+        y: 0;
+        color: white;
+        text: "\{root.end-y}";
+    }
+
+}
