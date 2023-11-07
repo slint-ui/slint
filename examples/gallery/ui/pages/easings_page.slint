@@ -4,9 +4,7 @@
 import { Page } from "page.slint";
 import { Button, HorizontalBox, Slider, ScrollView } from "std-widgets.slint";
 
-component EaseTest inherits HorizontalLayout {
-    padding: 10px;
-    spacing: 10px;
+component EaseTest {
 
     in property <string> label: "None";
     in property <easing> easing: linear;
@@ -19,28 +17,32 @@ component EaseTest inherits HorizontalLayout {
             ball.x = 0;
         }
     }
+    HorizontalLayout {
+        padding: 10px;
+        spacing: 10px;
 
-    Button {
-        width: 140px;
-        horizontal-stretch: 0;
-        text: label; clicked => { root.animate(); }
-    }
+        Button {
+            width: 140px;
+            horizontal-stretch: 0;
+            text: label; clicked => { root.animate(); }
+        }
 
-    VerticalLayout {
-        alignment: center;
-        container := Rectangle {
-            horizontal-stretch: 1;
-            height: 4px;
-            border-radius: 2px;
-            background: grey;
+        VerticalLayout {
+            alignment: center;
+            container := Rectangle {
+                horizontal-stretch: 1;
+                height: 4px;
+                border-radius: 2px;
+                background: grey;
 
-            ball := Rectangle {
-                x: 0px;
-                width: 16px;
-                height: 16px;
-                border-radius: 5px;
-                background: blue;
-                animate x { duration: duration * 1ms; easing: easing; }
+                ball := Rectangle {
+                    x: 0px;
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 5px;
+                    background: blue;
+                    animate x { duration: duration * 1ms; easing: easing; }
+                }
             }
         }
     }
