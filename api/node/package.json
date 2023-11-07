@@ -45,7 +45,7 @@
     }
   },
   "dependencies": {
-    "@napi-rs/cli": "^2.15.2",
+    "@napi-rs/cli": "^2.16.5",
     "esbuild": "^0.14.54"
   }
 }
