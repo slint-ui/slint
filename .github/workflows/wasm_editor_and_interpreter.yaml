@@ -33,6 +33,8 @@ jobs:
         working-directory: api/wasm-interpreter
 
       - name: Build slint-wasm-lsp
+        env:
+          SLINT_STYLE: fluent-light
         run: npm run build:wasm_lsp-release
         working-directory: tools/slintpad
 
