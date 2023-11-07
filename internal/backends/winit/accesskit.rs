@@ -363,6 +363,9 @@ impl AccessKitAdapter {
                     i_slint_core::items::AccessibleRole::Spinbox => Role::SpinButton,
                     i_slint_core::items::AccessibleRole::Tab => Role::Tab,
                     i_slint_core::items::AccessibleRole::Text => Role::StaticText,
+                    i_slint_core::items::AccessibleRole::ProgressIndicator => {
+                        Role::ProgressIndicator
+                    }
                 },
                 item.accessible_string_property(
                     i_slint_core::accessibility::AccessibleStringProperty::Label,
