@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { Button, GroupBox, SpinBox, ComboBox, CheckBox, LineEdit, TabWidget, VerticalBox, HorizontalBox,
-    Slider, ProgressIndicator, SpinBox, Switch } from "std-widgets.slint";
+    Slider, ProgressIndicator, SpinBox, Switch, Spinner, GridBox } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
@@ -106,19 +106,33 @@ export component ControlsPage inherits Page {
     }
 
     GroupBox {
-        title: @tr("ProgressIndicator");
+        title: @tr("ProgressIndicator | Spinner");
         vertical-stretch: 0;
 
-        VerticalLayout {
+        GridBox {
             spacing: 16px;
 
             i-progress-indicator := ProgressIndicator {
+                row: 0;
+                col: 0;
                 min-width: 160px;
                 progress: (i-slider.value - i-slider.minimum) / (i-slider.maximum - i-slider.minimum);
                 indeterminate: true;
             }
 
+            Rectangle {
+                row: 0;
+                col: 1;
+                rowspan: 2;
+                Spinner {
+                    progress: i-progress-indicator.progress;
+                    indeterminate: i-progress-indicator.indeterminate;
+                }
+            }
+
             CheckBox {
+                row: 1;
+                col: 0;
                 text: @tr("indeterminate");
                 checked <=> i-progress-indicator.indeterminate;
             }
