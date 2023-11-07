@@ -519,6 +519,12 @@ impl EventLoopState {
                 });
 
                 corelib::platform::update_timers_and_animations();
+
+                // Workaround https://github.com/rust-windowing/winit/issues/3215 on Windows
+                // Note that this is not a prefect fix because input or other events might also start timers
+                if let Some(next_timer) = corelib::platform::duration_until_next_timer_update() {
+                    event_loop_target.set_control_flow(ControlFlow::wait_duration(next_timer));
+                }
             }
 
             Event::Resumed => ALL_WINDOWS.with(|ws| {
@@ -567,7 +573,7 @@ impl EventLoopState {
                     }
                 }
 
-                if event_loop_target.control_flow() == ControlFlow::Wait {
+                if event_loop_target.control_flow() != ControlFlow::Poll {
                     if let Some(next_timer) = corelib::platform::duration_until_next_timer_update()
                     {
                         event_loop_target.set_control_flow(ControlFlow::wait_duration(next_timer));
