@@ -7,7 +7,7 @@ pub use interpreter::*;
 mod types;
 pub use types::*;
 
-use napi::{bindgen_prelude::*, Env, JsFunction};
+use napi::{Env, JsFunction};
 
 #[macro_use]
 extern crate napi_derive;

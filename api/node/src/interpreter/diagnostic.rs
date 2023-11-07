@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use napi::bindgen_prelude::{FromNapiValue, ToNapiValue};
 use slint_interpreter::{Diagnostic, DiagnosticLevel};
 
 /// This enum describes the level or severity of a diagnostic message produced by the compiler.
