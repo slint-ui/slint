@@ -5,11 +5,8 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{DeviceExtensions, QueueFlags};
-use vulkano::instance::{Instance, InstanceCreateInfo, InstanceExtensions};
-use vulkano::swapchain::{
-    display::{Display, DisplayPlane},
-    Surface,
-};
+use vulkano::instance::{Instance, InstanceCreateFlags, InstanceCreateInfo, InstanceExtensions};
+use vulkano::swapchain::Surface;
 use vulkano::VulkanLibrary;
 
 use std::sync::Arc;
@@ -37,8 +34,8 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
     let instance = Instance::new(
         library.clone(),
         InstanceCreateInfo {
+            flags: InstanceCreateFlags::ENUMERATE_PORTABILITY,
             enabled_extensions: required_extensions,
-            enumerate_portability: true,
             ..Default::default()
         },
     )
@@ -54,7 +51,7 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
                 .iter()
                 .position(|q| {
                     q.queue_flags.intersects(QueueFlags::GRAPHICS)
-                        && Display::enumerate(p.clone()).next().is_some()
+                        && p.display_properties().map_or(false, |displays| !displays.is_empty())
                 })
                 .map(|i| (p, i as u32))
         })
@@ -68,7 +65,10 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
         })
         .ok_or_else(|| format!("Vulkan: Failed to find suitable physical device"))?;
 
-    let displays = Display::enumerate(physical_device.clone());
+    let displays =
+        physical_device.display_properties().map_err(|e| format!("Error reading displays: {e}"))?;
+
+    let displays = displays.into_iter();
 
     let Some(first_display) = displays.clone().next() else {
         return Err(format!("Vulkan: No displays found").into());
@@ -81,7 +81,13 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
 
             if display_str.to_lowercase() == "list" {
                 let display_names: Vec<String> = displays_and_index
-                    .map(|(index, display)| format!("Index: {} Name: {}", index, display.name()))
+                    .map(|(index, display)| {
+                        format!(
+                            "Index: {} Name: {}",
+                            index,
+                            display.name().unwrap_or_else(|| "unknown")
+                        )
+                    })
                     .collect();
 
                 // Can't return error here because newlines are escaped.
@@ -99,7 +105,9 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
     let mode = std::env::var("SLINT_VULKAN_MODE").map_or_else(
         |_| {
             display
-                .display_modes()
+                .display_mode_properties()
+                .map_err(|e| format!("Error reading display mode properties: {e}"))?
+                .into_iter()
                 .max_by(|current_mode, next_mode| {
                     let [current_mode_width, current_mode_height] = current_mode.visible_region();
                     let current_refresh_rate = current_mode.refresh_rate();
@@ -114,7 +122,11 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
                 .ok_or_else(|| format!("Vulkan: No modes found for display"))
         },
         |mode_str| {
-            let mut modes_and_index = display.display_modes().enumerate();
+            let mut modes_and_index = display
+                .display_mode_properties()
+                .expect("fatal: Unable to enumerate display properties")
+                .into_iter()
+                .enumerate();
 
             if mode_str.to_lowercase() == "list" {
                 let mode_names: Vec<String> = modes_and_index
@@ -140,8 +152,11 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
     )?;
 
     let vulkan_surface = vulkano::swapchain::Surface::from_display_plane(
-        &mode,
-        &DisplayPlane::enumerate(physical_device.clone()).next().unwrap(),
+        mode.clone(),
+        vulkano::swapchain::DisplaySurfaceCreateInfo {
+            image_extent: [mode.visible_region()[0], mode.visible_region()[1]],
+            ..Default::default()
+        },
     )
     .unwrap();
 
