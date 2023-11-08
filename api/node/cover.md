@@ -175,6 +175,7 @@ The types used for properties in .slint design markup each translate to specific
 | `.slint` Type | JavaScript Type | Notes |
 | --- | --- | --- |
 | `int` | `Number` | |
+| `bool` | `Boolean` | |
 | `float` | `Number` | |
 | `string` | `String` | |
 | `color` | {@link RgbaColor} | Property getters always return {@link SlintBrush} |
@@ -184,6 +185,7 @@ The types used for properties in .slint design markup each translate to specific
 | `physical_length` | `Number` | |
 | `duration` | `Number` | The number of milliseconds |
 | `angle` | `Number` | The angle in degrees |
+| `relative-font-size` | `Number` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
 | structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
 | array | `Array` or any implementation of {@link Model} | |
 
