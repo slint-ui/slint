@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-04 03:03+0000\n"
+"POT-Creation-Date: 2023-11-08 03:03+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: German (https://app.transifex.com/slint/teams/170022/de/)\n"
@@ -219,55 +219,55 @@ msgstr ""
 
 #: ui/pages/controls_page.slint:109
 msgctxt "ControlsPage"
-msgid "ProgressIndicator"
+msgid "ProgressIndicator | Spinner"
 msgstr ""
 
-#: ui/pages/controls_page.slint:122
+#: ui/pages/controls_page.slint:136
 msgctxt "ControlsPage"
 msgid "indeterminate"
 msgstr ""
 
-#: ui/pages/controls_page.slint:129
+#: ui/pages/controls_page.slint:143
 msgctxt "ControlsPage"
 msgid "TabWidget"
 msgstr ""
 
-#: ui/pages/controls_page.slint:133
+#: ui/pages/controls_page.slint:147
 msgctxt "ControlsPage"
 msgid "Tab 1"
 msgstr ""
 
-#: ui/pages/controls_page.slint:139
+#: ui/pages/controls_page.slint:153
 msgctxt "ControlsPage"
 msgid "Content of tab 1"
 msgstr ""
 
-#: ui/pages/controls_page.slint:145
+#: ui/pages/controls_page.slint:159
 msgctxt "ControlsPage"
 msgid "Click me"
 msgstr ""
 
-#: ui/pages/controls_page.slint:154
+#: ui/pages/controls_page.slint:168
 msgctxt "ControlsPage"
 msgid "Tab 2"
 msgstr ""
 
-#: ui/pages/controls_page.slint:160
+#: ui/pages/controls_page.slint:174
 msgctxt "ControlsPage"
 msgid "Content of tab 2"
 msgstr ""
 
-#: ui/pages/controls_page.slint:166
+#: ui/pages/controls_page.slint:180
 msgctxt "ControlsPage"
 msgid "Check me"
 msgstr ""
 
-#: ui/pages/controls_page.slint:175
+#: ui/pages/controls_page.slint:189
 msgctxt "ControlsPage"
 msgid "Tab 3"
 msgstr ""
 
-#: ui/pages/controls_page.slint:179
+#: ui/pages/controls_page.slint:193
 msgctxt "ControlsPage"
 msgid "Content of tab 3"
 msgstr ""
