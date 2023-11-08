@@ -3,7 +3,6 @@
 
 // cSpell: ignore condvar
 
-use crate::common::PreviewComponent;
 use crate::lsp_ext::Health;
 use crate::ServerNotifier;
 
@@ -34,7 +33,7 @@ static GUI_EVENT_LOOP_NOTIFIER: Lazy<Condvar> = Lazy::new(Condvar::new);
 static GUI_EVENT_LOOP_STATE_REQUEST: Lazy<Mutex<RequestedGuiEventLoopState>> =
     Lazy::new(|| Mutex::new(RequestedGuiEventLoopState::Uninitialized));
 
-fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
+pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
     create_future: impl Send + FnOnce() -> F + 'static,
 ) {
     // Wake up the main thread to start the event loop, if possible
@@ -194,20 +193,6 @@ fn close_ui_impl(preview_state: &mut PreviewState) {
     }
 }
 
-pub fn load_preview(component: PreviewComponent) {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static PENDING_EVENTS: AtomicU32 = AtomicU32::new(0);
-    if PENDING_EVENTS.load(Ordering::SeqCst) > 0 {
-        return;
-    }
-    PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
-    run_in_ui_thread(move || async move {
-        PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);
-
-        set_current_style(super::reload_preview(component, get_current_style()).await);
-    });
-}
-
 static SERVER_NOTIFIER: std::sync::OnceLock<Mutex<Option<ServerNotifier>>> =
     std::sync::OnceLock::new();
 
@@ -233,7 +218,7 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
     Some(())
 }
 
-fn set_current_style(style: String) {
+pub fn set_current_style(style: String) {
     PREVIEW_STATE.with(move |preview_state| {
         let preview_state = preview_state.borrow_mut();
         if let Some(ui) = &preview_state.ui {
@@ -242,7 +227,7 @@ fn set_current_style(style: String) {
     });
 }
 
-fn get_current_style() -> String {
+pub fn get_current_style() -> String {
     PREVIEW_STATE.with(|preview_state| -> String {
         let preview_state = preview_state.borrow();
         if let Some(ui) = &preview_state.ui {

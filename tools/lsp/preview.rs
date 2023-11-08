@@ -26,11 +26,25 @@ mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
+#[derive(Default, Copy, Clone, PartialEq, Eq, Debug)]
+enum PreviewFutureState {
+    /// The preview future is currently no running
+    #[default]
+    Pending,
+    /// The preview future has been started, but we haven't started compiling
+    PreLoading,
+    /// The preview future is currently loading the preview
+    Loading,
+    /// The preview future is currently loading an oudated preview, we should abort loading and restart loading again
+    NeedsReload,
+}
+
 #[derive(Default)]
 struct ContentCache {
     source_code: HashMap<PathBuf, String>,
     dependency: HashSet<PathBuf>,
     current: PreviewComponent,
+    loading_state: PreviewFutureState,
     highlight: Option<(PathBuf, u32)>,
     ui_is_visible: bool,
     design_mode: bool,
@@ -50,12 +64,7 @@ pub fn set_contents(path: &Path, content: String) {
         }
         let current = cache.current.clone();
         let ui_is_visible = cache.ui_is_visible;
-
         drop(cache);
-
-        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.ui_is_visible = ui_is_visible;
-
         if ui_is_visible {
             load_preview(current);
         }
@@ -106,16 +115,10 @@ pub fn config_changed(
         {
             cache.current.include_paths = include_paths.to_vec();
             cache.current.library_paths = library_paths.clone();
-
+            cache.default_style = style;
             let current = cache.current.clone();
             let ui_is_visible = cache.ui_is_visible;
-
             drop(cache);
-
-            let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-            cache.default_style = style;
-            cache.ui_is_visible = ui_is_visible;
-
             if ui_is_visible {
                 load_preview(current);
             }
@@ -132,26 +135,73 @@ fn get_file_from_cache(path: PathBuf) -> Option<String> {
     r
 }
 
-// Most be inside the thread running the slint event loop
-async fn reload_preview(preview_component: PreviewComponent, current_style: String) -> String {
-    let style = if preview_component.style.is_empty() {
-        current_style
-    } else {
-        preview_component.style.clone()
-    };
-
-    let component = PreviewComponent { style: String::new(), ..preview_component };
-
-    let (design_mode, ui_is_visible) = {
+pub fn load_preview(preview_component: PreviewComponent) {
+    {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.dependency.clear();
-        cache.current = component.clone();
-        (cache.design_mode, cache.ui_is_visible)
+        cache.current = preview_component.clone();
+        if !cache.ui_is_visible {
+            return;
+        }
+        match cache.loading_state {
+            PreviewFutureState::Pending => (),
+            PreviewFutureState::PreLoading => return,
+            PreviewFutureState::Loading => {
+                cache.loading_state = PreviewFutureState::NeedsReload;
+                return;
+            }
+            PreviewFutureState::NeedsReload => return,
+        }
+        cache.loading_state = PreviewFutureState::PreLoading;
     };
 
-    if !ui_is_visible {
-        return style;
-    };
+    run_in_ui_thread(move || async move {
+        loop {
+            let (design_mode, preview_component) = {
+                let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+                assert_eq!(cache.loading_state, PreviewFutureState::PreLoading);
+                if !cache.ui_is_visible {
+                    cache.loading_state = PreviewFutureState::Pending;
+                    return;
+                }
+                cache.loading_state = PreviewFutureState::Loading;
+                cache.dependency.clear();
+                let preview_component = cache.current.clone();
+                cache.current.style.clear();
+                (cache.design_mode, preview_component)
+            };
+            let style = if preview_component.style.is_empty() {
+                get_current_style()
+            } else {
+                set_current_style(preview_component.style.clone());
+                preview_component.style.clone()
+            };
+
+            reload_preview_impl(preview_component, style, design_mode).await;
+
+            let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+            match cache.loading_state {
+                PreviewFutureState::Loading => {
+                    cache.loading_state = PreviewFutureState::Pending;
+                    return;
+                }
+                PreviewFutureState::Pending => unreachable!(),
+                PreviewFutureState::PreLoading => unreachable!(),
+                PreviewFutureState::NeedsReload => {
+                    cache.loading_state = PreviewFutureState::PreLoading;
+                    continue;
+                }
+            };
+        }
+    });
+}
+
+// Most be inside the thread running the slint event loop
+async fn reload_preview_impl(
+    preview_component: PreviewComponent,
+    style: String,
+    design_mode: bool,
+) {
+    let component = PreviewComponent { style: String::new(), ..preview_component };
 
     start_parsing();
 
@@ -193,8 +243,6 @@ async fn reload_preview(preview_component: PreviewComponent, current_style: Stri
     } else {
         finish_parsing(false);
     };
-
-    style
 }
 
 fn configure_handle_for_design_mode(handle: &ComponentInstance, enabled: bool) {

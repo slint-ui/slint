@@ -31,7 +31,7 @@ pub trait PreviewApi {
 
 /// The Component to preview
 #[allow(unused)]
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct PreviewComponent {
     /// The file name to preview
     pub path: PathBuf,

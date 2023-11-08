@@ -143,7 +143,7 @@ impl PreviewConnector {
                         .map(|(n, p)| (n.clone(), PathBuf::from(p)))
                         .collect(),
                 };
-                load_preview(pc);
+                super::load_preview(pc);
                 Ok(())
             }
             M::HighlightFromEditor { path, offset } => {
@@ -211,6 +211,12 @@ fn invoke_from_event_loop_wrapped_in_promise(
     }))
 }
 
+pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
+    create_future: impl Send + FnOnce() -> F + 'static,
+) {
+    i_slint_core::future::spawn_local(create_future()).unwrap();
+}
+
 pub fn configure_design_mode(enabled: bool) {
     slint::invoke_from_event_loop(move || {
         PREVIEW_STATE.with(|preview_state| {
@@ -220,23 +226,6 @@ pub fn configure_design_mode(enabled: bool) {
                 super::configure_handle_for_design_mode(&handle, enabled);
             }
         })
-    })
-    .unwrap();
-}
-
-pub fn load_preview(component: PreviewComponent) {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static PENDING_EVENTS: AtomicU32 = AtomicU32::new(0);
-    if PENDING_EVENTS.load(Ordering::SeqCst) > 0 {
-        return;
-    }
-    PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
-    slint::invoke_from_event_loop(move || {
-        PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);
-        i_slint_core::future::spawn_local(async move {
-            set_current_style(super::reload_preview(component, get_current_style()).await);
-        })
-        .unwrap();
     })
     .unwrap();
 }
@@ -270,7 +259,7 @@ pub fn send_message_to_lsp(message: crate::common::PreviewToLspMessage) {
     })
 }
 
-fn set_current_style(style: String) {
+pub fn set_current_style(style: String) {
     PREVIEW_STATE.with(move |preview_state| {
         let preview_state = preview_state.borrow_mut();
         if let Some(ui) = &preview_state.ui {
@@ -279,7 +268,7 @@ fn set_current_style(style: String) {
     });
 }
 
-fn get_current_style() -> String {
+pub fn get_current_style() -> String {
     PREVIEW_STATE.with(|preview_state| {
         let preview_state = preview_state.borrow();
         if let Some(ui) = &preview_state.ui {
