@@ -340,6 +340,10 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 
     fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
+        if visible == self.shown.get() {
+            return Ok(());
+        }
+
         self.shown.set(visible);
         if visible {
             let winit_window = self.winit_window();
