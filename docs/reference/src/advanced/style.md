@@ -10,13 +10,15 @@ The styles available include:
 | `fluent`   | `fluent-light`| `fluent-dark`| These variants belong to the **Fluent** style, which is based on the [Fluent Design System](https://fluent2.microsoft.design/). |
 | `material` | `material-light`| `material-dark`| These variants are part of the **Material** style, which follows the [Material Design](https://m3.material.io). |
 | `cupertino`| `cupertino-light`| `cupertino-dark`| The **Cupertino** variants emulate the style used by macOS. |
-| `native`   | | | The **Native** style mimics the controls native to the platform on which they are used. This includes specific support for the appearance of controls on macOS and Windows. This style requires Qt to be installed on your system. |
+| `qt`   | | | The **Qt** style uses [Qt](https://en.wikipedia.org/wiki/Qt_(software)) to render widgets. This style requires Qt to be installed on your system. |
+| `native` | | | This is an alias to one of the other styles depending on the platform. It will be `cupertino` on macOS, `fluent` on Windows, `material` on Android, `qt` on linux if Qt is available, or `fluent` otherwise. |
+
 
 By default, the styles automatically adapt to the system's dark or light color setting. Select a `-light` or `-dark` variant to override the system setting and always show either dark or light colors.
 
 The widget style is determined at your project's compile time. The method to select a style depends on how you use Slint.
 
-If no style is selected, `native` becomes the default if Qt is installed. If `native` isn't available, `fluent` is selected as the default.
+If no style is selected, `native` is the default.
 
 
 ## Selecting a Widget Style with Rust:
