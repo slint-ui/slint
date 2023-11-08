@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-// cSpell: ignore edcore lumino mimetypes printerdemo
+// cSpell: ignore codingame lumino mimetypes printerdemo
 
 import * as monaco from "monaco-editor";
 
@@ -416,6 +416,10 @@ class EditorPaneWidget extends Widget {
         if (monaco.editor.getModels().length === 1) {
             this.#main_uri = uri;
             this.set_model(uri);
+            this.language_client?.sendRequest("workspace/executeCommand", {
+                command: "slint/showPreview",
+                arguments: [this.#main_uri?.toString() ?? "", ""],
+            });
         }
     }
 
@@ -797,7 +801,6 @@ export class EditorWidget extends Widget {
     }
 
     async set_demo(location: string) {
-        let result_uri: monaco.Uri | null = null;
         if (location) {
             const default_tag = "XXXX_DEFAULT_TAG_XXXX";
             let tag = default_tag.startsWith("XXXX_DEFAULT_TAG_")
@@ -813,32 +816,12 @@ export class EditorWidget extends Widget {
                     tag = "v" + found[1];
                 }
             }
-            result_uri = await this.project_from_url(
+            await this.project_from_url(
                 `https://raw.githubusercontent.com/slint-ui/slint/${tag}/${location}`,
             );
         } else {
             this.#editor.clear_models();
-            const model = await createModel(
-                this.#editor.internal_uuid,
-                hello_world,
-            );
-            if (model) {
-                result_uri = model.uri;
-            }
-        }
-
-        if (result_uri) {
-            setTimeout(
-                () =>
-                    this.language_client?.sendRequest(
-                        "workspace/executeCommand",
-                        {
-                            command: "slint/showPreview",
-                            arguments: [result_uri?.toString() ?? "", ""],
-                        },
-                    ),
-                1000,
-            );
+            await createModel(this.#editor.internal_uuid, hello_world);
         }
     }
 
