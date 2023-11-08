@@ -65,7 +65,8 @@ pub fn set_contents(path: &Path, content: String) {
         let current = cache.current.clone();
         let ui_is_visible = cache.ui_is_visible;
         drop(cache);
-        if ui_is_visible {
+
+        if ui_is_visible && !current.path.as_os_str().is_empty() {
             load_preview(current);
         }
     }
@@ -79,11 +80,14 @@ fn set_design_mode(enable: bool) {
 }
 
 fn change_style() {
-    let component = {
-        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.current.clone()
-    };
-    load_preview(component);
+    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    let ui_is_visible = cache.ui_is_visible;
+    let current = cache.current.clone();
+    drop(cache);
+
+    if ui_is_visible && !current.path.as_os_str().is_empty() {
+        load_preview(current);
+    }
 }
 
 pub fn start_parsing() {
@@ -119,7 +123,8 @@ pub fn config_changed(
             let current = cache.current.clone();
             let ui_is_visible = cache.ui_is_visible;
             drop(cache);
-            if ui_is_visible {
+
+            if ui_is_visible && !current.path.as_os_str().is_empty() {
                 load_preview(current);
             }
         }

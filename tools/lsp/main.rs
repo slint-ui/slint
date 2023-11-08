@@ -311,6 +311,24 @@ pub fn run_lsp_server() -> Result<IoThreads> {
 }
 
 fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<()> {
+    let mut rh = RequestHandler::default();
+    register_request_handlers(&mut rh);
+
+    let request_queue = OutgoingRequestQueue::default();
+    let server_notifier = ServerNotifier(connection.sender.clone(), request_queue.clone());
+
+    let preview = Rc::new(Previewer {
+        server_notifier: server_notifier.clone(),
+        #[cfg(all(not(feature = "preview-builtin"), not(feature = "preview-external")))]
+        use_external_previewer: RefCell::new(false), // No preview, pick any.
+        #[cfg(all(not(feature = "preview-builtin"), feature = "preview-external"))]
+        use_external_previewer: RefCell::new(true), // external only
+        #[cfg(all(feature = "preview-builtin", not(feature = "preview-external")))]
+        use_external_previewer: RefCell::new(false), // internal only
+        #[cfg(all(feature = "preview-builtin", feature = "preview-external"))]
+        use_external_previewer: RefCell::new(false), // prefer internal
+        to_show: RefCell::new(None),
+    });
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
 
@@ -318,28 +336,23 @@ fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<()>
     compiler_config.style =
         Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style });
     compiler_config.include_paths = cli_args.include_paths;
+    let preview_notifier = preview.clone();
+    compiler_config.open_import_fallback = Some(Rc::new(move |path| {
+        let preview_notifier = preview_notifier.clone();
+        Box::pin(async move {
+            let contents = std::fs::read_to_string(&path);
+            if let Ok(contents) = &contents {
+                preview_notifier.set_contents(&PathBuf::from(path), contents);
+            }
+            Some(contents)
+        })
+    }));
 
-    let mut rh = RequestHandler::default();
-    register_request_handlers(&mut rh);
-
-    let request_queue = OutgoingRequestQueue::default();
-    let server_notifier = ServerNotifier(connection.sender.clone(), request_queue.clone());
     let ctx = Rc::new(Context {
         document_cache: RefCell::new(DocumentCache::new(compiler_config)),
-        server_notifier: server_notifier.clone(),
+        server_notifier: server_notifier,
         init_param,
-        preview: Box::new(Previewer {
-            server_notifier,
-            #[cfg(all(not(feature = "preview-builtin"), not(feature = "preview-external")))]
-            use_external_previewer: RefCell::new(false), // No preview, pick any.
-            #[cfg(all(not(feature = "preview-builtin"), feature = "preview-external"))]
-            use_external_previewer: RefCell::new(true), // external only
-            #[cfg(all(feature = "preview-builtin", not(feature = "preview-external")))]
-            use_external_previewer: RefCell::new(false), // internal only
-            #[cfg(all(feature = "preview-builtin", feature = "preview-external"))]
-            use_external_previewer: RefCell::new(false), // prefer internal
-            to_show: RefCell::new(None),
-        }),
+        preview,
     });
 
     let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<()>>>>>::new();

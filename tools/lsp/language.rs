@@ -123,7 +123,7 @@ pub struct Context {
     pub document_cache: RefCell<DocumentCache>,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
-    pub preview: Box<dyn PreviewApi>,
+    pub preview: Rc<dyn PreviewApi>,
 }
 
 #[derive(Default)]

@@ -65,6 +65,10 @@ impl PreviewApi for Previewer {
     }
 
     fn load_preview(&self, component: common::PreviewComponent) {
+        if component.path.as_os_str().is_empty() {
+            return;
+        }
+
         self.to_show.replace(Some(component.clone()));
 
         #[cfg(feature = "preview-external")]
@@ -260,29 +264,38 @@ pub fn create(
 ) -> JsResult<SlintServer> {
     console_error_panic_hook::set_once();
 
+    let send_request = Function::from(send_request.clone());
+    let server_notifier = ServerNotifier { send_notification, send_request };
+    let preview = Rc::new(Previewer {
+        server_notifier: server_notifier.clone(),
+        to_show: Default::default(),
+    });
+
     let init_param = serde_wasm_bindgen::from_value(init_param)?;
 
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
+
+    let preview_notifier = preview.clone();
     compiler_config.open_import_fallback = Some(Rc::new(move |path| {
         let load_file = Function::from(load_file.clone());
-        Box::pin(async move { Some(self::load_file(path, &load_file).await) })
+        let preview_notifier = preview_notifier.clone();
+        Box::pin(async move {
+            let contents = self::load_file(path.clone(), &load_file).await;
+            if let Ok(contents) = &contents {
+                preview_notifier.set_contents(&PathBuf::from(path), contents);
+            }
+            Some(contents)
+        })
     }));
     let document_cache = RefCell::new(DocumentCache::new(compiler_config));
-    let send_request = Function::from(send_request.clone());
     let reentry_guard = Rc::new(RefCell::new(ReentryGuard::default()));
 
     let mut rh = RequestHandler::default();
     language::register_request_handlers(&mut rh);
-    let server_notifier = ServerNotifier { send_notification, send_request };
 
     Ok(SlintServer {
-        ctx: Rc::new(Context {
-            document_cache,
-            init_param,
-            server_notifier: server_notifier.clone(),
-            preview: Box::new(Previewer { server_notifier, to_show: Default::default() }),
-        }),
+        ctx: Rc::new(Context { document_cache, init_param, server_notifier, preview }),
         reentry_guard,
         rh: Rc::new(rh),
     })
