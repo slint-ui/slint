@@ -22,7 +22,7 @@ on:
     - cron: '0 4 * * *'
 
 env:
-  SLINT_BINARY_FEATURES: "backend-winit,renderer-femtovg,renderer-skia"
+  SLINT_BINARY_FEATURES: "backend-winit,renderer-femtovg,renderer-skia,renderer-software"
 
 jobs:
   slint-viewer-binary:
@@ -109,7 +109,7 @@ jobs:
       run: cargo install cargo-bundle
     - name: Build Main LSP Bundle
       working-directory: tools/lsp
-      run: cargo bundle --release --features ${{ env.SLINT_BINARY_FEATURES }} 
+      run: cargo bundle --release --features ${{ env.SLINT_BINARY_FEATURES }}
     - name: Create artifact directory
       run: |
           mkdir bin
