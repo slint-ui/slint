@@ -304,7 +304,7 @@ pub fn configure_design_mode(enabled: bool) {
             let preview_state = preview_state.borrow();
             let handle = preview_state.handle.borrow();
             if let Some(handle) = &*handle {
-                super::configure_handle_for_design_mode(&handle, enabled);
+                super::configure_handle_for_design_mode(handle, enabled);
             }
         })
     });

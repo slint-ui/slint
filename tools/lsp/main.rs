@@ -350,7 +350,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<()>
 
     let ctx = Rc::new(Context {
         document_cache: RefCell::new(DocumentCache::new(compiler_config)),
-        server_notifier: server_notifier,
+        server_notifier,
         init_param,
         preview,
     });

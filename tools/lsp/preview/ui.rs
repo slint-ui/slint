@@ -36,7 +36,7 @@ pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
         model
     });
 
-    ui.on_style_changed(|| super::change_style());
+    ui.on_style_changed(super::change_style);
     ui.set_known_styles(style_model.into());
     ui.set_current_style(style.clone().into());
 

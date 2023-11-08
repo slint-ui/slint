@@ -35,7 +35,7 @@ enum PreviewFutureState {
     PreLoading,
     /// The preview future is currently loading the preview
     Loading,
-    /// The preview future is currently loading an oudated preview, we should abort loading and restart loading again
+    /// The preview future is currently loading an outdated preview, we should abort loading and restart loading again
     NeedsReload,
 }
 
@@ -255,7 +255,7 @@ fn configure_handle_for_design_mode(handle: &ComponentInstance, enabled: bool) {
 
     handle.on_element_selected(Box::new(
         move |file: &str, start_line: u32, start_column: u32, end_line: u32, end_column: u32| {
-            let _ = ask_editor_to_show_document(
+            ask_editor_to_show_document(
                 file.to_string(),
                 start_line,
                 start_column,

@@ -409,7 +409,7 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
 
     let e = || "InvalidParameter";
 
-    let url = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
+    let url = if let serde_json::Value::String(s) = params.first().ok_or_else(e)? {
         Url::parse(s)?
     } else {
         return Err(e().into());
@@ -435,7 +435,7 @@ pub fn query_properties_command(
     let document_cache = &mut ctx.document_cache.borrow_mut();
 
     let text_document_uri = serde_json::from_value::<lsp_types::TextDocumentIdentifier>(
-        params.get(0).ok_or("No text document provided")?.clone(),
+        params.first().ok_or("No text document provided")?.clone(),
     )?
     .uri;
     let position = serde_json::from_value::<lsp_types::Position>(
@@ -469,7 +469,7 @@ pub async fn set_binding_command(
     ctx: &Rc<Context>,
 ) -> Result<serde_json::Value> {
     let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
-        params.get(0).ok_or("No text document provided")?.clone(),
+        params.first().ok_or("No text document provided")?.clone(),
     )?;
     let element_range = serde_json::from_value::<lsp_types::Range>(
         params.get(1).ok_or("No element range provided")?.clone(),
@@ -560,7 +560,7 @@ pub async fn remove_binding_command(
     ctx: &Rc<Context>,
 ) -> Result<serde_json::Value> {
     let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
-        params.get(0).ok_or("No text document provided")?.clone(),
+        params.first().ok_or("No text document provided")?.clone(),
     )?;
     let element_range = serde_json::from_value::<lsp_types::Range>(
         params.get(1).ok_or("No element range provided")?.clone(),
@@ -1422,7 +1422,7 @@ mod tests {
         if let DocumentSymbolResponse::Nested(result) = result {
             assert_eq!(result.len(), 1);
 
-            let first = result.get(0).unwrap();
+            let first = result.first().unwrap();
             assert_eq!(&first.name, "MainWindow");
         } else {
             unreachable!();
@@ -1457,7 +1457,7 @@ component Demo {
         if let DocumentSymbolResponse::Nested(result) = result {
             assert_eq!(result.len(), 1);
 
-            let first = result.get(0).unwrap();
+            let first = result.first().unwrap();
             assert_eq!(&first.name, "Demo");
         } else {
             unreachable!();
