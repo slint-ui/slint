@@ -49,7 +49,7 @@ unicode-segmentation = { version = "1.8.0" }
 glutin = { workspace = true, default-features = false, features = ["egl", "wgl"] }
 
 ash = { version = "^0.37.2", optional = true }
-vulkano = { version = "0.33.0", optional = true, default-features = false }
+vulkano = { version = "0.34.0", optional = true, default-features = false }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 # software renderer fallback
