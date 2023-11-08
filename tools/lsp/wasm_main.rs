@@ -311,6 +311,9 @@ impl SlintServer {
     ) -> std::result::Result<(), JsValue> {
         use crate::common::PreviewToLspMessage as M;
 
+        let guard = self.reentry_guard.clone();
+        let _lock = ReentryGuard::lock(guard).await;
+
         let Ok(message) = serde_wasm_bindgen::from_value::<M>(value) else {
             return Err(JsValue::from("Failed to convert value to PreviewToLspMessage"));
         };
