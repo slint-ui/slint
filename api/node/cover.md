@@ -18,54 +18,73 @@ Slint-node is still in the early stages of development: APIs will change and imp
 The [Slint Language Documentation](../slint) covers the Slint UI description language
 in detail.
 
-## Installing Slint
+## Prerequisites
 
-Slint is available via NPM, so you can install by running the following command:
-
-```sh
-npm install slint-ui
-```
-
-### Dependencies
-
-You need to install the following components:
+To use Slint with Node.js, ensure the following programs are installed:
 
   * **[Node.js](https://nodejs.org/download/release/)** (v16. or newer)
   * **[npm](https://www.npmjs.com/)**
   * **[Rust compiler](https://www.rust-lang.org/tools/install)** (1.70 or newer)
 
-You will also need a few more dependencies, see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>
+Depending on your operating system, you may need additional components. For a list of required system libraries,
+see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>.
 
-## Using Slint
+## Getting Started
 
-First, import the API from the `slint-ui` module. In the following examples we're using [ECMAScript module syntax](https://nodejs.org/api/esm.html#modules-ecmascript-modules), but if you prefer you can also import the API using [CommonJS](https://nodejs.org/api/modules.html#modules-commonjs-modules) syntax.
+1. In a new directory, create a new Node.js project by calling [`npm init`](https://docs.npmjs.com/cli/v10/commands/npm-init).
+2. Install Slint for your project using [`npm install slint-ui`](https://docs.npmjs.com/cli/v10/commands/npm-install).
+3. Create a new file called `main.slint` with the following contents:
 
-To initialize the API, you first need to import the `slint-ui` module in our code:
+```
+import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
+export component Demo {
+    in-out property <string> greeting <=> label.text;
+    VerticalBox {
+        alignment: start;
+        label := Text {
+            text: "Hello World!";
+            font-size: 24px;
+            horizontal-alignment: center;
+        }
+        AboutSlint {
+            preferred-height: 150px;
+        }
+        HorizontalLayout { alignment: center; Button { text: "OK!"; } }
+    }
+}
+```
 
-```js
+This file declares the user interface.
+
+4. Create a new file called `index.mjs` with the following contents:
+
+```
 import * as slint from "slint-ui";
+let ui = slint.loadFile("main.slint");
+let demo = new ui.Demo();
+
+await demo.run();
 ```
 
-Next, load a slint file with the `loadFile` function:
+This is your main JavaScript entry point:
 
-```js
-let ui = slint.loadFile("ui/main.slint");
-```
+* Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module. If you prefer you can
+  also import it as [CommonJS](https://nodejs.org/api/modules.html#modules-commonjs-modules) module.
+* Invoke `loadFile()` to compile and load the `.slint` file.
+* Instantiate the `Demo` component declared in `main.slint`.
+* Run it by showing it on the screen and reacting to user input.
 
-Combining these two steps leads us to the obligatory "Hello World" example:
+5. Run the example with `node index.mjs`
 
-```js
-import * as slint from "slint-ui";
-let ui = slint.loadFile(".ui/main.slint");
-let main = new ui.Main();
-main.run();
-```
-
-For a full example, see [/examples/todo/node](https://github.com/slint-ui/slint/tree/master/examples/todo/node).
+For a complete example, see [/examples/todo/node](https://github.com/slint-ui/slint/tree/master/examples/todo/node).
 
 ## API Overview
 
 ### Instantiating a Component
+
+Use the {@link loadFile} function to load a `.slint` file. Instantiate the [exported component](../slint/src/language/concepts/file)
+with the new operator. Access exported callbacks and properties as JavaScript properties on the instantiated component. In addition,
+the returned object implements the {@link ComponentHandle} interface, to show/hide the instance or access the window.
 
 The following example shows how to instantiating a Slint component from JavaScript.
 
@@ -100,19 +119,27 @@ let component = new ui.MainWindow({
 });
 ```
 
-### Accessing a property
+### Accessing a Properties
 
-Properties declared as `out` or `in-out` in `.slint` files are visible as JavaScript on the component instance.
+[Properties](../slint/src/language/syntax/properties) declared as `out` or `in-out` in `.slint` files are visible as JavaScript properties on the component instance.
+
+**`main.slint`**
+export component MainWindow {
+    in-out property <string> name;
+    in-out property <int> age: 42;
+}
 
 ```js
-component.counter = 42;
-console.log(component.counter);
+let ui = slint.loadFile("main.slint");
+let instance = new ui.MainWindow();
+console.log(instance.age); // Prints 42
+instance.name = "Joe";
 ```
 
-### Callbacks
+### Setting and Invoking Callbacks
 
-Callback in Slint can be defined usign the `callback` keyword and can be connected to a callback of an other component
-usign the `<=>` syntax.
+[Callbacks](src/language/syntax/callbacks) declared in `.slint` files are visible as JavasScript function properties on the component instance. Invoke them
+as function to invoke the callback, and assign JavaScript functions to set the callback handler.
 
 **`ui/my-component.slint`**
 
@@ -126,8 +153,6 @@ export component MyComponent inherits Window {
     i-touch-area := TouchArea {}
 }
 ```
-
-The callbacks in JavaScript are exposed as property and that can be called as a function.
 
 **`main.js`**
 

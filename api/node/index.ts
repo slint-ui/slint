@@ -368,14 +368,37 @@ export interface LoadFileOptions {
 }
 
 /**
- * Loads the given slint file and returns an objects that contains a functions to construct the exported
+ * Loads the given Slint file and returns an objects that contains a functions to construct the exported
  * component of the slint file.
  *
+ * The following example loads a "Hello World" style Slint file and changes the Text label to a new greeting:
+ * `main.slint`:
+ * ```
+ * export component Main {
+ *     in-out property <string> greeting <=> label.text;
+ *     label := Text {
+ *         text: "Hello World";
+ *     }
+ * }
+ * ```
+ * 
  * ```js
  * import * as slint from "slint-ui";
- * let ui = slint.loadFile(".ui/main.slint");
+ * let ui = slint.loadFile("main.slint");
  * let main = new ui.Main();
+ * main.greeting = "Hello friends";
  * ```
+ * 
+ * @param filePath A path to the file to load. If the path is a relative path, then it is resolved
+ *                 against the process' working directory.
+ * @param options Use {@link LoadFileOptions} to configure additional Slint compilation aspects,
+ *                such as include search paths, library imports, or the widget style.
+ * @returns The returned object is sealed and provides a property by the name of the component exported
+ *          in the `.slint` file. In the above example the name of the property is `Main`. The property
+ *          is a constructor function. Use it with the new operator to instantiate the component.
+ *          The instantiated object exposes properties and callbacks, and implements the {@link ComponentHandle} interface.
+ *          For more details about the exposed properties, see [Instantiating A Component](../index.html#md:instantiating-a-component).
+ * @throws {@link CompileError} if errors occur during compilation.
  */
 export function loadFile(filePath: string, options?: LoadFileOptions): Object {
     let compiler = new napi.ComponentCompiler();
