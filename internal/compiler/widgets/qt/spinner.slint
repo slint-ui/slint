@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { SpinnerBase } from "../common/spinner-base.slint";
-
 export component Spinner {
-    in property <float> progress <=> base.progress;
-    in property <bool> indeterminate <=> base.indeterminate;
+    in property <float> progress;
+    in property <bool> indeterminate;
+
+    private property <int> count: 12;
 
     min-width: 30px;
     min-height: 30px;
@@ -14,10 +14,29 @@ export component Spinner {
     accessible-role: progress-indicator;
     accessible-value: root.progress;
 
-    base := SpinnerBase {
-        width: 100%;
-        height: 100%;
-        stroke-width: 2px;
-        stroke:  NativeStyleMetrics.dark-color-scheme ? #60CDFF : #005FB8;
+    for i in count : Path {
+        property <angle> angle: -90deg + i*1turn / count;
+        stroke: NativeStyleMetrics.default-text-color;
+        opacity: {
+            if (indeterminate) {
+                return 0.9 - 0.8 * Math.mod(count * animation-tick() / 1s - i, count) / count;
+            } else if (i < progress * count){
+                return 0.9;
+            } else {
+                return 0.1 + 0.8 * (i - progress * count) / count;
+            }
+        }
+        stroke-width: 2.5px;
+        viewbox-height: 1;
+        viewbox-width: 1;
+        MoveTo {
+            x: 0.5 + 0.3 * Math.cos(angle);
+            y: 0.5 + 0.3 * Math.sin(angle);
+        }
+        LineTo {
+            x: 0.5 + 0.5 * Math.cos(angle);
+            y: 0.5 + 0.5 * Math.sin(angle);
+        }
     }
 }
+
