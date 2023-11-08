@@ -112,6 +112,8 @@ function getPreviewHtml(
 
     const canvas = document.createElement("canvas");
 
+    const pending_mapping_requests = {};
+
     canvas.id = canvas_id;
     canvas.className = canvas_id;
     canvas.style.width = "100%";
@@ -132,18 +134,13 @@ function getPreviewHtml(
         canvas.style.minHeight = "100%";
         canvas.style.height = "100%";
         canvas.style.maxHeight = "100%";
-    }).observe(document.body)
+    }).observe(document.body);
 
     let preview_connector = await slint_preview.PreviewConnector.create(
         (data) => { vscode.postMessage({ command: "slint/preview_to_lsp", params: data }); },
         (url) => { return new Promise((resolve, _) => {
-            const reply = new MessageChannel();
-            reply.port2.onDidReceiveMessage(
-                async (message) => {
-                    resolve(message.data);
-                }
-            );
-            vscode.postMessage({ command: "map_url", url: url }, [reply.port1]);
+            pending_mapping_requests[url] = resolve;
+            vscode.postMessage({ command: "map_url", url: url });
         })},
         "${default_style}",
     );
@@ -155,6 +152,15 @@ function getPreviewHtml(
             );
 
             return true;
+        }
+        if (message.data.command === "map_response") {
+            const original = message.data.original;
+
+            const resolve = pending_mapping_requests[original];
+            delete pending_mapping_requests[original];
+            if (resolve) {
+                resolve(message.data.mapped);
+            }
         }
     });
 
@@ -185,15 +191,23 @@ export class PreviewSerializer implements vscode.WebviewPanelSerializer {
     }
 }
 
-function map_url(url_: string, channel: MessagePort | null) {
-    const url = Uri.parse(url_, true);
-
+function map_url(webview: vscode.Webview, url_: string) {
     let result;
 
-    if (vscode.workspace.getWorkspaceFolder(url) && url.scheme === "file") {
-        result = previewPanel?.webview.asWebviewUri(url)?.toString();
+    try {
+        const url = Uri.parse(url_, false);
+        if (vscode.workspace.getWorkspaceFolder(url) && url.scheme === "file") {
+            result = previewPanel?.webview.asWebviewUri(url)?.toString();
+        }
+    } catch (_) {
+        /* nothing to handle */
     }
-    channel?.postMessage(result ?? url_);
+
+    webview.postMessage({
+        command: "map_response",
+        original: url_,
+        mapped: result,
+    });
 }
 
 function initPreviewPanel(
@@ -205,7 +219,7 @@ function initPreviewPanel(
         async (message) => {
             switch (message.command) {
                 case "map_url":
-                    map_url(message.url, message.ports?.[0]);
+                    map_url(panel.webview, message.url);
                     return;
                 case "preview_ready":
                     send_to_lsp({ RequestState: { unused: true } });
