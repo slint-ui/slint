@@ -1,7 +1,0 @@
-<!--
-Copyright © SixtyFPS GmbH <info@slint.dev>
-SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
--->
-<svg width="28" height="28" fill="none" viewBox="0,0,28,28" xmlns="http://www.w3.org/2000/svg">
-<path d="M0,14 A 12 12 180 0 1 26 14" stroke="#0078D4" stroke-width="2" />
-</svg>

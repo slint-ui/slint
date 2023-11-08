@@ -5,7 +5,6 @@
 
 import { Button, ComboBox, HorizontalBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
 import { HeaderBar } from "header-bar.slint";
-import { Spinner } from "spinner.slint";
 
 export struct Diagnostics {
     level: string,
@@ -25,6 +24,9 @@ export component PreviewUi inherits Window {
     callback design-mode-changed(/* enabled */ bool);
     callback style-changed();
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
+
+    title: "Slint Preview";
+    icon: @image-url("assets/slint-logo-small-light.png");
 
     VerticalLayout {
         HeaderBar {
@@ -83,9 +85,12 @@ export component PreviewUi inherits Window {
 
                         for diag in root.diagnostics: Rectangle {
                             TouchArea {
+                                mouse-cursor: pointer;
                                 clicked => { root.show_document(diag.url, diag.line, diag.column); }
 
                                 Text {
+                                    width: 100%;
+                                    wrap: word-wrap;
                                     color: #000;
                                     text: diag.level + ": " + diag.message;
                                 }
