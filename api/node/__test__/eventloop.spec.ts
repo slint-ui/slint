@@ -7,18 +7,18 @@ import test from 'ava'
 import * as http from 'http';
 import fetch from "node-fetch";
 
-import { run_event_loop, quit_event_loop, private_api } from '../index'
+import { runEventLoop, quitEventLoop, private_api } from '../index'
 
 
 test.serial('merged event loops with timer', async (t) => {
 
     let invoked = false;
 
-    await run_event_loop(() => {
+    await runEventLoop(() => {
 
         setTimeout(() => {
             invoked = true;
-            quit_event_loop();
+            quitEventLoop();
         }, 2);
     });
     t.true(invoked)
@@ -33,7 +33,7 @@ test.serial('merged event loops with networking', async (t) => {
 
     let received_response = "";
 
-    await run_event_loop(() => {
+    await runEventLoop(() => {
 
         const server = http.createServer(listener);
         server.listen(async () => {
@@ -46,7 +46,7 @@ test.serial('merged event loops with networking', async (t) => {
             }).then((text) => {
                 received_response = text;
                 //console.log("received ", text);
-                quit_event_loop();
+                quitEventLoop();
                 server.close();
             });
 
@@ -71,7 +71,7 @@ test.serial('quit event loop on last window closed', async (t) => {
     t.not(instance, null);
 
     instance.window().show();
-    await run_event_loop(() => {
+    await runEventLoop(() => {
         setTimeout(() => {
             instance.window().hide();
         }, 2);
