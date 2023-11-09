@@ -563,7 +563,8 @@ impl<'a, T> PartialRenderer<'a, T> {
         rendering_data: &CachedRenderingData,
         render_fn: impl FnOnce() -> LogicalRect,
     ) {
-        if let Some(entry) = rendering_data.get_entry(&mut cache.borrow_mut()) {
+        let mut cache = cache.borrow_mut();
+        if let Some(entry) = rendering_data.get_entry(&mut cache) {
             entry
                 .dependency_tracker
                 .get_or_insert_with(|| Box::pin(PropertyTracker::default()))
@@ -571,7 +572,6 @@ impl<'a, T> PartialRenderer<'a, T> {
                 .evaluate(render_fn);
         } else {
             let cache_entry = crate::graphics::CachedGraphicsData::new(render_fn);
-            let mut cache = cache.borrow_mut();
             rendering_data.cache_index.set(cache.insert(cache_entry));
             rendering_data.cache_generation.set(cache.generation());
         }
