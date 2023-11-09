@@ -3,10 +3,10 @@
 
 import test from 'ava';
 
-import { SlintBrush, SlintRgbaColor, Brush, ArrayModel } from '../index'
+import { private_api, ArrayModel } from '../index'
 
 test('SlintColor from fromRgb', (t) => {
-  let color = SlintRgbaColor.fromRgb(100, 110, 120);
+  let color = private_api.SlintRgbaColor.fromRgb(100, 110, 120);
 
   t.deepEqual(color.red, 100);
   t.deepEqual(color.green, 110);
@@ -14,7 +14,7 @@ test('SlintColor from fromRgb', (t) => {
 })
 
 test('SlintColor from fromArgb', (t) => {
-  let color = SlintRgbaColor.fromArgb(120, 100, 110, 120);
+  let color = private_api.SlintRgbaColor.fromArgb(120, 100, 110, 120);
 
   t.deepEqual(color.red, 100);
   t.deepEqual(color.green, 110);
@@ -23,7 +23,7 @@ test('SlintColor from fromArgb', (t) => {
 
 
 test('SlintColor brighter', (t) => {
-  let color = SlintRgbaColor.fromRgb(100, 110, 120).brighter(0.1);
+  let color = private_api.SlintRgbaColor.fromRgb(100, 110, 120).brighter(0.1);
 
   t.deepEqual(color.red, 110);
   t.deepEqual(color.green, 121);
@@ -31,22 +31,22 @@ test('SlintColor brighter', (t) => {
 })
 
 test('SlintColor darker', (t) => {
-  let color = SlintRgbaColor.fromRgb(100, 110, 120).darker(0.1);
+  let color = private_api.SlintRgbaColor.fromRgb(100, 110, 120).darker(0.1);
 
   t.deepEqual(color.red, 91);
   t.deepEqual(color.green, 100);
   t.deepEqual(color.blue, 109);
 })
 
-test('SlintBrush from RgbaColor', (t) => {
-  let brush = new SlintBrush({ red: 100, green: 110, blue: 120, alpha: 255 });
+test('private_api.SlintBrush from RgbaColor', (t) => {
+  let brush = new private_api.SlintBrush({ red: 100, green: 110, blue: 120, alpha: 255 });
 
   t.deepEqual(brush.color.red, 100);
   t.deepEqual(brush.color.green, 110);
   t.deepEqual(brush.color.blue, 120);
 
   t.throws(() => {
-    new SlintBrush({ red: -100, green: 110, blue: 120, alpha: 255 })
+    new private_api.SlintBrush({ red: -100, green: 110, blue: 120, alpha: 255 })
   },
     {
       code: "GenericFailure",
@@ -55,15 +55,15 @@ test('SlintBrush from RgbaColor', (t) => {
   );
 })
 
-test('SlintBrush from Brush', (t) => {
-  let brush = SlintBrush.fromBrush({ color: { red: 100, green: 110, blue: 120, alpha: 255 } });
+test('private_api.SlintBrush from Brush', (t) => {
+  let brush = private_api.SlintBrush.fromBrush({ color: { red: 100, green: 110, blue: 120, alpha: 255 } });
 
   t.deepEqual(brush.color.red, 100);
   t.deepEqual(brush.color.green, 110);
   t.deepEqual(brush.color.blue, 120);
 
   t.throws(() => {
-    SlintBrush.fromBrush({ color: { red: -100, green: 110, blue: 120, alpha: 255 } })
+    private_api.SlintBrush.fromBrush({ color: { red: -100, green: 110, blue: 120, alpha: 255 } })
   },
     {
       code: "GenericFailure",
