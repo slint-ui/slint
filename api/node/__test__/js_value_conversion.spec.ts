@@ -5,7 +5,7 @@ import test from 'ava';
 const path = require('node:path');
 var Jimp = require("jimp");
 
-import { private_api,  SlintImageData, ImageData, ArrayModel } from '../index'
+import { private_api, ImageData, ArrayModel } from '../index'
 
 test('get/set string properties', (t) => {
   let compiler = new private_api.ComponentCompiler;
@@ -190,9 +190,9 @@ test('get/set image properties', async (t) => {
   t.not(instance, null);
 
   let slintImage = instance!.getProperty("image");
-  if (t.true((slintImage instanceof SlintImageData))) {
-    t.deepEqual((slintImage as SlintImageData).width, 64);
-    t.deepEqual((slintImage as SlintImageData).height, 64);
+  if (t.true((slintImage instanceof private_api.SlintImageData))) {
+    t.deepEqual((slintImage as private_api.SlintImageData).width, 64);
+    t.deepEqual((slintImage as private_api.SlintImageData).height, 64);
     t.true((slintImage as ImageData).path.endsWith("rgb.png"));
 
     let image = await Jimp.read(path.join(__dirname, "resources/rgb.png"));
@@ -327,6 +327,8 @@ test('get/set brush properties', (t) => {
     t.is((linearGradient as private_api.SlintBrush).toString(),
       "linear-gradient(90deg, rgba(63, 135, 166, 255) 0%, rgba(235, 248, 225, 255) 50%, rgba(246, 157, 60, 255) 100%)");
   };
+
+
 
   t.throws(() => {
     instance.setProperty("ref-color", { red: "abc", blue: 0, green: 0, alpha: 0} );

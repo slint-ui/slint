@@ -6,11 +6,51 @@ export {
     Diagnostic,
     DiagnosticLevel,
     RgbaColor,
-    Brush,
+    ColorBrush,
     SlintSize,
     SlintPoint,
-    SlintImageData,
 } from "./rust-module";
+
+/**
+ * All variants of this type can be used to set the value of a color property of a Slint component.
+ *
+ * The following example sets the my-color property with an object of type {@link RgbaColor}:
+ * `main.slint`:
+ * ```
+ * export component Main {
+ *     in-out property <color> my-color;
+ * }
+ * ```
+ *
+ * ```js
+ * import * as slint from "slint-ui";
+ * let ui = slint.loadFile("main.slint");
+ * let main = new ui.Main();
+ * main.my_color = { red: 100, green: 100, blue: 100 };
+ * ```
+ */
+export type Color = napi.RgbaColor;
+
+/**
+ * All variants of this type can be used to set the value of a brush property of a Slint component.
+ *
+ * The following example sets the my-brush property in different ways:
+ * `main.slint`:
+ * ```
+ * export component Main {
+ *     in-out property <brush> my-brush;
+ * }
+ * ```
+ *
+ * ```js
+ * import * as slint from "slint-ui";
+ * let ui = slint.loadFile("main.slint");
+ * let main = new ui.Main();
+ * main.my_brush = { red: 100, green: 100, blue: 100 };
+ * main.my_brush = { color: { red: 100, green: 100, blue: 100 } };
+ * ```
+ */
+export type Brush = napi.RgbaColor | napi.ColorBrush;
 
 /**
  *  Represents a two-dimensional point.
@@ -688,6 +728,7 @@ export namespace private_api {
     export import SlintRgbaColor = napi.SlintRgbaColor;
     export import SlintPoint = napi.SlintPoint;
     export import SlintSize = napi.SlintSize;
+    export import SlintImageData = napi.SlintImageData;
 
     export function send_mouse_click(
         component: Component,

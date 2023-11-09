@@ -17,6 +17,8 @@ pub struct RgbaColor {
     pub blue: f64,
 
     /// Represents the alpha channel of the color as u8 in the range 0..255.
+    ///
+    /// If no alpha is set, it defaults to 255.
     pub alpha: Option<f64>,
 }
 
@@ -160,8 +162,8 @@ impl SlintRgbaColor {
 /// a shape, such as a rectangle, path or even text, shall be filled.
 /// A brush can also be applied to the outline of a shape, that means
 /// the fill of the outline itself.
-#[napi(object, js_name = "Brush")]
-pub struct JsBrush {
+#[napi(object, js_name = "ColorBrush")]
+pub struct JsColorBrush {
     pub color: RgbaColor,
 }
 
@@ -170,6 +172,10 @@ pub struct JsBrush {
 pub struct SlintBrush {
     inner: Brush,
 }
+
+// this in only used internal
+#[napi(object, js_name = "Brush")]
+pub struct JsBrush {}
 
 impl From<Brush> for SlintBrush {
     fn from(brush: Brush) -> Self {
@@ -202,7 +208,7 @@ impl SlintBrush {
     }
 
     #[napi(factory)]
-    pub fn from_brush(brush: JsBrush) -> Result<Self> {
+    pub fn from_brush(brush: JsColorBrush) -> Result<Self> {
         SlintBrush::new_with_color(brush.color)
     }
 
