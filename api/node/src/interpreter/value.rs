@@ -129,6 +129,11 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 }
                 Ok(ValueType::Object) => {
                     if let Ok(obj) = unknown.coerce_to_object() {
+                        // this is used to make the color property of the `Brush` interface optional.
+                        let properties = obj.get_property_names()?;
+                        if properties.get_array_length()? == 0 {
+                            return Ok(Value::Brush(Brush::default()));
+                        }
                         if let Some(color) = obj.get::<&str, RgbaColor>("color").ok().flatten() {
                             if color.red() < 0.
                                 || color.green() < 0.

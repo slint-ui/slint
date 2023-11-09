@@ -20,6 +20,12 @@ pub struct RgbaColor {
     pub alpha: Option<f64>,
 }
 
+impl Default for RgbaColor {
+    fn default() -> Self {
+        Self { red: 0., green: 0., blue: 0., alpha: None }
+    }
+}
+
 // no public api only available internal because in js/ts it's exported as interface
 impl RgbaColor {
     pub fn red(&self) -> f64 {
@@ -162,7 +168,10 @@ impl SlintRgbaColor {
 /// the fill of the outline itself.
 #[napi(object, js_name = "Brush")]
 pub struct JsBrush {
-    pub color: RgbaColor,
+    /// Defines a solid color brush from rgba.
+    ///
+    /// If no color is set it defaults to transparent.
+    pub color: Option<RgbaColor>,
 }
 
 /// SlintBrush implements {@link Brush}.
@@ -203,7 +212,7 @@ impl SlintBrush {
 
     #[napi(factory)]
     pub fn from_brush(brush: JsBrush) -> Result<Self> {
-        SlintBrush::new_with_color(brush.color)
+        SlintBrush::new_with_color(brush.color.unwrap_or_default())
     }
 
     /// Creates a brush form a `Color`.

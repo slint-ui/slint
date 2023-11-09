@@ -31,21 +31,6 @@ export interface Size {
  * as the position on the screen.
  */
 export interface Window {
-    /**
-     * Shows the window on the screen. An additional strong reference on the
-     * associated component is maintained while the window is visible.
-     */
-    show(): void;
-
-    /** Hides the window, so that it is not visible anymore. */
-    hide(): void;
-
-    /**
-     * Returns the visibility state of the window. This function can return false even if you previously called show()
-     * on it, for example if the user minimized the window.
-     */
-    get isVisible(): boolean;
-
     /** Gets or sets the logical position of the window on the screen. */
     logicalPosition: Point;
 
@@ -57,6 +42,21 @@ export interface Window {
 
     /** Gets or sets the physical size of the window on the screen, */
     physicalSize: Size;
+
+    /**
+     * Returns the visibility state of the window. This function can return false even if you previously called show()
+     * on it, for example if the user minimized the window.
+     */
+     get visible(): boolean;
+
+    /**
+     * Shows the window on the screen. An additional strong reference on the
+     * associated component is maintained while the window is visible.
+     */
+    show(): void;
+
+    /** Hides the window, so that it is not visible anymore. */
+    hide(): void;
 }
 
 /**
@@ -65,6 +65,12 @@ export interface Window {
  * This interface is inspired by the web [ImageData](https://developer.mozilla.org/en-US/docs/Web/API/ImageData) interface.
  */
 export interface ImageData {
+    /**
+     * Returns the path of the image, if it was loaded from disk. Otherwise
+     * the property is undefined.
+     */
+    readonly path?: string;
+
     /**
      *  Returns the image as buffer.
      */
@@ -79,12 +85,6 @@ export interface ImageData {
      *  Returns the height of the image in pixels.
      */
     get height(): number;
-
-    /**
-     * Returns the path of the image, if it was loaded from disk. Otherwise
-     * the property is undefined.
-     */
-    readonly path?: string;
 }
 
 /**
@@ -224,7 +224,7 @@ export class ArrayModel<T> extends Model<T> {
     /**
      * @hidden
      */
-    private a: Array<T>;
+    #array: Array<T>;
 
     /**
      * Creates a new ArrayModel.
@@ -233,23 +233,23 @@ export class ArrayModel<T> extends Model<T> {
      */
     constructor(arr: Array<T>) {
         super();
-        this.a = arr;
+        this.#array = arr;
     }
 
     get length(): number {
-        return this.a.length;
+        return this.#array.length;
     }
 
     rowCount() {
-        return this.a.length;
+        return this.#array.length;
     }
 
     rowData(row: number) {
-        return this.a[row];
+        return this.#array[row];
     }
 
     setRowData(row: number, data: T) {
-        this.a[row] = data;
+        this.#array[row] = data;
         this.notifyRowDataChanged(row);
     }
 
@@ -259,8 +259,8 @@ export class ArrayModel<T> extends Model<T> {
      * @param values
      */
     push(...values: T[]) {
-        let size = this.a.length;
-        Array.prototype.push.apply(this.a, values);
+        let size = this.#array.length;
+        Array.prototype.push.apply(this.#array, values);
         this.notifyRowAdded(size, arguments.length);
     }
 
@@ -272,16 +272,16 @@ export class ArrayModel<T> extends Model<T> {
      * @param size
      */
     remove(index: number, size: number) {
-        let r = this.a.splice(index, size);
+        let r = this.#array.splice(index, size);
         this.notifyRowRemoved(index, size);
     }
 
     values(): IterableIterator<T> {
-        return this.a.values();
+        return this.#array.values();
     }
 
     entries(): IterableIterator<[number, T]> {
-        return this.a.entries();
+        return this.#array.entries();
     }
 }
 
@@ -293,9 +293,9 @@ export class ArrayModel<T> extends Model<T> {
 export interface ComponentHandle {
     /**
      * Shows the window and runs the event loop. The returned promise is resolved when the event loop
-     * is terminated, for example when the last window was closed, or {@link quit_event_loop} was called.
+     * is terminated, for example when the last window was closed, or {@link quitEventLoop} was called.
      *
-     * This function is a convenience for calling {@link show}, followed by {@link run_event_loop}, and
+     * This function is a convenience for calling {@link show}, followed by {@link runEventLoop}, and
      * {@link hide} when the event loop's promise is resolved.
      */
     run(): Promise<unknown>;
@@ -321,38 +321,38 @@ export interface ComponentHandle {
  * @hidden
  */
 class Component implements ComponentHandle {
-    private instance: napi.ComponentInstance;
+    #instance: napi.ComponentInstance;
 
     /**
      * @hidden
      */
     constructor(instance: napi.ComponentInstance) {
-        this.instance = instance;
+        this.#instance = instance;
     }
 
     get window(): Window {
-        return this.instance.window();
+        return this.#instance.window();
+    }
+
+     /**
+     * @hidden
+     */
+     get component_instance(): napi.ComponentInstance {
+        return this.#instance;
     }
 
     async run() {
         this.show();
-        await run_event_loop();
+        await runEventLoop();
         this.hide();
     }
 
     show() {
-        this.instance.window().show();
+        this.#instance.window().show();
     }
 
     hide() {
-        this.instance.window().hide();
-    }
-
-    /**
-     * @hidden
-     */
-    get component_instance(): napi.ComponentInstance {
-        return this.instance;
+        this.#instance.window().hide();
     }
 }
 
@@ -360,13 +360,16 @@ class Component implements ComponentHandle {
  * Represents an errors that can be emitted by the compiler.
  */
 export class CompileError extends Error {
-    public diagnostics: napi.Diagnostic[];
+    /**
+     * List of {@link Diagnostic} items emitted while compiling .slint code.
+     */
+    diagnostics: napi.Diagnostic[];
 
     /**
      * Creates a new CompileError.
      *
-     * @param message
-     * @param diagnostics
+     * @param message human-readable description of the error.
+     * @param diagnostics represent a list of diagnostic items emitted while compiling .slint code.
      */
     constructor(message: string, diagnostics: napi.Diagnostic[]) {
         super(message);
@@ -593,18 +596,19 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
 
 class EventLoop {
     #quit_loop: boolean = false;
-    #termination_promise: Promise<unknown> | null = null;
-    #terminate_resolve_fn: ((_value: unknown) => void) | null;
+    #terminationPromise: Promise<unknown> | null = null;
+    #terminateResolveFn: ((_value: unknown) => void) | null;
+
     constructor() {
     }
 
     start(running_callback?: Function): Promise<unknown> {
-        if (this.#termination_promise != null) {
-            return this.#termination_promise;
+        if (this.#terminationPromise != null) {
+            return this.#terminationPromise;
         }
 
-        this.#termination_promise = new Promise((resolve) => {
-            this.#terminate_resolve_fn = resolve;
+        this.#terminationPromise = new Promise((resolve) => {
+            this.#terminateResolveFn = resolve;
         });
         this.#quit_loop = false;
 
@@ -621,14 +625,14 @@ class EventLoop {
         let id = setInterval(() => {
             if (napi.processEvents() == napi.ProcessEventsResult.Exited || this.#quit_loop) {
                 clearInterval(id);
-                this.#terminate_resolve_fn!(undefined);
-                this.#terminate_resolve_fn = null;
-                this.#termination_promise = null;
+                this.#terminateResolveFn!(undefined);
+                this.#terminateResolveFn = null;
+                this.#terminationPromise = null;
                 return;
             }
         }, nodejsPollInterval);
 
-        return this.#termination_promise;
+        return this.#terminationPromise;
     }
 
     quit() {
@@ -636,7 +640,7 @@ class EventLoop {
     }
 }
 
-var global_event_loop: EventLoop = new EventLoop;
+var globalEventLoop: EventLoop = new EventLoop;
 
 /**
  * Spins the Slint event loop and returns a promise that resolves when the loop terminates.
@@ -644,7 +648,7 @@ var global_event_loop: EventLoop = new EventLoop;
  * If the event loop is already running, then this function returns the same promise as from
  * the earlier invocation.
  *
- * @param running_callback Optional callback that's invoked once when the event loop is running.
+ * @param runningCallback Optional callback that's invoked once when the event loop is running.
  *                         The function's return value is ignored.
  *
  * Note that the event loop integration with Node.js is slightly imperfect. Due to conflicting
@@ -653,16 +657,16 @@ var global_event_loop: EventLoop = new EventLoop;
  * application is idle, it continues to consume a low amount of CPU cycles, checking if either
  * event loop has any pending events.
  */
-export function run_event_loop(running_callback?: Function): Promise<unknown> {
-    return global_event_loop.start(running_callback)
+export function runEventLoop(runningCallback?: Function): Promise<unknown> {
+    return globalEventLoop.start(runningCallback)
 }
 
 /**
  * Stops a spinning event loop. This function returns immediately, and the promise returned
  from run_event_loop() will resolve in a later tick of the nodejs event loop.
  */
-export function quit_event_loop() {
-    global_event_loop.quit()
+export function quitEventLoop() {
+    globalEventLoop.quit()
 }
 
 /**
