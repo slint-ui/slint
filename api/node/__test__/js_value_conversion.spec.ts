@@ -318,8 +318,8 @@ test('get/set brush properties', (t) => {
 
   instance_ref = instance!.getProperty("ref");
 
-  if (t.true((instance_ref instanceof SlintBrush))) {
-    let ref_color = (instance_ref as SlintBrush).color;
+  if (t.true((instance_ref instanceof private_api.SlintBrush))) {
+    let ref_color = (instance_ref as private_api.SlintBrush).color;
     t.deepEqual(ref_color.red, 0);
     t.deepEqual(ref_color.green, 0);
     t.deepEqual(ref_color.blue, 0);
