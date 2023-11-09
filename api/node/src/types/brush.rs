@@ -22,12 +22,7 @@ pub struct RgbaColor {
 
 impl Default for RgbaColor {
     fn default() -> Self {
-        Self {
-            red: 0.,
-            green: 0.,
-            blue: 0.,
-            alpha: None
-        }
+        Self { red: 0., green: 0., blue: 0., alpha: None }
     }
 }
 
