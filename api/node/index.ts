@@ -9,7 +9,6 @@ export {
     SlintBrush,
     Brush,
     SlintRgbaColor,
-    SlintModelNotify,
     SlintSize,
     SlintPoint,
     SlintImageData
@@ -104,7 +103,7 @@ export interface ImageData {
  * As an example let's see the implementation of {@link ArrayModel}
  *
  * ```js
- * export class ArrayModel<T> implements Model<T> {
+ * export class ArrayModel<T> extends Model<T> {
  *    private a: Array<T>
  *
  *   constructor(arr: Array<T>) {
@@ -122,18 +121,18 @@ export interface ImageData {
  *
  *    setRowData(row: number, data: T) {
  *        this.a[row] = data;
- *        this.notify.rowDataChanged(row);
+ *        this.notifyRowDataChanged(row);
  *    }
  *
  *    push(...values: T[]) {
  *        let size = this.a.length;
  *        Array.prototype.push.apply(this.a, values);
- *        this.notify.rowAdded(size, arguments.length);
+ *        this.notifyRowAdded(size, arguments.length);
  *    }
  *
  *    remove(index: number, size: number) {
  *        let r = this.a.splice(index, size);
- *        this.notify.rowRemoved(index, size);
+ *        this.notifyRowRemoved(index, size);
  *    }
  *
  *    get length(): number {
@@ -151,13 +150,10 @@ export interface ImageData {
  * ```
  */
 export abstract class Model<T> {
-    /**
-     * @hidden
-     */
-    notify: NullPeer;
+    #notify: NullPeer;
 
     constructor() {
-        this.notify = new NullPeer();
+        this.#notify = new NullPeer();
     }
 
     /**
@@ -176,6 +172,22 @@ export abstract class Model<T> {
      * @param data
      */
     abstract setRowData(row: number, data: T): void;
+
+    protected notifyRowDataChanged(row: number): void {
+        this.#notify.rowDataChanged(row);
+    }
+
+    protected notifyRowAdded(row: number, count: number): void {
+        this.#notify.rowAdded(row, count);
+    }
+
+    protected notifyRowRemoved(row: number, count: number): void {
+        this.#notify.rowRemoved(row, count);
+    }
+
+    protected notifyReset(): void {
+        this.#notify.reset();
+    }
 }
 
 /**
@@ -208,16 +220,23 @@ export class ArrayModel<T> extends Model<T> {
         this.a = arr;
     }
 
+    get length(): number {
+        return this.a.length;
+    }
+
     rowCount() {
         return this.a.length;
     }
+
     rowData(row: number) {
         return this.a[row];
     }
+
     setRowData(row: number, data: T) {
         this.a[row] = data;
-        this.notify.rowDataChanged(row);
+        this.notifyRowDataChanged(row);
     }
+
     /**
      * Pushes new values to the array that's backing the model and notifies
      * the run-time about the added rows.
@@ -226,8 +245,9 @@ export class ArrayModel<T> extends Model<T> {
     push(...values: T[]) {
         let size = this.a.length;
         Array.prototype.push.apply(this.a, values);
-        this.notify.rowAdded(size, arguments.length);
+        this.notifyRowAdded(size, arguments.length);
     }
+
     // FIXME: should this be named splice and have the splice api?
     /**
      * Removes the specified number of element from the array that's backing
@@ -237,11 +257,7 @@ export class ArrayModel<T> extends Model<T> {
      */
     remove(index: number, size: number) {
         let r = this.a.splice(index, size);
-        this.notify.rowRemoved(index, size);
-    }
-
-    get length(): number {
-        return this.a.length;
+        this.notifyRowRemoved(index, size);
     }
 
     values(): IterableIterator<T> {
@@ -262,7 +278,7 @@ export interface ComponentHandle {
     /**
      * Shows the window and runs the event loop. The returned promise is resolved when the event loop
      * is terminated, for example when the last window was closed, or {@link quit_event_loop} was called.
-     * 
+     *
      * This function is a convenience for calling {@link show}, followed by {@link run_event_loop}, and
      * {@link hide} when the event loop's promise is resolved.
      */
@@ -298,6 +314,10 @@ class Component implements ComponentHandle {
         this.instance = instance;
     }
 
+    get window(): Window {
+        return this.instance.window();
+    }
+
     async run() {
         this.show();
         await run_event_loop();
@@ -310,10 +330,6 @@ class Component implements ComponentHandle {
 
     hide() {
         this.instance.window().hide();
-    }
-
-    get window(): Window {
-        return this.instance.window();
     }
 
     /**
@@ -381,14 +397,14 @@ export interface LoadFileOptions {
  *     }
  * }
  * ```
- * 
+ *
  * ```js
  * import * as slint from "slint-ui";
  * let ui = slint.loadFile("main.slint");
  * let main = new ui.Main();
  * main.greeting = "Hello friends";
  * ```
- * 
+ *
  * @param filePath A path to the file to load. If the path is a relative path, then it is resolved
  *                 against the process' working directory.
  * @param options Use {@link LoadFileOptions} to configure additional Slint compilation aspects,
@@ -614,7 +630,7 @@ var global_event_loop: EventLoop = new EventLoop;
  *
  * @param running_callback Optional callback that's invoked once when the event loop is running.
  *                         The function's return value is ignored.
- * 
+ *
  * Note that the event loop integration with Node.js is slightly imperfect. Due to conflicting
  * implementation details between Slint's and Node.js' event loop, the two loops are merged
  * by spinning one after the other, at 16 millisecond intervals. This means that when the
