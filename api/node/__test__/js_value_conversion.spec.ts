@@ -5,7 +5,7 @@ import test from 'ava';
 const path = require('node:path');
 var Jimp = require("jimp");
 
-import { private_api, SlintBrush, SlintImageData, ImageData, ArrayModel, SlintRgbaColor, RgbaColor } from '../index'
+import { private_api,  SlintImageData, ImageData, ArrayModel } from '../index'
 
 test('get/set string properties', (t) => {
   let compiler = new private_api.ComponentCompiler;
@@ -252,10 +252,10 @@ test('get/set brush properties', (t) => {
 
   let black = instance!.getProperty("black");
 
-  t.is((black as SlintBrush).toString(), "#000000ff");
+  t.is((black as private_api.SlintBrush).toString(), "#000000ff");
 
-  if (t.true((black instanceof SlintBrush))) {
-    let blackSlintRgbaColor = (black as SlintBrush).color;
+  if (t.true((black instanceof private_api.SlintBrush))) {
+    let blackSlintRgbaColor = (black as private_api.SlintBrush).color;
     t.deepEqual(blackSlintRgbaColor.red, 0);
     t.deepEqual(blackSlintRgbaColor.green, 0);
     t.deepEqual(blackSlintRgbaColor.blue, 0);
@@ -264,8 +264,8 @@ test('get/set brush properties', (t) => {
   instance?.setProperty("black", "#ffffff");
   let white = instance!.getProperty("black");
 
-  if (t.true((white instanceof SlintBrush))) {
-    let whiteSlintRgbaColor = (white as SlintBrush).color;
+  if (t.true((white instanceof private_api.SlintBrush))) {
+    let whiteSlintRgbaColor = (white as private_api.SlintBrush).color;
     t.deepEqual(whiteSlintRgbaColor.red, 255);
     t.deepEqual(whiteSlintRgbaColor.green, 255);
     t.deepEqual(whiteSlintRgbaColor.blue, 255);
@@ -273,17 +273,17 @@ test('get/set brush properties', (t) => {
 
   let transparent = instance!.getProperty("trans");
 
-  if (t.true((black instanceof SlintBrush))) {
-    t.assert((transparent as SlintBrush).isTransparent);
+  if (t.true((black instanceof private_api.SlintBrush))) {
+    t.assert((transparent as private_api.SlintBrush).isTransparent);
   }
 
-  let ref = new SlintBrush({ red: 100, green: 110, blue: 120, alpha: 255 });
+  let ref = new private_api.SlintBrush({ red: 100, green: 110, blue: 120, alpha: 255 });
   instance!.setProperty("ref", ref);
 
   let instance_ref = instance!.getProperty("ref");
 
-  if (t.true((instance_ref instanceof SlintBrush))) {
-    let ref_color = (instance_ref as SlintBrush).color;
+  if (t.true((instance_ref instanceof private_api.SlintBrush))) {
+    let ref_color = (instance_ref as private_api.SlintBrush).color;
     t.deepEqual(ref_color.red, 100);
     t.deepEqual(ref_color.green, 110);
     t.deepEqual(ref_color.blue, 120);
@@ -294,8 +294,8 @@ test('get/set brush properties', (t) => {
 
   instance_ref = instance!.getProperty("ref");
 
-  if (t.true((instance_ref instanceof SlintBrush))) {
-    let ref_color = (instance_ref as SlintBrush).color;
+  if (t.true((instance_ref instanceof private_api.SlintBrush))) {
+    let ref_color = (instance_ref as private_api.SlintBrush).color;
     t.deepEqual(ref_color.red, 110);
     t.deepEqual(ref_color.green, 120);
     t.deepEqual(ref_color.blue, 125);
@@ -306,8 +306,8 @@ test('get/set brush properties', (t) => {
 
   instance_ref = instance!.getProperty("ref");
 
-  if (t.true((instance_ref instanceof SlintBrush))) {
-    let ref_color = (instance_ref as SlintBrush).color;
+  if (t.true((instance_ref instanceof private_api.SlintBrush))) {
+    let ref_color = (instance_ref as private_api.SlintBrush).color;
     t.deepEqual(ref_color.red, 110);
     t.deepEqual(ref_color.green, 120);
     t.deepEqual(ref_color.blue, 125);
@@ -316,15 +316,15 @@ test('get/set brush properties', (t) => {
 
   let radialGradient = instance!.getProperty("radial-gradient");
 
-  if (t.true((radialGradient instanceof SlintBrush))) {
-    t.is((radialGradient as SlintBrush).toString(),
+  if (t.true((radialGradient instanceof private_api.SlintBrush))) {
+    t.is((radialGradient as private_api.SlintBrush).toString(),
       "radial-gradient(circle, rgba(255, 0, 0, 255) 0%, rgba(0, 255, 0, 255) 50%, rgba(0, 0, 255, 255) 100%)");
   }
 
   let linearGradient = instance!.getProperty("linear-gradient");
 
-  if (t.true((linearGradient instanceof SlintBrush))) {
-    t.is((linearGradient as SlintBrush).toString(),
+  if (t.true((linearGradient instanceof private_api.SlintBrush))) {
+    t.is((linearGradient as private_api.SlintBrush).toString(),
       "linear-gradient(90deg, rgba(63, 135, 166, 255) 0%, rgba(235, 248, 225, 255) 50%, rgba(246, 157, 60, 255) 100%)");
   };
 
@@ -356,7 +356,7 @@ test('get/set brush properties', (t) => {
   );
 
   t.throws(() => {
-    instance.setProperty("ref-color", { red: 0, blue: 0, green: 0, alpha: new SlintRgbaColor()} );
+    instance.setProperty("ref-color", { red: 0, blue: 0, green: 0, alpha: new private_api.SlintRgbaColor()} );
   },
     {
       code: 'NumberExpected',
@@ -385,8 +385,8 @@ test('get/set brush properties', (t) => {
   instance.setProperty("ref-color", { red: 0,  green: 0, blue: 0 } );
   instance_ref = instance!.getProperty("ref-color");
 
-  if (t.true((instance_ref instanceof SlintBrush))) {
-    let ref_color = (instance_ref as SlintBrush).color;
+  if (t.true((instance_ref instanceof private_api.SlintBrush))) {
+    let ref_color = (instance_ref as private_api.SlintBrush).color;
     t.deepEqual(ref_color.red, 0);
     t.deepEqual(ref_color.green, 0);
     t.deepEqual(ref_color.blue, 0);

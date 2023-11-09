@@ -6,13 +6,10 @@ export {
     Diagnostic,
     DiagnosticLevel,
     RgbaColor,
-    SlintBrush,
     Brush,
-    SlintRgbaColor,
-    SlintModelNotify,
     SlintSize,
     SlintPoint,
-    SlintImageData
+    SlintImageData,
 } from "./rust-module";
 
 /**
@@ -182,10 +179,10 @@ export abstract class Model<T> {
  * @hidden
  */
 class NullPeer {
-    rowDataChanged(row: number): void { }
-    rowAdded(row: number, count: number): void { }
-    rowRemoved(row: number, count: number): void { }
-    reset(): void { }
+    rowDataChanged(row: number): void {}
+    rowAdded(row: number, count: number): void {}
+    rowRemoved(row: number, count: number): void {}
+    reset(): void {}
 }
 
 /**
@@ -262,7 +259,7 @@ export interface ComponentHandle {
     /**
      * Shows the window and runs the event loop. The returned promise is resolved when the event loop
      * is terminated, for example when the last window was closed, or {@link quit_event_loop} was called.
-     * 
+     *
      * This function is a convenience for calling {@link show}, followed by {@link run_event_loop}, and
      * {@link hide} when the event loop's promise is resolved.
      */
@@ -381,14 +378,14 @@ export interface LoadFileOptions {
  *     }
  * }
  * ```
- * 
+ *
  * ```js
  * import * as slint from "slint-ui";
  * let ui = slint.loadFile("main.slint");
  * let main = new ui.Main();
  * main.greeting = "Hello friends";
  * ```
- * 
+ *
  * @param filePath A path to the file to load. If the path is a relative path, then it is resolved
  *                 against the process' working directory.
  * @param options Use {@link LoadFileOptions} to configure additional Slint compilation aspects,
@@ -484,17 +481,24 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
                 if (componentHandle[callbackName] !== undefined) {
                     console.warn("Duplicated callback name " + callbackName);
                 } else {
-                    Object.defineProperty(componentHandle, cb.replace(/-/g, "_"), {
-                        get() {
-                            return function () {
-                                return instance!.invoke(cb, Array.from(arguments));
-                            };
-                        },
-                        set(callback) {
-                            instance!.setCallback(cb, callback);
-                        },
-                        enumerable: true,
-                    });
+                    Object.defineProperty(
+                        componentHandle,
+                        cb.replace(/-/g, "_"),
+                        {
+                            get() {
+                                return function () {
+                                    return instance!.invoke(
+                                        cb,
+                                        Array.from(arguments)
+                                    );
+                                };
+                            },
+                            set(callback) {
+                                instance!.setCallback(cb, callback);
+                            },
+                            enumerable: true,
+                        }
+                    );
                 }
             });
 
@@ -505,43 +509,78 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
                 } else {
                     let globalObject = Object.create({});
 
-                    instance!.definition().globalProperties(globalName).forEach((prop) => {
-                        let propName = prop.name.replace(/-/g, "_");
+                    instance!
+                        .definition()
+                        .globalProperties(globalName)
+                        .forEach((prop) => {
+                            let propName = prop.name.replace(/-/g, "_");
 
-                        if (globalObject[propName] !== undefined) {
-                            console.warn("Duplicated property name " + propName + " on global " + global);
-                        } else {
-                            Object.defineProperty(globalObject, propName, {
-                                get() {
-                                    return instance!.getGlobalProperty(globalName, prop.name);
-                                },
-                                set(value) {
-                                    instance!.setGlobalProperty(globalName, prop.name, value);
-                                },
-                                enumerable: true,
-                            });
-                        }
-                    });
+                            if (globalObject[propName] !== undefined) {
+                                console.warn(
+                                    "Duplicated property name " +
+                                        propName +
+                                        " on global " +
+                                        global
+                                );
+                            } else {
+                                Object.defineProperty(globalObject, propName, {
+                                    get() {
+                                        return instance!.getGlobalProperty(
+                                            globalName,
+                                            prop.name
+                                        );
+                                    },
+                                    set(value) {
+                                        instance!.setGlobalProperty(
+                                            globalName,
+                                            prop.name,
+                                            value
+                                        );
+                                    },
+                                    enumerable: true,
+                                });
+                            }
+                        });
 
-                    instance!.definition().globalCallbacks(globalName).forEach((cb) => {
-                        let callbackName = cb.replace(/-/g, "_");
+                    instance!
+                        .definition()
+                        .globalCallbacks(globalName)
+                        .forEach((cb) => {
+                            let callbackName = cb.replace(/-/g, "_");
 
-                        if (globalObject[callbackName] !== undefined) {
-                            console.warn("Duplicated property name " + cb + " on global " + global);
-                        } else {
-                            Object.defineProperty(globalObject, cb.replace(/-/g, "_"), {
-                                get() {
-                                    return function () {
-                                        return instance!.invokeGlobal(globalName, cb, Array.from(arguments));
-                                    };
-                                },
-                                set(callback) {
-                                    instance!.setGlobalCallback(globalName, cb, callback);
-                                },
-                                enumerable: true,
-                            });
-                        }
-                    });
+                            if (globalObject[callbackName] !== undefined) {
+                                console.warn(
+                                    "Duplicated property name " +
+                                        cb +
+                                        " on global " +
+                                        global
+                                );
+                            } else {
+                                Object.defineProperty(
+                                    globalObject,
+                                    cb.replace(/-/g, "_"),
+                                    {
+                                        get() {
+                                            return function () {
+                                                return instance!.invokeGlobal(
+                                                    globalName,
+                                                    cb,
+                                                    Array.from(arguments)
+                                                );
+                                            };
+                                        },
+                                        set(callback) {
+                                            instance!.setGlobalCallback(
+                                                globalName,
+                                                cb,
+                                                callback
+                                            );
+                                        },
+                                        enumerable: true,
+                                    }
+                                );
+                            }
+                        });
 
                     Object.defineProperty(componentHandle, globalName, {
                         get() {
@@ -563,8 +602,7 @@ class EventLoop {
     #quit_loop: boolean = false;
     #termination_promise: Promise<unknown> | null = null;
     #terminate_resolve_fn: ((_value: unknown) => void) | null;
-    constructor() {
-    }
+    constructor() {}
 
     start(running_callback?: Function): Promise<unknown> {
         if (this.#termination_promise != null) {
@@ -587,7 +625,10 @@ class EventLoop {
         // can do right now.
         const nodejsPollInterval = 16;
         let id = setInterval(() => {
-            if (napi.processEvents() == napi.ProcessEventsResult.Exited || this.#quit_loop) {
+            if (
+                napi.processEvents() == napi.ProcessEventsResult.Exited ||
+                this.#quit_loop
+            ) {
                 clearInterval(id);
                 this.#terminate_resolve_fn!(undefined);
                 this.#terminate_resolve_fn = null;
@@ -604,7 +645,7 @@ class EventLoop {
     }
 }
 
-var global_event_loop: EventLoop = new EventLoop;
+var global_event_loop: EventLoop = new EventLoop();
 
 /**
  * Spins the Slint event loop and returns a promise that resolves when the loop terminates.
@@ -614,7 +655,7 @@ var global_event_loop: EventLoop = new EventLoop;
  *
  * @param running_callback Optional callback that's invoked once when the event loop is running.
  *                         The function's return value is ignored.
- * 
+ *
  * Note that the event loop integration with Node.js is slightly imperfect. Due to conflicting
  * implementation details between Slint's and Node.js' event loop, the two loops are merged
  * by spinning one after the other, at 16 millisecond intervals. This means that when the
@@ -622,7 +663,7 @@ var global_event_loop: EventLoop = new EventLoop;
  * event loop has any pending events.
  */
 export function run_event_loop(running_callback?: Function): Promise<unknown> {
-    return global_event_loop.start(running_callback)
+    return global_event_loop.start(running_callback);
 }
 
 /**
@@ -630,7 +671,7 @@ export function run_event_loop(running_callback?: Function): Promise<unknown> {
  from run_event_loop() will resolve in a later tick of the nodejs event loop.
  */
 export function quit_event_loop() {
-    global_event_loop.quit()
+    global_event_loop.quit();
 }
 
 /**
@@ -643,6 +684,10 @@ export namespace private_api {
     export import ComponentInstance = napi.ComponentInstance;
     export import ValueType = napi.ValueType;
     export import Window = napi.Window;
+    export import SlintBrush = napi.SlintBrush;
+    export import SlintRgbaColor = napi.SlintRgbaColor;
+    export import SlintPoint = napi.SlintPoint;
+    export import SlintSize = napi.SlintSize;
 
     export function send_mouse_click(
         component: Component,
