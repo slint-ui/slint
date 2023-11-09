@@ -150,10 +150,13 @@ export interface ImageData {
  * ```
  */
 export abstract class Model<T> {
-    #notify: NullPeer;
+    /**
+     * @hidden
+     */
+    notify: NullPeer;
 
     constructor() {
-        this.#notify = new NullPeer();
+        this.notify = new NullPeer();
     }
 
     /**
@@ -174,19 +177,19 @@ export abstract class Model<T> {
     abstract setRowData(row: number, data: T): void;
 
     protected notifyRowDataChanged(row: number): void {
-        this.#notify.rowDataChanged(row);
+        this.notify.rowDataChanged(row);
     }
 
     protected notifyRowAdded(row: number, count: number): void {
-        this.#notify.rowAdded(row, count);
+        this.notify.rowAdded(row, count);
     }
 
     protected notifyRowRemoved(row: number, count: number): void {
-        this.#notify.rowRemoved(row, count);
+        this.notify.rowRemoved(row, count);
     }
 
     protected notifyReset(): void {
-        this.#notify.reset();
+        this.notify.reset();
     }
 }
 
