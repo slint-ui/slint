@@ -168,6 +168,7 @@ export abstract class Model<T> {
      * @param row
      */
     abstract rowData(row: number): T | undefined;
+
     /**
      * Implementations of this function must store the provided data parameter
      * in the model at the specified row.
@@ -176,18 +177,35 @@ export abstract class Model<T> {
      */
     abstract setRowData(row: number, data: T): void;
 
+    /**
+     * Notifies the view that the data of the current row is changed.
+     * @param row index of the changed row.
+     */
     protected notifyRowDataChanged(row: number): void {
         this.notify.rowDataChanged(row);
     }
 
+    /**
+     * Notifies the view that multiple rows are added to the model.
+     * @param row index of the first added row.
+     * @param count the number of added items.
+    */
     protected notifyRowAdded(row: number, count: number): void {
         this.notify.rowAdded(row, count);
     }
 
+    /**
+     * Notifies the view that multiple rows are removed to the model.
+     * @param row index of the first removed row.
+     * @param count the number of removed items.
+    */
     protected notifyRowRemoved(row: number, count: number): void {
         this.notify.rowRemoved(row, count);
     }
 
+    /**
+     * Notifies the view that the complete data must be reload.
+     */
     protected notifyReset(): void {
         this.notify.reset();
     }
