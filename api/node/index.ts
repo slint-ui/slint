@@ -6,12 +6,7 @@ export {
     Diagnostic,
     DiagnosticLevel,
     RgbaColor,
-    SlintBrush,
-    Brush,
-    SlintRgbaColor,
-    SlintSize,
-    SlintPoint,
-    SlintImageData
+    Brush
 } from "./rust-module";
 
 /**
@@ -680,6 +675,12 @@ export namespace private_api {
     export import ComponentInstance = napi.ComponentInstance;
     export import ValueType = napi.ValueType;
     export import Window = napi.Window;
+
+    export import SlintBrush = napi.SlintBrush;
+    export import SlintRgbaColor  = napi.SlintRgbaColor;
+    export import SlintSize = napi.SlintSize;
+    export import SlintPoint = napi.SlintPoint;
+    export import SlintImageData = napi.SlintImageData;
 
     export function send_mouse_click(
         component: Component,

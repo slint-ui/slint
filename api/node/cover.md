@@ -178,9 +178,9 @@ The types used for properties in .slint design markup each translate to specific
 | `bool` | `Boolean` | |
 | `float` | `Number` | |
 | `string` | `String` | |
-| `color` | {@link RgbaColor} | Property getters always return {@link SlintBrush} |
-| `brush` | {@link Brush} | Property getters always return a {@link SlintBrush} |
-| `image` | {@link ImageData} | Property getters always return a {@link SlintImageData}  |
+| `color` | {@link RgbaColor} | |
+| `brush` | {@link Brush} | |
+| `image` | {@link ImageData} | |
 | `length` | `Number` | |
 | `physical_length` | `Number` | |
 | `duration` | `Number` | The number of milliseconds |
