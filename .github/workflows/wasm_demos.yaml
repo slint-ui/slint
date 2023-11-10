@@ -66,7 +66,7 @@ jobs:
       run: |
         sed -i "s/#wasm# //" Cargo.toml
         wasm-pack build --release --target web
-      working-directory: examples/imagefilter
+      working-directory: examples/imagefilter/rust
     - name: Plotter example WASM build
       run: |
         sed -i "s/#wasm# //" Cargo.toml
@@ -94,7 +94,7 @@ jobs:
               examples/carousel/rust/
               examples/memory/
               examples/slide_puzzle/
-              examples/imagefilter/
+              examples/imagefilter/rust
               examples/plotter/
               examples/opengl_underlay/
               examples/energy-monitor/

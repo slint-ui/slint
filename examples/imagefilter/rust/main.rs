@@ -4,52 +4,10 @@
 use slint::SharedString;
 use std::rc::Rc;
 
+slint::include_modules!();
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-
-slint::slint! {
-    import { Slider, HorizontalBox, VerticalBox, GroupBox, ComboBox } from "std-widgets.slint";
-
-    export component MainWindow inherits Window {
-        in property original-image <=> original.source;
-        in property filters <=> filter-combo.model;
-
-        pure callback filter-image(int) -> image;
-
-        title: "Slint Image Filter Integration Example";
-        preferred-width: 800px;
-        preferred-height: 600px;
-
-        HorizontalBox {
-            VerticalBox {
-                Text {
-                    font-size: 20px;
-                    text: "Original Image";
-                    horizontal-alignment: center;
-                }
-                original := Image { }
-            }
-            VerticalBox {
-                alignment: center;
-                filter-combo := ComboBox {
-                    current-value: "Blur";
-                    current-index: 0;
-                    vertical-stretch: 0;
-                }
-            }
-            VerticalBox {
-                Text {
-                    font-size: 20px;
-                    text: "Filtered Image";
-                    horizontal-alignment: center;
-                }
-                Image {
-                    source: filter-image(filter-combo.current-index);
-                }
-            }
-        }
-    }
-}
 
 struct Filter {
     name: SharedString,
@@ -84,11 +42,12 @@ pub fn main() {
     let main_window = MainWindow::new().unwrap();
 
     #[cfg(target_arch = "wasm32")]
-    let source_image = image::load_from_memory(include_bytes!("cat.jpg")).unwrap().into_rgba8();
+    let source_image =
+        image::load_from_memory(include_bytes!("../assets/cat.jpg")).unwrap().into_rgba8();
     #[cfg(not(target_arch = "wasm32"))]
     let source_image = {
         let mut cat_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        cat_path.push("cat.jpg");
+        cat_path.push("../assets/cat.jpg");
         image::open(&cat_path).expect("Error loading cat image").into_rgba8()
     };
 

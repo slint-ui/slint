@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Slider, HorizontalBox, VerticalBox, GroupBox, ComboBox } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    in property original-image <=> original.source;
+    in property filters <=> filter-combo.model;
+
+    pure callback filter-image(int) -> image;
+
+    title: "Slint Image Filter Integration Example";
+    preferred-width: 800px;
+    preferred-height: 600px;
+
+    HorizontalBox {
+        VerticalBox {
+            Text {
+                font-size: 20px;
+                text: "Original Image";
+                horizontal-alignment: center;
+            }
+            original := Image { }
+        }
+        VerticalBox {
+            alignment: center;
+            filter-combo := ComboBox {
+                current-value: "Blur";
+                current-index: 0;
+                vertical-stretch: 0;
+            }
+        }
+        VerticalBox {
+            Text {
+                font-size: 20px;
+                text: "Filtered Image";
+                horizontal-alignment: center;
+            }
+            Image {
+                source: filter-image(filter-combo.current-index);
+            }
+        }
+    }
+}
