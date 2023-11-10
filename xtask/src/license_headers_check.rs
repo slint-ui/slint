@@ -578,8 +578,9 @@ fn collect_files() -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
+#[derive(Debug)]
 enum CargoDependency {
-    Simple { _version: String },
+    Workspace,
     Full { path: String, version: String },
 }
 
@@ -587,7 +588,7 @@ impl CargoDependency {
     fn new(encoded_value: &toml_edit::Value) -> Option<Self> {
         match encoded_value {
             toml_edit::Value::String(s) => {
-                return Some(Self::Simple { _version: s.value().clone() })
+                return Some(Self::Full { version: s.value().clone(), path: String::new() })
             }
             toml_edit::Value::Float(_) => None,
             toml_edit::Value::Datetime(_) => None,
@@ -595,13 +596,17 @@ impl CargoDependency {
             toml_edit::Value::Array(_) => None,
             toml_edit::Value::Integer(_) => None,
             toml_edit::Value::InlineTable(table) => {
-                if let (Some(path), Some(version)) = (table.get("path"), table.get("version")) {
-                    Some(Self::Full {
-                        path: path.as_str().unwrap_or_default().to_owned(),
-                        version: version.as_str().unwrap_or_default().to_owned(),
-                    })
+                if table.get("workspace").is_some() {
+                    Some(Self::Workspace)
                 } else {
-                    None
+                    Some(Self::Full {
+                        path: table.get("path").and_then(|x| x.as_str()).unwrap_or("").to_owned(),
+                        version: table
+                            .get("version")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("")
+                            .to_owned(),
+                    })
                 }
             }
         }
@@ -889,12 +894,7 @@ impl LicenseHeaderCheck {
         {
             if dep_name.starts_with("slint") || dep_name.starts_with("i-slint") {
                 match dep {
-                    CargoDependency::Simple { .. } => {
-                        return Err(anyhow!(
-                            "slint package '{}' outside of the repository?",
-                            dep_name
-                        ))
-                    }
+                    CargoDependency::Workspace => (),
                     CargoDependency::Full { path, version } => {
                         if path.is_empty() {
                             return Err(anyhow!(
@@ -907,6 +907,31 @@ impl LicenseHeaderCheck {
                                 "Version \"{}\" must be specified for dependency {}",
                                 expected_version,
                                 dep_name
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        for (dep_name, dep) in doc.dependencies("dev-dependencies").iter() {
+            if dep_name.starts_with("slint") || dep_name.starts_with("i-slint") {
+                match dep {
+                    CargoDependency::Workspace => {
+                        return Err(anyhow!(
+                            "dev-dependencies cannot be from the workspace because version must be empty {dep_name}"
+                        ));
+                    }
+                    CargoDependency::Full { path, version } => {
+                        if path.is_empty() {
+                            return Err(anyhow!(
+                                "slint package '{}' outside of the repository?",
+                                dep_name
+                            ));
+                        }
+                        if !version.is_empty() {
+                            return Err(anyhow!(
+                                "dev-dependencies version must be empty for dependency {dep_name}"
                             ));
                         }
                     }
