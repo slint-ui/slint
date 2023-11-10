@@ -79,7 +79,7 @@ cocoa = { version = "0.24.0" }
 cfg_aliases = "0.1.0"
 
 [dev-dependencies]
-slint = { workspace = true, features = ["std", "compat-1-2", "backend-winit", "renderer-software"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software"] }
 
 [package.metadata.docs.rs]
 features = ["wayland", "renderer-software"]

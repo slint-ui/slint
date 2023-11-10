@@ -100,8 +100,8 @@ rustybuzz = { version = "0.7.0", optional = true }
 fontdue = { version = "0.7.1", optional = true }
 
 [dev-dependencies]
-slint = { workspace = true, features = ["std", "compat-1-2"] }
-i-slint-backend-testing = { workspace = true, features = ["default"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
+i-slint-backend-testing = { path="../backends/testing" }
 rustybuzz = "0.7.0"
 ttf-parser = "0.18.0"
 fontdb = { workspace = true, default-features = true, features = ["fontconfig"] }
