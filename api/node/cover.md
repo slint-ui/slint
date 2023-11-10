@@ -138,7 +138,7 @@ instance.name = "Joe";
 
 ### Setting and Invoking Callbacks
 
-[Callbacks](src/language/syntax/callbacks) declared in `.slint` files are visible as JavasScript function properties on the component instance. Invoke them
+[Callbacks](src/language/syntax/callbacks) declared in `.slint` files are visible as JavaScript function properties on the component instance. Invoke them
 as function to invoke the callback, and assign JavaScript functions to set the callback handler.
 
 **`ui/my-component.slint`**
