@@ -169,9 +169,13 @@ struct Cli {
     #[arg(long, name = "style name", default_value_t, action)]
     style: String,
 
-    /// The backend used for the preview ('GL' or 'Qt')
+    /// The backend or renderer used for the preview ('qt', 'femtovg', 'skia' or 'software')
     #[arg(long, name = "backend", default_value_t, action)]
     backend: String,
+
+    /// Start the preview in full screen mode
+    #[arg(long, action)]
+    fullscreen: bool,
 }
 
 enum OutgoingRequest {
@@ -255,6 +259,10 @@ fn main() {
     let args: Cli = Cli::parse();
     if !args.backend.is_empty() {
         std::env::set_var("SLINT_BACKEND", &args.backend);
+    }
+    if args.fullscreen {
+        // TODO: Have an API to set the Window fullscreen #3283
+        std::env::set_var("SLINT_FULLSCREEN", "1");
     }
 
     #[cfg(feature = "preview-engine")]
