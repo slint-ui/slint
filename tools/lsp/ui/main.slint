@@ -15,11 +15,12 @@ export struct Diagnostics {
 }
 
 export component PreviewUi inherits Window {
-    in property<[string]> known-styles <=> i-style-select.model;
+    in property<[string]> known-styles;
     in property<[Diagnostics]> diagnostics;
     in property<string> status-text;
     in property<component-factory> preview-area <=> i-preview-area-container.component-factory;
-    in-out property<string> current-style <=> i-style-select.current-value;
+    in-out property<string> current-style;
+    in property<bool> hide-toolbar;
 
     callback design-mode-changed(/* enabled */ bool);
     callback style-changed();
@@ -29,7 +30,7 @@ export component PreviewUi inherits Window {
     icon: @image-url("assets/slint-logo-small-light.png");
 
     VerticalLayout {
-        HeaderBar {
+        if !hide_toolbar: HeaderBar {
             vertical-stretch: 0.0;
 
             height: self.preferred-height;
@@ -48,6 +49,8 @@ export component PreviewUi inherits Window {
                 vertical-alignment: center;
             }
             i-style-select := ComboBox {
+                model: root.known-styles;
+                current-value <=> current-style;
                 selected(value) => {
                     root.style-changed();
                 }
