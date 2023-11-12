@@ -1,0 +1,32 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+[package]
+name = "slint-dotnet"
+description = "Internal Slint Runtime Library for .NET API."
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+categories = ["gui", "development-tools"]
+build = "build.rs"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+async-std = { version = "1.10.0" }
+rnet = { version = "0.3.1" }
+linkme = "0.2.7"
+
+i-slint-compiler = { workspace = true, features = ["default"] }
+i-slint-core = { workspace = true, features = ["default"] }
+i-slint-backend-selector = { workspace = true, features = ["backend-winit", "backend-winit-x11", "backend-winit-wayland", "backend-linuxkms", "renderer-skia-opengl", "renderer-skia", "renderer-software"] }
+# we do not need qt
+slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal"] }
