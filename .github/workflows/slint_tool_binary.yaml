@@ -27,6 +27,9 @@ on:
         description: features to enable for build
         default: "backend-winit,renderer-femtovg,renderer-skia"
 
+env:
+  MACOSX_DEPLOYMENT_TARGET: 11
+
 jobs:
   build_windows:
     runs-on: windows-2022

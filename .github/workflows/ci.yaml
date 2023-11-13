@@ -10,6 +10,9 @@ on:
     branches: [master, "feature/*"]
   workflow_dispatch:
 
+env:
+  MACOSX_DEPLOYMENT_TARGET: 11
+
 jobs:
   build_and_test:
     env:
