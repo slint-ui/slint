@@ -38,7 +38,7 @@ jobs:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
     - name: Install Qt
-      if: runner.os != 'Windows'
+      if: runner.os == 'Linux'
       uses: jurplel/install-qt-action@v3
       with:
         version: '5.15.2'
@@ -49,15 +49,6 @@ jobs:
       run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
     - name: Setup headless display
       uses: pyvista/setup-headless-display-action@v1
-    - name: Set default style
-      if: matrix.os != 'windows-2022'
-      run: |
-          echo "SLINT_STYLE=native" >> $GITHUB_ENV
-    - name: Set default style
-      if: matrix.os == 'windows-2022'
-      run: |
-          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     - uses: ./.github/actions/setup-rust
       with:
         toolchain: ${{ matrix.rust_version }}
@@ -104,7 +95,7 @@ jobs:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
     - name: Install Qt
-      if: runner.os != 'Windows'
+      if: runner.os == 'Linux'
       uses: jurplel/install-qt-action@v3
       with:
         version: '5.15.2'
@@ -112,15 +103,6 @@ jobs:
         cache: true
     - name: Setup headless display
       uses: pyvista/setup-headless-display-action@v1
-    - name: Set default style
-      if: matrix.os != 'windows-2022'
-      run: |
-          echo "SLINT_STYLE=native" >> $GITHUB_ENV
-    - name: Set default style
-      if: matrix.os == 'windows-2022'
-      run: |
-          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     - uses: ./.github/actions/install-nodejs
       id: node-install
     - uses: ./.github/actions/setup-rust
@@ -160,19 +142,11 @@ jobs:
       with:
         force-gcc-10: true
     - name: Install Qt
-      if: runner.os != 'Windows'
+      if: runner.os == 'Linux'
       uses: jurplel/install-qt-action@v3
       with:
         version: '5.15.2'
         cache: true
-    - name: Set default style
-      if: runner.os != 'Windows'
-      run: echo "SLINT_STYLE=native" >> $GITHUB_ENV
-    - name: Set default style
-      if: runner.os == 'Windows'
-      run: |
-          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     - uses: ./.github/actions/setup-rust
     - name: Build
       run: cargo build --lib -p slint-cpp --features testing,backend-qt
@@ -197,15 +171,15 @@ jobs:
         force-gcc-10: true
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v3
-      if: matrix.os == 'ubuntu-22.04'
+      if: runner.os == 'Linux'
       with:
         version: 5.15.2
         cache: true
     - name: Install Qt (cached)
-      if: matrix.os != 'ubuntu-22.04'
+      if: runner.os == 'Windows'
       uses: jurplel/install-qt-action@v3
       with:
-        version: 6.5.1
+        version: 6.5.3
         cache: true
     - uses: ./.github/actions/setup-rust
     - uses: ilammy/msvc-dev-cmd@v1
