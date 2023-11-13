@@ -47,9 +47,8 @@ class Filters extends slint.Model<string> {
 const demo = slint.loadFile("../ui/main.slint") as any;
 const mainWindow = new demo.MainWindow();
 
-Jimp.read("../assets/cat.jpg").then((sourceImage) => {
-    mainWindow.original_image = sourceImage.bitmap;
-});
+const sourceImage = await Jimp.read("../assets/cat.jpg");
+mainWindow.original_image = sourceImage.bitmap;
 
 const filters = new Filters([
     new Filter("Blur", (image) => {
