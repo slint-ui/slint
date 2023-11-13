@@ -78,4 +78,4 @@ mainWindow.filter_image = function (index: number) {
     return filterFunction(mainWindow.original_image);
 };
 
-mainWindow.run();
+await mainWindow.run();
