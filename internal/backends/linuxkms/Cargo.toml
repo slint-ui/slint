@@ -27,7 +27,7 @@ default = []
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "image-decoders", "svg"] }
 i-slint-common = { workspace = true, features = ["default"] }
-i-slint-renderer-skia = { workspace = true, features = ["default"], optional = true }
+i-slint-renderer-skia = { workspace = true, features = ["default", "kms"], optional = true }
 i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
