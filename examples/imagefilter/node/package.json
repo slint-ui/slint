@@ -2,6 +2,7 @@
     "name": "imagefilter",
     "version": "1.3.0",
     "main": "main.js",
+    "type": "module",
     "dependencies": {
         "slint-ui": "../../../api/node",
         "jimp": "^0.22.8"
