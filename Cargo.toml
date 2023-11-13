@@ -12,7 +12,7 @@ members = [
     'docs/tutorial/rust/src',
     'examples/7guis',
     'examples/gallery',
-    'examples/imagefilter',
+    'examples/imagefilter/rust',
     'examples/memory',
     'examples/opengl_underlay',
     'examples/opengl_texture',

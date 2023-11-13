@@ -8,17 +8,18 @@ authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 publish = false
 license = "MIT"
+build = "build.rs"
 
 [[bin]]
 path = "main.rs"
 name = "imagefilter"
 
 [dependencies]
-slint = { path = "../../api/rs/slint" }
+slint = { path = "../../../api/rs/slint" }
 image = { version = "0.24.0", default-features = false, features = [ "png" ] }
 
 [build-dependencies]
-slint-build = { path = "../../api/rs/build" }
+slint-build = { path = "../../../api/rs/build" }
 
 # Remove the `#wasm#` to uncomment the wasm build.
 # This is commented out by default because we don't want to build it as a library by default
