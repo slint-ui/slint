@@ -6,7 +6,6 @@
     "dependencies": {
         "slint-ui": "../../../api/node",
         "jimp": "^0.22.8"
-
     },
     "devDependencies": {
         "@types/node": "^20.9.0",
