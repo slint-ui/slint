@@ -94,7 +94,7 @@ inline cbindgen_private::Rect convert_anonymous_rect(std::tuple<float, float, fl
     return cbindgen_private::Rect { .x = x, .y = y, .width = w, .height = h };
 }
 
-inline void dealloc(const ItemTreeVTable *, uint8_t *ptr, vtable::Layout layout)
+inline void dealloc(const ItemTreeVTable *, uint8_t *ptr, [[maybe_unused]] vtable::Layout layout)
 {
 #ifdef __cpp_sized_deallocation
     ::operator delete(reinterpret_cast<void *>(ptr), layout.size,
