@@ -23,6 +23,7 @@ wayland = ["glutin/wayland", "softbuffer/wayland", "softbuffer/wayland-dlopen"]
 x11 = ["glutin/x11", "glutin/glx", "softbuffer/x11", "softbuffer/x11-dlopen"]
 opengl = ["skia-safe/gl"]
 vulkan = ["skia-safe/vulkan", "ash", "vulkano"]
+kms = ["softbuffer/kms"]
 default = []
 
 [dependencies]
