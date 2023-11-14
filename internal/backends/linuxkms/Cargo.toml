@@ -32,7 +32,7 @@ i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional 
 
 [target.'cfg(target_os = "linux")'.dependencies]
 input = { version = "0.8.2" }
-xkbcommon = { version = "0.6.0" }
+xkbcommon = { version = "0.7.0" }
 calloop = { version = "0.12.3" }
 libseat = { version = "0.2.1", default-features = false }
 nix = { version = "0.27.0", features=["fs"] }
