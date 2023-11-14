@@ -268,12 +268,14 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
         token_factory: &mut calloop::TokenFactory,
     ) -> calloop::Result<()> {
         self.token = Some(token_factory.token());
-        poll.register(
-            &self.libinput,
-            calloop::Interest::READ,
-            calloop::Mode::Level,
-            self.token.unwrap(),
-        )
+        unsafe {
+            poll.register(
+                &self.libinput,
+                calloop::Interest::READ,
+                calloop::Mode::Level,
+                self.token.unwrap(),
+            )
+        }
     }
 
     fn reregister(
