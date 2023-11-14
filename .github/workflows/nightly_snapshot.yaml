@@ -315,7 +315,7 @@ jobs:
             rm -rf $output_path/demos
             mkdir -p $output_path/demos
 
-            for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust slide_puzzle, memory, imagefilter, plotter, opengl_underlay, carousel,rust energy-monitor,; do
+            for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust slide_puzzle, memory, imagefilter,rust plotter, opengl_underlay, carousel,rust energy-monitor,; do
                 IFS=',' read demo subdir <<< "${demo_subdir}"
 
                 mkdir -p $output_path/demos/$demo
