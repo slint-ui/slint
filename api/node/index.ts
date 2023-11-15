@@ -300,7 +300,7 @@ export class ArrayModel<T> extends Model<T> {
      * Removes the specified number of element from the array that's backing
      * the model, starting at the specified index.
      * @param index start index of the remove operation.
-     * @param size size of data items to remove.
+     * @param size number of rows to remove.
      */
     remove(index: number, size: number) {
         let r = this.#array.splice(index, size);
