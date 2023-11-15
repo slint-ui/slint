@@ -18,14 +18,14 @@ on:
         description: "Release? Enable options for building binaries for a release (i.e. apply a nightly tag, nightly version)"
 
   schedule:
-    - cron: '0 5 * * *'      
+    - cron: '0 5 * * *'
 
 jobs:
   build_and_publish_npm_package:
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
-    - uses: ./.github/actions/install-linux-dependencies    
+    - uses: ./.github/actions/install-linux-dependencies
     - uses: ./.github/actions/setup-rust
     # Setup .npmrc file to publish to npm
     - uses: actions/setup-node@v3
@@ -50,6 +50,12 @@ jobs:
       run: |
         echo "PKG_EXTRA_ARGS=--sha1=$GITHUB_SHA" >> $GITHUB_ENV
         echo "PUBLISH_TAG=--tag nightly" >> $GITHUB_ENV
+    - name: Compile index.js and index.d.ts
+      working-directory: api/node
+      run: |
+        npm install
+        npm run build
+        npm run compile
     - name: Build package
       run: |
           cargo xtask node_package $PKG_EXTRA_ARGS
