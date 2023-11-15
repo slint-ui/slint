@@ -16,15 +16,18 @@
     "@types/node-fetch": "^2.6.7",
     "ava": "^5.3.0",
     "jimp": "^0.22.8",
-    "typedoc": "^0.25.2"
+    "typedoc": "^0.25.2",
+    "esbuild": "^0.19.5",
+    "typescript": "^5.2.2"
   },
   "engines": {
     "node": ">= 10"
   },
   "scripts": {
     "artifacts": "napi artifacts",
-    "compile": "esbuild index.ts --bundle --external:*.node --format=cjs --platform=node --outfile=index.js && tsc --declaration --emitDeclarationOnly",
-    "build": "napi build --platform --release --js rust-module.js --dts rust-module.d.ts && npm run compile",
+    "compile_dts": "tsc index.ts --target esnext --module nodenext --moduleResolution nodenext --declaration --emitDeclarationOnly",
+    "compile": "esbuild index.ts --bundle --external:*.node --format=cjs --platform=node --outfile=index.js && npm run compile_dts",
+    "build": "napi build --platform --release --js rust-module.js --dts rust-module.d.ts",
     "build:debug": "napi build --platform --js rust-module.js --dts rust-module.d.ts && npm run compile && npm run syntax_check",
     "install": "npm run build",
     "docs": "npm run build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md index.ts",
@@ -45,7 +48,6 @@
     }
   },
   "dependencies": {
-    "@napi-rs/cli": "^2.16.5",
-    "esbuild": "^0.14.54"
+    "@napi-rs/cli": "^2.16.5"
   }
 }
