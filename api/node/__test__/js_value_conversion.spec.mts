@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'url';
 import Jimp = require("jimp");
 
-import { private_api, ImageData, ArrayModel } from '../index.js'
+import { private_api, ImageData, ArrayModel, Model, MapModel } from '../index.js'
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -441,6 +441,53 @@ test('ArrayModel', (t) => {
 
   let structArrayModel = instance!.getProperty("struct-model") as ArrayModel<object>;
   t.deepEqual(structArrayModel.values(), new ArrayModel([{ "name": "simon", "age": 22 }, { "name": "florian", "age": 22 }]).values());
+})
+
+test("MapModel", (t) => {
+    let compiler = new private_api.ComponentCompiler();
+    let definition = compiler.buildFromSource(`
+    export component App {
+      in-out property <[string]> model;
+    }`,"");
+    t.not(definition, null);
+
+    let instance = definition!.create();
+    t.not(instance, null);
+
+    interface Name {
+        first: string;
+        last: string;
+    }
+
+    const nameModel: ArrayModel<Name> = new ArrayModel([
+        { first: "Hans", last: "Emil" },
+        { first: "Max", last: "Mustermann" },
+        { first: "Roman", last: "Tisch" },
+    ]);
+
+    const mapModel = new MapModel(
+        nameModel,
+        (data) => {
+            return data.last + ", " + data.first;
+        },
+        (data) => {
+            const name = data.split(", ");
+            return {
+                first: name[1],
+                last: name[0],
+            };
+        }
+    );
+
+    instance!.setProperty("model", mapModel);
+
+    nameModel.setRowData(1, { first: "Simon", last: "Hausmann" } );
+    mapModel.setRowData(2, "Blasius, Florian");
+
+    const checkModel = instance!.getProperty("model") as Model<string>;
+    t.is(checkModel.rowData(0), "Emil, Hans");
+    t.is(checkModel.rowData(1), "Hausmann, Simon");
+    t.is(checkModel.rowData(2), "Blasius, Florian");
 })
 
 test('ArrayModel rowCount', (t) => {

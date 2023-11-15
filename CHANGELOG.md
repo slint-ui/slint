@@ -10,6 +10,10 @@ All notable changes to this project are documented in this file.
  - Added `clamp` function that takes a `value`, `minimum` and `maxium` and will return
    `maximum` if `value > maximum`, `minimum` if `value < minimum` or `value` otherwise.
 
+### JavaScript
+
+- Added `MapModel`
+
 ## [1.3.0] - 2023-11-10
 
 ### General
