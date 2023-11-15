@@ -287,7 +287,7 @@ export class ArrayModel<T> extends Model<T> {
     /**
      * Pushes new values to the array that's backing the model and notifies
      * the run-time about the added rows.
-     * @param values list of values that should be pushed to the array.
+     * @param values list of values that will be pushed to the array.
      */
     push(...values: T[]) {
         let size = this.#array.length;
