@@ -148,6 +148,9 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
 
     let package_json: serde_json::Value = serde_json::from_str(&package_json_source)?;
 
+    cmd!(sh, format!("npm run build --prefix {}", node_dir.display())).run()?;
+    cmd!(sh, format!("npm run compile --prefix {}", node_dir.display())).run()?;
+
     let file_name = node_dir.join(format!(
         "{}-{}.tgz",
         package_json["name"].as_str().unwrap(),

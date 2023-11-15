@@ -11,3 +11,4 @@ yarn.lock
 .yarn
 __test__
 renovate.json
+rust-module.*
