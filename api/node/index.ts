@@ -29,12 +29,12 @@ export interface Point {
  */
 export interface Size {
     /**
-     * Defines the width length of the point.
+     * Defines the width length of the size.
      */
     width: number;
 
     /**
-     * Defines the height length of the point.
+     * Defines the height length of the size.
      */
     height: number;
 }
@@ -174,15 +174,15 @@ export abstract class Model<T> {
     abstract rowCount(): number;
     /**
      * Implementations of this function must return the data at the specified row.
-     * @param row index of data's row.
-     * @returns the data if the model includes data on the given row index otherwise undefined.
+     * @param row index in range 0..(rowCount() - 1).
+     * @returns undefined if row is out of range otherwise the data.
      */
     abstract rowData(row: number): T | undefined;
 
     /**
      * Implementations of this function must store the provided data parameter
      * in the model at the specified row.
-     * @param row index of data's row
+     * @param row index in range 0..(rowCount() - 1).
      * @param data new data item to store on the given row index
      */
     abstract setRowData(row: number, data: T): void;
@@ -267,8 +267,8 @@ export class ArrayModel<T> extends Model<T> {
 
     /**
      * Returns the data at the specified row.
-     * @param row index of data's row.
-     * @returns the data if the model includes data on the given row index otherwise undefined.
+     * @param row index in range 0..(rowCount() - 1).
+     * @returns undefined if row is out of range otherwise the data.
      */
     rowData(row: number) {
         return this.#array[row];
@@ -276,7 +276,7 @@ export class ArrayModel<T> extends Model<T> {
 
     /**
      * Stores the given data on the given row index and notifies run-time about the changed row.
-     * @param row index of data's row
+     * @param row index in range 0..(rowCount() - 1).
      * @param data new data item to store on the given row index
      */
     setRowData(row: number, data: T) {
