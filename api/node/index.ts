@@ -13,7 +13,14 @@ export {
  *  Represents a two-dimensional point.
  */
 export interface Point {
+    /**
+     * Defines the x coordinate of the point.
+     */
     x: number;
+
+    /**
+     * Defines the y coordinate of the point.
+     */
     y: number;
 }
 
@@ -21,7 +28,14 @@ export interface Point {
  *  Represents a two-dimensional size.
  */
 export interface Size {
+    /**
+     * Defines the width length of the size.
+     */
     width: number;
+
+    /**
+     * Defines the height length of the size.
+     */
     height: number;
 }
 
@@ -160,15 +174,16 @@ export abstract class Model<T> {
     abstract rowCount(): number;
     /**
      * Implementations of this function must return the data at the specified row.
-     * @param row
+     * @param row index in range 0..(rowCount() - 1).
+     * @returns undefined if row is out of range otherwise the data.
      */
     abstract rowData(row: number): T | undefined;
 
     /**
      * Implementations of this function must store the provided data parameter
      * in the model at the specified row.
-     * @param row
-     * @param data
+     * @param row index in range 0..(rowCount() - 1).
+     * @param data new data item to store on the given row index
      */
     abstract setRowData(row: number, data: T): void;
 
@@ -236,18 +251,34 @@ export class ArrayModel<T> extends Model<T> {
         this.#array = arr;
     }
 
+    /**
+     * Returns the number of entries in the array model.
+     */
     get length(): number {
         return this.#array.length;
     }
 
+    /**
+     * Returns the number of entries in the array model.
+     */
     rowCount() {
         return this.#array.length;
     }
 
+    /**
+     * Returns the data at the specified row.
+     * @param row index in range 0..(rowCount() - 1).
+     * @returns undefined if row is out of range otherwise the data.
+     */
     rowData(row: number) {
         return this.#array[row];
     }
 
+    /**
+     * Stores the given data on the given row index and notifies run-time about the changed row.
+     * @param row index in range 0..(rowCount() - 1).
+     * @param data new data item to store on the given row index
+     */
     setRowData(row: number, data: T) {
         this.#array[row] = data;
         this.notifyRowDataChanged(row);
@@ -256,7 +287,7 @@ export class ArrayModel<T> extends Model<T> {
     /**
      * Pushes new values to the array that's backing the model and notifies
      * the run-time about the added rows.
-     * @param values
+     * @param values list of values that will be pushed to the array.
      */
     push(...values: T[]) {
         let size = this.#array.length;
@@ -268,18 +299,24 @@ export class ArrayModel<T> extends Model<T> {
     /**
      * Removes the specified number of element from the array that's backing
      * the model, starting at the specified index.
-     * @param index
-     * @param size
+     * @param index index of first row to remove.
+     * @param size number of rows to remove.
      */
     remove(index: number, size: number) {
         let r = this.#array.splice(index, size);
         this.notifyRowRemoved(index, size);
     }
 
+    /**
+     * Returns an iterable of values in the array.
+     */
     values(): IterableIterator<T> {
         return this.#array.values();
     }
 
+    /**
+     * Returns an iterable of key, value pairs for every entry in the array.
+     */
     entries(): IterableIterator<[number, T]> {
         return this.#array.entries();
     }
