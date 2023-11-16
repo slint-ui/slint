@@ -59,8 +59,8 @@ component ScrollBar inherits Rectangle {
     animate size { duration: 150ms; easing: ease-out; }
 
     i-thumb := Rectangle {
-        width: !root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * root.page-size / (root.maximum + root.page-size));
-        height: root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * (root.page-size / (root.maximum + root.page-size)));
+        width: !root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(8px, root.track-size * root.page-size / (root.maximum + root.page-size));
+        height: root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(8px, root.track-size * (root.page-size / (root.maximum + root.page-size)));
         x: !root.horizontal ? parent.width - 4px - self.width : root.offset + (root.track-size - i-thumb.width) * (-root.value / root.maximum);
         y: root.horizontal ? parent.height - 4px - self.height : root.offset + (root.track-size - i-thumb.height) * (-root.value / root.maximum);
         border-radius: (root.horizontal ? self.height : self.width) / 2;
