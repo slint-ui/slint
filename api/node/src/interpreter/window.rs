@@ -117,4 +117,10 @@ impl JsWindow {
             height: size.height.floor() as u32,
         });
     }
+
+    /// Issues a request to the windowing system to re-render the contents of the window.
+    #[napi(js_name = "requestRedraw")]
+    pub fn request_redraw(&self) {
+        self.inner.request_redraw();
+    }
 }
