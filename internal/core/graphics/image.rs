@@ -473,6 +473,15 @@ impl<'a> From<&'a Image> for &'a ImageInner {
 #[derive(Default, Debug, PartialEq)]
 pub struct LoadImageError(());
 
+impl core::fmt::Display for LoadImageError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("The image cannot be loaded")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for LoadImageError {}
+
 /// An image type that can be displayed by the Image element. You can construct
 /// Image objects from a path to an image file on disk, using [`Self::load_from_path`].
 ///
