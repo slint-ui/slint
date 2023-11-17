@@ -24,7 +24,6 @@ pub(super) fn draw_texture_line(
         *texture;
     let source_size = source_size.cast::<usize>();
     let span_size = span.size.cast::<usize>();
-    let bpp = format.bpp();
     let y = (line - span.origin.y_length()).cast::<usize>();
 
     let line_buffer = &mut line_buffer[span.origin.x as usize..][..span.size.width as usize];
@@ -39,11 +38,21 @@ pub(super) fn draw_texture_line(
             pos += (span_size.width as isize - 1) * delta;
             delta = -delta;
         };
-        for pix in line_buffer {
-            fetch_blend_pixel(pix, format, data, (pos as usize >> 8) * bpp, alpha, color);
-            pos += delta;
-        }
+        fetch_blend_pixel(
+            line_buffer,
+            format,
+            data,
+            alpha,
+            color,
+            #[inline(always)]
+            |bpp| {
+                let p = (pos as usize >> 8) * bpp;
+                pos += delta;
+                p
+            },
+        );
     } else {
+        let bpp = format.bpp();
         let col = y * source_size.width / span_size.height;
         let col = col * bpp;
         let stride = pixel_stride as usize * bpp;
@@ -53,74 +62,119 @@ pub(super) fn draw_texture_line(
         } else {
             (0, row_delta)
         };
-        for pix in line_buffer {
-            let pos = (row as usize >> 8) * stride + col;
-            fetch_blend_pixel(pix, format, data, pos, alpha, color);
-            row += row_delta;
-        }
+        fetch_blend_pixel(
+            line_buffer,
+            format,
+            data,
+            alpha,
+            color,
+            #[inline(always)]
+            |_| {
+                let pos = (row as usize >> 8) * stride + col;
+                row += row_delta;
+                pos
+            },
+        );
     };
 
-    #[inline]
     fn fetch_blend_pixel(
-        pix: &mut impl TargetPixel,
+        line_buffer: &mut [impl TargetPixel],
         format: PixelFormat,
         data: &[u8],
-        pos: usize,
         alpha: u8,
         color: Color,
+        mut pos: impl FnMut(usize) -> usize,
     ) {
-        let c = match format {
+        match format {
             PixelFormat::Rgb => {
-                let p = &data[pos..pos + 3];
-                if alpha == 0xff {
-                    *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
-                    return;
-                } else {
-                    PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                        alpha, p[0], p[1], p[2],
-                    ))
+                for pix in line_buffer {
+                    let pos = pos(3);
+                    let p = &data[pos..pos + 3];
+                    if alpha == 0xff {
+                        *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
+                    } else {
+                        pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha, p[0], p[1], p[2],
+                        )))
+                    }
                 }
             }
             PixelFormat::Rgba => {
-                let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
-                PremultipliedRgbaColor::premultiply(if color.alpha() == 0 {
-                    Color::from_argb_u8(alpha, data[pos + 0], data[pos + 1], data[pos + 2])
-                } else {
-                    Color::from_argb_u8(alpha, color.red(), color.green(), color.blue())
-                })
-            }
-            PixelFormat::RgbaPremultiplied => {
-                if color.alpha() > 0 {
-                    PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                        ((data[pos + 3] as u16 * alpha as u16) / 255) as u8,
-                        color.red(),
-                        color.green(),
-                        color.blue(),
-                    ))
-                } else if alpha == 0xff {
-                    PremultipliedRgbaColor {
-                        alpha: data[pos + 3],
-                        red: data[pos + 0],
-                        green: data[pos + 1],
-                        blue: data[pos + 2],
+                if color.alpha() == 0 {
+                    for pix in line_buffer {
+                        let pos = pos(4);
+                        let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
+                        let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha,
+                            data[pos + 0],
+                            data[pos + 1],
+                            data[pos + 2],
+                        ));
+                        pix.blend(c);
                     }
                 } else {
-                    PremultipliedRgbaColor {
-                        alpha: (data[pos + 3] as u16 * alpha as u16 / 255) as u8,
-                        red: (data[pos + 0] as u16 * alpha as u16 / 255) as u8,
-                        green: (data[pos + 1] as u16 * alpha as u16 / 255) as u8,
-                        blue: (data[pos + 2] as u16 * alpha as u16 / 255) as u8,
+                    for pix in line_buffer {
+                        let pos = pos(4);
+                        let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
+                        let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha,
+                            color.red(),
+                            color.green(),
+                            color.blue(),
+                        ));
+                        pix.blend(c);
                     }
                 }
             }
-            PixelFormat::AlphaMap => PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                ((data[pos] as u16 * alpha as u16) / 255) as u8,
-                color.red(),
-                color.green(),
-                color.blue(),
-            )),
+            PixelFormat::RgbaPremultiplied => {
+                if color.alpha() > 0 {
+                    for pix in line_buffer {
+                        let pos = pos(4);
+                        let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            ((data[pos + 3] as u16 * alpha as u16) / 255) as u8,
+                            color.red(),
+                            color.green(),
+                            color.blue(),
+                        ));
+                        pix.blend(c);
+                    }
+                } else if alpha == 0xff {
+                    for pix in line_buffer {
+                        let pos = pos(4);
+                        let c = PremultipliedRgbaColor {
+                            alpha: data[pos + 3],
+                            red: data[pos + 0],
+                            green: data[pos + 1],
+                            blue: data[pos + 2],
+                        };
+                        pix.blend(c);
+                    }
+                } else {
+                    for pix in line_buffer {
+                        let pos = pos(4);
+                        let c = PremultipliedRgbaColor {
+                            alpha: (data[pos + 3] as u16 * alpha as u16 / 255) as u8,
+                            red: (data[pos + 0] as u16 * alpha as u16 / 255) as u8,
+                            green: (data[pos + 1] as u16 * alpha as u16 / 255) as u8,
+                            blue: (data[pos + 2] as u16 * alpha as u16 / 255) as u8,
+                        };
+                        pix.blend(c);
+                    }
+                }
+            }
+            PixelFormat::AlphaMap => {
+                for pix in line_buffer {
+                    let pos = pos(1);
+                    let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                        ((data[pos] as u16 * alpha as u16) / 255) as u8,
+                        color.red(),
+                        color.green(),
+                        color.blue(),
+                    ));
+                    pix.blend(c);
+                }
+            }
         };
-        pix.blend(c);
     }
 }
 
