@@ -469,25 +469,17 @@ test("MapModel", (t) => {
         nameModel,
         (data) => {
             return data.last + ", " + data.first;
-        },
-        (data) => {
-            const name = data.split(", ");
-            return {
-                first: name[1],
-                last: name[0],
-            };
         }
     );
 
     instance!.setProperty("model", mapModel);
 
     nameModel.setRowData(1, { first: "Simon", last: "Hausmann" } );
-    mapModel.setRowData(2, "Blasius, Florian");
 
     const checkModel = instance!.getProperty("model") as Model<string>;
     t.is(checkModel.rowData(0), "Emil, Hans");
     t.is(checkModel.rowData(1), "Hausmann, Simon");
-    t.is(checkModel.rowData(2), "Blasius, Florian");
+    t.is(checkModel.rowData(2), "Roman, Tisch");
 })
 
 test('ArrayModel rowCount', (t) => {
