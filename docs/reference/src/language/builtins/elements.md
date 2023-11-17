@@ -756,7 +756,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 -   **`pointer-event(PointerEvent)`**: Invoked when a button was pressed or released. The [_`PointerEvent`_](structs.md#pointerevent)
     argument contains information such which button was pressed and any active keyboard modifiers.
 -   **`scroll-event(PointerScrollEvent) -> EventResult`**: Invoked when the mouse wheel was rotated or another scroll gesture was made.
-    The [_`PointerEvent`_](structs.md#pointerscrollevent) argument contains information about how much to scroll in what direction.
+    The [_`PointerScrollEvent`_](structs.md#pointerscrollevent) argument contains information about how much to scroll in what direction.
     The returned [`EventResult`](enums.md#eventresult) indicates whether to accept or ignore the event. Ignored events are
     forwarded to the parent element.
 
