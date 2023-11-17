@@ -12,7 +12,8 @@ TestCase := Rectangle {
     property<bool> test_is_float: !hello.is_float() && number.is_float() &&
          !invalid.is_float() && negative.is_float();
 
-    property<bool> test: test_is_float &&  42.56001 - number_as_float  < 0.001 && "123".to-float() == 123;
+    property<bool> test: test_is_float &&  42.56001 - number_as_float  < 0.001 && "123".to-float() == 123
+        && "".to-float() == 0 && hello.to-float() == 0 && 0 == invalid.to-float();
 }
 
 
