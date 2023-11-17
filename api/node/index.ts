@@ -170,7 +170,7 @@ export interface ImageData {
  *}
  * ```
  */
- export abstract class Model<T> {
+export abstract class Model<T> {
     /**
      * @hidden
      */
@@ -528,7 +528,7 @@ export class ArrayModel<T> extends Model<T> {
  * ```
  */
 export class MapModel<T, U> extends Model<U> {
-    #sourceModel: Model<T>;
+    readonly sourceModel: Model<T>;
     #mapFunction: (data: T) => U;
     #mapBackFunction: (data: U) => T;
 
@@ -546,17 +546,17 @@ export class MapModel<T, U> extends Model<U> {
         mapBackFunction: (data: U) => T
     ) {
         super();
-        this.#sourceModel = sourceModel;
+        this.sourceModel = sourceModel;
         this.#mapFunction = mapFunction;
         this.#mapBackFunction = mapBackFunction;
-        this.notify = this.#sourceModel.notify;
+        this.notify = this.sourceModel.notify;
     }
 
     /**
      * Returns the number of entries in the model.
      */
     rowCount(): number {
-        return this.#sourceModel.rowCount();
+        return this.sourceModel.rowCount();
     }
 
     /**
@@ -565,7 +565,7 @@ export class MapModel<T, U> extends Model<U> {
      * @returns undefined if row is out of range otherwise the data.
      */
     rowData(row: number): U {
-        return this.#mapFunction(this.#sourceModel.rowData(row));
+        return this.#mapFunction(this.sourceModel.rowData(row));
     }
 
     /**
@@ -574,14 +574,7 @@ export class MapModel<T, U> extends Model<U> {
      * @param data new data item to store on the given row index
      */
     setRowData(row: number, data: U): void {
-        this.#sourceModel.setRowData(row, this.#mapBackFunction(data));
-    }
-
-    /**
-     * Returns the wrapped source model.
-     */
-    get sourceModel(): Model<T> {
-        return this.sourceModel;
+        this.sourceModel.setRowData(row, this.#mapBackFunction(data));
     }
 }
 
@@ -655,36 +648,6 @@ class Component implements ComponentHandle {
         this.#instance.window().hide();
     }
 }
-
-interface Name {
-    first: string,
-    last: string
-}
-
-let model = new ArrayModel<Name>([
-    {
-        first: "Hans",
-        last: "Emil",
-    },
-    {
-        first: "Max",
-        last: "Mustermann",
-    },
-    {
-        first: "Roman",
-        last: "Tisch",
-    }
-]);
-
-let mappedModel = new MapModel(model, (data) => {
-    return data.first + ", " + data.last;
-}, (data) => {
-        return {
-            first: "",
-            last: ""
-        }
-})
-
 
 /**
  * Represents an errors that can be emitted by the compiler.
