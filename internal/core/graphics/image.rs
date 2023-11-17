@@ -135,7 +135,7 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
         [SourcePixelType]: rgb::AsPixels<Pixel>,
     {
         use rgb::AsPixels;
-        Self { width, height, data: pixel_slice.as_pixels().iter().cloned().collect() }
+        Self { width, height, data: pixel_slice.as_pixels().into() }
     }
 }
 
