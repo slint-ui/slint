@@ -135,8 +135,8 @@ impl Path {
 
         let stroke_width = self.stroke_width();
         let geometry = self_rc.geometry();
-        let bounds_width = (geometry.width_length() - stroke_width).max(LogicalLength::zero());
-        let bounds_height = (geometry.height_length() - stroke_width).max(LogicalLength::zero());
+        let bounds_width = geometry.width_length().max(LogicalLength::zero());
+        let bounds_height = geometry.height_length().max(LogicalLength::zero());
         let offset =
             LogicalVector::from_lengths(stroke_width / 2 as Coord, stroke_width / 2 as Coord);
 
