@@ -2,10 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import test from 'ava';
-const path = require('node:path');
-var Jimp = require("jimp");
+import * as path from 'node:path';
+import { fileURLToPath } from 'url';
+import Jimp = require("jimp");
 
-import { private_api, ImageData, ArrayModel } from '../index'
+import { private_api, ImageData, ArrayModel } from '../index.js'
+
+const filename = fileURLToPath(import.meta.url);
+const dirname = path.dirname(filename);
 
 test('get/set string properties', (t) => {
   let compiler = new private_api.ComponentCompiler;
@@ -182,8 +186,7 @@ test('get/set image properties', async (t) => {
     in-out property <image> image: @image-url("resources/rgb.png");
     in property <image> external-image;
     out property <bool> external-image-ok: self.external-image.width == 64 && self.external-image.height == 64;
-  }
-  `, __filename);
+  }`, filename);
   t.not(definition, null);
 
   let instance = definition!.create();
@@ -195,7 +198,7 @@ test('get/set image properties', async (t) => {
     t.deepEqual((slintImage as private_api.SlintImageData).height, 64);
     t.true((slintImage as ImageData).path.endsWith("rgb.png"));
 
-    let image = await Jimp.read(path.join(__dirname, "resources/rgb.png"));
+    let image = await Jimp.read(path.join(dirname, "resources/rgb.png"));
 
     // Sanity check: setProperty fails when passed definitely a non-image
     t.throws(() => {
@@ -290,7 +293,7 @@ test('get/set brush properties', (t) => {
     t.deepEqual(ref_color.alpha, 255);
   }
 
-  instance!.setProperty("ref", { color: { red: 110, green: 120, blue: 125, alpha: 255 }});
+  instance!.setProperty("ref", { color: { red: 110, green: 120, blue: 125, alpha: 255 } });
 
   instance_ref = instance!.getProperty("ref");
 
@@ -341,7 +344,7 @@ test('get/set brush properties', (t) => {
   };
 
   t.throws(() => {
-    instance.setProperty("ref-color", { red: "abc", blue: 0, green: 0, alpha: 0} );
+    instance.setProperty("ref-color", { red: "abc", blue: 0, green: 0, alpha: 0 });
   },
     {
       code: 'NumberExpected',
@@ -350,7 +353,7 @@ test('get/set brush properties', (t) => {
   );
 
   t.throws(() => {
-    instance.setProperty("ref-color", { red: 0, blue: true, green: 0, alpha: 0} );
+    instance.setProperty("ref-color", { red: 0, blue: true, green: 0, alpha: 0 });
   },
     {
       code: 'NumberExpected',
@@ -359,7 +362,7 @@ test('get/set brush properties', (t) => {
   );
 
   t.throws(() => {
-    instance.setProperty("ref-color", { red: 0, blue: 0, green: true, alpha: 0} );
+    instance.setProperty("ref-color", { red: 0, blue: 0, green: true, alpha: 0 });
   },
     {
       code: 'NumberExpected',
@@ -368,7 +371,7 @@ test('get/set brush properties', (t) => {
   );
 
   t.throws(() => {
-    instance.setProperty("ref-color", { red: 0, blue: 0, green: 0, alpha: new private_api.SlintRgbaColor()} );
+    instance.setProperty("ref-color", { red: 0, blue: 0, green: 0, alpha: new private_api.SlintRgbaColor() });
   },
     {
       code: 'NumberExpected',
@@ -377,7 +380,7 @@ test('get/set brush properties', (t) => {
   );
 
   t.throws(() => {
-    instance.setProperty("ref-color", { blue: 0, green: 0, alpha: 0} );
+    instance.setProperty("ref-color", { blue: 0, green: 0, alpha: 0 });
   },
     {
       code: 'GenericFailure',
@@ -386,7 +389,7 @@ test('get/set brush properties', (t) => {
   );
 
   t.throws(() => {
-    instance.setProperty("ref-color", { red: 0, green: 0, alpha: 0} );
+    instance.setProperty("ref-color", { red: 0, green: 0, alpha: 0 });
   },
     {
       code: 'GenericFailure',
@@ -394,7 +397,7 @@ test('get/set brush properties', (t) => {
     }
   );
 
-  instance.setProperty("ref-color", { red: 0,  green: 0, blue: 0 } );
+  instance.setProperty("ref-color", { red: 0, green: 0, blue: 0 });
   instance_ref = instance!.getProperty("ref-color");
 
   if (t.true((instance_ref instanceof private_api.SlintBrush))) {

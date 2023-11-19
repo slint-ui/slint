@@ -2,16 +2,19 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import test from 'ava'
-const path = require('node:path');
+import * as path from 'node:path';
+import { fileURLToPath } from 'url';
 
-import { loadFile, CompileError } from '../index'
+import { loadFile, CompileError } from '../index.js'
+
+const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 test('loadFile', (t) => {
-    let demo = loadFile(path.join(__dirname, "resources/test.slint")) as any;
+    let demo = loadFile(path.join(dirname, "resources/test.slint")) as any;
     let test = new demo.Test();
     t.is(test.check, "Test");
 
-    let errorPath = path.join(__dirname, "resources/error.slint");
+    let errorPath = path.join(dirname, "resources/error.slint");
 
     const error = t.throws(() => {
         loadFile(errorPath)
@@ -46,7 +49,7 @@ test('loadFile', (t) => {
 })
 
 test('constructor parameters', (t) => {
-    let demo = loadFile(path.join(__dirname, "resources/test-constructor.slint")) as any;
+    let demo = loadFile(path.join(dirname, "resources/test-constructor.slint")) as any;
     let hello = "";
     let test = new demo.Test({ say_hello: function () { hello = "hello"; }, check: "test" });
 
@@ -58,7 +61,7 @@ test('constructor parameters', (t) => {
 
 test('component instances and modules are sealed', (t) => {
     "use strict";
-    let demo = loadFile(path.join(__dirname, "resources/test.slint")) as any;
+    let demo = loadFile(path.join(dirname, "resources/test.slint")) as any;
 
     t.throws(() => {
         demo.no_such_property = 42;

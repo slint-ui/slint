@@ -3,7 +3,7 @@
 
 import test from 'ava'
 
-import { private_api } from '../index'
+import { private_api } from '../index.js'
 
 test('get/set include paths', (t) => {
   let compiler = new private_api.ComponentCompiler;
