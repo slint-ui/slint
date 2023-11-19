@@ -1,7 +1,15 @@
 {
     "compilerOptions": {
-        "module": "commonjs",
+        "module": "CommonJS",
         "target": "esnext",
-        "esModuleInterop": true,
+        "declaration": true,
+    },
+    "include": [
+        "index.ts"
+    ],
+    "ts-node": {
+        "compilerOptions": {
+            "module": "nodenext"
+        }
     }
 }

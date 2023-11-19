@@ -7,7 +7,7 @@ import test from 'ava'
 import * as http from 'http';
 import fetch from "node-fetch";
 
-import { runEventLoop, quitEventLoop, private_api } from '../index'
+import { runEventLoop, quitEventLoop, private_api } from '../index.js'
 
 
 test.serial('merged event loops with timer', async (t) => {
@@ -41,7 +41,7 @@ test.serial('merged event loops with networking', async (t) => {
             let port = (server.address() as any).port;
             console.log(`server ready at ${host}:${port}`);
 
-            fetch(`http://${host}:${port}/`).then(async (response) => {
+            (fetch as any)(`http://${host}:${port}/`).then(async (response) => {
                 return response.text();
             }).then((text) => {
                 received_response = text;

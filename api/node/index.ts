@@ -1,13 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import * as napi from "./rust-module";
+import * as napi from "./rust-module.cjs";
+const {
+    Diagnostic,
+    DiagnosticLevel,
+    RgbaColor,
+    Brush
+} = napi;
+
 export {
     Diagnostic,
     DiagnosticLevel,
     RgbaColor,
     Brush
-} from "./rust-module";
+};
 
 /**
  *  Represents a two-dimensional point.
@@ -61,7 +68,7 @@ export interface Window {
      * Returns the visibility state of the window. This function can return false even if you previously called show()
      * on it, for example if the user minimized the window.
      */
-     get visible(): boolean;
+    get visible(): boolean;
 
     /**
      * Shows the window on the screen. An additional strong reference on the
@@ -374,10 +381,10 @@ class Component implements ComponentHandle {
         return this.#instance.window();
     }
 
-     /**
-     * @hidden
-     */
-     get component_instance(): napi.ComponentInstance {
+    /**
+    * @hidden
+    */
+    get component_instance(): napi.ComponentInstance {
         return this.#instance;
     }
 
@@ -721,7 +728,7 @@ export namespace private_api {
     export import Window = napi.Window;
 
     export import SlintBrush = napi.SlintBrush;
-    export import SlintRgbaColor  = napi.SlintRgbaColor;
+    export import SlintRgbaColor = napi.SlintRgbaColor;
     export import SlintSize = napi.SlintSize;
     export import SlintPoint = napi.SlintPoint;
     export import SlintImageData = napi.SlintImageData;

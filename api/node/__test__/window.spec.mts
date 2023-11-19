@@ -3,17 +3,17 @@
 
 import test from 'ava'
 
-import { private_api, Window } from '../index'
+import { private_api, Window } from '../index.js'
 
 test('Window constructor', (t) => {
     t.throws(() => {
         new private_api.Window()
-        },
+    },
         {
             code: "GenericFailure",
             message: "Window can only be created by using a Component."
         }
-        );
+    );
 })
 
 test('Window show / hide', (t) => {
