@@ -16,7 +16,7 @@ pub fn lower_popups(
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    let window_type = type_register.lookup_element("Window").unwrap();
+    let window_type = type_register.lookup_builtin_element("Window").unwrap();
 
     recurse_elem_including_sub_components_no_borrow(
         component,

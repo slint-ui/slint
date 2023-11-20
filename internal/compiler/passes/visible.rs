@@ -26,7 +26,7 @@ pub fn handle_visible(
     }
 
     let native_clip =
-        type_register.lookup_element("Clip").unwrap().as_builtin().native_class.clone();
+        type_register.lookup_builtin_element("Clip").unwrap().as_builtin().native_class.clone();
 
     crate::object_tree::recurse_elem_including_sub_components(
         component,

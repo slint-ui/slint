@@ -23,7 +23,7 @@ pub fn ensure_window(
         return; // already a window, nothing to do
     }
 
-    let window_type = type_register.lookup_element("Window").unwrap();
+    let window_type = type_register.lookup_builtin_element("Window").unwrap();
 
     let win_elem = component.root_element.clone();
 
