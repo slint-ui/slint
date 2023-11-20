@@ -13,4 +13,22 @@ export X := Rectangle {
         return 42phx;
 //      ^error{Cannot convert physical-length to string. Divide by 1phx to convert to a plain number}
     }
+
+
+    // Issue 3962
+    FocusScope {
+        key-released(event) => {
+            if (!self.visible) {
+                return;
+//              ^error{Must return a value of type 'enum EventResult'}
+            }
+            accept
+        }
+
+        enabled: {
+            return;
+//          ^error{Must return a value of type 'bool'}
+            true;
+        }
+    }
 }

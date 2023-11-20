@@ -208,7 +208,11 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let return_type = ctx.return_type().clone();
-        Expression::ReturnStatement(node.Expression().map(|n| {
+        let e = node.Expression();
+        if e.is_none() && !matches!(return_type, Type::Void | Type::Invalid) {
+            ctx.diag.push_error(format!("Must return a value of type '{return_type}'"), &node);
+        }
+        Expression::ReturnStatement(e.map(|n| {
             Box::new(Self::from_expression_node(n, ctx).maybe_convert_to(
                 return_type,
                 &node,
