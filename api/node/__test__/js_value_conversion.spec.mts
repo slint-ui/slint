@@ -479,7 +479,7 @@ test("MapModel", (t) => {
     const checkModel = instance!.getProperty("model") as Model<string>;
     t.is(checkModel.rowData(0), "Emil, Hans");
     t.is(checkModel.rowData(1), "Hausmann, Simon");
-    t.is(checkModel.rowData(2), "Roman, Tisch");
+    t.is(checkModel.rowData(2), "Tisch, Roman");
 })
 
 test('ArrayModel rowCount', (t) => {
