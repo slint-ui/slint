@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2023-11-19 03:03+0000\n"
+"POT-Creation-Date: 2023-11-20 03:03+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -13,6 +13,241 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: \n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+
+#: ui/copy_page.slint:10 ui/copy_page.slint:97
+msgctxt "CopyPage"
+msgid "Copy"
+msgstr ""
+
+#: ui/copy_page.slint:18
+msgctxt "CopyPage"
+msgid "Choose Settings"
+msgstr ""
+
+#: ui/copy_page.slint:25
+msgctxt "CopyPage"
+msgid "Copies"
+msgstr ""
+
+#: ui/copy_page.slint:33
+msgctxt "CopyPage"
+msgid "Size"
+msgstr ""
+
+#: ui/copy_page.slint:35 ui/copy_page.slint:36
+msgctxt "CopyPage"
+msgid "DIN A4"
+msgstr ""
+
+#: ui/copy_page.slint:36
+msgctxt "CopyPage"
+msgid "DIN A3"
+msgstr ""
+
+#: ui/copy_page.slint:36
+msgctxt "CopyPage"
+msgid "Letter"
+msgstr ""
+
+#: ui/copy_page.slint:40
+msgctxt "CopyPage"
+msgid "Layout"
+msgstr ""
+
+#: ui/copy_page.slint:42 ui/copy_page.slint:43
+msgctxt "CopyPage"
+msgid "Portrait"
+msgstr ""
+
+#: ui/copy_page.slint:43
+msgctxt "CopyPage"
+msgid "Landscape"
+msgstr ""
+
+#: ui/copy_page.slint:48
+msgctxt "CopyPage"
+msgid "Paper Tray"
+msgstr ""
+
+#: ui/copy_page.slint:50 ui/copy_page.slint:51
+msgctxt "CopyPage"
+msgid "Special Tray"
+msgstr ""
+
+#: ui/copy_page.slint:51
+msgctxt "CopyPage"
+msgid "Normal Tray"
+msgstr ""
+
+#: ui/copy_page.slint:55
+msgctxt "CopyPage"
+msgid "Quality"
+msgstr ""
+
+#: ui/copy_page.slint:57 ui/copy_page.slint:58
+msgctxt "CopyPage"
+msgid "Best"
+msgstr ""
+
+#: ui/copy_page.slint:58
+msgctxt "CopyPage"
+msgid "Medium"
+msgstr ""
+
+#: ui/copy_page.slint:58
+msgctxt "CopyPage"
+msgid "Draft"
+msgstr ""
+
+#: ui/copy_page.slint:63
+msgctxt "CopyPage"
+msgid "Paper Type"
+msgstr ""
+
+#: ui/copy_page.slint:65 ui/copy_page.slint:66
+msgctxt "CopyPage"
+msgid "Standard"
+msgstr ""
+
+#: ui/copy_page.slint:66
+msgctxt "CopyPage"
+msgid "Non-standard"
+msgstr ""
+
+#: ui/copy_page.slint:70 ui/copy_page.slint:73
+msgctxt "CopyPage"
+msgid "Color"
+msgstr ""
+
+#: ui/copy_page.slint:72 ui/copy_page.slint:73
+msgctxt "CopyPage"
+msgid "Grayscale"
+msgstr ""
+
+#: ui/copy_page.slint:78
+msgctxt "CopyPage"
+msgid "Paper Handling"
+msgstr ""
+
+#: ui/copy_page.slint:81
+msgctxt "CopyPage"
+msgid "Sort Pages"
+msgstr ""
+
+#: ui/copy_page.slint:95
+msgctxt "CopyPage"
+msgid "Start copying"
+msgstr ""
+
+#: ui/printerdemo.slint:46
+msgctxt "MainWindow"
+msgid "Slint printer demo"
+msgstr ""
+
+#: ui/printer_queue.slint:30
+msgctxt "PrinterQueue"
+msgid "PRINTING"
+msgstr ""
+
+#: ui/printer_queue.slint:32
+msgctxt "PrinterQueue"
+msgid "WAITING..."
+msgstr ""
+
+#: ui/printer_queue.slint:34
+msgctxt "PrinterQueue"
+msgid "Unknown job status"
+msgstr ""
+
+#: ui/printer_queue.slint:65
+msgctxt "PrintDetails"
+msgid "Job Owner"
+msgstr ""
+
+#: ui/printer_queue.slint:84
+msgctxt "PrintDetails"
+msgid "Pages"
+msgstr ""
+
+#: ui/printer_queue.slint:104
+msgctxt "PrintDetails"
+msgid "Size"
+msgstr ""
+
+#: ui/printer_queue.slint:124
+msgctxt "PrintDetails"
+msgid "Submitted"
+msgstr ""
+
+#: ui/printer_queue.slint:189
+msgctxt "NarrowPrintQueueElement"
+msgid "{}% - {}"
+msgstr ""
+
+#: ui/printer_queue.slint:227
+msgctxt "NarrowPrintQueueElement"
+msgid "More   "
+msgstr ""
+
+#: ui/printer_queue.slint:302
+msgctxt "WidePrintQueueElement"
+msgid "{}% - {}"
+msgstr ""
+
+#: ui/printer_queue.slint:344
+msgctxt "WidePrintQueueElement"
+msgid "Pause"
+msgstr ""
+
+#: ui/printer_queue.slint:351
+msgctxt "WidePrintQueueElement"
+msgid "Delete"
+msgstr ""
+
+#: ui/printer_queue.slint:396
+msgctxt "PrinterQueueView"
+msgid "Printing Queue"
+msgstr ""
+
+#: ui/usb_page.slint:20
+msgctxt "UsbPage"
+msgid "USB"
+msgstr ""
+
+#: ui/usb_page.slint:44
+msgctxt "UsbPage"
+msgid "Select File:"
+msgstr ""
+
+#: ui/usb_page.slint:67
+msgctxt "UsbPage"
+msgid "Copies"
+msgstr ""
+
+#: ui/usb_page.slint:75 ui/usb_page.slint:78
+msgctxt "UsbPage"
+msgid "Color"
+msgstr ""
+
+#: ui/usb_page.slint:77 ui/usb_page.slint:78
+msgctxt "UsbPage"
+msgid "Grayscale"
+msgstr ""
+
+#: ui/usb_page.slint:93
+msgctxt "UsbPage"
+msgid "Start printing"
+msgstr ""
+
+#: ui/print_page.slint:10
+msgctxt "PrintPage"
+msgid "Print"
+msgstr ""
+
+#: ui/print_page.slint:18
+msgctxt "PrintPage"
+msgid "Printing-Queue"
+msgstr ""
 
 #: ui/scan_page.slint:9 ui/scan_page.slint:84
 msgctxt "ScanPage"
@@ -124,101 +359,6 @@ msgctxt "InkPage"
 msgid "Ink Level"
 msgstr ""
 
-#: ui/usb_page.slint:20
-msgctxt "UsbPage"
-msgid "USB"
-msgstr ""
-
-#: ui/usb_page.slint:44
-msgctxt "UsbPage"
-msgid "Select File:"
-msgstr ""
-
-#: ui/usb_page.slint:67
-msgctxt "UsbPage"
-msgid "Copies"
-msgstr ""
-
-#: ui/usb_page.slint:75 ui/usb_page.slint:78
-msgctxt "UsbPage"
-msgid "Color"
-msgstr ""
-
-#: ui/usb_page.slint:77 ui/usb_page.slint:78
-msgctxt "UsbPage"
-msgid "Grayscale"
-msgstr ""
-
-#: ui/usb_page.slint:93
-msgctxt "UsbPage"
-msgid "Start printing"
-msgstr ""
-
-#: ui/printer_queue.slint:30
-msgctxt "PrinterQueue"
-msgid "PRINTING"
-msgstr ""
-
-#: ui/printer_queue.slint:32
-msgctxt "PrinterQueue"
-msgid "WAITING..."
-msgstr ""
-
-#: ui/printer_queue.slint:34
-msgctxt "PrinterQueue"
-msgid "Unknown job status"
-msgstr ""
-
-#: ui/printer_queue.slint:65
-msgctxt "PrintDetails"
-msgid "Job Owner"
-msgstr ""
-
-#: ui/printer_queue.slint:84
-msgctxt "PrintDetails"
-msgid "Pages"
-msgstr ""
-
-#: ui/printer_queue.slint:104
-msgctxt "PrintDetails"
-msgid "Size"
-msgstr ""
-
-#: ui/printer_queue.slint:124
-msgctxt "PrintDetails"
-msgid "Submitted"
-msgstr ""
-
-#: ui/printer_queue.slint:189
-msgctxt "NarrowPrintQueueElement"
-msgid "{}% - {}"
-msgstr ""
-
-#: ui/printer_queue.slint:227
-msgctxt "NarrowPrintQueueElement"
-msgid "More   "
-msgstr ""
-
-#: ui/printer_queue.slint:302
-msgctxt "WidePrintQueueElement"
-msgid "{}% - {}"
-msgstr ""
-
-#: ui/printer_queue.slint:344
-msgctxt "WidePrintQueueElement"
-msgid "Pause"
-msgstr ""
-
-#: ui/printer_queue.slint:351
-msgctxt "WidePrintQueueElement"
-msgid "Delete"
-msgstr ""
-
-#: ui/printer_queue.slint:396
-msgctxt "PrinterQueueView"
-msgid "Printing Queue"
-msgstr ""
-
 #: ui/home_page.slint:51
 msgctxt "HomePage"
 msgid "Slint Printer Demo"
@@ -242,21 +382,6 @@ msgstr ""
 #: ui/home_page.slint:57
 msgctxt "HomePage"
 msgid "USB"
-msgstr ""
-
-#: ui/print_page.slint:10
-msgctxt "PrintPage"
-msgid "Print"
-msgstr ""
-
-#: ui/print_page.slint:18
-msgctxt "PrintPage"
-msgid "Printing-Queue"
-msgstr ""
-
-#: ui/printerdemo.slint:46
-msgctxt "MainWindow"
-msgid "Slint printer demo"
 msgstr ""
 
 #: ui/settings_page.slint:7
@@ -382,130 +507,5 @@ msgstr ""
 #: ui/settings_page.slint:86
 msgctxt "SettingsPage"
 msgid "Sort Pages"
-msgstr ""
-
-#: ui/copy_page.slint:10 ui/copy_page.slint:97
-msgctxt "CopyPage"
-msgid "Copy"
-msgstr ""
-
-#: ui/copy_page.slint:18
-msgctxt "CopyPage"
-msgid "Choose Settings"
-msgstr ""
-
-#: ui/copy_page.slint:25
-msgctxt "CopyPage"
-msgid "Copies"
-msgstr ""
-
-#: ui/copy_page.slint:33
-msgctxt "CopyPage"
-msgid "Size"
-msgstr ""
-
-#: ui/copy_page.slint:35 ui/copy_page.slint:36
-msgctxt "CopyPage"
-msgid "DIN A4"
-msgstr ""
-
-#: ui/copy_page.slint:36
-msgctxt "CopyPage"
-msgid "DIN A3"
-msgstr ""
-
-#: ui/copy_page.slint:36
-msgctxt "CopyPage"
-msgid "Letter"
-msgstr ""
-
-#: ui/copy_page.slint:40
-msgctxt "CopyPage"
-msgid "Layout"
-msgstr ""
-
-#: ui/copy_page.slint:42 ui/copy_page.slint:43
-msgctxt "CopyPage"
-msgid "Portrait"
-msgstr ""
-
-#: ui/copy_page.slint:43
-msgctxt "CopyPage"
-msgid "Landscape"
-msgstr ""
-
-#: ui/copy_page.slint:48
-msgctxt "CopyPage"
-msgid "Paper Tray"
-msgstr ""
-
-#: ui/copy_page.slint:50 ui/copy_page.slint:51
-msgctxt "CopyPage"
-msgid "Special Tray"
-msgstr ""
-
-#: ui/copy_page.slint:51
-msgctxt "CopyPage"
-msgid "Normal Tray"
-msgstr ""
-
-#: ui/copy_page.slint:55
-msgctxt "CopyPage"
-msgid "Quality"
-msgstr ""
-
-#: ui/copy_page.slint:57 ui/copy_page.slint:58
-msgctxt "CopyPage"
-msgid "Best"
-msgstr ""
-
-#: ui/copy_page.slint:58
-msgctxt "CopyPage"
-msgid "Medium"
-msgstr ""
-
-#: ui/copy_page.slint:58
-msgctxt "CopyPage"
-msgid "Draft"
-msgstr ""
-
-#: ui/copy_page.slint:63
-msgctxt "CopyPage"
-msgid "Paper Type"
-msgstr ""
-
-#: ui/copy_page.slint:65 ui/copy_page.slint:66
-msgctxt "CopyPage"
-msgid "Standard"
-msgstr ""
-
-#: ui/copy_page.slint:66
-msgctxt "CopyPage"
-msgid "Non-standard"
-msgstr ""
-
-#: ui/copy_page.slint:70 ui/copy_page.slint:73
-msgctxt "CopyPage"
-msgid "Color"
-msgstr ""
-
-#: ui/copy_page.slint:72 ui/copy_page.slint:73
-msgctxt "CopyPage"
-msgid "Grayscale"
-msgstr ""
-
-#: ui/copy_page.slint:78
-msgctxt "CopyPage"
-msgid "Paper Handling"
-msgstr ""
-
-#: ui/copy_page.slint:81
-msgctxt "CopyPage"
-msgid "Sort Pages"
-msgstr ""
-
-#: ui/copy_page.slint:95
-msgctxt "CopyPage"
-msgid "Start copying"
 msgstr ""
 
