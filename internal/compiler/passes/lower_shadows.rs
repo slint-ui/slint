@@ -33,7 +33,7 @@ fn create_box_shadow_element(
 
     let mut element = Element {
         id: format!("{}-shadow", sibling_element.borrow().id),
-        base_type: type_register.lookup_element("BoxShadow").unwrap(),
+        base_type: type_register.lookup_builtin_element("BoxShadow").unwrap(),
         enclosing_component: sibling_element.borrow().enclosing_component.clone(),
         bindings: shadow_property_bindings
             .into_iter()
