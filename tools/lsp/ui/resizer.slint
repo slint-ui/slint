@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+global ResizeState {
+    out property <length> handle-size: 10px;
+}
+
+component ResizeHandle inherits Rectangle {
+    callback resize(/* width */ length, /* height */ length);
+    in property <MouseCursor> mouse-cursor;
+
+    width: ResizeState.handle-size;
+    height: ResizeState.handle-size;
+
+    background: Colors.black;
+    border-color: Colors.white;
+    border-width: 1px;
+
+    TouchArea {
+        moved() => {
+            root.resize(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+        }
+        mouse-cursor <=> root.mouse-cursor;
+    }
+}
+
+export component Resizer {
+    in property <bool> is-resizable: true;
+    callback resize(/* width */ length, /* height */ length);
+
+    property <length> handle-size: ResizeState.handle-size;
+
+    resize-area := Rectangle {
+        width <=> parent.width;
+        height <=> parent.height;
+
+        @children
+    }
+
+    if root.is-resizable: Rectangle {
+        ResizeHandle { // N
+            resize(x-offset, y-offset) => { root.resize(root.width, y-offset * -1.0 + root.height); }
+            mouse-cursor: MouseCursor.n-resize;
+            x: (root.width - root.handle-size) / 2.0;
+            y: -root.handle-size;
+        }
+        ResizeHandle { // NE
+            resize(x-offset, y-offset) => { root.resize(x-offset + root.width, y-offset * -1.0 + root.height); }
+            mouse-cursor: MouseCursor.ne-resize;
+            x: root.width;
+            y: -root.handle-size;
+        }
+        ResizeHandle { // E
+            resize(x-offset, y-offset) => { root.resize(x-offset + root.width, root.height); }
+            mouse-cursor: MouseCursor.e-resize;
+            x: root.width;
+            y: (root.height - root.handle-size) / 2.0;
+        }
+        ResizeHandle { // SE
+            resize(x-offset, y-offset) => { root.resize(x-offset + root.width, y-offset + root.height); }
+            mouse-cursor: MouseCursor.se-resize;
+            x: root.width;
+            y: root.height;
+        }
+        ResizeHandle { // S
+            resize(x-offset, y-offset) => { root.resize(root.width, y-offset + root.height); }
+            mouse-cursor: MouseCursor.s-resize;
+            x: (root.width - root.handle-size) / 2.0;
+            y: root.height;
+        }
+        ResizeHandle { // SW
+            resize(x-offset, y-offset) => { root.resize(x-offset * -1.0 + root.width, y-offset + root.height); }
+            mouse-cursor: MouseCursor.sw-resize;
+            x: -root.handle-size;
+            y: root.height;
+        }
+        ResizeHandle { // W
+            resize(x-offset, y-offset) => { root.resize(x-offset * -1.0 + root.width, root.height); }
+            mouse-cursor: MouseCursor.w-resize;
+            x: -root.handle-size;
+            y: (root.height - root.handle-size) / 2.0;
+        }
+        ResizeHandle { // NW
+            resize(x-offset, y-offset) => { root.resize(x-offset * -1.0 + root.width, y-offset * -1.0 + root.height); }
+            mouse-cursor: MouseCursor.nw-resize;
+            x: -root.handle-size;
+            y: -root.handle-size;
+        }
+    }
+}
