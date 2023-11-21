@@ -449,40 +449,24 @@ export interface LoadFileOptions {
     libraryPaths?: Record<string, string>;
 }
 
-/**
- * Loads the given Slint file and returns an objects that contains a functions to construct the exported
- * component of the slint file.
- *
- * The following example loads a "Hello World" style Slint file and changes the Text label to a new greeting:
- * `main.slint`:
- * ```
- * export component Main {
- *     in-out property <string> greeting <=> label.text;
- *     label := Text {
- *         text: "Hello World";
- *     }
- * }
- * ```
- *
- * ```js
- * import * as slint from "slint-ui";
- * let ui = slint.loadFile("main.slint");
- * let main = new ui.Main();
- * main.greeting = "Hello friends";
- * ```
- *
- * @param filePath A path to the file to load. If the path is a relative path, then it is resolved
- *                 against the process' working directory.
- * @param options Use {@link LoadFileOptions} to configure additional Slint compilation aspects,
- *                such as include search paths, library imports, or the widget style.
- * @returns The returned object is sealed and provides a property by the name of the component exported
- *          in the `.slint` file. In the above example the name of the property is `Main`. The property
- *          is a constructor function. Use it with the new operator to instantiate the component.
- *          The instantiated object exposes properties and callbacks, and implements the {@link ComponentHandle} interface.
- *          For more details about the exposed properties, see [Instantiating A Component](../index.html#md:instantiating-a-component).
- * @throws {@link CompileError} if errors occur during compilation.
- */
-export function loadFile(filePath: string, options?: LoadFileOptions): Object {
+type LoadData = {
+    fileData: {
+        filePath: string,
+        options?: LoadFileOptions
+    },
+    from: 'file'
+} | {
+    fileData: {
+        source: string,
+        filePath: string,
+        options?: LoadFileOptions
+    },
+    from: 'source'
+}
+
+function loadSlint(loadData: LoadData): Object {
+    const {filePath ,options} = loadData.fileData
+
     let compiler = new napi.ComponentCompiler();
 
     if (typeof options !== "undefined") {
@@ -497,7 +481,7 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
         }
     }
 
-    let definition = compiler.buildFromPath(filePath);
+    let definition = loadData.from === 'file' ? compiler.buildFromPath(filePath) : compiler.buildFromSource(loadData.fileData.source, filePath);
 
     let diagnostics = compiler.diagnostics;
 
@@ -639,6 +623,82 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
     });
 
     return Object.seal(slint_module);
+}
+
+/**
+ * Loads the given Slint file and returns an objects that contains a functions to construct the exported
+ * component of the slint file.
+ *
+ * The following example loads a "Hello World" style Slint file and changes the Text label to a new greeting:
+ * `main.slint`:
+ * ```
+ * export component Main {
+ *     in-out property <string> greeting <=> label.text;
+ *     label := Text {
+ *         text: "Hello World";
+ *     }
+ * }
+ * ```
+ *
+ * ```js
+ * import * as slint from "slint-ui";
+ * let ui = slint.loadFile("main.slint");
+ * let main = new ui.Main();
+ * main.greeting = "Hello friends";
+ * ```
+ *
+ * @param filePath A path to the file to load. If the path is a relative path, then it is resolved
+ *                 against the process' working directory.
+ * @param options Use {@link LoadFileOptions} to configure additional Slint compilation aspects,
+ *                such as include search paths, library imports, or the widget style.
+ * @returns The returned object is sealed and provides a property by the name of the component exported
+ *          in the `.slint` file. In the above example the name of the property is `Main`. The property
+ *          is a constructor function. Use it with the new operator to instantiate the component.
+ *          The instantiated object exposes properties and callbacks, and implements the {@link ComponentHandle} interface.
+ *          For more details about the exposed properties, see [Instantiating A Component](../index.html#md:instantiating-a-component).
+ * @throws {@link CompileError} if errors occur during compilation.
+ */
+export function loadFile(filePath: string, options?: LoadFileOptions): Object {
+    return loadSlint({
+        fileData:{ filePath, options },
+        from:'file',
+    })
+}
+
+/**
+ * Loads the given Slint source code and returns an object that contains a function to construct the exported
+ * component of the Slint source code.
+ *
+ * The following example loads a "Hello World" style Slint source code and changes the Text label to a new greeting:
+ * ```js
+ * import * as slint from "slint-ui";
+ * const source = `export component Main {
+ *      in-out property <string> greeting <=> label.text;
+ *      label := Text {
+ *          text: "Hello World";
+ *      }
+ * }`; // The content of main.slint
+ * let ui = slint.loadSource(source, "main.js");
+ * let main = new ui.Main();
+ * main.greeting = "Hello friends";
+ * ```
+ * @param source The Slint source code to load.
+ * @param filePath A path to the file to show log. If the path is a relative path, then it is resolved
+ *                 against the process' working directory.
+ * @param options Use {@link LoadFileOptions} to configure additional Slint compilation aspects,
+ *                such as include search paths, library imports, or the widget style.
+ * @returns The returned object is sealed and provides a property by the name of the component exported
+ *          in the `.slint` file. In the above example the name of the property is `Main`. The property
+ *          is a constructor function. Use it with the new operator to instantiate the component.
+ *          The instantiated object exposes properties and callbacks, and implements the {@link ComponentHandle} interface.
+ *          For more details about the exposed properties, see [Instantiating A Component](../index.html#md:instantiating-a-component).
+ * @throws {@link CompileError} if errors occur during compilation.
+ */
+export function loadSource(source: string, filePath: string, options?: LoadFileOptions): Object {
+    return loadSlint({
+        fileData:{ filePath, options, source },
+        from:'source',
+    })
 }
 
 class EventLoop {
