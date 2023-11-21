@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Typography, Palette } from "styling.slint";
+import { FluentFontSettings, FluentPalette } from "styling.slint";
 
 export component GroupBox {
     in property <string> title <=> label.text;
@@ -14,9 +14,9 @@ export component GroupBox {
 
         label := Text {
             vertical-stretch: 0;
-            color: !root.enabled ? Palette.text-disabled : Palette.text-primary;
-            font-size: Typography.body-strong.font-size;
-            font-weight: Typography.body-strong.font-weight;
+            color: !root.enabled ? FluentPalette.text-disabled : FluentPalette.on-surface;
+            font-size: FluentFontSettings.body-strong.font-size;
+            font-weight: FluentFontSettings.body-strong.font-weight;
         }
 
         Rectangle {

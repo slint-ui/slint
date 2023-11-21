@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, Typography } from "styling.slint";
+import { CupertinoPalette, CupertinoFontSettings } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component TabWidgetImpl inherits Rectangle {
@@ -49,8 +49,8 @@ export component TabImpl inherits Rectangle {
         clip: true;
         width: 100%;
         height: 100%;
-        background: root.is-current ? Palette.background :
-            i-touch-area.has-hover ? Palette.hover : Palette.background-quaternary;
+        background: root.is-current ? CupertinoPalette.background :
+            i-touch-area.has-hover ? CupertinoPalette.hover : CupertinoPalette.background-quaternary;
 
         animate background { duration: 150ms; easing: linear; }
     }
@@ -59,7 +59,7 @@ export component TabImpl inherits Rectangle {
         x: parent.width - self.width;
         width: 1px;
         height: 100%;
-        background: Palette.border;
+        background: CupertinoPalette.border;
     }
 
     if (!root.is-current) : Rectangle {
@@ -84,9 +84,9 @@ export component TabImpl inherits Rectangle {
         i-text := Text {
             vertical-alignment: center;
             horizontal-alignment: center;
-            font-size: root.is-current ? Typography.body-strong.font-size : Typography.body.font-size;
-            font-weight: root.is-current ? Typography.body-strong.font-weight : Typography.body.font-weight;
-            color: Palette.foreground;
+            font-size: root.is-current ? CupertinoFontSettings.body-strong.font-size : CupertinoFontSettings.body.font-size;
+            font-weight: root.is-current ? CupertinoFontSettings.body-strong.font-weight : CupertinoFontSettings.body.font-weight;
+            color: CupertinoPalette.foreground;
         }
     }
 }
@@ -106,7 +106,7 @@ export component TabBarImpl {
 
     Rectangle {
         y: parent.height - self.height;
-        background: Palette.separator;
+        background: CupertinoPalette.separator;
         width: 100%;
         height: 1px;
     }

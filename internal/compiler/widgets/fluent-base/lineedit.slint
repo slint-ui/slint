@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Typography, Palette } from "styling.slint";
+import { FluentFontSettings, FluentPalette } from "styling.slint";
 
 export component LineEdit {
     in property <bool> enabled <=> i-text-input.enabled;
@@ -44,25 +44,25 @@ export component LineEdit {
 
     states [
         disabled when !root.enabled : {
-            i-background.background: Palette.control-disabled;
-            i-background.border-color: Palette.control-stroke;
-            i-text-input.color: Palette.text-disabled;
-            i-text-input.selection-foreground-color: Palette.text-on-accent-disabled;
-            i-placeholder.color: Palette.text-disabled;
+            i-background.background: FluentPalette.control-disabled;
+            i-background.border-color: FluentPalette.border;
+            i-text-input.color: FluentPalette.text-disabled;
+            i-text-input.selection-foreground-color: FluentPalette.text-on-accent-disabled;
+            i-placeholder.color: FluentPalette.text-disabled;
         }
         focused when root.has-focus : {
-            i-background.background: Palette.control-input-active;
-            i-background.border-color: Palette.control-stroke;
-            i-focus-border.background: Palette.accent-default;
-            i-placeholder.color: Palette.text-tertiary;
+            i-background.background: FluentPalette.control-input-active;
+            i-background.border-color: FluentPalette.border;
+            i-focus-border.background: FluentPalette.accent;
+            i-placeholder.color: FluentPalette.text-tertiary;
         }
     ]
 
     i-background := Rectangle {
         border-radius: 4px;
-        background: Palette.control-default;
+        background: FluentPalette.surface;
         border-width: 1px;
-        border-color: Palette.text-control-border;
+        border-color: FluentPalette.text-control-border;
 
         i-layout := HorizontalLayout {
             padding-left: 12px;
@@ -74,9 +74,9 @@ export component LineEdit {
                 i-placeholder := Text {
                     width: 100%;
                     height: 100%;
-                    color: Palette.text-secondary;
-                    font-size: Typography.body.font-size;
-                    font-weight: Typography.body.font-weight;
+                    color: FluentPalette.text-secondary;
+                    font-size: FluentFontSettings.body.font-size;
+                    font-weight: FluentFontSettings.body.font-weight;
                     visible: root.text == "";
                     vertical-alignment: center;
                 }
@@ -88,12 +88,12 @@ export component LineEdit {
                     x: min(0px, max(parent.width - self.width, self.computed_x));
                     width: max(parent.width, self.preferred-width);
                     height: 100%;
-                    color: Palette.text-primary;
+                    color: FluentPalette.foreground;
                     vertical-alignment: center;
-                    font-size: Typography.body.font-size;
-                    font-weight: Typography.body.font-weight;
-                    selection-background-color: Palette.accent-selected-text;
-                    selection-foreground-color: Palette.text-on-accent-primary;
+                    font-size: FluentFontSettings.body.font-size;
+                    font-weight: FluentFontSettings.body.font-weight;
+                    selection-background-color: FluentPalette.accent-selected-text;
+                    selection-foreground-color: FluentPalette.on-accent;
 
                     accepted => {
                         root.accepted(self.text);

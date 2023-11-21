@@ -4,7 +4,7 @@
 import { LineEditInner } from "../common/common.slint";
 import { ScrollView } from "std-widgets-impl.slint";
 import { StateLayer } from "components.slint";
-import { Palette, Icons } from "styling.slint";
+import { MaterialPalette, Icons } from "styling.slint";
 
 component TableViewColumn inherits Rectangle {
     in property <SortOrder> sort-order: SortOrder.unsorted;
@@ -13,9 +13,9 @@ component TableViewColumn inherits Rectangle {
     callback adjust-size(/* size */ length);
 
     i-state-layer := StateLayer {
-        background: Palette.primary;
-        selection-background: Palette.secondary-container;
-        ripple-color: Palette.primary-ripple;
+        background: MaterialPalette.accent;
+        selection-background: MaterialPalette.background-alt;
+        ripple-color: MaterialPalette.accent-ripple;
         has-ripple: true;
     }
 
@@ -36,7 +36,7 @@ component TableViewColumn inherits Rectangle {
             source: root.sort-order == SortOrder.ascending ?
                 Icons.arrow-upward :
                 Icons.arrow-downward;
-            colorize: Palette.on-surface;
+            colorize: MaterialPalette.on-surface;
         }
     }
 
@@ -45,13 +45,13 @@ component TableViewColumn inherits Rectangle {
         y: parent.height - self.height;
         width: 100%;
         height: 1px;
-        background: Palette.outline;
+        background: MaterialPalette.border;
     }
 
     Rectangle {
         x: parent.width - 1px;
         width: 1px;
-        background: i-movable-touch-area.has-hover ? Palette.outline : transparent;
+        background: i-movable-touch-area.has-hover ? MaterialPalette.border : transparent;
 
         animate background { duration: 250ms; }
 
@@ -85,7 +85,7 @@ component TableViewCell inherits Rectangle {
         y: parent.height - self.height;
         width: 100%;
         height: 1px;
-        background: Palette.outline;
+        background: MaterialPalette.border;
     }
 }
 
@@ -99,17 +99,11 @@ component TableViewRow inherits Rectangle {
 
     min-height: max(42px, i-layout.min-height);
 
-    states [
-        selected when root.selected : {
-            i-state-layer.background: Palette.secondary-container;
-        }
-    ]
-
     i-state-layer := StateLayer {
         checked: root.selected;
-        background: Palette.primary;
-        selection-background: Palette.secondary-container;
-        ripple-color: Palette.primary-ripple;
+        background: MaterialPalette.accent;
+        selection-background: MaterialPalette.surface;
+        ripple-color: MaterialPalette.accent-ripple;
         has-ripple: true;
     }
 

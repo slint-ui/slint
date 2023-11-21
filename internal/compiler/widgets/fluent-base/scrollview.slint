@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, Icons } from "styling.slint";
+import { FluentPalette, Icons } from "styling.slint";
 
 component ScrollViewButton inherits TouchArea {
     in property <image> icon;
@@ -14,7 +14,7 @@ component ScrollViewButton inherits TouchArea {
         y: (parent.height - self.height) / 2;
         width: parent.width;
         source: root.icon;
-        colorize: Palette.control-stroke;
+        colorize: FluentPalette.border;
 
         animate colorize, opacity { duration: 150ms; }
         animate width, height { duration: 150ms; easing: ease-out; }
@@ -27,7 +27,7 @@ component ScrollViewButton inherits TouchArea {
         }
         hover when root.has-hover : {
             opacity: 1;
-            i-icon.colorize: Palette.text-secondary;
+            i-icon.colorize: FluentPalette.text-secondary;
         }
     ]
 }
@@ -49,7 +49,7 @@ component ScrollBar inherits Rectangle {
 
     states [
         hover when i-touch-area.has-hover || i-down-scroll-button.has-hover || i-up-scroll-button.has-hover : {
-            root.background: Palette.acrylic-background;
+            root.background: FluentPalette.background-alt;
             root.size: 6px;
             i-up-scroll-button.opacity: 1;
             i-down-scroll-button.opacity: 1;
@@ -64,7 +64,7 @@ component ScrollBar inherits Rectangle {
         x: !root.horizontal ? parent.width - 4px - self.width : root.offset + (root.track-size - i-thumb.width) * (-root.value / root.maximum);
         y: root.horizontal ? parent.height - 4px - self.height : root.offset + (root.track-size - i-thumb.height) * (-root.value / root.maximum);
         border-radius: (root.horizontal ? self.height : self.width) / 2;
-        background: Palette.control-stroke;
+        background: FluentPalette.border;
 
         animate width, height { duration: 150ms; easing: ease-out; }
     }

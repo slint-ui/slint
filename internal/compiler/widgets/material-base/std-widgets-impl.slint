@@ -5,7 +5,7 @@
 import { Button } from "button.slint";
 import { CheckBox } from "checkbox.slint";
 import { ScrollView } from "scrollview.slint";
-import { Palette } from "styling.slint";
+import { MaterialPalette } from "styling.slint";
 import { Switch } from "switch.slint";
 
 export { Button, CheckBox, ScrollView, Switch }
@@ -15,12 +15,12 @@ export global StyleMetrics  {
     out property <length> layout-padding: 16px;
     out property <length> text-cursor-width: 2px;
 
-    out property <color> default-text-color: Palette.on-surface;
+    out property <color> default-text-color: MaterialPalette.foreground;
     out property <color> textedit-background: transparent;
-    out property <color> textedit-text-color: Palette.on-surface;
+    out property <color> textedit-text-color: MaterialPalette.foreground;
     out property <color> textedit-background-disabled: transparent;
-    out property <color> textedit-text-color-disabled: Palette.on-surface;
-    out property <bool> dark-color-scheme: Palette.dark-color-scheme;
+    out property <color> textedit-text-color-disabled: MaterialPalette.foreground;
+    out property <bool> dark-color-scheme: MaterialPalette.dark-color-scheme;
     out property <string> default-font-family: "Roboto";
-    out property <color> window-background: Palette.background;
+    out property <color> window-background: MaterialPalette.background;
 }

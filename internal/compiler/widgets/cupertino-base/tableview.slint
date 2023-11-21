@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, Typography, Icons } from "styling.slint";
+import { CupertinoPalette, CupertinoFontSettings, Icons } from "styling.slint";
 import { ListView } from "listview.slint";
 
 component TableViewColumn inherits Rectangle {
@@ -15,7 +15,7 @@ component TableViewColumn inherits Rectangle {
 
     states [
         pressed when i-touch-area.pressed : {
-            background: Palette.surface-secondary;
+            background: CupertinoPalette.surface-secondary;
         }
     ]
 
@@ -32,7 +32,7 @@ component TableViewColumn inherits Rectangle {
 
         i-icon := Image {
             image-fit: contain;
-            colorize: Palette.foreground;
+            colorize: CupertinoPalette.foreground;
             visible: root.sort-order != SortOrder.unsorted;
             width: 8px;
             y: (parent.height - self.height) / 2;
@@ -47,14 +47,14 @@ component TableViewColumn inherits Rectangle {
         y: parent.height - self.height;
         width: 100%;
         height: 1px;
-        background: Palette.border;
+        background: CupertinoPalette.border;
     }
 
     if (!root.last) : Rectangle {
         x: parent.width - 1px;
         y: 4px;
         width: 1px;
-        background: Palette.border;
+        background: CupertinoPalette.border;
         height: parent.height - 8px;
 
         animate background { duration: 150ms; }
@@ -98,7 +98,7 @@ component TableViewRow inherits Rectangle {
 
     states [
         selected when root.selected : {
-            i-background.background: Palette.accent;
+            i-background.background: CupertinoPalette.accent;
         }
     ]
 
@@ -112,7 +112,7 @@ component TableViewRow inherits Rectangle {
     }
 
     i-background := Rectangle {
-        background: root.even ? Palette.background-tertiary : Palette.background-secondary;
+        background: root.even ? CupertinoPalette.background-tertiary : CupertinoPalette.background-alt;
     }
 
     i-layout := HorizontalLayout {
@@ -179,7 +179,7 @@ export component StandardTableView {
             clip: true;
             vertical-stretch: 0;
             min-height: i-header-layout.min-height;
-            background: Palette.background-tertiary;
+            background: CupertinoPalette.background-tertiary;
 
             i-header-layout := HorizontalLayout {
                 width: max(self.preferred-width, parent.width);
@@ -205,10 +205,10 @@ export component StandardTableView {
                     Text {
                         vertical-alignment: center;
                         text: column.title;
-                        font-weight: column.sort-order == SortOrder.unsorted ? Typography.body.font-weight :
-                            Typography.body-strong.font-weight;
-                        font-size: Typography.body.font-size;
-                        color: Palette.foreground;
+                        font-weight: column.sort-order == SortOrder.unsorted ? CupertinoFontSettings.body.font-weight :
+                            CupertinoFontSettings.body-strong.font-weight;
+                        font-size: CupertinoFontSettings.body.font-size;
+                        color: CupertinoPalette.foreground;
                         overflow: elide;
                     }
                 }
@@ -247,9 +247,9 @@ export component StandardTableView {
                             overflow: elide;
                             vertical-alignment: center;
                             text: cell.text;
-                            font-weight: Typography.body.font-weight;
-                            font-size: Typography.body.font-size;
-                            color: Palette.foreground;
+                            font-weight: CupertinoFontSettings.body.font-weight;
+                            font-size: CupertinoFontSettings.body.font-size;
+                            color: CupertinoPalette.foreground;
                         }
                     }
                 }

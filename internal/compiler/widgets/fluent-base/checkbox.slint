@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Typography, Palette, Icons } from "styling.slint";
+import { FluentFontSettings, FluentPalette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component CheckBox {
@@ -12,7 +12,7 @@ export component CheckBox {
 
     callback toggled;
 
-    private property <color> text-color: Palette.text-secondary;
+    private property <color> text-color: FluentPalette.text-secondary;
 
     min-height: max(32px, i-layout.min-height);
     accessible-checkable: true;
@@ -22,21 +22,21 @@ export component CheckBox {
 
     states [
         disabled when !root.enabled : {
-            i-border.border-color: Palette.control-strong-stroke-disabled;
-            i-background.background: root.checked ? Palette.accent-disabled : Palette.control-alt-disabled;
-            i-icon.colorize: Palette.text-on-accent-disabled;
-            root.text-color: Palette.text-disabled;
+            i-border.border-color: FluentPalette.control-strong-stroke-disabled;
+            i-background.background: root.checked ? FluentPalette.accent-disabled : FluentPalette.control-alt-disabled;
+            i-icon.colorize: FluentPalette.text-on-accent-disabled;
+            root.text-color: FluentPalette.text-disabled;
         }
         pressed when i-touch-area.pressed : {
-            i-border.border-color: Palette.control-strong-stroke-disabled;
-            i-background.background: root.checked ? Palette.accent-tertiary : Palette.control-alt-quartiary;
-            i-icon.colorize: Palette.text-on-accent-secondary;
+            i-border.border-color: FluentPalette.control-strong-stroke-disabled;
+            i-background.background: root.checked ? FluentPalette.accent-tertiary : FluentPalette.control-alt-quartiary;
+            i-icon.colorize: FluentPalette.text-on-accent-secondary;
         }
         hover when i-touch-area.has-hover : {
-            i-background.background: root.checked ?  Palette.accent-secondary : Palette.control-alt-tertiary;
+            i-background.background: root.checked ?  FluentPalette.accent-secondary : FluentPalette.control-alt-tertiary;
         }
         checked when root.checked && root.enabled : {
-            i-background.background: Palette.accent-default;
+            i-background.background: FluentPalette.accent;
         }
     ]
 
@@ -51,13 +51,13 @@ export component CheckBox {
             width: 18px;
             height: self.width;
             y: (parent.height - self.height) / 2;
-            background: Palette.control-alt-secondary;
+            background: FluentPalette.control-alt-secondary;
             border-radius: 2px;
 
             animate background, border-color { duration: 150ms; }
 
             i-border := Rectangle {
-                border-color: Palette.control-strong-stroke;
+                border-color: FluentPalette.control-strong-stroke;
                 border-width: root.checked ? 0 : 1px;
                 border-radius: parent.border-radius;
             }
@@ -66,7 +66,7 @@ export component CheckBox {
                 image-fit: contain;
                 visible: root.checked;
                 source: Icons.check-mark;
-                colorize: Palette.text-on-accent-primary;
+                colorize: FluentPalette.on-accent;
                 width: 12px;
 
                 animate colorize { duration: 150ms; }
@@ -76,8 +76,8 @@ export component CheckBox {
         if (root.text != "") : Text {
             text: root.text;
             color: root.text-color;
-            font-size: Typography.body.font-size;
-            font-weight: Typography.body.font-weight;
+            font-size: FluentFontSettings.body.font-size;
+            font-weight: FluentFontSettings.body.font-weight;
             vertical-alignment: center;
             horizontal-alignment: left;
         }

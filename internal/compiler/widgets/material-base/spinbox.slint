@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, Typography, Icons } from "styling.slint";
+import { MaterialPalette, MaterialFontSettings, Icons } from "styling.slint";
 import { SpinBoxBase } from "../common/spinbox-base.slint";
 
 component SpinBoxButton inherits Rectangle {
     in-out property <bool> pressed: self.enabled && i-touch-area.pressed;
     in-out property <bool> enabled <=> i-touch-area.enabled;
     in-out property <float> icon-opacity: 1;
-    in-out property <brush> icon-fill: Palette.on-primary;
+    in-out property <brush> icon-fill: MaterialPalette.on-accent;
 
     callback clicked <=> i-touch-area.clicked;
 
@@ -16,10 +16,10 @@ component SpinBoxButton inherits Rectangle {
 
     states [
         disabled when !root.enabled : {
-            i-background.background: Palette.on-surface;
+            i-background.background: MaterialPalette.on-surface;
             i-background.opacity: 0.12;
             icon-opacity: 0.38;
-            icon-fill: Palette.on-surface;
+            icon-fill: MaterialPalette.on-surface;
         }
         pressed when i-touch-area.pressed : {
             i-state-layer.opacity: 0.12;
@@ -33,7 +33,7 @@ component SpinBoxButton inherits Rectangle {
         width: 100%;
         height: 100%;
         border-radius: max(self.width, self.height) / 2;
-        background: Palette.primary;
+        background: MaterialPalette.accent;
     }
 
     i-state-layer := Rectangle {
@@ -43,7 +43,7 @@ component SpinBoxButton inherits Rectangle {
         width: i-background.width;
         height: i-background.height;
         border-radius: i-background.border-radius;
-        background: Palette.on-primary;
+        background: MaterialPalette.on-accent;
 
         animate opacity { duration: 250ms; easing: ease; }
      }
@@ -81,14 +81,14 @@ export component SpinBox {
 
     states [
         disabled when !root.enabled : {
-            i-background.border-color: Palette.on-surface;
+            i-background.border-color: MaterialPalette.on-surface;
             i-background.opacity: 0.38;
             i-text-input.opacity: 0.38;
         }
         focused when root.has-focus : {
             i-background.border-width: 2px;
-            i-background.border-color: Palette.primary;
-            i-text-input.color: Palette.primary;
+            i-background.border-color: MaterialPalette.accent;
+            i-text-input.color: MaterialPalette.accent;
         }
     ]
 
@@ -105,7 +105,7 @@ export component SpinBox {
     i-background := Rectangle {
         border-radius: 4px;
         border-width: 1px;
-        border-color: Palette.outline;
+        border-color: MaterialPalette.border;
 
         i-layout := HorizontalLayout {
             padding-top: 8px;
@@ -122,11 +122,11 @@ export component SpinBox {
                     horizontal-alignment: left;
                     text: root.value;
                     // height: 100%;
-                    color: Palette.on-surface;
+                    color: MaterialPalette.on-surface;
                     // FIXME after Roboto font can be loaded
-                    //font-family: Typography.body-large.font;
-                    font-size: Typography.body-large.font-size;
-                    font-weight: Typography.body-large.font-weight;
+                    //font-family: MaterialFontSettings.body-large.font;
+                    font-size: MaterialFontSettings.body-large.font-size;
+                    font-weight: MaterialFontSettings.body-large.font-weight;
                     enabled: root.enabled;
                     horizontal-stretch: 1;
 

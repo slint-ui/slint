@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, Typography } from "styling.slint";
+import { MaterialPalette, MaterialFontSettings } from "styling.slint";
 
 export component Ripple inherits Rectangle {
     in property <length> ripple-x;
@@ -37,7 +37,7 @@ export component StateLayer inherits TouchArea {
     in property <length> border-radius;
     out property <bool> has-focus <=> i-focus-scope.has-focus;
     in-out property <brush> background;
-    in-out property < bool> checked;
+    in-out property <bool> checked;
 
     forward-focus: i-focus-scope;
 
@@ -101,17 +101,11 @@ export component ListItem inherits Rectangle {
 
     height: max(48px, i-layout.min-height);
 
-    states [
-        selected when root.selected : {
-            i-state-layer.background: Palette.secondary-container;
-        }
-    ]
-
     i-state-layer := StateLayer {
         checked: root.selected;
-        background: Palette.primary;
-        selection-background: Palette.secondary-container;
-        ripple-color: Palette.primary-ripple;
+        background: MaterialPalette.accent;
+        selection-background: MaterialPalette.surface;
+        ripple-color: MaterialPalette.accent-ripple;
         has-ripple: true;
     }
 
@@ -121,12 +115,12 @@ export component ListItem inherits Rectangle {
 
         label := Text {
             text: root.text;
-            color: Palette.on-surface;
+            color: MaterialPalette.on-surface;
             vertical-alignment: center;
             // FIXME after Roboto font can be loaded
-            //font-family: Typography.label-large.font;
-            font-size: Typography.label-large.font-size;
-            font-weight: Typography.label-large.font-weight;
+            //font-family: MaterialFontSettings.label-large.font;
+            font-size: MaterialFontSettings.label-large.font-size;
+            font-weight: MaterialFontSettings.label-large.font-weight;
         }
     }
 }

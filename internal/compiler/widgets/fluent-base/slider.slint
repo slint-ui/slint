@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette } from "styling.slint";
+import { FluentPalette } from "styling.slint";
 
 export component Slider {
     in property <Orientation> orientation: horizontal;
@@ -27,25 +27,25 @@ export component Slider {
 
     states [
         disabled when !root.enabled : {
-            i-track.background: Palette.accent-disabled;
-            i-rail.background: Palette.accent-disabled;
-            i-thumb-inner.background: Palette.accent-disabled;
+            i-track.background: FluentPalette.accent-disabled;
+            i-rail.background: FluentPalette.accent-disabled;
+            i-thumb-inner.background: FluentPalette.accent-disabled;
         }
         pressed when ( i-touch-area.pressed &&  i-touch-area.has-hover) || i-focus-scope.has-focus : {
             i-thumb-inner.width: 10px;
-            i-thumb-inner.background: Palette.accent-tertiary;
-            i-thumb.border-color: Palette.control-stroke;
+            i-thumb-inner.background: FluentPalette.accent-tertiary;
+            i-thumb.border-color: FluentPalette.border;
         }
         hover when i-touch-area.has-hover : {
             i-thumb-inner.width: 14px;
-            i-thumb-inner.background: Palette.accent-secondary;
+            i-thumb-inner.background: FluentPalette.accent-secondary;
         }
     ]
 
     i-rail := Rectangle {
         width: vertical ? 4px : parent.width;
         height: vertical ? parent.height : 4px;
-        background: Palette.control-stroke;
+        background: FluentPalette.border;
         border-radius: 2px;
     }
 
@@ -54,7 +54,7 @@ export component Slider {
         y: vertical ? 0 : (parent.height - self.height) / 2;
         width: vertical ? i-rail.width : i-thumb.x + (i-thumb.width / 2);
         height: vertical ? i-thumb.y + (i-thumb.height / 2) : i-rail.height;
-        background: Palette.accent-default;
+        background: FluentPalette.accent;
         border-radius: i-rail.border-radius;
     }
 
@@ -64,7 +64,7 @@ export component Slider {
         width: 20px;
         height: self.width;
         border-radius: 10px;
-        background: Palette.control-solid;
+        background: FluentPalette.control-solid;
 
         i-thumb-border := Rectangle {
             x: (parent.width - self.width) / 2;
@@ -73,14 +73,14 @@ export component Slider {
             height: self.width;
             border-radius: 10.5px;
             border-width: 1px;
-            border-color: Palette.circle-border;
+            border-color: FluentPalette.circle-border;
         }
 
         i-thumb-inner := Rectangle {
             width: 12px;
             height: self.width;
             border-radius: self.width / 2;
-            background: Palette.accent-default;
+            background: FluentPalette.accent;
 
             animate background, width { duration: 150ms; }
         }
