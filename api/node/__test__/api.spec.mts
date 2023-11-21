@@ -5,7 +5,7 @@ import test from 'ava'
 import * as path from 'node:path';
 import { fileURLToPath } from 'url';
 
-import { loadFile, CompileError } from '../index.js'
+import { loadFile, loadSource, CompileError } from '../index.js'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,6 +15,48 @@ test('loadFile', (t) => {
     t.is(test.check, "Test");
 
     let errorPath = path.join(dirname, "resources/error.slint");
+
+    const error = t.throws(() => {
+        loadFile(errorPath)
+    },
+        { instanceOf: CompileError }
+    );
+
+    t.is(error?.message, "Could not compile " + errorPath);
+    t.deepEqual(error?.diagnostics, [
+        {
+            columnNumber: 18,
+            level: 0,
+            lineNumber: 7,
+            message: 'Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type',
+            fileName: errorPath
+        },
+        {
+            columnNumber: 22,
+            level: 0,
+            lineNumber: 7,
+            message: 'Syntax error: expected \';\'',
+            fileName: errorPath
+        },
+        {
+            columnNumber: 22,
+            level: 0,
+            lineNumber: 7,
+            message: 'Parse error',
+            fileName: errorPath
+        },
+    ]);
+})
+
+test('loadSource', (t) => {
+    const source = `export component Test {
+        out property <string> check: "Test";
+    }`
+    let demo = loadSource(source, 'api.spec.ts') as any;
+    let test = new demo.Test();
+    t.is(test.check, "Test");
+
+    let errorPath = path.join(__dirname, "resources/error.slint");
 
     const error = t.throws(() => {
         loadFile(errorPath)
