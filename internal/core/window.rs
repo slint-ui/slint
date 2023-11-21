@@ -352,6 +352,11 @@ pub struct WindowInner {
 
     /// itemRC will retrieve on wasms
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
+    /// Don't let ComponentContainers's instantiation change the focus.
+    /// This is a workaround for a recursion when instantiating ComponentContainer because the
+    /// init code for the component might have code that sets the focus, but we don't want that
+    /// for the ComponentContainer
+    pub(crate) prevent_focus_change: Cell<bool>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
 
     pinned_fields: Pin<Box<WindowPinnedFields>>,
@@ -410,6 +415,7 @@ impl WindowInner {
             active_popup: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
+            prevent_focus_change: Default::default(),
         }
     }
 
@@ -586,6 +592,9 @@ impl WindowInner {
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
     pub fn set_focus_item(&self, focus_item: &ItemRc) {
+        if self.prevent_focus_change.get() {
+            return;
+        }
         let old = self.take_focus_item();
         let new = self.move_focus(focus_item.clone(), next_focus_item);
         let window_adapter = self.window_adapter();
