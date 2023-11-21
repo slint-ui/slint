@@ -24,6 +24,7 @@ pub fn lower_macro(
     match mac {
         BuiltinMacroFunction::Min => min_max_macro(n, MinMaxOp::Min, sub_expr.collect(), diag),
         BuiltinMacroFunction::Max => min_max_macro(n, MinMaxOp::Max, sub_expr.collect(), diag),
+        BuiltinMacroFunction::Clamp => clamp_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Mod => mod_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::CubicBezier => {
@@ -96,6 +97,44 @@ fn min_max_macro(
         base = min_max_expression(base, rhs, op);
     }
     base
+}
+
+fn clamp_macro(
+    node: Option<NodeOrToken>,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() != 3 {
+        diag.push_error(
+            "`clamp` needs three values: the `value` to clamp, the `minimun` and the `maximum`"
+                .into(),
+            &node,
+        );
+        return Expression::Invalid;
+    }
+    let (value, value_node) = args.first().unwrap().clone();
+    let ty = match value.ty() {
+        Type::Float32 => Type::Float32,
+        // In case there are other floats, we don't want to convert the result to int
+        Type::Int32 => Type::Float32,
+        Type::PhysicalLength => Type::PhysicalLength,
+        Type::LogicalLength => Type::LogicalLength,
+        Type::Duration => Type::Duration,
+        Type::Angle => Type::Angle,
+        Type::Percent => Type::Float32,
+        _ => {
+            diag.push_error("Invalid argument type".into(), &value_node);
+            return Expression::Invalid;
+        }
+    };
+
+    let (min, min_node) = args.get(1).unwrap().clone();
+    let min = min.maybe_convert_to(ty.clone(), &min_node, diag);
+    let (max, max_node) = args.get(2).unwrap().clone();
+    let max = max.maybe_convert_to(ty.clone(), &max_node, diag);
+
+    let value = min_max_expression(value, max, MinMaxOp::Min);
+    min_max_expression(min, value, MinMaxOp::Max)
 }
 
 fn mod_macro(

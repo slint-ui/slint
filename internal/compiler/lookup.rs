@@ -780,6 +780,7 @@ impl LookupObject for MathFunctions {
             .or_else(|| f("round", BuiltinFunctionReference(BuiltinFunction::Round, sl())))
             .or_else(|| f("ceil", BuiltinFunctionReference(BuiltinFunction::Ceil, sl())))
             .or_else(|| f("floor", BuiltinFunctionReference(BuiltinFunction::Floor, sl())))
+            .or_else(|| f("clamp", BuiltinMacroReference(BuiltinMacroFunction::Clamp, t.clone())))
             .or_else(|| f("abs", BuiltinFunctionReference(BuiltinFunction::Abs, sl())))
             .or_else(|| f("sqrt", BuiltinFunctionReference(BuiltinFunction::Sqrt, sl())))
             .or_else(|| f("max", BuiltinMacroReference(BuiltinMacroFunction::Max, t.clone())))

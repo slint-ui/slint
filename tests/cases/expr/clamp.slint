@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export component TestCase {
+    in property <float> value: 42.0;
+    out property <float> t1: clamp(value, 10.0, 53.0);
+    out property <float> t2: clamp(value, 43.0, 53.0);
+    out property <float> t3: clamp(value, 10.0, 41.0);
+
+    r := Rectangle {
+        property <int> max: 42;
+        property <int> xx: Math.clamp(5, 2, 3) + max;
+    }
+    out property <bool> test: root.t1 == 42.0 && root.t2 == 43.0 && root.t3 == 41.0 && r.xx == 42 + 3;
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_t1(), 42.0);
+assert_eq(instance.get_t2(), 43.0);
+assert_eq(instance.get_t3(), 41.0);
+assert_eq(instance.get_test(), true);
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_t1(), 42.0);
+assert_eq!(instance.get_t2(), 43.0);
+assert_eq!(instance.get_t3(), 41.0);
+assert_eq!(instance.get_test(), true);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.t1, 42.0);
+assert.equal(instance.t2, 43.0);
+assert.equal(instance.t3, 41.0);
+assert(instance.test);
+```
+*/

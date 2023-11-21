@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export component SuperSimple {
+    property <int> ok1: clamp(42, 42, 42);
+    property <float> ok2: clamp(42.0, 42.0, 42.0);
+    property <length> ok3: clamp(42px, 42px, 42px);
+    property <physical-length> ok4: clamp(42phx, 42phx, 42phx);
+    property <duration> ok5: clamp(42s, 42s, 42s);
+    property <angle> ok6: clamp(42deg, 42deg, 42deg);
+    property <percent> ok7: clamp(42%, 42%, 42%);
+
+    property <float> a: clamp + clamp() + clamp(42.0, 41, "hello");
+//                      ^error{Builtin function must be called}
+//                              ^^error{`clamp` needs three values}
+//                                                        ^^^error{Cannot convert string to float}
+    property <length> b: clamp(41px, 41phx, 42phx);
+    property <string> c: clamp("a", "b", "c");
+//                             ^error{Invalid argument type}
+    property <float> d: clamp(42, 42 - 1, 42 + 1) + max(1px , 2phx);
+//                      ^error{Cannot convert float to length}
+    property <float> e: clamp(42.0, 23.0, 84.0, 32.0);
+//                      ^error{`clamp` needs three values}
+}
