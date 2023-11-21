@@ -63,12 +63,24 @@ impl ComponentContainer {
             return;
         };
 
+        let mut window = None;
+        if let Some(parent) = self.my_component.get().and_then(|x| x.upgrade()) {
+            vtable::VRc::borrow_pin(&parent).as_ref().window_adapter(false, &mut window);
+        }
+        let prevent_focus_change =
+            window.as_ref().map_or(false, |w| w.window().0.prevent_focus_change.replace(true));
+
         let factory_context = FactoryContext {
             parent_item_tree: self.my_component.get().unwrap().clone(),
             parent_item_tree_index: *self.embedding_item_tree_index.get().unwrap(),
         };
 
         let product = factory.build(factory_context);
+
+        if let Some(w) = window {
+            w.window().0.prevent_focus_change.set(prevent_focus_change);
+        }
+
         if let Some(item_tree) = product.clone() {
             let item_tree = vtable::VRc::borrow_pin(&item_tree);
             let root_item = item_tree.as_ref().get_item_ref(0);
