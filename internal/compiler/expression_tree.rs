@@ -76,6 +76,8 @@ pub enum BuiltinMacroFunction {
     Min,
     /// Transform `max(a, b, c, ..., z)` into  a series of conditional expression and comparisons
     Max,
+    /// Transforms `clamp(v, min, max)` into a series of min/max calls
+    Clamp,
     /// Add the right conversion operations so that the return type is the same as the argument type
     Mod,
     CubicBezier,

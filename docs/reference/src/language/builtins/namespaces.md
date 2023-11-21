@@ -1,4 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Builtin Namespaces
 
 The following namespaces provide access to common constants such as special keys or named colors.
@@ -95,6 +96,11 @@ The trigonometry function. Note that the should be typed with `deg` or `rad` uni
 ### `ceil(float) -> int` and `floor(float) -> int`
 
 Return the ceiling or floor
+
+### `clamp(T, T, T) -> T`
+
+Takes a `value`, `minimum` and `maximum` and returns `maximum` if
+`value > maximum`, `minimum` if `value < minimum`, or `value` in all other cases.
 
 ### `log(float, float) -> float`
 
