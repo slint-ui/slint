@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Typography, Palette } from "styling.slint";
+import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component Button {
@@ -16,8 +16,8 @@ export component Button {
 
     callback clicked;
 
-    private property <brush> background: primary && root.enabled ? Palette.accent : Palette.surface;
-    private property <brush> text-color: primary && root.enabled ? Palette.on-surface : Palette.foreground;
+    private property <brush> background: primary && root.enabled ? CupertinoPalette.accent : CupertinoPalette.surface;
+    private property <brush> text-color: primary && root.enabled ? CupertinoPalette.on-accent : CupertinoPalette.on-surface;
 
     min-width: max(20px, i-layout.min-width);
     min-height: max(20px, i-layout.min-height);
@@ -29,14 +29,14 @@ export component Button {
 
     states [
         disabled when !i-touch-area.enabled : {
-            root.text-color: Palette.foreground-secondary;
-            root.background: Palette.surface-quaternary;
+            root.text-color: CupertinoPalette.foreground-secondary;
+            root.background: CupertinoPalette.surface-quaternary;
         }
         pressed when root.pressed : {
-            root.background: root.primary ? Palette.accent-secondary : Palette.surface-secondary;
+            root.background: root.primary ? CupertinoPalette.accent-secondary : CupertinoPalette.surface-secondary;
         }
         checked when root.checked : {
-            root.text-color: Palette.accent-secondary;
+            root.text-color: CupertinoPalette.accent-secondary;
         }
     ]
 
@@ -76,7 +76,7 @@ export component Button {
 
         Rectangle {
             border-radius: parent.border-radius;
-            background: Palette.dimmer;
+            background: CupertinoPalette.dimmer;
             opacity: 0.17;
         }
     }
@@ -95,7 +95,7 @@ export component Button {
             border-radius: parent.border-radius;
             background: root.background;
             border-width: 1px;
-            border-color: Palette.decent-border;
+            border-color: CupertinoPalette.decent-border;
             opacity: root.enabled ? 1 : 0.5;
         }
     }
@@ -117,8 +117,8 @@ export component Button {
 
         if (root.text != "") : Text {
             opacity: root.enabled ? 1 : 0.5;
-            font-size: Typography.body.font-size;
-            font-weight: Typography.body.font-weight;
+            font-size: CupertinoFontSettings.body.font-size;
+            font-weight: CupertinoFontSettings.body.font-weight;
             horizontal-alignment: center;
             vertical-alignment: center;
             text: root.text;

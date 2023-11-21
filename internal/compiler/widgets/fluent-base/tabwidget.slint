@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, Typography } from "styling.slint";
+import { FluentPalette, FluentFontSettings } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component TabWidgetImpl inherits Rectangle {
@@ -56,9 +56,9 @@ export component TabImpl inherits Rectangle {
             height: parent.height + self.border-radius;
             border-radius: 7px;
             border-width: root.is-current ? 1px : 0px;
-            border-color: Palette.card-stroke;
-            background: i-touch-area.pressed || root.is-current ? Palette.layer-on-mica-base-alt :
-                i-touch-area.has-hover ? Palette.layer-on-mica-base-alt-secondary : transparent;
+            border-color: FluentPalette.card-stroke;
+            background: i-touch-area.pressed || root.is-current ? FluentPalette.layer-on-mica-base-alt :
+                i-touch-area.has-hover ? FluentPalette.layer-on-mica-base-alt-secondary : transparent;
         }
     }
 
@@ -77,9 +77,9 @@ export component TabImpl inherits Rectangle {
         i-text := Text {
             vertical-alignment: center;
             horizontal-alignment: left;
-            font-size: root.is-current ? Typography.body-strong.font-size : Typography.body.font-size;
-            font-weight: root.is-current ? Typography.body-strong.font-weight : Typography.body.font-weight;
-            color: root.is-current ? Palette.text-primary : Palette.text-secondary;
+            font-size: root.is-current ? FluentFontSettings.body-strong.font-size : FluentFontSettings.body.font-size;
+            font-weight: root.is-current ? FluentFontSettings.body-strong.font-weight : FluentFontSettings.body.font-weight;
+            color: root.is-current ? FluentPalette.on-surface : FluentPalette.text-secondary;
         }
     }
 
@@ -87,14 +87,14 @@ export component TabImpl inherits Rectangle {
         x: (parent.width - self.width);
         width: 2px;
         height: 16px;
-        background: Palette.divider;
+        background: FluentPalette.divider;
     }
 
     if (!root.is-current && !i-touch-area.has-hover && !i-touch-area.pressed) : Rectangle {
         y: (parent.height - self.height);
         width: 100%;
         height: 1px;
-        background: Palette.divider;
+        background: FluentPalette.divider;
     }
 
     // focus border

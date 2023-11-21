@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, Typography, Icons } from "styling.slint";
+import { CupertinoPalette, CupertinoFontSettings, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 import { SpinBoxBase } from "../common/spinbox-base.slint";
 
@@ -11,8 +11,8 @@ component SpinBoxButton {
 
     callback clicked <=> i-touch-area.clicked;
 
-    private property <brush> background: Palette.accent;
-    private property <brush> icon-color: Palette.on-surface;
+    private property <brush> background: CupertinoPalette.accent;
+    private property <brush> icon-color: CupertinoPalette.on-accent;
 
     min-width: 16px;
     horizontal-stretch: 0;
@@ -20,10 +20,10 @@ component SpinBoxButton {
     states [
         disabled when !i-touch-area.enabled : {
             opacity: 0.5;
-            icon-color: Palette.foreground-secondary;
+            icon-color: CupertinoPalette.foreground-secondary;
         }
         pressed when i-touch-area.pressed : {
-            root.background: Palette.accent-secondary;
+            root.background: CupertinoPalette.accent-secondary;
         }
     ]
 
@@ -61,7 +61,7 @@ component SpinBoxButton {
 
             Rectangle {
                 border-radius: parent.border-radius;
-                background: Palette.dimmer;
+                background: CupertinoPalette.dimmer;
                 opacity: 0.17;
             }
 
@@ -88,7 +88,7 @@ export component SpinBox {
 
     callback edited(int /* value */);
 
-    private property <brush> background: Palette.surface;
+    private property <brush> background: CupertinoPalette.surface;
 
     min-width: 128px;
     min-height: max(22px, i-layout.min-height);
@@ -102,8 +102,8 @@ export component SpinBox {
 
     states [
         disabled when !root.enabled : {
-            i-text-input.color: Palette.foreground-secondary;
-            root.background: Palette.surface-tertiary;
+            i-text-input.color: CupertinoPalette.foreground-secondary;
+            root.background: CupertinoPalette.surface-tertiary;
         }
     ]
 
@@ -140,7 +140,7 @@ export component SpinBox {
             border-radius: parent.border-radius;
             background: root.background;
             border-width: 1px;
-            border-color: Palette.decent-border;
+            border-color: CupertinoPalette.decent-border;
             opacity: root.enabled ? 1 : 0.5;
         }
     }
@@ -156,10 +156,10 @@ export component SpinBox {
             i-text-input := TextInput {
                 vertical-alignment: center;
                 horizontal-alignment: left;
-                color: Palette.foreground;
-                font-size: Typography.body.font-size;
-                font-weight: Typography.body.font-weight;
-                selection-background-color: Palette.accent-quaternary;
+                color: CupertinoPalette.foreground;
+                font-size: CupertinoFontSettings.body.font-size;
+                font-weight: CupertinoFontSettings.body.font-weight;
+                selection-background-color: CupertinoPalette.accent-quaternary;
                 selection-foreground-color: self.color;
                 horizontal-stretch: 1;
                 text: root.value;

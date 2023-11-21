@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, Typography } from "styling.slint";
+import { FluentPalette, FluentFontSettings } from "styling.slint";
 
 export component FocusBorder inherits Rectangle {
     border-width: 2px;
-    border-color: Palette.focus-stroke-outer;
+    border-color: FluentPalette.focus-stroke-outer;
 
     Rectangle {
         x: parent.border-width;
@@ -14,21 +14,21 @@ export component FocusBorder inherits Rectangle {
         height: parent.height - 2 * parent.border-width;
         border-width: 1px;
         border-radius: parent.border-radius - 2px;
-        border-color: Palette.focus-stroke-inner;
+        border-color: FluentPalette.focus-stroke-inner;
     }
 }
 
 export component MenuBorder inherits Rectangle {
     border-radius: 7px;
-    background: Palette.acrylic-background;
+    background: FluentPalette.background-alt;
     drop-shadow-blur: 16px;
     drop-shadow-offset-y: 8px;
-    drop-shadow-color: Palette.shadow;
+    drop-shadow-color: FluentPalette.shadow;
 
     Rectangle {
         border-width: 1px;
         border-radius: parent.border-radius;
-        border-color: Palette.surface-stroke-flyout;
+        border-color: FluentPalette.surface-stroke-flyout;
     }
 }
 
@@ -48,15 +48,15 @@ export component ListItem {
 
     states [
         pressed when i-touch-area.pressed : {
-            i-background.background: selected ? Palette.subtle-secondary : Palette.subtle-tertiary;
+            i-background.background: selected ? FluentPalette.subtle-secondary : FluentPalette.subtle-tertiary;
         }
         hover when i-touch-area.has-hover : {
-            i-text.color: Palette.text-secondary;
-            i-background.background: selected ? Palette.subtle-tertiary : Palette.subtle-secondary;
+            i-text.color: FluentPalette.text-secondary;
+            i-background.background: selected ? FluentPalette.subtle-tertiary : FluentPalette.subtle-secondary;
             i-selector.height: root.selected ? 16px : 0;
         }
         selected when root.selected : {
-            i-background.background: Palette.subtle-secondary;
+            i-background.background: FluentPalette.subtle-secondary;
             i-selector.height: 16px;
         }
     ]
@@ -73,9 +73,9 @@ export component ListItem {
             spacing: 4px;
 
             i-text := Text {
-                color: Palette.text-primary;
-                font-size: Typography.body.font-size;
-                font-weight: Typography.body.font-weight;
+                color: FluentPalette.on-surface;
+                font-size: FluentFontSettings.body.font-size;
+                font-weight: FluentFontSettings.body.font-weight;
                 vertical-alignment: center;
                 horizontal-alignment: left;
                 overflow: elide;
@@ -89,7 +89,7 @@ export component ListItem {
             y: (parent.height - self.height) / 2;
             width: 3px;
             height: 0px;
-            background: Palette.accent-default;
+            background: FluentPalette.accent;
             border-radius: 2px;
 
             animate height { duration: 150ms; easing: ease-out; }

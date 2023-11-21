@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 
-import { Palette, Elevation } from "styling.slint";
+import { MaterialPalette, Elevation } from "styling.slint";
 
 // Allows to select a value from a range of values.
 export component Slider {
@@ -26,10 +26,10 @@ export component Slider {
 
     states [
         disabled when !root.enabled : {
-            i-handle.background: Palette.on-surface;
+            i-handle.background: MaterialPalette.on-surface;
             i-handle.drop-shadow-blur: Elevation.level0;
-            i-track.background: Palette.on-surface;
-            i-background.background: Palette.on-surface;
+            i-track.background: MaterialPalette.on-surface;
+            i-background.background: MaterialPalette.on-surface;
             root.opacity: 0.38;
         }
         pressed when (i-touch-area.pressed && i-touch-area.i-handle-hover) || i-focus-scope.has-focus : {
@@ -37,13 +37,13 @@ export component Slider {
             i-handle.drop-shadow-blur: Elevation.level0;
         }
         hover when i-touch-area.i-handle-hover : {
-            i-state-layer.background: Palette.on-surface;
+            i-state-layer.background: MaterialPalette.on-surface;
             i-state-layer.opacity: 0.08;
         }
     ]
 
     i-background := Rectangle {
-        background: Palette.surface-variant;
+        background: MaterialPalette.surface-variant;
         opacity: 0.38;
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
@@ -53,7 +53,7 @@ export component Slider {
     }
 
     i-track := Rectangle {
-        background: Palette.primary;
+        background: MaterialPalette.accent;
         x: vertical ? (parent.width - self.width) / 2 : i-background.x;
         y: vertical ? i-background.y : (parent.height - self.height) / 2;
         width: vertical? i-background.width : i-handle.x + (i-handle.width / 2);
@@ -63,7 +63,7 @@ export component Slider {
 
     i-state-layer := Rectangle {
         opacity: 0;
-        background: Palette.primary;
+        background: MaterialPalette.accent;
         x: vertical ? (parent.width - self.width) / 2 : i-handle.x - (self.width - i-handle.width) / 2;
         y: vertical ? i-handle.y - (self.height - i-handle.height) / 2 : (parent.height - self.height) / 2;
         width: 40px;
@@ -74,13 +74,13 @@ export component Slider {
     }
 
     i-handle := Rectangle {
-        background: Palette.primary;
+        background: MaterialPalette.accent;
         x: vertical ? (parent.width - self.width) / 2 : (parent.width - i-handle.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
         y: vertical ? (parent.height - i-handle.height) * (root.value - root.minimum) / (root.maximum - root.minimum) : (parent.height - self.height) / 2;
         width: vertical ? root.width : root.height;
         height: vertical ? root.width : root.height;
         border-radius: max(self.width, self.height) / 2;
-        drop-shadow-color: Palette.shadow;
+        drop-shadow-color: MaterialPalette.shadow;
         drop-shadow-blur: Elevation.level1;
         drop-shadow-offset-y: 1px;
 

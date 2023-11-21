@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Typography, Palette, Icons } from "styling.slint";
+import { CupertinoFontSettings, CupertinoPalette, Icons } from "styling.slint";
 import { MenuBorder, ListItem, FocusBorder } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
 
@@ -14,7 +14,7 @@ export component ComboBox {
 
     callback selected <=> i-base.selected;
 
-    private property <brush> background: Palette.surface;
+    private property <brush> background: CupertinoPalette.surface;
 
     min-width: max(160px, i-layout.min-width);
     min-height: max(22px, i-layout.min-height);
@@ -24,13 +24,13 @@ export component ComboBox {
 
     states [
         disabled when !root.enabled : {
-            i-text.color: Palette.foreground-secondary;
-            i-top-icon.colorize: Palette.foreground-secondary;
-            i-bottom-icon.colorize: Palette.foreground-secondary;
-            root.background: Palette.surface-tertiary;
+            i-text.color: CupertinoPalette.foreground-secondary;
+            i-top-icon.colorize: CupertinoPalette.foreground-secondary;
+            i-bottom-icon.colorize: CupertinoPalette.foreground-secondary;
+            root.background: CupertinoPalette.surface-tertiary;
         }
         pressed when i-base.pressed : {
-            root.background: Palette.surface-secondary;
+            root.background: CupertinoPalette.surface-secondary;
         }
     ]
 
@@ -66,7 +66,7 @@ export component ComboBox {
             border-radius: parent.border-radius;
             background: root.background;
             border-width: 1px;
-            border-color: Palette.decent-border;
+            border-color: CupertinoPalette.decent-border;
             opacity: root.enabled ? 1 : 0.5;
         }
     }
@@ -81,9 +81,9 @@ export component ComboBox {
         i-text := Text {
             horizontal-alignment: left;
             vertical-alignment: center;
-            font-size: Typography.body.font-size;
-            font-weight: Typography.body.font-weight;
-            color: Palette.foreground;
+            font-size: CupertinoFontSettings.body.font-size;
+            font-weight: CupertinoFontSettings.body.font-weight;
+            color: CupertinoPalette.foreground;
             text: root.current-value;
         }
 
@@ -99,7 +99,7 @@ export component ComboBox {
                 drop-shadow-color: #00000066;
                 drop-shadow-offset-y: 0.5px;
                 border-radius: 4px;
-                background: Palette.accent;
+                background: CupertinoPalette.accent;
 
                 Rectangle {
                     drop-shadow-blur: 2px;
@@ -119,7 +119,7 @@ export component ComboBox {
 
                 Rectangle {
                     border-radius: parent.border-radius;
-                    background: Palette.dimmer;
+                    background: CupertinoPalette.dimmer;
                     opacity: 0.17;
                 }
             }
@@ -130,13 +130,13 @@ export component ComboBox {
 
                 i-top-icon := Image {
                     x: (parent.width - self.width) / 2;
-                    colorize: Palette.on-surface;
+                    colorize: CupertinoPalette.on-accent;
                     source: Icons.chevron-up;
                 }
 
                 i-bottom-icon := Image {
                     x: (parent.width - self.width) / 2;
-                    colorize: Palette.on-surface;
+                    colorize: CupertinoPalette.on-accent;
                     source: Icons.chevron-down;
                 }
             }

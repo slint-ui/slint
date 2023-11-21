@@ -1,12 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, Typography, Icons } from "styling.slint";
+import { CupertinoPalette, CupertinoFontSettings, Icons } from "styling.slint";
 
 export component FocusBorder inherits Rectangle {
     in property <bool> has-focus;
 
-    background: Palette.accent-tertiary;
+    background: CupertinoPalette.accent-tertiary;
     opacity: 0;
 
     animate opacity { duration: 150ms; }
@@ -22,14 +22,14 @@ export component MenuBorder inherits Rectangle {
     drop-shadow-blur: 22px;
     drop-shadow-color: #00000066;
     drop-shadow-offset-y: 0.5px;
-    background: Palette.background;
+    background: CupertinoPalette.background;
     border-radius: 6px;
 
     Rectangle {
         width: 100%;
         height: 100%;
         border-radius: parent.border-radius;
-        background: Palette.background;
+        background: CupertinoPalette.background;
 
         @children
     }
@@ -39,7 +39,7 @@ export component MenuBorder inherits Rectangle {
         height: 100%;
         border-radius: parent.border-radius;
         border-width: 1px;
-        border-color: Palette.popup-border;
+        border-color: CupertinoPalette.popup-border;
     }
 }
 
@@ -60,9 +60,9 @@ export component ListItem {
 
     states [
         hover when i-touch-area.has-hover : {
-            i-background.background: Palette.accent;
-            i-text.color: Palette.on-surface;
-            i-icon.colorize: Palette.on-surface;
+            i-background.background: CupertinoPalette.accent;
+            i-text.color: CupertinoPalette.on-surface;
+            i-icon.colorize: CupertinoPalette.on-surface;
         }
     ]
 
@@ -82,15 +82,15 @@ export component ListItem {
                 i-icon := Image {
                     image-fit: contain;
                     source: Icons.check-mark;
-                    colorize: Palette.foreground;
+                    colorize: CupertinoPalette.foreground;
                     visible: root.selected;
                     width: 10px;
                 }
 
                 i-text := Text {
-                    color: Palette.foreground;
-                    font-size: Typography.body.font-size;
-                    font-weight: Typography.body.font-weight;
+                    color: CupertinoPalette.foreground;
+                    font-size: CupertinoFontSettings.body.font-size;
+                    font-weight: CupertinoFontSettings.body.font-weight;
                     vertical-alignment: center;
                     horizontal-alignment: left;
                     overflow: elide;

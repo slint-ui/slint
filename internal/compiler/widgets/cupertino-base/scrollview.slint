@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, Icons } from "styling.slint";
+import { CupertinoPalette, Icons } from "styling.slint";
 
 export component ScrollBar inherits Rectangle {
     in property <bool> enabled;
@@ -20,8 +20,8 @@ export component ScrollBar inherits Rectangle {
 
     states [
         hover when i-touch-area.has-hover : {
-            background: Palette.foreground.with-alpha(0.2);
-            i-border.background: Palette.foreground.with-alpha(0.2);
+            background: CupertinoPalette.foreground.with-alpha(0.2);
+            i-border.background: CupertinoPalette.foreground.with-alpha(0.2);
             pad: 4px;
         }
     ]
@@ -42,10 +42,10 @@ export component ScrollBar inherits Rectangle {
         x: !root.horizontal ? (parent.width - self.width) / 2 : root.offset + (root.track-size - i-thumb.width) * (-root.value / root.maximum);
         y: root.horizontal ? (parent.height - self.height) / 2 : root.offset + (root.track-size - i-thumb.height) * (-root.value / root.maximum);
         border-radius: (root.horizontal ? self.height : self.width) / 2;
-        background: Palette.foreground;
+        background: CupertinoPalette.foreground;
         opacity: 0.6;
         border-width: 0.8px;
-        border-color: Palette.foreground-neg;
+        border-color: CupertinoPalette.foreground-neg;
 
         animate width, height { duration: 100ms; easing: ease-out; }
     }

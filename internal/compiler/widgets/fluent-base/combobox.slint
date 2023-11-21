@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Typography, Palette, Icons } from "styling.slint";
+import { FluentFontSettings, FluentPalette, Icons } from "styling.slint";
 import { MenuBorder, ListItem, FocusBorder } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
 
@@ -22,19 +22,19 @@ export component ComboBox {
 
     states [
         disabled when !root.enabled : {
-            i-background.background: Palette.control-disabled;
-            i-background.border-color: Palette.control-stroke;
-            i-text.color: Palette.text-disabled;
-            i-icon.colorize: Palette.text-disabled;
+            i-background.background: FluentPalette.control-disabled;
+            i-background.border-color: FluentPalette.border;
+            i-text.color: FluentPalette.text-disabled;
+            i-icon.colorize: FluentPalette.text-disabled;
         }
         pressed when i-base.pressed : {
-            i-background.background: Palette.control-alt-tertiary;
-            i-background.border-color: Palette.control-stroke;
-            i-text.color: Palette.text-secondary;
-            i-icon.colorize: Palette.text-tertiary;
+            i-background.background: FluentPalette.control-alt-tertiary;
+            i-background.border-color: FluentPalette.border;
+            i-text.color: FluentPalette.text-secondary;
+            i-icon.colorize: FluentPalette.text-tertiary;
         }
         hover when i-base.has-hover : {
-            i-background.background: Palette.control-secondary;
+            i-background.background: FluentPalette.control-secondary;
         }
     ]
 
@@ -49,9 +49,9 @@ export component ComboBox {
 
     i-background := Rectangle {
         border-radius: 3px;
-        background: Palette.control-default;
+        background: FluentPalette.surface;
         border-width: 1px;
-        border-color: Palette.control-border;
+        border-color: FluentPalette.control-border;
 
         animate border-color { duration: 200ms; }
 
@@ -63,14 +63,14 @@ export component ComboBox {
             i-text := Text {
                 horizontal-alignment: left;
                 vertical-alignment: center;
-                font-size: Typography.body.font-size;
-                font-weight: Typography.body.font-weight;
-                color: Palette.text-primary;
+                font-size: FluentFontSettings.body.font-size;
+                font-weight: FluentFontSettings.body.font-weight;
+                color: FluentPalette.on-surface;
                 text: root.current-value;
             }
 
             i-icon := Image {
-                colorize: Palette.text-secondary;
+                colorize: FluentPalette.text-secondary;
                 width: 12px;
                 source: Icons.dropdown;
                 y: 2px;

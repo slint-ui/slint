@@ -9,17 +9,17 @@ export { Button }
 import { ScrollView } from "scrollview.slint";
 export { ScrollView }
 
-import { Palette, Typography } from "styling.slint";
+import { FluentPalette, FluentFontSettings } from "styling.slint";
 
 export global StyleMetrics  {
     out property <length> layout-spacing: 8px;
     out property <length> layout-padding: 8px;
     out property <length> text-cursor-width: 1px;
-    out property <color> window-background: Palette.background;
-    out property <color> default-text-color: Palette.text-primary;
-    out property <color> textedit-background: Palette.background;
-    out property <color> textedit-text-color: Palette.text-primary;
-    out property <color> textedit-background-disabled: Palette.control-disabled;
-    out property <color> textedit-text-color-disabled: Palette.text-disabled;
-    out property <bool> dark-color-scheme: Palette.dark-color-scheme;
+    out property <color> window-background: FluentPalette.background;
+    out property <color> default-text-color: FluentPalette.foreground;
+    out property <color> textedit-background: FluentPalette.background;
+    out property <color> textedit-text-color: FluentPalette.foreground;
+    out property <color> textedit-background-disabled: FluentPalette.control-disabled;
+    out property <color> textedit-text-color-disabled: FluentPalette.text-disabled;
+    out property <bool> dark-color-scheme: FluentPalette.dark-color-scheme;
 }

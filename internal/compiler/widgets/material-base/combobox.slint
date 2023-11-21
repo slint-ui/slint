@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 
-import { Palette, Typography, Elevation, Icons } from "styling.slint";
+import { MaterialPalette, MaterialFontSettings, Elevation, Icons } from "styling.slint";
 import { ListItem } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
 
@@ -23,16 +23,16 @@ export component ComboBox {
 
     states [
         disabled when !root.enabled : {
-            i-background.border-color: Palette.on-surface;
+            i-background.border-color: MaterialPalette.on-surface;
             i-background.opacity: 0.38;
             i-label.opacity: 0.38;
             i-icon.opacity: 0.38;
         }
         focused when root.has-focus : {
             i-background.border-width: 2px;
-            i-background.border-color: Palette.primary;
-            i-label.color: Palette.primary;
-            i-icon.colorize: Palette.primary;
+            i-background.border-color: MaterialPalette.accent;
+            i-label.color: MaterialPalette.accent;
+            i-icon.colorize: MaterialPalette.accent;
         }
     ]
 
@@ -50,7 +50,7 @@ export component ComboBox {
         height: 100%;
         border-radius: 4px;
         border-width: 1px;
-        border-color: Palette.outline;
+        border-color: MaterialPalette.border;
     }
 
     i-layout := HorizontalLayout {
@@ -60,12 +60,12 @@ export component ComboBox {
 
         i-label := Text {
             text <=> root.current-value;
-            color: Palette.on-surface;
+            color: MaterialPalette.on-surface;
             vertical-alignment: center;
             // FIXME after Roboto font can be loaded
-            // font-family: Typography.body-large.font;
-            font-size: Typography.body-large.font-size;
-            font-weight: Typography.body-large.font-weight;
+            // font-family: MaterialFontSettings.body-large.font;
+            font-size: MaterialFontSettings.body-large.font-size;
+            font-weight: MaterialFontSettings.body-large.font-weight;
         }
 
         i-icon := Image {
@@ -73,7 +73,7 @@ export component ComboBox {
             height: 24px;
             y: (parent.height - self.height) / 2;
             source: Icons.expand-more;
-            colorize: Palette.on-surface;
+            colorize: MaterialPalette.on-surface;
         }
     }
 
@@ -83,8 +83,8 @@ export component ComboBox {
         width: root.width;
 
         i-popup-container := Rectangle {
-            background: Palette.surface;
-            drop-shadow-color: Palette.shadow;
+            background: MaterialPalette.surface;
+            drop-shadow-color: MaterialPalette.shadow;
             drop-shadow-blur: Elevation.level2;
             drop-shadow-offset-y: 1px;
             border-radius: 4px;

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, Typography, Icons } from "styling.slint";
+import { FluentPalette, FluentFontSettings, Icons } from "styling.slint";
 import { SpinBoxBase } from "../common/spinbox-base.slint";
 
 component SpinBoxButton {
@@ -14,7 +14,7 @@ component SpinBoxButton {
 
     states [
         pressed when i-touch-area.pressed : {
-            i-background.background: Palette.subtle;
+            i-background.background: FluentPalette.subtle;
         }
     ]
 
@@ -23,7 +23,7 @@ component SpinBoxButton {
 
         i-icon := Image {
             image-fit: contain;
-            colorize: Palette.text-secondary;
+            colorize: FluentPalette.text-secondary;
             width: 12px;
 
             animate colorize { duration: 150ms; }
@@ -54,15 +54,15 @@ export component SpinBox {
 
     states [
         disabled when !root.enabled : {
-            i-background.background: Palette.control-disabled;
-            i-background.border-color: Palette.control-stroke;
-            i-text-input.color: Palette.text-disabled;
-            i-text-input.selection-foreground-color: Palette.text-on-accent-disabled;
+            i-background.background: FluentPalette.control-disabled;
+            i-background.border-color: FluentPalette.border;
+            i-text-input.color: FluentPalette.text-disabled;
+            i-text-input.selection-foreground-color: FluentPalette.text-on-accent-disabled;
         }
         focused when root.has-focus : {
-            i-background.background: Palette.control-input-active;
-            i-background.border-color: Palette.control-stroke;
-            i-focus-border.background: Palette.accent-default;
+            i-background.background: FluentPalette.control-input-active;
+            i-background.border-color: FluentPalette.border;
+            i-focus-border.background: FluentPalette.accent;
         }
     ]
 
@@ -78,9 +78,9 @@ export component SpinBox {
 
     i-background := Rectangle {
         border-radius: 4px;
-        background: Palette.control-default;
+        background: FluentPalette.surface;
         border-width: 1px;
-        border-color: Palette.text-control-border;
+        border-color: FluentPalette.text-control-border;
 
         i-layout := HorizontalLayout {
             padding-left: 12px;
@@ -95,11 +95,11 @@ export component SpinBox {
                 i-text-input := TextInput {
                     vertical-alignment: center;
                     horizontal-alignment: left;
-                    color: Palette.text-primary;
-                    font-size: Typography.body.font-size;
-                    font-weight: Typography.body.font-weight;
-                    selection-background-color: Palette.accent-selected-text;
-                    selection-foreground-color: Palette.text-on-accent-primary;
+                    color: FluentPalette.on-surface;
+                    font-size: FluentFontSettings.body.font-size;
+                    font-weight: FluentFontSettings.body.font-weight;
+                    selection-background-color: FluentPalette.accent-selected-text;
+                    selection-foreground-color: FluentPalette.on-accent;
                     horizontal-stretch: 1;
                     text: root.value;
                     enabled: root.enabled;

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, Typography, Icons } from "styling.slint";
+import { FluentPalette, FluentFontSettings, Icons } from "styling.slint";
 import { ListView } from "listview.slint";
 
 component TableViewColumn inherits Rectangle {
@@ -10,14 +10,14 @@ component TableViewColumn inherits Rectangle {
     callback clicked <=> i-touch-area.clicked;
     callback adjust_size(length);
 
-    background: Palette.background;
+    background: FluentPalette.background;
 
     states [
         pressed when i-touch-area.pressed : {
-            background: Palette.control-secondary;
+            background: FluentPalette.control-secondary;
         }
         hover when i-touch-area.has-hover : {
-            background: Palette.sub-title-tertiary;
+            background: FluentPalette.sub-title-tertiary;
         }
     ]
 
@@ -36,7 +36,7 @@ component TableViewColumn inherits Rectangle {
 
         i-icon := Image {
             image-fit: contain;
-            colorize: Palette.text-secondary;
+            colorize: FluentPalette.text-secondary;
             visible: root.sort-order != SortOrder.unsorted;
             width: 12px;
             y: (parent.height - self.height) / 2;
@@ -51,7 +51,7 @@ component TableViewColumn inherits Rectangle {
         y: parent.height - self.height;
         width: 100%;
         height: 1px;
-        background: Palette.divider;
+        background: FluentPalette.divider;
     }
 
     Rectangle {
@@ -60,7 +60,7 @@ component TableViewColumn inherits Rectangle {
 
         states [
             hover when i-movable-touch-area.has-hover : {
-                background: Palette.control-secondary;
+                background: FluentPalette.control-secondary;
             }
         ]
 
@@ -102,18 +102,18 @@ component TableViewRow inherits Rectangle {
     min-width: i-layout.min-width;
     min-height: max(34px, i-layout.min-height);
     border-radius: 4px;
-    background: root.even ? Palette.control-default : transparent;
+    background: root.even ? FluentPalette.surface : transparent;
 
     states [
         pressed when i-touch-area.pressed : {
-            root.background: selected ? Palette.subtle-secondary : Palette.subtle-tertiary;
+            root.background: selected ? FluentPalette.subtle-secondary : FluentPalette.subtle-tertiary;
         }
         hover when i-touch-area.has-hover : {
-            root.background: selected ? Palette.subtle-tertiary : Palette.subtle-secondary;
+            root.background: selected ? FluentPalette.subtle-tertiary : FluentPalette.subtle-secondary;
             i-selector.height: root.selected ? 16px : 0;
         }
         selected when root.selected : {
-            root.background: Palette.subtle-secondary;
+            root.background: FluentPalette.subtle-secondary;
             i-selector.height: 16px;
         }
     ]
@@ -136,7 +136,7 @@ component TableViewRow inherits Rectangle {
         y: (parent.height - self.height) / 2;
         width: 3px;
         height: 0px;
-        background: Palette.accent-default;
+        background: FluentPalette.accent;
         border-radius: 2px;
 
         animate height { duration: 150ms; easing: ease-out; }
@@ -227,9 +227,9 @@ export component StandardTableView {
                     Text {
                         vertical-alignment: center;
                         text: column.title;
-                        font-weight: Typography.body.font-weight;
-                        font-size: Typography.body.font-size;
-                        color: Palette.text-secondary;
+                        font-weight: FluentFontSettings.body.font-weight;
+                        font-size: FluentFontSettings.body.font-size;
+                        color: FluentPalette.text-secondary;
                         overflow: elide;
                     }
                 }
@@ -268,9 +268,9 @@ export component StandardTableView {
                             overflow: elide;
                             vertical-alignment: center;
                             text: cell.text;
-                            font-weight: Typography.body.font-weight;
-                            font-size: Typography.body.font-size;
-                            color: mod(idx, 2) == 0 ? Palette.text-primary : Palette.text-secondary;
+                            font-weight: FluentFontSettings.body.font-weight;
+                            font-size: FluentFontSettings.body.font-size;
+                            color: mod(idx, 2) == 0 ? FluentPalette.on-surface : FluentPalette.text-secondary;
                         }
                     }
                 }

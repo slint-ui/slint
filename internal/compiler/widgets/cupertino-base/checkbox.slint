@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Typography, Palette, Icons } from "styling.slint";
+import { CupertinoFontSettings, CupertinoPalette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component CheckBox {
@@ -12,8 +12,8 @@ export component CheckBox {
 
     callback toggled;
 
-    private property <brush> background: checked && root.enabled ? Palette.accent : Palette.surface;
-    private property <brush> icon-color: Palette.on-surface;
+    private property <brush> background: checked && root.enabled ? CupertinoPalette.accent : CupertinoPalette.surface;
+    private property <brush> icon-color: CupertinoPalette.on-accent;
 
     min-height: max(16px, i-layout.min-height);
     accessible-checkable: true;
@@ -24,10 +24,10 @@ export component CheckBox {
     states [
         disabled when !root.enabled : {
             opacity: 0.5;
-            icon-color: Palette.foreground;
+            icon-color: CupertinoPalette.foreground;
         }
         pressed when i-touch-area.pressed : {
-            root.background: root.checked ? Palette.accent-secondary : Palette.surface-secondary;
+            root.background: root.checked ? CupertinoPalette.accent-secondary : CupertinoPalette.surface-secondary;
         }
     ]
 
@@ -63,7 +63,7 @@ export component CheckBox {
                 height: 100%;
                 border-radius: parent.border-radius;
                 border-width: 0.5px;
-                border-color: Palette.border;
+                border-color: CupertinoPalette.border;
             }
         }
 
@@ -95,7 +95,7 @@ export component CheckBox {
 
             Rectangle {
                 border-radius: parent.border-radius;
-                background: Palette.dimmer;
+                background: CupertinoPalette.dimmer;
                 opacity: 0.17;
             }
 
@@ -112,9 +112,9 @@ export component CheckBox {
 
         if (root.text != "") : Text {
             text: root.text;
-            color: Palette.foreground;
-            font-size: Typography.body.font-size;
-            font-weight: Typography.body.font-weight;
+            color: CupertinoPalette.foreground;
+            font-size: CupertinoFontSettings.body.font-size;
+            font-weight: CupertinoFontSettings.body.font-weight;
             vertical-alignment: center;
             horizontal-alignment: left;
         }

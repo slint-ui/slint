@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette } from "styling.slint";
+import { CupertinoPalette } from "styling.slint";
 
 export component Slider {
     in property <Orientation> orientation: horizontal;
@@ -29,14 +29,14 @@ export component Slider {
             root.opacity: 0.5;
         }
         pressed when (i-touch-area.pressed &&  i-touch-area.has-hover) || i-focus-scope.has-focus : {
-            i-thumb.background: Palette.pressed;
+            i-thumb.background: CupertinoPalette.pressed;
         }
     ]
 
     i-rail := Rectangle {
         width: vertical ? 4px : parent.width;
         height: vertical ? parent.height : 4px;
-        background: Palette.surface-alt;
+        background: CupertinoPalette.surface-alt;
         border-radius: 2px;
 
         Rectangle {
@@ -51,7 +51,7 @@ export component Slider {
         y: vertical ? 0 : (parent.height - self.height) / 2;
         width: vertical ? i-rail.width : i-thumb.x + (i-thumb.width / 2);
         height: vertical ? i-thumb.y + (i-thumb.height / 2) : i-rail.height;
-        background: Palette.accent;
+        background: CupertinoPalette.accent;
         border-radius: i-rail.border-radius;
     }
 
@@ -61,7 +61,7 @@ export component Slider {
         width: 20px;
         height: self.width;
         border-radius: 10px;
-        background: Palette.surface-thumb;
+        background: CupertinoPalette.surface-thumb;
         drop-shadow-blur: 1px;
         drop-shadow-offset-y: 0.25px;
         drop-shadow-color: #0000003D;
