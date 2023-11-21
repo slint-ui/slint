@@ -1,9 +1,15 @@
+# Copyright © Cloris <luhaoyu@live.com>>
+# SPDX-License-Identifier: MIT
+
 [package]
 name = "calculator-rs"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Cloris <luhaoyu@live.com>"]
+license = "MIT"
+publish = false
+homepage = "https://github.com/slint-ui/slint"
+repository = "https://github.com/slint-ui/slint"
 
 [lib]
 crate-type = ["cdylib"]
