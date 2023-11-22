@@ -49,6 +49,8 @@ struct ContentCache {
     ui_is_visible: bool,
     design_mode: bool,
     default_style: String,
+    // Duplicate this information in case the UI is not up yet.
+    show_preview_ui: bool,
 }
 
 static CONTENT_CACHE: std::sync::OnceLock<Mutex<ContentCache>> = std::sync::OnceLock::new();
@@ -106,6 +108,7 @@ pub fn finish_parsing(ok: bool) {
 }
 
 pub fn config_changed(
+    show_preview_ui: bool,
     style: &str,
     include_paths: &[PathBuf],
     library_paths: &HashMap<String, PathBuf>,
@@ -116,15 +119,20 @@ pub fn config_changed(
         if cache.current.style != style
             || cache.current.include_paths != include_paths
             || cache.current.library_paths != *library_paths
+            || cache.show_preview_ui != show_preview_ui
         {
             cache.current.include_paths = include_paths.to_vec();
             cache.current.library_paths = library_paths.clone();
             cache.default_style = style;
+            cache.show_preview_ui = show_preview_ui;
             let current = cache.current.clone();
             let ui_is_visible = cache.ui_is_visible;
+            let show_preview_ui = cache.show_preview_ui;
+
             drop(cache);
 
             if ui_is_visible && !current.path.as_os_str().is_empty() {
+                set_show_preview_ui(show_preview_ui);
                 load_preview(current);
             }
         }

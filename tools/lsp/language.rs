@@ -90,6 +90,7 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
         }
         let style = documents.compiler_config.style.clone().unwrap_or_default();
         ctx.preview.config_changed(
+            ctx.preview.show_preview_ui(),
             &style,
             &documents.compiler_config.include_paths,
             &documents.compiler_config.library_paths,
@@ -1221,6 +1222,7 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
         .await?;
 
     let document_cache = &mut ctx.document_cache.borrow_mut();
+    let mut show_preview_ui = false;
     for v in r {
         if let Some(o) = v.as_object() {
             if let Some(ip) = o.get("includePaths").and_then(|v| v.as_array()) {
@@ -1244,6 +1246,10 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
                     document_cache.documents.compiler_config.style = Some(style.into());
                 }
             }
+            show_preview_ui = o
+                .get("preview")
+                .and_then(|v| v.as_object()?.get("show_ui")?.as_bool())
+                .unwrap_or_default();
         }
     }
 
@@ -1254,6 +1260,7 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
     let cc = &document_cache.documents.compiler_config;
     let empty_string = String::new();
     ctx.preview.config_changed(
+        show_preview_ui,
         cc.style.as_ref().unwrap_or(&empty_string),
         &cc.include_paths,
         &cc.library_paths,

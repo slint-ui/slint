@@ -122,7 +122,7 @@ pub fn open_ui(sender: &ServerNotifier) {
         }
     }
 
-    let default_style = {
+    let (default_style, show_preview_ui) = {
         let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         if cache.ui_is_visible {
             return; // UI is already up!
@@ -132,21 +132,23 @@ pub fn open_ui(sender: &ServerNotifier) {
         let mut s = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap();
         *s = Some(sender.clone());
 
-        cache.default_style.clone()
+        (cache.default_style.clone(), cache.show_preview_ui)
     };
 
     i_slint_core::api::invoke_from_event_loop(move || {
         PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
-            open_ui_impl(&mut preview_state, default_style);
+            open_ui_impl(&mut preview_state, default_style, show_preview_ui);
         });
     })
     .unwrap();
 }
 
-fn open_ui_impl(preview_state: &mut PreviewState, default_style: String) {
+fn open_ui_impl(preview_state: &mut PreviewState, default_style: String, show_preview_ui: bool) {
     // TODO: Handle Error!
-    let ui = preview_state.ui.get_or_insert_with(|| super::ui::create_ui(default_style).unwrap());
+    let ui = preview_state
+        .ui
+        .get_or_insert_with(|| super::ui::create_ui(default_style, show_preview_ui).unwrap());
     ui.on_show_document(|url, line, column| {
         ask_editor_to_show_document(
             url.as_str().to_string(),
@@ -216,6 +218,17 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
         crate::preview::notify_lsp_diagnostics(&sender, url, diagnostics)?;
     }
     Some(())
+}
+
+pub fn set_show_preview_ui(show_preview_ui: bool) {
+    run_in_ui_thread(move || async move {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow();
+            if let Some(ui) = &preview_state.ui {
+                ui.set_show_preview_ui(show_preview_ui)
+            }
+        })
+    });
 }
 
 pub fn set_current_style(style: String) {
@@ -312,15 +325,15 @@ pub fn configure_design_mode(enabled: bool) {
 
 /// This runs `set_preview_factory` in the UI thread
 pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition, design_mode: bool) {
-    let default_style = {
+    let (default_style, show_preview_ui) = {
         let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.default_style.clone()
+        (cache.default_style.clone(), cache.show_preview_ui)
     };
 
     PREVIEW_STATE.with(|preview_state| {
         let mut preview_state = preview_state.borrow_mut();
 
-        open_ui_impl(&mut preview_state, default_style);
+        open_ui_impl(&mut preview_state, default_style, show_preview_ui);
 
         let shared_handle = preview_state.handle.clone();
 
