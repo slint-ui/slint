@@ -32,7 +32,7 @@ component TableViewColumn inherits Rectangle {
 
         i-icon := Image {
             image-fit: contain;
-            colorize: CupertinoPalette.foreground;
+            colorize: CupertinoPalette.on-background;
             visible: root.sort-order != SortOrder.unsorted;
             width: 8px;
             y: (parent.height - self.height) / 2;
@@ -208,7 +208,7 @@ export component StandardTableView {
                         font-weight: column.sort-order == SortOrder.unsorted ? CupertinoFontSettings.body.font-weight :
                             CupertinoFontSettings.body-strong.font-weight;
                         font-size: CupertinoFontSettings.body.font-size;
-                        color: CupertinoPalette.foreground;
+                        color: CupertinoPalette.on-background;
                         overflow: elide;
                     }
                 }
@@ -249,7 +249,7 @@ export component StandardTableView {
                             text: cell.text;
                             font-weight: CupertinoFontSettings.body.font-weight;
                             font-size: CupertinoFontSettings.body.font-size;
-                            color: CupertinoPalette.foreground;
+                            color: CupertinoPalette.on-background;
                         }
                     }
                 }

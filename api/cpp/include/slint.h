@@ -1241,6 +1241,16 @@ cbindgen_private::NativeStyleMetrics::~NativeStyleMetrics()
 {
     slint_native_style_metrics_deinit(this);
 }
+
+cbindgen_private::QtStylePalette::QtStylePalette(void *)
+{
+    slint_native_style_metrics_init(this);
+}
+
+cbindgen_private::QtStylePalette::~QtStylePalette()
+{
+    slint_native_style_metrics_deinit(this);
+}
 #endif // !defined(DOXYGEN)
 
 namespace private_api {

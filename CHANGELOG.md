@@ -98,6 +98,7 @@ All notable changes to this project are documented in this file.
  - Added `focus-changed-event` callback to `FocusScope`.
  - Added many new easing curves.
  - Added `Spinner`.
+ - Added `Palette` global.
 
 ### JavaScript
 

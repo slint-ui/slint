@@ -19,10 +19,22 @@ export global StyleMetrics  {
     out property <length> layout-padding: 8px;
     out property <length> text-cursor-width: 1px;
     out property <color> window-background: FluentPalette.background;
-    out property <color> default-text-color: FluentPalette.foreground;
+    out property <color> default-text-color: FluentPalette.on-background;
     out property <color> textedit-background: FluentPalette.background;
-    out property <color> textedit-text-color: FluentPalette.foreground;
+    out property <color> textedit-text-color: FluentPalette.on-background;
     out property <color> textedit-background-disabled: FluentPalette.control-disabled;
     out property <color> textedit-text-color-disabled: FluentPalette.text-disabled;
     out property <bool> dark-color-scheme: FluentPalette.dark-color-scheme;
+}
+
+export global Palette {
+    out property <brush> background: FluentPalette.background;
+    out property <brush> background-alt: FluentPalette.background-alt;
+    out property <brush> on-background: FluentPalette.on-background;
+    out property <brush> accent: FluentPalette.accent;
+    out property <brush> on-accent: FluentPalette.on-accent;
+    out property <brush> surface: FluentPalette.surface;
+    out property <brush> on-surface: FluentPalette.on-surface;
+    out property <brush> border: FluentPalette.border;
+    out property <brush> selection: FluentPalette.selection;
 }

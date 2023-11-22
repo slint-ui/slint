@@ -24,7 +24,7 @@ export component CheckBox {
     states [
         disabled when !root.enabled : {
             opacity: 0.5;
-            icon-color: CupertinoPalette.foreground;
+            icon-color: CupertinoPalette.on-background;
         }
         pressed when i-touch-area.pressed : {
             root.background: root.checked ? CupertinoPalette.accent-secondary : CupertinoPalette.surface-secondary;
@@ -112,7 +112,7 @@ export component CheckBox {
 
         if (root.text != "") : Text {
             text: root.text;
-            color: CupertinoPalette.foreground;
+            color: CupertinoPalette.on-background;
             font-size: CupertinoFontSettings.body.font-size;
             font-weight: CupertinoFontSettings.body.font-weight;
             vertical-alignment: center;

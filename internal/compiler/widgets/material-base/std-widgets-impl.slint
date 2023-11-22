@@ -18,12 +18,24 @@ export global StyleMetrics  {
     out property <length> layout-padding: 16px;
     out property <length> text-cursor-width: 2px;
 
-    out property <color> default-text-color: MaterialPalette.foreground;
+    out property <color> default-text-color: MaterialPalette.on-background;
     out property <color> textedit-background: transparent;
-    out property <color> textedit-text-color: MaterialPalette.foreground;
+    out property <color> textedit-text-color: MaterialPalette.on-background;
     out property <color> textedit-background-disabled: transparent;
-    out property <color> textedit-text-color-disabled: MaterialPalette.foreground;
+    out property <color> textedit-text-color-disabled: MaterialPalette.on-background;
     out property <bool> dark-color-scheme: MaterialPalette.dark-color-scheme;
     out property <string> default-font-family: "Roboto";
     out property <color> window-background: MaterialPalette.background;
+}
+
+export global Palette {
+    out property <brush> background: MaterialPalette.background;
+    out property <brush> background-alt: MaterialPalette.background-alt;
+    out property <brush> on-background: MaterialPalette.on-background;
+    out property <brush> accent: MaterialPalette.accent;
+    out property <brush> on-accent: MaterialPalette.on-accent;
+    out property <brush> surface: MaterialPalette.surface;
+    out property <brush> on-surface: MaterialPalette.on-surface;
+    out property <brush> border: MaterialPalette.border;
+    out property <brush> selection: MaterialPalette.selection;
 }

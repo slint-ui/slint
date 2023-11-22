@@ -13,7 +13,7 @@ export component Switch {
     callback toggled;
 
     private property <brush> background: checked && root.enabled ? CupertinoPalette.accent : CupertinoPalette.surface-alt;
-    private property <color> text-color: CupertinoPalette.foreground;
+    private property <color> text-color: CupertinoPalette.on-background;
 
     function toggle-checked() {
         if(!root.enabled) {
