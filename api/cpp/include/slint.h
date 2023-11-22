@@ -1244,12 +1244,12 @@ cbindgen_private::NativeStyleMetrics::~NativeStyleMetrics()
 
 cbindgen_private::QtStylePalette::QtStylePalette(void *)
 {
-    slint_native_style_metrics_init(this);
+    slint_qt_style_palette_init(this);
 }
 
 cbindgen_private::QtStylePalette::~QtStylePalette()
 {
-    slint_native_style_metrics_deinit(this);
+    slint_qt_style_palette_deinit(this);
 }
 #endif // !defined(DOXYGEN)
 
