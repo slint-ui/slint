@@ -532,7 +532,7 @@ pub struct MouseInputState {
 
 /// Try to handle the mouse grabber. Return None if the event has been handled, otherwise
 /// return the event that must be handled
-fn handle_mouse_grab(
+pub(crate) fn handle_mouse_grab(
     mouse_event: MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
     mouse_input_state: &mut MouseInputState,
@@ -598,7 +598,7 @@ fn handle_mouse_grab(
     None
 }
 
-fn send_exit_events(
+pub(crate) fn send_exit_events(
     old_input_state: &MouseInputState,
     new_input_state: &mut MouseInputState,
     mut pos: Option<LogicalPoint>,
@@ -640,17 +640,8 @@ pub fn process_mouse_input(
     component: ItemTreeRc,
     mouse_event: MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
-    mut mouse_input_state: MouseInputState,
+    mouse_input_state: MouseInputState,
 ) -> MouseInputState {
-    if matches!(mouse_event, MouseEvent::Released { .. }) {
-        mouse_input_state = process_delayed_event(window_adapter, mouse_input_state);
-    }
-
-    let Some(mouse_event) = handle_mouse_grab(mouse_event, window_adapter, &mut mouse_input_state)
-    else {
-        return mouse_input_state;
-    };
-
     let mut result = MouseInputState::default();
     let root = ItemRc::new(component.clone(), 0);
     let r = send_mouse_event_to_item(mouse_event, root, window_adapter, &mut result, false);

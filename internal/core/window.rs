@@ -474,47 +474,62 @@ impl WindowInner {
         // handle multiple press release
         event = self.click_state.check_repeat(event);
 
-        let close_popup_after_click = self.close_popup_after_click();
+        let window_adapter = self.window_adapter();
+        let mut mouse_input_state = self.mouse_input_state.take();
+        if matches!(event, MouseEvent::Released { .. }) {
+            mouse_input_state =
+                crate::input::process_delayed_event(&window_adapter, mouse_input_state);
+        }
 
-        let embedded_popup_component =
-            self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
-                PopupWindowLocation::TopLevel(_) => None,
-                PopupWindowLocation::ChildWindow(coordinates) => {
-                    Some((popup.component.clone(), coordinates))
-                }
-            });
+        let close_popup_after_click = matches!(event, MouseEvent::Released { .. })
+            && self.close_popup_after_click()
+            && self.active_popup.borrow().is_some();
 
-        let Some(component) = embedded_popup_component.as_ref().map_or_else(
-            || self.component.borrow().upgrade(),
-            |(popup_component, coordinates)| {
+        mouse_input_state = if let Some(mut event) =
+            crate::input::handle_mouse_grab(event, &window_adapter, &mut mouse_input_state)
+        {
+            let item_tree = if let Some(PopupWindow {
+                location: PopupWindowLocation::ChildWindow(coordinates),
+                component,
+                ..
+            }) = self.active_popup.borrow().as_ref()
+            {
                 event.translate(-coordinates.to_vector());
-
-                let geom = ItemTreeRc::borrow_pin(popup_component).as_ref().item_geometry(0);
+                let geom = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(0);
                 if event.position().map_or(false, |pos| !geom.contains(pos)) {
-                    // close the popup if one press outside the popup
-                    if matches!(event, MouseEvent::Pressed { .. }) && close_popup_after_click {
-                        self.close_popup();
-                    }
-                    return None;
+                    None
+                } else {
+                    Some(component.clone())
                 }
+            } else {
+                self.component.borrow().upgrade()
+            };
 
-                Some(popup_component.clone())
-            },
-        ) else {
-            return;
+            if let Some(item_tree) = item_tree {
+                crate::input::process_mouse_input(
+                    item_tree,
+                    event,
+                    &window_adapter,
+                    mouse_input_state,
+                )
+            } else {
+                // When outside, send exit event
+                let mut new_input_state = MouseInputState::default();
+                crate::input::send_exit_events(
+                    &mouse_input_state,
+                    &mut new_input_state,
+                    event.position(),
+                    &window_adapter,
+                );
+                new_input_state
+            }
+        } else {
+            mouse_input_state
         };
 
-        self.mouse_input_state.set(crate::input::process_mouse_input(
-            component,
-            event,
-            &self.window_adapter(),
-            self.mouse_input_state.take(),
-        ));
+        self.mouse_input_state.set(mouse_input_state);
 
-        if embedded_popup_component.is_some()
-            && close_popup_after_click
-            && matches!(event, MouseEvent::Released { .. })
-        {
+        if close_popup_after_click {
             self.close_popup();
         }
     }
