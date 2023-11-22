@@ -5,22 +5,17 @@
 
 import { Button, ComboBox, HorizontalBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
 import { HeaderBar } from "header-bar.slint";
+import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
 
-export struct Diagnostics {
-    level: string,
-    message: string,
-    url: string,
-    line: int,
-    column: int,
-}
+export { Diagnostics }
 
 export component PreviewUi inherits Window {
     in property<[string]> known-styles;
     in property<[Diagnostics]> diagnostics;
     in property<string> status-text;
-    in property<component-factory> preview-area <=> i-preview-area-container.component-factory;
+    in property<component-factory> preview-area;
     in-out property<string> current-style;
-    in property<bool> hide-toolbar;
+    in property<bool> show-preview-ui;
 
     callback design-mode-changed(/* enabled */ bool);
     callback style-changed();
@@ -29,8 +24,24 @@ export component PreviewUi inherits Window {
     title: "Slint Live-Preview";
     icon: @image-url("assets/slint-logo-small-light.png");
 
-    VerticalLayout {
-        if !hide_toolbar: HeaderBar {
+    if (!show-preview-ui): VerticalLayout {
+        no-ui-drawing-rect := Rectangle {
+            /* background: checkerboard pattern; */
+            ComponentContainer {
+                component-factory <=> root.preview-area;
+                width: clamp(no-ui-drawing-rect.width, self.min-width, self.max-width);
+                height: clamp(no-ui-drawing-rect.height, self.min-height, self.max-height);
+            }
+
+            // Diagnostics overlay:
+            DiagnosticsOverlay {
+                diagnostics <=> root.diagnostics;
+                show-document(url, line, column) => { root.show-document(url, line, column); }
+            }
+        }
+    }
+    if (show-preview-ui): VerticalLayout {
+        HeaderBar {
             vertical-stretch: 0.0;
 
             height: self.preferred-height;
@@ -64,43 +75,16 @@ export component PreviewUi inherits Window {
 
         drawing-rect := Rectangle {
             /* background: checkerboard pattern; */
-            i-preview-area-container := ComponentContainer {
-                width: max(self.min-width, min(self.max-width, drawing-rect.width));
-                height: max(self.min-height, min(self.max-height, drawing-rect.height));
+            ComponentContainer {
+                component-factory <=> root.preview-area;
+                width: clamp(drawing-rect.width, self.min-width, self.max-width);
+                height: clamp(drawing-rect.height, self.min-height, self.max-height);
             }
 
             // Diagnostics overlay:
-            if (root.diagnostics.length != 0): Rectangle {
-                background: #fff;
-
-                VerticalBox {
-
-                    Text {
-                        color: #000;
-                        text: "Compilation failed:";
-                    }
-
-                    ListView {
-                        width: parent.width - 10px;
-                        height: parent.height - 10px;
-
-                        padding: 5px;
-
-                        for diag in root.diagnostics: Rectangle {
-                            TouchArea {
-                                mouse-cursor: pointer;
-                                clicked => { root.show_document(diag.url, diag.line, diag.column); }
-
-                                Text {
-                                    width: 100%;
-                                    wrap: word-wrap;
-                                    color: #000;
-                                    text: diag.level + ": " + diag.message;
-                                }
-                            }
-                        }
-                    }
-                }
+            DiagnosticsOverlay {
+                diagnostics <=> root.diagnostics;
+                show-document(url, line, column) => { root.show-document(url, line, column); }
             }
         }
     }

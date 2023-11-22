@@ -46,6 +46,7 @@ pub mod wasm_prelude {
 struct Previewer {
     server_notifier: ServerNotifier,
     to_show: RefCell<Option<common::PreviewComponent>>,
+    show_preview_ui: RefCell<bool>,
 }
 
 impl PreviewApi for Previewer {
@@ -94,14 +95,18 @@ impl PreviewApi for Previewer {
 
     fn config_changed(
         &self,
+        show_preview_ui: bool,
         style: &str,
         include_paths: &[PathBuf],
         library_paths: &HashMap<String, PathBuf>,
     ) {
+        *self.show_preview_ui.borrow_mut() = show_preview_ui;
+
         #[cfg(feature = "preview-external")]
         let _ = self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
             crate::common::LspToPreviewMessage::SetConfiguration {
+                show_preview_ui,
                 style: style.to_string(),
                 include_paths: include_paths
                     .iter()
@@ -128,6 +133,10 @@ impl PreviewApi for Previewer {
 
     fn current_component(&self) -> Option<crate::common::PreviewComponent> {
         self.to_show.borrow().clone()
+    }
+
+    fn show_preview_ui(&self) -> bool {
+        *self.show_preview_ui.borrow()
     }
 }
 
@@ -269,6 +278,7 @@ pub fn create(
     let preview = Rc::new(Previewer {
         server_notifier: server_notifier.clone(),
         to_show: Default::default(),
+        show_preview_ui: RefCell::new(true),
     });
 
     let init_param = serde_wasm_bindgen::from_value(init_param)?;

@@ -37,6 +37,7 @@ struct Previewer {
     #[allow(unused)]
     server_notifier: ServerNotifier,
     use_external_previewer: RefCell<bool>,
+    show_preview_ui: RefCell<bool>,
     to_show: RefCell<Option<common::PreviewComponent>>,
 }
 
@@ -103,15 +104,18 @@ impl PreviewApi for Previewer {
 
     fn config_changed(
         &self,
+        _show_preview_ui: bool,
         _style: &str,
         _include_paths: &[PathBuf],
         _library_paths: &HashMap<String, PathBuf>,
     ) {
+        *self.show_preview_ui.borrow_mut() = _show_preview_ui;
         if *self.use_external_previewer.borrow() {
             #[cfg(feature = "preview-external")]
             let _ = self.server_notifier.send_notification(
                 "slint/lsp_to_preview".to_string(),
                 crate::common::LspToPreviewMessage::SetConfiguration {
+                    show_preview_ui: _show_preview_ui,
                     style: _style.to_string(),
                     include_paths: _include_paths
                         .iter()
@@ -125,7 +129,7 @@ impl PreviewApi for Previewer {
             );
         } else {
             #[cfg(feature = "preview-builtin")]
-            preview::config_changed(_style, _include_paths, _library_paths);
+            preview::config_changed(_show_preview_ui, _style, _include_paths, _library_paths);
         }
     }
 
@@ -152,6 +156,10 @@ impl PreviewApi for Previewer {
     fn current_component(&self) -> Option<crate::common::PreviewComponent> {
         self.to_show.borrow().clone()
     }
+
+    fn show_preview_ui(&self) -> bool {
+        *self.show_preview_ui.borrow()
+    }
 }
 
 #[derive(Clone, clap::Parser)]
@@ -176,6 +184,10 @@ struct Cli {
     /// Start the preview in full screen mode
     #[arg(long, action)]
     fullscreen: bool,
+
+    /// Show the preview UI
+    #[arg(long, default_value = "true", action = clap::ArgAction::Set)]
+    show_preview_ui: bool,
 }
 
 enum OutgoingRequest {
@@ -265,11 +277,13 @@ fn main() {
         std::env::set_var("SLINT_FULLSCREEN", "1");
     }
 
+    let show_preview_ui = args.show_preview_ui;
+
     #[cfg(feature = "preview-engine")]
     {
         let lsp_thread = std::thread::Builder::new()
             .name("LanguageServer".into())
-            .spawn(|| {
+            .spawn(move || {
                 /// Make sure we quit the event loop even if we panic
                 struct QuitEventLoop;
                 impl Drop for QuitEventLoop {
@@ -279,7 +293,7 @@ fn main() {
                 }
                 let quit_ui_loop = QuitEventLoop;
 
-                let threads = match run_lsp_server() {
+                let threads = match run_lsp_server(show_preview_ui) {
                     Ok(threads) => threads,
                     Err(error) => {
                         eprintln!("Error running LSP server: {}", error);
@@ -304,7 +318,7 @@ fn main() {
     }
 }
 
-pub fn run_lsp_server() -> Result<IoThreads> {
+pub fn run_lsp_server(show_preview_ui: bool) -> Result<IoThreads> {
     let (connection, io_threads) = Connection::stdio();
     let (id, params) = connection.initialize_start()?;
 
@@ -313,12 +327,16 @@ pub fn run_lsp_server() -> Result<IoThreads> {
         serde_json::to_value(language::server_initialize_result(&init_param.capabilities))?;
     connection.initialize_finish(id, initialize_result)?;
 
-    main_loop(connection, init_param)?;
+    main_loop(connection, init_param, show_preview_ui)?;
 
     Ok(io_threads)
 }
 
-fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<()> {
+fn main_loop(
+    connection: Connection,
+    init_param: InitializeParams,
+    show_preview_ui: bool,
+) -> Result<()> {
     let mut rh = RequestHandler::default();
     register_request_handlers(&mut rh);
 
@@ -336,6 +354,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<()>
         #[cfg(all(feature = "preview-builtin", feature = "preview-external"))]
         use_external_previewer: RefCell::new(false), // prefer internal
         to_show: RefCell::new(None),
+        show_preview_ui: RefCell::new(show_preview_ui),
     });
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);

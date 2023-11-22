@@ -11,12 +11,10 @@ use slint_interpreter::{DiagnosticLevel, PlatformError};
 
 slint::include_modules!();
 
-pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
+pub fn create_ui(style: String, show_preview_ui: bool) -> Result<PreviewUi, PlatformError> {
     let ui = PreviewUi::new()?;
 
-    if std::env::var("SLINT_FULLSCREEN").is_ok() {
-        ui.set_hide_toolbar(true);
-    }
+    ui.set_show_preview_ui(show_preview_ui);
 
     // design mode:
     ui.on_design_mode_changed(super::set_design_mode);

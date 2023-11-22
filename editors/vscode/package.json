@@ -94,6 +94,10 @@
                     },
                     "description": "The command line arguments passed to the Slint LSP server"
                 },
+                "slint.preview.show_ui": {
+                    "type": "boolean",
+                    "description": "Show the toolbar of the preview"
+                },
                 "slint.preview.style": {
                     "type": "string",
                     "description": "The default style to be used for the preview (eg: 'fluent', 'material', or 'native')"

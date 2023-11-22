@@ -19,6 +19,7 @@ pub trait PreviewApi {
     fn load_preview(&self, component: PreviewComponent);
     fn config_changed(
         &self,
+        show_preview_ui: bool,
         style: &str,
         include_paths: &[PathBuf],
         library_paths: &HashMap<String, PathBuf>,
@@ -27,6 +28,12 @@ pub trait PreviewApi {
 
     /// What is the current component to preview?
     fn current_component(&self) -> Option<PreviewComponent>;
+
+    /// Return the currently configured `show_preview_ui` value.
+    ///
+    /// This is not ideal, but we can not access the configuration without
+    /// a round trip into the editor.
+    fn show_preview_ui(&self) -> bool;
 }
 
 /// The Component to preview
@@ -57,6 +64,7 @@ pub enum LspToPreviewMessage {
         contents: String,
     },
     SetConfiguration {
+        show_preview_ui: bool,
         style: String,
         include_paths: Vec<String>,
         library_paths: Vec<(String, String)>,

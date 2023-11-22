@@ -75,7 +75,7 @@ impl PreviewConnector {
                         reject_c.take().call1(&JsValue::UNDEFINED,
                             &JsValue::from("PreviewConnector already set up.")).unwrap_throw();
                     } else {
-                        match super::ui::create_ui(style) {
+                        match super::ui::create_ui(style, true) {
                             Ok(ui) => {
                                 ui.on_show_document(|url, line, column| ask_editor_to_show_document(url.as_str().to_string(), line as u32, column as u32, line as u32, column as u32));
                                 preview_state.borrow_mut().ui = Some(ui);
@@ -125,11 +125,11 @@ impl PreviewConnector {
                 super::set_contents(&PathBuf::from(&path), contents);
                 Ok(())
             }
-            M::SetConfiguration { style, include_paths, library_paths } => {
+            M::SetConfiguration { show_preview_ui, style, include_paths, library_paths } => {
                 let ip: Vec<PathBuf> = include_paths.iter().map(PathBuf::from).collect();
                 let lp: HashMap<String, PathBuf> =
                     library_paths.iter().map(|(n, p)| (n.clone(), PathBuf::from(p))).collect();
-                super::config_changed(&style, &ip, &lp);
+                super::config_changed(show_preview_ui, &style, &ip, &lp);
                 Ok(())
             }
             M::ShowPreview { path, component, style, include_paths, library_paths } => {
@@ -257,6 +257,15 @@ pub fn send_message_to_lsp(message: crate::common::PreviewToLspMessage) {
             let _ = callback.call1(&JsValue::UNDEFINED, &value);
         }
     })
+}
+
+pub fn set_show_preview_ui(show_preview_ui: bool) {
+    PREVIEW_STATE.with(move |preview_state| {
+        let preview_state = preview_state.borrow_mut();
+        if let Some(ui) = &preview_state.ui {
+            ui.set_show_preview_ui(show_preview_ui)
+        }
+    });
 }
 
 pub fn set_current_style(style: String) {
