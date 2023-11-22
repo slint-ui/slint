@@ -1037,6 +1037,10 @@ fn get_document_symbols(
             let element_node = root_element.node.as_ref()?;
             let component_node = syntax_nodes::Component::new(element_node.parent()?)?;
             let selection_range = map_node(&component_node.DeclaredIdentifier())?;
+            if c.id.is_empty() {
+                // Symbols with empty names are invalid
+                return None;
+            }
 
             Some(DocumentSymbol {
                 range: map_node(&component_node)?,
@@ -1063,7 +1067,7 @@ fn get_document_symbols(
         }),
         Type::Enumeration(enumeration) => enumeration.node.as_ref().and_then(|node| {
             Some(DocumentSymbol {
-                range: map_node(node.parent().as_ref()?)?,
+                range: map_node(node)?,
                 selection_range: map_node(node)?,
                 name: enumeration.name.clone(),
                 kind: lsp_types::SymbolKind::ENUM,
@@ -1094,15 +1098,7 @@ fn get_document_symbols(
         (!r.is_empty()).then_some(r)
     }
 
-    r.sort_by(|a, b| {
-        if a.range.start.line.cmp(&b.range.start.line) == std::cmp::Ordering::Less {
-            std::cmp::Ordering::Less
-        } else if a.range.start.line.cmp(&b.range.start.line) == std::cmp::Ordering::Equal {
-            a.range.start.character.cmp(&b.range.start.character)
-        } else {
-            std::cmp::Ordering::Greater
-        }
-    });
+    r.sort_by(|a, b| a.range.start.cmp(&b.range.start));
 
     Some(r.into())
 }
@@ -1459,6 +1455,33 @@ component Demo {
 
             let first = result.first().unwrap();
             assert_eq!(&first.name, "Demo");
+        } else {
+            unreachable!();
+        }
+    }
+
+    #[test]
+    fn test_document_symbols_no_empty_names() {
+        // issue #3979
+        let (mut dc, uri, _) = loaded_document_cache(
+            r#"import { Button, VerticalBox } from "std-widgets.slint";
+struct Foo {}
+enum Bar {}
+export component Yo { Rectangle {} }
+export component {}
+struct {}
+enum {}
+            "#
+            .into(),
+        );
+        let result =
+            get_document_symbols(&mut dc, &lsp_types::TextDocumentIdentifier { uri }).unwrap();
+
+        if let DocumentSymbolResponse::Nested(result) = result {
+            assert_eq!(result.len(), 3);
+            assert_eq!(result[0].name, "Foo");
+            assert_eq!(result[1].name, "Bar");
+            assert_eq!(result[2].name, "Yo");
         } else {
             unreachable!();
         }
