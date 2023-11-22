@@ -120,32 +120,39 @@ assert_eq(instance.get_touch3(), 1);
 
 ```rust
 use slint::{platform::WindowEvent, platform::PointerEventButton, platform::Key, LogicalPosition};
+use slint::private_unstable_api::re_exports::MouseCursor;
 
 
 let instance = TestCase::new().unwrap();
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+
 // does not click on anything
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_touch1(), 0);
 assert_eq!(instance.get_touch2(), 0);
 assert_eq!(instance.get_touch3(), 0);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
 
 // click on second one
 slint_testing::send_mouse_click(&instance, 101., 101.);
 assert_eq!(instance.get_touch1(), 0);
 assert_eq!(instance.get_touch2(), 1);
 assert_eq!(instance.get_touch3(), 0);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Pointer);
 
 // click on first one only
 slint_testing::send_mouse_click(&instance, 108., 108.);
 assert_eq!(instance.get_touch1(), 1);
 assert_eq!(instance.get_touch2(), 1);
 assert_eq!(instance.get_touch3(), 0);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Move);
 
 // click on the third
 slint_testing::send_mouse_click(&instance, 106., 103.);
 assert_eq!(instance.get_touch1(), 1);
 assert_eq!(instance.get_touch2(), 1);
 assert_eq!(instance.get_touch3(), 1);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
 
 assert_eq!(instance.get_pointer_event_test().as_str(), "downleftclickupleft");
 

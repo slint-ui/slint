@@ -4,14 +4,15 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
+use i_slint_core::api::PhysicalSize;
 use i_slint_core::graphics::euclid::{Point2D, Size2D};
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
+use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{Renderer, RendererSealed};
-use i_slint_core::window::WindowAdapterInternal;
-use i_slint_core::window::{InputMethodRequest, WindowAdapter};
+use i_slint_core::window::{InputMethodRequest, WindowAdapter, WindowAdapterInternal};
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -30,6 +31,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             size: Default::default(),
             ime_requests: Default::default(),
+            mouse_cursor: Default::default(),
         }))
     }
 
@@ -77,8 +79,9 @@ impl i_slint_core::platform::Platform for TestingBackend {
 
 pub struct TestingWindow {
     window: i_slint_core::api::Window,
-    size: core::cell::Cell<PhysicalSize>,
+    size: Cell<PhysicalSize>,
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
+    pub mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
 }
 
 impl WindowAdapterInternal for TestingWindow {
@@ -88,6 +91,10 @@ impl WindowAdapterInternal for TestingWindow {
 
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
         self.ime_requests.borrow_mut().push(request)
+    }
+
+    fn set_mouse_cursor(&self, cursor: i_slint_core::items::MouseCursor) {
+        self.mouse_cursor.set(cursor);
     }
 }
 
@@ -312,5 +319,3 @@ pub fn access_testing_window<R>(
 }
 
 pub use for_unit_test::*;
-use i_slint_core::api::PhysicalSize;
-use i_slint_core::platform::PlatformError;
