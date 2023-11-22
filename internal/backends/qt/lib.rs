@@ -75,7 +75,7 @@ pub type NativeWidgets =
 #[rustfmt::skip]
 pub type NativeGlobals =
     (qt_widgets::NativeStyleMetrics,
-    (qt_widgets::QtStylePalette,
+    (qt_widgets::NativePalette,
         ()));
 
 #[cfg(no_qt)]
@@ -102,9 +102,9 @@ mod native_style_metrics_stub {
     #[derive(FieldOffsets, SlintElement)]
     #[pin]
     #[pin_drop]
-    pub struct QtStylePalette {}
+    pub struct NativePalette {}
 
-    impl const_field_offset::PinnedDrop for QtStylePalette {
+    impl const_field_offset::PinnedDrop for NativePalette {
         fn drop(self: Pin<&mut Self>) {}
     }
 }
@@ -117,7 +117,7 @@ pub mod native_widgets {
     pub use super::native_style_metrics_stub::NativeStyleMetrics;
 
     #[cfg(no_qt)]
-    pub use super::native_style_metrics_stub::QtStylePalette;
+    pub use super::native_style_metrics_stub::NativePalette;
 }
 
 #[cfg(no_qt)]

@@ -1242,14 +1242,14 @@ cbindgen_private::NativeStyleMetrics::~NativeStyleMetrics()
     slint_native_style_metrics_deinit(this);
 }
 
-cbindgen_private::QtStylePalette::QtStylePalette(void *)
+cbindgen_private::NativePalette::NativePalette(void *)
 {
-    slint_qt_style_palette_init(this);
+    slint_native_palette_init(this);
 }
 
-cbindgen_private::QtStylePalette::~QtStylePalette()
+cbindgen_private::NativePalette::~NativePalette()
 {
-    slint_qt_style_palette_deinit(this);
+    slint_native_palette_deinit(this);
 }
 #endif // !defined(DOXYGEN)
 

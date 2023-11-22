@@ -15,7 +15,7 @@ struct PaletteStyleChangeListener : QWidget {
     bool event(QEvent *event) override {
         auto ty = event->type();
         if (ty == QEvent::StyleChange || ty == QEvent::PaletteChange || ty == QEvent::FontChange) {
-            rust!(Slint_qt_style_change_event [qtStylePalette: Pin<&QtStylePalette> as "const void*"] {
+            rust!(Slint_qt_style_change_event [qtStylePalette: Pin<&NativePalette> as "const void*"] {
                 qtStylePalette.init_impl();
             });
         }
@@ -29,7 +29,7 @@ struct PaletteStyleChangeListener : QWidget {
 #[derive(FieldOffsets, SlintElement)]
 #[pin]
 #[pin_drop]
-pub struct QtStylePalette {
+pub struct NativePalette {
     pub background: Property<Brush>,
     pub background_alt: Property<Brush>,
     pub on_background: Property<Brush>,
@@ -42,15 +42,15 @@ pub struct QtStylePalette {
     pub style_change_listener: core::cell::Cell<*const u8>,
 }
 
-impl const_field_offset::PinnedDrop for QtStylePalette {
+impl const_field_offset::PinnedDrop for NativePalette {
     fn drop(self: Pin<&mut Self>) {
-        slint_qt_style_palette_deinit(self);
+        slint_native_palette_deinit(self);
     }
 }
 
-impl QtStylePalette {
+impl NativePalette {
     pub fn new() -> Pin<Rc<Self>> {
-        Rc::pin(QtStylePalette {
+        Rc::pin(NativePalette {
             background: Default::default(),
             background_alt: Default::default(),
             on_background: Default::default(),
@@ -132,7 +132,7 @@ impl QtStylePalette {
         self.border.set(Brush::from(border));
 
         let selection = cpp!(unsafe[] -> u32 as "QRgb" {
-            return qApp->palette().color(QPalette::Midlight).rgba();
+            return qApp->palette().color(QPalette::HighlightedText).rgba();
         });
         let selection = Color::from_argb_encoded(selection);
         self.selection.set(Brush::from(selection));
@@ -146,22 +146,22 @@ impl QtStylePalette {
 }
 
 #[cfg(feature = "rtti")]
-impl i_slint_core::rtti::BuiltinGlobal for QtStylePalette {
+impl i_slint_core::rtti::BuiltinGlobal for NativePalette {
     fn new() -> Pin<Rc<Self>> {
-        let r = QtStylePalette::new();
+        let r = NativePalette::new();
         r.as_ref().init_impl();
         r
     }
 }
 
 #[no_mangle]
-pub extern "C" fn slint_qt_style_palette_init(self_: Pin<&QtStylePalette>) {
+pub extern "C" fn slint_native_palette_init(self_: Pin<&NativePalette>) {
     self_.style_change_listener.set(core::ptr::null()); // because the C++ code don't initialize it
     self_.init_impl();
 }
 
 #[no_mangle]
-pub extern "C" fn slint_qt_style_palette_deinit(self_: Pin<&mut QtStylePalette>) {
+pub extern "C" fn slint_native_palette_deinit(self_: Pin<&mut NativePalette>) {
     let scl = self_.style_change_listener.get();
     cpp!(unsafe [scl as "PaletteStyleChangeListener*"] { delete scl; });
     self_.style_change_listener.set(core::ptr::null());
