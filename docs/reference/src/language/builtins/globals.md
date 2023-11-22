@@ -17,6 +17,27 @@ the selected style e.g. fluent, cupertino, material or qt.
 -   **`border`** (_out_ _brush_): Defines the border color of widgets.
 -   **`selection`** (_out_ _brush_): Defines the text selection color.
 
+
+### Example
+
+```slint
+import { Palette, HorizontalBox } from "std-widgets.slint";
+
+export component MyCustomWidget {
+    in property <string> text <=> label.text;
+
+    Rectangle {
+        background: Palette.surface;
+
+        HorizontalBox {
+            label := Text {
+                color: Palette.on-surface;
+            }
+        }
+    }
+}
+```
+
 ## `TextInputInterface`
 
 The `TextInputInterface.text-input-focused` property can be used to find out if a `TextInput` element has the focus.
