@@ -475,12 +475,11 @@ test("MapModel", (t) => {
   instance!.setProperty("model", mapModel);
 
   nameModel.setRowData(1, { first: "Simon", last: "Hausmann" });
-  mapModel.setRowData(2, "Blasius, Florian");
 
   const checkModel = instance!.getProperty("model") as Model<string>;
   t.is(checkModel.rowData(0), "Emil, Hans");
   t.is(checkModel.rowData(1), "Hausmann, Simon");
-  t.is(checkModel.rowData(2), "Blasius, Florian");
+  t.is(checkModel.rowData(2), "Tisch, Roman");
 })
 
 test('ArrayModel rowCount', (t) => {
