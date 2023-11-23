@@ -185,9 +185,9 @@ struct Cli {
     #[arg(long, action)]
     fullscreen: bool,
 
-    /// Show the preview UI
+    /// Show the preview toolbar
     #[arg(long, default_value = "true", action = clap::ArgAction::Set)]
-    show_preview_ui: bool,
+    show_preview_toolbar: bool,
 }
 
 enum OutgoingRequest {
@@ -348,7 +348,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, args: &Cli) -
         #[cfg(all(feature = "preview-builtin", feature = "preview-external"))]
         use_external_previewer: RefCell::new(false), // prefer internal
         to_show: RefCell::new(None),
-        show_preview_ui: RefCell::new(args.show_preview_ui),
+        show_preview_ui: RefCell::new(args.show_preview_toolbar),
     });
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
