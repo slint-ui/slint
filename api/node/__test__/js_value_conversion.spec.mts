@@ -469,13 +469,6 @@ test("MapModel", (t) => {
     nameModel,
     (data) => {
       return data.last + ", " + data.first;
-    },
-    (data) => {
-      const name = data.split(", ");
-      return {
-        first: name[1],
-        last: name[0],
-      };
     }
   );
 
