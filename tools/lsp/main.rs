@@ -277,8 +277,6 @@ fn main() {
         std::env::set_var("SLINT_FULLSCREEN", "1");
     }
 
-    let show_preview_ui = args.show_preview_ui;
-
     #[cfg(feature = "preview-engine")]
     {
         let lsp_thread = std::thread::Builder::new()
@@ -293,7 +291,7 @@ fn main() {
                 }
                 let quit_ui_loop = QuitEventLoop;
 
-                let threads = match run_lsp_server(show_preview_ui) {
+                let threads = match run_lsp_server(&args) {
                     Ok(threads) => threads,
                     Err(error) => {
                         eprintln!("Error running LSP server: {}", error);
@@ -318,7 +316,7 @@ fn main() {
     }
 }
 
-pub fn run_lsp_server(show_preview_ui: bool) -> Result<IoThreads> {
+fn run_lsp_server(args: &Cli) -> Result<IoThreads> {
     let (connection, io_threads) = Connection::stdio();
     let (id, params) = connection.initialize_start()?;
 
@@ -327,16 +325,12 @@ pub fn run_lsp_server(show_preview_ui: bool) -> Result<IoThreads> {
         serde_json::to_value(language::server_initialize_result(&init_param.capabilities))?;
     connection.initialize_finish(id, initialize_result)?;
 
-    main_loop(connection, init_param, show_preview_ui)?;
+    main_loop(connection, init_param, args)?;
 
     Ok(io_threads)
 }
 
-fn main_loop(
-    connection: Connection,
-    init_param: InitializeParams,
-    show_preview_ui: bool,
-) -> Result<()> {
+fn main_loop(connection: Connection, init_param: InitializeParams, args: &Cli) -> Result<()> {
     let mut rh = RequestHandler::default();
     register_request_handlers(&mut rh);
 
@@ -354,7 +348,7 @@ fn main_loop(
         #[cfg(all(feature = "preview-builtin", feature = "preview-external"))]
         use_external_previewer: RefCell::new(false), // prefer internal
         to_show: RefCell::new(None),
-        show_preview_ui: RefCell::new(show_preview_ui),
+        show_preview_ui: RefCell::new(args.show_preview_ui),
     });
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
