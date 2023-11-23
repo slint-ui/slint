@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import test from 'ava';
-import * as path from 'node:path';
 
 import { private_api } from '../index.js'
 
