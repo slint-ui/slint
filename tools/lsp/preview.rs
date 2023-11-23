@@ -131,9 +131,11 @@ pub fn config_changed(
 
             drop(cache);
 
-            if ui_is_visible && !current.path.as_os_str().is_empty() {
+            if ui_is_visible {
                 set_show_preview_ui(show_preview_ui);
-                load_preview(current);
+                if !current.path.as_os_str().is_empty() {
+                    load_preview(current);
+                }
             }
         }
     };
