@@ -3,12 +3,36 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## Unreleased
+## 1.3.1 - Unreleased
+
+### General
+
+ - Bump various dependencies.
+ - Fixed has-hover and mouse-cursor when opening a PopupWindow. (#3934)
+ - Fluent style: fixed scrollbar size. (#3939 / #3932)
 
 ### Slint Language
 
  - Added `clamp` function that takes a `value`, `minimum` and `maxium` and will return
    `maximum` if `value > maximum`, `minimum` if `value < minimum` or `value` otherwise.
+ - Throw Slint error when returning no value when one is expected instead of generating invalid code. (#3962)
+ - Fixed compiler panic when a component is called `Window`. (#3916)
+
+### Rust API
+
+ - Implement std::error::Error for LoadImageError
+
+### JavaScript API
+
+ - Added `loadSource` function (#3971)
+ - Added `requestRedraw` to Window (#3940)
+
+### LSP
+
+ - Fix "recursion detected" panic in the preview with `forward-focus`. (#3950)
+ - Don't expose empty name in the outline, this caused error in vscode. (#3979)
+ - Fix enum ranges in the outline.
+ - Added '--fullscreen` command line option.
 
 ## [1.3.0] - 2023-11-10
 
