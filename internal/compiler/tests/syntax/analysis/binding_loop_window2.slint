@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue #3898
+export component LspCrash inherits Window {
+//                                 ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+
+    HorizontalLayout {
+//  ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
+        padding-left: parent.width * 0.015;
+//                    ^error{The binding for the property 'padding-left' is part of a binding loop}
+        Rectangle {}
+    }
+}

@@ -359,13 +359,20 @@ fn process_property(
         if element.borrow().bindings.contains_key(prop.prop.name()) {
             analyze_binding(&prop, context, reverse_aliases, diag);
         }
-        let next = if let ElementType::Component(base) = &element.borrow().base_type {
-            if element.borrow().property_declarations.contains_key(prop.prop.name()) {
+        let next = match &element.borrow().base_type {
+            ElementType::Component(base) => {
+                if element.borrow().property_declarations.contains_key(prop.prop.name()) {
+                    break;
+                }
+                base.root_element.clone()
+            }
+            ElementType::Builtin(builtin) => {
+                if builtin.properties.contains_key(prop.prop.name()) {
+                    visit_builtin_property(builtin, &prop, context, reverse_aliases, diag);
+                }
                 break;
             }
-            base.root_element.clone()
-        } else {
-            break;
+            _ => break,
         };
         next.borrow()
             .property_analysis
@@ -539,6 +546,50 @@ fn visit_implicit_layout_info_dependencies(
         }
 
         _ => (),
+    }
+}
+
+fn visit_builtin_property(
+    builtin: &crate::langtype::BuiltinElement,
+    prop: &PropertyPath,
+    context: &mut AnalysisContext,
+    reverse_aliases: &ReverseAliases,
+    diag: &mut BuildDiagnostics,
+) {
+    let name = prop.prop.name();
+    if builtin.name == "Window" {
+        for (p, orientation) in
+            [("width", Orientation::Horizontal), ("height", Orientation::Vertical)]
+        {
+            if name == p {
+                // find the actual root component
+                let is_root = |e: &ElementRc| -> bool {
+                    ElementRc::ptr_eq(
+                        e,
+                        &e.borrow().enclosing_component.upgrade().unwrap().root_element,
+                    )
+                };
+                let mut root = prop.prop.element();
+                if !is_root(&root) {
+                    return;
+                };
+                for e in prop.elements.iter().rev() {
+                    if !is_root(&e.0) {
+                        return;
+                    }
+                    root = e.0.clone();
+                }
+                if let Some(p) = root.borrow().layout_info_prop(orientation) {
+                    process_property(
+                        &p.clone().into(),
+                        ReadType::NativeRead,
+                        context,
+                        reverse_aliases,
+                        diag,
+                    );
+                };
+            }
+        }
     }
 }
 
