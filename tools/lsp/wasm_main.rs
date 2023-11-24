@@ -95,18 +95,20 @@ impl PreviewApi for Previewer {
 
     fn config_changed(
         &self,
-        show_preview_ui: bool,
+        hide_ui: Option<bool>,
         style: &str,
         include_paths: &[PathBuf],
         library_paths: &HashMap<String, PathBuf>,
     ) {
-        *self.show_preview_ui.borrow_mut() = show_preview_ui;
+        if let Some(hide_ui) = hide_ui {
+            *self.show_preview_ui.borrow_mut() = !hide_ui;
+        }
 
         #[cfg(feature = "preview-external")]
         let _ = self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
             crate::common::LspToPreviewMessage::SetConfiguration {
-                show_preview_ui,
+                show_preview_ui: *self.show_preview_ui.borrow(),
                 style: style.to_string(),
                 include_paths: include_paths
                     .iter()
@@ -133,10 +135,6 @@ impl PreviewApi for Previewer {
 
     fn current_component(&self) -> Option<crate::common::PreviewComponent> {
         self.to_show.borrow().clone()
-    }
-
-    fn show_preview_ui(&self) -> bool {
-        *self.show_preview_ui.borrow()
     }
 }
 

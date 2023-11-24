@@ -19,7 +19,7 @@ pub trait PreviewApi {
     fn load_preview(&self, component: PreviewComponent);
     fn config_changed(
         &self,
-        show_preview_ui: bool,
+        hide_ui: Option<bool>,
         style: &str,
         include_paths: &[PathBuf],
         library_paths: &HashMap<String, PathBuf>,
@@ -28,12 +28,6 @@ pub trait PreviewApi {
 
     /// What is the current component to preview?
     fn current_component(&self) -> Option<PreviewComponent>;
-
-    /// Return the currently configured `show_preview_ui` value.
-    ///
-    /// This is not ideal, but we can not access the configuration without
-    /// a round trip into the editor.
-    fn show_preview_ui(&self) -> bool;
 }
 
 /// The Component to preview
