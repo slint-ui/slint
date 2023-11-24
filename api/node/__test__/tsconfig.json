@@ -1,10 +1,10 @@
 {
     "compilerOptions": {
-        "module": "CommonJS",
+        "module": "nodenext",
         "target": "esnext",
         "declaration": true,
     },
     "include": [
-        "index.ts"
+        "*.mts"
     ],
 }

@@ -39,6 +39,9 @@
       "--loader=ts-node/esm"
     ],
     "timeout": "2m",
+    "environmentVariables": {
+      "TS_NODE_PROJECT": "./__test__/tsconfig.json"
+    },
     "workerThreads": false
   },
   "dependencies": {
