@@ -162,6 +162,12 @@ fn analyze_element(
     for nr in elem.borrow().accessibility_props.0.values() {
         process_property(&PropertyPath::from(nr.clone()), context, reverse_aliases, diag);
     }
+    if let Some(g) = elem.borrow().geometry_props.as_ref() {
+        process_property(&g.x.clone().into(), context, reverse_aliases, diag);
+        process_property(&g.y.clone().into(), context, reverse_aliases, diag);
+        process_property(&g.width.clone().into(), context, reverse_aliases, diag);
+        process_property(&g.height.clone().into(), context, reverse_aliases, diag);
+    }
 
     if let Some(component) = elem.borrow().enclosing_component.upgrade() {
         if Rc::ptr_eq(&component.root_element, elem) {
