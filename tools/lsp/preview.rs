@@ -7,7 +7,10 @@ use std::{
     sync::Mutex,
 };
 
-use crate::{common::PreviewComponent, lsp_ext::Health};
+use crate::{
+    common::{PreviewComponent, PreviewConfig},
+    lsp_ext::Health,
+};
 use i_slint_core::component_factory::FactoryContext;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 
@@ -44,13 +47,11 @@ struct ContentCache {
     source_code: HashMap<PathBuf, String>,
     dependency: HashSet<PathBuf>,
     current: PreviewComponent,
+    config: PreviewConfig,
     loading_state: PreviewFutureState,
     highlight: Option<(PathBuf, u32)>,
     ui_is_visible: bool,
     design_mode: bool,
-    default_style: String,
-    // Duplicate this information in case the UI is not up yet.
-    show_preview_ui: bool,
 }
 
 static CONTENT_CACHE: std::sync::OnceLock<Mutex<ContentCache>> = std::sync::OnceLock::new();
@@ -107,32 +108,21 @@ pub fn finish_parsing(ok: bool) {
     }
 }
 
-pub fn config_changed(
-    show_preview_ui: bool,
-    style: &str,
-    include_paths: &[PathBuf],
-    library_paths: &HashMap<String, PathBuf>,
-) {
+pub fn config_changed(config: PreviewConfig) {
     if let Some(cache) = CONTENT_CACHE.get() {
         let mut cache = cache.lock().unwrap();
-        let style = style.to_string();
-        if cache.current.style != style
-            || cache.current.include_paths != include_paths
-            || cache.current.library_paths != *library_paths
-            || cache.show_preview_ui != show_preview_ui
-        {
-            cache.current.include_paths = include_paths.to_vec();
-            cache.current.library_paths = library_paths.clone();
-            cache.default_style = style;
-            cache.show_preview_ui = show_preview_ui;
+        if cache.config != config {
+            cache.config = config;
             let current = cache.current.clone();
             let ui_is_visible = cache.ui_is_visible;
-            let show_preview_ui = cache.show_preview_ui;
+            let hide_ui = cache.config.hide_ui;
 
             drop(cache);
 
             if ui_is_visible {
-                set_show_preview_ui(show_preview_ui);
+                if let Some(hide_ui) = hide_ui {
+                    set_show_preview_ui(!hide_ui);
+                }
                 if !current.path.as_os_str().is_empty() {
                     load_preview(current);
                 }
@@ -171,7 +161,7 @@ pub fn load_preview(preview_component: PreviewComponent) {
 
     run_in_ui_thread(move || async move {
         loop {
-            let (design_mode, preview_component) = {
+            let (design_mode, preview_component, config) = {
                 let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
                 assert_eq!(cache.loading_state, PreviewFutureState::PreLoading);
                 if !cache.ui_is_visible {
@@ -182,7 +172,7 @@ pub fn load_preview(preview_component: PreviewComponent) {
                 cache.dependency.clear();
                 let preview_component = cache.current.clone();
                 cache.current.style.clear();
-                (cache.design_mode, preview_component)
+                (cache.design_mode, preview_component, cache.config.clone())
             };
             let style = if preview_component.style.is_empty() {
                 get_current_style()
@@ -191,7 +181,7 @@ pub fn load_preview(preview_component: PreviewComponent) {
                 preview_component.style.clone()
             };
 
-            reload_preview_impl(preview_component, style, design_mode).await;
+            reload_preview_impl(preview_component, style, design_mode, config).await;
 
             let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
             match cache.loading_state {
@@ -215,6 +205,7 @@ async fn reload_preview_impl(
     preview_component: PreviewComponent,
     style: String,
     design_mode: bool,
+    config: PreviewConfig,
 ) {
     let component = PreviewComponent { style: String::new(), ..preview_component };
 
@@ -231,8 +222,8 @@ async fn reload_preview_impl(
     if !style.is_empty() {
         builder.set_style(style.clone());
     }
-    builder.set_include_paths(component.include_paths);
-    builder.set_library_paths(component.library_paths);
+    builder.set_include_paths(config.include_paths);
+    builder.set_library_paths(config.library_paths);
 
     builder.set_file_loader(|path| {
         let path = path.to_owned();

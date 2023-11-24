@@ -15,7 +15,7 @@ export component PreviewUi inherits Window {
     in property<string> status-text;
     in property<component-factory> preview-area;
     in-out property<string> current-style;
-    in property<bool> show-preview-ui;
+    in property<bool> show-preview-ui : true;
 
     callback design-mode-changed(/* enabled */ bool);
     callback style-changed();
