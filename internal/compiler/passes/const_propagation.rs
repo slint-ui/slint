@@ -129,6 +129,19 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             }
             can_inline
         }
+        Expression::MinMax { op, lhs, rhs, ty: _ } => {
+            let can_inline = simplify_expression(lhs) && simplify_expression(rhs);
+            if let (Expression::NumberLiteral(lhs, u), Expression::NumberLiteral(rhs, _)) =
+                (&**lhs, &**rhs)
+            {
+                let v = match op {
+                    MinMaxOp::Min => lhs.min(*rhs),
+                    MinMaxOp::Max => lhs.max(*rhs),
+                };
+                *expr = Expression::NumberLiteral(v, *u);
+            }
+            can_inline
+        }
         Expression::CallbackReference { .. } => false,
         Expression::ElementReference { .. } => false,
         // FIXME
