@@ -321,7 +321,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
 
     compiler_config.style =
-        Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style });
+        Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style });
     compiler_config.include_paths = cli_args.include_paths;
     let preview_notifier = preview.clone();
     compiler_config.open_import_fallback = Some(Rc::new(move |path| {
