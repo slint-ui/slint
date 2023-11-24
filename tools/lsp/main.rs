@@ -104,18 +104,20 @@ impl PreviewApi for Previewer {
 
     fn config_changed(
         &self,
-        _show_preview_ui: bool,
+        hide_ui: Option<bool>,
         _style: &str,
         _include_paths: &[PathBuf],
         _library_paths: &HashMap<String, PathBuf>,
     ) {
-        *self.show_preview_ui.borrow_mut() = _show_preview_ui;
+        if let Some(hide_ui) = hide_ui {
+            *self.show_preview_ui.borrow_mut() = !hide_ui;
+        }
         if *self.use_external_previewer.borrow() {
             #[cfg(feature = "preview-external")]
             let _ = self.server_notifier.send_notification(
                 "slint/lsp_to_preview".to_string(),
                 crate::common::LspToPreviewMessage::SetConfiguration {
-                    show_preview_ui: _show_preview_ui,
+                    show_preview_ui: *self.show_preview_ui.borrow(),
                     style: _style.to_string(),
                     include_paths: _include_paths
                         .iter()
@@ -129,7 +131,12 @@ impl PreviewApi for Previewer {
             );
         } else {
             #[cfg(feature = "preview-builtin")]
-            preview::config_changed(_show_preview_ui, _style, _include_paths, _library_paths);
+            preview::config_changed(
+                *self.show_preview_ui.borrow(),
+                _style,
+                _include_paths,
+                _library_paths,
+            );
         }
     }
 
@@ -156,10 +163,6 @@ impl PreviewApi for Previewer {
     fn current_component(&self) -> Option<crate::common::PreviewComponent> {
         self.to_show.borrow().clone()
     }
-
-    fn show_preview_ui(&self) -> bool {
-        *self.show_preview_ui.borrow()
-    }
 }
 
 #[derive(Clone, clap::Parser)]
@@ -185,9 +188,9 @@ struct Cli {
     #[arg(long, action)]
     fullscreen: bool,
 
-    /// Show the preview toolbar
-    #[arg(long, default_value = "true", action = clap::ArgAction::Set)]
-    show_preview_toolbar: bool,
+    /// Hide the preview toolbar
+    #[arg(long, action)]
+    no_toolbar: bool,
 }
 
 enum OutgoingRequest {
@@ -348,7 +351,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, args: &Cli) -
         #[cfg(all(feature = "preview-builtin", feature = "preview-external"))]
         use_external_previewer: RefCell::new(false), // prefer internal
         to_show: RefCell::new(None),
-        show_preview_ui: RefCell::new(args.show_preview_toolbar),
+        show_preview_ui: RefCell::new(!args.no_toolbar),
     });
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);

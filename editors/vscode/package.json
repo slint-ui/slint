@@ -94,9 +94,9 @@
                     },
                     "description": "The command line arguments passed to the Slint LSP server"
                 },
-                "slint.preview.show_ui": {
+                "slint.preview.hide_ui": {
                     "type": "boolean",
-                    "description": "Show the toolbar of the preview"
+                    "description": "Hide the toolbar of the preview"
                 },
                 "slint.preview.style": {
                     "type": "string",
