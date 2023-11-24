@@ -11,19 +11,21 @@ use std::{
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
 
+#[derive(Default, Clone, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
+pub struct PreviewConfig {
+    pub hide_ui: Option<bool>,
+    pub style: String,
+    pub include_paths: Vec<PathBuf>,
+    pub library_paths: HashMap<String, PathBuf>,
+}
+
 /// API used by the LSP to talk to the Preview. The other direction uses the
 /// ServerNotifier
 pub trait PreviewApi {
     fn set_use_external_previewer(&self, use_external: bool);
     fn set_contents(&self, path: &Path, contents: &str);
     fn load_preview(&self, component: PreviewComponent);
-    fn config_changed(
-        &self,
-        hide_ui: Option<bool>,
-        style: &str,
-        include_paths: &[PathBuf],
-        library_paths: &HashMap<String, PathBuf>,
-    );
+    fn config_changed(&self, config: PreviewConfig);
     fn highlight(&self, path: Option<PathBuf>, offset: u32) -> Result<()>;
 
     /// What is the current component to preview?
@@ -40,12 +42,6 @@ pub struct PreviewComponent {
     /// If None, then the last component is going to be shown.
     pub component: Option<String>,
 
-    /// The list of include paths
-    pub include_paths: Vec<PathBuf>,
-
-    /// The map of library paths
-    pub library_paths: HashMap<String, PathBuf>,
-
     /// The style name for the preview
     pub style: String,
 }
@@ -53,27 +49,10 @@ pub struct PreviewComponent {
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum LspToPreviewMessage {
-    SetContents {
-        path: String,
-        contents: String,
-    },
-    SetConfiguration {
-        show_preview_ui: bool,
-        style: String,
-        include_paths: Vec<String>,
-        library_paths: Vec<(String, String)>,
-    },
-    ShowPreview {
-        path: String,
-        component: Option<String>,
-        style: String,
-        include_paths: Vec<String>,
-        library_paths: Vec<(String, String)>,
-    },
-    HighlightFromEditor {
-        path: Option<String>,
-        offset: u32,
-    },
+    SetContents { path: String, contents: String },
+    SetConfiguration { config: PreviewConfig },
+    ShowPreview { path: String, component: Option<String>, style: String },
+    HighlightFromEditor { path: Option<String>, offset: u32 },
 }
 
 #[allow(unused)]

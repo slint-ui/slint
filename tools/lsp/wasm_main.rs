@@ -16,7 +16,6 @@ use js_sys::Function;
 pub use language::{Context, DocumentCache, RequestHandler};
 use serde::Serialize;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::future::Future;
 use std::io::ErrorKind;
 use std::path::PathBuf;
@@ -46,7 +45,6 @@ pub mod wasm_prelude {
 struct Previewer {
     server_notifier: ServerNotifier,
     to_show: RefCell<Option<common::PreviewComponent>>,
-    show_preview_ui: RefCell<bool>,
 }
 
 impl PreviewApi for Previewer {
@@ -79,46 +77,15 @@ impl PreviewApi for Previewer {
                 path: component.path.to_string_lossy().to_string(),
                 component: component.component,
                 style: component.style.to_string(),
-                include_paths: component
-                    .include_paths
-                    .iter()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .collect(),
-                library_paths: component
-                    .library_paths
-                    .iter()
-                    .map(|(n, p)| (n.clone(), p.to_string_lossy().to_string()))
-                    .collect(),
             },
         );
     }
 
-    fn config_changed(
-        &self,
-        hide_ui: Option<bool>,
-        style: &str,
-        include_paths: &[PathBuf],
-        library_paths: &HashMap<String, PathBuf>,
-    ) {
-        if let Some(hide_ui) = hide_ui {
-            *self.show_preview_ui.borrow_mut() = !hide_ui;
-        }
-
+    fn config_changed(&self, config: common::PreviewConfig) {
         #[cfg(feature = "preview-external")]
         let _ = self.server_notifier.send_notification(
             "slint/lsp_to_preview".to_string(),
-            crate::common::LspToPreviewMessage::SetConfiguration {
-                show_preview_ui: *self.show_preview_ui.borrow(),
-                style: style.to_string(),
-                include_paths: include_paths
-                    .iter()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .collect(),
-                library_paths: library_paths
-                    .iter()
-                    .map(|(n, p)| (n.clone(), p.to_string_lossy().to_string()))
-                    .collect(),
-            },
+            crate::common::LspToPreviewMessage::SetConfiguration { config },
         );
     }
 
@@ -276,7 +243,6 @@ pub fn create(
     let preview = Rc::new(Previewer {
         server_notifier: server_notifier.clone(),
         to_show: Default::default(),
-        show_preview_ui: RefCell::new(true),
     });
 
     let init_param = serde_wasm_bindgen::from_value(init_param)?;

@@ -11,10 +11,8 @@ use slint_interpreter::{DiagnosticLevel, PlatformError};
 
 slint::include_modules!();
 
-pub fn create_ui(style: String, show_preview_ui: bool) -> Result<PreviewUi, PlatformError> {
+pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
     let ui = PreviewUi::new()?;
-
-    ui.set_show_preview_ui(show_preview_ui);
 
     // design mode:
     ui.on_design_mode_changed(super::set_design_mode);

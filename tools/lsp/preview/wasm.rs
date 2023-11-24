@@ -4,7 +4,7 @@
 //! This wasm library can be loaded from JS to load and display the content of .slint files
 #![cfg(target_arch = "wasm32")]
 
-use std::{cell::RefCell, collections::HashMap, future::Future, path::PathBuf, pin::Pin, rc::Rc};
+use std::{cell::RefCell, future::Future, path::PathBuf, pin::Pin, rc::Rc};
 
 use wasm_bindgen::prelude::*;
 
@@ -75,7 +75,7 @@ impl PreviewConnector {
                         reject_c.take().call1(&JsValue::UNDEFINED,
                             &JsValue::from("PreviewConnector already set up.")).unwrap_throw();
                     } else {
-                        match super::ui::create_ui(style, true) {
+                        match super::ui::create_ui(style) {
                             Ok(ui) => {
                                 ui.on_show_document(|url, line, column| ask_editor_to_show_document(url.as_str().to_string(), line as u32, column as u32, line as u32, column as u32));
                                 preview_state.borrow_mut().ui = Some(ui);
@@ -125,24 +125,12 @@ impl PreviewConnector {
                 super::set_contents(&PathBuf::from(&path), contents);
                 Ok(())
             }
-            M::SetConfiguration { show_preview_ui, style, include_paths, library_paths } => {
-                let ip: Vec<PathBuf> = include_paths.iter().map(PathBuf::from).collect();
-                let lp: HashMap<String, PathBuf> =
-                    library_paths.iter().map(|(n, p)| (n.clone(), PathBuf::from(p))).collect();
-                super::config_changed(show_preview_ui, &style, &ip, &lp);
+            M::SetConfiguration { config } => {
+                super::config_changed(config);
                 Ok(())
             }
-            M::ShowPreview { path, component, style, include_paths, library_paths } => {
-                let pc = PreviewComponent {
-                    path: PathBuf::from(path),
-                    component,
-                    style,
-                    include_paths: include_paths.iter().map(PathBuf::from).collect(),
-                    library_paths: library_paths
-                        .iter()
-                        .map(|(n, p)| (n.clone(), PathBuf::from(p)))
-                        .collect(),
-                };
+            M::ShowPreview { path, component, style } => {
+                let pc = PreviewComponent { path: PathBuf::from(path), component, style };
                 super::load_preview(pc);
                 Ok(())
             }

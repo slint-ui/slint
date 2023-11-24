@@ -33,6 +33,8 @@ static GUI_EVENT_LOOP_NOTIFIER: Lazy<Condvar> = Lazy::new(Condvar::new);
 static GUI_EVENT_LOOP_STATE_REQUEST: Lazy<Mutex<RequestedGuiEventLoopState>> =
     Lazy::new(|| Mutex::new(RequestedGuiEventLoopState::Uninitialized));
 
+thread_local! {static CLI_ARGS: std::cell::OnceCell<crate::Cli> = Default::default();}
+
 pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
     create_future: impl Send + FnOnce() -> F + 'static,
 ) {
@@ -54,7 +56,9 @@ pub fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
     .unwrap();
 }
 
-pub fn start_ui_event_loop() {
+pub fn start_ui_event_loop(cli_args: crate::Cli) {
+    CLI_ARGS.with(|f| f.set(cli_args).ok());
+
     {
         let mut state_requested = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
 
@@ -122,7 +126,7 @@ pub fn open_ui(sender: &ServerNotifier) {
         }
     }
 
-    let (default_style, show_preview_ui) = {
+    {
         let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         if cache.ui_is_visible {
             return; // UI is already up!
@@ -131,24 +135,38 @@ pub fn open_ui(sender: &ServerNotifier) {
 
         let mut s = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap();
         *s = Some(sender.clone());
-
-        (cache.default_style.clone(), cache.show_preview_ui)
     };
 
     i_slint_core::api::invoke_from_event_loop(move || {
         PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
-            open_ui_impl(&mut preview_state, default_style, show_preview_ui);
+
+            open_ui_impl(&mut preview_state);
         });
     })
     .unwrap();
 }
 
-fn open_ui_impl(preview_state: &mut PreviewState, default_style: String, show_preview_ui: bool) {
+fn open_ui_impl(preview_state: &mut PreviewState) {
+    let (default_style, show_preview_ui) = {
+        let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        let style = cache.config.style.clone();
+        let style = if style.is_empty() {
+            CLI_ARGS.with(|args| args.get().map(|a| a.style.clone()).unwrap_or_default())
+        } else {
+            style
+        };
+        let hide_ui = cache
+            .config
+            .hide_ui
+            .or_else(|| CLI_ARGS.with(|args| args.get().map(|a| a.no_toolbar.clone())))
+            .unwrap_or(false);
+        (style, !hide_ui)
+    };
+
     // TODO: Handle Error!
-    let ui = preview_state
-        .ui
-        .get_or_insert_with(|| super::ui::create_ui(default_style, show_preview_ui).unwrap());
+    let ui = preview_state.ui.get_or_insert_with(|| super::ui::create_ui(default_style).unwrap());
+    ui.set_show_preview_ui(show_preview_ui);
     ui.on_show_document(|url, line, column| {
         ask_editor_to_show_document(
             url.as_str().to_string(),
@@ -325,15 +343,10 @@ pub fn configure_design_mode(enabled: bool) {
 
 /// This runs `set_preview_factory` in the UI thread
 pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition, design_mode: bool) {
-    let (default_style, show_preview_ui) = {
-        let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        (cache.default_style.clone(), cache.show_preview_ui)
-    };
-
     PREVIEW_STATE.with(|preview_state| {
         let mut preview_state = preview_state.borrow_mut();
 
-        open_ui_impl(&mut preview_state, default_style, show_preview_ui);
+        open_ui_impl(&mut preview_state);
 
         let shared_handle = preview_state.handle.clone();
 
