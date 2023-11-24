@@ -96,6 +96,7 @@
                 },
                 "slint.preview.hide_ui": {
                     "type": "boolean",
+                    "default": false,
                     "description": "Hide the toolbar of the preview"
                 },
                 "slint.preview.style": {
@@ -104,6 +105,7 @@
                 },
                 "slint.preview.providedByEditor": {
                     "type": "boolean",
+                    "default": false,
                     "description": "Instead of letting the Language Server display the preview in a native window, show the preview in an editor tab using web-assembly.  This has no effect for the web extension where the preview is always provided by the editor."
                 },
                 "slint.includePaths": {
