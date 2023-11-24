@@ -2524,7 +2524,10 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             format!(r#"slint::SharedString(u8"{}")"#, escape_string(s.as_str()))
         }
         Expression::NumberLiteral(num) => {
-            if *num > 1_000_000_000. {
+            if !num.is_finite() {
+                // just print something
+                "0.0".to_string()
+            } else if num.abs() > 1_000_000_000. {
                 // If the numbers are too big, decimal notation will give too many digit
                 format!("{:+e}", num)
             } else {
