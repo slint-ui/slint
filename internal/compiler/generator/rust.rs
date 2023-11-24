@@ -1871,7 +1871,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::StringLiteral(s) => {
             quote!(sp::SharedString::from(#s))
         }
-        Expression::NumberLiteral(n) => quote!(#n),
+        Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
+        Expression::NumberLiteral(_) => quote!(0.),
         Expression::BoolLiteral(b) => quote!(#b),
         Expression::Cast { from, to } => {
             let f = compile_expression(from, ctx);
