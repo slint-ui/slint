@@ -2,7 +2,6 @@
     "compilerOptions": {
         "module": "nodenext",
         "target": "esnext",
-        "declaration": true,
     },
     "include": [
         "*.mts"
