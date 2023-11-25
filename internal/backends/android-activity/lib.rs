@@ -413,9 +413,12 @@ fn position_for_event(motion_event: &MotionEvent) -> PhysicalPosition {
 
 fn map_key_event(key_event: &android_activity::input::KeyEvent) -> Option<WindowEvent> {
     let text = map_key_code(key_event.key_code())?;
+    let repeat = key_event.repeat_count() > 0;
     match key_event.action() {
+        KeyAction::Down if repeat => Some(WindowEvent::KeyPressRepeated { text }),
         KeyAction::Down => Some(WindowEvent::KeyPressed { text }),
         KeyAction::Up => Some(WindowEvent::KeyReleased { text }),
+        KeyAction::Multiple if repeat => Some(WindowEvent::KeyPressRepeated { text }),
         KeyAction::Multiple => Some(WindowEvent::KeyPressed { text }),
         _ => None,
     }

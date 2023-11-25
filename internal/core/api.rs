@@ -488,6 +488,15 @@ impl Window {
             crate::platform::WindowEvent::KeyPressed { text } => {
                 self.0.process_key_input(crate::input::KeyEvent {
                     text,
+                    repeat: false,
+                    event_type: KeyEventType::KeyPressed,
+                    ..Default::default()
+                })
+            }
+            crate::platform::WindowEvent::KeyPressRepeated { text } => {
+                self.0.process_key_input(crate::input::KeyEvent {
+                    text,
+                    repeat: true,
                     event_type: KeyEventType::KeyPressed,
                     ..Default::default()
                 })

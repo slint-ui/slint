@@ -172,7 +172,12 @@ impl WasmInputHelper {
                 }
 
                 shared_state2.borrow_mut().has_key_down = true;
-                window_adapter.window().dispatch_event(WindowEvent::KeyPressed { text });
+                let win_event = if e.repeat() {
+                    WindowEvent::KeyPressRepeated { text }
+                } else {
+                    WindowEvent::KeyPressed { text }
+                };
+                window_adapter.window().dispatch_event(win_event);
             }
         });
 
