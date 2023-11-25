@@ -192,15 +192,21 @@ cpp! {{
         void keyPressEvent(QKeyEvent *event) override {
             QString text =  event->text();
             int key = event->key();
-            rust!(Slint_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString"] {
-                rust_window.key_event(key, text.clone(), false);
+            bool repeat = event->isAutoRepeat();
+            rust!(Slint_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", repeat: bool as "bool"] {
+                rust_window.key_event(key, text.clone(), false, repeat);
             });
         }
         void keyReleaseEvent(QKeyEvent *event) override {
+            // Qt sends repeated releases together with presses for auto-repeat events, but Slint only sends presses in that case.
+            // This matches the behavior of at least winit, Web and Android.
+            if (event->isAutoRepeat())
+                return;
+
             QString text =  event->text();
             int key = event->key();
             rust!(Slint_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString"] {
-                rust_window.key_event(key, text.clone(), true);
+                rust_window.key_event(key, text.clone(), true, false);
             });
         }
 
@@ -1474,7 +1480,7 @@ impl QtWindow {
         timer_event();
     }
 
-    fn key_event(&self, key: i32, text: qttypes::QString, released: bool) {
+    fn key_event(&self, key: i32, text: qttypes::QString, released: bool, repeat: bool) {
         i_slint_core::animations::update_animations();
         let text: String = text.into();
 
@@ -1482,6 +1488,8 @@ impl QtWindow {
 
         let event = if released {
             WindowEvent::KeyReleased { text }
+        } else if repeat {
+            WindowEvent::KeyPressRepeated { text }
         } else {
             WindowEvent::KeyPressed { text }
         };

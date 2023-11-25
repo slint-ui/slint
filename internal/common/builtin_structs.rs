@@ -90,6 +90,8 @@ macro_rules! for_each_builtin_structs {
                     text: SharedString,
                     /// The keyboard modifiers active at the time of the key press event.
                     modifiers: KeyboardModifiers,
+                    /// Whether or not this event is for a key press repeat event.
+                    repeat: bool,
                 }
                 private {
                     /// Indicates whether the key was pressed or released

@@ -291,6 +291,17 @@ pub enum WindowEvent {
         /// ```
         text: SharedString,
     },
+    /// A key press was auto-repeated.
+    KeyPressRepeated {
+        /// The unicode representation of the key pressed.
+        ///
+        /// # Example
+        /// A specific key can be mapped to a unicode by using the [`Key`] enum
+        /// ```rust
+        /// let _ = slint::platform::WindowEvent::KeyPressRepeated { text: slint::platform::Key::Shift.into() };
+        /// ```
+        text: SharedString,
+    },
     /// A key was released.
     KeyReleased {
         /// The unicode representation of the key released.

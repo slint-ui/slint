@@ -315,6 +315,9 @@ impl EventLoopState {
                 let text = i_slint_common::for_each_special_keys!(winit_key_to_char);
 
                 window.window().dispatch_event(match event.state {
+                    winit::event::ElementState::Pressed if event.repeat => {
+                        corelib::platform::WindowEvent::KeyPressRepeated { text }
+                    }
                     winit::event::ElementState::Pressed => {
                         corelib::platform::WindowEvent::KeyPressed { text }
                     }
