@@ -26,7 +26,11 @@ fn get_or_create_fontdue_font(fontdb: &fontdb::Database, id: fontdb::ID) -> Rc<f
                     .with_face_data(id, |face_data, font_index| {
                         fontdue::Font::from_bytes(
                             face_data,
-                            fontdue::FontSettings { collection_index: font_index, scale: 40. },
+                            fontdue::FontSettings {
+                                collection_index: font_index,
+                                scale: 40.,
+                                load_substitutions: true,
+                            },
                         )
                         .expect("fatal: fontdue is unable to parse truetype font")
                         .into()
@@ -44,22 +48,32 @@ pub fn match_font(
     request.family.as_ref().and_then(|family_str| {
         let query = request.to_fontdb_query();
 
-        let requested_pixel_size: PhysicalLength =
-            (request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
+        let requested_pixel_size: PhysicalLength = (request
+            .pixel_size
+            .unwrap_or(super::DEFAULT_FONT_SIZE)
+            .cast()
+            * scale_factor)
+            .cast();
 
         sharedfontdb::FONT_DB.with(|fonts| {
             let borrowed_fontdb = fonts.borrow();
-            borrowed_fontdb.query_with_family(query, Some(family_str)).map(|font_id| {
-                let fontdue_font = get_or_create_fontdue_font(&*borrowed_fontdb, font_id);
-                VectorFont::new(font_id, fontdue_font.clone(), requested_pixel_size)
-            })
+            borrowed_fontdb
+                .query_with_family(query, Some(family_str))
+                .map(|font_id| {
+                    let fontdue_font = get_or_create_fontdue_font(&*borrowed_fontdb, font_id);
+                    VectorFont::new(font_id, fontdue_font.clone(), requested_pixel_size)
+                })
         })
     })
 }
 
 pub fn fallbackfont(font_request: &super::FontRequest, scale_factor: ScaleFactor) -> VectorFont {
-    let requested_pixel_size: PhysicalLength =
-        (font_request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
+    let requested_pixel_size: PhysicalLength = (font_request
+        .pixel_size
+        .unwrap_or(super::DEFAULT_FONT_SIZE)
+        .cast()
+        * scale_factor)
+        .cast();
 
     sharedfontdb::FONT_DB
         .with(|fonts| {
@@ -79,7 +93,9 @@ pub fn fallbackfont(font_request: &super::FontRequest, scale_factor: ScaleFactor
 
 pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
     sharedfontdb::FONT_DB.with(|fonts| {
-        fonts.borrow_mut().load_font_source(fontdb::Source::Binary(std::sync::Arc::new(data)))
+        fonts
+            .borrow_mut()
+            .load_font_source(fontdb::Source::Binary(std::sync::Arc::new(data)))
     });
     Ok(())
 }
@@ -98,6 +114,9 @@ pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std
             }
         }
 
-        fonts.borrow_mut().load_font_file(requested_path).map_err(|e| e.into())
+        fonts
+            .borrow_mut()
+            .load_font_file(requested_path)
+            .map_err(|e| e.into())
     })
 }
