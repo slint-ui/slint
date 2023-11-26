@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+TestCase := Window {
+    width: 100phx;
+    height: 100phx;
+    ti := FocusScope {
+        key-pressed(event) => {
+            pressed = true;
+            repeat = event.repeat;
+            accept;
+        }
+        key-released(event) => {
+            pressed = false;
+            repeat = event.repeat;
+            accept;
+        }
+    }
+
+    property <bool> input_focused: ti.has_focus;
+    property <bool> pressed;
+    property <bool> repeat;
+}
+
+/*
+```rust
+use slint::platform::WindowEvent;
+
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_input_focused());
+
+instance.window().dispatch_event(WindowEvent::KeyPressed { text: 'a'.into() });
+assert_eq!(instance.get_pressed(), true);
+assert_eq!(instance.get_repeat(), false);
+
+instance.set_pressed(false);
+instance.window().dispatch_event(WindowEvent::KeyPressRepeated { text: 'a'.into() });
+assert_eq!(instance.get_pressed(), true);
+assert_eq!(instance.get_repeat(), true);
+
+instance.set_pressed(false);
+instance.window().dispatch_event(WindowEvent::KeyPressRepeated { text: 'a'.into() });
+assert_eq!(instance.get_pressed(), true);
+assert_eq!(instance.get_repeat(), true);
+
+instance.window().dispatch_event(WindowEvent::KeyReleased { text: 'a'.into() });
+assert_eq!(instance.get_pressed(), false);
+assert_eq!(instance.get_repeat(), false);
+
+```
+*/
