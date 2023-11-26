@@ -329,7 +329,19 @@ public:
     {
         private_api::assert_main_thread();
         cbindgen_private::slint_windowrc_dispatch_key_event(
-                &inner.handle(), cbindgen_private::KeyEventType::KeyPressed, &text);
+                &inner.handle(), cbindgen_private::KeyEventType::KeyPressed, &text, false);
+    }
+
+    /// Dispatch an auto-repeated key press event to the scene.
+    ///
+    /// Use this when you're implementing your own backend and want to forward user input events.
+    ///
+    /// The \a text is the unicode representation of the key.
+    void dispatch_key_press_repeat_event(const SharedString &text)
+    {
+        private_api::assert_main_thread();
+        cbindgen_private::slint_windowrc_dispatch_key_event(
+                &inner.handle(), cbindgen_private::KeyEventType::KeyPressed, &text, true);
     }
 
     /// Dispatch a key release event to the scene.
@@ -341,7 +353,7 @@ public:
     {
         private_api::assert_main_thread();
         cbindgen_private::slint_windowrc_dispatch_key_event(
-                &inner.handle(), cbindgen_private::KeyEventType::KeyReleased, &text);
+                &inner.handle(), cbindgen_private::KeyEventType::KeyReleased, &text, false);
     }
 
     /// Dispatches a pointer or mouse press event to the scene.
