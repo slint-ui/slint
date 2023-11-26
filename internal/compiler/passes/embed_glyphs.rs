@@ -200,7 +200,7 @@ fn embed_glyphs_with_fontdb<'a>(
             fontdb.with_face_data(face_id, |font_data, face_index| {
                 let fontdue_font = match fontdue::Font::from_bytes(
                     font_data,
-                    fontdue::FontSettings { collection_index: face_index, scale: 40. },
+                    fontdue::FontSettings { collection_index: face_index, scale: 40., load_substitutions: true },
                 ) {
                     Ok(fontdue_font) => fontdue_font,
                     Err(fontdue_msg) => {
@@ -321,7 +321,11 @@ fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> Vec<fontdue::Font>
                         .with_face_data(face_id, |face_data, face_index| {
                             fontdue::Font::from_bytes(
                                 face_data,
-                                fontdue::FontSettings { collection_index: face_index, scale: 40. },
+                                fontdue::FontSettings {
+                                    collection_index: face_index,
+                                    scale: 40.,
+                                    load_substitutions: true,
+                                },
                             )
                             .ok()
                         })

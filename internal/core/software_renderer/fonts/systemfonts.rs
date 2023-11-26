@@ -26,7 +26,11 @@ fn get_or_create_fontdue_font(fontdb: &fontdb::Database, id: fontdb::ID) -> Rc<f
                     .with_face_data(id, |face_data, font_index| {
                         fontdue::Font::from_bytes(
                             face_data,
-                            fontdue::FontSettings { collection_index: font_index, scale: 40. },
+                            fontdue::FontSettings {
+                                collection_index: font_index,
+                                scale: 40.,
+                                load_substitutions: true,
+                            },
                         )
                         .expect("fatal: fontdue is unable to parse truetype font")
                         .into()
