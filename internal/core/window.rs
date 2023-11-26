@@ -1325,10 +1325,12 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         event_type: crate::input::KeyEventType,
         text: &SharedString,
+        repeat: bool,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter.window().0.process_key_input(crate::items::KeyEvent {
             text: text.clone(),
+            repeat,
             event_type,
             ..Default::default()
         });

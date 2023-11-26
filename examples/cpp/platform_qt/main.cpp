@@ -229,7 +229,11 @@ public:
             paintEvent(static_cast<QPaintEvent *>(e));
             return true;
         } else if (e->type() == QEvent::KeyPress) {
-            window().dispatch_key_press_event(key_event_text(static_cast<QKeyEvent *>(e)));
+            auto ke = static_cast<QKeyEvent *>(e);
+            if (ke->isAutoRepeat())
+                window().dispatch_key_press_repeat_event(key_event_text(ke));
+            else
+                window().dispatch_key_press_event(key_event_text(ke));
             return true;
         } else if (e->type() == QEvent::KeyRelease) {
             window().dispatch_key_release_event(key_event_text(static_cast<QKeyEvent *>(e)));
