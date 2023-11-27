@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
  - Bump various dependencies.
  - Fixed has-hover and mouse-cursor when opening a PopupWindow. (#3934)
  - Fluent style: fixed scrollbar size. (#3939 / #3932)
+ - Skia Vulkan renderer: Fixed crash when resizing windows on X11.
 
 ### Slint Language
 
