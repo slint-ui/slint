@@ -39,6 +39,12 @@ SCENARIO("SharedString API")
         REQUIRE(str == "Hello 🦊!");
         REQUIRE(std::string_view(str.data()) == "Hello 🦊!");
     }
+
+    SECTION("begin/end")
+    {
+        str = "Hello";
+        REQUIRE(str.begin() != str.end());
+    }
 }
 
 TEST_CASE("Basic SharedVector API", "[vector]")
