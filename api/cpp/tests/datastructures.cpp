@@ -43,7 +43,7 @@ SCENARIO("SharedString API")
     SECTION("begin/end")
     {
         str = "Hello";
-        REQUIRE(str.begin() + std.size() == str.end());
+        REQUIRE(str.begin() + str.size() == str.end());
     }
 }
 
