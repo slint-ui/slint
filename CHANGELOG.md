@@ -27,6 +27,10 @@ All notable changes to this project are documented in this file.
  - Added `loadSource` function (#3971)
  - Added `requestRedraw` to Window (#3940)
 
+### C++ API
+
+ - Fixed `SharedString::end()` throwing an exception when MSVC iterator debugging is enabled.
+
 ### LSP
 
  - Fix "recursion detected" panic in the preview with `forward-focus`. (#3950)
