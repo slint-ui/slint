@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'url';
 import Jimp = require("jimp");
 
-import { private_api, ImageData, ArrayModel, Model, MapModel } from '../index.js'
+import { private_api, ImageData, ArrayModel, Model } from '../index.js'
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -465,7 +465,7 @@ test("MapModel", (t) => {
     { first: "Roman", last: "Tisch" },
   ]);
 
-  const mapModel = new MapModel(
+  const mapModel = new private_api.MapModel(
     nameModel,
     (data) => {
       return data.last + ", " + data.first;

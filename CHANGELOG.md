@@ -34,10 +34,6 @@ All notable changes to this project are documented in this file.
  - Fix enum ranges in the outline.
  - Added '--fullscreen` command line option.
 
-### JavaScript
-
-- Added `MapModel`
-
 ## [1.3.0] - 2023-11-10
 
 ### General
