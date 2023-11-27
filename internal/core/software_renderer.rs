@@ -1994,7 +1994,15 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         let color = self.alpha_color(text_input.color().color());
         let max_size = (geom.size.cast() * self.scale_factor).cast();
 
-        let physical_clip = self.current_state.clip.cast() * self.scale_factor;
+        // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
+        // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
+        // FIXME: we should allow drawing outside of the Text element's boundaries.
+        let physical_clip = if let Some(logical_clip) = self.current_state.clip.intersection(&geom)
+        {
+            logical_clip.cast() * self.scale_factor
+        } else {
+            return; // This should have been caught earlier already
+        };
         let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
 
         let font = fonts::match_font(&font_request, self.scale_factor);
