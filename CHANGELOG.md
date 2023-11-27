@@ -8,7 +8,7 @@ All notable changes to this project are documented in this file.
 ### General
 
  - Bump various dependencies.
- - Fixed has-hover and mouse-cursor when opening a PopupWindow. (#3934)
+ - Fixed `has-hover` and `mouse-cursor` when opening a `PopupWindow`. (#3934)
  - Fluent style: fixed scrollbar size. (#3939 / #3932)
  - Skia Vulkan renderer: Fixed crash when resizing windows on X11.
 
@@ -21,7 +21,7 @@ All notable changes to this project are documented in this file.
 
 ### Rust API
 
- - Implement std::error::Error for LoadImageError
+ - Implement `std::error::Error` for `LoadImageError`.
 
 ### JavaScript API
 
@@ -33,7 +33,7 @@ All notable changes to this project are documented in this file.
  - Fix "recursion detected" panic in the preview with `forward-focus`. (#3950)
  - Don't expose empty name in the outline, this caused error in vscode. (#3979)
  - Fix enum ranges in the outline.
- - Added '--fullscreen` command line option.
+ - Added `--fullscreen` command line option.
 
 ## [1.3.0] - 2023-11-10
 
