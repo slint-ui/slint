@@ -9,6 +9,16 @@
     "type": "git",
     "url": "https://github.com/slint-ui/slint"
   },
+  "keywords": [
+    "GUI",
+    "UI",
+    "native",
+    "node",
+    "Slint",
+    "desktop",
+    "embedded"
+  ],
+  "description": "Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.",
   "devDependencies": {
     "@ava/typescript": "^4.1.0",
     "@types/node": "^20.8.6",
