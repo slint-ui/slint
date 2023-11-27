@@ -11,8 +11,12 @@
   },
   "keywords": [
     "GUI",
+    "UI",
     "native",
-    "node"
+    "node",
+    "Slint",
+    "desktop",
+    "embedded"
   ],
   "devDependencies": {
     "@ava/typescript": "^4.1.0",
