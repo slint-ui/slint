@@ -38,6 +38,7 @@ pub struct ComponentContainer {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
     pub component_factory: Property<ComponentFactory>,
+    pub has_component: Property<bool>,
 
     pub cached_rendering_data: CachedRenderingData,
 
@@ -59,7 +60,6 @@ impl ComponentContainer {
             .evaluate_if_dirty(|| self.component_factory());
 
         let Some(factory) = factory else {
-            // nothing changed!
             return;
         };
 
@@ -113,6 +113,9 @@ impl ComponentContainer {
                 }));
             }
         }
+
+        self.has_component.set(product.is_some());
+
         self.item_tree.replace(product);
     }
 

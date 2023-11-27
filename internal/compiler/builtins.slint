@@ -59,6 +59,7 @@ export { ClippedImage as Image }
 
 export component ComponentContainer inherits Empty {
     in property <component-factory> component-factory;
+    out property <bool> has-component;
 
     in-out property <length> width;
     in-out property <length> height;
