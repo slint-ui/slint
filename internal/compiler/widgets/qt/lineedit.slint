@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { LineEditInner } from "../common/common.slint";
+import { LineEditBase} from "../common/lineedit-base.slint";
 import { StyleMetrics  } from "std-widgets-impl.slint";
 
 export component LineEdit {
@@ -56,9 +56,11 @@ export component LineEdit {
         padding-top: native.native-padding-top;
         padding-bottom: native.native-padding-bottom;
 
-        inner := LineEditInner {
+        inner := LineEditBase {
             placeholder-color: self.enabled ? StyleMetrics.placeholder-color : StyleMetrics.placeholder-color-disabled;
+            text-color: self.enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
             enabled: root.enabled;
+            margin: layout.padding-left + layout.padding-right;
         }
     }
 }
