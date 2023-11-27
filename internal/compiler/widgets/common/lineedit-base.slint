@@ -55,13 +55,14 @@ export component LineEditBase inherits Rectangle {
         font-weight: i-text-input.font-weight;
         font-family: i-text-input.font-family;
         color: root.placeholder-color;
+        horizontal-alignment: root.horizontal-alignment;
     }
 
     i-text-input := TextInput {
         property <length> computed-x;
 
-        x: min(0px, max(parent.width - self.width, self.computed-x));
-        width: max(parent.width, self.preferred-width);
+        x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.computed-x));
+        width: max(parent.width - self.text-cursor-width, self.preferred-width);
         height: 100%;
         vertical-alignment: center;
         single-line: true;
@@ -70,8 +71,8 @@ export component LineEditBase inherits Rectangle {
         cursor-position-changed(cpos) => {
             if (cpos.x + self.computed_x < root.margin) {
                 self.computed_x = - cpos.x + root.margin;
-            } else if (cpos.x + self.computed_x > parent.width - root.margin) {
-                self.computed_x = parent.width - cpos.x - root.margin;
+            } else if (cpos.x + self.computed_x > parent.width - root.margin - self.text-cursor-width) {
+                self.computed_x = parent.width - cpos.x - root.margin - self.text-cursor-width;
             }
         }
 

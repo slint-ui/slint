@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { LineEdit } from "std-widgets.slint";
+
+// The purpose of this test is to make sure the cursor is visible in a LineEdit that has `horizontal-alignment: right`
+// (and that it is at the end to the right)
+export component TestCase inherits Window {
+    forward-focus: le;
+    width: 64px;
+    height: le.preferred-height;
+    VerticalLayout {
+        alignment: start;
+        le := LineEdit {
+            horizontal-alignment: right;
+            placeholder-text: "Xx";
+        }
+    }
+}
