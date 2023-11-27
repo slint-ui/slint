@@ -29,7 +29,7 @@ All notable changes to this project are documented in this file.
 
 ### C++ API
 
- - Fixed `SharedString::end()` throwing an exception when MSVC iterator debugging is enabled.
+ - Fixed undefined behavior in `SharedString::end()`
 
 ### LSP
 
