@@ -17,6 +17,8 @@ macro(slint_test NAME)
     target_compile_definitions(test_${NAME} PRIVATE
         SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\"
     )
+    # Use debug version of run-time library to enable MSVC iterator debugging
+    set_property(TARGET test_${NAME} PROPERTY MSVC_RUNTIME_LIBRARY MultiThreadedDebugDLL)
     add_test(NAME test_${NAME} COMMAND test_${NAME})
 
     if(MSVC)

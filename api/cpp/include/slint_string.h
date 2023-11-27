@@ -106,7 +106,8 @@ struct SharedString
     /// pointer, but it is suitable for comparison.
     const char *end() const
     {
-        return &*std::string_view(*this).end();
+        std::string_view view(*this);
+        return view.data() + view.size();
     }
 
     /// \return true if the string contains no characters; false otherwise.
