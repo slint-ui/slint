@@ -15,8 +15,8 @@ export component LineEdit {
     out property <bool> has-focus: i-base.has-focus;
     in-out property <string> text <=> i-base.text;
 
-    callback accepted(/* text */ string);
-    callback edited(/* text */ string);
+    callback accepted <=> i-base.accepted;
+    callback edited <=> i-base.edited;
 
     public function select-all() {
         i-base.select-all();
