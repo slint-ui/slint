@@ -419,7 +419,7 @@ impl SoftwareRenderer {
                     }
                 }
 
-                PhysicalRegion(to_draw)
+                PhysicalRegion(to_draw_tr)
             })
             .unwrap_or_default()
     }
