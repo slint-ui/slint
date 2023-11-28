@@ -325,8 +325,8 @@ impl SoftwareRenderer {
     /// The buffer needs to be big enough to contain the window, so its size must be at least
     /// `pixel_stride * height`, or `pixel_stride * width` if the screen is rotated by 90°.
     ///
-    /// Returns the dirty region for this frame, excluding the extra_draw_region,
-    /// in the window frame of reference. It is not affected by the screen rotation.
+    /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
+    /// in the window frame of reference. It affected by the screen rotation.
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
         let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
         else {
@@ -428,7 +428,7 @@ impl SoftwareRenderer {
     ///
     /// The renderer uses a cache internally and will only render the part of the window
     /// which are dirty, depending on the dirty tracking policy set in [`SoftwareRenderer::new`]
-    /// This function returns the region that was rendered.
+    /// This function returns the physical region that was rendered considering the rotation.
     ///
     /// The [`LineBufferProvider::process_line()`] function will be called for each line and should
     ///  provide a buffer to draw into.
