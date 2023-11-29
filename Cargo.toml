@@ -132,6 +132,7 @@ itertools = { version = "0.12" }
 softbuffer = { version = "0.3.3", default-features = false }
 bytemuck = { version = "1.13.1" }
 glutin = { version = "0.31.1", default-features = false }
+fontdue = { version = "0.8.0" }
 
 [profile.release]
 lto = true
