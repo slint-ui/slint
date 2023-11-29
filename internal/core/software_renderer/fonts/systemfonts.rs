@@ -29,7 +29,7 @@ fn get_or_create_fontdue_font(fontdb: &fontdb::Database, id: fontdb::ID) -> Rc<f
                             fontdue::FontSettings {
                                 collection_index: font_index,
                                 scale: 40.,
-                                load_substitutions: true,
+                                ..Default::default()
                             },
                         )
                         .expect("fatal: fontdue is unable to parse truetype font")
