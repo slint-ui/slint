@@ -3,6 +3,22 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.3.2] - 2023-11-30
+
+### General
+
+ - Fixed `accepted` and `edited` callbacks in `LineEdit` not being invoked
+   with Fluent, Cupertino, and Material styles.
+
+### Slint Language
+
+ - Added `KeyEvent.repeat` to detect repeated key press events.
+
+### LSP
+
+ - Added support for resizing the UI under preview without resizing the window,
+   by providing resize handles and scrollbars.
+
 ## [1.3.1] - 2023-11-28
 
 ### General
@@ -1083,4 +1099,5 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.2.2]: https://github.com/slint-ui/slint/releases/tag/v1.2.2
 [1.3.0]: https://github.com/slint-ui/slint/releases/tag/v1.3.0
 [1.3.1]: https://github.com/slint-ui/slint/releases/tag/v1.3.1
+[1.3.2]: https://github.com/slint-ui/slint/releases/tag/v1.3.2
 
