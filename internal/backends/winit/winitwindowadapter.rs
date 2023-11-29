@@ -554,11 +554,7 @@ impl WindowAdapter for WinitWindowAdapter {
             let winit_max_inner = new_constraints.max.map(into_size);
             winit_window.set_max_inner_size(winit_max_inner);
 
-            adjust_window_size_to_satisfy_constraints(
-                winit_window,
-                winit_min_inner,
-                winit_max_inner,
-            );
+            adjust_window_size_to_satisfy_constraints(self, winit_min_inner, winit_max_inner);
 
             // Auto-resize to the preferred size if users (SlintPad) requests it
             #[cfg(target_arch = "wasm32")]
@@ -728,11 +724,11 @@ impl Default for WindowProperties {
 
 // Winit doesn't automatically resize the window to satisfy constraints. Qt does it though, and so do we here.
 fn adjust_window_size_to_satisfy_constraints(
-    winit_window: &winit::window::Window,
+    winit_window: &WinitWindowAdapter,
     min_size: Option<winit::dpi::PhysicalSize<f32>>,
     max_size: Option<winit::dpi::PhysicalSize<f32>>,
 ) {
-    let mut window_size = winit_window.inner_size();
+    let mut window_size = winit_window.size();
 
     if let Some(min_size) = min_size {
         let min_size = min_size.cast();
@@ -746,7 +742,12 @@ fn adjust_window_size_to_satisfy_constraints(
         window_size.height = window_size.height.min(max_size.height);
     }
 
-    if window_size != winit_window.inner_size() {
-        let _ = winit_window.request_inner_size(window_size);
+    if window_size != winit_window.size() {
+        // TODO: don't ignore error, propgate to caller
+        winit_window
+            .resize_window(
+                winit::dpi::PhysicalSize::new(window_size.width, window_size.height).into(),
+            )
+            .ok();
     }
 }
