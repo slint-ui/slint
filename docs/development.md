@@ -91,3 +91,101 @@ The `cbindgen` xtask generates multiple header files for four different modules:
 4. The types used by the C++ interpreter API, written to `slint_interpreter_internal.h`.
 
 Typically the input to `cbindgen` is within `ffi` sub-modules in the corresponding input crates to `cbindgen`. These `ffi` modules are gated with `#[cfg(feature = "ffi")]`.
+
+## Commit History & Code Reviews
+
+Linear history is preferred over merge commits. Long lived features can live in feature branches and those can be integrated
+with merge commits, of course.
+
+As a consequence, we typically integrate pull requests as "rebase and merge" or "squash and merge".
+
+During code review, consider adding small commits on top to make it easier for the reviewer and contributor to track feedback and
+how the feedback was incorporated - rebase can tend to make it harder. It's perfectly fine to then squash these commits when the
+review phase is complete and approval is given.
+
+Example:
+
+A PR consists of three commits:
+
+1. Add new widget
+2. Add documentation for new widget
+3. Change example to use new widget
+
+In the review phase, the reviewer suggests to make changes to the widget implementation and the documentation. Consider pushing
+these as follow-up fixes:
+
+1. Add new widget
+2. Add documentation for new widget
+3. Change example to use new widget
+4. Fix an issue in widget found during review
+5. Fix a typo in the documentation
+
+Finally, the PR is approved. As contributor, in your local branch, feel free to merge 4. into 1. and 5. into 2.:
+
+(commits are real, sha1s are just examples)
+
+Find the base commit:
+```
+$ git merge-base HEAD origin/master
+607bdbfcf80a879e09d2d92b0d3e195d426fb481
+$ merge_base=607bdbfcf80a879e09d2d92b0d3e195d426fb481
+```
+
+Start an interactive rebase that starts at the base commit:
+
+```
+$ git rebase -i $merge_base
+```
+
+This launches the configured editor with the above list of commits,
+in the order as they will committed:
+
+```
+pick 82916bc2 Add new widget
+pick e55bde4c Add documentation for new widget
+pick 9bc8d203 Change example to use new widget
+pick a6feda52 Fix an issue in widget found during review
+pick 032032dc Fix a typo in the documentation
+```
+
+Let's merge 4. into 1. and 5. into 2. by changing the above:
+
+```
+pick 82916bc2 Add new widget
+squash a6feda52 Fix an issue in widget found during review
+pick e55bde4c Add documentation for new widget
+squash 032032dc Fix a typo in the documentation
+pick 9bc8d203 Change example to use new widget
+```
+
+Save and exit the editor.
+
+Now git will start at the base commit, cherry-pick the first commit, squash the "Fix an issue in widget found during code review"
+change into the same commit, and give you a chance to edit the commit message. By default, git concatenates both commit messages.
+Often you may want to delete the second half, but sometimes you may want to merge the two.
+
+Save and exit the editor.
+
+Now git continues to do the same with the second squash. Do as in the previous step and adjust the commit message to suit the
+original intent ("Add documentation for new widget").
+
+Save and exit the editor. Rinse and repeat until the rebase is complete.
+
+Use a tool like [GitHub Desktop](https://desktop.github.com) or [gitk](https://git-scm.com/docs/gitk) to take another look at the
+git history of commits.
+
+Are all the fix-up commits merged with the original changes? Do the commit messages look okay?
+
+If you need further changes, run `$ git rebase -i $merge_base` again.
+
+When the history is clean, double check that you're going to push to the right branch:
+
+```
+$ git push --dry-run -f
+```
+
+If that looks okay and targets the right branch for your PR, push with force:
+
+```
+$ git push -f
+```
