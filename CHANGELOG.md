@@ -19,6 +19,10 @@ All notable changes to this project are documented in this file.
  - Added support for resizing the UI under preview without resizing the window,
    by providing resize handles and scrollbars.
 
+### C++
+
+ - Fixed compilation on Windows when cross-compiling (for example when using esp-idf).
+
 ## [1.3.1] - 2023-11-28
 
 ### General
