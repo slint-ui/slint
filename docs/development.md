@@ -154,17 +154,16 @@ Let's merge 4. into 1. and 5. into 2. by changing the above:
 
 ```
 pick 82916bc2 Add new widget
-squash a6feda52 Fix an issue in widget found during review
+fixup a6feda52 Fix an issue in widget found during review
 pick e55bde4c Add documentation for new widget
-squash 032032dc Fix a typo in the documentation
+fixup 032032dc Fix a typo in the documentation
 pick 9bc8d203 Change example to use new widget
 ```
 
 Save and exit the editor.
 
-Now git will start at the base commit, cherry-pick the first commit, squash the "Fix an issue in widget found during code review"
-change into the same commit, and give you a chance to edit the commit message. By default, git concatenates both commit messages.
-Often you may want to delete the second half, but sometimes you may want to merge the two.
+Now git will start at the base commit, cherry-pick the first commit, and squash the "Fix an issue in widget found during code review"
+change into the same commit. Use `squash` instead of `fixup` if you want to also further edit the commit message.
 
 Save and exit the editor.
 
