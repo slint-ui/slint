@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+// cSpell: ignore singleshot
+
 /*!
     Support for timers.
 
@@ -255,6 +257,8 @@ impl TimerList {
                         // do it before invoking the callback, in case the callback wants to stop or adjust its own timer
                         if matches!(timers.timers[active_timer.id].mode, TimerMode::Repeated) {
                             timers.activate_timer(active_timer.id);
+                        } else {
+                            timers.timers[active_timer.id].running = false;
                         }
 
                         // have to release the borrow on `timers` before invoking the callback,
@@ -375,7 +379,8 @@ impl TimerList {
 
     fn set_interval(&mut self, timer_id: usize, duration: core::time::Duration) {
         let timer = &self.timers[timer_id];
-        if matches!(timer.mode, TimerMode::SingleShot) {
+
+        if !matches!(timer.callback, CallbackVariant::MultiFire { .. }) {
             return;
         }
 
@@ -755,3 +760,110 @@ assert_eq!(state.borrow().variable2, 2);
  */
 #[cfg(doctest)]
 const _BUG3029: () = ();
+
+/**
+ * Test that starting a singleshot timer works
+```rust
+// There is a 200 ms singleshot timer that increase variable1
+i_slint_backend_testing::init();
+use slint::{Timer, TimerMode};
+use std::{rc::Rc, cell::RefCell, time::Duration};
+#[derive(Default)]
+struct SharedState {
+    variable1: usize,
+}
+let state = Rc::new(RefCell::new(SharedState::default()));
+// Note: state will be leaked because of circular dependencies: don't do that in production
+let state_ = state.clone();
+let timer = Timer::default();
+
+timer.start(TimerMode::SingleShot, Duration::from_millis(200), move || {
+    state_.borrow_mut().variable1 += 1;
+});
+
+// Singleshot timer set up and run...
+assert!(timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(10);
+assert!(timer.running());
+assert_eq!(state.borrow().variable1, 0);
+i_slint_core::tests::slint_mock_elapsed_time(200);
+assert_eq!(state.borrow().variable1, 1);
+assert!(!timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(200);
+assert_eq!(state.borrow().variable1, 1); // It's singleshot, it only triggers once!
+assert!(!timer.running());
+
+// Restart a previously set up singleshot timer
+timer.restart();
+assert!(timer.running());
+assert_eq!(state.borrow().variable1, 1);
+i_slint_core::tests::slint_mock_elapsed_time(200);
+assert_eq!(state.borrow().variable1, 2);
+assert!(!timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(200);
+assert_eq!(state.borrow().variable1, 2); // It's singleshot, it only triggers once!
+assert!(!timer.running());
+
+// Stop a non-running singleshot timer
+timer.stop();
+assert!(!timer.running());
+assert_eq!(state.borrow().variable1, 2);
+i_slint_core::tests::slint_mock_elapsed_time(200);
+assert_eq!(state.borrow().variable1, 2);
+assert!(!timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(200);
+assert_eq!(state.borrow().variable1, 2); // It's singleshot, it only triggers once!
+assert!(!timer.running());
+
+// Stop a running singleshot timer
+timer.restart();
+assert!(timer.running());
+assert_eq!(state.borrow().variable1, 2);
+i_slint_core::tests::slint_mock_elapsed_time(10);
+timer.stop();
+assert!(!timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(200);
+assert_eq!(state.borrow().variable1, 2);
+assert!(!timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(200);
+assert_eq!(state.borrow().variable1, 2); // It's singleshot, it only triggers once!
+assert!(!timer.running());
+
+// set_interval on a non-running singleshot timer
+timer.set_interval(Duration::from_millis(300));
+assert!(!timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(1000);
+assert_eq!(state.borrow().variable1, 2);
+assert!(!timer.running());
+timer.restart();
+assert!(timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(200);
+assert_eq!(state.borrow().variable1, 2);
+assert!(timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(200);
+assert_eq!(state.borrow().variable1, 3);
+assert!(!timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(300);
+assert_eq!(state.borrow().variable1, 3); // It's singleshot, it only triggers once!
+assert!(!timer.running());
+
+// set_interval on a running singleshot timer
+timer.restart();
+assert!(timer.running());
+assert_eq!(state.borrow().variable1, 3);
+i_slint_core::tests::slint_mock_elapsed_time(290);
+timer.set_interval(Duration::from_millis(400));
+assert!(timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(200);
+assert_eq!(state.borrow().variable1, 3);
+assert!(timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(250);
+assert_eq!(state.borrow().variable1, 4);
+assert!(!timer.running());
+i_slint_core::tests::slint_mock_elapsed_time(400);
+assert_eq!(state.borrow().variable1, 4); // It's singleshot, it only triggers once!
+assert!(!timer.running());
+```
+ */
+#[cfg(doctest)]
+const _SINGLESHOT_START: () = ();
