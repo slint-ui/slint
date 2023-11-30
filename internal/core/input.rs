@@ -524,6 +524,8 @@ pub struct MouseInputState {
     /// The stack of item which contain the mouse cursor (or grab),
     /// along with the last result from the input function
     item_stack: Vec<(ItemWeak, InputEventFilterResult)>,
+    /// Offset to apply to the first item of the stack (used if there is a popup)
+    pub(crate) offset: LogicalPoint,
     /// true if the top item of the stack has the mouse grab
     grabbed: bool,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
@@ -544,6 +546,8 @@ pub(crate) fn handle_mouse_grab(
     let mut event = mouse_event;
     let mut intercept = false;
     let mut invalid = false;
+
+    event.translate(-mouse_input_state.offset.to_vector());
 
     mouse_input_state.item_stack.retain(|it| {
         if invalid {

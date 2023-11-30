@@ -8,6 +8,7 @@ export component TestCase {
     in-out property <bool> popup-created;
     in-out property <int> click-count;
     in-out property <int> popup-selector: 0;
+    in-out property <int> popup-clicked;
 
     callback do-close;
     do-close => {
@@ -24,6 +25,13 @@ export component TestCase {
         }
         init => {
             root.popup-created = true;
+        }
+
+        TouchArea {
+            width: 7px; x: 0px;
+            clicked => {
+                popup-clicked += 1;
+            }
         }
     }
 
@@ -57,6 +65,7 @@ export component TestCase {
         }
         TouchArea {
             clicked => {
+                popup-clicked += 1000;
             }
         }
         init => {
@@ -95,6 +104,8 @@ instance.set_click_count(0);
 slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 1);
 assert_eq!(instance.get_popup_created(), true);
+assert_eq!(instance.get_popup_clicked(), 0);
+
 
 // Click to close
 slint_testing::send_mouse_click(&instance, 15., 15.);
@@ -102,6 +113,7 @@ assert_eq!(instance.get_click_count(), 1);
 // Subsequent click to verify that it was closed
 slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 2);
+assert_eq!(instance.get_popup_clicked(), 1);
 
 // --------- Popup with close-on-click: false
 instance.set_popup_selector(1);
@@ -110,6 +122,7 @@ instance.set_click_count(0);
 slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 1);
 assert_eq!(instance.get_popup_created(), true);
+assert_eq!(instance.get_popup_clicked(), 1);
 
 // Click outside, nothing happens
 slint_testing::send_mouse_click(&instance, 1., 1.);
@@ -117,6 +130,7 @@ assert_eq!(instance.get_click_count(), 1);
 // Click outside again, nothing happens
 slint_testing::send_mouse_click(&instance, 295., 295.);
 assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_clicked(), 1);
 
 // Click on the popup, it's registered and the custom TouchArea calls close()
 slint_testing::send_mouse_click(&instance, 15., 15.);
@@ -125,6 +139,7 @@ assert_eq!(instance.get_click_count(), 1);
 // Subsequent click to verify that it was closed
 slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 2);
+assert_eq!(instance.get_popup_clicked(), 1);
 
 // --------- Popup with close-on-click: false closed externally
 instance.set_popup_selector(2);
@@ -133,17 +148,21 @@ instance.set_click_count(0);
 slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 1);
 assert_eq!(instance.get_popup_created(), true);
+assert_eq!(instance.get_popup_clicked(), 1);
 
 // Click outside, nothing happens
 slint_testing::send_mouse_click(&instance, 1., 1.);
 assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_clicked(), 1);
 
 // Click on the popup, it's registered but nothing is done
 slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_clicked(), 1001);
 // Click again to verify that it was _not_ closed
 slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 1);
+assert_eq!(instance.get_popup_clicked(), 2001);
 
 // Close manually and verify that subsequent click is passed through
 instance.invoke_do_close();
@@ -152,6 +171,8 @@ assert_eq!(instance.get_click_count(), 2);
 instance.invoke_do_close();
 slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_click_count(), 3);
+assert_eq!(instance.get_popup_clicked(), 2001);
+
 
 ```
 
@@ -205,6 +226,7 @@ assert_eq(instance.get_click_count(), 2);
 instance.invoke_do_close();
 slint_testing::send_mouse_click(&instance, 15., 15.);
 assert_eq(instance.get_click_count(), 3);
+assert_eq(instance.get_popup_clicked(), 2001);
 ```
 
 ```disable-because-nodejs-runs-with-qt-and-send-mouse-click-wont-send-to-popup-qwindow

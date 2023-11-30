@@ -9,6 +9,8 @@ All notable changes to this project are documented in this file.
 
  - Fixed `accepted` and `edited` callbacks in `LineEdit` not being invoked
    with Fluent, Cupertino, and Material styles.
+ - Fixed coordinate of events within PopupWindow. (#4036)
+ - Fixed ComboBox not selecting entries. (#4033)
 
 ### Slint Language
 
