@@ -350,8 +350,13 @@ pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition, des
 
         let shared_handle = preview_state.handle.clone();
 
+        let ui = preview_state.ui.as_ref().unwrap();
+
+        // Ensure that the popup is closed as it is related to the old factory
+        i_slint_core::window::WindowInner::from_pub(ui.window()).close_popup();
+
         super::set_preview_factory(
-            preview_state.ui.as_ref().unwrap(),
+            ui,
             compiled,
             Box::new(move |instance| {
                 shared_handle.replace(Some(instance));

@@ -20,6 +20,7 @@ All notable changes to this project are documented in this file.
 
  - Added support for resizing the UI under preview without resizing the window,
    by providing resize handles and scrollbars.
+ - Close previous PopupWindow before refreshing the preview. (#4035)
 
 ### C++
 
