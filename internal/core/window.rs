@@ -488,30 +488,35 @@ impl WindowInner {
         mouse_input_state = if let Some(mut event) =
             crate::input::handle_mouse_grab(event, &window_adapter, &mut mouse_input_state)
         {
-            let item_tree = if let Some(PopupWindow {
+            let (item_tree, offset) = if let Some(PopupWindow {
                 location: PopupWindowLocation::ChildWindow(coordinates),
                 component,
                 ..
             }) = self.active_popup.borrow().as_ref()
             {
-                event.translate(-coordinates.to_vector());
                 let geom = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(0);
-                if event.position().map_or(false, |pos| !geom.contains(pos)) {
-                    None
+                if event
+                    .position()
+                    .map_or(false, |pos| !geom.contains(pos - coordinates.to_vector()))
+                {
+                    (None, LogicalPoint::default())
                 } else {
-                    Some(component.clone())
+                    (Some(component.clone()), *coordinates)
                 }
             } else {
-                self.component.borrow().upgrade()
+                (self.component.borrow().upgrade(), LogicalPoint::default())
             };
 
             if let Some(item_tree) = item_tree {
-                crate::input::process_mouse_input(
+                event.translate(-offset.to_vector());
+                let mut new_input_state = crate::input::process_mouse_input(
                     item_tree,
                     event,
                     &window_adapter,
                     mouse_input_state,
-                )
+                );
+                new_input_state.offset = offset;
+                new_input_state
             } else {
                 // When outside, send exit event
                 let mut new_input_state = MouseInputState::default();
