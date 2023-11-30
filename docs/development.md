@@ -124,17 +124,19 @@ Finally, the PR is approved. As contributor, in your local branch, feel free to 
 
 (commits are real, sha1s are just examples)
 
-Find the base commit:
-```
-$ git merge-base HEAD origin/master
-607bdbfcf80a879e09d2d92b0d3e195d426fb481
-$ merge_base=607bdbfcf80a879e09d2d92b0d3e195d426fb481
+As a first step, let's rebase our changes to make sure that there are no conflicts:
+
+```bash
+git rebase origin/master
 ```
 
-Start an interactive rebase that starts at the base commit:
+This might run through without stoppping. If there are merge conflicts to be resolved, `git rebase` will stop
+and let you fix it. For instructions how to resolve the conflicts and continue, see [Resolving merge conflicts after a Git rebase](https://docs.github.com/en/get-started/using-git/resolving-merge-conflicts-after-a-git-rebase).
+
+When your branch is rebased, proceed to squash the fixup commits. Start an interactive rebase that starts at the base commit:
 
 ```
-$ git rebase -i $merge_base
+$ git rebase -i origin/master
 ```
 
 This launches the configured editor with the above list of commits,
@@ -176,7 +178,7 @@ git history of commits.
 
 Are all the fix-up commits merged with the original changes? Do the commit messages look okay?
 
-If you need further changes, run `$ git rebase -i $merge_base` again.
+If you need further changes, run `$ git rebase -i origin/master` again.
 
 When the history is clean, double check that you're going to push to the right branch:
 
