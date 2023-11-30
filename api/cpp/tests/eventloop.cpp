@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+// cSpell: ignore singleshot
+
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
 
@@ -52,8 +54,9 @@ TEST_CASE("C++ Restart Singleshot Timer")
                 [&]() { timer_triggered++; });
 
     REQUIRE(timer_triggered == 0);
+    REQUIRE(timer.running());
 
-    bool timer_was_running = false;
+    bool timer_was_running = true;
 
     slint::Timer::single_shot(std::chrono::milliseconds(500), [&]() {
         timer_was_running = timer.running();
@@ -62,10 +65,15 @@ TEST_CASE("C++ Restart Singleshot Timer")
 
     slint::run_event_loop();
 
+    REQUIRE(!timer.running());
     REQUIRE(timer_triggered == 1);
-    REQUIRE(timer_was_running);
+    REQUIRE(!timer_was_running); // At that point the timer is already considered stopped!
+
     timer_triggered = 0;
+    timer_was_running = true;
+
     timer.restart();
+    REQUIRE(timer.running());
     slint::Timer::single_shot(std::chrono::milliseconds(500), [&]() {
         timer_was_running = timer.running();
         slint::quit_event_loop();
@@ -74,7 +82,8 @@ TEST_CASE("C++ Restart Singleshot Timer")
     slint::run_event_loop();
 
     REQUIRE(timer_triggered == 1);
-    REQUIRE(timer_was_running);
+    REQUIRE(!timer_was_running);
+    REQUIRE(!timer.running());
 }
 
 TEST_CASE("C++ Restart Repeated Timer")
