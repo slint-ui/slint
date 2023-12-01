@@ -17,6 +17,12 @@ inline void mock_elapsed_time(int64_t time_in_ms)
 {
     cbindgen_private::slint_mock_elapsed_time(time_in_ms);
 }
+
+inline uint64_t get_mocked_time()
+{
+    return cbindgen_private::slint_get_mocked_time();
+}
+
 template<typename Component>
 inline void send_mouse_click(const Component *component, float x, float y)
 {

@@ -219,6 +219,11 @@ impl Instant {
             .with(|p| p.get().map(|p| p.duration_since_start()))
             .unwrap_or_default()
     }
+
+    /// Return the number of milliseconds this `Instant` is after the backend has started
+    pub fn as_millis(&self) -> u64 {
+        self.0
+    }
 }
 
 /// The AnimationDriver

@@ -24,6 +24,12 @@ pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
     crate::timers::TimerList::maybe_activate_timers(tick);
 }
 
+/// Return the current mocked time.
+#[no_mangle]
+pub extern "C" fn slint_get_mocked_time() -> u64 {
+    crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick()).as_millis()
+}
+
 /// Simulate a click on a position within the component.
 #[no_mangle]
 pub extern "C" fn slint_send_mouse_click(
