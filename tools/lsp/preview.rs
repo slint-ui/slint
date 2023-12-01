@@ -276,6 +276,9 @@ pub fn set_preview_factory(
     callback: Box<dyn Fn(ComponentInstance)>,
     design_mode: bool,
 ) {
+    // Ensure that the popup is closed as it is related to the old factory
+    i_slint_core::window::WindowInner::from_pub(ui.window()).close_popup();
+
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
         configure_handle_for_design_mode(&instance, design_mode);
