@@ -418,37 +418,6 @@ if(SLINT_BUILD_RUNTIME)
         DESTINATION lib/cmake/Slint
     )
 
-    option(SLINT_PACKAGE_BUNDLE_QT "Internal setting to install Qt binary in the packages" OFF)
-
-    if(SLINT_PACKAGE_BUNDLE_QT)
-        if(WIN32)
-            find_package(Qt6 6.0 COMPONENTS Core Gui Widgets Svg)
-            install(
-                FILES
-                $<TARGET_FILE:Qt6::Core>
-                $<TARGET_FILE:Qt6::Gui>
-                $<TARGET_FILE:Qt6::Widgets>
-                $<TARGET_FILE:Qt6::Svg>
-                TYPE LIB)
-
-            install(
-                FILES ${Qt6_DIR}/../../../plugins/platforms/qwindows.dll
-                DESTINATION plugins/platforms)
-            install(
-                FILES ${Qt6_DIR}/../../../plugins/styles/qwindowsvistastyle.dll
-                DESTINATION plugins/styles)
-            install(
-                FILES ${Qt6_DIR}/../../../plugins/imageformats/qsvg.dll
-                DESTINATION plugins/imageformats)
-
-            install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../licenses/ DESTINATION LICENSES)
-
-            set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
-            include(InstallRequiredSystemLibraries)
-            install(FILES ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} TYPE LIB)
-        endif()
-    endif(SLINT_PACKAGE_BUNDLE_QT)
-
 endif(SLINT_BUILD_RUNTIME)
 
 set(CPACK_PACKAGE_NAME "Slint-cpp")
