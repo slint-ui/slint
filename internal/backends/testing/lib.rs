@@ -240,6 +240,7 @@ pub fn init_with_event_loop() {
 mod for_unit_test {
     use i_slint_core::api::ComponentHandle;
     use i_slint_core::platform::WindowEvent;
+    pub use i_slint_core::tests::slint_get_mocked_time as get_mocked_time;
     pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
     use i_slint_core::window::WindowInner;
     use i_slint_core::SharedString;
