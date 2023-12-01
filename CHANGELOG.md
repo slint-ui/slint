@@ -3,7 +3,7 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## [1.3.2] - 2023-11-30
+## [1.3.2] - 2023-12-01
 
 ### General
 
@@ -11,7 +11,8 @@ All notable changes to this project are documented in this file.
    with Fluent, Cupertino, and Material styles.
  - Fixed coordinate of events within PopupWindow. (#4036)
  - Fixed ComboBox not selecting entries. (#4033)
- - Fix singleshot timers started via `start(...)` staying in `running` state.
+ - Fixed singleshot timers started via `start(...)` to not stay in running state.
+ - Fluent style: Fixed color of disabled `LineEdit`.
 
 ### Slint Language
 
