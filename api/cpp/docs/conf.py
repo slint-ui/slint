@@ -22,7 +22,7 @@ import textwrap
 # -- Project information -----------------------------------------------------
 
 # The full version, including alpha/beta/rc tags
-version = "1.3.1"
+version = "1.3.2"
 
 project = f'Slint {version} C++ API'
 copyright = "SixtyFPS GmbH"
