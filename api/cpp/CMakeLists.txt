@@ -30,30 +30,30 @@ set(SLINT_COMPILER "" CACHE FILEPATH "Path to the slint-compiler executable. Whe
 set(SLINT_LIBRARY_CARGO_FLAGS "" CACHE STRING
     "Flags to pass to cargo when building the Slint runtime library")
 
-function(define_cargo_feature cargo-feature description default)
+function(define_cargo_feature cargo_feature description default)
     # turn foo-bar into SLINT_FEATURE_FOO_BAR
-    string(TOUPPER "${cargo-feature}" cmake_option)
+    string(TOUPPER "${cargo_feature}" cmake_option)
     string(REPLACE "-" "_" cmake_option "${cmake_option}")
     set(cmake_option "SLINT_FEATURE_${cmake_option}")
     option("${cmake_option}" "${description}" ${default})
 
     if(${cmake_option})
-        list(APPEND features ${cargo-feature})
+        list(APPEND features ${cargo_feature})
     endif()
 
     set(features "${features}" PARENT_SCOPE)
     add_feature_info(${cmake_option} ${cmake_option} ${description})
 endfunction()
 
-function(define_cargo_dependent_feature cargo-feature description default depends_condition)
+function(define_cargo_dependent_feature cargo_feature description default depends_condition)
     # turn foo-bar into SLINT_FEATURE_FOO_BAR
-    string(TOUPPER "${cargo-feature}" cmake_option)
+    string(TOUPPER "${cargo_feature}" cmake_option)
     string(REPLACE "-" "_" cmake_option "${cmake_option}")
     set(cmake_option "SLINT_FEATURE_${cmake_option}")
     cmake_dependent_option("${cmake_option}" "${description}" ${default} ${depends_condition} OFF)
 
     if(${cmake_option})
-        list(APPEND features ${cargo-feature})
+        list(APPEND features ${cargo_feature})
     endif()
 
     set(features "${features}" PARENT_SCOPE)
