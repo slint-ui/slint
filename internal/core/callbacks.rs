@@ -41,6 +41,14 @@ impl<Arg: ?Sized, Ret: Default> Callback<Arg, Ret> {
         r
     }
 
+    /// Return whether a callback is registered or not.
+    pub fn has_handler(&self) -> bool {
+        let handler = self.handler.take();
+        let result = handler.is_some();
+        self.handler.set(handler);
+        result
+    }
+
     /// Set an handler to be called when the callback is called
     ///
     /// There can only be one single handler per callback.

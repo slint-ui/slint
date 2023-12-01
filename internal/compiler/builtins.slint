@@ -100,6 +100,7 @@ export component TouchArea {
     out property <length> pressed_y;
     in property <MouseCursor> mouse-cursor;
     callback clicked;
+    callback double-clicked;
     callback moved;
     callback pointer-event(PointerEvent);
     callback scroll-event(PointerScrollEvent) -> EventResult;

@@ -33,6 +33,7 @@ use crate::lengths::{
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowAdapterRc, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
 use alloc::rc::Rc;
@@ -424,6 +425,7 @@ pub struct TouchArea {
     pub mouse_y: Property<LogicalLength>,
     pub mouse_cursor: Property<MouseCursor>,
     pub clicked: Callback<VoidArg>,
+    pub double_clicked: Callback<VoidArg>,
     pub moved: Callback<VoidArg>,
     pub pointer_event: Callback<PointerEventArg>,
     pub scroll_event: Callback<PointerScrollEventArg, EventResult>,
@@ -431,6 +433,40 @@ pub struct TouchArea {
     pub cached_rendering_data: CachedRenderingData,
     /// true when we are currently grabbing the mouse
     grabbed: Cell<bool>,
+    clicked_timer: Timer,
+}
+
+impl TouchArea {
+    fn start_clicked_timer(self: Pin<&Self>, item_rc: &ItemRc) {
+        let max_click_interval = crate::platform::PLATFORM_INSTANCE
+            .with(|p| p.get().map(|p| p.click_interval()))
+            .unwrap_or_default();
+        let weak = item_rc.downgrade();
+
+        self.clicked_timer.start(
+            crate::timers::TimerMode::SingleShot,
+            max_click_interval,
+            move || {
+                let Some(item) = weak.upgrade() else {
+                    return;
+                };
+                let Some(touch_area) = item.downcast::<TouchArea>() else {
+                    return;
+                };
+                if Self::FIELD_OFFSETS.pressed.apply_pin(touch_area.as_pin_ref()).get() == false {
+                    Self::FIELD_OFFSETS.clicked.apply_pin(touch_area.as_pin_ref()).call(&());
+                }
+            },
+        );
+        assert!(self.clicked_timer.running());
+    }
+
+    fn stop_clicked_timer(self: Pin<&Self>) -> bool {
+        let result = self.clicked_timer.running();
+        self.clicked_timer.stop();
+        assert!(!self.clicked_timer.running());
+        result
+    }
 }
 
 impl Item for TouchArea {
@@ -482,18 +518,6 @@ impl Item for TouchArea {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        let result = if let MouseEvent::Released { position, button, .. } = event {
-            let geometry = self_rc.geometry();
-            if button == PointerEventButton::Left
-                && LogicalRect::new(LogicalPoint::default(), geometry.size).contains(position)
-                && self.pressed()
-            {
-                Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
-            }
-            InputEventResult::EventAccepted
-        } else {
-            InputEventResult::GrabMouse
-        };
 
         match event {
             MouseEvent::Pressed { position, button, .. } => {
@@ -508,8 +532,16 @@ impl Item for TouchArea {
                     kind: PointerEventKind::Down,
                     modifiers: window_adapter.window().0.modifiers.get().into(),
                 },));
+
+                InputEventResult::GrabMouse
             }
             MouseEvent::Exit => {
+                if self.stop_clicked_timer()
+                    && Self::FIELD_OFFSETS.pressed.apply_pin(self).get() == false
+                {
+                    Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+                }
+
                 Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
                 if self.grabbed.replace(false) {
                     Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
@@ -518,8 +550,31 @@ impl Item for TouchArea {
                         modifiers: window_adapter.window().0.modifiers.get().into(),
                     },));
                 }
+
+                InputEventResult::EventAccepted
             }
-            MouseEvent::Released { button, .. } => {
+
+            MouseEvent::Released { button, position, .. } => {
+                let geometry = self_rc.geometry();
+                let double_clicked_set =
+                    Self::FIELD_OFFSETS.double_clicked.apply_pin(self).has_handler();
+                let timer_was_running = self.stop_clicked_timer();
+
+                if button == PointerEventButton::Left
+                    && LogicalRect::new(LogicalPoint::default(), geometry.size).contains(position)
+                    && self.pressed()
+                {
+                    match (timer_was_running, double_clicked_set) {
+                        (true, true) => {
+                            Self::FIELD_OFFSETS.double_clicked.apply_pin(self).call(&())
+                        }
+                        (false, true) => self.start_clicked_timer(self_rc),
+                        (true, false) => { /* nothing to do: The double-click handler was removed! */
+                        }
+                        (false, false) => Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&()),
+                    }
+                }
+
                 self.grabbed.set(false);
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
@@ -529,9 +584,11 @@ impl Item for TouchArea {
                     kind: PointerEventKind::Up,
                     modifiers: window_adapter.window().0.modifiers.get().into(),
                 },));
+
+                InputEventResult::EventAccepted
             }
             MouseEvent::Moved { .. } => {
-                return if self.grabbed.get() {
+                if self.grabbed.get() {
                     Self::FIELD_OFFSETS.moved.apply_pin(self).call(&());
                     InputEventResult::GrabMouse
                 } else {
@@ -544,7 +601,7 @@ impl Item for TouchArea {
                     .scroll_event
                     .apply_pin(self)
                     .call(&(PointerScrollEvent { delta_x, delta_y, modifiers },));
-                return if self.grabbed.get() {
+                if self.grabbed.get() {
                     InputEventResult::GrabMouse
                 } else {
                     match r {
@@ -557,10 +614,9 @@ impl Item for TouchArea {
                         }
                         EventResult::Accept => InputEventResult::EventAccepted,
                     }
-                };
+                }
             }
-        };
-        result
+        }
     }
 
     fn key_event(
