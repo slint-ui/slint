@@ -142,7 +142,6 @@
         "cspell.json",
         "LICENSES",
         "examples/*/lang/**",
-        "internal/backends/qt/QtThirdPartySoftware_Listing.txt",
         ".github/workflows/*.yaml"
     ],
     "ignoreRegExpList": [
