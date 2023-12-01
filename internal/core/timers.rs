@@ -12,7 +12,10 @@
 #![warn(missing_docs)]
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use core::cell::{Cell, RefCell};
+use core::{
+    cell::{Cell, RefCell},
+    num::NonZeroUsize,
+};
 
 use crate::animations::Instant;
 
@@ -58,7 +61,7 @@ pub enum TimerMode {
 /// ```
 #[derive(Default)]
 pub struct Timer {
-    id: Cell<Option<usize>>,
+    id: Cell<Option<NonZeroUsize>>,
 }
 
 impl Timer {
@@ -79,12 +82,12 @@ impl Timer {
         CURRENT_TIMERS.with(|timers| {
             let mut timers = timers.borrow_mut();
             let id = timers.start_or_restart_timer(
-                self.id.get(),
+                self.id(),
                 mode,
                 interval,
                 CallbackVariant::MultiFire(Box::new(callback)),
             );
-            self.id.set(Some(id));
+            self.set_id(Some(id));
         })
     }
 
@@ -117,7 +120,7 @@ impl Timer {
 
     /// Stops the previously started timer. Does nothing if the timer has never been started.
     pub fn stop(&self) {
-        if let Some(id) = self.id.get() {
+        if let Some(id) = self.id() {
             CURRENT_TIMERS.with(|timers| {
                 timers.borrow_mut().deactivate_timer(id);
             });
@@ -130,7 +133,7 @@ impl Timer {
     ///
     /// Does nothing if the timer was never started.
     pub fn restart(&self) {
-        if let Some(id) = self.id.get() {
+        if let Some(id) = self.id() {
             CURRENT_TIMERS.with(|timers| {
                 timers.borrow_mut().deactivate_timer(id);
                 timers.borrow_mut().activate_timer(id);
@@ -140,8 +143,7 @@ impl Timer {
 
     /// Returns true if the timer is running; false otherwise.
     pub fn running(&self) -> bool {
-        self.id
-            .get()
+        self.id()
             .map(|timer_id| CURRENT_TIMERS.with(|timers| timers.borrow().timers[timer_id].running))
             .unwrap_or(false)
     }
@@ -156,17 +158,25 @@ impl Timer {
     /// * `interval`: The duration from now until when the timer should fire. And the period of that timer
     ///    for [`Repeated`](TimerMode::Repeated) timers.
     pub fn set_interval(&self, interval: core::time::Duration) {
-        if let Some(id) = self.id.get() {
+        if let Some(id) = self.id() {
             CURRENT_TIMERS.with(|timers| {
                 timers.borrow_mut().set_interval(id, interval);
             });
         }
     }
+
+    fn id(&self) -> Option<usize> {
+        self.id.get().map(|v| usize::from(v) - 1)
+    }
+
+    fn set_id(&self, id: Option<usize>) {
+        self.id.set(id.and_then(|v| NonZeroUsize::new(v + 1)));
+    }
 }
 
 impl Drop for Timer {
     fn drop(&mut self) {
-        if let Some(id) = self.id.get() {
+        if let Some(id) = self.id() {
             let _ = CURRENT_TIMERS.try_with(|timers| {
                 timers.borrow_mut().remove_timer(id);
             });
@@ -351,10 +361,10 @@ impl TimerList {
         }
     }
 
-    fn activate_timer(&mut self, timer_id: usize) {
+    fn activate_timer(&mut self, id: usize) {
         self.register_active_timer(ActiveTimer {
-            id: timer_id,
-            timeout: Instant::now() + self.timers[timer_id].duration,
+            id,
+            timeout: Instant::now() + self.timers[id].duration,
         });
     }
 
@@ -367,29 +377,29 @@ impl TimerList {
         self.timers[new_active_timer.id].running = true;
     }
 
-    fn remove_timer(&mut self, timer_id: usize) {
-        self.deactivate_timer(timer_id);
-        let t = &mut self.timers[timer_id];
+    fn remove_timer(&mut self, id: usize) {
+        self.deactivate_timer(id);
+        let t = &mut self.timers[id];
         if t.being_activated {
             t.removed = true;
         } else {
-            self.timers.remove(timer_id);
+            self.timers.remove(id);
         }
     }
 
-    fn set_interval(&mut self, timer_id: usize, duration: core::time::Duration) {
-        let timer = &self.timers[timer_id];
+    fn set_interval(&mut self, id: usize, duration: core::time::Duration) {
+        let timer = &self.timers[id];
 
         if !matches!(timer.callback, CallbackVariant::MultiFire { .. }) {
             return;
         }
 
         if timer.running {
-            self.deactivate_timer(timer_id);
-            self.timers[timer_id].duration = duration;
-            self.activate_timer(timer_id);
+            self.deactivate_timer(id);
+            self.timers[id].duration = duration;
+            self.activate_timer(id);
         } else {
-            self.timers[timer_id].duration = duration;
+            self.timers[id].duration = duration;
         }
     }
 }
@@ -450,20 +460,20 @@ pub(crate) mod ffi {
     /// The timer MUST be destroyed with slint_timer_destroy.
     #[no_mangle]
     pub extern "C" fn slint_timer_start(
-        id: i64,
+        id: usize,
         mode: TimerMode,
         duration: u64,
         callback: extern "C" fn(*mut c_void),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    ) -> i64 {
+    ) -> usize {
         let wrap = WrapFn { callback, user_data, drop_user_data };
         let timer = Timer::default();
-        if id != -1 {
-            timer.id.set(Some(id as _));
+        if id != 0 {
+            timer.id.set(NonZeroUsize::new(id));
         }
         timer.start(mode, core::time::Duration::from_millis(duration), move || wrap.call());
-        timer.id.take().map(|x| x as i64).unwrap_or(-1)
+        timer.id.take().map(|x| usize::from(x)).unwrap_or(0)
     }
 
     /// Execute a callback with a delay in millisecond
@@ -480,43 +490,43 @@ pub(crate) mod ffi {
 
     /// Stop a timer and free its raw data
     #[no_mangle]
-    pub extern "C" fn slint_timer_destroy(id: i64) {
-        if id == -1 {
+    pub extern "C" fn slint_timer_destroy(id: usize) {
+        if id == 0 {
             return;
         }
-        let timer = Timer { id: Cell::new(Some(id as _)) };
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)) };
         drop(timer);
     }
 
     /// Stop a timer
     #[no_mangle]
-    pub extern "C" fn slint_timer_stop(id: i64) {
-        if id == -1 {
+    pub extern "C" fn slint_timer_stop(id: usize) {
+        if id == 0 {
             return;
         }
-        let timer = Timer { id: Cell::new(Some(id as _)) };
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)) };
         timer.stop();
         timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
     }
 
     /// Restart a repeated timer
     #[no_mangle]
-    pub extern "C" fn slint_timer_restart(id: i64) {
-        if id == -1 {
+    pub extern "C" fn slint_timer_restart(id: usize) {
+        if id == 0 {
             return;
         }
-        let timer = Timer { id: Cell::new(Some(id as _)) };
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)) };
         timer.restart();
         timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
     }
 
     /// Returns true if the timer is running; false otherwise.
     #[no_mangle]
-    pub extern "C" fn slint_timer_running(id: i64) -> bool {
-        if id == -1 {
+    pub extern "C" fn slint_timer_running(id: usize) -> bool {
+        if id == 0 {
             return false;
         }
-        let timer = Timer { id: Cell::new(Some(id as _)) };
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)) };
         let running = timer.running();
         timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
         running

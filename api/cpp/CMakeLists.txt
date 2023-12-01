@@ -306,21 +306,22 @@ if (SLINT_BUILD_RUNTIME)
     endforeach()
 
     set(generated_headers
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_enums_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_enums.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_builtin_structs_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_builtin_structs.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_string_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_brush_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_sharedvector_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_properties_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_image_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_builtin_structs.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_builtin_structs_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_color_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_pathdata_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_qt_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_platform_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_enums.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_enums_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_generated_public.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_image_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_pathdata_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_platform_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_properties_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_qt_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_sharedvector_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_string_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_timer_internal.h
     )
 
     if(SLINT_FEATURE_INTERPRETER)

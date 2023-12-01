@@ -296,7 +296,6 @@ fn gen_corelib(
 
     // included in generated_public.h
     let public_exported_types = [
-        "TimerMode",
         "RenderingState",
         "SetRenderingNotifierError",
         "GraphicsAPI",
@@ -320,6 +319,8 @@ fn gen_corelib(
         "slint_new_path_events",
         "Property",
         "Slice",
+        "Timer",
+        "TimerMode",
         "PropertyHandleOpaque",
         "Callback",
         "slint_property_listener_scope_evaluate",
@@ -344,6 +345,12 @@ fn gen_corelib(
         "slint_image_load_from_embedded_data",
         "slint_image_from_embedded_textures",
         "slint_image_compare_equal",
+        "slint_timer_start",
+        "slint_timer_singleshot",
+        "slint_timer_destroy",
+        "slint_timer_stop",
+        "slint_timer_restart",
+        "slint_timer_running",
         "Coord",
         "LogicalRect",
         "LogicalPoint",
@@ -402,6 +409,37 @@ fn gen_corelib(
         .generate()
         .context("Unable to generate bindings for slint_properties_internal.h")?
         .write_to_file(include_dir.join("slint_properties_internal.h"));
+
+    // slint_timer_internal.h:
+    let timer_config = {
+        let mut tmp = config.clone();
+        tmp.export.include = vec![
+            "TimerMode",
+            "slint_timer_start",
+            "slint_timer_singleshot",
+            "slint_timer_destroy",
+            "slint_timer_stop",
+            "slint_timer_restart",
+            "slint_timer_running",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        tmp.export.exclude = config
+            .export
+            .exclude
+            .iter()
+            .filter(|exclusion| !tmp.export.include.iter().any(|inclusion| inclusion == *exclusion))
+            .cloned()
+            .collect();
+        tmp
+    };
+    cbindgen::Builder::new()
+        .with_config(timer_config)
+        .with_src(crate_dir.join("timers.rs"))
+        .generate()
+        .context("Unable to generate bindings for slint_timer_internal.h")?
+        .write_to_file(include_dir.join("slint_timer_internal.h"));
 
     for (rust_types, extra_excluded_types, internal_header, prelude) in [
         (
@@ -558,7 +596,6 @@ fn gen_corelib(
 
     cbindgen::Builder::new()
         .with_config(public_config)
-        .with_src(crate_dir.join("timers.rs"))
         .with_src(crate_dir.join("graphics.rs"))
         .with_src(crate_dir.join("window.rs"))
         .with_src(crate_dir.join("api.rs"))
@@ -639,6 +676,7 @@ fn gen_corelib(
         .with_include("slint_generated_public.h")
         .with_include("slint_enums_internal.h")
         .with_include("slint_point.h")
+        .with_include("slint_timer.h")
         .with_include("slint_builtin_structs_internal.h")
         .with_after_include(
             r"
