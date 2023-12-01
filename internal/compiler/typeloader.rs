@@ -704,22 +704,19 @@ fn get_native_style(all_loaded_files: &mut Vec<PathBuf>) -> String {
 pub fn base_directory(referencing_file: &Path) -> PathBuf {
     if referencing_file.extension().map_or(false, |e| e == "rs") {
         // For .rs file, this is a rust macro, and rust macro locates the file relative to the CARGO_MANIFEST_DIR which is the directory that has a Cargo.toml file.
-        let mut candidate = crate::pathutils::dirname(referencing_file);
-        let mut previous_candidate = referencing_file.to_path_buf();
+        let mut candidate = referencing_file;
         loop {
-            if candidate == previous_candidate {
-                return crate::pathutils::dirname(referencing_file);
-            }
-            previous_candidate = candidate;
-            candidate = crate::pathutils::dirname(&previous_candidate);
+            candidate =
+                if let Some(c) = candidate.parent() { c } else { break referencing_file.parent() };
 
             if candidate.join("Cargo.toml").exists() {
-                return candidate.to_path_buf();
+                break Some(candidate);
             }
         }
     } else {
-        crate::pathutils::dirname(referencing_file)
+        referencing_file.parent()
     }
+    .map_or_else(Default::default, |p| p.to_path_buf())
 }
 
 #[test]
@@ -802,7 +799,9 @@ fn test_dependency_loading_from_rust() {
     ));
 
     assert!(!test_diags.has_error());
+    assert!(test_diags.is_empty()); // also no warnings
     assert!(!build_diagnostics.has_error());
+    assert!(build_diagnostics.is_empty()); // also no warnings
     assert!(foreign_imports.is_empty());
 }
 
