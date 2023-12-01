@@ -25,12 +25,6 @@ jobs:
     - uses: ./.github/actions/install-linux-dependencies
       with:
         old-ubuntu: true
-    - name: Install Qt (Ubuntu)
-      uses: jurplel/install-qt-action@v3
-      if: matrix.os == 'ubuntu-20.04'
-      with:
-        version: 5.15.2
-        cache: true
     - name: Install Qt (cached)
       if: matrix.os != 'ubuntu-20.04'
       uses: jurplel/install-qt-action@v3
@@ -41,12 +35,7 @@ jobs:
     - uses: baptiste0928/cargo-install@v2
       with:
         crate: cargo-about
-    - name: Prepare licenses (with Qt)
-      if: matrix.os == 'windows-2022' || matrix.os == 'macOS-11'
-      run: bash -x ../../scripts/prepare_binary_package.sh ../.. --with-qt
-      working-directory: api/cpp/
-    - name: Prepare licenses (without Qt)
-      if: matrix.os != 'windows-2022' && matrix.os != 'macOS-11'
+    - name: Prepare licenses
       run: bash -x ../../scripts/prepare_binary_package.sh ../..
       working-directory: api/cpp/
     - uses: ilammy/msvc-dev-cmd@v1
@@ -60,7 +49,7 @@ jobs:
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: CMakeLists.txt
-        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=RelWithDebInfo -DSLINT_PACKAGE_BUNDLE_QT=ON'
+        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=RelWithDebInfo'
         buildDirectory: ${{ runner.workspace }}/cppbuild
         buildWithCMakeArgs: '--config Release'
     - name: cpack
