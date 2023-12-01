@@ -181,6 +181,7 @@ jobs:
 
   cpp_cmake:
     env:
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
       RUST_BACKTRACE: 1
@@ -199,6 +200,12 @@ jobs:
       if: matrix.os == 'ubuntu-22.04'
       with:
         version: 5.15.2
+        cache: true
+    - name: Install Qt (cached)
+      if: matrix.os != 'ubuntu-22.04'
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: 6.5.1
         cache: true
     - uses: ./.github/actions/setup-rust
     - uses: ilammy/msvc-dev-cmd@v1
