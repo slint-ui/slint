@@ -44,7 +44,7 @@ box-shadow-cache = []
 
 shared-fontdb = ["i-slint-common/shared-fontdb"]
 
-default = ["std", "unicode"]
+default = ["std", "unicode", "once_cell/critical-section"]
 no_std = ["once_cell/critical-section"]
 
 [dependencies]
