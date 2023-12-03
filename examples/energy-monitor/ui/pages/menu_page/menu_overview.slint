@@ -16,4 +16,6 @@ export global MenuOverviewAdapter {
     ];
     in-out property <int> current-page;
     out property <int> count: model.length;
+    // the argument is +1 for the next page and -1 for the previous page
+    callback transition(int);
 }

@@ -189,6 +189,7 @@ pub fn init() {
         buffer: vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as _].leak(),
         pio: Some(pio),
         stolen_pin: (dc_copy, cs_copy),
+        transition: Transition::None,
     };
 
     slint::platform::set_platform(Box::new(PicoBackend {
@@ -249,6 +250,13 @@ impl<
             if let Some(window) = self.window.borrow().clone() {
                 window.draw_if_needed(|renderer| {
                     let mut buffer_provider = self.buffer_provider.borrow_mut();
+                    buffer_provider.transition =
+                        cortex_m::interrupt::free(|cs| FRAME_TRANSITION.borrow(cs).take());
+                    if buffer_provider.transition != Transition::None {
+                        // clear the buffer cache
+                        renderer.set_repaint_buffer_type(renderer::RepaintBufferType::NewBuffer);
+                        renderer.set_repaint_buffer_type(renderer::RepaintBufferType::ReusedBuffer);
+                    }
                     renderer.render_by_line(&mut *buffer_provider);
                     buffer_provider.flush_frame();
                 });
@@ -358,6 +366,7 @@ struct DrawBuffer<Display, PioTransfer, Stolen> {
     buffer: &'static mut [TargetPixel],
     pio: Option<PioTransfer>,
     stolen_pin: Stolen,
+    transition: Transition,
 }
 
 impl<
@@ -381,23 +390,28 @@ impl<
     ) {
         render_fn(&mut self.buffer[range.clone()]);
 
+        if self.transition != Transition::None {
+            self.display
+                .set_pixels(
+                    range.start as u16,
+                    line as u16,
+                    range.end as u16,
+                    line as u16,
+                    self.buffer[range].iter().map(|x| x.0),
+                )
+                .unwrap();
+
+            let line = if self.transition == Transition::ScrollRight { 240 - line } else { line };
+            self.display.set_scroll_offset(((line * 320) / 240) as u16).unwrap();
+            return;
+        }
+
         // convert from little to big indian before sending to the DMA channel
         for x in &mut self.buffer[range.clone()] {
             *x = Rgb565Pixel(x.0.to_be())
         }
         let (ch, mut b, spi) = self.pio.take().unwrap().wait();
         self.stolen_pin.1.set_high().unwrap();
-
-        /*self.display.set_pixels(
-            dirty_region.min_x() as _,
-            line.get() as _,
-            dirty_region.max_x() as u16,
-            line.get() as u16,
-            self.buffer[dirty_region.origin.x as usize
-                ..dirty_region.origin.x as usize + dirty_region.size.width as usize]
-                .iter()
-                .map(|x| embedded_graphics::pixelcolor::raw::RawU16::from(*x).into_inner()),
-        );*/
 
         core::mem::swap(&mut self.buffer, &mut b);
 
@@ -447,6 +461,23 @@ unsafe impl embedded_dma::ReadBuffer for PartialReadBuffer {
         let act_slice = &self.0[self.1.clone()];
         (act_slice.as_ptr() as *const u8, act_slice.len() * core::mem::size_of::<Rgb565Pixel>())
     }
+}
+
+/// The direction of the transition
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+pub enum Transition {
+    #[default]
+    None,
+    ScrollLeft,
+    ScrollRight,
+}
+static FRAME_TRANSITION: Mutex<RefCell<Transition>> = Mutex::new(RefCell::new(Transition::None));
+
+/// Render the next frame as a transition that scrolls, left or right
+pub fn set_frame_transition(transition: Transition) {
+    cortex_m::interrupt::free(|cs| {
+        FRAME_TRANSITION.borrow(cs).replace(transition);
+    });
 }
 
 mod xpt2046 {

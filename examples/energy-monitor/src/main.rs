@@ -57,8 +57,18 @@ pub fn main() {
 fn main() -> ! {
     mcu_board_support::init();
     let window = MainWindow::new().unwrap();
-
     let _kiosk_mode_timer = kiosk_timer(&window);
+
+    //SettingsAdapter::get(&window).set_kiosk_mode_checked(true);
+
+    #[cfg(feature = "pico-st7789")]
+    MenuOverviewAdapter::get(&window).on_transition(|d| {
+        mcu_board_support::set_frame_transition(if d > 0 {
+            mcu_board_support::Transition::ScrollLeft
+        } else {
+            mcu_board_support::Transition::ScrollRight
+        })
+    });
 
     window.run().unwrap();
 
@@ -82,6 +92,9 @@ fn kiosk_timer(window: &MainWindow) -> Timer {
             } else {
                 MenuOverviewAdapter::get(&window_weak.unwrap()).set_current_page(current_page + 1);
             }
+
+            #[cfg(feature = "pico-st7789")]
+            mcu_board_support::set_frame_transition(mcu_board_support::Transition::ScrollLeft);
         }
     });
 

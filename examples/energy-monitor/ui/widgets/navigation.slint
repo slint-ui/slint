@@ -12,6 +12,7 @@ export component Navigation {
 
     callback pagination-clicked <=> i-pagination.clicked;
     callback clicked;
+    callback transition(int);
 
     public function hide() {
         show-navigation = false;
@@ -25,10 +26,12 @@ export component Navigation {
 
     function increment() {
         current-index = max(current-index - 1, 0);
+        transition(-1);
     }
 
     function decrement() {
         current-index = min(current-index + 1, page-count - 1);
+        transition(1);
     }
 
     preferred-width: 100%;

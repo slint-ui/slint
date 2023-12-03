@@ -16,6 +16,9 @@ export component SmallMain {
             // if the navigation is clicked and the arrow displayed a open menu button should be hide.
             i-menu.hide-button();
         }
+        transition(x) => {
+            MenuOverviewAdapter.transition(x);
+        }
 
         current-index <=> MenuOverviewAdapter.current-page;
         page-count: MenuOverviewAdapter.count;

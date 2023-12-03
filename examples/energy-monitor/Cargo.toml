@@ -29,6 +29,8 @@ slint-build = { path = "../../api/rs/build" }
 default = ["slint/default", "network", "chrono"]
 simulator = ["mcu-board-support", "slint/renderer-software", "slint/backend-winit", "slint/std"]
 network = ["dep:weer_api", "tokio", "futures"]
+# Also enable fast scrolling
+pico-st7789 = ["mcu-board-support/pico-st7789"]
 
 # Remove the `#wasm#` to uncomment the wasm build.
 # This is commented out by default because we don't want to build it as a library by default
