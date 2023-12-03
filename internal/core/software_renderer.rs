@@ -683,13 +683,13 @@ fn render_window_frame_by_line(
     let dirty_region = scene.dirty_region;
     let to_draw_tr = dirty_region.transformed(rotation);
 
-    debug_assert!(scene.current_line >= dirty_region.origin.y_length());
+    scene.current_line = to_draw_tr.origin.y_length();
 
     let mut background_color = TargetPixel::background();
     // FIXME gradient
     TargetPixel::blend(&mut background_color, background.color().into());
 
-    while scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
+    while scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
         line_buffer.process_line(
             scene.current_line.get() as usize,
             to_draw_tr.min_x() as usize..to_draw_tr.max_x() as usize,
@@ -768,7 +768,7 @@ fn render_window_frame_by_line(
             },
         );
 
-        if scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
+        if scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
             scene.next_line();
         }
     }
