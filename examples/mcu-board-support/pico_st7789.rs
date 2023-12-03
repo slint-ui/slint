@@ -256,8 +256,20 @@ impl<
                         // clear the buffer cache
                         renderer.set_repaint_buffer_type(renderer::RepaintBufferType::NewBuffer);
                         renderer.set_repaint_buffer_type(renderer::RepaintBufferType::ReusedBuffer);
+                        renderer.set_window_rotation(
+                            if buffer_provider.transition == Transition::ScrollRight {
+                                renderer::WindowRotation::Rotate90
+                            } else {
+                                renderer::WindowRotation::Rotate270
+                            },
+                        );
+                        buffer_provider
+                            .display
+                            .set_tearing_effect(st7789::TearingEffect::HorizontalAndVertical)
+                            .unwrap();
                     }
                     renderer.render_by_line(&mut *buffer_provider);
+                    renderer.set_window_rotation(renderer::WindowRotation::NoRotation);
                     buffer_provider.flush_frame();
                 });
 
@@ -391,18 +403,32 @@ impl<
         render_fn(&mut self.buffer[range.clone()]);
 
         if self.transition != Transition::None {
-            self.display
-                .set_pixels(
-                    range.start as u16,
-                    line as u16,
-                    range.end as u16,
-                    line as u16,
-                    self.buffer[range].iter().map(|x| x.0),
-                )
-                .unwrap();
+            let line =
+                if self.transition == Transition::ScrollRight { 320 - line } else { line } as u16;
+            self.display.set_scroll_offset(line).unwrap();
 
-            let line = if self.transition == Transition::ScrollRight { 240 - line } else { line };
-            self.display.set_scroll_offset(((line * 320) / 240) as u16).unwrap();
+            if self.transition == Transition::ScrollRight {
+                self.display
+                    .set_pixels(
+                        line,
+                        range.start as u16,
+                        line,
+                        range.end as u16,
+                        self.buffer[range].iter().map(|x| x.0),
+                    )
+                    .unwrap();
+            } else {
+                self.display
+                    .set_pixels(
+                        line,
+                        range.start as u16,
+                        line,
+                        range.end as u16,
+                        self.buffer[range].iter().map(|x| x.0).rev(),
+                    )
+                    .unwrap();
+            }
+
             return;
         }
 
