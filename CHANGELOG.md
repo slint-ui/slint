@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
  - Added focus state to `StandardListView`
  - Added a `double-clicked` callback in `TouchArea`, which is triggered when a `TouchArea`
    is clicked twice in rapid succession.
+ - The `pointer-event` callback in `TouchArea` is now triggered on mouse move
+   as well.
 
 ## [1.3.2] - 2023-12-01
 

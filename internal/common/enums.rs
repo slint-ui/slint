@@ -129,6 +129,8 @@ macro_rules! for_each_enums {
                 Down,
                 /// The button was released.
                 Up,
+                /// The pointer has moved,
+                Move,
             }
 
             /// This enum describes the different types of buttons for a pointer event,

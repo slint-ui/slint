@@ -595,12 +595,17 @@ impl Item for TouchArea {
                 InputEventResult::EventAccepted
             }
             MouseEvent::Moved { .. } => {
-                if self.grabbed.get() {
+                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                    button: PointerEventButton::Other,
+                    kind: PointerEventKind::Move,
+                    modifiers: window_adapter.window().0.modifiers.get().into(),
+                },));
+                return if self.grabbed.get() {
                     Self::FIELD_OFFSETS.moved.apply_pin(self).call(&());
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventAccepted
-                }
+                };
             }
             MouseEvent::Wheel { delta_x, delta_y, .. } => {
                 let modifiers = window_adapter.window().0.modifiers.get().into();
