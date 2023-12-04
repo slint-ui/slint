@@ -24,27 +24,32 @@ export component SmallMain {
         page-count: MenuOverviewAdapter.count;
 
         // check current-index to generate only displayed items
-        if(i-navigation.current-index <= 1 && !i-menu.open) : Overview {
+        if(i-navigation.current-index <= 1 && !i-menu.open) :
+        Overview  {
             index: 0;
             current-index: i-navigation.current-index;
         }
 
-        if(i-navigation.current-index >= 0 && i-navigation.current-index <= 2 && !i-menu.open) : Usage {
+        if(i-navigation.current-index >= 0 && i-navigation.current-index <= 2 && !i-menu.open) :
+         Usage {
             index: 1;
             current-index: i-navigation.current-index;
         }
 
-        if(i-navigation.current-index >= 1 && i-navigation.current-index <= 3 && !i-menu.open) : Balance {
+        if(i-navigation.current-index >= 1 && i-navigation.current-index <= 3 && !i-menu.open) :
+        Balance {
             index: 2;
             current-index: i-navigation.current-index;
         }
 
-        if(i-navigation.current-index >= 2 && i-navigation.current-index <= 4 && !i-menu.open) : Weather {
+        if(i-navigation.current-index >= 2 && i-navigation.current-index <= 4 && !i-menu.open) :
+        Weather {
             index: 3;
             current-index: i-navigation.current-index;
         }
 
-        if(i-navigation.current-index >= 3 && i-navigation.current-index <= 5 && !i-menu.open) : About {
+        if(i-navigation.current-index >= 3 && i-navigation.current-index <= 5 && !i-menu.open) :
+        About {
             index: 4;
             current-index: i-navigation.current-index;
         }

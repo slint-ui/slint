@@ -73,6 +73,23 @@ export component Settings inherits Page {
 
                 Item {
                     clicked => {
+                        i-kiosk-mode.clicked();
+                    }
+
+                    text: "Kiosk mode";
+
+                    i-kiosk-mode := Switch {
+                        changed => {
+                            close();
+                        }
+
+                        checked <=> root.kiosk-mode-checked;
+                    }
+                }
+
+
+                Item {
+                    clicked => {
                         i-function-one-check-box.clicked();
                     }
 
@@ -164,21 +181,6 @@ export component Settings inherits Page {
                     }
                 }
 
-                Item {
-                    clicked => {
-                        i-kiosk-mode.clicked();
-                    }
-
-                    text: "Kiosk mode";
-
-                    i-kiosk-mode := Switch {
-                        changed => {
-                            close();
-                        }
-
-                        checked <=> root.kiosk-mode-checked;
-                    }
-                }
 
                 Item {
                     clicked => {
