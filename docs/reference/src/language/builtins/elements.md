@@ -756,8 +756,12 @@ When not part of a layout, its width or height default to 100% of the parent ele
     period of time. Assigning this callback will cause the `clicked` callback to get delayed, so that Slint can
     detect whether the first click was a click or the first half of a double click.
 -   **`moved()`**: The mouse has been moved. This will only be called if the mouse is also pressed.
--   **`pointer-event(PointerEvent)`**: Invoked when a button was pressed or released. The [_`PointerEvent`_](structs.md#pointerevent)
-    argument contains information such which button was pressed and any active keyboard modifiers.
+    See also **pointer-event(PointerEvent)**.
+-   **`pointer-event(PointerEvent)`**: Invoked when a button was pressed or released or the pointer moved.
+    The [_`PointerEvent`_](structs.md#pointerevent) argument contains information such which button was pressed
+    and any active keyboard modifiers.
+    In the [_`PointerEventKind::Move`_](structs.md#pointereventkind) case the `buttons` field will always
+    be set to `PointerEventButton::Other`, independent of whether any button is pressed or not.
 -   **`scroll-event(PointerScrollEvent) -> EventResult`**: Invoked when the mouse wheel was rotated or another scroll gesture was made.
     The [_`PointerScrollEvent`_](structs.md#pointerscrollevent) argument contains information about how much to scroll in what direction.
     The returned [`EventResult`](enums.md#eventresult) indicates whether to accept or ignore the event. Ignored events are

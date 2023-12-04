@@ -592,14 +592,14 @@ pub(crate) fn handle_mouse_grab(
     if input_result != InputEventResult::GrabMouse {
         mouse_input_state.grabbed = false;
         // Return a move event so that the new position can be registered properly
-        return Some(
+        Some(
             mouse_event
                 .position()
                 .map_or(MouseEvent::Exit, |position| MouseEvent::Moved { position }),
-        );
+        )
+    } else {
+        None
     }
-
-    None
 }
 
 pub(crate) fn send_exit_events(
