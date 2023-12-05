@@ -60,6 +60,8 @@ pub trait Spanned {
     }
 }
 
+pub type SourceFileVersion = Option<i32>;
+
 #[derive(Default)]
 pub struct SourceFileInner {
     path: PathBuf,
@@ -69,17 +71,21 @@ pub struct SourceFileInner {
 
     /// The offset of each linebreak
     line_offsets: once_cell::unsync::OnceCell<Vec<usize>>,
+
+    /// The version of the source file. `None` means "as seen on disk"
+    version: SourceFileVersion,
 }
 
 impl std::fmt::Debug for SourceFileInner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.path)
+        let v = if let Some(v) = self.version { format!("@{v}") } else { String::new() };
+        write!(f, "{:?}{v}", self.path)
     }
 }
 
 impl SourceFileInner {
-    pub fn new(path: PathBuf, source: String) -> Self {
-        Self { path, source: Some(source), line_offsets: Default::default() }
+    pub fn new(path: PathBuf, source: String, version: SourceFileVersion) -> Self {
+        Self { path, source: Some(source), line_offsets: Default::default(), version }
     }
 
     pub fn path(&self) -> &Path {
@@ -136,6 +142,10 @@ impl SourceFileInner {
 
     pub fn source(&self) -> Option<&str> {
         self.source.as_deref()
+    }
+
+    pub fn version(&self) -> SourceFileVersion {
+        self.version.clone()
     }
 }
 
@@ -566,7 +576,7 @@ component MainWindow inherits Window {
 
 
     "#.to_string();
-        let sf = SourceFileInner::new(PathBuf::from("foo.slint"), content.clone());
+        let sf = SourceFileInner::new(PathBuf::from("foo.slint"), content.clone(), None);
 
         let mut line = 1;
         let mut column = 1;

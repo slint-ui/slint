@@ -339,7 +339,7 @@ impl SlintServer {
                 &ctx,
                 content,
                 uri.clone(),
-                version,
+                Some(version),
                 &mut ctx.document_cache.borrow_mut(),
             )
             .await

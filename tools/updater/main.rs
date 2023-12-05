@@ -67,7 +67,7 @@ fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::i
         let code = &source[range];
 
         let mut diag = BuildDiagnostics::default();
-        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
+        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, None, &mut diag);
         let len = syntax_node.text_range().end().into();
         let mut state = init_state(&syntax_node, &mut diag);
         visit_node(syntax_node, &mut file, &mut state, args)?;
@@ -99,7 +99,7 @@ fn process_markdown_file(source: String, mut file: impl Write, args: &Cli) -> st
         source_slice = &source_slice[code_end..];
 
         let mut diag = BuildDiagnostics::default();
-        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
+        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, None, &mut diag);
         let len = syntax_node.text_range().end().into();
         let mut state = init_state(&syntax_node, &mut diag);
         visit_node(syntax_node, &mut file, &mut state, args)?;
@@ -124,7 +124,7 @@ fn process_file(
     }
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(path), &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(path), None, &mut diag);
     let len = syntax_node.node.text_range().end().into();
     let mut state = init_state(&syntax_node, &mut diag);
     visit_node(syntax_node, &mut file, &mut state, args)?;

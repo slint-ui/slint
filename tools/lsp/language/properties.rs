@@ -8,7 +8,7 @@ use crate::util::{
     ExpressionContextInfo,
 };
 
-use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
+use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFileVersion, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};
@@ -413,14 +413,14 @@ fn get_element_information(element: &ElementRc) -> ElementInformation {
 
 pub(crate) fn query_properties(
     uri: &lsp_types::Url,
-    source_version: i32,
+    source_version: SourceFileVersion,
     element: &ElementRc,
 ) -> Result<QueryPropertyResponse> {
     Ok(QueryPropertyResponse {
         properties: get_properties(element),
         element: Some(get_element_information(element)),
         source_uri: uri.to_string(),
-        source_version,
+        source_version: source_version.unwrap_or(i32::MIN),
     })
 }
 
@@ -459,7 +459,7 @@ fn validate_property_expression_type(
 
 fn create_workspace_edit_for_set_binding_on_existing_property(
     uri: &lsp_types::Url,
-    version: i32,
+    version: SourceFileVersion,
     property: &PropertyInformation,
     new_expression: String,
 ) -> Option<lsp_types::WorkspaceEdit> {
@@ -470,7 +470,7 @@ fn create_workspace_edit_for_set_binding_on_existing_property(
         let text_document_edits = vec![lsp_types::TextDocumentEdit {
             text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
                 uri.clone(),
-                version,
+                version.unwrap_or(i32::MIN),
             ),
             edits,
         }];
@@ -492,7 +492,7 @@ fn set_binding_on_existing_property(
         .then(|| {
             create_workspace_edit_for_set_binding_on_existing_property(
                 uri,
-                document_cache.document_version(uri)?,
+                document_cache.document_version(uri),
                 property,
                 new_expression,
             )
@@ -558,7 +558,7 @@ fn find_insert_range_for_property(
 
 fn create_workspace_edit_for_set_binding_on_known_property(
     uri: &lsp_types::Url,
-    version: i32,
+    version: SourceFileVersion,
     element: &ElementRc,
     properties: &[PropertyInformation],
     property_name: &str,
@@ -584,7 +584,7 @@ fn create_workspace_edit_for_set_binding_on_known_property(
             let text_document_edits = vec![lsp_types::TextDocumentEdit {
                 text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
                     uri.clone(),
-                    version,
+                    version.unwrap_or(i32::MIN),
                 ),
                 edits,
             }];
@@ -609,7 +609,7 @@ fn set_binding_on_known_property(
         .then(|| {
             create_workspace_edit_for_set_binding_on_known_property(
                 uri,
-                document_cache.document_version(uri)?,
+                document_cache.document_version(uri),
                 element,
                 properties,
                 property_name,
@@ -715,7 +715,7 @@ pub(crate) fn set_binding(
 
 fn create_workspace_edit_for_remove_binding(
     uri: &lsp_types::Url,
-    version: i32,
+    version: SourceFileVersion,
     range: lsp_types::Range,
 ) -> lsp_types::WorkspaceEdit {
     let edit = lsp_types::TextEdit { range, new_text: String::new() };
@@ -723,7 +723,7 @@ fn create_workspace_edit_for_remove_binding(
     let text_document_edits = vec![lsp_types::TextDocumentEdit {
         text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
             uri.clone(),
-            version,
+            version.unwrap_or(i32::MIN),
         ),
         edits,
     }];
@@ -797,9 +797,11 @@ pub(crate) fn remove_binding(
 
     Ok(create_workspace_edit_for_remove_binding(
         uri,
-        document_cache
-            .document_version(uri)
-            .ok_or_else(|| Into::<Error>::into("Document not found in cache"))?,
+        Some(
+            document_cache
+                .document_version(uri)
+                .ok_or_else(|| Into::<Error>::into("Document not found in cache"))?,
+        ),
         range,
     ))
 }

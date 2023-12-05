@@ -183,7 +183,7 @@ fn process_file_source(
 ) -> std::io::Result<bool> {
     let mut parse_diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
     let syntax_node =
-        i_slint_compiler::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
+        i_slint_compiler::parser::parse(source.clone(), Some(path), None, &mut parse_diagnostics);
 
     let has_parse_error = parse_diagnostics.has_error();
     let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(

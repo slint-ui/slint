@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use core::convert::TryFrom;
+use i_slint_compiler::diagnostics::SourceFileVersion;
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
@@ -629,7 +630,8 @@ impl ComponentCompiler {
 
         generativity::make_guard!(guard);
         let (c, diag) =
-            crate::dynamic_item_tree::load(source, path.into(), self.config.clone(), guard).await;
+            crate::dynamic_item_tree::load(source, path.into(), None, self.config.clone(), guard)
+                .await;
         self.diagnostics = diag.into_iter().collect();
         c.ok().map(|inner| ComponentDefinition { inner: inner.into() })
     }
@@ -655,9 +657,37 @@ impl ComponentCompiler {
         source_code: String,
         path: PathBuf,
     ) -> Option<ComponentDefinition> {
+        self.build_from_versioned_source(source_code, path, None).await
+    }
+
+    /// Compile some .slint code into a ComponentDefinition
+    ///
+    /// The `path` argument will be used for diagnostics and to compute relative
+    /// paths while importing, and the version of the `SourceFileInner` will be
+    /// set to `version`
+    ///
+    /// Any diagnostics produced during the compilation, such as warnings or errors, are collected
+    /// in this ComponentCompiler and can be retrieved after the call using the [`Self::diagnostics()`]
+    /// function. The [`print_diagnostics`] function can be used to display the diagnostics
+    /// to the users.
+    ///
+    /// Diagnostics from previous calls are cleared when calling this function.
+    ///
+    /// This function is `async` but in practice, this is only asynchronous if
+    /// [`Self::set_file_loader`] is set and its future is actually asynchronous.
+    /// If that is not used, then it is fine to use a very simple executor, such as the one
+    /// provided by the `spin_on` crate
+    #[doc(hidden)]
+    pub async fn build_from_versioned_source(
+        &mut self,
+        source_code: String,
+        path: PathBuf,
+        version: SourceFileVersion,
+    ) -> Option<ComponentDefinition> {
         generativity::make_guard!(guard);
         let (c, diag) =
-            crate::dynamic_item_tree::load(source_code, path, self.config.clone(), guard).await;
+            crate::dynamic_item_tree::load(source_code, path, version, self.config.clone(), guard)
+                .await;
         self.diagnostics = diag.into_iter().collect();
         c.ok().map(|inner| ComponentDefinition { inner: inner.into() })
     }

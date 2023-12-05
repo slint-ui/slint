@@ -21,7 +21,10 @@ use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::pathutils::clean_path;
 use i_slint_compiler::CompilerConfiguration;
-use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
+use i_slint_compiler::{
+    diagnostics::{BuildDiagnostics, SourceFileVersion},
+    langtype::Type,
+};
 use i_slint_compiler::{typeloader::TypeLoader, typeregister::TypeRegister};
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
@@ -97,7 +100,6 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
 /// A cache of loaded documents
 pub struct DocumentCache {
     pub(crate) documents: TypeLoader,
-    versions: HashMap<Url, i32>,
     preview_config: PreviewConfig,
 }
 
@@ -105,11 +107,13 @@ impl DocumentCache {
     pub fn new(config: CompilerConfiguration) -> Self {
         let documents =
             TypeLoader::new(TypeRegister::builtin(), config, &mut BuildDiagnostics::default());
-        Self { documents, versions: Default::default(), preview_config: Default::default() }
+        Self { documents, preview_config: Default::default() }
     }
 
-    pub fn document_version(&self, target_uri: &lsp_types::Url) -> Option<i32> {
-        self.versions.get(target_uri).cloned()
+    pub fn document_version(&self, target_uri: &lsp_types::Url) -> SourceFileVersion {
+        self.documents
+            .get_document(&uri_to_file(target_uri).unwrap_or_default())
+            .and_then(|doc| doc.node.as_ref()?.source_file.version())
     }
 }
 
@@ -435,7 +439,7 @@ pub fn query_properties_command(
     )?;
 
     let source_version = if let Some(v) = document_cache.document_version(&text_document_uri) {
-        v
+        Some(v)
     } else {
         return Ok(serde_json::to_value(properties::QueryPropertyResponse::no_element_response(
             text_document_uri.to_string(),
@@ -450,7 +454,7 @@ pub fn query_properties_command(
     } else {
         Ok(serde_json::to_value(properties::QueryPropertyResponse::no_element_response(
             text_document_uri.to_string(),
-            source_version,
+            source_version.unwrap_or(i32::MIN),
         ))
         .expect("Failed to serialize none-element property query result!"))
     }
@@ -631,7 +635,7 @@ pub(crate) async fn reload_document_impl(
     ctx: Option<&Rc<Context>>,
     mut content: String,
     uri: lsp_types::Url,
-    version: i32,
+    version: Option<i32>,
     document_cache: &mut DocumentCache,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
     let Some(path) = uri_to_file(&uri) else { return Default::default() };
@@ -643,13 +647,11 @@ pub(crate) async fn reload_document_impl(
         };
     }
 
-    document_cache.versions.insert(uri.clone(), version);
-
     if let Some(ctx) = ctx {
         ctx.preview.set_contents(&path, &content);
     }
     let mut diag = BuildDiagnostics::default();
-    document_cache.documents.load_file(&path, &path, content, false, &mut diag).await;
+    document_cache.documents.load_file(&path, version, &path, content, false, &mut diag).await;
 
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
     let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = core::iter::once(&path)
@@ -676,7 +678,7 @@ pub async fn reload_document(
     ctx: &Rc<Context>,
     content: String,
     uri: lsp_types::Url,
-    version: i32,
+    version: Option<i32>,
     document_cache: &mut DocumentCache,
 ) -> Result<()> {
     let lsp_diags = reload_document_impl(Some(ctx), content, uri, version, document_cache).await;
