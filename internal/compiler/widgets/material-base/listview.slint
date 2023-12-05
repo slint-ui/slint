@@ -105,6 +105,8 @@ component StandardListViewBase inherits ListView {
 
 // Like `ListView`, but with a default delegate, and a `model` property which is a model of type `StandardListViewItem`.
 export component StandardListView inherits StandardListViewBase {
+    forward-focus: i-focus-scope;
+
     i-focus-scope := FocusScope {
         x: 0;
         width: 0;  // Do not react on clicks

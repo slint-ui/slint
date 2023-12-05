@@ -40,7 +40,7 @@ All notable changes to this project are documented in this file.
 ### General
 
  - Bump various dependencies.
- - Fixed `has-hover` and `mouse-cursor` when opening a `PopupWindow`. (#3934)
+ - Fixed `has-hover` and `mouse-cursor` when opening a `PopupWindow`. (#3934) f
  - Fluent style: fixed scrollbar size. (#3939 / #3932)
  - Skia Vulkan renderer: Fixed crash when resizing windows on X11.
  - Fixed cursor of LineEdit with right alignment (#4016)
