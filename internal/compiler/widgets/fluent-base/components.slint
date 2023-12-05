@@ -35,6 +35,7 @@ export component MenuBorder inherits Rectangle {
 export component ListItem {
     in property <bool> selected;
     in property <string> text <=> i-text.text;
+    in property <bool> has-focus;
     out property <length> mouse-x <=> i-touch-area.mouse-x;
     out property <length> mouse-y <=> i-touch-area.mouse-y;
 
@@ -42,7 +43,7 @@ export component ListItem {
     callback pointer-event <=> i-touch-area.pointer-event;
 
     min-width: i-layout.min-width;
-    min-height: max(34px, i-layout.min-height);
+    min-height: max(40px, i-layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 1;
 
@@ -61,7 +62,13 @@ export component ListItem {
         }
     ]
 
+    if (root.has-focus) : FocusBorder {
+        border-radius: 4px;
+    }
+
     i-background := Rectangle {
+        width: root.width - 6px;
+        height: root.height - 4px;
         background: transparent;
         border-radius: 4px;
 

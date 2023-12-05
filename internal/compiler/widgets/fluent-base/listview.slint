@@ -16,29 +16,78 @@ component StandardListViewBase inherits ListView {
     callback item-pointer-event( /* item-index */ int, /* event */ PointerEvent,  /* absolute mouse position */ Point);
 
     public function set-current-item(index: int) {
-        if(index < 0 || index >= model.length) {
+        if (index < 0 || index >= model.length) {
             return;
         }
 
+        bring-into-view(index);
+
         current-item = index;
+        focus-item = index;
         current-item-changed(current-item);
-
-        if(current-item-y < 0) {
-            self.viewport-y += 0 - current-item-y;
-        }
-
-        if(current-item-y + item-height > self.visible-height) {
-            self.viewport-y -= current-item-y + item-height - self.visible-height;
-        }
     }
 
     private property <length> item-height: self.viewport-height / self.model.length;
-    private property <length> current-item-y: self.viewport-y + current-item * item-height;
+    private property <int> into-view-item: 0;
+    private property <length> into-view-item-y: root.item-y(root.into-view-item);
+    private property <length> current-item-y: root.item-y(root.focus-item);
+    private property <int> focus-item: 0;
+
+    pure function first-visible-item() -> int {
+        return min(root.model.length - 1, max(0, round(-root.viewport-y / root.item-height)));
+    }
+
+    pure function item-y(index: int) -> length {
+        return root.viewport-y + index * root.item-height;
+    }
+
+    function bring-into-view(index: int) {
+        if (index < 0 || index >= model.length) {
+            return;
+        }
+
+        into-view-item = index;
+
+        if (into-view-item-y < 0) {
+            self.viewport-y += 0 - into-view-item-y;
+        }
+
+        if (into-view-item-y + item-height > self.visible-height) {
+            self.viewport-y -= into-view-item-y + item-height - self.visible-height;
+        }
+    }
+
+    protected function focus-up() {
+        root.set-focus-item(root.focus-item - 1);
+    }
+
+    protected function focus-down() {
+       root.set-focus-item(root.focus-item + 1);
+    }
+
+    protected function select-focus-item() {
+        root.set-current-item(root.focus-item);
+    }
+
+    protected function focus-current-item() {
+        root.focus-item = max(0, root.current-item);
+
+        if (root.current-item-y + root.item-height < 0
+            || root.current-item-y > root.height) {
+                root.focus-item = root.first-visible-item();
+        }
+    }
+
+    protected function set-focus-item(index: int) {
+        root.focus-item = min(root.model.length - 1, max(0, index));
+        root.bring-into-view(root.focus-item);
+    }
 
     for item[index] in root.model : ListItem {
         height: self.min-height;
         text: item.text;
         selected: index == root.current-item;
+        has-focus: root.has-focus && index == root.focus-item;
 
         clicked => {
             root.set-current-item(index);
@@ -51,20 +100,27 @@ component StandardListViewBase inherits ListView {
             });
         }
     }
-
-
 }
 
 export component StandardListView inherits StandardListViewBase {
-    FocusScope {
+    i-focus-scope := FocusScope {
         x: 0;
         width: 0;  // Do not react on clicks
+
+        focus-changed-event => {
+            root.focus-current-item();
+            root.has-focus = self.has-focus;
+        }
+
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
-                root.set-current-item(root.current-item - 1);
+                root.focus-up();
                 return accept;
             } else if (event.text == Key.DownArrow) {
-                root.set-current-item(root.current-item + 1);
+                root.focus-down();
+                return accept;
+            }else if (event.text == Key.Return) {
+                root.select-focus-item();
                 return accept;
             }
             reject
