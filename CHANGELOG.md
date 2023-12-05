@@ -9,6 +9,8 @@ All notable changes to this project are documented in this file.
 
  - Fixed wrong text input in cupertino SpinBox
  - Added focus state to `StandardListView`
+ - The `double-clicked` callback in `TouchArea` is triggered when a `TouchArea`
+   is clicked twice in rapid succession.
 
 ## [1.3.2] - 2023-12-01
 
