@@ -24,7 +24,6 @@ esp32-s3-box = ["slint/unsafe-single-threaded", "esp32s3-hal", "embedded-hal", "
 
 [dependencies]
 slint = { version = "=1.3.2", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
-i-slint-core = { version = "=1.3.2", path = "../../internal/core", default-features = false, features = ["software-renderer-rotation"] }
 i-slint-core-macros = { version = "=1.3.2", path = "../../internal/core-macros" }
 
 derive_more = "0.99.5"
