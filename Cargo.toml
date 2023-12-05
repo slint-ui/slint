@@ -104,12 +104,12 @@ rust-version = "1.70"
 version = "1.4.0"
 
 [workspace.dependencies]
+i-slint-backend-android-activity = { version = "=1.4.0", path = "internal/backends/android-activity", default-features = false }
 i-slint-backend-linuxkms = { version = "=1.4.0", path = "internal/backends/linuxkms", default-features = false }
 i-slint-backend-qt = { version = "=1.4.0", path="internal/backends/qt", default-features = false }
 i-slint-backend-selector = { version = "=1.4.0", path = "internal/backends/selector", default-features = false }
 i-slint-backend-testing = { version = "=1.4.0", path = "internal/backends/testing", default-features = false }
 i-slint-backend-winit = { version = "=1.4.0", path = "internal/backends/winit", default-features = false }
-i-slint-backend-android-activity = { version = "=1.4.0", path = "internal/backends/android-activity", default-features = false }
 i-slint-common = { version = "=1.4.0", path = "internal/common", default-features = false }
 i-slint-compiler = { version = "=1.4.0", path = "internal/compiler", default-features = false }
 i-slint-core = { version = "=1.4.0", path = "internal/core", default-features = false }
@@ -122,17 +122,17 @@ slint-cpp = { version = "=1.4.0", path = "api/cpp", default-features = false }
 slint-interpreter = { version = "=1.4.0", path = "internal/interpreter", default_features = false }
 slint-macros = { version = "=1.4.0", path = "api/rs/macros", default-features = false }
 
-resvg = { version= "0.36.0", default-features = false, features = ["text"] }
-fontdb = { version = "0.15.0", default-features = false }
-send_wrapper = { version = "0.6.0" }
-cbindgen = { version = "0.26", default-features = false }
-toml_edit = { version = "0.21" }
-css-color-parser2 = { version = "1.0.1" }
-itertools = { version = "0.12" }
-softbuffer = { version = "0.3.3", default-features = false }
 bytemuck = { version = "1.13.1" }
-glutin = { version = "0.31.1", default-features = false }
+cbindgen = { version = "0.26", default-features = false }
+css-color-parser2 = { version = "1.0.1" }
+fontdb = { version = "0.15.0", default-features = false }
 fontdue = { version = "0.8.0" }
+glutin = { version = "0.31.1", default-features = false }
+itertools = { version = "0.12" }
+resvg = { version= "0.36.0", default-features = false, features = ["text"] }
+send_wrapper = { version = "0.6.0" }
+softbuffer = { version = "0.3.3", default-features = false }
+toml_edit = { version = "0.21" }
 
 [profile.release]
 lto = true
