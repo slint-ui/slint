@@ -3,6 +3,12 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Slint Language
+
+ - Fixed wrong text input in cupertino SpinBox
+
 ## [1.3.2] - 2023-12-01
 
 ### General
