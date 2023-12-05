@@ -12,7 +12,7 @@ This module has different sub modules with the actual parser functions
 
 */
 
-use crate::diagnostics::{BuildDiagnostics, SourceFile, Spanned};
+use crate::diagnostics::{BuildDiagnostics, SourceFile, SourceFileVersion, Spanned};
 pub use smol_str::SmolStr;
 use std::{convert::TryFrom, fmt::Display};
 
@@ -987,12 +987,14 @@ pub fn parse_expression_as_bindingexpression(
 pub fn parse(
     source: String,
     path: Option<&std::path::Path>,
+    version: SourceFileVersion,
     build_diagnostics: &mut BuildDiagnostics,
 ) -> SyntaxNode {
     let mut p = DefaultParser::new(&source, build_diagnostics);
     p.source_file = std::rc::Rc::new(crate::diagnostics::SourceFileInner::new(
         path.map(|p| crate::pathutils::clean_path(p)).unwrap_or_default(),
         source,
+        version,
     ));
     document::parse_document(&mut p);
     SyntaxNode {
@@ -1009,7 +1011,7 @@ pub fn parse_file<P: AsRef<std::path::Path>>(
     let source = crate::diagnostics::load_from_path(&path)
         .map_err(|d| build_diagnostics.push_internal_error(d))
         .ok()?;
-    Some(parse(source, Some(path.as_ref()), build_diagnostics))
+    Some(parse(source, Some(path.as_ref()), None, build_diagnostics))
 }
 
 pub fn parse_tokens(

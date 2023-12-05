@@ -6,6 +6,7 @@ use crate::{api::Value, dynamic_type, eval};
 use core::convert::TryInto;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
+use i_slint_compiler::diagnostics::SourceFileVersion;
 use i_slint_compiler::expression_tree::{Expression, NamedReference};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::llr::ComponentContainerIndex;
@@ -765,6 +766,7 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
 pub async fn load(
     source: String,
     path: std::path::PathBuf,
+    version: SourceFileVersion,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
     guard: generativity::Guard<'_>,
 ) -> (Result<Rc<ItemTreeDescription<'_>>, ()>, i_slint_compiler::diagnostics::BuildDiagnostics) {
@@ -781,7 +783,7 @@ pub async fn load(
     }
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source, Some(path.as_path()), &mut diag);
+    let syntax_node = parser::parse(source, Some(path.as_path()), version, &mut diag);
     if diag.has_error() {
         return (Err(()), diag);
     }

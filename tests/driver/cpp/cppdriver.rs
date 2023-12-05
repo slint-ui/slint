@@ -17,7 +17,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .collect::<std::collections::HashMap<_, _>>();
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), &mut diag);
+    let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), None, &mut diag);
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Cpp);
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;

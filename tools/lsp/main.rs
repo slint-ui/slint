@@ -414,7 +414,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 ctx,
                 params.text_document.text,
                 params.text_document.uri,
-                params.text_document.version,
+                Some(params.text_document.version),
                 &mut ctx.document_cache.borrow_mut(),
             )
             .await?;
@@ -425,7 +425,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 ctx,
                 params.content_changes.pop().unwrap().text,
                 params.text_document.uri,
-                params.text_document.version,
+                Some(params.text_document.version),
                 &mut ctx.document_cache.borrow_mut(),
             )
             .await?;
