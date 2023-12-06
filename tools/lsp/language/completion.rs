@@ -573,7 +573,8 @@ fn add_components_to_import(
     let mut last = 0u32;
     for import in current_doc.ImportSpecifier() {
         if let Some((loc, file)) = import.ImportIdentifierList().and_then(|list| {
-            let id = list.ImportIdentifier().last()?;
+            let node = list.ImportIdentifier().last()?;
+            let id = crate::util::last_non_ws_token(&node).or_else(|| node.first_token())?;
             Some((
                 map_position(id.source_file()?, id.text_range().end()),
                 import.child_token(SyntaxKind::StringLiteral)?,
@@ -987,5 +988,30 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(!res.is_empty());
         assert!(res.iter().all(|ci| ci.insert_text.is_none()));
+    }
+
+    #[test]
+    fn import_completed_component() {
+        let source = r#"
+            import { VerticalBox                 } from "std-widgets.slint";
+
+            export component Test {
+                VerticalBox {
+                    🔺
+                }
+            }
+
+        "#;
+        let res = get_completions(source).unwrap();
+        let about = res.iter().find(|ci| ci.label.starts_with("AboutSlint")).unwrap();
+
+        let additional_edits = about.additional_text_edits.as_ref().unwrap();
+        let edit = additional_edits.first().unwrap();
+
+        assert_eq!(edit.range.start.line, 1);
+        assert_eq!(edit.range.start.character, 32);
+        assert_eq!(edit.range.end.line, 1);
+        assert_eq!(edit.range.end.character, 32);
+        assert_eq!(edit.new_text, ", AboutSlint");
     }
 }

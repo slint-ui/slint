@@ -47,6 +47,24 @@ pub fn invalid_url() -> lsp_types::Url {
     lsp_types::Url::parse("invalid:///").unwrap()
 }
 
+// Find the last token that is not a Whitespace in a `SyntaxNode`. May return
+// `None` if the node contains no tokens or they are all Whitespace.
+pub fn last_non_ws_token(node: &SyntaxNode) -> Option<SyntaxToken> {
+    let mut last_non_ws = None;
+    let mut token = node.first_token();
+    while let Some(t) = token {
+        if t.text_range().end() > node.text_range().end() {
+            break;
+        }
+
+        if t.kind() != SyntaxKind::Whitespace {
+            last_non_ws = Some(t.clone());
+        }
+        token = t.next_token();
+    }
+    last_non_ws
+}
+
 #[test]
 fn test_invalid_url() {
     assert_eq!(invalid_url().scheme(), "invalid");
