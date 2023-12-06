@@ -10,7 +10,7 @@ export component ComboBoxBase {
     in-out property <int> current-index: 0;
     in-out property <string> current-value: root.model[root.current-index];
 
-    callback selected( /* current-value */ string);
+    callback selected(/* current-value */ string);
     callback show-popup();
 
     public function select(index: int) {
@@ -55,14 +55,15 @@ export component ComboBoxBase {
                 root.focus();
                 root.show-popup();
             }
+
             scroll-event(event) => {
                 if (event.delta-y < -root.scroll-delta) {
-                    root.move-selection-up();
+                    root.move-selection-down();
                     return accept;
                 }
 
                 if (event.delta-y > root.scroll-delta) {
-                    root.move-selection-down();
+                    root.move-selection-up();
                     return accept;
                 }
 
