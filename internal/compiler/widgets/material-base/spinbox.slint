@@ -63,12 +63,12 @@ export component SpinBox {
     in property <int> minimum <=> i-base.minimum;
     in property <int> maximum <=> i-base.maximum;
     in property <bool> enabled <=> i-base.enabled;
-    out property <bool> has-focus <=> i-text-input.has-focus;
+    out property <bool> has-focus <=> i-base.has-focus;
     in-out property <int> value <=> i-base.value;
 
     callback edited(/* value */ int);
 
-    forward-focus: i-text-input;
+    forward-focus: i-base;
     horizontal-stretch: 1;
     vertical-stretch: 0;
     min-width: i-layout.min-width;
@@ -83,24 +83,14 @@ export component SpinBox {
         disabled when !root.enabled : {
             i-background.border-color: MaterialPalette.on-surface;
             i-background.opacity: 0.38;
-            i-text-input.opacity: 0.38;
+            i-base.opacity: 0.38;
         }
         focused when root.has-focus : {
             i-background.border-width: 2px;
             i-background.border-color: MaterialPalette.accent;
-            i-text-input.color: MaterialPalette.accent;
+            i-base.color: MaterialPalette.accent;
         }
     ]
-
-    i-base := SpinBoxBase {
-        width: 100%;
-        height: 100%;
-
-        edited(value) => {
-            i-text-input.text = value;
-            root.edited(value);
-        }
-    }
 
     i-background := Rectangle {
         border-radius: 4px;
@@ -116,45 +106,13 @@ export component SpinBox {
 
             Rectangle {
                 clip: true;
+                horizontal-stretch: 1;
 
-                i-text-input := TextInput {
-                    vertical-alignment: center;
-                    horizontal-alignment: left;
-                    text: root.value;
-                    // height: 100%;
+                i-base := SpinBoxBase {
+                    width: 100%;
                     color: MaterialPalette.on-surface;
-                    // FIXME after Roboto font can be loaded
-                    //font-family: MaterialFontSettings.body-large.font;
                     font-size: MaterialFontSettings.body-large.font-size;
                     font-weight: MaterialFontSettings.body-large.font-weight;
-                    enabled: root.enabled;
-                    horizontal-stretch: 1;
-
-                    accepted => {
-                        if (self.text == "") {
-                            i-base.update-value(root.minimum);
-                        }
-                    }
-
-                    edited => {
-                        if (self.text == "") {
-                            i-base.update-value(root.minimum);
-                            return;
-                        }
-
-                        if (self.text.is-float()) {
-                            i-base.update-value(root.value + 1);
-                            return;
-                        }
-
-                        self.text = root.value;
-                    }
-                }
-
-                i-touch-area := TouchArea {
-                    clicked => {
-                        i-text-input.focus();
-                    }
                 }
             }
 

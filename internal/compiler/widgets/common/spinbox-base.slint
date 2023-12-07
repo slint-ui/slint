@@ -1,23 +1,27 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-
 export component SpinBoxBase {
     in property <int> minimum;
     in property <int> maximum: 100;
     in property <bool> enabled;
+    in property <brush> color <=> i-text-input.color;
+    in property <length> font-size <=> i-text-input.font-size;
+    in property <int> font-weight <=> i-text-input.font-weight;
+    in property <color> selection-background-color <=> i-text-input.selection-background-color;
+    in property <color> selection-foreground-color <=> i-text-input.selection-foreground-color;
+    out property <bool> has-focus <=> i-text-input.has-focus;
     in-out property <int> value;
 
     callback edited(/* value */ int);
-    callback update-text(/* text */ string);
 
     public function update-value(value: int) {
-        if (value < root.minimum || value > root.maximum) {
-            return;
+        if (value >= root.minimum && value <= root.maximum) {
+            root.value = value;
+            root.edited(value);
         }
 
-        root.value = value;
-        root.edited(value);
+        i-text-input.text = root.value;
     }
 
     public function increment() {
@@ -29,6 +33,31 @@ export component SpinBoxBase {
     }
 
     private property <length> scroll-delta: 2px;
+
+    forward-focus: i-text-input;
+
+    i-text-input := TextInput {
+        vertical-alignment: center;
+        horizontal-alignment: left;
+        text: root.value;
+        enabled: root.enabled;
+        width: 100%;
+        height: 100%;
+
+        accepted => {
+            if (!self.text.is-float()) {
+                self.text = root.value;
+            }
+        }
+
+        edited => {
+            if (self.text.is-float() && self.text.to-float() != root.value) {
+                root.update-value(self.text.to-float());
+            } else if (!self.text.is-float()) {
+                self.text = root.value;
+            }
+        }
+    }
 
     TouchArea {
         enabled: root.enabled;
@@ -45,6 +74,10 @@ export component SpinBoxBase {
             }
 
             return reject;
+        }
+
+        clicked => {
+            i-text-input.focus();
         }
     }
 }

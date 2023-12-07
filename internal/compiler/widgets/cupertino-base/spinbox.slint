@@ -83,7 +83,7 @@ export component SpinBox {
     in property <int> minimum <=> i-base.minimum;
     in property <int> maximum <=> i-base.maximum;
     in property <bool> enabled <=> i-base.enabled;
-    out property <bool> has-focus <=> i-text-input.has-focus;
+    out property <bool> has-focus <=> i-base.has-focus;
     in-out property <int> value <=> i-base.value;
 
     callback edited(int /* value */);
@@ -102,20 +102,10 @@ export component SpinBox {
 
     states [
         disabled when !root.enabled : {
-            i-text-input.color: CupertinoPalette.foreground-secondary;
+            i-base.color: CupertinoPalette.foreground-secondary;
             root.background: CupertinoPalette.surface-tertiary;
         }
     ]
-
-    i-base := SpinBoxBase {
-        width: 100%;
-        height: 100%;
-
-        edited(value) => {
-            i-text-input.text = value;
-            root.edited(value);
-        }
-    }
 
     FocusBorder {
         x: (parent.width - self.width) / 2;
@@ -152,44 +142,15 @@ export component SpinBox {
 
         Rectangle {
             clip: true;
+            horizontal-stretch: 1;
 
-            i-text-input := TextInput {
-                vertical-alignment: center;
-                horizontal-alignment: left;
+            i-base := SpinBoxBase {
+                width: 100%;
                 color: CupertinoPalette.foreground;
                 font-size: CupertinoFontSettings.body.font-size;
                 font-weight: CupertinoFontSettings.body.font-weight;
                 selection-background-color: CupertinoPalette.accent-quaternary;
                 selection-foreground-color: self.color;
-                horizontal-stretch: 1;
-                text: root.value;
-                enabled: root.enabled;
-
-                accepted => {
-                    if (self.text == "") {
-                        i-base.update-value(root.minimum);
-                    }
-                }
-
-                edited => {
-                    if (self.text == "") {
-                        i-base.update-value(root.minimum);
-                        return;
-                    }
-
-                    if (self.text.is-float()) {
-                        i-base.update-value(root.value + 1);
-                        return;
-                    }
-
-                    self.text = root.value;
-                }
-            }
-
-            i-touch-area := TouchArea {
-                clicked => {
-                    i-text-input.focus();
-                }
             }
         }
 
