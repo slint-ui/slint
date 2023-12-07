@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { ScrollView } from "std-widgets-impl.slint";
+import { ListView } from "../common/listview.slint";
 import { StateLayer } from "components.slint";
 import { MaterialPalette, Icons } from "styling.slint";
 
@@ -201,43 +201,37 @@ export component StandardTableView {
             }
         }
 
-        i-scroll-view := ScrollView {
-            vertical-stretch: 1;
+        i-scroll-view := ListView {
+            for row[idx] in root.rows : TableViewRow {
+                selected: idx == root.current-row;
 
-            VerticalLayout {
-                alignment: start;
+                clicked => {
+                    root.focus();
+                    root.set-current-row(idx);
+                }
 
-                for row[idx] in root.rows : TableViewRow {
-                    selected: idx == root.current-row;
+                pointer-event(pe) => {
+                    root.row-pointer-event(idx, pe, {
+                        x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
+                        y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
+                    });
+                }
 
-                    clicked => {
-                        root.focus();
-                        root.set-current-row(idx);
-                    }
+                for cell[index] in row : TableViewCell {
+                    private property <bool> has_inner_focus;
 
-                    pointer-event(pe) => {
-                        root.row-pointer-event(idx, pe, {
-                            x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
-                            y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
-                        });
-                    }
+                    horizontal-stretch: root.columns[index].horizontal-stretch;
+                    min-width: max(columns[index].min-width, columns[index].width);
+                    preferred-width: self.min-width;
+                    max-width: (index < columns.length && columns[index].width >= 1px) ? max(columns[index].min-width, columns[index].width) : 100000px;
 
-                    for cell[index] in row : TableViewCell {
-                        private property <bool> has_inner_focus;
-
-                        horizontal-stretch: root.columns[index].horizontal-stretch;
-                        min-width: max(columns[index].min-width, columns[index].width);
-                        preferred-width: self.min-width;
-                        max-width: (index < columns.length && columns[index].width >= 1px) ? max(columns[index].min-width, columns[index].width) : 100000px;
-
-                        Rectangle {
-                            Text {
-                                width: 100%;
-                                height: 100%;
-                                overflow: elide;
-                                vertical-alignment: center;
-                                text: cell.text;
-                            }
+                    Rectangle {
+                        Text {
+                            width: 100%;
+                            height: 100%;
+                            overflow: elide;
+                            vertical-alignment: center;
+                            text: cell.text;
                         }
                     }
                 }

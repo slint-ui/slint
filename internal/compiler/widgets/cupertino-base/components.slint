@@ -44,15 +44,15 @@ export component MenuBorder inherits Rectangle {
 }
 
 export component ListItem {
-    in property <bool> selected;
-    in property <string> text <=> i-text.text;
+    in property <bool> is-selected;
+    in property <StandardListViewItem> item;
     in property <length> padding-horizontal: 12px;
     in property <bool> has-focus;
-    out property <length> mouse-x <=> i-touch-area.mouse-x;
-    out property <length> mouse-y <=> i-touch-area.mouse-y;
-
-    callback clicked <=> i-touch-area.clicked;
-    callback pointer-event <=> i-touch-area.pointer-event;
+    in property <bool> has-hover;
+    in property <bool> pressed;
+    in property <int> index;
+    in property <length> pressed-x;
+    in property <length> pressed-y;
 
     min-width: i-layout.min-width;
     min-height: max(22px, i-layout.min-height);
@@ -63,7 +63,7 @@ export component ListItem {
         has-focus when root.has-focus : {
             i-background.background: CupertinoPalette.accent-tertiary;
         }
-        hover when i-touch-area.has-hover : {
+        hover when root.has-hover : {
             i-background.background: CupertinoPalette.accent;
             i-text.color: CupertinoPalette.on-surface;
             i-icon.colorize: CupertinoPalette.on-surface;
@@ -87,11 +87,12 @@ export component ListItem {
                     image-fit: contain;
                     source: Icons.check-mark;
                     colorize: CupertinoPalette.foreground;
-                    visible: root.selected;
+                    visible: root.is-selected;
                     width: 10px;
                 }
 
                 i-text := Text {
+                    text: root.item.text;
                     color: CupertinoPalette.foreground;
                     font-size: CupertinoFontSettings.body.font-size;
                     font-weight: CupertinoFontSettings.body.font-weight;
@@ -103,5 +104,5 @@ export component ListItem {
         }
     }
 
-    i-touch-area := TouchArea {}
+    @children
 }

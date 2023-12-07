@@ -3,7 +3,7 @@
 
 
 import { MaterialPalette, MaterialFontSettings, Elevation, Icons } from "styling.slint";
-import { ListItem } from "components.slint";
+import { ListItem , StateLayer } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
 
 export component ComboBox {
@@ -83,7 +83,7 @@ export component ComboBox {
         width: root.width;
 
         i-popup-container := Rectangle {
-            background: MaterialPalette.surface;
+            background: MaterialPalette.background-alt;
             drop-shadow-color: MaterialPalette.shadow;
             drop-shadow-blur: Elevation.level2;
             drop-shadow-offset-y: 1px;
@@ -92,11 +92,15 @@ export component ComboBox {
 
         VerticalLayout {
             for value[index] in root.model: ListItem {
-                text: value;
-                selected: index == root.current-index;
+                item: { text: value };
+                is-selected: index == root.current-index;
+                has-hover: i-touch-area.has-hover;
+                pressed: i-touch-area.pressed;
 
-                clicked => {
-                    i-base.select(index);
+                i-touch-area := StateLayer {
+                    clicked => {
+                        i-base.select(index);
+                    }
                 }
             }
         }

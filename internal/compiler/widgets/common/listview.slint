@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { ScrollView } from "scrollview.slint";
-import { ListItem } from "components.slint";
+import { ListItem, ScrollView } from "std-widgets-impl.slint";
 
 export component ListView inherits ScrollView {
     @children
@@ -85,19 +84,26 @@ component StandardListViewBase inherits ListView {
 
     for item[index] in root.model : ListItem {
         height: self.min-height;
-        text: item.text;
-        selected: index == root.current-item;
+        item: item;
+        index: index;
+        is-selected: index == root.current-item;
         has-focus: root.has-focus && index == root.focus-item;
+        has-hover: i-touch-area.has-hover;
+        pressed: i-touch-area.pressed;
+        pressed-x: i-touch-area.pressed-x;
+        pressed-y: i-touch-area.pressed-y;
 
-        clicked => {
-            root.set-current-item(index);
-        }
+        i-touch-area := TouchArea {
+            clicked => {
+                root.set-current-item(index);
+            }
 
-        pointer-event(pe) => {
-            root.item-pointer-event(index, pe, {
-                x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
-                y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
-            });
+            pointer-event(pe) => {
+                root.item-pointer-event(index, pe, {
+                    x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
+                    y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
+                });
+            }
         }
     }
 }

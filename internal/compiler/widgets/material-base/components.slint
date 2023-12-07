@@ -90,24 +90,50 @@ export component StateLayer inherits TouchArea {
 }
 
 // A selectable item that is used by `StandardListView` and  `ComboBox`.
-export component ListItem inherits Rectangle {
-    in property <bool> selected;
-    in property <string> text;
-    in property <bool> has-focus;
-    out property <length> mouse-x <=> i-state-layer.mouse-x;
-    out property <length> mouse-y <=> i-state-layer.mouse-y;
+export component ListItem {
+    in property <StandardListViewItem> item;
+    in-out property <bool> is_selected;
+    in property <bool> has_hover;
+    in property <bool> has_focus;
+    in property <bool> pressed;
+    in property <int> index;
+    in property <length> pressed-x;
+    in property <length> pressed-y;
 
-    callback clicked <=> i-state-layer.clicked;
-    callback pointer-event <=> i-state-layer.pointer-event;
+    min-width: i-layout.min-width;
+    min-height: max(48px, i-layout.min-height);
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
 
-    height: max(48px, i-layout.min-height);
+    states [
+        pressed when root.pressed: {
+            i-ripple.opacity: 0.12;
+        }
+        checked when root.is-selected: {
+            i-ripple.opacity: 1.0;
+            i-ripple.background: MaterialPalette.surface;
+        }
+        hover when root.has-hover: {
+            i-ripple.opacity: 0.08;
+        }
+        focused when root.has-focus: {
+            i-ripple.opacity: 0.12;
+        }
+    ]
 
-    i-state-layer := StateLayer {
-        checked: root.selected;
+    i-ripple := Ripple {
+        opacity: 0;
+        active: root.pressed;
+        ripple-x: root.pressed-x;
+        ripple-y: root.pressed-y;
+        clip: true;
+        border-radius: 4px;
         background: MaterialPalette.accent;
-        selection-background: MaterialPalette.surface;
         ripple-color: MaterialPalette.accent-ripple;
-        has-ripple: true;
+        has-effect: true;
+
+        animate opacity { duration: 250ms; easing: ease; }
+        animate background { duration: 250ms; }
     }
 
     if (root.has-focus) : Rectangle {
@@ -121,7 +147,7 @@ export component ListItem inherits Rectangle {
         padding-right: 12px;
 
         label := Text {
-            text: root.text;
+            text: root.item.text;
             color: MaterialPalette.on-surface;
             vertical-alignment: center;
             // FIXME after Roboto font can be loaded
@@ -131,4 +157,5 @@ export component ListItem inherits Rectangle {
         }
     }
 
+    @children
 }

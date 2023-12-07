@@ -15,6 +15,10 @@ pub struct NativeStandardListViewItem {
     pub cached_rendering_data: CachedRenderingData,
     pub has_hover: Property<bool>,
     pub has_focus: Property<bool>,
+    pub pressed: Property<bool>,
+    pub pressed_x: Property<LogicalLength>,
+    pub pressed_y: Property<LogicalLength>,
+
     /// Specify that this item is in fact used in a ComboBox
     pub combobox: Property<bool>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
