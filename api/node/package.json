@@ -37,7 +37,7 @@
     "compile": "tsc",
     "build": "napi build --platform --release --js rust-module.cjs --dts rust-module.d.ts",
     "build:debug": "napi build --platform --js rust-module.cjs --dts rust-module.d.ts && npm run compile",
-    "install": "npm run build",
+    "install": "node build-on-demand.mjs",
     "docs": "npm run build && typedoc --hideGenerator --treatWarningsAsErrors --readme cover.md index.ts",
     "test": "ava"
   },
