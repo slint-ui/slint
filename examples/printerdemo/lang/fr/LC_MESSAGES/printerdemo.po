@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-07 03:03+0000\n"
+"POT-Creation-Date: 2023-12-08 03:03+0000\n"
 "PO-Revision-Date: 2023-06-09 07:56+0200\n"
 "Last-Translator: Olivier Goffart <ogoffart@bepointbe.be>\n"
 "Language-Team: German <kde-i18n-de@kde.org>\n"
@@ -17,20 +17,145 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Lokalize 23.04.1\n"
 
-#: ui/print_page.slint:10
-msgctxt "PrintPage"
-msgid "Print"
-msgstr "Impression"
+#: ui/scan_page.slint:9 ui/scan_page.slint:84
+msgctxt "ScanPage"
+msgid "Scan"
+msgstr "Scanner"
 
-#: ui/print_page.slint:18
-msgctxt "PrintPage"
-msgid "Printing-Queue"
-msgstr "File d'attente d'impression"
+#: ui/scan_page.slint:17
+msgctxt "ScanPage"
+msgid "Choose Settings"
+msgstr "Configuration"
 
-#: ui/printerdemo.slint:46
-msgctxt "MainWindow"
-msgid "Slint printer demo"
-msgstr "Imprimante de démonstration de Slint"
+#: ui/scan_page.slint:24
+msgctxt "ScanPage"
+msgid "Copies"
+msgstr "Nombre de copies"
+
+#: ui/scan_page.slint:32
+msgctxt "ScanPage"
+msgid "Size"
+msgstr "Taille"
+
+#: ui/scan_page.slint:34 ui/scan_page.slint:35
+msgctxt "ScanPage"
+msgid "Original"
+msgstr "Original"
+
+#: ui/scan_page.slint:35
+msgctxt "ScanPage"
+msgid "A4"
+msgstr "A4"
+
+#: ui/scan_page.slint:39
+msgctxt "ScanPage"
+msgid "Quality"
+msgstr "Qualité"
+
+#: ui/scan_page.slint:41 ui/scan_page.slint:42
+msgctxt "ScanPage"
+msgid "Best"
+msgstr "Haute"
+
+#: ui/scan_page.slint:42
+msgctxt "ScanPage"
+msgid "Medium"
+msgstr "Moyenne"
+
+#: ui/scan_page.slint:42
+msgctxt "ScanPage"
+msgid "Draft"
+msgstr "Brouillon"
+
+#: ui/scan_page.slint:47
+msgctxt "ScanPage"
+msgid "Format"
+msgstr "Format"
+
+#: ui/scan_page.slint:49 ui/scan_page.slint:50
+msgctxt "ScanPage"
+msgid "PDF"
+msgstr "PDF"
+
+#: ui/scan_page.slint:50
+msgctxt "ScanPage"
+msgid "JPEG"
+msgstr "JPEG"
+
+#: ui/scan_page.slint:50
+msgctxt "ScanPage"
+msgid "PNG"
+msgstr "PNG"
+
+#: ui/scan_page.slint:54
+msgctxt "ScanPage"
+msgid "Color"
+msgstr "Couleur"
+
+#: ui/scan_page.slint:56 ui/scan_page.slint:57
+msgctxt "ScanPage"
+msgid "Grayscale"
+msgstr "Niveau de gris"
+
+#: ui/scan_page.slint:57
+msgctxt "ScanPage"
+msgid "RGB"
+msgstr "RGB"
+
+#: ui/scan_page.slint:57
+msgctxt "ScanPage"
+msgid "YCMB"
+msgstr "YCMB"
+
+#: ui/scan_page.slint:62
+msgctxt "ScanPage"
+msgid "Save to"
+msgstr "Envoyer à"
+
+#: ui/scan_page.slint:64 ui/scan_page.slint:65
+msgctxt "ScanPage"
+msgid "Desktop"
+msgstr "Ordinateur"
+
+#: ui/scan_page.slint:82
+msgctxt "ScanPage"
+msgid "Start scanning"
+msgstr "Démarrer le scan"
+
+#: ui/ink_page.slint:15
+msgctxt "InkPage"
+msgid "Ink Level"
+msgstr "Niveau d'encre"
+
+#: ui/usb_page.slint:20
+msgctxt "UsbPage"
+msgid "USB"
+msgstr "USB"
+
+#: ui/usb_page.slint:44
+msgctxt "UsbPage"
+msgid "Select File:"
+msgstr "Sélectionnez un fichier:"
+
+#: ui/usb_page.slint:67
+msgctxt "UsbPage"
+msgid "Copies"
+msgstr "Nombre de copies"
+
+#: ui/usb_page.slint:75 ui/usb_page.slint:78
+msgctxt "UsbPage"
+msgid "Color"
+msgstr "Couleur"
+
+#: ui/usb_page.slint:77 ui/usb_page.slint:78
+msgctxt "UsbPage"
+msgid "Grayscale"
+msgstr "Niveau de gris"
+
+#: ui/usb_page.slint:93
+msgctxt "UsbPage"
+msgid "Start printing"
+msgstr "Démarrer l'impression"
 
 #: ui/printer_queue.slint:30
 msgctxt "PrinterQueue"
@@ -96,6 +221,46 @@ msgstr "Supprimer"
 msgctxt "PrinterQueueView"
 msgid "Printing Queue"
 msgstr "File d'attente"
+
+#: ui/home_page.slint:51
+msgctxt "HomePage"
+msgid "Slint Printer Demo"
+msgstr "Slint Démo"
+
+#: ui/home_page.slint:54
+msgctxt "HomePage"
+msgid "Print"
+msgstr "Imprimer"
+
+#: ui/home_page.slint:55
+msgctxt "HomePage"
+msgid "Scan"
+msgstr "Scanner"
+
+#: ui/home_page.slint:56
+msgctxt "HomePage"
+msgid "Copy"
+msgstr "Copier"
+
+#: ui/home_page.slint:57
+msgctxt "HomePage"
+msgid "USB"
+msgstr "USB"
+
+#: ui/print_page.slint:10
+msgctxt "PrintPage"
+msgid "Print"
+msgstr "Impression"
+
+#: ui/print_page.slint:18
+msgctxt "PrintPage"
+msgid "Printing-Queue"
+msgstr "File d'attente d'impression"
+
+#: ui/printerdemo.slint:46
+msgctxt "MainWindow"
+msgid "Slint printer demo"
+msgstr "Imprimante de démonstration de Slint"
 
 #: ui/settings_page.slint:7
 msgctxt "SettingsPage"
@@ -346,168 +511,3 @@ msgstr "Trier"
 msgctxt "CopyPage"
 msgid "Start copying"
 msgstr "Démarrer la copie"
-
-#: ui/ink_page.slint:15
-msgctxt "InkPage"
-msgid "Ink Level"
-msgstr "Niveau d'encre"
-
-#: ui/usb_page.slint:20
-msgctxt "UsbPage"
-msgid "USB"
-msgstr "USB"
-
-#: ui/usb_page.slint:44
-msgctxt "UsbPage"
-msgid "Select File:"
-msgstr "Sélectionnez un fichier:"
-
-#: ui/usb_page.slint:67
-msgctxt "UsbPage"
-msgid "Copies"
-msgstr "Nombre de copies"
-
-#: ui/usb_page.slint:75 ui/usb_page.slint:78
-msgctxt "UsbPage"
-msgid "Color"
-msgstr "Couleur"
-
-#: ui/usb_page.slint:77 ui/usb_page.slint:78
-msgctxt "UsbPage"
-msgid "Grayscale"
-msgstr "Niveau de gris"
-
-#: ui/usb_page.slint:93
-msgctxt "UsbPage"
-msgid "Start printing"
-msgstr "Démarrer l'impression"
-
-#: ui/home_page.slint:51
-msgctxt "HomePage"
-msgid "Slint Printer Demo"
-msgstr "Slint Démo"
-
-#: ui/home_page.slint:54
-msgctxt "HomePage"
-msgid "Print"
-msgstr "Imprimer"
-
-#: ui/home_page.slint:55
-msgctxt "HomePage"
-msgid "Scan"
-msgstr "Scanner"
-
-#: ui/home_page.slint:56
-msgctxt "HomePage"
-msgid "Copy"
-msgstr "Copier"
-
-#: ui/home_page.slint:57
-msgctxt "HomePage"
-msgid "USB"
-msgstr "USB"
-
-#: ui/scan_page.slint:9 ui/scan_page.slint:84
-msgctxt "ScanPage"
-msgid "Scan"
-msgstr "Scanner"
-
-#: ui/scan_page.slint:17
-msgctxt "ScanPage"
-msgid "Choose Settings"
-msgstr "Configuration"
-
-#: ui/scan_page.slint:24
-msgctxt "ScanPage"
-msgid "Copies"
-msgstr "Nombre de copies"
-
-#: ui/scan_page.slint:32
-msgctxt "ScanPage"
-msgid "Size"
-msgstr "Taille"
-
-#: ui/scan_page.slint:34 ui/scan_page.slint:35
-msgctxt "ScanPage"
-msgid "Original"
-msgstr "Original"
-
-#: ui/scan_page.slint:35
-msgctxt "ScanPage"
-msgid "A4"
-msgstr "A4"
-
-#: ui/scan_page.slint:39
-msgctxt "ScanPage"
-msgid "Quality"
-msgstr "Qualité"
-
-#: ui/scan_page.slint:41 ui/scan_page.slint:42
-msgctxt "ScanPage"
-msgid "Best"
-msgstr "Haute"
-
-#: ui/scan_page.slint:42
-msgctxt "ScanPage"
-msgid "Medium"
-msgstr "Moyenne"
-
-#: ui/scan_page.slint:42
-msgctxt "ScanPage"
-msgid "Draft"
-msgstr "Brouillon"
-
-#: ui/scan_page.slint:47
-msgctxt "ScanPage"
-msgid "Format"
-msgstr "Format"
-
-#: ui/scan_page.slint:49 ui/scan_page.slint:50
-msgctxt "ScanPage"
-msgid "PDF"
-msgstr "PDF"
-
-#: ui/scan_page.slint:50
-msgctxt "ScanPage"
-msgid "JPEG"
-msgstr "JPEG"
-
-#: ui/scan_page.slint:50
-msgctxt "ScanPage"
-msgid "PNG"
-msgstr "PNG"
-
-#: ui/scan_page.slint:54
-msgctxt "ScanPage"
-msgid "Color"
-msgstr "Couleur"
-
-#: ui/scan_page.slint:56 ui/scan_page.slint:57
-msgctxt "ScanPage"
-msgid "Grayscale"
-msgstr "Niveau de gris"
-
-#: ui/scan_page.slint:57
-msgctxt "ScanPage"
-msgid "RGB"
-msgstr "RGB"
-
-#: ui/scan_page.slint:57
-msgctxt "ScanPage"
-msgid "YCMB"
-msgstr "YCMB"
-
-#: ui/scan_page.slint:62
-msgctxt "ScanPage"
-msgid "Save to"
-msgstr "Envoyer à"
-
-#: ui/scan_page.slint:64 ui/scan_page.slint:65
-msgctxt "ScanPage"
-msgid "Desktop"
-msgstr "Ordinateur"
-
-#: ui/scan_page.slint:82
-msgctxt "ScanPage"
-msgid "Start scanning"
-msgstr "Démarrer le scan"
