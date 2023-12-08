@@ -437,15 +437,18 @@ pub struct TouchArea {
 }
 
 impl TouchArea {
-    fn start_clicked_timer(self: Pin<&Self>, item_rc: &ItemRc) {
-        let max_click_interval = crate::platform::PLATFORM_INSTANCE
-            .with(|p| p.get().map(|p| p.click_interval()))
-            .unwrap_or_default();
+    fn start_clicked_timer(self: Pin<&Self>, item_rc: &ItemRc) -> bool {
+        let Some(double_click_interval) =
+            crate::platform::PLATFORM_INSTANCE.with(|p| p.get().map(|p| p.click_interval()))
+        else {
+            return false;
+        };
+
         let weak = item_rc.downgrade();
 
         self.clicked_timer.start(
             crate::timers::TimerMode::SingleShot,
-            max_click_interval,
+            double_click_interval,
             move || {
                 let Some(item) = weak.upgrade() else {
                     return;
@@ -459,6 +462,8 @@ impl TouchArea {
             },
         );
         assert!(self.clicked_timer.running());
+
+        true
     }
 
     fn stop_clicked_timer(self: Pin<&Self>) -> bool {
@@ -568,7 +573,11 @@ impl Item for TouchArea {
                         (true, true) => {
                             Self::FIELD_OFFSETS.double_clicked.apply_pin(self).call(&())
                         }
-                        (false, true) => self.start_clicked_timer(self_rc),
+                        (false, true) => {
+                            if !self.start_clicked_timer(self_rc) {
+                                Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+                            }
+                        }
                         (true, false) => { /* nothing to do: The double-click handler was removed! */
                         }
                         (false, false) => Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&()),
