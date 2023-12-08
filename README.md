@@ -44,8 +44,9 @@ follows:
     in a web browser. As there are many other web frameworks, the web platform
     is not one of our primary target platforms. The web support is currently
     limited to demo purposes.
-- **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile
-    platforms yet, but it is our intention to do so in the near future.
+- **Mobile**
+  - Android: *In Progress*. Track the progress of work here https://github.com/slint-ui/slint/issues/46.
+  - iOS: *Todo*. Support for iOS will commence after the initial support for Android is completed.
 
 ### Accessibility
 
