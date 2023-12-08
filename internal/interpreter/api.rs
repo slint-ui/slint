@@ -1289,7 +1289,14 @@ pub mod testing {
     /// Wrapper around [`i_slint_core::tests::slint_send_mouse_click`]
     pub fn send_mouse_click(comp: &super::ComponentInstance, x: f32, y: f32) {
         i_slint_core::tests::slint_send_mouse_click(
-            &vtable::VRc::into_dyn(comp.inner.clone()),
+            x,
+            y,
+            &WindowInner::from_pub(comp.window()).window_adapter(),
+        );
+    }
+    /// Wrapper around [`i_slint_core::tests::slint_send_mouse_double_click`]
+    pub fn send_mouse_double_click(comp: &super::ComponentInstance, x: f32, y: f32) {
+        i_slint_core::tests::slint_send_mouse_double_click(
             x,
             y,
             &WindowInner::from_pub(comp.window()).window_adapter(),

@@ -254,10 +254,23 @@ mod for_unit_test {
         x: f32,
         y: f32,
     ) {
-        let rc = component.clone_strong().into();
-        let dyn_rc = vtable::VRc::into_dyn(rc);
         i_slint_core::tests::slint_send_mouse_click(
-            &dyn_rc,
+            x,
+            y,
+            &WindowInner::from_pub(component.window()).window_adapter(),
+        );
+    }
+
+    /// Simulate a mouse double-click
+    pub fn send_mouse_double_click<
+        X: vtable::HasStaticVTable<i_slint_core::item_tree::ItemTreeVTable> + 'static,
+        Component: Into<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, X>> + ComponentHandle,
+    >(
+        component: &Component,
+        x: f32,
+        y: f32,
+    ) {
+        i_slint_core::tests::slint_send_mouse_double_click(
             x,
             y,
             &WindowInner::from_pub(component.window()).window_adapter(),

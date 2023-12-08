@@ -33,7 +33,6 @@ pub extern "C" fn slint_get_mocked_time() -> u64 {
 /// Simulate a click on a position within the component.
 #[no_mangle]
 pub extern "C" fn slint_send_mouse_click(
-    _component: &crate::item_tree::ItemTreeRc,
     x: f32,
     y: f32,
     window_adapter: &crate::window::WindowAdapterRc,
@@ -45,6 +44,18 @@ pub extern "C" fn slint_send_mouse_click(
     window_adapter.window().dispatch_event(WindowEvent::PointerPressed { position, button });
     slint_mock_elapsed_time(50);
     window_adapter.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+}
+
+/// Simulate a click on a position within the component.
+#[no_mangle]
+pub extern "C" fn slint_send_mouse_double_click(
+    x: f32,
+    y: f32,
+    window_adapter: &crate::window::WindowAdapterRc,
+) {
+    slint_send_mouse_click(x, y, window_adapter);
+    slint_mock_elapsed_time(50);
+    slint_send_mouse_click(x, y, window_adapter);
 }
 
 /// Simulate a character input event (pressed or released).
