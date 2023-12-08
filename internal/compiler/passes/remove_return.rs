@@ -158,7 +158,7 @@ fn process_codeblock(
                     value,
                     stmts,
                     has_return_value,
-                    has_value,
+                    !matches!(ty, Type::Void | Type::Invalid),
                 );
             }
         }
