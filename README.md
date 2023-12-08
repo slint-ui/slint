@@ -51,17 +51,16 @@ follows:
 
 Slint supports keyboard based navigation of many widgets, and user interfaces
 are scalable. The basic infrastructure for assistive technology like screen
-readers is in place, but currently requires the Qt backend.
-We're aware that more work is needed to get best-of-class support for users
-with special needs.
+readers is in place. We're aware that more work is needed to get best-of-class
+support for users with special needs.
 
 ## Demos
 
 ### Embedded
 
-| RaspberryPi                         | STM32                          | RP2040                         |
-| ----------------------------------- | ------------------------------ | ------------------------------ |
-| [Video of Slint on Raspberry Pi][#1] | [Video of Slint on STM32][#2]  | [Video of Slint on RP2040][#3] |
+| RaspberryPi                          | STM32                         | RP2040                         |
+| ------------------------------------ | ----------------------------- | ------------------------------ |
+| [Video of Slint on Raspberry Pi][#1] | [Video of Slint on STM32][#2] | [Video of Slint on RP2040][#3] |
 
 ### Desktop
 
@@ -72,7 +71,7 @@ with special needs.
 ### Web using WebAssembly
 
 | Printer Demo                                | Slide Puzzle                                 | Energy Monitor                                       | Widget Gallery                                |
-| ------------------------------------------  | -------------------------------------------- | ---------------------------------------------------- | --------------------------------------------- |
+| ------------------------------------------- | -------------------------------------------- | ---------------------------------------------------- | --------------------------------------------- |
 | [![Screenshot of the Printer Demo][#7]][#8] | [![Screenshot of the Slide Puzzle][#9]][#10] | [![Screenshot of the Energy Monitor Demo][#11]][#12] | [![Screenshot of the Gallery Demo][#13]][#14] |
 
 ## Get Started
@@ -155,7 +154,8 @@ Rendering backends and styles are configurable at compile time:
 - The `skia` renderer uses [Skia](https://skia.org) for rendering.
 - The `software` renderer uses the CPU with no additional dependencies.
 
-NOTE: When Qt is installed on the system, the `native` style uses Qt's QStyle to achieve native looking widgets.
+NOTE: When Qt is installed on the system, the `qt` style becomes available,
+using Qt's QStyle to achieve native looking widgets.
 
 ### Tooling
 
@@ -168,7 +168,7 @@ We have a few tools to help with the development of .slint files:
 - A [**slint-viewer**](./tools/viewer) tool which displays the .slint files. The
   `--auto-reload` argument makes it easy to preview your UI while you are
   working on it (when using the LSP preview is not possible).
-- [**SlintPad**](https://slint.dev/editor), an online editor to try out .slint syntax
+- [**SlintPad**](https://slintpad.com/), an online editor to try out .slint syntax
   without installing anything ([sources](./tools/slintpad)).
 - An [**updater**](./tools/updater) to convert the .slint files from
   previous versions to newer versions.
@@ -179,8 +179,9 @@ configure your favorite editor to work well with Slint.
 
 ## #MadeWithSlint
 
-Visit <https://madewithslint.com> to view some of the projects using Slint: (Contact us or open a pull
-request on <https://github.com/slint-ui/madewithslint> to add yours).
+Visit <https://madewithslint.com> to view some of the projects using Slint.
+Contact us or open a pull request on <https://github.com/slint-ui/madewithslint>
+to add yours.
 
 ## License
 
@@ -215,7 +216,7 @@ located remotely in Germany.
 
 ### Stay up to date
 
-- Follow [@slint-ui](https://twitter.com/slint_ui) on Twitter.
+- Follow [@slint-ui](https://twitter.com/slint_ui) on X/Twitter.
 - Follow [@slint@fosstodon.org](https://mastodon.social/@slint@fosstodon.org) on Mastodon.
 - Follow [@slint-ui](https://www.linkedin.com/company/slint-ui/) on LinkedIn.
 
