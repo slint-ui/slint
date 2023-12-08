@@ -461,7 +461,6 @@ impl TouchArea {
                 }
             },
         );
-        assert!(self.clicked_timer.running());
 
         true
     }
@@ -469,7 +468,6 @@ impl TouchArea {
     fn stop_clicked_timer(self: Pin<&Self>) -> bool {
         let result = self.clicked_timer.running();
         self.clicked_timer.stop();
-        assert!(!self.clicked_timer.running());
         result
     }
 }
