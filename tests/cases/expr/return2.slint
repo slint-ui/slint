@@ -27,6 +27,21 @@ export component StepsFocusScope inherits FocusScope {
 }
 
 
+component Issue4070 {
+    function broken(event: string) -> EventResult {
+        if (event == "a") {  }
+        else if (event == "s") {  }
+        else {
+            debug("returning reject");
+            return reject;
+        }
+        debug("returning accept");
+        accept
+    }
+    out property<bool> test : broken("a") == EventResult.accept;
+}
+
+
 export component TestCase {
 
     function return_false() -> bool { return false; }
@@ -74,7 +89,12 @@ export component TestCase {
 
     }
 
+    i4070 := Issue4070 {}
+
     out property <bool> test: {
+        if (!i4070.test) {
+            return false;
+        }
         if (false) {
             return false;
         }
