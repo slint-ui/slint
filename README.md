@@ -29,6 +29,9 @@ is derived from our design goals:
 
 We invite you to use Slint and be part of its community.
 
+Visit [#MadeWithSlint](https://madewithslint.com) to view some of the projects
+using Slint and join us in the Slint community.
+
 ## Current Status
 
 Slint is in active development. The state of support for each platform is as
@@ -177,12 +180,6 @@ We have a few tools to help with the development of .slint files:
 
 Please check our [Editors README](./editors/README.md) for tips on how to
 configure your favorite editor to work well with Slint.
-
-## #MadeWithSlint
-
-Visit <https://madewithslint.com> to view some of the projects using Slint.
-Contact us or open a pull request on <https://github.com/slint-ui/madewithslint>
-to add yours.
 
 ## License
 
