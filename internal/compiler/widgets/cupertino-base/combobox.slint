@@ -154,11 +154,17 @@ export component ComboBox {
 
                 for value[index] in root.model : ListItem {
                     padding-horizontal: 0;
-                    text: value;
-                    selected: index == root.current-index;
+                    item: { text: value };
+                    is-selected: index == root.current-index;
+                    has-hover: i-touch-area.has-hover;
+                    pressed: i-touch-area.pressed;
+                    pressed-x: i-touch-area.pressed-x;
+                    pressed-y: i-touch-area.pressed-y;
 
-                    clicked => {
-                        i-base.select(index);
+                    i-touch-area := TouchArea {
+                        clicked => {
+                            i-base.select(index);
+                        }
                     }
                 }
             }

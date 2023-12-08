@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 ### Slint Language
 
  - Fixed wrong text input in cupertino SpinBox
+ - Added focus state to `StandardListView`
 
 ## [1.3.2] - 2023-12-01
 

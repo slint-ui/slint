@@ -33,35 +33,42 @@ export component MenuBorder inherits Rectangle {
 }
 
 export component ListItem {
-    in property <bool> selected;
-    in property <string> text <=> i-text.text;
-    out property <length> mouse-x <=> i-touch-area.mouse-x;
-    out property <length> mouse-y <=> i-touch-area.mouse-y;
-
-    callback clicked <=> i-touch-area.clicked;
-    callback pointer-event <=> i-touch-area.pointer-event;
+    in property <bool> is-selected;
+    in property <StandardListViewItem> item;
+    in property <bool> has-focus;
+    in property <bool> has-hover;
+    in property <bool> pressed;
+    in property <int> index;
+    in property <length> pressed-x;
+    in property <length> pressed-y;
 
     min-width: i-layout.min-width;
-    min-height: max(34px, i-layout.min-height);
+    min-height: max(40px, i-layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 1;
 
     states [
-        pressed when i-touch-area.pressed : {
-            i-background.background: selected ? FluentPalette.subtle-secondary : FluentPalette.subtle-tertiary;
+        pressed when root.pressed : {
+            i-background.background: is-selected ? FluentPalette.subtle-secondary : FluentPalette.subtle-tertiary;
         }
-        hover when i-touch-area.has-hover : {
+        hover when root.has-hover : {
             i-text.color: FluentPalette.text-secondary;
-            i-background.background: selected ? FluentPalette.subtle-tertiary : FluentPalette.subtle-secondary;
-            i-selector.height: root.selected ? 16px : 0;
+            i-background.background: is-selected ? FluentPalette.subtle-tertiary : FluentPalette.subtle-secondary;
+            i-selector.height: root.is-selected ? 16px : 0;
         }
-        selected when root.selected : {
+        is-selected when root.is-selected : {
             i-background.background: FluentPalette.subtle-secondary;
             i-selector.height: 16px;
         }
     ]
 
+    if (root.has-focus) : FocusBorder {
+        border-radius: 4px;
+    }
+
     i-background := Rectangle {
+        width: root.width - 6px;
+        height: root.height - 4px;
         background: transparent;
         border-radius: 4px;
 
@@ -73,6 +80,7 @@ export component ListItem {
             spacing: 4px;
 
             i-text := Text {
+                text: root.item.text;
                 color: FluentPalette.on-surface;
                 font-size: FluentFontSettings.body.font-size;
                 font-weight: FluentFontSettings.body.font-weight;
@@ -96,5 +104,5 @@ export component ListItem {
         }
     }
 
-    i-touch-area := TouchArea {}
+    @children
 }

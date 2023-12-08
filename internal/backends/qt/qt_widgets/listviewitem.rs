@@ -14,6 +14,11 @@ pub struct NativeStandardListViewItem {
     pub is_selected: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
     pub has_hover: Property<bool>,
+    pub has_focus: Property<bool>,
+    pub pressed: Property<bool>,
+    pub pressed_x: Property<LogicalLength>,
+    pub pressed_y: Property<LogicalLength>,
+
     /// Specify that this item is in fact used in a ComboBox
     pub combobox: Property<bool>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
@@ -113,6 +118,7 @@ impl Item for NativeStandardListViewItem {
         let is_selected: bool = this.is_selected();
         let combobox: bool = this.combobox();
         let has_hover: bool = this.has_hover();
+        let has_focus: bool = this.has_focus();
         let item = this.item();
         let text: qttypes::QString = item.text.as_str().into();
         cpp!(unsafe [
@@ -123,6 +129,7 @@ impl Item for NativeStandardListViewItem {
             index as "int",
             is_selected as "bool",
             has_hover as "bool",
+            has_focus as "bool",
             text as "QString",
             initial_state as "int",
             combobox as "bool"
@@ -138,6 +145,11 @@ impl Item for NativeStandardListViewItem {
                 option.state = QStyle::State_Enabled;
                 if (has_hover) {
                     option.state |= QStyle::State_MouseOver;
+                    option.state |= QStyle::State_Selected;
+                }
+
+                if (has_focus) {
+                    option.state |= QStyle::State_HasFocus;
                     option.state |= QStyle::State_Selected;
                 }
                 option.text = text;
@@ -160,6 +172,9 @@ impl Item for NativeStandardListViewItem {
                 }
                 if (has_hover) {
                     option.state |= QStyle::State_MouseOver;
+                }
+                if (has_focus) {
+                    option.state |= QStyle::State_HasFocus;
                 }
                 option.decorationPosition = QStyleOptionViewItem::Left;
                 option.decorationAlignment = Qt::AlignCenter;
