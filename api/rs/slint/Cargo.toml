@@ -110,7 +110,7 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 ## backend will not be operational
 backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
 
-## The [winit](https://crates.io/crates/log) crate is used for the event loop and windowing system integration.
+## The [winit](https://crates.io/crates/winit) crate is used for the event loop and windowing system integration.
 ## It supports Windows, macOS, web browsers, X11 and Wayland. X11 and wayland are only available when
 ## compiling for Linux or other Unix-like operating systems. With this feature, both X11 and Wayland are supported.
 ## For a smaller build, omit this feature and select one of the other specific `backend-winit-XX` features.
