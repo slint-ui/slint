@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2023-12-08 03:03+0000\n"
+"POT-Creation-Date: 2023-12-09 03:03+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -67,6 +67,42 @@ msgctxt "Page"
 msgid "Widgets enabled"
 msgstr ""
 
+#: ui/pages/text_edit_page.slint:9
+msgctxt "TextEditPage"
+msgid "TextEdit"
+msgstr ""
+
+#: ui/pages/text_edit_page.slint:10
+msgctxt "TextEditPage"
+msgid ""
+"Similar to LineEdit, but can be used to enter several lines of text. The "
+"widget can be imported from \"std-widgets.slint\"."
+msgstr ""
+
+#: ui/pages/text_edit_page.slint:15
+msgctxt "TextEditPage"
+msgid "Word-Wrap"
+msgstr ""
+
+#. min-width: 200px;
+#: ui/pages/text_edit_page.slint:19
+msgctxt "TextEditPage"
+msgid ""
+"This is our TextEdit widget, which allows for editing text that spans over "
+"multiple paragraphs.\n"
+"For example this line starts in a new paragraph.\n"
+"\n"
+"When the amount of lines - due to wrapping and number of paragraphs - "
+"exceeds the available vertical height, a vertical scrollbar is shown that "
+"allows scrolling.\n"
+"You may want to enter a bit of text here then in order to make them visible."
+msgstr ""
+
+#: ui/pages/text_edit_page.slint:26
+msgctxt "TextEditPage"
+msgid "No-Wrap"
+msgstr ""
+
 #: ui/pages/table_view_page.slint:23
 msgctxt "TableViewPage"
 msgid "TableView"
@@ -102,42 +138,6 @@ msgstr ""
 #: ui/pages/table_view_page.slint:47
 msgctxt "TableViewPage"
 msgid "Header 4"
-msgstr ""
-
-#: ui/pages/text_edit_page.slint:9
-msgctxt "TextEditPage"
-msgid "TextEdit"
-msgstr ""
-
-#: ui/pages/text_edit_page.slint:10
-msgctxt "TextEditPage"
-msgid ""
-"Similar to LineEdit, but can be used to enter several lines of text. The "
-"widget can be imported from \"std-widgets.slint\"."
-msgstr ""
-
-#: ui/pages/text_edit_page.slint:15
-msgctxt "TextEditPage"
-msgid "Word-Wrap"
-msgstr ""
-
-#. min-width: 200px;
-#: ui/pages/text_edit_page.slint:19
-msgctxt "TextEditPage"
-msgid ""
-"This is our TextEdit widget, which allows for editing text that spans over "
-"multiple paragraphs.\n"
-"For example this line starts in a new paragraph.\n"
-"\n"
-"When the amount of lines - due to wrapping and number of paragraphs - "
-"exceeds the available vertical height, a vertical scrollbar is shown that "
-"allows scrolling.\n"
-"You may want to enter a bit of text here then in order to make them visible."
-msgstr ""
-
-#: ui/pages/text_edit_page.slint:26
-msgctxt "TextEditPage"
-msgid "No-Wrap"
 msgstr ""
 
 #: ui/pages/controls_page.slint:10
