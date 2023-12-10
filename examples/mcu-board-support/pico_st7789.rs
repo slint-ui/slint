@@ -381,7 +381,7 @@ impl<
     ) {
         render_fn(&mut self.buffer[range.clone()]);
 
-        // convert from little to big indian before sending to the DMA channel
+        // convert from little to big endian before sending to the DMA channel
         for x in &mut self.buffer[range.clone()] {
             *x = Rgb565Pixel(x.0.to_be())
         }
