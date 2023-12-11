@@ -39,6 +39,7 @@ pub struct NativePalette {
     pub control_background: Property<Brush>,
     pub control_foreground: Property<Brush>,
     pub selection_background: Property<Brush>,
+    pub selection_foreground: Property<Brush>,
     pub border: Property<Brush>,
     pub style_change_listener: core::cell::Cell<*const u8>,
 }
@@ -62,6 +63,7 @@ impl NativePalette {
             control_foreground: Default::default(),
             border: Default::default(),
             selection_background: Default::default(),
+            selection_foreground: Default::default(),
             style_change_listener: core::cell::Cell::new(core::ptr::null()),
         })
     }
@@ -144,6 +146,12 @@ impl NativePalette {
         });
         let selection_background = Color::from_argb_encoded(selection_background);
         self.selection_background.set(Brush::from(selection_background));
+
+        let selection_foreground = cpp!(unsafe[] -> u32 as "QRgb" {
+            return qApp->palette().color(QPalette::Text).rgba();
+        });
+        let selection_foreground = Color::from_argb_encoded(selection_foreground);
+        self.selection_foreground.set(Brush::from(selection_foreground));
 
         if self.style_change_listener.get().is_null() {
             self.style_change_listener.set(cpp!(unsafe [self as "void*"] -> *const u8 as "void*"{
