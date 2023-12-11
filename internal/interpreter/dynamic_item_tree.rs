@@ -1030,11 +1030,15 @@ pub(crate) fn generate_item_tree<'id>(
                             $(
                                 stringify!($Name) => property_info::<i_slint_core::items::$Name>(),
                             )*
-                            _ => property_info::<Value>(),
+                            x => unreachable!("Unknown non-builtin enum {x}"),
                         }
                     }
                 }
-                i_slint_common::for_each_enums!(match_enum_type)
+                if e.node.is_some() {
+                    property_info::<Value>()
+                } else {
+                    i_slint_common::for_each_enums!(match_enum_type)
+                }
             }
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
             Type::Function { .. } => continue,
