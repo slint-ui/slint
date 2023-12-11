@@ -71,7 +71,7 @@ jobs:
       with:
         crate: cross
     - name: Build
-      run: cross build --release --target=${{ matrix.target }} --workspace --exclude slint-node --exclude slint-napi --exclude ffmpeg --exclude mcu-board-support --exclude printerdemo_mcu --exclude i-slint-backend-linuxkms --exclude uefi-demo ${{ env.EXTRA_ARGS }}
+      run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat -p energy-monitor -p printerdemo -p todo -p slint-viewer -p gallery
     - name: "Upload printerdemo artifact"
       uses: actions/upload-artifact@v3
       with:
