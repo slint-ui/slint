@@ -48,20 +48,20 @@ export component LineEdit {
             i-background.background: FluentPalette.control-disabled;
             i-background.border-color: FluentPalette.border;
             i-base.text-color: FluentPalette.text-disabled;
-            i-base.selection-foreground-color: FluentPalette.text-on-accent-disabled;
+            i-base.selection-foreground-color: FluentPalette.text-accent-foreground-disabled;
             i-base.placeholder-color: FluentPalette.text-disabled;
         }
         focused when root.has-focus : {
             i-background.background: FluentPalette.control-input-active;
             i-background.border-color: FluentPalette.border;
-            i-focus-border.background: FluentPalette.accent;
+            i-focus-border.background: FluentPalette.accent-background;
             i-base.placeholder-color: FluentPalette.text-tertiary;
         }
     ]
 
     i-background := Rectangle {
         border-radius: 4px;
-        background: FluentPalette.surface;
+        background: FluentPalette.control-background;
         border-width: 1px;
         border-color: FluentPalette.text-control-border;
 
@@ -72,8 +72,8 @@ export component LineEdit {
             i-base := LineEditBase {
                 font-size: FluentFontSettings.body.font-size;
                 font-weight: FluentFontSettings.body.font-weight;
-                selection-background-color: FluentPalette.accent-selected-text;
-                selection-foreground-color: FluentPalette.on-accent;
+                selection-background-color: FluentPalette.selection-background;
+                selection-foreground-color: FluentPalette.accent-foreground;
                 text-color: FluentPalette.foreground;
                 placeholder-color: FluentPalette.text-secondary;
                 margin: i-layout.padding-left + i-layout.padding-right;

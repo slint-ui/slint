@@ -20,7 +20,7 @@ export component FocusBorder inherits Rectangle {
 
 export component MenuBorder inherits Rectangle {
     border-radius: 7px;
-    background: FluentPalette.background-alt;
+    background: FluentPalette.alternate-background;
     drop-shadow-blur: 16px;
     drop-shadow-offset-y: 8px;
     drop-shadow-color: FluentPalette.shadow;
@@ -28,7 +28,7 @@ export component MenuBorder inherits Rectangle {
     Rectangle {
         border-width: 1px;
         border-radius: parent.border-radius;
-        border-color: FluentPalette.surface-stroke-flyout;
+        border-color: FluentPalette.control-background-stroke-flyout;
     }
 }
 
@@ -81,7 +81,7 @@ export component ListItem {
 
             i-text := Text {
                 text: root.item.text;
-                color: FluentPalette.on-surface;
+                color: FluentPalette.control-foreground;
                 font-size: FluentFontSettings.body.font-size;
                 font-weight: FluentFontSettings.body.font-weight;
                 vertical-alignment: center;
@@ -97,7 +97,7 @@ export component ListItem {
             y: (parent.height - self.height) / 2;
             width: 3px;
             height: 0px;
-            background: FluentPalette.accent;
+            background: FluentPalette.accent-background;
             border-radius: 2px;
 
             animate height { duration: 150ms; easing: ease-out; }

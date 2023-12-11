@@ -32,7 +32,7 @@ export component Switch {
     states [
         disabled-selected when !root.enabled && root.checked  : {
             i-label.opacity: 0.38;
-            i-label.color: MaterialPalette.accent;
+            i-label.color: MaterialPalette.accent-background;
             track.opacity: 0.12;
             i-handle.opacity: 0.38;
             i-handle.width: 24px;
@@ -40,55 +40,55 @@ export component Switch {
         }
         disabled when !root.enabled : {
             i-label.opacity: 0.38;
-            i-label.color: MaterialPalette.accent;
+            i-label.color: MaterialPalette.accent-background;
             track.opacity: 0.12;
             i-handle.opacity: 0.38;
         }
         pressed when i-touch-area.pressed && !root.checked : {
             state-layer.opacity: 0.12;
-            i-handle.background: MaterialPalette.on-surface-variant;
+            i-handle.background: MaterialPalette.control-foreground-variant;
             i-handle.width: 28px;
             i-handle.x: track.border-width;
         }
         pressed-selected when i-touch-area.pressed && root.checked : {
             state-layer.opacity: 0.12;
-            state-layer.background: MaterialPalette.on-surface;
-            track.background: MaterialPalette.accent;
-            track.border-color: MaterialPalette.accent;
+            state-layer.background: MaterialPalette.control-foreground;
+            track.background: MaterialPalette.accent-background;
+            track.border-color: MaterialPalette.accent-background;
             i-handle.background: MaterialPalette.accent-container;
             i-handle.width: 28px;
             i-handle.x: track.width - 28px - 4px;
         }
         hover-selected when i-touch-area.has-hover && root.checked : {
             state-layer.opacity: 0.08;
-            track.background: MaterialPalette.accent;
-            track.border-color: MaterialPalette.accent;
+            track.background: MaterialPalette.accent-background;
+            track.border-color: MaterialPalette.accent-background;
             i-handle.background: MaterialPalette.accent-container;
             i-handle.width: 24px;
             i-handle.x: track.width - 24px - 4px;
         }
         hover when i-touch-area.has-hover && !root.checked : {
-            state-layer.background: MaterialPalette.on-surface;
+            state-layer.background: MaterialPalette.control-foreground;
             state-layer.opacity: 0.08;
-            i-handle.background: MaterialPalette.on-surface-variant;
+            i-handle.background: MaterialPalette.control-foreground-variant;
         }
         selected when !i-touch-area.has-hover && root.checked : {
-            track.background: MaterialPalette.accent;
-            track.border-color: MaterialPalette.accent;
+            track.background: MaterialPalette.accent-background;
+            track.border-color: MaterialPalette.accent-background;
             i-handle.background: MaterialPalette.accent-container;
             i-handle.width: 24px;
             i-handle.x: track.width - 24px - 4px;
         }
         focused-selected when i-focus-scope.has-focus && root.checked : {
             state-layer.opacity: 0.12;
-            track.background: MaterialPalette.accent;
-            track.border-color: MaterialPalette.accent;
+            track.background: MaterialPalette.accent-background;
+            track.border-color: MaterialPalette.accent-background;
             i-handle.background: MaterialPalette.accent-container;
             i-handle.width: 24px;
             i-handle.x: track.width - 24px - 4px;
         }
         focused when i-focus-scope.has-focus && !root.checked : {
-            state-layer.background: MaterialPalette.on-surface;
+            state-layer.background: MaterialPalette.control-foreground;
             state-layer.opacity: 0.12;
         }
     ]
@@ -107,7 +107,7 @@ export component Switch {
                     border-radius: 16px;
                     border-width: 2px;
                     border-color: MaterialPalette.border;
-                    background: MaterialPalette.surface-variant;
+                    background: MaterialPalette.control-background-variant;
                 }
 
                 i-handle := Rectangle {
@@ -124,7 +124,7 @@ export component Switch {
                         x: (parent.width - self.width) / 2;
                         y: (parent.height - self.height) / 2;
                         opacity: 0;
-                        background: MaterialPalette.accent;
+                        background: MaterialPalette.accent-background;
                         border-radius: 20px;
 
                         animate opacity { duration: 300ms; easing: ease; }
@@ -137,7 +137,7 @@ export component Switch {
             }
 
             i-label := Text {
-                color: MaterialPalette.on-surface;
+                color: MaterialPalette.control-foreground;
                 horizontal-alignment: left;
                 vertical-alignment: center;
                 vertical-stretch: 0;

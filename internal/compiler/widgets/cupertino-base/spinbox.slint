@@ -11,8 +11,8 @@ component SpinBoxButton {
 
     callback clicked <=> i-touch-area.clicked;
 
-    private property <brush> background: CupertinoPalette.accent;
-    private property <brush> icon-color: CupertinoPalette.on-accent;
+    private property <brush> background: CupertinoPalette.accent-background;
+    private property <brush> icon-color: CupertinoPalette.accent-foreground;
 
     min-width: 16px;
     horizontal-stretch: 0;
@@ -23,7 +23,7 @@ component SpinBoxButton {
             icon-color: CupertinoPalette.foreground-secondary;
         }
         pressed when i-touch-area.pressed : {
-            root.background: CupertinoPalette.accent-secondary;
+            root.background: CupertinoPalette.secondary-accent-background;
         }
     ]
 
@@ -88,7 +88,7 @@ export component SpinBox {
 
     callback edited(int /* value */);
 
-    private property <brush> background: CupertinoPalette.surface;
+    private property <brush> background: CupertinoPalette.control-background;
 
     min-width: 128px;
     min-height: max(22px, i-layout.min-height);
@@ -103,7 +103,7 @@ export component SpinBox {
     states [
         disabled when !root.enabled : {
             i-base.color: CupertinoPalette.foreground-secondary;
-            root.background: CupertinoPalette.surface-tertiary;
+            root.background: CupertinoPalette.tertiary-control-background;
         }
     ]
 
@@ -149,7 +149,7 @@ export component SpinBox {
                 color: CupertinoPalette.foreground;
                 font-size: CupertinoFontSettings.body.font-size;
                 font-weight: CupertinoFontSettings.body.font-weight;
-                selection-background-color: CupertinoPalette.accent-quaternary;
+                selection-background-color: CupertinoPalette.selection-background;
                 selection-foreground-color: self.color;
             }
         }

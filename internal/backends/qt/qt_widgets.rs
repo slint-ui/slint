@@ -321,5 +321,8 @@ pub use tabwidget::*;
 mod stylemetrics;
 pub use stylemetrics::*;
 
+mod palette;
+pub use palette::*;
+
 mod tableheadersection;
 pub use tableheadersection::*;

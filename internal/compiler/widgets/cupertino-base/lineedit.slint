@@ -48,10 +48,10 @@ export component LineEdit {
         disabled when !root.enabled : {
             i-base.text-color: CupertinoPalette.foreground-secondary;
             i-base.placeholder-color: CupertinoPalette.foreground-secondary;
-            i-background.background: CupertinoPalette.surface-tertiary;
+            i-background.background: CupertinoPalette.tertiary-control-background;
         }
         focused when root.has-focus : {
-            i-background.background: CupertinoPalette.surface;
+            i-background.background: CupertinoPalette.control-background;
         }
     ]
 
@@ -64,7 +64,7 @@ export component LineEdit {
     }
 
     i-background := Rectangle {
-        background: CupertinoPalette.background-alt;
+        background: CupertinoPalette.alternate-background;
         border-color: CupertinoPalette.border;
         border-width: 1px;
     }
@@ -76,8 +76,8 @@ export component LineEdit {
         i-base := LineEditBase {
             font-size: CupertinoFontSettings.body.font-size;
             font-weight: CupertinoFontSettings.body.font-weight;
-            selection-background-color: CupertinoPalette.accent-quaternary;
-            selection-foreground-color: self.text-color;
+            selection-background-color: CupertinoPalette.selection-background;
+            selection-foreground-color: CupertinoPalette.selection-foreground;
             text-color: CupertinoPalette.foreground;
             margin: i-layout.padding-left + i-layout.padding-right;
             placeholder-color: CupertinoPalette.foreground-secondary;

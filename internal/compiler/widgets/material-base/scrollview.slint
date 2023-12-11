@@ -14,7 +14,7 @@ component ScrollBar inherits Rectangle {
 
     states [
         disabled when !i-touch-area.enabled : {
-            i-background.border-color: MaterialPalette.on-surface;
+            i-background.border-color: MaterialPalette.control-foreground;
             i-handle.opacity: 0.12;
         }
         hover when i-touch-area.has-hover : {
@@ -28,7 +28,7 @@ component ScrollBar inherits Rectangle {
     i-state-layer := Rectangle {
         width: 100%;
         height: 100%;
-        background: MaterialPalette.accent;
+        background: MaterialPalette.accent-background;
         border-radius: 4px;
         opacity: 0;
         visible: i-handle.width > 0 && i-handle.height > 0;
@@ -104,7 +104,7 @@ export component ScrollView {
     preferred-width: 100%;
 
     Rectangle {
-        background: MaterialPalette.background-alt;
+        background: MaterialPalette.alternate-background;
     }
 
     i-flickable := Flickable {

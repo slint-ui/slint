@@ -12,8 +12,8 @@ export component CheckBox {
 
     callback toggled;
 
-    private property <brush> background: checked && root.enabled ? CupertinoPalette.accent : CupertinoPalette.surface;
-    private property <brush> icon-color: CupertinoPalette.on-accent;
+    private property <brush> background: checked && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.control-background;
+    private property <brush> icon-color: CupertinoPalette.accent-foreground;
 
     min-height: max(16px, i-layout.min-height);
     accessible-checkable: true;
@@ -27,7 +27,7 @@ export component CheckBox {
             icon-color: CupertinoPalette.foreground;
         }
         pressed when i-touch-area.pressed : {
-            root.background: root.checked ? CupertinoPalette.accent-secondary : CupertinoPalette.surface-secondary;
+            root.background: root.checked ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
         }
     ]
 

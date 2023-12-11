@@ -12,7 +12,7 @@ export component Switch {
 
     callback toggled;
 
-    private property <brush> background: checked && root.enabled ? CupertinoPalette.accent : CupertinoPalette.surface-alt;
+    private property <brush> background: checked && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.alternate-control-background;
     private property <color> text-color: CupertinoPalette.foreground;
 
     function toggle-checked() {
@@ -39,10 +39,10 @@ export component Switch {
             root.opacity: 0.5;
         }
         pressed when i-touch-area.pressed : {
-            root.background: root.checked ? CupertinoPalette.accent-secondary : CupertinoPalette.surface-secondary;
+            root.background: root.checked ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
         }
         selected when root.checked : {
-            i-rail.background: CupertinoPalette.accent;
+            i-rail.background: CupertinoPalette.accent-background;
         }
     ]
 
@@ -79,7 +79,7 @@ export component Switch {
                     height: parent.height - 2px;
                     width: self.height;
                     border-radius: self.height / 2;
-                    background: CupertinoPalette.surface-thumb;
+                    background: CupertinoPalette.control-background-thumb;
                     drop-shadow-blur: 0.5px;
                     drop-shadow-offset-y: 0.25px;
                     drop-shadow-color: #0000001F;

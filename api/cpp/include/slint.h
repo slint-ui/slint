@@ -1241,6 +1241,16 @@ cbindgen_private::NativeStyleMetrics::~NativeStyleMetrics()
 {
     slint_native_style_metrics_deinit(this);
 }
+
+cbindgen_private::NativePalette::NativePalette(void *)
+{
+    slint_native_palette_init(this);
+}
+
+cbindgen_private::NativePalette::~NativePalette()
+{
+    slint_native_palette_deinit(this);
+}
 #endif // !defined(DOXYGEN)
 
 namespace private_api {

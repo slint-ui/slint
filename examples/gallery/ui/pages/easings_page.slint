@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 import { Page } from "page.slint";
-import { Button, HorizontalBox, Slider, ScrollView } from "std-widgets.slint";
+import { Button, HorizontalBox, Slider, ScrollView, Palette } from "std-widgets.slint";
 
 component EaseTest {
-
     in property <string> label: "None";
     in property <easing> easing: linear;
     in property <int> duration: 1000;
@@ -17,6 +16,7 @@ component EaseTest {
             ball.x = 0;
         }
     }
+
     HorizontalLayout {
         padding: 10px;
         spacing: 10px;
@@ -29,18 +29,20 @@ component EaseTest {
 
         VerticalLayout {
             alignment: center;
+
             container := Rectangle {
                 horizontal-stretch: 1;
                 height: 4px;
                 border-radius: 2px;
-                background: grey;
+                background: Palette.control-background;
 
                 ball := Rectangle {
                     x: 0px;
                     width: 16px;
                     height: 16px;
                     border-radius: 5px;
-                    background: blue;
+                    background: Palette.accent-background;
+
                     animate x { duration: duration * 1ms; easing: easing; }
                 }
             }

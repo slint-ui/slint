@@ -40,14 +40,14 @@ export component LineEdit {
 
     states [
         disabled when !root.enabled : {
-            i-background.border-color: MaterialPalette.on-surface;
+            i-background.border-color: MaterialPalette.control-foreground;
             i-background.opacity: 0.38;
             i-base.opacity: 0.38;
         }
         focused when root.has-focus : {
             i-background.border-width: 2px;
-            i-background.border-color: MaterialPalette.accent;
-            i-base.text-color: MaterialPalette.accent;
+            i-background.border-color: MaterialPalette.accent-background;
+            i-base.text-color: MaterialPalette.accent-background;
         }
     ]
 
@@ -67,10 +67,10 @@ export component LineEdit {
             text-color: MaterialPalette.foreground;
             font-size: MaterialFontSettings.body-large.font-size;
             font-weight: MaterialFontSettings.body-large.font-weight;
-            selection-foreground-color: MaterialPalette.accent;
+            selection-foreground-color: MaterialPalette.selection-foreground;
             margin: i-layout.padding-left + i-layout.padding-right;
             placeholder-color: MaterialPalette.border-variant;
-            selection-background-color: MaterialPalette.selection;
+            selection-background-color: MaterialPalette.selection-background;
         }
     }
 }

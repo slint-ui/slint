@@ -10,7 +10,7 @@ export component GroupBox {
 
     states [
         disabled when !root.enabled : {
-            i-background.border-color: MaterialPalette.on-surface;
+            i-background.border-color: MaterialPalette.control-foreground;
             i-background.opacity: 0.38;
             i-text.opacity: 0.38;
         }
@@ -20,7 +20,7 @@ export component GroupBox {
         spacing: 4px;
 
         i-text := Text {
-            color: MaterialPalette.on-surface;
+            color: MaterialPalette.control-foreground;
             // FIXME after Roboto font can be loaded
             //font-family: MaterialFontSettings.body-small.font;
             font-size: MaterialFontSettings.body-large.font-size;
@@ -34,7 +34,7 @@ export component GroupBox {
             border-width: 1px;
             border-color: MaterialPalette.border;
             vertical-stretch: 1;
-            background: MaterialPalette.background-alt;
+            background: MaterialPalette.alternate-background;
 
             HorizontalLayout {
                 padding: 16px;
