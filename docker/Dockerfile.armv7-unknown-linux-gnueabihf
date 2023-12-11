@@ -7,8 +7,8 @@ FROM ghcr.io/slint-ui/cross-armv7-base:1.0
 
 RUN dpkg --add-architecture armhf && \
     apt-get update && \
-    apt-get install --assume-yes libfontconfig1-dev:armhf libxcb1-dev:armhf libxcb-render0-dev:armhf libxcb-shape0-dev:armhf libxcb-xfixes0-dev:armhf libxkbcommon-dev:armhf python3 \
-                                 libfontconfig1-dev \
-                                 clang libstdc++-10-dev:armhf
+    apt-get install --assume-yes libfontconfig1-dev:armhf libxcb1-dev:armhf libxcb-render0-dev:armhf libxcb-shape0-dev:armhf libxcb-xfixes0-dev:armhf libxkbcommon-dev:armhf libinput-dev:armhf python3 \
+    libfontconfig1-dev \
+    clang libstdc++-10-dev:armhf
 
 ENV PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig
