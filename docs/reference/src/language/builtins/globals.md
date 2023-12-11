@@ -8,7 +8,7 @@ the selected style e.g. fluent, cupertino, material, or qt.
 
 ### Properties
 
--   **`background`** (_out_ _brush_): Defines the default background brush.
+-   **`background`** (_out_ _brush_): Defines the default background brush. Use this if none of the more specialised background brushes apply.
 -   **`foreground`** (_out_ _brush_): Defines the foreground brush that is used for content that is displayed on `background` brush.
 -   **`control-background`** (_out_ _brush_): Defines the default background brush for widgets.
 -   **`control-foreground`** (_out_ _brush_): Defines the foreground brush that is used for content that is displayed on `control-background` brush.
