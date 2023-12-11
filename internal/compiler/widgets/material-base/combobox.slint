@@ -23,16 +23,16 @@ export component ComboBox {
 
     states [
         disabled when !root.enabled : {
-            i-background.border-color: MaterialPalette.on-surface;
+            i-background.border-color: MaterialPalette.control-foreground;
             i-background.opacity: 0.38;
             i-label.opacity: 0.38;
             i-icon.opacity: 0.38;
         }
         focused when root.has-focus : {
             i-background.border-width: 2px;
-            i-background.border-color: MaterialPalette.accent;
-            i-label.color: MaterialPalette.accent;
-            i-icon.colorize: MaterialPalette.accent;
+            i-background.border-color: MaterialPalette.accent-background;
+            i-label.color: MaterialPalette.accent-background;
+            i-icon.colorize: MaterialPalette.accent-background;
         }
     ]
 
@@ -60,7 +60,7 @@ export component ComboBox {
 
         i-label := Text {
             text <=> root.current-value;
-            color: MaterialPalette.on-surface;
+            color: MaterialPalette.control-foreground;
             vertical-alignment: center;
             // FIXME after Roboto font can be loaded
             // font-family: MaterialFontSettings.body-large.font;
@@ -73,7 +73,7 @@ export component ComboBox {
             height: 24px;
             y: (parent.height - self.height) / 2;
             source: Icons.expand-more;
-            colorize: MaterialPalette.on-surface;
+            colorize: MaterialPalette.control-foreground;
         }
     }
 
@@ -83,7 +83,7 @@ export component ComboBox {
         width: root.width;
 
         i-popup-container := Rectangle {
-            background: MaterialPalette.background-alt;
+            background: MaterialPalette.alternate-background;
             drop-shadow-color: MaterialPalette.shadow;
             drop-shadow-blur: Elevation.level2;
             drop-shadow-offset-y: 1px;

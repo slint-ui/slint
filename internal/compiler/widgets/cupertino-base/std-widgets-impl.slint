@@ -19,22 +19,22 @@ export global StyleMetrics  {
     out property <length> layout-padding: 12px;
     out property <length> text-cursor-width: 1px;
     out property <color> window-background: CupertinoPalette.background;
-    out property <color> default-text-color: CupertinoPalette.on-background;
-    out property <color> textedit-background: CupertinoPalette.background-alt;
-    out property <color> textedit-text-color: CupertinoPalette.on-background;
-    out property <color> textedit-background-disabled: CupertinoPalette.surface-tertiary;
+    out property <color> default-text-color: CupertinoPalette.foreground;
+    out property <color> textedit-background: CupertinoPalette.alternate-background;
+    out property <color> textedit-text-color: CupertinoPalette.foreground;
+    out property <color> textedit-background-disabled: CupertinoPalette.tertiary-control-background;
     out property <color> textedit-text-color-disabled: CupertinoPalette.foreground-secondary;
     out property <bool> dark-color-scheme: CupertinoPalette.dark-color-scheme;
 }
 
 export global Palette {
     out property <brush> background: CupertinoPalette.background;
-    out property <brush> background-alt: CupertinoPalette.background-alt;
-    out property <brush> on-background: CupertinoPalette.on-background;
-    out property <brush> accent: CupertinoPalette.accent;
-    out property <brush> on-accent: CupertinoPalette.on-accent;
-    out property <brush> surface: CupertinoPalette.surface;
-    out property <brush> on-surface: CupertinoPalette.on-surface;
+    out property <brush> alternate-background: CupertinoPalette.alternate-background;
+    out property <brush> foreground: CupertinoPalette.foreground;
+    out property <brush> accent-background: CupertinoPalette.accent-background;
+    out property <brush> accent-foreground: CupertinoPalette.accent-foreground;
+    out property <brush> control-background: CupertinoPalette.control-background;
+    out property <brush> control-foreground: CupertinoPalette.control-foreground;
     out property <brush> border: CupertinoPalette.border;
-    out property <brush> selection: CupertinoPalette.selection;
+    out property <brush> selection-background: CupertinoPalette.selection-background;
 }

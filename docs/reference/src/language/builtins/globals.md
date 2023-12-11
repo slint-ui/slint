@@ -8,15 +8,14 @@ the selected style e.g. fluent, cupertino, material or qt.
 
 ### Properties
 
--   **`background`** (_out_ _brush_): Defines the background of the window.
--   **`on-background`** (_out_ _brush_): Defines the text color used on `background`.
--   **`accent`** (_out_ _brush_): Defines the color of highlighted elements e.g. a primary button.
--   **`on-accent`** (_out_ _brush_): Defines the text color used on `accent`.
--   **`surface`** (_out_ _brush_): Defines the main widget background color e.g. for button.
--   **`on-surface`** (_out_ _brush_): Defines the text color used on `surface`.
--   **`border`** (_out_ _brush_): Defines the border color of widgets.
--   **`selection`** (_out_ _brush_): Defines the text selection color.
-
+-   **`background`** (_out_ _brush_): Defines the default background brush.
+-   **`foreground`** (_out_ _brush_): Defines the foreground brush that is used for content that is displayed on `background` brush.
+-   **`control-background`** (_out_ _brush_): Defines the default background brush for widgets.
+-   **`control-foreground`** (_out_ _brush_): Defines the foreground brush that is used for content that is displayed on `control-background` brush.
+-   **`accent-background`** (_out_ _brush_): Defines the background brush for highlighted widgets such as primary buttons.
+-   **`accent-foreground`** (_out_ _brush_): Defines the foreground brush that is used for content that is displayed on `accent-background` brush.
+-   **`selection`** (_out_ _brush_): Defines the background brush that is used to highlight a selection such as a text selection.
+-   **`border`** (_out_ _brush_): Defines the brush that is used for border such as separators and widget borders.
 
 ### Example
 
@@ -27,11 +26,11 @@ export component MyCustomWidget {
     in property <string> text <=> label.text;
 
     Rectangle {
-        background: Palette.surface;
+        background: Palette.control-background;
 
         HorizontalBox {
             label := Text {
-                color: Palette.on-surface;
+                color: Palette.control-foreground;
             }
         }
     }

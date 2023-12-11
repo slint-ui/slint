@@ -14,7 +14,7 @@ export component ComboBox {
 
     callback selected <=> i-base.selected;
 
-    private property <brush> background: CupertinoPalette.surface;
+    private property <brush> background: CupertinoPalette.control-background;
 
     min-width: max(160px, i-layout.min-width);
     min-height: max(22px, i-layout.min-height);
@@ -27,10 +27,10 @@ export component ComboBox {
             i-text.color: CupertinoPalette.foreground-secondary;
             i-top-icon.colorize: CupertinoPalette.foreground-secondary;
             i-bottom-icon.colorize: CupertinoPalette.foreground-secondary;
-            root.background: CupertinoPalette.surface-tertiary;
+            root.background: CupertinoPalette.tertiary-control-background;
         }
         pressed when i-base.pressed : {
-            root.background: CupertinoPalette.surface-secondary;
+            root.background: CupertinoPalette.secondary-control-background;
         }
     ]
 
@@ -83,7 +83,7 @@ export component ComboBox {
             vertical-alignment: center;
             font-size: CupertinoFontSettings.body.font-size;
             font-weight: CupertinoFontSettings.body.font-weight;
-            color: CupertinoPalette.on-background;
+            color: CupertinoPalette.foreground;
             text: root.current-value;
         }
 
@@ -99,7 +99,7 @@ export component ComboBox {
                 drop-shadow-color: #00000066;
                 drop-shadow-offset-y: 0.5px;
                 border-radius: 4px;
-                background: CupertinoPalette.accent;
+                background: CupertinoPalette.accent-background;
 
                 Rectangle {
                     drop-shadow-blur: 2px;
@@ -130,13 +130,13 @@ export component ComboBox {
 
                 i-top-icon := Image {
                     x: (parent.width - self.width) / 2;
-                    colorize: CupertinoPalette.on-accent;
+                    colorize: CupertinoPalette.accent-foreground;
                     source: Icons.chevron-up;
                 }
 
                 i-bottom-icon := Image {
                     x: (parent.width - self.width) / 2;
-                    colorize: CupertinoPalette.on-accent;
+                    colorize: CupertinoPalette.accent-foreground;
                     source: Icons.chevron-down;
                 }
             }

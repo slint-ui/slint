@@ -6,7 +6,7 @@ import { CupertinoPalette, CupertinoFontSettings, Icons } from "styling.slint";
 export component FocusBorder inherits Rectangle {
     in property <bool> has-focus;
 
-    background: CupertinoPalette.accent-tertiary;
+    background: CupertinoPalette.tertiary-accent-background;
     opacity: 0;
 
     animate opacity { duration: 150ms; }
@@ -61,12 +61,12 @@ export component ListItem {
 
     states [
         has-focus when root.has-focus : {
-            i-background.background: CupertinoPalette.accent-tertiary;
+            i-background.background: CupertinoPalette.tertiary-accent-background;
         }
         hover when root.has-hover : {
-            i-background.background: CupertinoPalette.accent;
-            i-text.color: CupertinoPalette.on-surface;
-            i-icon.colorize: CupertinoPalette.on-surface;
+            i-background.background: CupertinoPalette.accent-background;
+            i-text.color: CupertinoPalette.control-foreground;
+            i-icon.colorize: CupertinoPalette.control-foreground;
         }
     ]
 
@@ -86,14 +86,14 @@ export component ListItem {
                 i-icon := Image {
                     image-fit: contain;
                     source: Icons.check-mark;
-                    colorize: CupertinoPalette.on-background;
+                    colorize: CupertinoPalette.foreground;
                     visible: root.is-selected;
                     width: 10px;
                 }
 
                 i-text := Text {
                     text: root.item.text;
-                    color: CupertinoPalette.on-background;
+                    color: CupertinoPalette.foreground;
                     font-size: CupertinoFontSettings.body.font-size;
                     font-weight: CupertinoFontSettings.body.font-weight;
                     vertical-alignment: center;

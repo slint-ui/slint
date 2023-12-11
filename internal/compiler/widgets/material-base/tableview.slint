@@ -12,8 +12,8 @@ component TableViewColumn inherits Rectangle {
     callback adjust-size(/* size */ length);
 
     i-state-layer := StateLayer {
-        background: MaterialPalette.accent;
-        selection-background: MaterialPalette.background-alt;
+        background: MaterialPalette.accent-background;
+        selectiforeground: MaterialPalette.alternate-background;
         ripple-color: MaterialPalette.accent-ripple;
         has-ripple: true;
     }
@@ -35,7 +35,7 @@ component TableViewColumn inherits Rectangle {
             source: root.sort-order == SortOrder.ascending ?
                 Icons.arrow-upward :
                 Icons.arrow-downward;
-            colorize: MaterialPalette.on-surface;
+            colorize: MaterialPalette.control-foreground;
         }
     }
 
@@ -100,8 +100,8 @@ component TableViewRow inherits Rectangle {
 
     i-state-layer := StateLayer {
         checked: root.selected;
-        background: MaterialPalette.accent;
-        selection-background: MaterialPalette.surface;
+        background: MaterialPalette.accent-background;
+        selectiforeground: MaterialPalette.control-background;
         ripple-color: MaterialPalette.accent-ripple;
         has-ripple: true;
     }

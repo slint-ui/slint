@@ -23,46 +23,46 @@ export component CheckBox {
         disabled-selected when !root.enabled && root.checked  : {
             i-container.border-width: 0px;
             i-container.border-color: transparent;
-            i-container.background: MaterialPalette.accent;
+            i-container.background: MaterialPalette.accent-background;
             i-container.opacity: 0.38;
             i-text.opacity: 0.38;
-            i-text.color: MaterialPalette.accent;
+            i-text.color: MaterialPalette.accent-background;
         }
         disabled when !root.enabled : {
             i-container.opacity: 0.38;
             i-text.opacity: 0.38;
-            i-text.color: MaterialPalette.accent;
+            i-text.color: MaterialPalette.accent-background;
         }
         pressed when i-touch-area.pressed && !root.checked : {
             i-state-layer.opacity: 0.12;
         }
         pressed-selected when i-touch-area.pressed && root.checked : {
             i-state-layer.opacity: 0.12;
-            i-state-layer.background: MaterialPalette.on-surface;
+            i-state-layer.background: MaterialPalette.control-foreground;
             i-container.border-width: 0px;
             i-container.border-color: transparent;
-            i-container.background: MaterialPalette.accent;
+            i-container.background: MaterialPalette.accent-background;
         }
         hover-selected when i-touch-area.has-hover && root.checked : {
             i-state-layer.opacity: 0.08;
             i-container.border-width: 0px;
             i-container.border-color: transparent;
-            i-container.background: MaterialPalette.accent;
+            i-container.background: MaterialPalette.accent-background;
         }
         hover when i-touch-area.has-hover && !root.checked : {
-            i-state-layer.background: MaterialPalette.on-surface;
+            i-state-layer.background: MaterialPalette.control-foreground;
             i-state-layer.opacity: 0.08;
         }
         selected when !i-touch-area.has-hover && root.checked : {
             i-container.border-width: 0px;
             i-container.border-color: transparent;
-            i-container.background: MaterialPalette.accent;
+            i-container.background: MaterialPalette.accent-background;
         }
         focused-selected when i-focus-scope.has-focus && root.checked : {
             i-state-layer.opacity: 0.12;
         }
         focused when i-focus-scope.has-focus && !root.checked : {
-            i-state-layer.background: MaterialPalette.on-surface;
+            i-state-layer.background: MaterialPalette.control-foreground;
             i-state-layer.opacity: 0.12;
         }
     ]
@@ -82,7 +82,7 @@ export component CheckBox {
                     height: 100%;
                     border-radius: 2px;
                     border-width: 2px;
-                    border-color: MaterialPalette.on-surface-variant;
+                    border-color: MaterialPalette.control-foreground-variant;
                 }
 
                 i-state-layer := Rectangle {
@@ -91,7 +91,7 @@ export component CheckBox {
                     x: (parent.width - self.width) / 2;
                     y: (parent.height - self.height) / 2;
                     opacity: 0;
-                    background: MaterialPalette.accent;
+                    background: MaterialPalette.accent-background;
                     border-radius: 20px;
 
                     animate opacity { duration: 300ms; easing: ease; }
@@ -103,14 +103,14 @@ export component CheckBox {
                     width: 80%;
                     height: 80%;
                     source: Icons.check-mark;
-                    colorize: MaterialPalette.on-accent;
+                    colorize: MaterialPalette.accent-foreground;
 
                     states [
                         disabled when !root.enabled : {
-                            colorize: MaterialPalette.on-surface;
+                            colorize: MaterialPalette.control-foreground;
                         }
                         hover-selected when i-touch-area.has-hover && root.checked : {
-                            colorize: MaterialPalette.on-accent;
+                            colorize: MaterialPalette.accent-foreground;
                         }
                     ]
                 }
@@ -118,7 +118,7 @@ export component CheckBox {
         }
 
         i-text := Text {
-            color: MaterialPalette.on-surface;
+            color: MaterialPalette.control-foreground;
             horizontal-alignment: left;
             vertical-alignment: center;
             vertical-stretch: 1;

@@ -16,8 +16,8 @@ export component Button {
 
     callback clicked;
 
-    private property <brush> background: primary && root.enabled ? CupertinoPalette.accent : CupertinoPalette.surface;
-    private property <brush> text-color: primary && root.enabled ? CupertinoPalette.on-accent : CupertinoPalette.on-surface;
+    private property <brush> background: primary && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.control-background;
+    private property <brush> text-color: primary && root.enabled ? CupertinoPalette.accent-foreground : CupertinoPalette.control-foreground;
 
     min-width: max(20px, i-layout.min-width);
     min-height: max(20px, i-layout.min-height);
@@ -30,13 +30,13 @@ export component Button {
     states [
         disabled when !i-touch-area.enabled : {
             root.text-color: CupertinoPalette.foreground-secondary;
-            root.background: CupertinoPalette.surface-quaternary;
+            root.background: CupertinoPalette.quaternary-control-background;
         }
         pressed when root.pressed : {
-            root.background: root.primary ? CupertinoPalette.accent-secondary : CupertinoPalette.surface-secondary;
+            root.background: root.primary ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
         }
         checked when root.checked : {
-            root.text-color: CupertinoPalette.accent-secondary;
+            root.text-color: CupertinoPalette.secondary-accent-background;
         }
     ]
 

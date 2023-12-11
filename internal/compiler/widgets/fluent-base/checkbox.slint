@@ -24,19 +24,19 @@ export component CheckBox {
         disabled when !root.enabled : {
             i-border.border-color: FluentPalette.control-strong-stroke-disabled;
             i-background.background: root.checked ? FluentPalette.accent-disabled : FluentPalette.control-alt-disabled;
-            i-icon.colorize: FluentPalette.text-on-accent-disabled;
+            i-icon.colorize: FluentPalette.text-accent-foreground-disabled;
             root.text-color: FluentPalette.text-disabled;
         }
         pressed when i-touch-area.pressed : {
             i-border.border-color: FluentPalette.control-strong-stroke-disabled;
-            i-background.background: root.checked ? FluentPalette.accent-tertiary : FluentPalette.control-alt-quartiary;
-            i-icon.colorize: FluentPalette.text-on-accent-secondary;
+            i-background.background: root.checked ? FluentPalette.tertiary-accent-background : FluentPalette.control-alt-quartiary;
+            i-icon.colorize: FluentPalette.text-accent-foreground-secondary;
         }
         hover when i-touch-area.has-hover : {
-            i-background.background: root.checked ?  FluentPalette.accent-secondary : FluentPalette.control-alt-tertiary;
+            i-background.background: root.checked ?  FluentPalette.secondary-accent-background : FluentPalette.control-alt-tertiary;
         }
         checked when root.checked && root.enabled : {
-            i-background.background: FluentPalette.accent;
+            i-background.background: FluentPalette.accent-background;
         }
     ]
 
@@ -66,7 +66,7 @@ export component CheckBox {
                 image-fit: contain;
                 visible: root.checked;
                 source: Icons.check-mark;
-                colorize: FluentPalette.on-accent;
+                colorize: FluentPalette.accent-foreground;
                 width: 12px;
 
                 animate colorize { duration: 150ms; }

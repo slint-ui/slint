@@ -14,11 +14,11 @@ export component ProgressIndicator {
     accessible-value: root.progress;
 
     i-background := Rectangle {
-        background: MaterialPalette.surface-variant;
+        background: MaterialPalette.control-background-variant;
         clip: true;
 
         i-track := Rectangle {
-            background: MaterialPalette.accent;
+            background: MaterialPalette.accent-background;
             x: !root.indeterminate ? 0px : -parent.width + (parent.width * mod(animation-tick(), 2s) / 1s);
             y: (parent.height - self.height) / 2;
             width: !root.indeterminate ?  parent.width * min(1, max(0, root.progress)) : parent.width;

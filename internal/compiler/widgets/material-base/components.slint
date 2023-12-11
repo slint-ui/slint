@@ -31,7 +31,7 @@ export component Ripple inherits Rectangle {
 // A touch area that also represents a visual state.
 export component StateLayer inherits TouchArea {
     in property <bool> focusable;
-    in property <brush> selection-background;
+    in property <brush> selectiforeground;
     in property <brush> ripple-color;
     in property <bool> has-ripple;
     in property <length> border-radius;
@@ -47,7 +47,7 @@ export component StateLayer inherits TouchArea {
         }
         checked when root.checked: {
             i-ripple.opacity: 1.0;
-            i-ripple.background: root.selection-background;
+            i-ripple.background: root.selectiforeground;
         }
         hover when root.has-hover: {
             i-ripple.opacity: 0.08;
@@ -111,7 +111,7 @@ export component ListItem {
         }
         checked when root.is-selected: {
             i-ripple.opacity: 1.0;
-            i-ripple.background: MaterialPalette.surface;
+            i-ripple.background: MaterialPalette.control-background;
         }
         hover when root.has-hover: {
             i-ripple.opacity: 0.08;
@@ -128,7 +128,7 @@ export component ListItem {
         ripple-y: root.pressed-y;
         clip: true;
         border-radius: 4px;
-        background: MaterialPalette.accent;
+        background: MaterialPalette.accent-background;
         ripple-color: MaterialPalette.accent-ripple;
         has-effect: true;
 
@@ -139,7 +139,7 @@ export component ListItem {
     if (root.has-focus) : Rectangle {
         border-radius: 4px;
         border-width: 2px;
-        border-color: MaterialPalette.accent;
+        border-color: MaterialPalette.accent-background;
     }
 
     i-layout := HorizontalLayout {
@@ -148,7 +148,7 @@ export component ListItem {
 
         label := Text {
             text: root.item.text;
-            color: MaterialPalette.on-surface;
+            color: MaterialPalette.control-foreground;
             vertical-alignment: center;
             // FIXME after Roboto font can be loaded
             //font-family: MaterialFontSettings.label-large.font;

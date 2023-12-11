@@ -17,7 +17,7 @@ export component Button {
 
     callback clicked;
 
-    private property <brush> text-color: root.primary ? MaterialPalette.on-accent : MaterialPalette.on-surface;
+    private property <brush> text-color: root.primary ? MaterialPalette.accent-foreground : MaterialPalette.control-foreground;
     private property <float> text-opacity: 1.0;
 
     min-height: max(40px, i-layout.min-height);
@@ -28,13 +28,13 @@ export component Button {
 
     states [
         disabled when !root.enabled : {
-            i-background.background: MaterialPalette.on-background-alt;
+            i-background.background: MaterialPalette.foreground-alt;
             i-background.opacity: 0.12;
             root.text-opacity: 0.38;
-            root.text-color: MaterialPalette.on-surface;
+            root.text-color: MaterialPalette.control-foreground;
         }
         checked when root.checked: {
-            root.text-color: MaterialPalette.on-accent;
+            root.text-color: MaterialPalette.accent-foreground;
         }
     ]
 
@@ -42,7 +42,7 @@ export component Button {
         width: 100%;
         height: 100%;
         border-radius: 20px;
-        background: root.primary ? MaterialPalette.accent : MaterialPalette.surface;
+        background: root.primary ? MaterialPalette.accent-background : MaterialPalette.control-background;
         drop-shadow-color: transparent;
         drop-shadow-blur: Elevation.level0;
         drop-shadow-offset-y: 1px;
@@ -51,9 +51,9 @@ export component Button {
     i-state-layer := StateLayer {
         has-ripple: true;
         border-radius: i-background.border-radius;
-        background: MaterialPalette.on-background-alt;
+        background: MaterialPalette.foreground-alt;
         ripple-color: MaterialPalette.secondary-ripple;
-        selection-background: MaterialPalette.accent;
+        selectiforeground: MaterialPalette.accent-background;
         focusable: true;
 
         clicked => {

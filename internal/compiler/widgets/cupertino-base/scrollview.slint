@@ -20,8 +20,8 @@ export component ScrollBar inherits Rectangle {
 
     states [
         hover when i-touch-area.has-hover : {
-            background: CupertinoPalette.on-background.with-alpha(0.2);
-            i-border.background: CupertinoPalette.on-background.with-alpha(0.2);
+            background: CupertinoPalette.foreground.with-alpha(0.2);
+            i-border.background: CupertinoPalette.foreground.with-alpha(0.2);
             pad: 4px;
         }
     ]
@@ -42,7 +42,7 @@ export component ScrollBar inherits Rectangle {
         x: !root.horizontal ? (parent.width - self.width) / 2 : root.offset + (root.track-size - i-thumb.width) * (-root.value / root.maximum);
         y: root.horizontal ? (parent.height - self.height) / 2 : root.offset + (root.track-size - i-thumb.height) * (-root.value / root.maximum);
         border-radius: (root.horizontal ? self.height : self.width) / 2;
-        background: CupertinoPalette.on-background;
+        background: CupertinoPalette.foreground;
         opacity: 0.6;
         border-width: 0.8px;
         border-color: CupertinoPalette.foreground-neg;

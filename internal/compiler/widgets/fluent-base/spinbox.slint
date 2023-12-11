@@ -57,18 +57,18 @@ export component SpinBox {
             i-background.background: FluentPalette.control-disabled;
             i-background.border-color: FluentPalette.border;
             i-base.color: FluentPalette.text-disabled;
-            i-base.selection-foreground-color: FluentPalette.text-on-accent-disabled;
+            i-base.selection-foreground-color: FluentPalette.text-accent-foreground-disabled;
         }
         focused when root.has-focus : {
             i-background.background: FluentPalette.control-input-active;
             i-background.border-color: FluentPalette.border;
-            i-focus-border.background: FluentPalette.accent;
+            i-focus-border.background: FluentPalette.accent-background;
         }
     ]
 
     i-background := Rectangle {
         border-radius: 4px;
-        background: FluentPalette.surface;
+        background: FluentPalette.control-background;
         border-width: 1px;
         border-color: FluentPalette.text-control-border;
 
@@ -85,11 +85,11 @@ export component SpinBox {
 
                 i-base := SpinBoxBase {
                     width: 100%;
-                    color: FluentPalette.on-surface;
+                    color: FluentPalette.control-foreground;
                     font-size: FluentFontSettings.body.font-size;
                     font-weight: FluentFontSettings.body.font-weight;
-                    selection-background-color: FluentPalette.selection;
-                    selection-foreground-color: FluentPalette.on-accent;
+                    selection-background-color: FluentPalette.selection-background;
+                    selection-foreground-color: FluentPalette.accent-foreground;
                 }
             }
 

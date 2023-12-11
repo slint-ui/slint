@@ -33,12 +33,12 @@ export component Slider {
         }
         pressed when ( i-touch-area.pressed &&  i-touch-area.has-hover) || i-focus-scope.has-focus : {
             i-thumb-inner.width: 10px;
-            i-thumb-inner.background: FluentPalette.accent-tertiary;
+            i-thumb-inner.background: FluentPalette.tertiary-accent-background;
             i-thumb.border-color: FluentPalette.border;
         }
         hover when i-touch-area.has-hover : {
             i-thumb-inner.width: 14px;
-            i-thumb-inner.background: FluentPalette.accent-secondary;
+            i-thumb-inner.background: FluentPalette.secondary-accent-background;
         }
     ]
 
@@ -54,7 +54,7 @@ export component Slider {
         y: vertical ? 0 : (parent.height - self.height) / 2;
         width: vertical ? i-rail.width : i-thumb.x + (i-thumb.width / 2);
         height: vertical ? i-thumb.y + (i-thumb.height / 2) : i-rail.height;
-        background: FluentPalette.accent;
+        background: FluentPalette.accent-background;
         border-radius: i-rail.border-radius;
     }
 
@@ -80,7 +80,7 @@ export component Slider {
             width: 12px;
             height: self.width;
             border-radius: self.width / 2;
-            background: FluentPalette.accent;
+            background: FluentPalette.accent-background;
 
             animate background, width { duration: 150ms; }
         }

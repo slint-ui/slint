@@ -16,7 +16,7 @@ component EaseTest {
             ball.x = 0;
         }
     }
-    
+
     HorizontalLayout {
         padding: 10px;
         spacing: 10px;
@@ -34,14 +34,14 @@ component EaseTest {
                 horizontal-stretch: 1;
                 height: 4px;
                 border-radius: 2px;
-                background: Palette.surface;
+                background: Palette.control-background;
 
                 ball := Rectangle {
                     x: 0px;
                     width: 16px;
                     height: 16px;
                     border-radius: 5px;
-                    background: Palette.accent;
+                    background: Palette.accent-background;
 
                     animate x { duration: duration * 1ms; easing: easing; }
                 }

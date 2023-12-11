@@ -27,25 +27,25 @@ export global FluentPalette {
 
     // base palette
     out property <brush> background: dark-color-scheme ? #1C1C1C : #FAFAFA;
-    out property <brush> background-alt: dark-color-scheme ? #2C2C2C : #f0f0f0;
-    out property <brush> on-background: dark-color-scheme ? #FFFFFF : #000000E6;
-    out property <brush> accent: dark-color-scheme ? #60CDFF : #005FB8;
-    out property <brush> on-accent: dark-color-scheme ? #000000 : #FFFFFF;
-    out property <brush> surface: dark-color-scheme ? #FFFFFF0F : #FFFFFFB3;
-    out property <brush> on-surface: dark-color-scheme ? #FFFFFF : #000000E6;
+    out property <brush> foreground: dark-color-scheme ? #FFFFFF : #000000E6;
+    out property <brush> alternate-background: dark-color-scheme ? #2C2C2C : #f0f0f0;
+    out property <brush> control-background: dark-color-scheme ? #FFFFFF0F : #FFFFFFB3;
+    out property <brush> control-foreground: dark-color-scheme ? #FFFFFF : #000000E6;
+    out property <brush> accent-background: dark-color-scheme ? #60CDFF : #005FB8;
+    out property <brush> accent-foreground: dark-color-scheme ? #000000 : #FFFFFF;
+    out property <brush> selection-background: #0078D4;
     out property <brush> border: dark-color-scheme ? #FFFFFF14 : #00000073;
-    out property <brush> selection: #0078D4;
-    
+
     // additional palette
-    out property <brush> accent-secondary: dark-color-scheme ? #60CDFFE6 : #005FB8E6;
-    out property <brush> accent-tertiary: dark-color-scheme ? #60CDFFCC : #005FB8CC;
+    out property <brush> secondary-accent-background: dark-color-scheme ? #60CDFFE6 : #005FB8E6;
+    out property <brush> tertiary-accent-background: dark-color-scheme ? #60CDFFCC : #005FB8CC;
     out property <brush> accent-disabled: dark-color-scheme ? #FFFFFF29 : #00000038;
     out property <brush> accent-control-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF14 90.67%, #00000024 100%)
         : @linear-gradient(180deg, #FFFFFF14 90.67%, #00000066 100%);
     out property <brush> control-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF17 0%, #00000012 8.33%)
         : @linear-gradient(180deg, #0000000F 90.58%, #00000029 100%);
-    out property <brush> text-on-accent-secondary: dark-color-scheme ? #00000080 : #FFFFFFB3;
-    out property <brush> text-on-accent-disabled: dark-color-scheme ? #FFFFFF87 : #FFFFFF;
+    out property <brush> text-accent-foreground-secondary: dark-color-scheme ? #00000080 : #FFFFFFB3;
+    out property <brush> text-accent-foreground-disabled: dark-color-scheme ? #FFFFFF87 : #FFFFFF;
     out property <brush> text-secondary: dark-color-scheme ? #FFFFFFC9 : #00000099;
     out property <brush> text-tertiary: dark-color-scheme ? #FFFFFF8A : #00000073;
     out property <brush> text-disabled: dark-color-scheme ? #FFFFFF5E : #0000005E;
@@ -66,7 +66,7 @@ export global FluentPalette {
     out property <brush> control-input-active: dark-color-scheme ? #1E1E1EB3 : #FFFFFF;
     out property <brush> focus-stroke-inner: dark-color-scheme ? #000000B3 : #FFFFFF;
     out property <brush> focus-stroke-outer: dark-color-scheme ? #FFFFFF : #000000E6;
-    out property <brush> surface-stroke-flyout: dark-color-scheme ? #00000033 : #0000000F;
+    out property <brush> control-background-stroke-flyout: dark-color-scheme ? #00000033 : #0000000F;
     out property <brush> sub-title-secondary: dark-color-scheme ? #FFFFFF0F : #0000000A;
     out property <brush> sub-title-tertiary: dark-color-scheme ? #FFFFFF0A : #00000005;
     out property <brush> shadow: dark-color-scheme ? #00000042 : #00000024;

@@ -31,14 +31,14 @@ struct PaletteStyleChangeListener : QWidget {
 #[pin_drop]
 pub struct NativePalette {
     pub background: Property<Brush>,
-    pub background_alt: Property<Brush>,
-    pub on_background: Property<Brush>,
-    pub accent: Property<Brush>,
-    pub on_accent: Property<Brush>,
-    pub surface: Property<Brush>,
-    pub on_surface: Property<Brush>,
+    pub foreground: Property<Brush>,
+    pub alternate_background: Property<Brush>,
+    pub accent_background: Property<Brush>,
+    pub accent_foreground: Property<Brush>,
+    pub control_background: Property<Brush>,
+    pub control_foreground: Property<Brush>,
+    pub selection_background: Property<Brush>,
     pub border: Property<Brush>,
-    pub selection: Property<Brush>,
     pub style_change_listener: core::cell::Cell<*const u8>,
 }
 
@@ -52,14 +52,14 @@ impl NativePalette {
     pub fn new() -> Pin<Rc<Self>> {
         Rc::pin(NativePalette {
             background: Default::default(),
-            background_alt: Default::default(),
-            on_background: Default::default(),
-            accent: Default::default(),
-            on_accent: Default::default(),
-            surface: Default::default(),
-            on_surface: Default::default(),
+            alternate_background: Default::default(),
+            foreground: Default::default(),
+            accent_background: Default::default(),
+            accent_foreground: Default::default(),
+            control_background: Default::default(),
+            control_foreground: Default::default(),
             border: Default::default(),
-            selection: Default::default(),
+            selection_background: Default::default(),
             style_change_listener: core::cell::Cell::new(core::ptr::null()),
         })
     }
@@ -85,45 +85,45 @@ impl NativePalette {
         let background = Color::from_argb_encoded(background);
         self.background.set(Brush::from(background));
 
-        let background_alt = cpp!(unsafe[] -> u32 as "QRgb" {
+        let alternate_background = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::Base).rgba();
         });
-        let background_alt = Color::from_argb_encoded(background_alt);
-        self.background_alt.set(Brush::from(background_alt));
+        let alternate_background = Color::from_argb_encoded(alternate_background);
+        self.alternate_background.set(Brush::from(alternate_background));
 
-        let on_background = cpp!(unsafe[] -> u32 as "QRgb" {
+        let foreground = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::WindowText).rgba();
         });
-        let on_background = Color::from_argb_encoded(on_background);
-        self.on_background.set(Brush::from(on_background));
+        let foreground = Color::from_argb_encoded(foreground);
+        self.foreground.set(Brush::from(foreground));
 
-        let accent = cpp!(unsafe[] -> u32 as "QRgb" {
+        let accent_background = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::Link).rgba();
         });
-        let accent = Color::from_argb_encoded(accent);
-        self.accent.set(Brush::from(accent));
+        let accent_background = Color::from_argb_encoded(accent_background);
+        self.accent_background.set(Brush::from(accent_background));
 
-        let on_accent = cpp!(unsafe[] -> u32 as "QRgb" {
+        let accent_foreground = cpp!(unsafe[] -> u32 as "QRgb" {
             #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
                 return qApp->palette().color(QPalette::Accent).rgba();
             #else
                 return qApp->palette().color(QPalette::Highlight).rgba();
             #endif
         });
-        let on_accent = Color::from_argb_encoded(on_accent);
-        self.on_accent.set(Brush::from(on_accent));
+        let accent_foreground = Color::from_argb_encoded(accent_foreground);
+        self.accent_foreground.set(Brush::from(accent_foreground));
 
-        let surface = cpp!(unsafe[] -> u32 as "QRgb" {
+        let control_background = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::Button).rgba();
         });
-        let surface = Color::from_argb_encoded(surface);
-        self.surface.set(Brush::from(surface));
+        let control_background = Color::from_argb_encoded(control_background);
+        self.control_background.set(Brush::from(control_background));
 
-        let on_surface = cpp!(unsafe[] -> u32 as "QRgb" {
+        let control_foreground = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::ButtonText).rgba();
         });
-        let on_surface = Color::from_argb_encoded(on_surface);
-        self.on_surface.set(Brush::from(on_surface));
+        let control_foreground = Color::from_argb_encoded(control_foreground);
+        self.control_foreground.set(Brush::from(control_foreground));
 
         let border = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::Midlight).rgba();
@@ -131,11 +131,11 @@ impl NativePalette {
         let border = Color::from_argb_encoded(border);
         self.border.set(Brush::from(border));
 
-        let selection = cpp!(unsafe[] -> u32 as "QRgb" {
+        let selection_background = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::HighlightedText).rgba();
         });
-        let selection = Color::from_argb_encoded(selection);
-        self.selection.set(Brush::from(selection));
+        let selection_background = Color::from_argb_encoded(selection_background);
+        self.selection_background.set(Brush::from(selection_background));
 
         if self.style_change_listener.get().is_null() {
             self.style_change_listener.set(cpp!(unsafe [self as "void*"] -> *const u8 as "void*"{

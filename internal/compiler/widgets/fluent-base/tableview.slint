@@ -102,7 +102,7 @@ component TableViewRow inherits Rectangle {
     min-width: i-layout.min-width;
     min-height: max(34px, i-layout.min-height);
     border-radius: 4px;
-    background: root.even ? FluentPalette.surface : transparent;
+    background: root.even ? FluentPalette.control-background : transparent;
 
     states [
         pressed when i-touch-area.pressed : {
@@ -136,7 +136,7 @@ component TableViewRow inherits Rectangle {
         y: (parent.height - self.height) / 2;
         width: 3px;
         height: 0px;
-        background: FluentPalette.accent;
+        background: FluentPalette.accent-background;
         border-radius: 2px;
 
         animate height { duration: 150ms; easing: ease-out; }
@@ -270,7 +270,7 @@ export component StandardTableView {
                             text: cell.text;
                             font-weight: FluentFontSettings.body.font-weight;
                             font-size: FluentFontSettings.body.font-size;
-                            color: mod(idx, 2) == 0 ? FluentPalette.on-surface : FluentPalette.text-secondary;
+                            color: mod(idx, 2) == 0 ? FluentPalette.control-foreground : FluentPalette.text-secondary;
                         }
                     }
                 }

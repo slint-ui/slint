@@ -39,26 +39,26 @@ export component Switch {
             i-rail.border-color: FluentPalette.control-strong-stroke-disabled;
             i-thumb.background: FluentPalette.text-disabled;
             root.text-color: FluentPalette.text-disabled;
-            i-thumb.background: root.checked ? FluentPalette.text-on-accent-disabled : FluentPalette.text-secondary;
+            i-thumb.background: root.checked ? FluentPalette.text-accent-foreground-disabled : FluentPalette.text-secondary;
         }
         pressed when i-touch-area.pressed : {
-            i-rail.background: root.checked ? FluentPalette.accent-tertiary : FluentPalette.control-alt-quartiary;
+            i-rail.background: root.checked ? FluentPalette.tertiary-accent-background : FluentPalette.control-alt-quartiary;
             i-thumb.width: 17px;
             i-thumb.height: 14px;
             i-thumb.border-width: root.checked ? 1px : 0;
-            i-thumb.background: root.checked ? FluentPalette.on-accent : FluentPalette.text-secondary;
+            i-thumb.background: root.checked ? FluentPalette.accent-foreground : FluentPalette.text-secondary;
         }
         hover when i-touch-area.has-hover : {
-            i-rail.background:  root.checked ? FluentPalette.accent-secondary : FluentPalette.control-alt-tertiary;
+            i-rail.background:  root.checked ? FluentPalette.secondary-accent-background : FluentPalette.control-alt-tertiary;
             i-thumb.width: 14px;
             i-thumb.border-width: root.checked ? 1px : 0;
-            i-thumb.background: root.checked ? FluentPalette.on-accent : FluentPalette.text-secondary;
+            i-thumb.background: root.checked ? FluentPalette.accent-foreground : FluentPalette.text-secondary;
         }
         selected when root.checked : {
-            i-rail.background: FluentPalette.accent;
+            i-rail.background: FluentPalette.accent-background;
             i-thumb.border-width: 1px;
             i-thumb.border-color: FluentPalette.circle-border;
-            i-thumb.background: FluentPalette.on-accent;
+            i-thumb.background: FluentPalette.accent-foreground;
         }
     ]
 
