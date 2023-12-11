@@ -3,7 +3,7 @@
 
 [package]
 name = "_7guis"
-version = "1.3.2"
+version = "1.4.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 publish = false

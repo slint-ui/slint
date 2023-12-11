@@ -299,7 +299,7 @@ pub mod platform {
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_3_2;
+pub struct VersionCheck_1_4_0;
 
 #[cfg(doctest)]
 mod compile_fail_tests;
