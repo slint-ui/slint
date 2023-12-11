@@ -184,7 +184,7 @@ jobs:
       with:
         crate: cross
     - name: Build LSP
-      run: cross build --target ${{ matrix.target }} --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
+      run: cross build --target ${{ matrix.target }} --features backend-linuxkms-noseat,${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
