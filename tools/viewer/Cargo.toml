@@ -41,6 +41,7 @@ renderer-winit-software = ["renderer-software"]
 
 
 backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
+backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
 
 ## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)
 ##

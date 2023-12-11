@@ -19,7 +19,8 @@ path = "lib.rs"
 backend-winit = ["backend-winit-x11", "backend-winit-wayland"]
 backend-winit-x11 = ["i-slint-backend-winit/x11"]
 backend-winit-wayland = ["i-slint-backend-winit/wayland"]
-backend-linuxkms = ["i-slint-backend-linuxkms"]
+backend-linuxkms = ["i-slint-backend-linuxkms/libseat"]
+backend-linuxkms-noseat = ["i-slint-backend-linuxkms", "i-slint-backend-linuxkms"]
 
 renderer-femtovg = ["i-slint-backend-winit?/renderer-femtovg", "i-slint-backend-linuxkms?/renderer-femtovg"]
 renderer-skia = ["i-slint-backend-winit?/renderer-skia", "i-slint-backend-linuxkms?/renderer-skia"]

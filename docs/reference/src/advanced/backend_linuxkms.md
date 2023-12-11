@@ -7,8 +7,24 @@ and keyboard input.
 
  - OpenGL via KSM/DRI.
  - Vulkan via the Vulkan KHR Display Extension.
- - libinput for input event handling from mice, touch screens, or keyboards.
- - libseat for GPU and input device access without requiring root access.
+ - libinput/libudev for input event handling from mice, touch screens, or keyboards.
+ - libseat for GPU and input device access without requiring root access. (optional)
+
+For compilation, pkg-config is used to determine the location of the following required system libraries:
+
+| pkg-config package name | Package name on Debian based distros |
+|-------------------------|--------------------------------------|
+| `gbm`                   | `libgbm-dev`                         |
+| `xkbcommon`             | `libxkbcommon-dev`                   |
+| `libudev`               | `libudev-dev`                        |
+| `libseat`               | `libseat-dev`                        |
+
+:::{note}
+If you don't have `libseat` available on your target system, then instead of selecting `backend-linuxkms`, select
+`backend-linuxkms-noseat`. This variant of the LinuxKMS backend eliminates the need to have libseat installed, but
+in exchange requires running the application as a user that's priviledged to access all input and DRM/KMS device
+files; typically that's the root user.
+:::
 
 The LinuxKMS backend supports different renderers. They can be explicitly selected for use through the
 `SLINT_BACKEND` environment variable.
