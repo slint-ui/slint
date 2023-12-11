@@ -12,7 +12,7 @@ the selected style e.g. fluent, cupertino, material, or qt.
 -   **`foreground`** (_out_ _brush_): Defines the foreground brush that is used for content that is displayed on `background` brush.
 -   **`control-background`** (_out_ _brush_): Defines the default background brush for widgets.
 -   **`control-foreground`** (_out_ _brush_): Defines the foreground brush that is used for content that is displayed on `control-background` brush.
--   **`accent-background`** (_out_ _brush_): Defines the background brush for highlighted widgets such as primary buttons.
+-   **`accent-background`** (_out_ _brush_): Defines the background brush for highlighted controls such as primary buttons.
 -   **`accent-foreground`** (_out_ _brush_): Defines the foreground brush that is used for content that is displayed on `accent-background` brush.
 -   **`selection`** (_out_ _brush_): Defines the background brush that is used to highlight a selection such as a text selection.
 -   **`border`** (_out_ _brush_): Defines the brush that is used for borders such as separators and widget borders.
