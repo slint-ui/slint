@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use std::cell::RefCell;
-use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, RawFd};
+#[cfg(not(feature = "libseat"))]
+use std::fs::OpenOptions;
+use std::os::fd::{AsFd, BorrowedFd, RawFd};
+#[cfg(feature = "libseat")]
+use std::os::fd::{AsRawFd, FromRawFd};
+#[cfg(not(feature = "libseat"))]
+use std::os::unix::fs::OpenOptionsExt;
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -63,6 +69,7 @@ impl i_slint_core::platform::EventLoopProxy for Proxy {
 }
 
 pub struct Backend {
+    #[cfg(feature = "libseat")]
     seat: Rc<RefCell<libseat::Seat>>,
     window: RefCell<Option<Rc<FullscreenWindowAdapter>>>,
     user_event_receiver: RefCell<Option<calloop::channel::Channel<Box<dyn FnOnce() + Send>>>>,
@@ -101,10 +108,12 @@ impl Backend {
             }
         };
 
+        #[cfg(feature = "libseat")]
         let seat_active = Rc::new(RefCell::new(false));
 
         //libseat::set_log_level(libseat::LogLevel::Debug);
 
+        #[cfg(feature = "libseat")]
         let mut seat = {
             let seat_active = seat_active.clone();
             libseat::Seat::open(move |_seat, event| match event {
@@ -118,6 +127,7 @@ impl Backend {
             .map_err(|e| format!("Error opening session with libseat: {e}"))?
         };
 
+        #[cfg(feature = "libseat")]
         while !(*seat_active.borrow()) {
             if seat.dispatch(5000).map_err(|e| format!("Error waiting for seat activation: {e}"))?
                 == 0
@@ -127,6 +137,7 @@ impl Backend {
         }
 
         Ok(Backend {
+            #[cfg(feature = "libseat")]
             seat: Rc::new(RefCell::new(seat)),
             window: Default::default(),
             user_event_receiver: RefCell::new(Some(user_event_receiver)),
@@ -145,7 +156,8 @@ impl i_slint_core::platform::Platform for Backend {
         std::rc::Rc<dyn i_slint_core::window::WindowAdapter>,
         i_slint_core::platform::PlatformError,
     > {
-        let renderer = (self.renderer_factory)(&|device: &std::path::Path| {
+        #[cfg(feature = "libseat")]
+        let device_accessor = |device: &std::path::Path| -> Result<Arc<dyn AsFd>, PlatformError> {
             let device = self
                 .seat
                 .borrow_mut()
@@ -163,7 +175,21 @@ impl i_slint_core::platform::Platform for Backend {
 
             // Safety: We take ownership of the now shared FD, ... although we should be using libseat's close_device....
             Ok(Arc::new(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd) }))
-        })?;
+        };
+
+        #[cfg(not(feature = "libseat"))]
+        let device_accessor = |device: &std::path::Path| -> Result<Arc<dyn AsFd>, PlatformError> {
+            let device = OpenOptions::new()
+                .custom_flags((nix::fcntl::OFlag::O_NOCTTY | nix::fcntl::OFlag::O_CLOEXEC).bits())
+                .read(true)
+                .write(true)
+                .open(device)
+                .map_err(|e| format!("Error opening device: {e}"))?;
+
+            Ok(Arc::new(device))
+        };
+
+        let renderer = (self.renderer_factory)(&device_accessor)?;
         let adapter = FullscreenWindowAdapter::new(renderer)?;
 
         *self.window.borrow_mut() = Some(adapter.clone());
@@ -182,8 +208,12 @@ impl i_slint_core::platform::Platform for Backend {
         *self.proxy.loop_signal.lock().unwrap() = Some(loop_signal.clone());
         let quit_loop = self.proxy.quit_loop.clone();
 
-        let mouse_position_property =
-            input::LibInputHandler::init(adapter.window(), &event_loop.handle(), &self.seat)?;
+        let mouse_position_property = input::LibInputHandler::init(
+            adapter.window(),
+            &event_loop.handle(),
+            #[cfg(feature = "libseat")]
+            &self.seat,
+        )?;
 
         let Some(user_event_receiver) = self.user_event_receiver.borrow_mut().take() else {
             return Err(

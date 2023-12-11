@@ -3,10 +3,17 @@
 
 //! This module contains the code to receive input events from libinput
 
+#[cfg(feature = "libseat")]
 use std::cell::RefCell;
+#[cfg(feature = "libseat")]
 use std::collections::HashMap;
-use std::os::fd::{AsFd, OwnedFd};
-use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+#[cfg(not(feature = "libseat"))]
+use std::fs::{File, OpenOptions};
+use std::os::fd::OwnedFd;
+#[cfg(feature = "libseat")]
+use std::os::fd::{AsFd, AsRawFd, FromRawFd, IntoRawFd, RawFd};
+#[cfg(not(feature = "libseat"))]
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -20,11 +27,26 @@ use input::event::keyboard::{KeyState, KeyboardEventTrait};
 use input::event::touch::TouchEventPosition;
 use xkbcommon::*;
 
+#[cfg(feature = "libseat")]
 struct SeatWrap {
     seat: Rc<RefCell<libseat::Seat>>,
     device_for_fd: HashMap<RawFd, libseat::Device>,
 }
 
+#[cfg(feature = "libseat")]
+impl SeatWrap {
+    pub fn new(seat: &Rc<RefCell<libseat::Seat>>) -> input::Libinput {
+        let seat_name = seat.borrow_mut().name().to_string();
+        let mut libinput = input::Libinput::new_with_udev(Self {
+            seat: seat.clone(),
+            device_for_fd: Default::default(),
+        });
+        libinput.udev_assign_seat(&seat_name).unwrap();
+        libinput
+    }
+}
+
+#[cfg(feature = "libseat")]
 impl<'a> LibinputInterface for SeatWrap {
     fn open_restricted(&mut self, path: &Path, flags: i32) -> Result<OwnedFd, i32> {
         self.seat
@@ -52,6 +74,41 @@ impl<'a> LibinputInterface for SeatWrap {
     }
 }
 
+#[cfg(not(feature = "libseat"))]
+struct DirectDeviceAccess {}
+
+#[cfg(not(feature = "libseat"))]
+impl DirectDeviceAccess {
+    pub fn new() -> input::Libinput {
+        let mut libinput = input::Libinput::new_with_udev(Self {});
+        libinput.udev_assign_seat("seat0").unwrap();
+        libinput
+    }
+}
+
+#[cfg(not(feature = "libseat"))]
+impl<'a> LibinputInterface for DirectDeviceAccess {
+    fn open_restricted(&mut self, path: &Path, flags_raw: i32) -> Result<OwnedFd, i32> {
+        let flags = nix::fcntl::OFlag::from_bits_retain(flags_raw);
+        OpenOptions::new()
+            .custom_flags(flags_raw)
+            .read(
+                flags.contains(nix::fcntl::OFlag::O_RDONLY)
+                    | flags.contains(nix::fcntl::OFlag::O_RDWR),
+            )
+            .write(
+                flags.contains(nix::fcntl::OFlag::O_WRONLY)
+                    | flags.contains(nix::fcntl::OFlag::O_RDWR),
+            )
+            .open(path)
+            .map(|file| file.into())
+            .map_err(|err| err.raw_os_error().unwrap())
+    }
+    fn close_restricted(&mut self, fd: OwnedFd) {
+        drop(File::from(fd));
+    }
+}
+
 pub struct LibInputHandler<'a> {
     libinput: input::Libinput,
     token: Option<calloop::Token>,
@@ -65,14 +122,12 @@ impl<'a> LibInputHandler<'a> {
     pub fn init<T>(
         window: &'a i_slint_core::api::Window,
         event_loop_handle: &calloop::LoopHandle<'a, T>,
-        seat: &'a Rc<RefCell<libseat::Seat>>,
+        #[cfg(feature = "libseat")] seat: &'a Rc<RefCell<libseat::Seat>>,
     ) -> Result<Pin<Rc<Property<Option<LogicalPosition>>>>, PlatformError> {
-        let seat_name = seat.borrow_mut().name().to_string();
-        let mut libinput = input::Libinput::new_with_udev(SeatWrap {
-            seat: seat.clone(),
-            device_for_fd: Default::default(),
-        });
-        libinput.udev_assign_seat(&seat_name).unwrap();
+        #[cfg(feature = "libseat")]
+        let libinput = SeatWrap::new(seat);
+        #[cfg(not(feature = "libseat"))]
+        let libinput = DirectDeviceAccess::new();
 
         let mouse_pos_property = Rc::pin(Property::new(None));
 
