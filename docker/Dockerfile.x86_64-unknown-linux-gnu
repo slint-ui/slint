@@ -6,6 +6,6 @@
 FROM ghcr.io/slint-ui/cross-x86_64-base:1.0
 
 RUN apt-get update && \
-    apt-get install --assume-yes libfontconfig1-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libinput-dev libgbm-dev python3 \
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libfontconfig1-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libinput-dev libgbm-dev python3 \
     libfontconfig1-dev \
     clang libstdc++-10-dev
