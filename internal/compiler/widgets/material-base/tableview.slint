@@ -13,7 +13,7 @@ component TableViewColumn inherits Rectangle {
 
     i-state-layer := StateLayer {
         background: MaterialPalette.accent-background;
-        selectiforeground: MaterialPalette.alternate-background;
+        checked-background: MaterialPalette.alternate-background;
         ripple-color: MaterialPalette.accent-ripple;
         has-ripple: true;
     }
@@ -101,7 +101,7 @@ component TableViewRow inherits Rectangle {
     i-state-layer := StateLayer {
         checked: root.selected;
         background: MaterialPalette.accent-background;
-        selectiforeground: MaterialPalette.control-background;
+        checked-background: MaterialPalette.control-background;
         ripple-color: MaterialPalette.accent-ripple;
         has-ripple: true;
     }
