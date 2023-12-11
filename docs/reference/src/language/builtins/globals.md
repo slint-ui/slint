@@ -3,8 +3,8 @@
 
 ## `Palette`
 
-`Palette` give access to different brushes that can be used to to create custom widgets that matches the colors of
-the selected style e.g. fluent, cupertino, material or qt.
+Use `Palette` to create custom widgets that match the colors of
+the selected style e.g. fluent, cupertino, material, or qt.
 
 ### Properties
 
