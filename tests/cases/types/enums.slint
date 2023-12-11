@@ -3,11 +3,16 @@
 
 export enum Foo { bli, bla, blu }
 
+// (override the builtin 'InputType')
+export enum InputType { Xxx, Yyy, Zzz }
+
 export component TestCase  {
     in-out property<Foo> foo: Foo.bla;
     in-out property<Foo> default;
 
-    out property <bool> test: foo == Foo.bla && default == Foo.bli;
+    in-out property<InputType> input-type: InputType.Xxx;
+
+    out property <bool> test: foo == Foo.bla && default == Foo.bli && input-type == InputType.Xxx;
 }
 
 /*
