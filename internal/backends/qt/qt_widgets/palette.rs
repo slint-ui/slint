@@ -33,6 +33,7 @@ pub struct NativePalette {
     pub background: Property<Brush>,
     pub foreground: Property<Brush>,
     pub alternate_background: Property<Brush>,
+    pub alternate_foreground: Property<Brush>,
     pub accent_background: Property<Brush>,
     pub accent_foreground: Property<Brush>,
     pub control_background: Property<Brush>,
@@ -53,6 +54,7 @@ impl NativePalette {
         Rc::pin(NativePalette {
             background: Default::default(),
             alternate_background: Default::default(),
+            alternate_foreground: Default::default(),
             foreground: Default::default(),
             accent_background: Default::default(),
             accent_foreground: Default::default(),
@@ -90,6 +92,12 @@ impl NativePalette {
         });
         let alternate_background = Color::from_argb_encoded(alternate_background);
         self.alternate_background.set(Brush::from(alternate_background));
+
+        let alternate_foreground = cpp!(unsafe[] -> u32 as "QRgb" {
+            return qApp->palette().color(QPalette::Text).rgba();
+        });
+        let alternate_foreground = Color::from_argb_encoded(alternate_foreground);
+        self.alternate_foreground.set(Brush::from(alternate_foreground));
 
         let foreground = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::WindowText).rgba();
