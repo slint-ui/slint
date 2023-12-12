@@ -90,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: binaries-x86_64-unknown-linux-gnu
-          path: "api/node/*.tgz"
+          path: "api/node/npm/linux-x64-gnu/*.tgz"
     
   build_and_publish_npm_package:
     runs-on: ubuntu-22.04
