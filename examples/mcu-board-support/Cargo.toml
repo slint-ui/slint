@@ -53,7 +53,6 @@ embedded-display-controller = { version = "0.1.0", optional = true }
 ft5336 = { version = "0.2", optional = true }
 
 esp32s2-hal = { version = "0.12", optional = true }
-esp32s3-hal = { version = "0.12", optional = true }
 xtensa-lx-rt = { version = "0.16", optional = true }
 display-interface-spi = { version = "0.4", optional = true }
 esp-alloc = { version = "0.3", optional = true }
