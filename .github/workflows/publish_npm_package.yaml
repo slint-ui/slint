@@ -46,7 +46,7 @@ jobs:
              version="$version-nightly.$nightly_version_suffix"
          fi
          echo $version
-         echo "PKG_VERSION=$version" >> $GITHUB_ENV
+         echo "PKG_VERSION=$version" >> $GITHUB_OUTPUT
 
   build_linux_package:
     runs-on: ubuntu-22.04
