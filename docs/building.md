@@ -86,11 +86,10 @@ cargo test -p test-driver-cpp
 
 ### Node.js Tests
 
-The Node.js tests are contained in the `test-driver-nodejs` crate. It requires the Slint node library to be built,
-which isn't done by default. Build it explicitly before running the tests:
+The Node.js tests are contained in the `test-driver-nodejs` crate. The node integration will be run
+automatically when running the tests:
 
 ```sh
-cargo build -p slint-node
 cargo build -p test-driver-nodejs
 ```
 
