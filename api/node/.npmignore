@@ -12,3 +12,4 @@ yarn.lock
 __test__
 renovate.json
 rust-module.*
+*.tgz
