@@ -1932,7 +1932,7 @@ pub fn recurse_elem<State>(
     }
 }
 
-/// Same as [`recurse_elem`] but include the elements form sub_components
+/// Same as [`recurse_elem`] but include the elements from sub_components
 pub fn recurse_elem_including_sub_components<State>(
     component: &Component,
     state: &State,
