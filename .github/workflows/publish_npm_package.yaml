@@ -132,7 +132,7 @@ jobs:
       env:
         PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
       run: |
-          npm install --no-save *.tgz
+          npm install --no-save ./slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
           npm install --save-optional --save-exact @slint-ui/slint-ui-binary-linux-x64-gnu@PKG_VERSION
     - name: Build package
       run: |
