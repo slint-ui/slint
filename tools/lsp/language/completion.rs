@@ -429,7 +429,7 @@ fn resolve_element_scope(
     if !matches!(element_type, ElementType::Global) {
         result.extend(
             i_slint_compiler::typeregister::reserved_properties()
-                .filter_map(|(k, t)| {
+                .filter_map(|(k, t, _)| {
                     if matches!(t, Type::Function { .. }) {
                         return None;
                     }

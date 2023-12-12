@@ -402,7 +402,7 @@ impl LookupObject for ElementRc {
             }
         }
         if !matches!(self.borrow().base_type, ElementType::Global) {
-            for (name, ty) in crate::typeregister::reserved_properties() {
+            for (name, ty, _) in crate::typeregister::reserved_properties() {
                 let e = expression_from_reference(
                     NamedReference::new(self, name),
                     &ty,

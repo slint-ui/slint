@@ -24,6 +24,11 @@ export X := Rectangle {
 
                 animate x { duration: 100ms; }
 //                      ^error{The property 'x' cannot be set for elements placed in a layout, because the layout is already setting it}
+
+                init => {
+                    self.colspan = 45;
+//                  ^error{The property must be known at compile time and cannot be changed at runtime}
+                }
             }
         }
         Row {

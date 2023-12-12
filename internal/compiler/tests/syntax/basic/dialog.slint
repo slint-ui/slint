@@ -36,7 +36,7 @@ MyDiag3 := Dialog {
 
 MyDialog4 := Dialog {
     StandardButton { kind: ok; }
-    Rectangle { dialog-button-role: accept; }
+    r := Rectangle { dialog-button-role: accept; }
     Rectangle { dialog-button-role: none; }
 //                                  ^error{The `dialog-button-role` cannot be set explicitly to none}
     Rectangle { dialog-button-role: true ? accept : reject; }
@@ -44,6 +44,11 @@ MyDialog4 := Dialog {
     Rectangle {
         Rectangle { dialog-button-role: accept; }
 //                                      ^error{dialog-button-role used outside of a Dialog}
+    }
+
+    init => {
+        r.dialog-button-role = DialogButtonRole.action;
+//      ^error{The property must be known at compile time and cannot be changed at runtime}
     }
 }
 
