@@ -78,7 +78,7 @@ jobs:
         working-directory: api/node      
         run: |
           npx napi create-npm-dir -t . -c ./binaries.json
-          move index.linux-x64-gnu.node npm/linux-x64-gnu/
+          mv index.linux-x64-gnu.node npm/linux-x64-gnu/
           npm pack ./npm/linux-x64-gnu/
       - name: Upload artifact
         uses: actions/upload-artifact@v3
