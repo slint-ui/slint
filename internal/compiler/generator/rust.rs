@@ -1416,7 +1416,7 @@ fn generate_item_tree(
                 static ITEM_ARRAY : sp::OnceBox<
                     [vtable::VOffset<#inner_component_id, ItemVTable, vtable::AllowPin>; #item_array_len]
                 > = sp::OnceBox::new();
-                &*ITEM_ARRAY.get_or_init(|| Box::new([#(#item_array),*]))
+                &*ITEM_ARRAY.get_or_init(|| sp::Box::new([#(#item_array),*]))
             }
 
             #window_adapter_functions

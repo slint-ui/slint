@@ -37,7 +37,7 @@ fn main() -> std::io::Result<()> {
             write!(
                 output,
                 r"
-#[test] {} fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
+#[test] {} fn t_{}() -> std::result::Result<(), std::boxed::Box<dyn std::error::Error>> {{
     use i_slint_backend_testing as slint_testing;
     slint_testing::init();
     {}
