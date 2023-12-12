@@ -238,16 +238,14 @@ impl i_slint_core::platform::Platform for Backend {
         while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
             i_slint_core::platform::update_timers_and_animations();
 
-            if let Some(adapter) = self.window.borrow().as_ref() {
+            let has_active_animations = if let Some(adapter) = self.window.borrow().as_ref() {
                 adapter.render_if_needed(mouse_position_property.as_ref())?;
-            }
+                adapter.window().has_active_animations()
+            } else {
+                false
+            };
 
-            let next_timeout = if self
-                .window
-                .borrow()
-                .as_ref()
-                .map_or(false, |adapter| adapter.window().has_active_animations())
-            {
+            let next_timeout = if has_active_animations {
                 Some(std::time::Duration::from_millis(16))
             } else {
                 i_slint_core::platform::duration_until_next_timer_update()
