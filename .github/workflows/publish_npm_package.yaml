@@ -166,3 +166,4 @@ jobs:
         npm publish $PUBLISH_TAG api/node/slint-ui-$PKG_VERSION.tgz
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+        PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
