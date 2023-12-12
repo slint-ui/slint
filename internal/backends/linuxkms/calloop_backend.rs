@@ -198,8 +198,6 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {
-        let adapter = self.window.borrow().as_ref().unwrap().clone();
-
         let mut event_loop: EventLoop<LoopData> =
             EventLoop::try_new().map_err(|e| format!("Error creating event loop: {}", e))?;
 
@@ -209,7 +207,7 @@ impl i_slint_core::platform::Platform for Backend {
         let quit_loop = self.proxy.quit_loop.clone();
 
         let mouse_position_property = input::LibInputHandler::init(
-            adapter.window(),
+            &self.window,
             &event_loop.handle(),
             #[cfg(feature = "libseat")]
             &self.seat,
@@ -240,9 +238,14 @@ impl i_slint_core::platform::Platform for Backend {
         while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
             i_slint_core::platform::update_timers_and_animations();
 
-            adapter.render_if_needed(mouse_position_property.as_ref())?;
+            let has_active_animations = if let Some(adapter) = self.window.borrow().as_ref() {
+                adapter.render_if_needed(mouse_position_property.as_ref())?;
+                adapter.window().has_active_animations()
+            } else {
+                false
+            };
 
-            let next_timeout = if adapter.window().has_active_animations() {
+            let next_timeout = if has_active_animations {
                 Some(std::time::Duration::from_millis(16))
             } else {
                 i_slint_core::platform::duration_until_next_timer_update()
@@ -254,6 +257,11 @@ impl i_slint_core::platform::Platform for Backend {
         }
 
         Ok(())
+    }
+
+    fn set_event_loop_quit_on_last_window_closed(&self, quit_on_last_window_closed: bool) {
+        QUIT_ON_LAST_WINDOW_CLOSED
+            .store(quit_on_last_window_closed, std::sync::atomic::Ordering::Relaxed);
     }
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
@@ -295,3 +303,6 @@ impl AsFd for Device {
         unsafe { BorrowedFd::borrow_raw(self.fd) }
     }
 }
+
+pub(crate) static QUIT_ON_LAST_WINDOW_CLOSED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(true);
