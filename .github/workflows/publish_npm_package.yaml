@@ -76,10 +76,16 @@ jobs:
             npm run build
       - name: Create package
         working-directory: api/node      
+        env:
+          PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
         run: |
           npx napi create-npm-dir -t . -c ./binaries.json
           mv index.linux-x64-gnu.node npm/linux-x64-gnu/
-          npm pack ./npm/linux-x64-gnu/
+          cd npm/linux-x64-gnu/
+          if [ "$RELEASE_INPUT" != "true" ]; then
+            npm version $PKG_VERSION
+          fi    
+          npm pack
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
