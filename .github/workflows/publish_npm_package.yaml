@@ -67,7 +67,7 @@ jobs:
         working-directory: api/node
         run: |
           if [ "$RELEASE_INPUT" != "true" ]; then
-              npm version $version
+              npm version $PKG_VERSION
           fi    
       - name: Build binary
         working-directory: api/node      
@@ -105,7 +105,7 @@ jobs:
       working-directory: api/node
       run: |
          if [ "$RELEASE_INPUT" != "true" ]; then
-             npm version $version
+             npm version $PKG_VERSION
          fi
     - name: Select git revision
       if: github.event.inputs.release != 'true'
