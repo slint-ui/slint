@@ -1,0 +1,14 @@
+{
+  "name": "@slint-ui/slint-ui-binary",
+  "version": "1.4.0",
+  "binaryName": "slint-ui",
+  "package": "@slint-ui/slint-ui-binary",
+  "napi": {
+    "triples": {
+      "defaults": false,
+      "additional": [
+        "x86_64-unknown-linux-gnu"
+      ]
+    }
+  }
+}
