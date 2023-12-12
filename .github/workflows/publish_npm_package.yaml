@@ -152,6 +152,8 @@ jobs:
           path: |
               api/node/slint-ui-${{ env.PKG_VERSION }}.tgz
     - name: Smoke test package to see if it builds at least
+      env:
+        PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
       run: |
           mkdir /tmp/nodetest
           cd /tmp/nodetest
