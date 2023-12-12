@@ -127,21 +127,34 @@ impl RepeatedItemTree for ErasedItemTreeBox {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
 
-        s.description
-            .set_property(s.borrow(), "y", Value::Number(offset_y.get() as f64))
-            .expect("cannot set y");
-        let h: f32 = s
-            .description
-            .get_property(s.borrow(), "height")
-            .expect("missing height")
-            .try_into()
-            .expect("height not the right type");
-        let w: f32 = s
-            .description
-            .get_property(s.borrow(), "width")
-            .expect("missing width")
-            .try_into()
-            .expect("width not the right type");
+        let geom = s.description.original.root_element.borrow().geometry_props.clone().unwrap();
+
+        crate::eval::store_property(
+            s.borrow_instance(),
+            &geom.y.element(),
+            geom.y.name(),
+            Value::Number(offset_y.get() as f64),
+        )
+        .expect("cannot set y");
+
+        let h: f32 = crate::eval::load_property(
+            s.borrow_instance(),
+            &geom.height.element(),
+            geom.height.name(),
+        )
+        .expect("missing height")
+        .try_into()
+        .expect("height not the right type");
+
+        let w: f32 = crate::eval::load_property(
+            s.borrow_instance(),
+            &geom.width.element(),
+            geom.width.name(),
+        )
+        .expect("missing width")
+        .try_into()
+        .expect("width not the right type");
+
         let h = LogicalLength::new(h);
         let w = LogicalLength::new(w);
         *offset_y += h;
