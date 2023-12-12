@@ -51,6 +51,9 @@ jobs:
   build_linux_package:
     runs-on: ubuntu-22.04
     needs: determine_version
+    env:
+      PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
+      RELEASE_INPUT: ${{ github.event.inputs.release }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install-linux-dependencies
@@ -61,9 +64,6 @@ jobs:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
       - name: Set version
-        env:
-          RELEASE_INPUT: ${{ github.event.inputs.release }}
-          PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
         working-directory: api/node
         run: |
           if [ "$RELEASE_INPUT" != "true" ]; then
@@ -76,8 +76,6 @@ jobs:
             npm run build
       - name: Create package
         working-directory: api/node      
-        env:
-          PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
         run: |
           npx napi create-npm-dir -t . -c ./binaries.json
           mv index.linux-x64-gnu.node npm/linux-x64-gnu/
@@ -95,6 +93,9 @@ jobs:
   build_and_publish_npm_package:
     runs-on: ubuntu-22.04
     needs: [determine_version, build_linux_package]
+    env:
+      PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
+      RELEASE_INPUT: ${{ github.event.inputs.release }}
     steps:
     - uses: actions/checkout@v4
     - uses: ./.github/actions/install-linux-dependencies
@@ -105,9 +106,6 @@ jobs:
         node-version: '20.x'
         registry-url: 'https://registry.npmjs.org'
     - name: Set version
-      env:
-        RELEASE_INPUT: ${{ github.event.inputs.release }}
-        PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
       working-directory: api/node
       run: |
          if [ "$RELEASE_INPUT" != "true" ]; then
@@ -135,8 +133,6 @@ jobs:
         path: api/node/
     - name: Add binary dependencies
       working-directory: api/node
-      env:
-        PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
       run: |
           npm install --no-save ./slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
           npm install --save-optional --save-exact @slint-ui/slint-ui-binary-linux-x64-gnu@$PKG_VERSION
@@ -145,15 +141,11 @@ jobs:
           cargo xtask node_package $PKG_EXTRA_ARGS
     - name: "Upload npm package Artifact"
       uses: actions/upload-artifact@v3
-      env:
-        PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
       with:
           name: slint-ui-node-package
           path: |
               api/node/slint-ui-${{ env.PKG_VERSION }}.tgz
     - name: Smoke test package to see if it builds at least
-      env:
-        PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
       run: |
           mkdir /tmp/nodetest
           cd /tmp/nodetest
@@ -166,4 +158,3 @@ jobs:
         npm publish $PUBLISH_TAG api/node/slint-ui-$PKG_VERSION.tgz
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
-        PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
