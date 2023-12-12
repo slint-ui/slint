@@ -17,6 +17,7 @@ Widgets
    checkbox.md
    combobox.md
    gridbox.md
+   groupbox.md
    horizontalbox.md
    lineedit.md
    listview.md
