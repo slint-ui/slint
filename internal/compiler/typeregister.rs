@@ -11,7 +11,7 @@ use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyInfo, ElementType, Enumeration, PropertyLookupResult, Type,
 };
-use crate::object_tree::Component;
+use crate::object_tree::{Component, PropertyVisibility};
 
 pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
     ("x", Type::LogicalLength),
@@ -35,6 +35,9 @@ pub const RESERVED_LAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("preferred-height", Type::LogicalLength),
     ("horizontal-stretch", Type::Float32),
     ("vertical-stretch", Type::Float32),
+];
+
+pub const RESERVED_GRIDLAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("col", Type::Int32),
     ("row", Type::Int32),
     ("colspan", Type::Int32),
@@ -109,7 +112,7 @@ pub const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
 ];
 
 /// list of reserved property injected in every item
-pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
+pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, PropertyVisibility)> {
     RESERVED_GEOMETRY_PROPERTIES
         .iter()
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
@@ -117,33 +120,44 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_ROTATION_PROPERTIES.iter())
         .chain(RESERVED_ACCESSIBILITY_PROPERTIES.iter())
-        .map(|(k, v)| (*k, v.clone()))
-        .chain(IntoIterator::into_iter([("absolute-position", logical_point_type())]))
+        .map(|(k, v)| (*k, v.clone(), PropertyVisibility::InOut))
+        .chain(
+            RESERVED_GRIDLAYOUT_PROPERTIES
+                .iter()
+                .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Constexpr)),
+        )
         .chain(IntoIterator::into_iter([
-            ("forward-focus", Type::ElementReference),
-            ("focus", BuiltinFunction::SetFocusItem.ty()),
+            ("absolute-position", logical_point_type(), PropertyVisibility::Output),
+            ("forward-focus", Type::ElementReference, PropertyVisibility::Constexpr),
+            ("focus", BuiltinFunction::SetFocusItem.ty(), PropertyVisibility::Public),
             (
                 "dialog-button-role",
                 Type::Enumeration(BUILTIN_ENUMS.with(|e| e.DialogButtonRole.clone())),
+                PropertyVisibility::Constexpr,
             ),
             (
                 "accessible-role",
                 Type::Enumeration(BUILTIN_ENUMS.with(|e| e.AccessibleRole.clone())),
+                PropertyVisibility::Constexpr,
             ),
         ]))
-        .chain(std::iter::once(("init", Type::Callback { return_type: None, args: vec![] })))
+        .chain(std::iter::once((
+            "init",
+            Type::Callback { return_type: None, args: vec![] },
+            PropertyVisibility::Private,
+        )))
 }
 
 /// lookup reserved property injected in every item
 pub fn reserved_property(name: &str) -> PropertyLookupResult {
-    for (p, t) in reserved_properties() {
+    for (p, t, property_visibility) in reserved_properties() {
         if p == name {
             return PropertyLookupResult {
                 property_type: t,
                 resolved_name: name.into(),
                 is_local_to_component: false,
                 is_in_direct_base: false,
-                property_visibility: crate::object_tree::PropertyVisibility::InOut,
+                property_visibility,
                 declared_pure: None,
             };
         }
@@ -301,22 +315,21 @@ impl TypeRegister {
 
         match &mut register.elements.get_mut("PopupWindow").unwrap() {
             ElementType::Builtin(ref mut b) => {
-                Rc::get_mut(b).unwrap().properties.insert(
+                let popup = Rc::get_mut(b).unwrap();
+                popup.properties.insert(
                     "show".into(),
                     BuiltinPropertyInfo::new(BuiltinFunction::ShowPopupWindow.ty()),
                 );
-                Rc::get_mut(b)
-                    .unwrap()
-                    .member_functions
-                    .insert("show".into(), BuiltinFunction::ShowPopupWindow);
-                Rc::get_mut(b).unwrap().properties.insert(
+                popup.member_functions.insert("show".into(), BuiltinFunction::ShowPopupWindow);
+
+                popup.properties.insert(
                     "close".into(),
                     BuiltinPropertyInfo::new(BuiltinFunction::ClosePopupWindow.ty()),
                 );
-                Rc::get_mut(b)
-                    .unwrap()
-                    .member_functions
-                    .insert("close".into(), BuiltinFunction::ClosePopupWindow);
+                popup.member_functions.insert("close".into(), BuiltinFunction::ClosePopupWindow);
+
+                popup.properties.get_mut("close-on-click").unwrap().property_visibility =
+                    PropertyVisibility::Constexpr;
             }
 
             _ => unreachable!(),

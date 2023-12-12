@@ -359,6 +359,11 @@ fn get_properties(element: &ElementRc) -> Vec<PropertyInformation> {
             // padding arbitrary items is not yet implemented
             .filter(|x| !x.name.starts_with("padding")),
         );
+        // FIXME: ideally only if parent is a grid layout
+        result.extend(get_reserved_properties(
+            "layout",
+            i_slint_compiler::typeregister::RESERVED_GRIDLAYOUT_PROPERTIES,
+        ));
         result.push(PropertyInformation {
             name: "accessible-role".into(),
             type_name: Type::Enumeration(

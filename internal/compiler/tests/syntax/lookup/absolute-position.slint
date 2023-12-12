@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export component Hello {
+    Rectangle {
+        absolute-position: {x: 45px, y: 78px};
+//      ^error{Cannot assign to output property 'absolute-position'}
+
+    }
+
+    Rectangle {
+        init => {
+            self.absolute-position.x += 45px;
+//          ^error{Self assignment on a output property}
+        }
+    }
+}

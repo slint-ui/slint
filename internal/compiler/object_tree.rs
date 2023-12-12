@@ -441,6 +441,8 @@ pub enum PropertyVisibility {
     Input,
     Output,
     InOut,
+    /// for builtin properties that must be known at compile time and cannot be changed at runtime
+    Constexpr,
     /// For functions, not properties
     Public,
     Protected,
@@ -453,6 +455,7 @@ impl Display for PropertyVisibility {
             PropertyVisibility::Input => f.write_str("input"),
             PropertyVisibility::Output => f.write_str("output"),
             PropertyVisibility::InOut => f.write_str("input output"),
+            PropertyVisibility::Constexpr => f.write_str("constexpr"),
             PropertyVisibility::Public => f.write_str("public"),
             PropertyVisibility::Protected => f.write_str("protected"),
         }

@@ -5,6 +5,13 @@ Button1 := Rectangle {
     property <bool> cond;
     accessible-role: cond ? button : AccessibleRole.text;
     //               ^error{The `accessible-role` property must be a constant expression}
+
+    rr := Rectangle {
+        init => {
+            self.accessible-role = AccessibleRole.text;
+//          ^error{The property must be known at compile time and cannot be changed at runtime}
+        }
+    }
 }
 
 Button2 := Rectangle {

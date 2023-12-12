@@ -1282,7 +1282,14 @@ impl Expression {
                 nr.mark_as_set();
                 let mut lookup = nr.element().borrow().lookup_property(nr.name());
                 lookup.is_local_to_component &= ctx.is_local_element(&nr.element());
-                if lookup.is_valid_for_assignment() {
+                if lookup.property_visibility == PropertyVisibility::Constexpr {
+                    ctx.diag.push_error(
+                        "The property must be known at compile time and cannot be changed at runtime"
+                            .into(),
+                        node,
+                    );
+                    false
+                } else if lookup.is_valid_for_assignment() {
                     if !nr
                         .element()
                         .borrow()
