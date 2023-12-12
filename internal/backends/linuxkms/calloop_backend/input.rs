@@ -3,7 +3,6 @@
 
 //! This module contains the code to receive input events from libinput
 
-#[cfg(feature = "libseat")]
 use std::cell::RefCell;
 #[cfg(feature = "libseat")]
 use std::collections::HashMap;
@@ -20,12 +19,15 @@ use std::rc::Rc;
 
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::platform::{PlatformError, PointerEventButton, WindowEvent};
+use i_slint_core::window::WindowAdapter;
 use i_slint_core::{Property, SharedString};
 use input::LibinputInterface;
 
 use input::event::keyboard::{KeyState, KeyboardEventTrait};
 use input::event::touch::TouchEventPosition;
 use xkbcommon::*;
+
+use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
 
 #[cfg(feature = "libseat")]
 struct SeatWrap {
@@ -114,13 +116,13 @@ pub struct LibInputHandler<'a> {
     token: Option<calloop::Token>,
     mouse_pos: Pin<Rc<Property<Option<LogicalPosition>>>>,
     last_touch_pos: LogicalPosition,
-    window: &'a i_slint_core::api::Window,
+    window: &'a RefCell<Option<Rc<FullscreenWindowAdapter>>>,
     keystate: Option<xkb::State>,
 }
 
 impl<'a> LibInputHandler<'a> {
     pub fn init<T>(
-        window: &'a i_slint_core::api::Window,
+        window: &'a RefCell<Option<Rc<FullscreenWindowAdapter>>>,
         event_loop_handle: &calloop::LoopHandle<'a, T>,
         #[cfg(feature = "libseat")] seat: &'a Rc<RefCell<libseat::Seat>>,
     ) -> Result<Pin<Rc<Property<Option<LogicalPosition>>>>, PlatformError> {
@@ -169,7 +171,11 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
 
         self.libinput.dispatch()?;
 
-        let screen_size = self.window.size().to_logical(self.window.scale_factor());
+        let Some(adapter) = self.window.borrow().clone() else {
+            return Ok(calloop::PostAction::Continue);
+        };
+        let window = adapter.window();
+        let screen_size = window.size().to_logical(window.scale_factor());
 
         for event in &mut self.libinput {
             match event {
@@ -187,7 +193,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                                 .clamp(0., screen_size.height);
                             self.mouse_pos.set(Some(mouse_pos));
                             let event = WindowEvent::PointerMoved { position: mouse_pos };
-                            self.window.dispatch_event(event);
+                            window.dispatch_event(event);
                         }
                         input::event::PointerEvent::MotionAbsolute(abs_motion_event) => {
                             let mouse_pos = LogicalPosition {
@@ -199,7 +205,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             };
                             self.mouse_pos.set(Some(mouse_pos));
                             let event = WindowEvent::PointerMoved { position: mouse_pos };
-                            self.window.dispatch_event(event);
+                            window.dispatch_event(event);
                         }
                         input::event::PointerEvent::Button(button_event) => {
                             // https://github.com/torvalds/linux/blob/0dd2a6fb1e34d6dcb96806bc6b111388ad324722/include/uapi/linux/input-event-codes.h#L355
@@ -218,7 +224,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                                     WindowEvent::PointerReleased { position: mouse_pos, button }
                                 }
                             };
-                            self.window.dispatch_event(event);
+                            window.dispatch_event(event);
                         }
                         input::event::PointerEvent::ScrollWheel(_) => todo!(),
                         input::event::PointerEvent::ScrollFinger(_) => todo!(),
@@ -251,7 +257,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                         }
                         _ => None,
                     } {
-                        self.window.dispatch_event(event);
+                        window.dispatch_event(event);
                     }
                 }
                 input::Event::Keyboard(input::event::KeyboardEvent::Key(key_event)) => {
@@ -306,7 +312,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             KeyState::Pressed => WindowEvent::KeyPressed { text },
                             KeyState::Released => WindowEvent::KeyReleased { text },
                         };
-                        self.window.dispatch_event(event);
+                        window.dispatch_event(event);
                     }
                 }
                 _ => {}
