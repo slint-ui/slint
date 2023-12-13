@@ -4,11 +4,15 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use slint_interpreter::ComponentHandle;
+
 use indexmap::IndexMap;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
-use crate::errors::{PyGetPropertyError, PyInvokeError, PySetCallbackError, PySetPropertyError};
+use crate::errors::{
+    PyGetPropertyError, PyInvokeError, PyPlatformError, PySetCallbackError, PySetPropertyError,
+};
 use crate::value::PyValue;
 
 #[pyclass(unsendable)]
@@ -306,5 +310,17 @@ impl ComponentInstance {
                 })
             })?
             .into())
+    }
+
+    fn show(&self) -> Result<(), PyPlatformError> {
+        Ok(self.instance.show()?)
+    }
+
+    fn hide(&self) -> Result<(), PyPlatformError> {
+        Ok(self.instance.hide()?)
+    }
+
+    fn run(&self) -> Result<(), PyPlatformError> {
+        Ok(self.instance.run()?)
     }
 }
