@@ -114,6 +114,7 @@ pub struct NativeButton {
     pub has_focus: Property<bool>,
     pub clicked: Callback<VoidArg>,
     pub enabled: Property<bool>,
+    pub colorize_icon: Property<bool>,
     pub standard_button_kind: Property<StandardButtonKind>,
     pub is_standard_button: Property<bool>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
