@@ -4,6 +4,7 @@
 mod interpreter;
 use interpreter::{ComponentCompiler, PyDiagnostic, PyDiagnosticLevel, PyValueType};
 mod errors;
+mod value;
 
 use pyo3::prelude::*;
 
