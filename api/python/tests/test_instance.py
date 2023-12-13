@@ -110,3 +110,11 @@ def test_callbacks():
 
     instance.set_callback("void-callback", lambda : None)
     instance.invoke("void-callback")
+
+
+if __name__ == "__main__":
+    compiler = slint.ComponentCompiler()
+    compdef = compiler.build_from_path("../../examples/printerdemo/ui/printerdemo.slint")
+    instance = compdef.create()
+    instance.set_global_callback("PrinterQueue", "start-job", lambda title: print(f"new print job {title}"))
+    instance.run()
