@@ -84,6 +84,7 @@ def test_callbacks():
             test-callback(value) => {
                 return "local " + value;
             }
+            callback void-callback();
         }
     """, "")
     assert compdef != None
@@ -106,3 +107,6 @@ def test_callbacks():
 
     instance.set_global_callback("TestGlobal", "globallogic", lambda x: "python global " + x)
     assert instance.invoke_global("TestGlobal", "globallogic", "foo") == "python global foo"
+
+    instance.set_callback("void-callback", lambda : None)
+    instance.invoke("void-callback")

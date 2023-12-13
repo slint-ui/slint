@@ -39,6 +39,10 @@ impl ToPyObject for PyValue {
 
 impl FromPyObject<'_> for PyValue {
     fn extract(ob: &PyAny) -> PyResult<Self> {
+        if ob.is_none() {
+            return Ok(slint_interpreter::Value::Void.into());
+        }
+
         Ok(PyValue(
             ob.extract::<bool>()
                 .map(|b| slint_interpreter::Value::Bool(b))
