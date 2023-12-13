@@ -520,6 +520,16 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_create(
     std::ptr::write(out, def.as_component_definition().create().unwrap())
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn slint_interpreter_component_instance_component_definition(
+    inst: &ErasedItemTreeBox,
+    component_definition_ptr: *mut ComponentDefinitionOpaque,
+) {
+    generativity::make_guard!(guard);
+    let definition = ComponentDefinition { inner: inst.unerase(guard).description().into() };
+    std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition);
+}
+
 #[vtable::vtable]
 #[repr(C)]
 pub struct ModelAdaptorVTable {

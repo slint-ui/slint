@@ -15,6 +15,10 @@ All notable changes to this project are documented in this file.
    as well.
  - Errors are thrown when trying to modify properties that must be known at compile time.
 
+### C++
+
+ - Added `ComponentInstance::definition()` getter to retrieve the `ComponentDefinition` for an instance.
+
 ## [1.3.2] - 2023-12-01
 
 ### General

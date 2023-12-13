@@ -542,6 +542,8 @@ inline Struct::iterator::~iterator()
     }
 }
 
+class ComponentDefinition;
+
 /// The ComponentInstance represents a running instance of a component.
 ///
 /// You can create an instance with the ComponentDefinition::create() function.
@@ -806,6 +808,9 @@ public:
             return {};
         }
     }
+
+    /// Return the ComponentDefinition that was used to create this instance.
+    inline ComponentDefinition definition() const;
 };
 
 /// ComponentDefinition is a representation of a compiled component from .slint markup.
@@ -819,6 +824,7 @@ public:
 class ComponentDefinition
 {
     friend class ComponentCompiler;
+    friend class ComponentInstance;
 
     using ComponentDefinitionOpaque = slint::cbindgen_private::ComponentDefinitionOpaque;
     ComponentDefinitionOpaque inner;
@@ -924,6 +930,13 @@ public:
         return {};
     }
 };
+
+inline ComponentDefinition ComponentInstance::definition() const
+{
+    cbindgen_private::ComponentDefinitionOpaque result;
+    cbindgen_private::slint_interpreter_component_instance_component_definition(inner(), &result);
+    return ComponentDefinition(result);
+}
 
 /// ComponentCompiler is the entry point to the Slint interpreter that can be used
 /// to load .slint files or compile them on-the-fly from a string

@@ -331,6 +331,13 @@ SCENARIO("Component Definition Properties")
     auto callback_names = comp_def.callbacks();
     REQUIRE(callback_names.size() == 1);
     REQUIRE(callback_names[0] == "dummy");
+
+    auto instance = comp_def.create();
+    ComponentDefinition new_comp_def = instance->definition();
+    auto new_props = new_comp_def.properties();
+    REQUIRE(new_props.size() == 1);
+    REQUIRE(new_props[0].property_name == "test");
+    REQUIRE(new_props[0].property_type == Value::Type::String);
 }
 
 SCENARIO("Component Definition Properties / Two-way bindings")
