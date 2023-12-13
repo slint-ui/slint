@@ -3,6 +3,7 @@
 
 mod interpreter;
 use interpreter::{ComponentCompiler, PyDiagnostic, PyDiagnosticLevel, PyValueType};
+mod errors;
 
 use pyo3::prelude::*;
 
@@ -12,5 +13,6 @@ fn slint(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyValueType>()?;
     m.add_class::<PyDiagnosticLevel>()?;
     m.add_class::<PyDiagnostic>()?;
+
     Ok(())
 }

@@ -8,6 +8,8 @@ use indexmap::IndexMap;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
+use crate::errors::{PyGetPropertyError, PyInvokeError, PySetCallbackError, PySetPropertyError};
+
 #[pyclass(unsendable)]
 pub struct ComponentCompiler {
     compiler: slint_interpreter::ComponentCompiler,
@@ -158,7 +160,7 @@ impl ComponentDefinition {
         self.definition.global_callbacks(name).map(|callbackiter| callbackiter.collect())
     }
 
-    fn create(&self) -> Result<ComponentInstance, PyPlatformError> {
+    fn create(&self) -> Result<ComponentInstance, crate::errors::PyPlatformError> {
         Ok(ComponentInstance { instance: self.definition.create()? })
     }
 }
@@ -354,79 +356,8 @@ impl FromPyObject<'_> for PyValue {
         ))
     }
 }
-
 impl From<slint_interpreter::Value> for PyValue {
     fn from(value: slint_interpreter::Value) -> Self {
         Self(value)
-    }
-}
-
-struct PyGetPropertyError(slint_interpreter::GetPropertyError);
-
-impl From<PyGetPropertyError> for PyErr {
-    fn from(err: PyGetPropertyError) -> Self {
-        pyo3::exceptions::PyValueError::new_err(err.0.to_string())
-    }
-}
-
-impl From<slint_interpreter::GetPropertyError> for PyGetPropertyError {
-    fn from(err: slint_interpreter::GetPropertyError) -> Self {
-        Self(err)
-    }
-}
-
-struct PySetPropertyError(slint_interpreter::SetPropertyError);
-
-impl From<PySetPropertyError> for PyErr {
-    fn from(err: PySetPropertyError) -> Self {
-        pyo3::exceptions::PyValueError::new_err(err.0.to_string())
-    }
-}
-
-impl From<slint_interpreter::SetPropertyError> for PySetPropertyError {
-    fn from(err: slint_interpreter::SetPropertyError) -> Self {
-        Self(err)
-    }
-}
-
-struct PyPlatformError(slint_interpreter::PlatformError);
-
-impl From<PyPlatformError> for PyErr {
-    fn from(err: PyPlatformError) -> Self {
-        pyo3::exceptions::PyRuntimeError::new_err(err.0.to_string())
-    }
-}
-
-impl From<slint_interpreter::PlatformError> for PyPlatformError {
-    fn from(err: slint_interpreter::PlatformError) -> Self {
-        Self(err)
-    }
-}
-
-struct PyInvokeError(slint_interpreter::InvokeError);
-
-impl From<PyInvokeError> for PyErr {
-    fn from(err: PyInvokeError) -> Self {
-        pyo3::exceptions::PyRuntimeError::new_err(err.0.to_string())
-    }
-}
-
-impl From<slint_interpreter::InvokeError> for PyInvokeError {
-    fn from(err: slint_interpreter::InvokeError) -> Self {
-        Self(err)
-    }
-}
-
-struct PySetCallbackError(slint_interpreter::SetCallbackError);
-
-impl From<PySetCallbackError> for PyErr {
-    fn from(err: PySetCallbackError) -> Self {
-        pyo3::exceptions::PyRuntimeError::new_err(err.0.to_string())
-    }
-}
-
-impl From<slint_interpreter::SetCallbackError> for PySetCallbackError {
-    fn from(err: slint_interpreter::SetCallbackError) -> Self {
-        Self(err)
     }
 }
