@@ -8,7 +8,7 @@ on:
   workflow_call:
 
 env:
-  MACOSX_DEPLOYMENT_TARGET: 11
+  MACOSX_DEPLOYMENT_TARGET: "11.0"
 
 jobs:
   cmake_package:

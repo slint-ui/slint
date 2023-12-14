@@ -23,7 +23,7 @@ on:
 
 env:
   SLINT_BINARY_FEATURES: "backend-winit,renderer-femtovg,renderer-skia,renderer-software"
-  MACOSX_DEPLOYMENT_TARGET: 11
+  MACOSX_DEPLOYMENT_TARGET: "11.0"
 
 jobs:
   slint-viewer-binary:
