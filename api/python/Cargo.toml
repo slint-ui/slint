@@ -24,8 +24,9 @@ i-slint-backend-testing = { version = "=1.4.0", path="../../internal/backends/te
 i-slint-renderer-skia = { version = "=1.4.0", path="../../internal/renderers/skia", optional = true, features = ["x11", "wayland"] }
 i-slint-core = { version = "=1.4.0", path="../../internal/core", features = ["ffi"] }
 slint-interpreter = { workspace = true, features = ["default", "display-diagnostics", "internal"] }
-pyo3 = { version = "0.20.0", features = ["extension-module", "indexmap"] }
+pyo3 = { version = "0.20.0", features = ["extension-module", "indexmap", "chrono"] }
 indexmap = { version = "2.1.0" }
+chrono = "0.4"
 spin_on = "0.1"
 
 [build-dependencies]

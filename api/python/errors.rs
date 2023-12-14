@@ -45,6 +45,20 @@ impl From<slint_interpreter::PlatformError> for PyPlatformError {
     }
 }
 
+pub struct PyEventLoopError(pub slint_interpreter::EventLoopError);
+
+impl From<PyEventLoopError> for PyErr {
+    fn from(err: PyEventLoopError) -> Self {
+        pyo3::exceptions::PyRuntimeError::new_err(err.0.to_string())
+    }
+}
+
+impl From<slint_interpreter::EventLoopError> for PyEventLoopError {
+    fn from(err: slint_interpreter::EventLoopError) -> Self {
+        Self(err)
+    }
+}
+
 pub struct PyInvokeError(pub slint_interpreter::InvokeError);
 
 impl From<PyInvokeError> for PyErr {
