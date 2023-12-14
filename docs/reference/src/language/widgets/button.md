@@ -13,6 +13,7 @@ A simple button. Common types of buttons can also be created with [`StandardButt
 -   **`pressed`**: (_out_ _bool_): Set to true when the button is pressed.
 -   **`text`** (_in_ _string_): The text written in the button.
 -   **`primary`** (_in_ _bool_): If set to true the button is displayed with the primary accent color (default: false).
+-  **`colorize-icon`** (_in_ _bool_): If set to true, the icon will be colorized to the same color as the Button's text color. (default: false)
 
 ### Callbacks
 

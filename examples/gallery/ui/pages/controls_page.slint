@@ -14,32 +14,47 @@ export component ControlsPage inherits Page {
         vertical-stretch: 0;
         title: @tr("Buttons");
 
-        HorizontalBox {
-            alignment: start;
+        VerticalLayout {
             padding: 0px;
 
-            Button {
-                text: @tr("Regular Button");
-                enabled: GallerySettings.widgets-enabled;
+            HorizontalBox {
+                alignment: start;
+
+                Button {
+                    text: @tr("Regular Button");
+                    enabled: GallerySettings.widgets-enabled;
+                }
+
+                Button {
+                    text: @tr("Primary Button with Icon");
+                    icon: @image-url("../../thumbsup.png");
+                    enabled: GallerySettings.widgets-enabled;
+                    primary: true;
+                }
+
+                Button {
+                    icon: @image-url("../../thumbsup.png");
+                    enabled: GallerySettings.widgets-enabled;
+                    primary: true;
+                }
+
+                Button {
+                    checkable: true;
+                    text: self.checked ? @tr("ON") : @tr("OFF");
+                    enabled: GallerySettings.widgets-enabled;
+                }
             }
 
-            Button {
-                text: @tr("Primary Button with Icon");
-                icon: @image-url("../../thumbsup.png");
-                enabled: GallerySettings.widgets-enabled;
-                primary: true;
-            }
+            HorizontalBox {
+                alignment: start;
 
-            Button {
-                icon: @image-url("../../thumbsup.png");
-                enabled: GallerySettings.widgets-enabled;
-                primary: true;
-            }
-
-            Button {
-                checkable: true;
-                text: self.checked ? @tr("ON") : @tr("OFF");
-                enabled: GallerySettings.widgets-enabled;
+                Button {
+                    text: @tr("Primary Button with colorized icon");
+                    icon: @image-url("../../thumbsup.png");
+                    enabled: GallerySettings.widgets-enabled;
+                    colorize-icon: true;
+                    primary: true;
+                }
             }
         }
     }

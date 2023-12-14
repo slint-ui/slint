@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
  - The `pointer-event` callback in `TouchArea` is now triggered on mouse move
    as well.
  - Errors are thrown when trying to modify properties that must be known at compile time.
+ - Added `colorize-icon` property to `Button`.
 
 ### C++
 
