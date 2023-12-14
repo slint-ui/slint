@@ -145,7 +145,7 @@ This includes for example the Raspberry Pi OS. Using the following steps you can
 pi:
 
 ```sh
-cross build --target armv7-unknown-linux-gnueabihf --workspace --exclude slint-node --release
+cross build --target armv7-unknown-linux-gnueabihf --workspace --exclude slint-node --exclude pyslint --release
 scp target/armv7-unknown-linux-gnueabihf/release/printerdemo pi@raspberrypi.local:.
 ```
 
