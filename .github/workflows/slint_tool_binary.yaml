@@ -28,7 +28,7 @@ on:
         default: "backend-winit,renderer-femtovg,renderer-skia"
 
 env:
-  MACOSX_DEPLOYMENT_TARGET: 11
+  MACOSX_DEPLOYMENT_TARGET: "11.0"
 
 jobs:
   build_windows:
