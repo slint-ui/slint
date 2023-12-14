@@ -2,19 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import * as napi from "./rust-module.cjs";
-const {
-    Diagnostic,
-    DiagnosticLevel,
-    RgbaColor,
-    Brush
-} = napi;
-
 export {
     Diagnostic,
     DiagnosticLevel,
     RgbaColor,
     Brush
-};
+} from "./rust-module";
+
+import {
+    Diagnostic
+} from "./rust-module.cjs";
 
 /**
  *  Represents a two-dimensional point.
