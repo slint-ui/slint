@@ -119,3 +119,16 @@ environment variables to configure support for different keyboards:
 If your display's default orientation does not match the desired orientation of your user interface, then you can
 set the `SLINT_KMS_ROTATION` environment variable to instruct Slint to rotate at rendering time. Supported values
 are the rotation in degress: `0`, `90`, `180`, and `270`.
+
+Note that this variable merely rotates the rendering output. If you're using a touch screen attached to the same
+display, then you may need to configure it to also apply a rotation on the touch events generated. For configuring
+libinput's `LIBINPUT_CALIBRATION_MATRIX` see the [libinput Documentation](https://wayland.freedesktop.org/libinput/doc/latest/device-configuration-via-udev.html#static-device-configuration-via-udev)
+for a list of valid values. Values can typically be set by writing them into a rules file under `/etc/udev/rules.d`.
+
+The following example configures libinput to apply a 90 degree clockwise rotation for any attached touch screen:
+
+```bash
+echo 'ENV{LIBINPUT_CALIBRATION_MATRIX}="0 -1 1 1 0 0"' > /etc/udev/rules.d/libinput.rules
+udevadm control --reload-rules
+udevadm trigger
+```
