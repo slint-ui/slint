@@ -4,13 +4,62 @@
 use std::rc::{Rc, Weak};
 
 use i_slint_compiler::langtype::Type;
-use i_slint_core::model::Model;
+use i_slint_core::model::{Model, ModelNotify};
 use napi::{
     bindgen_prelude::Object, Env, JsFunction, JsNumber, JsUnknown, NapiRaw, Result, ValueType,
 };
 use slint_interpreter::Value;
 
 use crate::{to_js_unknown, to_value, RefCountedReference};
+
+#[napi]
+pub struct RustModel {
+    notify: ModelNotify,
+}
+
+#[napi]
+impl RustModel {
+    #[napi(constructor)]
+    pub fn new() -> Self {
+        Self { notify: Default::default() }
+    }
+
+    #[napi]
+    pub fn notify_row_data_changed(&self, row: u32) {
+        self.notify.row_changed(row as usize);
+    }
+
+    #[napi]
+    pub fn notify_row_added(&self, row: u32, count: u32) {
+        self.notify.row_added(row as usize, count as usize);
+    }
+
+    #[napi]
+    pub fn notify_row_removed(&self, row: u32, count: u32) {
+        self.notify.row_removed(row as usize, count as usize);
+    }
+
+    #[napi]
+    pub fn notify_reset(&self) {
+        self.notify.reset();
+    }
+}
+
+impl Model for RustModel {
+    type Data = slint_interpreter::Value;
+
+    fn row_count(&self) -> usize {
+        todo!()
+    }
+
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        todo!()
+    }
+
+    fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
+        &self.notify
+    }
+}
 
 pub struct JsModel {
     model: RefCountedReference,
