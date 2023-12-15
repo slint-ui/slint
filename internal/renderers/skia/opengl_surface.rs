@@ -258,22 +258,26 @@ impl OpenGLSurface {
                 .ok_or("Unable to find suitable GL config")?
         };
 
-        let gles_context_attributes = ContextAttributesBuilder::new()
-            .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
-                major: 3,
-                minor: 0,
-            })))
-            .build(Some(_window_handle.raw_window_handle()));
+        let create_gl_context = |gles_major| {
+            let gles_context_attributes = ContextAttributesBuilder::new()
+                .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
+                    major: gles_major,
+                    minor: 0,
+                })))
+                .build(Some(_window_handle.raw_window_handle()));
 
-        let fallback_context_attributes =
-            ContextAttributesBuilder::new().build(Some(_window_handle.raw_window_handle()));
+            let fallback_context_attributes =
+                ContextAttributesBuilder::new().build(Some(_window_handle.raw_window_handle()));
 
-        let not_current_gl_context = unsafe {
-            gl_display
-                .create_context(&config, &gles_context_attributes)
-                .or_else(|_| gl_display.create_context(&config, &fallback_context_attributes))
-                .map_err(|e| format!("Error creating OpenGL context: {e}"))?
+            unsafe {
+                gl_display
+                    .create_context(&config, &gles_context_attributes)
+                    .or_else(|_| gl_display.create_context(&config, &fallback_context_attributes))
+                    .map_err(|e| format!("Error creating OpenGL context: {e}"))
+            }
         };
+
+        let not_current_gl_context = create_gl_context(3).or_else(|_| create_gl_context(2))?;
 
         let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
             _window_handle.raw_window_handle(),
