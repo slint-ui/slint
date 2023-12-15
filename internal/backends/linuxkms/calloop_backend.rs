@@ -78,7 +78,7 @@ pub struct Backend {
         &'a crate::DeviceOpener,
     ) -> Result<
         Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>,
-        i_slint_core::platform::PlatformError,
+        PlatformError,
     >,
     sel_clipboard: RefCell<Option<String>>,
     clipboard: RefCell<Option<String>>,
@@ -152,10 +152,7 @@ impl Backend {
 impl i_slint_core::platform::Platform for Backend {
     fn create_window_adapter(
         &self,
-    ) -> Result<
-        std::rc::Rc<dyn i_slint_core::window::WindowAdapter>,
-        i_slint_core::platform::PlatformError,
-    > {
+    ) -> Result<std::rc::Rc<dyn i_slint_core::window::WindowAdapter>, PlatformError> {
         #[cfg(feature = "libseat")]
         let device_accessor = |device: &std::path::Path| -> Result<Arc<dyn AsFd>, PlatformError> {
             let device = self
@@ -189,8 +186,17 @@ impl i_slint_core::platform::Platform for Backend {
             Ok(Arc::new(device))
         };
 
+        // This could be per-screen, once we support multiple outputs
+        let rotation =
+            std::env::var("SLINT_KMS_ROTATION").map_or(Ok(Default::default()), |rot_str| {
+                rot_str
+                    .as_str()
+                    .try_into()
+                    .map_err(|e| format!("Failed to parse SLINT_KMS_ROTATION: {e}"))
+            })?;
+
         let renderer = (self.renderer_factory)(&device_accessor)?;
-        let adapter = FullscreenWindowAdapter::new(renderer)?;
+        let adapter = FullscreenWindowAdapter::new(renderer, rotation)?;
 
         *self.window.borrow_mut() = Some(adapter.clone());
 

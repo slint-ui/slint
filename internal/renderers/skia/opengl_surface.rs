@@ -39,6 +39,8 @@ impl super::Surface for OpenGLSurface {
         let (current_glutin_context, glutin_surface) =
             Self::init_glutin(window_handle, display_handle, width, height)?;
 
+        glutin_surface.resize(&current_glutin_context, width, height);
+
         let fb_info = {
             use glow::HasContext;
 
@@ -151,7 +153,9 @@ impl super::Surface for OpenGLSurface {
 
         let skia_canvas = surface.canvas();
 
+        skia_canvas.save();
         callback(skia_canvas, Some(gr_context));
+        skia_canvas.restore();
 
         self.glutin_surface.swap_buffers(&current_context).map_err(|glutin_error| {
             format!("Skia OpenGL Renderer: Error swapping buffers: {glutin_error}").into()

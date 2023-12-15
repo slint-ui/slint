@@ -114,3 +114,8 @@ environment variables to configure support for different keyboards:
   options section in
   [xkeyboard-config(7)](https://manpages.debian.org/testing/xkb-data/xkeyboard-config.7.en.html) for a list of accepted option codes.
 
+## Display Rotation
+
+If your display's default orientation does not match the desired orientation of your user interface, then you can
+set the `SLINT_KMS_ROTATION` environment variable to instruct Slint to rotate at rendering time. Supported values
+are the rotation in degress: `0`, `90`, `180`, and `270`.

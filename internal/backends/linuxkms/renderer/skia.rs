@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use crate::display::SyntheticDisplayRotation;
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
@@ -95,11 +96,17 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaRendererAdapter 
     }
     fn render_and_present(
         &self,
+        rotation: SyntheticDisplayRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<(), PlatformError> {
-        self.renderer.render_with_post_callback(Some(&|item_renderer| {
-            draw_mouse_cursor_callback(item_renderer);
-        }))?;
+        self.renderer.render_transformed_with_post_callback(
+            rotation.degrees(),
+            rotation.translation_after_rotation(self.size),
+            self.size,
+            Some(&|item_renderer| {
+                draw_mouse_cursor_callback(item_renderer);
+            }),
+        )?;
         if let Some(presenter) = self.presenter.as_ref() {
             presenter.present()?;
         }

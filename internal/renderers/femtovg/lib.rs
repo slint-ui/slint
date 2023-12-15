@@ -171,11 +171,19 @@ impl FemtoVGRenderer {
 
     /// Render the scene using OpenGL.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
-        self.internal_render_with_post_callback(None)
+        self.internal_render_with_post_callback(
+            0.,
+            (0., 0.),
+            self.window_adapter()?.window().size(),
+            None,
+        )
     }
 
     fn internal_render_with_post_callback(
         &self,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        surface_size: i_slint_core::api::PhysicalSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.opengl_context.ensure_current()?;
@@ -193,10 +201,10 @@ impl FemtoVGRenderer {
 
         let window_adapter = self.window_adapter()?;
         let window = window_adapter.window();
-        let size = window.size();
+        let window_size = window.size();
 
         let Some((width, height)): Option<(NonZeroU32, NonZeroU32)> =
-            size.width.try_into().ok().zip(size.height.try_into().ok())
+            window_size.width.try_into().ok().zip(window_size.height.try_into().ok())
         else {
             // Nothing to render
             return Ok(());
@@ -215,18 +223,25 @@ impl FemtoVGRenderer {
                     // We pass an integer that is greater than or equal to the scale factor as
                     // dpi / device pixel ratio as the anti-alias of femtovg needs that to draw text clearly.
                     // We need to care about that `ceil()` when calculating metrics.
-                    femtovg_canvas.set_size(width.get(), height.get(), scale);
+                    femtovg_canvas.set_size(surface_size.width, surface_size.height, scale);
 
                     // Clear with window background if it is a solid color otherwise it will drawn as gradient
                     if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
                         femtovg_canvas.clear_rect(
                             0,
                             0,
-                            width.get(),
-                            height.get(),
+                            surface_size.width,
+                            surface_size.height,
                             self::itemrenderer::to_femtovg_color(&clear_color),
                         );
                     }
+                }
+
+                {
+                    let mut femtovg_canvas = self.canvas.borrow_mut();
+                    femtovg_canvas.reset();
+                    femtovg_canvas.rotate(rotation_angle_degrees.to_radians());
+                    femtovg_canvas.translate(translation.0, translation.1);
                 }
 
                 if let Some(notifier_fn) = self.rendering_notifier.borrow_mut().as_mut() {
@@ -262,7 +277,7 @@ impl FemtoVGRenderer {
                     Some(brush) => {
                         item_renderer.draw_rect(
                             i_slint_core::lengths::logical_size_from_api(
-                                size.to_logical(window_inner.scale_factor()),
+                                window.size().to_logical(window_inner.scale_factor()),
                             ),
                             brush,
                         );
@@ -549,17 +564,28 @@ impl Drop for FemtoVGRenderer {
 }
 
 pub trait FemtoVGRendererExt {
-    fn render_with_post_callback(
+    fn render_transformed_with_post_callback(
         &self,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        surface_size: i_slint_core::api::PhysicalSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
 }
 
 impl FemtoVGRendererExt for FemtoVGRenderer {
-    fn render_with_post_callback(
+    fn render_transformed_with_post_callback(
         &self,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        surface_size: i_slint_core::api::PhysicalSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        self.internal_render_with_post_callback(post_render_cb)
+        self.internal_render_with_post_callback(
+            rotation_angle_degrees,
+            translation,
+            surface_size,
+            post_render_cb,
+        )
     }
 }

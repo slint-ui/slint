@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### General
+
+- LinuxKMS backend: Added support synthetic screen rotation via the `SLINT_KMS_ROTATION` environment variable.
+
 ### Slint Language
 
  - Fixed wrong text input in cupertino SpinBox
