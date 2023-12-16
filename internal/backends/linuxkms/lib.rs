@@ -11,7 +11,7 @@ mod fullscreenwindowadapter;
 use std::os::fd::AsFd;
 
 #[cfg(target_os = "linux")]
-type DeviceOpener<'a> = dyn Fn(&std::path::Path) -> Result<std::sync::Arc<dyn AsFd>, i_slint_core::platform::PlatformError>
+type DeviceOpener<'a> = dyn Fn(&std::path::Path) -> Result<std::rc::Rc<dyn AsFd>, i_slint_core::platform::PlatformError>
     + 'a;
 
 #[cfg(target_os = "linux")]

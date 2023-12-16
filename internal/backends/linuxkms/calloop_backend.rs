@@ -154,7 +154,7 @@ impl i_slint_core::platform::Platform for Backend {
         &self,
     ) -> Result<std::rc::Rc<dyn i_slint_core::window::WindowAdapter>, PlatformError> {
         #[cfg(feature = "libseat")]
-        let device_accessor = |device: &std::path::Path| -> Result<Arc<dyn AsFd>, PlatformError> {
+        let device_accessor = |device: &std::path::Path| -> Result<Rc<dyn AsFd>, PlatformError> {
             let device = self
                 .seat
                 .borrow_mut()
@@ -171,11 +171,11 @@ impl i_slint_core::platform::Platform for Backend {
                 .map_err(|e| format!("Error making device fd non-blocking: {e}"))?;
 
             // Safety: We take ownership of the now shared FD, ... although we should be using libseat's close_device....
-            Ok(Arc::new(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd) }))
+            Ok(Rc::new(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd) }))
         };
 
         #[cfg(not(feature = "libseat"))]
-        let device_accessor = |device: &std::path::Path| -> Result<Arc<dyn AsFd>, PlatformError> {
+        let device_accessor = |device: &std::path::Path| -> Result<Rc<dyn AsFd>, PlatformError> {
             let device = OpenOptions::new()
                 .custom_flags((nix::fcntl::OFlag::O_NOCTTY | nix::fcntl::OFlag::O_CLOEXEC).bits())
                 .read(true)
@@ -183,7 +183,7 @@ impl i_slint_core::platform::Platform for Backend {
                 .open(device)
                 .map_err(|e| format!("Error opening device: {e}"))?;
 
-            Ok(Arc::new(device))
+            Ok(Rc::new(device))
         };
 
         // This could be per-screen, once we support multiple outputs
