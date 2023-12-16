@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use std::rc::Rc;
+
 use crate::display::RenderingRotation;
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::item_rendering::ItemRenderer;
@@ -9,7 +11,7 @@ use i_slint_renderer_skia::SkiaRendererExt;
 
 pub struct SkiaRendererAdapter {
     renderer: i_slint_renderer_skia::SkiaRenderer,
-    presenter: Option<Box<dyn crate::display::Presenter>>,
+    presenter: Option<Rc<dyn crate::display::Presenter>>,
     size: PhysicalWindowSize,
 }
 
@@ -61,7 +63,7 @@ impl SkiaRendererAdapter {
             renderer: i_slint_renderer_skia::SkiaRenderer::new_with_surface(Box::new(
                 skia_gl_surface,
             )),
-            presenter: Some(Box::new(display)),
+            presenter: Some(Rc::new(display)),
             size,
         });
 
@@ -94,6 +96,11 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaRendererAdapter 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
     }
+
+    fn is_ready_to_present(&self) -> bool {
+        self.presenter.as_ref().map_or(true, |presenter| presenter.is_ready_to_present())
+    }
+
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
@@ -114,5 +121,16 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaRendererAdapter 
     }
     fn size(&self) -> i_slint_core::api::PhysicalSize {
         self.size
+    }
+
+    fn register_page_flip_handler(
+        &self,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) -> Result<Option<calloop::RegistrationToken>, PlatformError> {
+        if let Some(presenter) = self.presenter.as_ref() {
+            Ok(Some(presenter.clone().register_page_flip_handler(event_loop_handle)?))
+        } else {
+            Ok(None)
+        }
     }
 }

@@ -19,12 +19,17 @@ use crate::display::RenderingRotation;
 
 pub trait FullscreenRenderer {
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
+    fn is_ready_to_present(&self) -> bool;
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<(), PlatformError>;
     fn size(&self) -> PhysicalWindowSize;
+    fn register_page_flip_handler(
+        &self,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) -> Result<Option<calloop::RegistrationToken>, PlatformError>;
 }
 
 pub struct FullscreenWindowAdapter {
@@ -84,6 +89,9 @@ impl FullscreenWindowAdapter {
         &self,
         mouse_position: Pin<&Property<Option<LogicalPosition>>>,
     ) -> Result<(), PlatformError> {
+        if !self.renderer.is_ready_to_present() {
+            return Ok(());
+        }
         if self.needs_redraw.replace(false) {
             self.renderer.render_and_present(self.rotation, &|item_renderer| {
                 if let Some(mouse_position) = mouse_position.get() {
@@ -97,6 +105,13 @@ impl FullscreenWindowAdapter {
             })?;
         }
         Ok(())
+    }
+
+    pub fn register_page_flip_handler(
+        &self,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) -> Result<Option<calloop::RegistrationToken>, PlatformError> {
+        self.renderer.register_page_flip_handler(event_loop_handle)
     }
 }
 

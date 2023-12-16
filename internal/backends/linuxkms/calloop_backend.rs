@@ -4,7 +4,7 @@
 use std::cell::RefCell;
 #[cfg(not(feature = "libseat"))]
 use std::fs::OpenOptions;
-use std::os::fd::{AsFd, BorrowedFd, RawFd, OwnedFd};
+use std::os::fd::{AsFd, BorrowedFd, OwnedFd, RawFd};
 #[cfg(feature = "libseat")]
 use std::os::fd::{AsRawFd, FromRawFd};
 #[cfg(not(feature = "libseat"))]
@@ -13,7 +13,7 @@ use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
-use calloop::EventLoop;
+use calloop::{EventLoop, RegistrationToken};
 use i_slint_core::platform::PlatformError;
 use i_slint_core::platform::WindowAdapter;
 
@@ -242,10 +242,17 @@ impl i_slint_core::platform::Platform for Backend {
 
         quit_loop.store(false, std::sync::atomic::Ordering::Release);
 
+        let mut page_flip_handler_registration_token = None;
+
         while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
             i_slint_core::platform::update_timers_and_animations();
 
             let has_active_animations = if let Some(adapter) = self.window.borrow().as_ref() {
+                if page_flip_handler_registration_token.is_none() {
+                    page_flip_handler_registration_token =
+                        adapter.register_page_flip_handler(event_loop.handle())?;
+                }
+
                 adapter.render_if_needed(mouse_position_property.as_ref())?;
                 adapter.window().has_active_animations()
             } else {
@@ -261,6 +268,10 @@ impl i_slint_core::platform::Platform for Backend {
             event_loop
                 .dispatch(next_timeout, &mut loop_data)
                 .map_err(|e| format!("Error dispatch events: {e}"))?;
+        }
+
+        if let Some(token) = page_flip_handler_registration_token.take() {
+            event_loop.handle().remove(token);
         }
 
         Ok(())
@@ -298,7 +309,7 @@ impl i_slint_core::platform::Platform for Backend {
 }
 
 #[derive(Default)]
-struct LoopData {}
+pub struct LoopData {}
 
 struct Device {
     // in the future, use this from libseat: device_id: i32,
@@ -313,3 +324,80 @@ impl AsFd for Device {
 
 pub(crate) static QUIT_ON_LAST_WINDOW_CLOSED: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(true);
+
+/// Calloop has sophisticated ways of associating event sources with callbacks that
+/// handle activity on the source, with life times, etc. For the page flip handling
+/// we really just want to watch for activity on a file descriptor and then invoke
+/// a callback to read from it, in the same thread, as-is. This helper provides
+/// that ... simplification.
+pub struct FileDescriptorActivityNotifier {
+    fd: Rc<OwnedFd>,
+    token: Option<calloop::Token>,
+    callback: Box<dyn FnMut()>,
+    interest: calloop::Interest,
+}
+
+impl FileDescriptorActivityNotifier {
+    pub fn new(
+        handle: &EventLoopHandle,
+        interest: calloop::Interest,
+        fd: Rc<OwnedFd>,
+        callback: Box<dyn FnMut()>,
+    ) -> Result<RegistrationToken, PlatformError> {
+        let notifier = Self { fd, token: None, interest, callback };
+
+        handle
+            .insert_source(notifier, move |_, _, _| {})
+            .map_err(|e| format!("Error registering page flip handler: {e}").into())
+    }
+}
+
+impl calloop::EventSource for FileDescriptorActivityNotifier {
+    type Event = ();
+
+    type Metadata = ();
+
+    type Ret = ();
+
+    type Error = PlatformError;
+
+    fn process_events<F>(
+        &mut self,
+        _readiness: calloop::Readiness,
+        token: calloop::Token,
+        _callback: F,
+    ) -> Result<calloop::PostAction, Self::Error>
+    where
+        F: FnMut(Self::Event, &mut Self::Metadata) -> Self::Ret,
+    {
+        if Some(token) == self.token {
+            (self.callback)();
+        }
+        Ok(calloop::PostAction::Continue)
+    }
+
+    fn register(
+        &mut self,
+        poll: &mut calloop::Poll,
+        token_factory: &mut calloop::TokenFactory,
+    ) -> calloop::Result<()> {
+        self.token = Some(token_factory.token());
+        unsafe { poll.register(&self.fd, self.interest, calloop::Mode::Level, self.token.unwrap()) }
+    }
+
+    fn reregister(
+        &mut self,
+        poll: &mut calloop::Poll,
+        token_factory: &mut calloop::TokenFactory,
+    ) -> calloop::Result<()> {
+        self.token = Some(token_factory.token());
+        poll.reregister(&self.fd, self.interest, calloop::Mode::Level, self.token.unwrap())
+    }
+
+    fn unregister(&mut self, poll: &mut calloop::Poll) -> calloop::Result<()> {
+        self.token = None;
+        poll.unregister(&self.fd)
+    }
+}
+
+pub type EventLoopHandle<'a> = calloop::LoopHandle<'a, LoopData>;
