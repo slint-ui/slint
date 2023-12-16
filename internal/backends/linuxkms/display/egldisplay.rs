@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use std::cell::Cell;
-use std::os::fd::{AsFd, BorrowedFd};
+use std::os::fd::{AsFd, BorrowedFd, OwnedFd};
 use std::rc::Rc;
 
 use crate::DeviceOpener;
@@ -13,7 +13,7 @@ use i_slint_core::platform::PlatformError;
 
 // Wrapped needed because gbm::Device<T> wants T to be sized.
 #[derive(Clone)]
-pub struct SharedFd(Rc<dyn AsFd>);
+pub struct SharedFd(Rc<OwnedFd>);
 impl AsFd for SharedFd {
     fn as_fd(&self) -> BorrowedFd<'_> {
         self.0.as_fd()
