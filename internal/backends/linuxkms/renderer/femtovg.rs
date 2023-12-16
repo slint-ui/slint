@@ -1,9 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, rc::Rc};
 
-use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_renderer_femtovg::FemtoVGRendererExt;
@@ -22,17 +21,17 @@ use crate::display::{egldisplay::EglDisplay, Presenter, RenderingRotation};
 
 pub struct FemtoVGRendererAdapter {
     renderer: i_slint_renderer_femtovg::FemtoVGRenderer,
-    size: PhysicalWindowSize,
+    egl_display: Rc<EglDisplay>,
 }
 
 struct GlContextWrapper {
     glutin_context: glutin::context::PossiblyCurrentContext,
     glutin_surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
-    egl_display: EglDisplay,
+    egl_display: Rc<EglDisplay>,
 }
 
 impl GlContextWrapper {
-    fn new(egl_display: EglDisplay) -> Result<Self, PlatformError> {
+    fn new(egl_display: Rc<EglDisplay>) -> Result<Self, PlatformError> {
         let width: std::num::NonZeroU32 = egl_display.size.width.try_into().map_err(|_| {
             format!(
                 "Attempting to create window surface with an invalid width: {}",
@@ -159,15 +158,13 @@ impl FemtoVGRendererAdapter {
     pub fn new(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
-        let display = crate::display::egldisplay::create_egl_display(device_opener)?;
-
-        let size = display.size;
+        let egl_display = Rc::new(crate::display::egldisplay::create_egl_display(device_opener)?);
 
         let renderer = Box::new(Self {
             renderer: i_slint_renderer_femtovg::FemtoVGRenderer::new(GlContextWrapper::new(
-                display,
+                egl_display.clone(),
             )?)?,
-            size,
+            egl_display,
         });
 
         eprintln!("Using FemtoVG OpenGL renderer");
@@ -180,6 +177,11 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
     }
+
+    fn is_ready_to_present(&self) -> bool {
+        self.egl_display.is_ready_to_present()
+    }
+
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
@@ -187,14 +189,21 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
     ) -> Result<(), PlatformError> {
         self.renderer.render_transformed_with_post_callback(
             rotation.degrees(),
-            rotation.translation_after_rotation(self.size),
-            self.size,
+            rotation.translation_after_rotation(self.egl_display.size),
+            self.egl_display.size,
             Some(&|item_renderer| {
                 draw_mouse_cursor_callback(item_renderer);
             }),
         )
     }
     fn size(&self) -> i_slint_core::api::PhysicalSize {
-        self.size
+        self.egl_display.size
+    }
+
+    fn register_page_flip_handler(
+        &self,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) -> Result<Option<calloop::RegistrationToken>, PlatformError> {
+        Ok(Some(self.egl_display.clone().register_page_flip_handler(event_loop_handle)?))
     }
 }

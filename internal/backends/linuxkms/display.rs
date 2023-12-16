@@ -1,9 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use std::rc::Rc;
+
 use i_slint_core::api::PhysicalSize;
+use i_slint_core::platform::PlatformError;
 
 pub trait Presenter {
+    fn is_ready_to_present(&self) -> bool;
+    fn register_page_flip_handler(
+        self: Rc<Self>,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) -> Result<calloop::RegistrationToken, PlatformError>;
     // Present updated front-buffer to the screen
     fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::os::fd::{AsFd, BorrowedFd, OwnedFd};
 use std::rc::Rc;
 
@@ -35,8 +35,20 @@ impl Drop for OwnedFramebufferHandle {
     }
 }
 
+#[derive(Default)]
+enum PageFlipState {
+    #[default]
+    NoFrameBufferPosted,
+    InitialBufferPosted,
+    WaitingForPageFlip {
+        _buffer_to_keep_alive_until_flip: gbm::BufferObject<OwnedFramebufferHandle>,
+    },
+    ReadyForNextBuffer,
+}
+
 pub struct EglDisplay {
     last_buffer: Cell<Option<gbm::BufferObject<OwnedFramebufferHandle>>>,
+    page_flip_state: RefCell<PageFlipState>,
     crtc: drm::control::crtc::Handle,
     connector: drm::control::connector::Info,
     mode: drm::control::Mode,
@@ -47,6 +59,25 @@ pub struct EglDisplay {
 }
 
 impl super::Presenter for EglDisplay {
+    fn register_page_flip_handler(
+        self: Rc<Self>,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) -> Result<calloop::RegistrationToken, PlatformError> {
+        crate::calloop_backend::FileDescriptorActivityNotifier::new(
+            &event_loop_handle,
+            calloop::Interest::READ,
+            self.gbm_device.0.clone(),
+            Box::new(move || {
+                for event in self.gbm_device.receive_events().unwrap() {
+                    if matches!(event, drm::control::Event::PageFlip(..)) {
+                        *self.page_flip_state.borrow_mut() = PageFlipState::ReadyForNextBuffer;
+                        break;
+                    }
+                }
+            }),
+        )
+    }
+
     fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut front_buffer = unsafe {
             self.gbm_surface
@@ -70,20 +101,25 @@ impl super::Presenter for EglDisplay {
                 .page_flip(self.crtc, fb, drm::control::PageFlipFlags::EVENT, None)
                 .map_err(|e| format!("Error presenting fb: {e}"))?;
 
-            for event in self.gbm_device.receive_events().unwrap() {
-                if matches!(event, drm::control::Event::PageFlip(..)) {
-                    break;
-                }
-            }
-
-            drop(last_buffer);
+            *self.page_flip_state.borrow_mut() =
+                PageFlipState::WaitingForPageFlip { _buffer_to_keep_alive_until_flip: last_buffer };
         } else {
             self.gbm_device
                 .set_crtc(self.crtc, Some(fb), (0, 0), &[self.connector.handle()], Some(self.mode))
                 .map_err(|e| format!("Error presenting fb: {e}"))?;
+            *self.page_flip_state.borrow_mut() = PageFlipState::InitialBufferPosted;
         }
 
         Ok(())
+    }
+
+    fn is_ready_to_present(&self) -> bool {
+        matches!(
+            *self.page_flip_state.borrow(),
+            PageFlipState::NoFrameBufferPosted
+                | PageFlipState::InitialBufferPosted
+                | PageFlipState::ReadyForNextBuffer
+        )
     }
 }
 
@@ -253,6 +289,7 @@ pub fn try_create_egl_display(
 
     Ok(EglDisplay {
         last_buffer: Cell::default(),
+        page_flip_state: Default::default(),
         crtc,
         connector,
         mode,
