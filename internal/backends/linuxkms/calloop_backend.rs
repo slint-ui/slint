@@ -4,7 +4,7 @@
 use std::cell::RefCell;
 #[cfg(not(feature = "libseat"))]
 use std::fs::OpenOptions;
-use std::os::fd::{AsFd, BorrowedFd, RawFd};
+use std::os::fd::{AsFd, BorrowedFd, RawFd, OwnedFd};
 #[cfg(feature = "libseat")]
 use std::os::fd::{AsRawFd, FromRawFd};
 #[cfg(not(feature = "libseat"))]
@@ -154,7 +154,7 @@ impl i_slint_core::platform::Platform for Backend {
         &self,
     ) -> Result<std::rc::Rc<dyn i_slint_core::window::WindowAdapter>, PlatformError> {
         #[cfg(feature = "libseat")]
-        let device_accessor = |device: &std::path::Path| -> Result<Rc<dyn AsFd>, PlatformError> {
+        let device_accessor = |device: &std::path::Path| -> Result<Rc<OwnedFd>, PlatformError> {
             let device = self
                 .seat
                 .borrow_mut()
@@ -175,12 +175,13 @@ impl i_slint_core::platform::Platform for Backend {
         };
 
         #[cfg(not(feature = "libseat"))]
-        let device_accessor = |device: &std::path::Path| -> Result<Rc<dyn AsFd>, PlatformError> {
+        let device_accessor = |device: &std::path::Path| -> Result<Rc<OwnedFd>, PlatformError> {
             let device = OpenOptions::new()
                 .custom_flags((nix::fcntl::OFlag::O_NOCTTY | nix::fcntl::OFlag::O_CLOEXEC).bits())
                 .read(true)
                 .write(true)
                 .open(device)
+                .map(|file| file.into())
                 .map_err(|e| format!("Error opening device: {e}"))?;
 
             Ok(Rc::new(device))
