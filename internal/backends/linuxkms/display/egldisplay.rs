@@ -3,7 +3,7 @@
 
 use std::cell::Cell;
 use std::os::fd::{AsFd, BorrowedFd};
-use std::sync::Arc;
+use std::rc::Rc;
 
 use crate::DeviceOpener;
 use drm::control::Device;
@@ -13,7 +13,7 @@ use i_slint_core::platform::PlatformError;
 
 // Wrapped needed because gbm::Device<T> wants T to be sized.
 #[derive(Clone)]
-pub struct SharedFd(Arc<dyn AsFd>);
+pub struct SharedFd(Rc<dyn AsFd>);
 impl AsFd for SharedFd {
     fn as_fd(&self) -> BorrowedFd<'_> {
         self.0.as_fd()
