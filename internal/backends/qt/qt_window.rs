@@ -1381,7 +1381,6 @@ cpp! {{
         void operator()(QWidget *widget_ptr)
         {
             widget_ptr->hide();
-            widget_ptr->disconnect();
             widget_ptr->deleteLater();
         }
     };
