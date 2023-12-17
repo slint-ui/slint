@@ -103,6 +103,15 @@ impl FullscreenWindowAdapter {
                     item_renderer.restore_state();
                 }
             })?;
+
+            if self.window.has_active_animations() {
+                self.needs_redraw.set(true);
+                // Wake up event loop
+                i_slint_core::timers::Timer::single_shot(
+                    std::time::Duration::from_millis(16),
+                    || {},
+                );
+            }
         }
         Ok(())
     }

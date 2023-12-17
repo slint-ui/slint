@@ -15,7 +15,6 @@ use std::sync::{Arc, Mutex};
 
 use calloop::{EventLoop, RegistrationToken};
 use i_slint_core::platform::PlatformError;
-use i_slint_core::platform::WindowAdapter;
 
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
 
@@ -247,24 +246,16 @@ impl i_slint_core::platform::Platform for Backend {
         while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
             i_slint_core::platform::update_timers_and_animations();
 
-            let has_active_animations = if let Some(adapter) = self.window.borrow().as_ref() {
+            if let Some(adapter) = self.window.borrow().as_ref() {
                 if page_flip_handler_registration_token.is_none() {
                     page_flip_handler_registration_token =
                         adapter.register_page_flip_handler(event_loop.handle())?;
                 }
 
                 adapter.render_if_needed(mouse_position_property.as_ref())?;
-                adapter.window().has_active_animations()
-            } else {
-                false
             };
 
-            let next_timeout = if has_active_animations {
-                Some(std::time::Duration::from_millis(16))
-            } else {
-                i_slint_core::platform::duration_until_next_timer_update()
-            };
-
+            let next_timeout = i_slint_core::platform::duration_until_next_timer_update();
             event_loop
                 .dispatch(next_timeout, &mut loop_data)
                 .map_err(|e| format!("Error dispatch events: {e}"))?;
