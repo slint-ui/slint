@@ -68,10 +68,10 @@ mod internal {
     use super::*;
     /// This enum describes the rotation that should be applied to the contents rendered by the software renderer.
     ///
-    /// Argument to be passed in [`SoftwareRenderer::set_window_rotation`].
+    /// Argument to be passed in [`SoftwareRenderer::set_rendering_rotation`].
     #[non_exhaustive]
     #[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
-    pub enum WindowRotation {
+    pub enum RenderingRotation {
         /// No rotation
         #[default]
         NoRotation,
@@ -85,11 +85,11 @@ mod internal {
 }
 
 #[cfg(feature = "software-renderer-rotation")]
-pub use internal::WindowRotation;
+pub use internal::RenderingRotation;
 #[cfg(not(feature = "software-renderer-rotation"))]
-use internal::WindowRotation;
+use internal::RenderingRotation;
 
-impl WindowRotation {
+impl RenderingRotation {
     fn is_transpose(self) -> bool {
         matches!(self, Self::Rotate90 | Self::Rotate270)
     }
@@ -102,17 +102,17 @@ impl WindowRotation {
     /// Angle of the rotation in degrees
     fn angle(self) -> f32 {
         match self {
-            WindowRotation::NoRotation => 0.,
-            WindowRotation::Rotate90 => 90.,
-            WindowRotation::Rotate180 => 180.,
-            WindowRotation::Rotate270 => 270.,
+            RenderingRotation::NoRotation => 0.,
+            RenderingRotation::Rotate90 => 90.,
+            RenderingRotation::Rotate180 => 180.,
+            RenderingRotation::Rotate270 => 270.,
         }
     }
 }
 
 #[derive(Copy, Clone)]
 struct RotationInfo {
-    orientation: WindowRotation,
+    orientation: RenderingRotation,
     screen_size: PhysicalSize,
 }
 
@@ -226,7 +226,7 @@ pub struct SoftwareRenderer {
     /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
     prev_frame_dirty: Cell<DirtyRegion>,
     maybe_window_adapter: RefCell<Option<Weak<dyn crate::window::WindowAdapter>>>,
-    rotation: Cell<WindowRotation>,
+    rotation: Cell<RenderingRotation>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 }
 
@@ -278,13 +278,13 @@ impl SoftwareRenderer {
     #[cfg(feature = "software-renderer-rotation")]
     // This API is under a feature flag because it is experimental for now.
     // It should be a property of the Window instead (set via dispatch_event?)
-    pub fn set_window_rotation(&self, rotation: WindowRotation) {
+    pub fn set_rendering_rotation(&self, rotation: RenderingRotation) {
         self.rotation.set(rotation)
     }
 
-    /// Return the current rotation. See [`Self::set_window_rotation()`]
+    /// Return the current rotation. See [`Self::set_rendering_rotation()`]
     #[cfg(feature = "software-renderer-rotation")]
-    pub fn window_rotation(&self) -> WindowRotation {
+    pub fn rendering_rotation(&self) -> RenderingRotation {
         self.rotation.get()
     }
 
@@ -989,7 +989,7 @@ struct SceneTexture<'a> {
     /// The alpha of this color is ignored. (it is supposed to be mixed in `Self::alpha`)
     color: Color,
     alpha: u8,
-    rotation: WindowRotation,
+    rotation: RenderingRotation,
 }
 
 enum SharedBufferData {
@@ -1012,7 +1012,7 @@ struct SharedBufferCommand {
     source_rect: PhysicalRect,
     colorize: Color,
     alpha: u8,
-    rotation: WindowRotation,
+    rotation: RenderingRotation,
 }
 
 impl SharedBufferCommand {
@@ -1305,7 +1305,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         scale_factor: ScaleFactor,
         window: &'a WindowInner,
         processor: T,
-        orientation: WindowRotation,
+        orientation: RenderingRotation,
     ) -> Self {
         Self {
             processor,

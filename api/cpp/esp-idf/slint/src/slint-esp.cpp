@@ -21,7 +21,7 @@ struct EspPlatform : public slint::platform::Platform
                 std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2 = {}
 #ifdef SLINT_FEATURE_EXPERIMENTAL
                 ,
-                slint::platform::SoftwareRenderer::WindowRotation rotation = {}
+                slint::platform::SoftwareRenderer::RenderingRotation rotation = {}
 #endif
                 )
         : size(size),
@@ -50,7 +50,7 @@ private:
     std::span<slint::platform::Rgb565Pixel> buffer1;
     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2;
 #ifdef SLINT_FEATURE_EXPERIMENTAL
-    slint::platform::SoftwareRenderer::WindowRotation rotation;
+    slint::platform::SoftwareRenderer::RenderingRotation rotation;
 #endif
     class EspWindowAdapter *m_window = nullptr;
 
@@ -92,7 +92,7 @@ std::unique_ptr<slint::platform::WindowAdapter> EspPlatform::create_window_adapt
     auto window = std::make_unique<EspWindowAdapter>(buffer_type, size);
     m_window = window.get();
 #ifdef SLINT_FEATURE_EXPERIMENTAL
-    m_window->m_renderer.set_window_rotation(rotation);
+    m_window->m_renderer.set_rendering_rotation(rotation);
 #endif
     return window;
 }
@@ -203,8 +203,8 @@ void EspPlatform::run_event_loop()
             if (std::exchange(m_window->needs_redraw, false)) {
                 auto rotated = false
 #ifdef SLINT_FEATURE_EXPERIMENTAL
-                        || rotation == slint::platform::SoftwareRenderer::WindowRotation::Rotate90
-                        || rotation == slint::platform::SoftwareRenderer::WindowRotation::Rotate270
+                        || rotation == slint::platform::SoftwareRenderer::RenderingRotation::Rotate90
+                        || rotation == slint::platform::SoftwareRenderer::RenderingRotation::Rotate270
 #endif
                         ;
                 auto region =
@@ -283,7 +283,7 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2
 #ifdef SLINT_FEATURE_EXPERIMENTAL
                     ,
-                    slint::platform::SoftwareRenderer::WindowRotation rotation
+                    slint::platform::SoftwareRenderer::RenderingRotation rotation
 #endif
 )
 {

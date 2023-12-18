@@ -608,8 +608,8 @@ public:
 
 #    ifdef SLINT_FEATURE_EXPERIMENTAL
     /// This enum describes the rotation that is applied to the buffer when rendering.
-    /// To be used in set_window_rotation()
-    enum class WindowRotation {
+    /// To be used in set_rendering_rotation()
+    enum class RenderingRotation {
         /// No rotation
         NoRotation = 0,
         /// Rotate 90° to the left
@@ -623,9 +623,9 @@ public:
     /// Set how the window need to be rotated in the buffer.
     ///
     /// This is typically used to implement screen rotation in software
-    void set_window_rotation(WindowRotation rotation)
+    void set_rendering_rotation(RenderingRotation rotation)
     {
-        cbindgen_private::slint_software_renderer_set_window_rotation(inner,
+        cbindgen_private::slint_software_renderer_set_rendering_rotation(inner,
                                                                       static_cast<int>(rotation));
     }
 #    endif
