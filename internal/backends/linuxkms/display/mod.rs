@@ -17,7 +17,7 @@ pub mod vulkandisplay;
 /// a screen rotation. This is implemented entirely inside the actual renderer.
 #[non_exhaustive]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
-pub enum SyntheticDisplayRotation {
+pub enum RenderingRotation {
     /// No rotation
     #[default]
     NoRotation,
@@ -29,7 +29,7 @@ pub enum SyntheticDisplayRotation {
     Rotate270,
 }
 
-impl TryFrom<&str> for SyntheticDisplayRotation {
+impl TryFrom<&str> for RenderingRotation {
     type Error = String;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -50,15 +50,13 @@ impl TryFrom<&str> for SyntheticDisplayRotation {
     }
 }
 
-impl SyntheticDisplayRotation {
+impl RenderingRotation {
     pub fn screen_size_to_rotated_window_size(&self, screen_size: PhysicalSize) -> PhysicalSize {
         match self {
-            SyntheticDisplayRotation::NoRotation => screen_size,
-            SyntheticDisplayRotation::Rotate90 => {
-                PhysicalSize::new(screen_size.height, screen_size.width)
-            }
-            SyntheticDisplayRotation::Rotate180 => screen_size,
-            SyntheticDisplayRotation::Rotate270 => {
+            RenderingRotation::NoRotation => screen_size,
+            RenderingRotation::Rotate90 => PhysicalSize::new(screen_size.height, screen_size.width),
+            RenderingRotation::Rotate180 => screen_size,
+            RenderingRotation::Rotate270 => {
                 PhysicalSize::new(screen_size.height, screen_size.width)
             }
         }
@@ -66,21 +64,21 @@ impl SyntheticDisplayRotation {
 
     pub fn degrees(&self) -> f32 {
         match self {
-            SyntheticDisplayRotation::NoRotation => 0.,
-            SyntheticDisplayRotation::Rotate90 => 90.,
-            SyntheticDisplayRotation::Rotate180 => 180.,
-            SyntheticDisplayRotation::Rotate270 => 270.,
+            RenderingRotation::NoRotation => 0.,
+            RenderingRotation::Rotate90 => 90.,
+            RenderingRotation::Rotate180 => 180.,
+            RenderingRotation::Rotate270 => 270.,
         }
     }
 
     pub fn translation_after_rotation(&self, screen_size: PhysicalSize) -> (f32, f32) {
         match self {
-            SyntheticDisplayRotation::NoRotation => (0., 0.),
-            SyntheticDisplayRotation::Rotate90 => (0., -(screen_size.width as f32)),
-            SyntheticDisplayRotation::Rotate180 => {
+            RenderingRotation::NoRotation => (0., 0.),
+            RenderingRotation::Rotate90 => (0., -(screen_size.width as f32)),
+            RenderingRotation::Rotate180 => {
                 (-(screen_size.width as f32), -(screen_size.height as f32))
             }
-            SyntheticDisplayRotation::Rotate270 => (-(screen_size.height as f32), 0.),
+            RenderingRotation::Rotate270 => (-(screen_size.height as f32), 0.),
         }
     }
 }

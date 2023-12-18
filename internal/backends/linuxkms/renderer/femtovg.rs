@@ -18,7 +18,7 @@ use glutin::{
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 
-use crate::display::{egldisplay::EglDisplay, Presenter, SyntheticDisplayRotation};
+use crate::display::{egldisplay::EglDisplay, Presenter, RenderingRotation};
 
 pub struct FemtoVGRendererAdapter {
     renderer: i_slint_renderer_femtovg::FemtoVGRenderer,
@@ -182,7 +182,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
     }
     fn render_and_present(
         &self,
-        rotation: SyntheticDisplayRotation,
+        rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<(), PlatformError> {
         self.renderer.render_transformed_with_post_callback(

@@ -15,13 +15,13 @@ use i_slint_core::slice::Slice;
 use i_slint_core::Property;
 use i_slint_core::{platform::PlatformError, window::WindowAdapter};
 
-use crate::display::SyntheticDisplayRotation;
+use crate::display::RenderingRotation;
 
 pub trait FullscreenRenderer {
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
     fn render_and_present(
         &self,
-        rotation: SyntheticDisplayRotation,
+        rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<(), PlatformError>;
     fn size(&self) -> PhysicalWindowSize;
@@ -31,7 +31,7 @@ pub struct FullscreenWindowAdapter {
     window: i_slint_core::api::Window,
     renderer: Box<dyn FullscreenRenderer>,
     needs_redraw: Cell<bool>,
-    rotation: SyntheticDisplayRotation,
+    rotation: RenderingRotation,
 }
 
 impl WindowAdapter for FullscreenWindowAdapter {
@@ -70,7 +70,7 @@ impl WindowAdapter for FullscreenWindowAdapter {
 impl FullscreenWindowAdapter {
     pub fn new(
         renderer: Box<dyn FullscreenRenderer>,
-        rotation: SyntheticDisplayRotation,
+        rotation: RenderingRotation,
     ) -> Result<Rc<Self>, PlatformError> {
         Ok(Rc::<FullscreenWindowAdapter>::new_cyclic(|self_weak| FullscreenWindowAdapter {
             window: i_slint_core::api::Window::new(self_weak.clone()),
