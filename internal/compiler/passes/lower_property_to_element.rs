@@ -52,7 +52,7 @@ pub(crate) fn lower_property_to_element(
                         .property_analysis
                         .borrow()
                         .get(property_name)
-                        .map_or(false, |a| a.is_set))
+                        .map_or(false, |a| a.is_set || a.is_linked))
         };
 
         for mut child in old_children {

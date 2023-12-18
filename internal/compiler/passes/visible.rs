@@ -54,7 +54,7 @@ pub fn handle_visible(
                             .property_analysis
                             .borrow()
                             .get("visible")
-                            .map_or(false, |a| a.is_set))
+                            .map_or(false, |a| a.is_set || a.is_linked))
             };
 
             for mut child in old_children {

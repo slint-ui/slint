@@ -380,6 +380,7 @@ fn add_highlight_items(doc: &Document) {
             is_read: true,
             is_read_externally: true,
             is_linked_to_read_only: false,
+            is_linked: false,
         },
     );
 
@@ -462,6 +463,7 @@ fn add_current_item_callback(doc: &Document) {
             is_read: true,
             is_read_externally: true,
             is_linked_to_read_only: false,
+            is_linked: false,
         },
     );
     doc.root_component.root_element.borrow_mut().property_declarations.insert(
@@ -483,6 +485,7 @@ fn add_current_item_callback(doc: &Document) {
             is_read: true,
             is_read_externally: true,
             is_linked_to_read_only: false,
+            is_linked: false,
         },
     );
 

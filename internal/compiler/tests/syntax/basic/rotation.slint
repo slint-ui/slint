@@ -62,3 +62,10 @@ export Ex3 := Rectangle {
         }
     }
 }
+
+export component Ex4  {
+    in property rot <=> rect . rotation-angle;
+
+    rect := Rectangle {}
+//          ^error{rotation properties can only be applied to the Image element}
+}

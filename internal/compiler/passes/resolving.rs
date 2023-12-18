@@ -1493,6 +1493,14 @@ fn resolve_two_way_bindings(
                         if let Some(nr) = resolve_two_way_binding(n, &mut lookup_ctx) {
                             binding.two_way_bindings.push(nr.clone());
 
+                            nr.element()
+                                .borrow()
+                                .property_analysis
+                                .borrow_mut()
+                                .entry(nr.name().to_string())
+                                .or_default()
+                                .is_linked = true;
+
                             // Check the compatibility.
                             let mut rhs_lookup = nr.element().borrow().lookup_property(nr.name());
                             rhs_lookup.is_local_to_component &=

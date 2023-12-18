@@ -796,9 +796,11 @@ fn adjust_window_layout(component: &Rc<Component>, prop: &str) {
         if let Some(b) = root.bindings.remove(prop) {
             root.bindings.insert(new_prop.name().to_string(), b);
         };
-        if let Some(a) = root.property_analysis.borrow_mut().remove(prop) {
-            root.property_analysis.borrow_mut().insert(new_prop.name().to_string(), a);
+        let mut analysis = root.property_analysis.borrow_mut();
+        if let Some(a) = analysis.remove(prop) {
+            analysis.insert(new_prop.name().to_string(), a);
         };
+        drop(analysis);
         root.bindings.insert(
             prop.to_string(),
             RefCell::new(Expression::PropertyReference(new_prop.clone()).into()),

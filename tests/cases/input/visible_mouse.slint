@@ -27,6 +27,17 @@ Invisible := TouchArea {
     visible: false;
 }
 
+component VisibleAlias {
+    in property v <=> r.visible;
+    r := Rectangle {
+        TouchArea {
+            clicked => {
+                debug("Error");
+            }
+        }
+    }
+}
+
 TestCase := Rectangle {
     height: 100phx;
     width: 100phx;
@@ -48,6 +59,8 @@ TestCase := Rectangle {
     }
 
     Invisible {  }
+
+    VisibleAlias { v:false; width: 100%; height: 100%; }
 
     test_rect := Rectangle { }
     property <bool> test: test_rect.visible && !el2.visible && el1.visible;

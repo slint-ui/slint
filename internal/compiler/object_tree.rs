@@ -770,6 +770,9 @@ pub struct PropertyAnalysis {
 
     /// True if the property is linked to another property that is read only. That property becomes read-only
     pub is_linked_to_read_only: bool,
+
+    /// True if this property is linked to another property
+    pub is_linked: bool,
 }
 
 impl PropertyAnalysis {
