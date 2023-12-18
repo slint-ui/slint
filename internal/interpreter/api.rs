@@ -657,7 +657,7 @@ impl ComponentCompiler {
         source_code: String,
         path: PathBuf,
     ) -> Option<ComponentDefinition> {
-        self.build_from_versioned_source(source_code, path, None).await
+        self.build_from_versioned_source_impl(source_code, path, None).await
     }
 
     /// Compile some .slint code into a ComponentDefinition
@@ -678,7 +678,17 @@ impl ComponentCompiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     #[doc(hidden)]
+    #[cfg(feature = "internal")]
     pub async fn build_from_versioned_source(
+        &mut self,
+        source_code: String,
+        path: PathBuf,
+        version: SourceFileVersion,
+    ) -> Option<ComponentDefinition> {
+        self.build_from_versioned_source_impl(source_code, path, version).await
+    }
+
+    async fn build_from_versioned_source_impl(
         &mut self,
         source_code: String,
         path: PathBuf,
