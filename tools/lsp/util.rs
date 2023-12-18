@@ -15,13 +15,9 @@ use i_slint_compiler::typeregister::TypeRegister;
 use crate::wasm_prelude::UrlWasm;
 
 pub fn map_node_and_url(node: &SyntaxNode) -> Option<(lsp_types::Url, lsp_types::Range)> {
+    let sf = node.source_file()?;
     let range = node.text_range();
-    node.source_file().map(|sf| {
-        (
-            lsp_types::Url::from_file_path(sf.path()).unwrap_or_else(|_| invalid_url()),
-            map_range(sf, range),
-        )
-    })
+    Some((lsp_types::Url::from_file_path(sf.path()).ok()?, map_range(sf, range)))
 }
 
 pub fn map_node(node: &SyntaxNode) -> Option<lsp_types::Range> {
@@ -43,10 +39,6 @@ pub fn map_range(sf: &SourceFile, range: TextRange) -> lsp_types::Range {
     lsp_types::Range::new(map_position(sf, range.start()), map_position(sf, range.end()))
 }
 
-pub fn invalid_url() -> lsp_types::Url {
-    lsp_types::Url::parse("invalid:///").unwrap()
-}
-
 // Find the last token that is not a Whitespace in a `SyntaxNode`. May return
 // `None` if the node contains no tokens or they are all Whitespace.
 pub fn last_non_ws_token(node: &SyntaxNode) -> Option<SyntaxToken> {
@@ -63,11 +55,6 @@ pub fn last_non_ws_token(node: &SyntaxNode) -> Option<SyntaxToken> {
         token = t.next_token();
     }
     last_non_ws
-}
-
-#[test]
-fn test_invalid_url() {
-    assert_eq!(invalid_url().scheme(), "invalid");
 }
 
 /// Given a node within an element, return the Type for the Element under that node.
