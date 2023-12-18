@@ -56,29 +56,45 @@ pub struct EglDisplay {
     gbm_device: gbm::Device<SharedFd>,
     drm_device: SharedFd,
     pub size: PhysicalWindowSize,
+    page_flip_handler_registration_token: RefCell<Option<calloop::RegistrationToken>>,
 }
 
 impl super::Presenter for EglDisplay {
     fn register_page_flip_handler(
         self: Rc<Self>,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<calloop::RegistrationToken, PlatformError> {
+    ) -> Result<(), PlatformError> {
+        if self.page_flip_handler_registration_token.borrow().is_some() {
+            return Ok(());
+        }
         let self_weak = Rc::downgrade(&self);
-        crate::calloop_backend::FileDescriptorActivityNotifier::new(
-            &event_loop_handle,
-            calloop::Interest::READ,
-            self.gbm_device.0.clone(),
-            Box::new(move || {
-                if let Some(this) = self_weak.upgrade() {
-                    for event in this.gbm_device.receive_events().unwrap() {
-                        if matches!(event, drm::control::Event::PageFlip(..)) {
-                            *this.page_flip_state.borrow_mut() = PageFlipState::ReadyForNextBuffer;
-                            break;
+        *self.page_flip_handler_registration_token.borrow_mut() =
+            Some(crate::calloop_backend::FileDescriptorActivityNotifier::new(
+                &event_loop_handle,
+                calloop::Interest::READ,
+                self.gbm_device.0.clone(),
+                Box::new(move || {
+                    if let Some(this) = self_weak.upgrade() {
+                        for event in this.gbm_device.receive_events().unwrap() {
+                            if matches!(event, drm::control::Event::PageFlip(..)) {
+                                *this.page_flip_state.borrow_mut() =
+                                    PageFlipState::ReadyForNextBuffer;
+                                break;
+                            }
                         }
                     }
-                }
-            }),
-        )
+                }),
+            )?);
+        Ok(())
+    }
+
+    fn unregister_page_flip_handler(
+        &self,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) {
+        if let Some(token) = self.page_flip_handler_registration_token.take() {
+            event_loop_handle.remove(token);
+        }
     }
 
     fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -300,5 +316,6 @@ pub fn try_create_egl_display(
         gbm_device,
         drm_device,
         size: window_size,
+        page_flip_handler_registration_token: RefCell::new(None),
     })
 }

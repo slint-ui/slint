@@ -126,11 +126,20 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaRendererAdapter 
     fn register_page_flip_handler(
         &self,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<Option<calloop::RegistrationToken>, PlatformError> {
+    ) -> Result<(), PlatformError> {
         if let Some(presenter) = self.presenter.as_ref() {
-            Ok(Some(presenter.clone().register_page_flip_handler(event_loop_handle)?))
+            presenter.clone().register_page_flip_handler(event_loop_handle)
         } else {
-            Ok(None)
+            Ok(())
+        }
+    }
+
+    fn unregister_page_flip_handler(
+        &self,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) {
+        if let Some(presenter) = self.presenter.as_ref() {
+            presenter.unregister_page_flip_handler(event_loop_handle);
         }
     }
 }

@@ -11,7 +11,11 @@ pub trait Presenter {
     fn register_page_flip_handler(
         self: Rc<Self>,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<calloop::RegistrationToken, PlatformError>;
+    ) -> Result<(), PlatformError>;
+    fn unregister_page_flip_handler(
+        &self,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    );
     // Present updated front-buffer to the screen
     fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }

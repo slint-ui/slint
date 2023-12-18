@@ -29,7 +29,11 @@ pub trait FullscreenRenderer {
     fn register_page_flip_handler(
         &self,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<Option<calloop::RegistrationToken>, PlatformError>;
+    ) -> Result<(), PlatformError>;
+    fn unregister_page_flip_handler(
+        &self,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    );
 }
 
 pub struct FullscreenWindowAdapter {
@@ -116,11 +120,18 @@ impl FullscreenWindowAdapter {
         Ok(())
     }
 
-    pub fn register_page_flip_handler(
+    pub fn register_event_loop(
         &self,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<Option<calloop::RegistrationToken>, PlatformError> {
+    ) -> Result<(), PlatformError> {
         self.renderer.register_page_flip_handler(event_loop_handle)
+    }
+
+    pub fn unregister_event_loop(
+        &self,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) {
+        self.renderer.unregister_page_flip_handler(event_loop_handle)
     }
 }
 

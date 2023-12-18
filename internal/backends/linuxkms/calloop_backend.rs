@@ -241,17 +241,11 @@ impl i_slint_core::platform::Platform for Backend {
 
         quit_loop.store(false, std::sync::atomic::Ordering::Release);
 
-        let mut page_flip_handler_registration_token = None;
-
         while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
             i_slint_core::platform::update_timers_and_animations();
 
             if let Some(adapter) = self.window.borrow().as_ref() {
-                if page_flip_handler_registration_token.is_none() {
-                    page_flip_handler_registration_token =
-                        adapter.register_page_flip_handler(event_loop.handle())?;
-                }
-
+                adapter.register_event_loop(event_loop.handle())?;
                 adapter.render_if_needed(mouse_position_property.as_ref())?;
             };
 
@@ -261,8 +255,8 @@ impl i_slint_core::platform::Platform for Backend {
                 .map_err(|e| format!("Error dispatch events: {e}"))?;
         }
 
-        if let Some(token) = page_flip_handler_registration_token.take() {
-            event_loop.handle().remove(token);
+        if let Some(adapter) = self.window.borrow().as_ref() {
+            adapter.unregister_event_loop(event_loop.handle());
         }
 
         Ok(())

@@ -203,7 +203,14 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
     fn register_page_flip_handler(
         &self,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<Option<calloop::RegistrationToken>, PlatformError> {
-        Ok(Some(self.egl_display.clone().register_page_flip_handler(event_loop_handle)?))
+    ) -> Result<(), PlatformError> {
+        self.egl_display.clone().register_page_flip_handler(event_loop_handle)
+    }
+
+    fn unregister_page_flip_handler(
+        &self,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) {
+        self.egl_display.unregister_page_flip_handler(event_loop_handle)
     }
 }
