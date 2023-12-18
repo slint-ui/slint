@@ -333,6 +333,7 @@ impl Item for NativeButton {
         let has_focus = this.has_focus();
         let has_hover = this.has_hover();
         let primary = this.primary();
+        let colorize_icon = this.colorize_icon();
 
         cpp!(unsafe [
             painter as "QPainterPtr*",
@@ -346,17 +347,45 @@ impl Item for NativeButton {
             has_focus as "bool",
             has_hover as "bool",
             primary as "bool",
+            colorize_icon as "bool",
             dpr as "float",
             initial_state as "int"
         ] {
+            class ColorizedIconEngine : public QIconEngine
+            {
+            public:
+                ColorizedIconEngine(const QIcon &icon, const QColor &color) : m_icon(icon), m_color(color) { }
+
+                QPixmap pixmap(const QSize &size, QIcon::Mode mode, QIcon::State state) override
+                {
+                    QPixmap iconPixmap = m_icon.pixmap(size, mode, state);
+                    if (!iconPixmap.isNull()) {
+                        QPainter colorizePainter(&iconPixmap);
+                        colorizePainter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+                        colorizePainter.fillRect(iconPixmap.rect(), m_color);
+                    }
+                    return iconPixmap;
+                }
+
+                void paint(QPainter *painter, const QRect &rect, QIcon::Mode mode, QIcon::State state) override
+                {
+                    painter->drawPixmap(rect, this->pixmap(rect.size(), mode, state));
+                }
+
+                QIconEngine *clone() const override { return new ColorizedIconEngine(m_icon, m_color); }
+
+            private:
+                QIcon m_icon;
+                QColor m_color;
+            };
+
             QStyleOptionButton option;
             option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.text = std::move(text);
-            option.icon = icon;
-            auto iconSize = qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, nullptr);
-            option.iconSize = QSize(iconSize, iconSize);
-            option.rect = QRect(QPoint(), size / dpr);
+
+            QColor iconColor = qApp->palette().color(QPalette::ButtonText).rgba();
+
             if (down) {
                 option.state |= QStyle::State_Sunken;
             } else {
@@ -369,6 +398,7 @@ impl Item for NativeButton {
                 option.state |= QStyle::State_Enabled;
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
+                iconColor = qApp->palette().color(QPalette::Disabled, QPalette::ButtonText).rgba();
             }
             if (has_focus) {
                 option.state |= QStyle::State_HasFocus | QStyle::State_KeyboardFocusChange | QStyle::State_Item;
@@ -379,6 +409,15 @@ impl Item for NativeButton {
             if (primary) {
                 option.features |= QStyleOptionButton::DefaultButton;
             }
+            if (colorize_icon) {
+                option.icon = QIcon(new ColorizedIconEngine(icon, iconColor));
+            } else {
+                option.icon = icon;
+            }
+            auto iconSize = qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, nullptr);
+            option.iconSize = QSize(iconSize, iconSize);
+            option.rect = QRect(QPoint(), size / dpr);
+
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, painter->get(), widget);
         });
     }
