@@ -63,15 +63,18 @@ impl super::Presenter for EglDisplay {
         self: Rc<Self>,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
     ) -> Result<calloop::RegistrationToken, PlatformError> {
+        let self_weak = Rc::downgrade(&self);
         crate::calloop_backend::FileDescriptorActivityNotifier::new(
             &event_loop_handle,
             calloop::Interest::READ,
             self.gbm_device.0.clone(),
             Box::new(move || {
-                for event in self.gbm_device.receive_events().unwrap() {
-                    if matches!(event, drm::control::Event::PageFlip(..)) {
-                        *self.page_flip_state.borrow_mut() = PageFlipState::ReadyForNextBuffer;
-                        break;
+                if let Some(this) = self_weak.upgrade() {
+                    for event in this.gbm_device.receive_events().unwrap() {
+                        if matches!(event, drm::control::Event::PageFlip(..)) {
+                            *this.page_flip_state.borrow_mut() = PageFlipState::ReadyForNextBuffer;
+                            break;
+                        }
                     }
                 }
             }),
