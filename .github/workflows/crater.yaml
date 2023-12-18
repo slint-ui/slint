@@ -62,8 +62,6 @@ jobs:
           - "https://github.com/ChronosWS/asma"
           - "https://github.com/LeeeSe/MessAuto"
           - "https://github.com/jpnurmi/jpos-weather"
-          - "https://github.com/zebra-sh/zebra-pass"
-          - "https://github.com/planet0104/satellite_wallpaper"
           - "https://github.com/osp-project/RizPackageTools"
           - "https://github.com/Heng30/rssbox"
           - "https://github.com/xenein/CountMeDown-rs"
@@ -98,6 +96,7 @@ jobs:
           #- "https://github.com/SergioGasquez/espup-slint"
 
         sub_path: ["."]
+        os: ["ubuntu-latest"]
 
         include:
           - git_url: "https://github.com/griccardos/rusl"
@@ -115,18 +114,21 @@ jobs:
           - git_url: "https://github.com/matthiasbeyer/deskodon"
             sub_path: "frontend"
           - git_url: "https://github.com/malwaredb/malwaredb-rs"
-            extra_args: "--features=admin-gui"
+            extra_args: "--features=admin,admin-gui"
             sub_path: "."
           - git_url: "https://github.com/Martoni/QRNote"
             sub_path: "qr-note"
+          - git_utl: "https://github.com/planet0104/satellite_wallpaper"
+            os: windows-latest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/install-linux-dependencies
         with:
-          extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
+          extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config nasm
       # Don't use the cache because we don't run this job often, and it would cache the .cargo/config with extra keys
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        toolchain: stable
       - name: setup patch
         run: |
           echo "" >> ~/.cargo/config
@@ -140,7 +142,7 @@ jobs:
           cd $HOME
           git clone ${{ matrix.git_url }}  the_repo --depth 1
           cd the_repo
-          git submodule update --init
+          git submodule update --init --recursive
       - name: build
         run: |
           cd $HOME/the_repo
