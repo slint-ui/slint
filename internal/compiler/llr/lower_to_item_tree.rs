@@ -496,6 +496,12 @@ fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::Prope
     let mut a = elem.borrow().property_analysis.borrow().get(p).cloned().unwrap_or_default();
     let mut elem = elem.clone();
     loop {
+        if let Some(d) = elem.borrow().property_declarations.get(p) {
+            if let Some(nr) = &d.is_alias {
+                a.merge(&get_property_analysis(&nr.element(), nr.name()));
+            }
+            return a;
+        }
         let base = elem.borrow().base_type.clone();
         match base {
             ElementType::Native(n) => {
