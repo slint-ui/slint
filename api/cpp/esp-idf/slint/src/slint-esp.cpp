@@ -203,8 +203,10 @@ void EspPlatform::run_event_loop()
             if (std::exchange(m_window->needs_redraw, false)) {
                 auto rotated = false
 #ifdef SLINT_FEATURE_EXPERIMENTAL
-                        || rotation == slint::platform::SoftwareRenderer::RenderingRotation::Rotate90
-                        || rotation == slint::platform::SoftwareRenderer::RenderingRotation::Rotate270
+                        || rotation
+                                == slint::platform::SoftwareRenderer::RenderingRotation::Rotate90
+                        || rotation
+                                == slint::platform::SoftwareRenderer::RenderingRotation::Rotate270
 #endif
                         ;
                 auto region =
