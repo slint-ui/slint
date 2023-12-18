@@ -176,11 +176,16 @@ impl SkiaRenderer {
 
     /// Render the scene in the previously associated window.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
-        self.internal_render_with_post_callback(None)
+        let window_adapter = self.window_adapter()?;
+        let size = window_adapter.window().size();
+        self.internal_render_with_post_callback(0., (0., 0.), size, None)
     }
 
     fn internal_render_with_post_callback(
         &self,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        surace_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         let surface = self.surface.borrow();
@@ -202,10 +207,12 @@ impl SkiaRenderer {
 
         let window_adapter = self.window_adapter()?;
         let window = window_adapter.window();
-        let size = window.size();
         let window_inner = WindowInner::from_pub(window);
 
-        surface.render(size, &|skia_canvas, mut gr_context| {
+        surface.render(surace_size, &|skia_canvas, mut gr_context| {
+            skia_canvas.rotate(rotation_angle_degrees, None);
+            skia_canvas.translate(translation);
+
             window_inner.draw_contents(|components| {
                 let window_background_brush =
                     window_inner.window_item().map(|w| w.as_pin_ref().background());
@@ -247,7 +254,7 @@ impl SkiaRenderer {
                     Some(brush @ _) => {
                         item_renderer.draw_rect(
                             i_slint_core::lengths::logical_size_from_api(
-                                size.to_logical(window_inner.scale_factor()),
+                                window.size().to_logical(window_inner.scale_factor()),
                             ),
                             brush,
                         );
@@ -544,17 +551,28 @@ pub trait Surface {
 }
 
 pub trait SkiaRendererExt {
-    fn render_with_post_callback(
+    fn render_transformed_with_post_callback(
         &self,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        surface_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
 }
 
 impl SkiaRendererExt for SkiaRenderer {
-    fn render_with_post_callback(
+    fn render_transformed_with_post_callback(
         &self,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        surface_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        self.internal_render_with_post_callback(post_render_cb)
+        self.internal_render_with_post_callback(
+            rotation_angle_degrees,
+            translation,
+            surface_size,
+            post_render_cb,
+        )
     }
 }

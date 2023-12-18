@@ -15,10 +15,13 @@ use i_slint_core::slice::Slice;
 use i_slint_core::Property;
 use i_slint_core::{platform::PlatformError, window::WindowAdapter};
 
+use crate::display::RenderingRotation;
+
 pub trait FullscreenRenderer {
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
     fn render_and_present(
         &self,
+        rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<(), PlatformError>;
     fn size(&self) -> PhysicalWindowSize;
@@ -28,6 +31,7 @@ pub struct FullscreenWindowAdapter {
     window: i_slint_core::api::Window,
     renderer: Box<dyn FullscreenRenderer>,
     needs_redraw: Cell<bool>,
+    rotation: RenderingRotation,
 }
 
 impl WindowAdapter for FullscreenWindowAdapter {
@@ -36,7 +40,7 @@ impl WindowAdapter for FullscreenWindowAdapter {
     }
 
     fn size(&self) -> i_slint_core::api::PhysicalSize {
-        self.renderer.size()
+        self.rotation.screen_size_to_rotated_window_size(self.renderer.size())
     }
 
     fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
@@ -64,11 +68,15 @@ impl WindowAdapter for FullscreenWindowAdapter {
 }
 
 impl FullscreenWindowAdapter {
-    pub fn new(renderer: Box<dyn FullscreenRenderer>) -> Result<Rc<Self>, PlatformError> {
+    pub fn new(
+        renderer: Box<dyn FullscreenRenderer>,
+        rotation: RenderingRotation,
+    ) -> Result<Rc<Self>, PlatformError> {
         Ok(Rc::<FullscreenWindowAdapter>::new_cyclic(|self_weak| FullscreenWindowAdapter {
             window: i_slint_core::api::Window::new(self_weak.clone()),
             renderer,
             needs_redraw: Cell::new(true),
+            rotation,
         }))
     }
 
@@ -77,7 +85,7 @@ impl FullscreenWindowAdapter {
         mouse_position: Pin<&Property<Option<LogicalPosition>>>,
     ) -> Result<(), PlatformError> {
         if self.needs_redraw.replace(false) {
-            self.renderer.render_and_present(&|item_renderer| {
+            self.renderer.render_and_present(self.rotation, &|item_renderer| {
                 if let Some(mouse_position) = mouse_position.get() {
                     item_renderer.save_state();
                     item_renderer.translate(

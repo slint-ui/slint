@@ -18,7 +18,7 @@ use glutin::{
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 
-use crate::display::{egldisplay::EglDisplay, Presenter};
+use crate::display::{egldisplay::EglDisplay, Presenter, RenderingRotation};
 
 pub struct FemtoVGRendererAdapter {
     renderer: i_slint_renderer_femtovg::FemtoVGRenderer,
@@ -143,16 +143,11 @@ unsafe impl i_slint_renderer_femtovg::OpenGLInterface for GlContextWrapper {
 
     fn resize(
         &self,
-        width: NonZeroU32,
-        height: NonZeroU32,
+        _width: NonZeroU32,
+        _height: NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        if self.egl_display.size.height != height.get()
-            || self.egl_display.size.width != width.get()
-        {
-            Err("Resizing a fullscreen window is not supported".into())
-        } else {
-            Ok(())
-        }
+        // Ignore resize requests
+        Ok(())
     }
 
     fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void {
@@ -187,11 +182,17 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
     }
     fn render_and_present(
         &self,
+        rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<(), PlatformError> {
-        self.renderer.render_with_post_callback(Some(&|item_renderer| {
-            draw_mouse_cursor_callback(item_renderer);
-        }))
+        self.renderer.render_transformed_with_post_callback(
+            rotation.degrees(),
+            rotation.translation_after_rotation(self.size),
+            self.size,
+            Some(&|item_renderer| {
+                draw_mouse_cursor_callback(item_renderer);
+            }),
+        )
     }
     fn size(&self) -> i_slint_core::api::PhysicalSize {
         self.size
