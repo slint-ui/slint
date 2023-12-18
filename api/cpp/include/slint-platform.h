@@ -625,8 +625,8 @@ public:
     /// This is typically used to implement screen rotation in software
     void set_rendering_rotation(RenderingRotation rotation)
     {
-        cbindgen_private::slint_software_renderer_set_rendering_rotation(inner,
-                                                                      static_cast<int>(rotation));
+        cbindgen_private::slint_software_renderer_set_rendering_rotation(
+                inner, static_cast<int>(rotation));
     }
 #    endif
 };
