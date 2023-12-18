@@ -21,6 +21,19 @@ MaybeClip := Rectangle {
     }
 }
 
+component ClipAlias {
+    in property c <=> r.clip;
+    r := Rectangle {
+        width: 0px;
+        TouchArea {
+            width: root.width;
+            clicked => {
+                debug("Error");
+            }
+        }
+    }
+}
+
 TestCase := Rectangle {
     height: 100phx;
     width: 100phx;
@@ -43,6 +56,8 @@ TestCase := Rectangle {
     // MaybeClip must be inlined when "clip" is set, but not when it isn't. Test that we can have
     // a combination of inlined and non inlined item
     MaybeClip { x: 5000px; }
+
+    ClipAlias { c: true; width: 100%; height:100%; }
 
     test_rect := Rectangle { clip: true; }
     property <bool> test: test_rect.clip;

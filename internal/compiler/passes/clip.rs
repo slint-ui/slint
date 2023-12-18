@@ -29,7 +29,11 @@ pub fn handle_clip(
                 return;
             }
             if elem.bindings.contains_key("clip")
-                || elem.property_analysis.borrow().get("clip").map_or(false, |a| a.is_set)
+                || elem
+                    .property_analysis
+                    .borrow()
+                    .get("clip")
+                    .map_or(false, |a| a.is_set || a.is_linked)
             {
                 match elem.builtin_type().as_ref().map(|ty| ty.name.as_str()) {
                     Some("Rectangle") => {}

@@ -46,6 +46,9 @@ fn has_any_children(e: &Element) -> bool {
 /// Returns true if the property is set.
 fn is_property_set(e: &Element, property_name: &str) -> bool {
     e.bindings.contains_key(property_name)
-        || e.property_analysis.borrow().get(property_name).map_or(false, |a| a.is_set)
+        || e.property_analysis
+            .borrow()
+            .get(property_name)
+            .map_or(false, |a| a.is_set || a.is_linked)
         || matches!(&e.base_type, ElementType::Component(base) if is_property_set(&base.root_element.borrow(), property_name))
 }
