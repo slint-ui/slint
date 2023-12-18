@@ -53,10 +53,8 @@ impl TryFrom<&str> for RenderingRotation {
 impl RenderingRotation {
     pub fn screen_size_to_rotated_window_size(&self, screen_size: PhysicalSize) -> PhysicalSize {
         match self {
-            RenderingRotation::NoRotation => screen_size,
-            RenderingRotation::Rotate90 => PhysicalSize::new(screen_size.height, screen_size.width),
-            RenderingRotation::Rotate180 => screen_size,
-            RenderingRotation::Rotate270 => {
+            RenderingRotation::NoRotation | RenderingRotation::Rotate180 => screen_size,
+            RenderingRotation::Rotate90 | RenderingRotation::Rotate270 => {
                 PhysicalSize::new(screen_size.height, screen_size.width)
             }
         }
