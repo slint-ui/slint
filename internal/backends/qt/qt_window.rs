@@ -1375,7 +1375,18 @@ impl QtItemRenderer<'_> {
     }
 }
 
-cpp_class!(pub(crate) unsafe struct QWidgetPtr as "std::unique_ptr<QWidget>");
+cpp! {{
+    struct QWidgetDeleteLater
+    {
+        void operator()(QWidget *widget_ptr)
+        {
+            widget_ptr->hide();
+            widget_ptr->deleteLater();
+        }
+    };
+}}
+
+cpp_class!(pub(crate) unsafe struct QWidgetPtr as "std::unique_ptr<QWidget, QWidgetDeleteLater>");
 
 pub struct QtWindow {
     widget_ptr: QWidgetPtr,
@@ -1395,9 +1406,9 @@ impl QtWindow {
     pub fn new() -> Rc<Self> {
         let rc = Rc::new_cyclic(|self_weak| {
             let window_ptr = self_weak.clone().into_raw();
-            let widget_ptr = cpp! {unsafe [window_ptr as "void*"] -> QWidgetPtr as "std::unique_ptr<QWidget>" {
+            let widget_ptr = cpp! {unsafe [window_ptr as "void*"] -> QWidgetPtr as "std::unique_ptr<QWidget, QWidgetDeleteLater>" {
                 ensure_initialized(true);
-                auto widget = std::make_unique<SlintWidget>();
+                auto widget = std::unique_ptr<SlintWidget, QWidgetDeleteLater>(new SlintWidget, QWidgetDeleteLater());
 
                 auto accessibility = new Slint_accessible_window(widget.get(), window_ptr);
                 QAccessible::registerAccessibleInterface(accessibility);
