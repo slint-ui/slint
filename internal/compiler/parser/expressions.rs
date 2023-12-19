@@ -134,6 +134,12 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         parse_expression_helper(&mut *p, OperatorPrecedence::Mul);
     }
 
+    if p.nth(0).kind() == SyntaxKind::Percent {
+        p.error("Unexpected '%'. For the unit, it should be attached to the number. If you're looking for the modulo operator, use the 'Math.mod(x, y)' function");
+        p.consume();
+        return false;
+    }
+
     if precedence >= OperatorPrecedence::Add {
         return true;
     }
