@@ -105,6 +105,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaRendererAdapter 
         &self,
         rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
+        ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), PlatformError> {
         self.renderer.render_transformed_with_post_callback(
             rotation.degrees(),
@@ -115,7 +116,14 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaRendererAdapter 
             }),
         )?;
         if let Some(presenter) = self.presenter.as_ref() {
-            presenter.present()?;
+            presenter.present_with_next_frame_callback(ready_for_next_animation_frame)?;
+        } else {
+            i_slint_core::timers::Timer::single_shot(
+                std::time::Duration::from_millis(16),
+                move || {
+                    ready_for_next_animation_frame();
+                },
+            );
         }
         Ok(())
     }

@@ -186,7 +186,9 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
         &self,
         rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
+        ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), PlatformError> {
+        self.egl_display.set_next_animation_frame_callback(ready_for_next_animation_frame);
         self.renderer.render_transformed_with_post_callback(
             rotation.degrees(),
             rotation.translation_after_rotation(self.egl_display.size),

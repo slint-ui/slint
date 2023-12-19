@@ -246,7 +246,7 @@ impl i_slint_core::platform::Platform for Backend {
 
             if let Some(adapter) = self.window.borrow().as_ref() {
                 adapter.register_event_loop(event_loop.handle())?;
-                adapter.render_if_needed(mouse_position_property.as_ref())?;
+                adapter.clone().render_if_needed(mouse_position_property.as_ref())?;
             };
 
             let next_timeout = i_slint_core::platform::duration_until_next_timer_update();

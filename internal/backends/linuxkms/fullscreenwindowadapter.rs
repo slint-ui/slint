@@ -24,6 +24,7 @@ pub trait FullscreenRenderer {
         &self,
         rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
+        ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), PlatformError>;
     fn size(&self) -> PhysicalWindowSize;
     fn register_page_flip_handler(
@@ -90,32 +91,38 @@ impl FullscreenWindowAdapter {
     }
 
     pub fn render_if_needed(
-        &self,
+        self: Rc<Self>,
         mouse_position: Pin<&Property<Option<LogicalPosition>>>,
     ) -> Result<(), PlatformError> {
         if !self.renderer.is_ready_to_present() {
             return Ok(());
         }
         if self.needs_redraw.replace(false) {
-            self.renderer.render_and_present(self.rotation, &|item_renderer| {
-                if let Some(mouse_position) = mouse_position.get() {
-                    item_renderer.save_state();
-                    item_renderer.translate(
-                        i_slint_core::lengths::logical_point_from_api(mouse_position).to_vector(),
-                    );
-                    item_renderer.draw_image_direct(mouse_cursor_image());
-                    item_renderer.restore_state();
-                }
-            })?;
-
-            if self.window.has_active_animations() {
-                self.needs_redraw.set(true);
-                // Wake up event loop
-                i_slint_core::timers::Timer::single_shot(
-                    std::time::Duration::from_millis(16),
-                    || {},
-                );
-            }
+            self.renderer.render_and_present(
+                self.rotation,
+                &|item_renderer| {
+                    if let Some(mouse_position) = mouse_position.get() {
+                        item_renderer.save_state();
+                        item_renderer.translate(
+                            i_slint_core::lengths::logical_point_from_api(mouse_position)
+                                .to_vector(),
+                        );
+                        item_renderer.draw_image_direct(mouse_cursor_image());
+                        item_renderer.restore_state();
+                    }
+                },
+                Box::new({
+                    let self_weak = Rc::downgrade(&self);
+                    move || {
+                        let Some(this) = self_weak.upgrade() else {
+                            return;
+                        };
+                        if this.window.has_active_animations() {
+                            this.request_redraw();
+                        }
+                    }
+                }),
+            )?;
         }
         Ok(())
     }
