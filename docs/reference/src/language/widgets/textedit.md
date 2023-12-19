@@ -19,6 +19,7 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 ### Functions
 
 -   **`focus()`** Call this function to focus the TextEdit and make it receive future keyboard events.
+-   **`select(int, int)`** Selects the text between the two positions.
 -   **`select-all()`** Selects all text.
 -   **`clear-selection()`** Clears the selection.
 -   **`copy()`** Copies the selected text to the clipboard.
