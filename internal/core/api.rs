@@ -711,7 +711,7 @@ mod weak_handle {
             #[cfg(feature = "std")]
             if std::thread::current().id() != self.thread {
                 panic!(
-                    "Trying to upgrade a Weak from a different thread that the one it belongs to"
+                    "Trying to upgrade a Weak from a different thread than the one it belongs to"
                 );
             }
             T::from_inner(self.inner.upgrade().expect("The Weak doesn't hold a valid component"))
