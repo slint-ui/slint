@@ -12,10 +12,6 @@ pub trait Presenter {
         self: Rc<Self>,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
     ) -> Result<(), PlatformError>;
-    fn unregister_page_flip_handler(
-        &self,
-        event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    );
     // Present updated front-buffer to the screen
     fn present_with_next_frame_callback(
         &self,

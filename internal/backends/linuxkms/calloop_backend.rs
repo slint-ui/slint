@@ -13,7 +13,7 @@ use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
-use calloop::{EventLoop, RegistrationToken};
+use calloop::EventLoop;
 use i_slint_core::platform::PlatformError;
 
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
@@ -255,10 +255,6 @@ impl i_slint_core::platform::Platform for Backend {
                 .map_err(|e| format!("Error dispatch events: {e}"))?;
         }
 
-        if let Some(adapter) = self.window.borrow().as_ref() {
-            adapter.unregister_event_loop(event_loop.handle());
-        }
-
         Ok(())
     }
 
@@ -309,80 +305,5 @@ impl AsFd for Device {
 
 pub(crate) static QUIT_ON_LAST_WINDOW_CLOSED: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(true);
-
-/// Calloop has sophisticated ways of associating event sources with callbacks that
-/// handle activity on the source, with life times, etc. For the page flip handling
-/// we really just want to watch for activity on a file descriptor and then invoke
-/// a callback to read from it, in the same thread, as-is. This helper provides
-/// that ... simplification.
-pub struct FileDescriptorActivityNotifier {
-    fd: Rc<OwnedFd>,
-    token: Option<calloop::Token>,
-    callback: Box<dyn FnMut()>,
-    interest: calloop::Interest,
-}
-
-impl FileDescriptorActivityNotifier {
-    pub fn new(
-        handle: &EventLoopHandle,
-        interest: calloop::Interest,
-        fd: Rc<OwnedFd>,
-        callback: Box<dyn FnMut()>,
-    ) -> Result<RegistrationToken, PlatformError> {
-        let notifier = Self { fd, token: None, interest, callback };
-
-        handle
-            .insert_source(notifier, move |_, _, _| {})
-            .map_err(|e| format!("Error registering page flip handler: {e}").into())
-    }
-}
-
-impl calloop::EventSource for FileDescriptorActivityNotifier {
-    type Event = ();
-
-    type Metadata = ();
-
-    type Ret = ();
-
-    type Error = PlatformError;
-
-    fn process_events<F>(
-        &mut self,
-        _readiness: calloop::Readiness,
-        token: calloop::Token,
-        _callback: F,
-    ) -> Result<calloop::PostAction, Self::Error>
-    where
-        F: FnMut(Self::Event, &mut Self::Metadata) -> Self::Ret,
-    {
-        if Some(token) == self.token {
-            (self.callback)();
-        }
-        Ok(calloop::PostAction::Continue)
-    }
-
-    fn register(
-        &mut self,
-        poll: &mut calloop::Poll,
-        token_factory: &mut calloop::TokenFactory,
-    ) -> calloop::Result<()> {
-        self.token = Some(token_factory.token());
-        unsafe { poll.register(&self.fd, self.interest, calloop::Mode::Level, self.token.unwrap()) }
-    }
-
-    fn reregister(
-        &mut self,
-        poll: &mut calloop::Poll,
-        token_factory: &mut calloop::TokenFactory,
-    ) -> calloop::Result<()> {
-        self.token = Some(token_factory.token());
-        poll.reregister(&self.fd, self.interest, calloop::Mode::Level, self.token.unwrap())
-    }
-
-    fn unregister(&mut self, poll: &mut calloop::Poll) -> calloop::Result<()> {
-        self.token = None;
-        poll.unregister(&self.fd)
-    }
-}
 
 pub type EventLoopHandle<'a> = calloop::LoopHandle<'a, LoopData>;
