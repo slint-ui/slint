@@ -100,8 +100,11 @@ impl EglDisplay {
             *self.page_flip_state.borrow_mut() = PageFlipState::InitialBufferPosted;
 
             if let Some(next_animation_frame_callback) = self.next_animation_frame_callback.take() {
+                // We can render the next frame right away, if needed, since we have at least two buffers. The callback
+                // will decide (will check if animation is running). However invoke the callback through the event loop
+                // instead of directly, so that if it decides to set `needs_redraw` to true, the event loop will process it.
                 i_slint_core::timers::Timer::single_shot(
-                    std::time::Duration::from_millis(16),
+                    std::time::Duration::default(),
                     move || {
                         next_animation_frame_callback();
                     },
