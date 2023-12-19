@@ -3097,6 +3097,19 @@ fn compile_builtin_function_call(
             let window = access_window_field(ctx);
             format!("{window}.close_popup()")
         }
+        BuiltinFunction::SelectRange => {
+            if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
+                let item = access_member(pr, ctx);
+                let item_rc = access_item_rc(pr, ctx);
+                let window = access_window_field(ctx);
+                let from = compile_expression(from, ctx);
+                let to = compile_expression(to, ctx);
+
+                format!("slint_textinput_select(&{window}.handle(), &{item_rc}, static_cast<i32>({from}), static_cast<i32>({to}))")
+            } else {
+                panic!("internal error: invalid args to select {:?}", arguments)
+            }
+        }
         BuiltinFunction::ItemMemberFunction(name) => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let item = access_member(pr, ctx);

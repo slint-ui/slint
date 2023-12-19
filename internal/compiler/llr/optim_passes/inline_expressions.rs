@@ -88,6 +88,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::Pow => 10,
         BuiltinFunction::SetFocusItem => isize::MAX,
         BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => isize::MAX,
+        BuiltinFunction::SelectRange => isize::MAX,
         BuiltinFunction::ItemMemberFunction(..) => isize::MAX,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,

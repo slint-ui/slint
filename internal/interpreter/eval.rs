@@ -610,6 +610,54 @@ fn call_builtin_function(
 
             Value::Void
         }
+        BuiltinFunction::SelectRange => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to select range function call")
+            }
+            let component = match local_context.component_instance {
+                ComponentInstance::InstanceRef(c) => c,
+                ComponentInstance::GlobalComponent(_) => {
+                    panic!("Cannot invoke member function on item from a global component")
+                }
+            };
+            if let Expression::ElementReference(element) = &arguments[0] {
+                generativity::make_guard!(guard);
+
+                let elem = element.upgrade().unwrap();
+                let enclosing_component = enclosing_component_for_element(&elem, component, guard);
+                let description = enclosing_component.description;
+                let item_info = &description.items[elem.borrow().id.as_str()];
+                let item_ref =
+                    unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
+
+                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+                let item_rc = corelib::items::ItemRc::new(
+                    vtable::VRc::into_dyn(item_comp),
+                    item_info.item_index(),
+                );
+
+                let window_adapter = component.window_adapter();
+
+                // TODO: Make this generic through RTTI
+                if let Some(textinput) =
+                    ItemRef::downcast_pin::<corelib::items::TextInput>(item_ref)
+                {
+                    let from: i32 =
+                        eval_expression(&arguments[1], local_context).try_into().unwrap();
+                    let to: i32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
+                    textinput.select(&window_adapter, &item_rc, from, to)
+                } else {
+                    panic!(
+                        "internal error: member function called on element that doesn't have it: {}",
+                        elem.borrow().original_name()
+                    )
+                }
+
+                Value::Void
+            } else {
+                panic!("internal error: argument to TextInputSelectAll must be an element")
+            }
+        }
         BuiltinFunction::ItemMemberFunction(name) => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to item member function call")

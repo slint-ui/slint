@@ -40,6 +40,7 @@ pub enum BuiltinFunction {
     SetFocusItem,
     ShowPopupWindow,
     ClosePopupWindow,
+    SelectRange,
     /// A function that belongs to an item (such as TextInput's select-all function).
     ItemMemberFunction(String),
     /// the "42".to_float()
@@ -134,6 +135,10 @@ impl BuiltinFunction {
                     args: vec![Type::ElementReference],
                 }
             }
+            BuiltinFunction::SelectRange => Type::Function {
+                return_type: Box::new(Type::Void),
+                args: vec![Type::ElementReference, Type::Int32, Type::Int32],
+            },
             BuiltinFunction::ItemMemberFunction(..) => Type::Function {
                 return_type: Box::new(Type::Void),
                 args: vec![Type::ElementReference],
@@ -248,6 +253,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan => true,
             BuiltinFunction::SetFocusItem => false,
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
+            BuiltinFunction::SelectRange => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorBrighter
@@ -301,6 +307,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan => true,
             BuiltinFunction::SetFocusItem => false,
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
+            BuiltinFunction::SelectRange => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorBrighter

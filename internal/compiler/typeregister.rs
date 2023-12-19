@@ -335,6 +335,19 @@ impl TypeRegister {
             _ => unreachable!(),
         };
 
+        match &mut register.elements.get_mut("TextInput").unwrap() {
+            ElementType::Builtin(ref mut b) => {
+                let text_input = Rc::get_mut(b).unwrap();
+                text_input.properties.insert(
+                    "select".into(),
+                    BuiltinPropertyInfo::new(BuiltinFunction::SelectRange.ty()),
+                );
+                text_input.member_functions.insert("select".into(), BuiltinFunction::SelectRange);
+            }
+
+            _ => unreachable!(),
+        };
+
         register
     }
 

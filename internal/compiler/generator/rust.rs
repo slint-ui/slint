@@ -2365,6 +2365,21 @@ fn compile_builtin_function_call(
                 sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup()
             )
         }
+        BuiltinFunction::SelectRange => {
+            if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
+                let item = access_member(pr, ctx);
+                let item_rc = access_item_rc(pr, ctx);
+                let window_adapter_tokens = access_window_adapter_field(ctx);
+                let from = compile_expression(from, ctx);
+                let to = compile_expression(to, ctx);
+
+                quote!(
+                    #item.select(#window_adapter_tokens, #item_rc, #from as i32, #to as i32)
+                )
+            } else {
+                panic!("internal error: invalid args to select {:?}", arguments)
+            }
+        }
         BuiltinFunction::ItemMemberFunction(name) => {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let item = access_member(pr, ctx);
