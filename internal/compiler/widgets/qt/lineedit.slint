@@ -17,6 +17,10 @@ export component LineEdit {
     callback accepted <=> inner.accepted;
     callback edited <=> inner.edited;
 
+    public function select(from: int, to: int) {
+        inner.select(from, to);
+    }
+
     public function select-all() {
         inner.select-all();
     }

@@ -20,6 +20,10 @@ export component LineEditBase inherits Rectangle {
     callback accepted( /* text */ string);
     callback edited(/* text */ string);
 
+    public function select(from: int, to: int) {
+        i-text-input.select(from, to);
+    }
+
     public function select-all() {
         i-text-input.select-all();
     }
