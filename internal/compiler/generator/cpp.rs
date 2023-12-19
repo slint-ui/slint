@@ -3099,12 +3099,13 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::SelectRange => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
+                let item = access_member(pr, ctx);
                 let item_rc = access_item_rc(pr, ctx);
                 let window = access_window_field(ctx);
                 let from = compile_expression(from, ctx);
                 let to = compile_expression(to, ctx);
 
-                format!("slint_textinput_select(&{window}.handle(), &{item_rc}, static_cast<int>({from}), static_cast<int>({to}))")
+                format!("slint_textinput_select(&{item}, &{window}.handle(), &{item_rc}, static_cast<int>({from}), static_cast<int>({to}))")
             } else {
                 panic!("internal error: invalid args to TextInputSelect {:?}", arguments)
             }
