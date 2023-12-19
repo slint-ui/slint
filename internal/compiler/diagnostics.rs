@@ -5,7 +5,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use crate::parser::{TextRange, TextSize};
+use crate::parser::TextSize;
 
 /// Span represent an error location within a file.
 ///
@@ -112,16 +112,6 @@ impl SourceFileInner {
             },
             |line| (line + 2, 1),
         )
-    }
-
-    pub fn text_range_to_file_line_column(
-        &self,
-        range: TextRange,
-    ) -> (String, usize, usize, usize, usize) {
-        let file_name = self.path().to_string_lossy().to_string();
-        let (start_line, start_column) = self.line_column(range.start().into());
-        let (end_line, end_column) = self.line_column(range.end().into());
-        (file_name, start_line, start_column, end_line, end_column)
     }
 
     pub fn text_size_to_file_line_column(

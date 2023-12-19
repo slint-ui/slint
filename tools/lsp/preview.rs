@@ -4,6 +4,7 @@
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
+    rc::Rc,
     sync::Mutex,
 };
 
@@ -11,8 +12,15 @@ use crate::{
     common::{PreviewComponent, PreviewConfig},
     lsp_ext::Health,
 };
-use i_slint_core::component_factory::FactoryContext;
-use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
+use i_slint_compiler::object_tree::ElementRc;
+use i_slint_core::{
+    component_factory::FactoryContext,
+    lengths::{LogicalLength, LogicalPoint, LogicalRect},
+};
+use slint_interpreter::{
+    highlight::{ComponentKind, ComponentPositions},
+    ComponentDefinition, ComponentHandle, ComponentInstance,
+};
 
 use lsp_types::notification::Notification;
 
@@ -52,7 +60,6 @@ struct ContentCache {
     loading_state: PreviewFutureState,
     highlight: Option<(PathBuf, u32)>,
     ui_is_visible: bool,
-    design_mode: bool,
 }
 
 static CONTENT_CACHE: std::sync::OnceLock<Mutex<ContentCache>> = std::sync::OnceLock::new();
@@ -76,11 +83,105 @@ pub fn set_contents(path: &Path, content: String) {
     }
 }
 
-fn set_design_mode(enable: bool) {
-    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    cache.design_mode = enable;
+// Look at an element and if it is a sub component, jump to its root_element()
+fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
+    let elem = element.borrow();
+    if elem.repeated.is_some() {
+        if let i_slint_compiler::langtype::ElementType::Component(base) = &elem.base_type {
+            return base.root_element.clone();
+        }
+    }
+    element.clone()
+}
 
-    configure_design_mode(enable);
+fn lsp_element_position(element: &ElementRc) -> (String, usize, usize, usize, usize) {
+    let e = &element.borrow();
+    e.node
+        .as_ref()
+        .and_then(|n| {
+            n.parent()
+                .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
+                .map_or_else(
+                    || Some(n.source_file.text_size_to_file_line_column(n.text_range().start())),
+                    |p| Some(p.source_file.text_size_to_file_line_column(p.text_range().start())),
+                )
+        })
+        .unwrap_or_else(|| (String::new(), 0, 0, 0, 0))
+}
+
+// triggered from the UI, running in UI thread
+pub fn select_element_at_impl(
+    x: f32,
+    y: f32,
+    component_instance: &ComponentInstance,
+    root_element: &ElementRc,
+) -> Option<ElementRc> {
+    let click_position = LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
+
+    for c in &root_element.borrow().children {
+        let c = self_or_embedded_component_root(&c);
+
+        let Some(position) = component_instance.element_position(&c) else {
+            continue;
+        };
+        if position.contains(click_position) {
+            let (path, offset) = element_offset(&c);
+            let secondary_positions = component_instance.component_positions(path, offset);
+
+            set_selected_element(Some((&c, position)), secondary_positions);
+            let document_position = lsp_element_position(&c);
+            if !document_position.0.is_empty() {
+                ask_editor_to_show_document(
+                    document_position.0,
+                    document_position.1 as u32,
+                    document_position.2 as u32,
+                    document_position.3 as u32,
+                    document_position.4 as u32,
+                );
+            }
+            return Some(c.clone());
+        }
+    }
+
+    None
+}
+
+fn element_offset(element: &ElementRc) -> (PathBuf, u32) {
+    let Some(node) = &element.borrow().node else {
+        return (PathBuf::default(), 0);
+    };
+    let path = node.source_file.path().to_path_buf();
+    let offset = node.text_range().start().into();
+    (path, offset)
+}
+
+// triggered from the UI, running in UI thread
+pub fn select_element_at(x: f32, y: f32) {
+    let Some(component_instance) = component_instance() else {
+        return;
+    };
+    let root_element = component_instance.definition().root_component().root_element.clone();
+
+    select_element_at_impl(x, y, &component_instance, &root_element);
+}
+
+// triggered from the UI, running in UI thread
+pub fn select_element_into(x: f32, y: f32) {
+    let Some(component_instance) = component_instance() else {
+        return;
+    };
+
+    // We have an actively selected element:
+    if let Some(selected_element) = selected_element() {
+        if select_element_at_impl(x, y, &component_instance, &selected_element).is_some() {
+            return;
+        }
+    }
+
+    let root_element = component_instance.definition().root_component().root_element.clone();
+    if let Some(se) = select_element_at_impl(x, y, &component_instance, &root_element) {
+        select_element_at_impl(x, y, &component_instance, &se);
+    }
 }
 
 fn change_style() {
@@ -162,7 +263,7 @@ pub fn load_preview(preview_component: PreviewComponent) {
 
     run_in_ui_thread(move || async move {
         loop {
-            let (design_mode, preview_component, config) = {
+            let (preview_component, config) = {
                 let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
                 assert_eq!(cache.loading_state, PreviewFutureState::PreLoading);
                 if !cache.ui_is_visible {
@@ -173,7 +274,7 @@ pub fn load_preview(preview_component: PreviewComponent) {
                 cache.dependency.clear();
                 let preview_component = cache.current.clone();
                 cache.current.style.clear();
-                (cache.design_mode, preview_component, cache.config.clone())
+                (preview_component, cache.config.clone())
             };
             let style = if preview_component.style.is_empty() {
                 get_current_style()
@@ -182,7 +283,7 @@ pub fn load_preview(preview_component: PreviewComponent) {
                 preview_component.style.clone()
             };
 
-            reload_preview_impl(preview_component, style, design_mode, config).await;
+            reload_preview_impl(preview_component, style, config).await;
 
             let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
             match cache.loading_state {
@@ -205,7 +306,6 @@ pub fn load_preview(preview_component: PreviewComponent) {
 async fn reload_preview_impl(
     preview_component: PreviewComponent,
     style: String,
-    design_mode: bool,
     config: PreviewConfig,
 ) {
     let component = PreviewComponent { style: String::new(), ..preview_component };
@@ -245,29 +345,13 @@ async fn reload_preview_impl(
     notify_diagnostics(builder.diagnostics());
 
     if let Some(compiled) = compiled {
-        update_preview_area(compiled, design_mode);
+        update_preview_area(compiled);
         finish_parsing(true);
     } else {
         finish_parsing(false);
     };
 }
 
-fn configure_handle_for_design_mode(handle: &ComponentInstance, enabled: bool) {
-    handle.set_design_mode(enabled);
-
-    handle.on_element_selected(Box::new(
-        move |file: &str, start_line: u32, start_column: u32, end_line: u32, end_column: u32| {
-            ask_editor_to_show_document(
-                file.to_string(),
-                start_line,
-                start_column,
-                end_line,
-                end_column,
-            );
-            // ignore errors
-        },
-    ));
-}
 /// This sets up the preview area to show the ComponentInstance
 ///
 /// This must be run in the UI thread.
@@ -275,19 +359,17 @@ pub fn set_preview_factory(
     ui: &ui::PreviewUi,
     compiled: ComponentDefinition,
     callback: Box<dyn Fn(ComponentInstance)>,
-    design_mode: bool,
 ) {
     // Ensure that the popup is closed as it is related to the old factory
     i_slint_core::window::WindowInner::from_pub(ui.window()).close_popup();
 
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
-        configure_handle_for_design_mode(&instance, design_mode);
 
         if let Some((path, offset)) =
             CONTENT_CACHE.get().and_then(|c| c.lock().unwrap().highlight.clone())
         {
-            instance.highlight(path, offset);
+            highlight(&Some(path), offset);
         }
 
         callback(instance.clone_strong());
@@ -380,4 +462,51 @@ pub fn send_status_notification(sender: &crate::ServerNotifier, message: &str, h
             },
         )
         .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
+}
+
+pub fn set_selections(
+    ui: Option<&ui::PreviewUi>,
+    element_position: Option<(&ElementRc, LogicalRect)>,
+    positions: ComponentPositions,
+) {
+    let Some(ui) = ui else {
+        return;
+    };
+
+    let values = {
+        let mut tmp = Vec::with_capacity(
+            positions.geometries.len() + if element_position.is_some() { 1 } else { 0 },
+        );
+
+        if let Some((e, primary_position)) = element_position.as_ref() {
+            let border_color = if e.borrow().layout.is_some() {
+                i_slint_core::Color::from_argb_encoded(0xffff0000)
+            } else {
+                i_slint_core::Color::from_argb_encoded(0xff0000ff)
+            };
+
+            tmp.push(ui::Selection {
+                width: primary_position.size.width,
+                height: primary_position.size.height,
+                x: primary_position.origin.x,
+                y: primary_position.origin.y,
+                border_color,
+            });
+        }
+        let secondary_border_color = match positions.kind {
+            Some(ComponentKind::Layout) => i_slint_core::Color::from_argb_encoded(0x80ff0000),
+            _ => i_slint_core::Color::from_argb_encoded(0x800000ff),
+        };
+
+        tmp.extend(positions.geometries.iter().map(|geometry| ui::Selection {
+            width: geometry.size.width,
+            height: geometry.size.height,
+            x: geometry.origin.x,
+            y: geometry.origin.y,
+            border_color: secondary_border_color,
+        }));
+        tmp
+    };
+    let model = Rc::new(slint::VecModel::from(values));
+    ui.set_selections(slint::ModelRc::from(model));
 }

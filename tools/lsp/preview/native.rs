@@ -6,14 +6,16 @@
 use crate::lsp_ext::Health;
 use crate::ServerNotifier;
 
+use i_slint_compiler::object_tree::{ElementRc, ElementWeak};
+use i_slint_core::lengths::LogicalRect;
 use slint::VecModel;
-use slint_interpreter::ComponentHandle;
+use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::future::Future;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::sync::{Condvar, Mutex};
 
 #[derive(PartialEq)]
@@ -219,9 +221,43 @@ static SERVER_NOTIFIER: std::sync::OnceLock<Mutex<Option<ServerNotifier>>> =
 #[derive(Default)]
 struct PreviewState {
     ui: Option<super::ui::PreviewUi>,
-    handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
+    handle: Rc<RefCell<Option<ComponentInstance>>>,
+    selected_element: Option<ElementWeak>,
 }
+
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
+
+pub fn set_selected_element(
+    element_position: Option<(&ElementRc, LogicalRect)>,
+    positions: slint_interpreter::highlight::ComponentPositions,
+) {
+    PREVIEW_STATE.with(move |preview_state| {
+        let mut preview_state = preview_state.borrow_mut();
+        if let Some((e, _)) = element_position.as_ref() {
+            preview_state.selected_element = Some(Rc::downgrade(e));
+        } else {
+            preview_state.selected_element = None;
+        }
+
+        super::set_selections(preview_state.ui.as_ref(), element_position, positions);
+    })
+}
+
+pub fn selected_element() -> Option<ElementRc> {
+    PREVIEW_STATE.with(move |preview_state| {
+        let preview_state = preview_state.borrow();
+        let Some(weak) = &preview_state.selected_element else {
+            return None;
+        };
+        Weak::upgrade(&weak)
+    })
+}
+
+pub fn component_instance() -> Option<ComponentInstance> {
+    PREVIEW_STATE.with(move |preview_state| {
+        preview_state.borrow().handle.borrow().as_ref().map(|ci| ci.clone_strong())
+    })
+}
 
 pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Option<()> {
     set_diagnostics(diagnostics);
@@ -329,20 +365,8 @@ pub fn ask_editor_to_show_document(
     slint_interpreter::spawn_local(fut).unwrap(); // Fire and forget.
 }
 
-pub fn configure_design_mode(enabled: bool) {
-    run_in_ui_thread(move || async move {
-        PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow();
-            let handle = preview_state.handle.borrow();
-            if let Some(handle) = &*handle {
-                super::configure_handle_for_design_mode(handle, enabled);
-            }
-        })
-    });
-}
-
 /// This runs `set_preview_factory` in the UI thread
-pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition, design_mode: bool) {
+pub fn update_preview_area(compiled: ComponentDefinition) {
     PREVIEW_STATE.with(|preview_state| {
         let mut preview_state = preview_state.borrow_mut();
 
@@ -356,7 +380,6 @@ pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition, des
             Box::new(move |instance| {
                 shared_handle.replace(Some(instance));
             }),
-            design_mode,
         );
     });
 }
@@ -365,12 +388,15 @@ pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition, des
 /// When path is None, remove the highlight.
 pub fn update_highlight(path: PathBuf, offset: u32) {
     run_in_ui_thread(move || async move {
-        PREVIEW_STATE.with(|preview_state| {
+        let handle = PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow();
-            let handle = preview_state.handle.borrow();
-            if let Some(handle) = &*handle {
-                handle.highlight(path, offset);
-            }
-        })
+            let result = preview_state.handle.borrow().as_ref().map(|h| h.clone_strong());
+            result
+        });
+
+        if let Some(handle) = handle {
+            let element_positions = handle.component_positions(path, offset);
+            set_selected_element(None, element_positions);
+        }
     })
 }

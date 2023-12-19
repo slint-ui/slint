@@ -1184,14 +1184,6 @@ impl ComponentInstance {
         }
     }
 
-    /// Highlight the elements which are pointed by a given source location.
-    ///
-    /// WARNING: this is not part of the public API
-    #[cfg(feature = "highlight")]
-    pub fn highlight(&self, path: PathBuf, offset: u32) {
-        crate::highlight::highlight(&self.inner, path, offset);
-    }
-
     /// Find all positions of the components which are pointed by a given source location.
     ///
     /// WARNING: this is not part of the public API
@@ -1213,25 +1205,6 @@ impl ComponentInstance {
         element: &i_slint_compiler::object_tree::ElementRc,
     ) -> Option<i_slint_core::lengths::LogicalRect> {
         crate::highlight::element_position(&self.inner, element)
-    }
-
-    /// Request information on clicked object
-    ///
-    /// WARNING: this is not part of the public API
-    #[cfg(feature = "highlight")]
-    pub fn set_design_mode(&self, active: bool) {
-        crate::highlight::set_design_mode(&self.inner, active);
-    }
-
-    /// Register callback to handle current item information
-    ///
-    /// The callback will be called with the file name, the start line and column
-    /// followed by the end line and column.
-    ///
-    /// WARNING: this is not part of the public API
-    #[cfg(feature = "highlight")]
-    pub fn on_element_selected(&self, callback: Box<dyn Fn(&str, u32, u32, u32, u32)>) {
-        crate::highlight::on_element_selected(&self.inner, callback);
     }
 }
 
