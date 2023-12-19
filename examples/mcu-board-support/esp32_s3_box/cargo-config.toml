@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 [target.xtensa-esp32s3-none-elf]
-runner = "espflash --monitor"
+runner = "espflash flash --monitor"
 rustflags = [
     "-C", "force-frame-pointers",
     "-C", "link-arg=-nostartfiles",
