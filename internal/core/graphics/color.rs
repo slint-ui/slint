@@ -146,21 +146,25 @@ impl Color {
     }
 
     /// Returns the red channel of the color as u8 in the range 0..255.
+    #[inline(always)]
     pub fn red(self) -> u8 {
         self.red
     }
 
     /// Returns the green channel of the color as u8 in the range 0..255.
+    #[inline(always)]
     pub fn green(self) -> u8 {
         self.green
     }
 
     /// Returns the blue channel of the color as u8 in the range 0..255.
+    #[inline(always)]
     pub fn blue(self) -> u8 {
         self.blue
     }
 
     /// Returns the alpha channel of the color as u8 in the range 0..255.
+    #[inline(always)]
     pub fn alpha(self) -> u8 {
         self.alpha
     }
