@@ -27,6 +27,6 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2 = {}
 #ifdef SLINT_FEATURE_EXPERIMENTAL
                     ,
-                    slint::platform::SoftwareRenderer::WindowRotation rotation = {}
+                    slint::platform::SoftwareRenderer::RenderingRotation rotation = {}
 #endif
 );
