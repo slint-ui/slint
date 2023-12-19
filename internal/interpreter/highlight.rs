@@ -17,7 +17,7 @@ use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::pathutils;
 use i_slint_core::item_tree::{ItemTreeRc, ItemWeak};
 use i_slint_core::items::ItemRc;
-use i_slint_core::lengths::LogicalPoint;
+use i_slint_core::lengths::{LogicalPoint, LogicalRect};
 use i_slint_core::model::{ModelRc, VecModel};
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -72,16 +72,9 @@ fn find_element_range(element: &ElementRc) -> Option<(Option<SourceFile>, TextRa
 fn map_range_to_line(
     source_file: Option<SourceFile>,
     range: TextRange,
-) -> (String, u32, u32, u32, u32) {
-    source_file.map_or_else(
-        || (String::new(), 0, 0, 0, 0),
-        |sf| {
-            let file_name = sf.path().to_string_lossy().to_string();
-            let (start_line, start_column) = sf.line_column(range.start().into());
-            let (end_line, end_column) = sf.line_column(range.end().into());
-            (file_name, start_line as u32, start_column as u32, end_line as u32, end_column as u32)
-        },
-    )
+) -> (String, usize, usize, usize, usize) {
+    source_file
+        .map_or_else(|| (String::new(), 0, 0, 0, 0), |sf| sf.text_range_to_file_line_column(range))
 }
 
 struct DesignModeState {
@@ -111,7 +104,7 @@ fn item_contains(item: &ItemRc, position: &LogicalPoint, item_tree: &ItemTreeRc)
     geometry.contains(*position)
 }
 
-pub fn on_element_selected(
+pub(crate) fn on_element_selected(
     component_instance: &DynamicComponentVRc,
     callback: Box<dyn Fn(&str, u32, u32, u32, u32)>,
 ) {
@@ -181,13 +174,13 @@ pub fn on_element_selected(
                 break (file, start_line, start_column, end_line, end_column);
             };
 
-            callback(&f, sl, sc, el, ec);
+            callback(&f, sl as u32, sc as u32, el as u32, ec as u32);
             Value::Void
         }),
     );
 }
 
-pub fn set_design_mode(component_instance: &DynamicComponentVRc, active: bool) {
+pub(crate) fn set_design_mode(component_instance: &DynamicComponentVRc, active: bool) {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
@@ -198,6 +191,40 @@ pub fn set_design_mode(component_instance: &DynamicComponentVRc, active: bool) {
     highlight_elements(component_instance, Vec::new());
 }
 
+/// The kind of Element examined.
+pub enum ComponentKind {
+    /// The component is actually a layout
+    Layout,
+    /// The component is actually an element
+    Element,
+}
+
+/// Positions of the Element in the UI
+#[derive(Default)]
+pub struct ComponentPositions {
+    /// The kind of element looked at
+    pub kind: Option<ComponentKind>,
+    /// The geometry information of all occurrences of this element in the UI
+    pub geometries: Vec<i_slint_core::lengths::LogicalRect>,
+}
+
+fn collect_highlight_data(
+    component: &DynamicComponentVRc,
+    elements: &[std::rc::Weak<RefCell<Element>>],
+) -> ComponentPositions {
+    let component_instance = VRc::downgrade(component);
+    let component_instance = component_instance.upgrade().unwrap();
+    generativity::make_guard!(guard);
+    let c = component_instance.unerase(guard);
+    let mut values = ComponentPositions::default();
+    for element in elements.iter().filter_map(|e| e.upgrade()) {
+        if let Some(repeater_path) = repeater_path(&element) {
+            fill_highlight_data(&repeater_path, &element, &c, &c, &mut values);
+        }
+    }
+    values
+}
+
 fn highlight_elements(
     component: &DynamicComponentVRc,
     elements: Vec<std::rc::Weak<RefCell<Element>>>,
@@ -205,14 +232,29 @@ fn highlight_elements(
     let component_instance = VRc::downgrade(component);
     let binding = move || {
         let component_instance = component_instance.upgrade().unwrap();
-        generativity::make_guard!(guard);
-        let c = component_instance.unerase(guard);
-        let mut values = Vec::<Value>::new();
-        for element in elements.iter().filter_map(|e| e.upgrade()) {
-            if let Some(repeater_path) = repeater_path(&element) {
-                fill_model(&repeater_path, &element, &c, &c, &mut values);
-            }
-        }
+
+        let highlight_data = collect_highlight_data(&component_instance, &elements);
+        let border_color = match highlight_data.kind {
+            Some(ComponentKind::Layout) => i_slint_core::Color::from_argb_encoded(0xffff0000),
+            _ => i_slint_core::Color::from_argb_encoded(0xff0000ff),
+        };
+        let values = highlight_data
+            .geometries
+            .iter()
+            .map(|hd| {
+                Value::Struct(
+                    [
+                        ("width".into(), Value::Number(hd.size.width as f64)),
+                        ("height".into(), Value::Number(hd.size.height as f64)),
+                        ("x".into(), Value::Number(hd.origin.x as f64)),
+                        ("y".into(), Value::Number(hd.origin.y as f64)),
+                        ("border-color".into(), Value::Brush(border_color.into())),
+                    ]
+                    .into_iter()
+                    .collect(),
+                )
+            })
+            .collect::<Vec<_>>();
         Value::Model(ModelRc::new(VecModel::from(values)))
     };
 
@@ -222,7 +264,7 @@ fn highlight_elements(
     c.description().set_binding(c.borrow(), HIGHLIGHT_PROP, Box::new(binding)).unwrap();
 }
 
-pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset: u32) {
+pub(crate) fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset: u32) {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
@@ -242,12 +284,48 @@ pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset
     );
 }
 
-fn fill_model(
+pub(crate) fn component_positions(
+    component_instance: &DynamicComponentVRc,
+    path: PathBuf,
+    offset: u32,
+) -> ComponentPositions {
+    generativity::make_guard!(guard);
+    let c = component_instance.unerase(guard);
+
+    let elements = find_element_at_offset(&c.description().original, path, offset.into());
+    if elements.is_empty() {
+        c.description()
+            .set_property(c.borrow(), HIGHLIGHT_PROP, Value::Model(ModelRc::default()))
+            .unwrap();
+        return Default::default();
+    };
+
+    collect_highlight_data(
+        component_instance,
+        &elements.into_iter().map(|e| Rc::downgrade(&e)).collect::<Vec<_>>(),
+    )
+}
+
+pub(crate) fn element_position(
+    component_instance: &DynamicComponentVRc,
+    element: &ElementRc,
+) -> Option<LogicalRect> {
+    generativity::make_guard!(guard);
+    let c = component_instance.unerase(guard);
+
+    let mut values = ComponentPositions::default();
+    if let Some(repeater_path) = repeater_path(element) {
+        fill_highlight_data(&repeater_path, &element, &c, &c, &mut values);
+    }
+    values.geometries.get(0).cloned()
+}
+
+fn fill_highlight_data(
     repeater_path: &[String],
     element: &ElementRc,
     component_instance: &ItemTreeBox,
     root_component_instance: &ItemTreeBox,
-    values: &mut Vec<Value>,
+    values: &mut ComponentPositions,
 ) {
     if let [first, rest @ ..] = repeater_path {
         generativity::make_guard!(guard);
@@ -259,7 +337,13 @@ fn fill_model(
         for idx in rep.0.range() {
             if let Some(c) = rep.0.instance_at(idx) {
                 generativity::make_guard!(guard);
-                fill_model(rest, element, &c.unerase(guard), root_component_instance, values);
+                fill_highlight_data(
+                    rest,
+                    element,
+                    &c.unerase(guard),
+                    root_component_instance,
+                    values,
+                );
             }
         }
     } else {
@@ -271,27 +355,19 @@ fn fill_model(
         );
         let index = element.borrow().item_index.get().copied().unwrap();
         let item_rc = ItemRc::new(vrc.clone(), index);
+        let geometry = item_rc.geometry();
+        let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
+        let size = geometry.size;
 
-        let geom = item_rc.geometry();
-        let position = item_rc.map_to_item_tree(geom.origin, &root_vrc);
-        let border_color =
-            i_slint_core::Color::from_argb_encoded(if element.borrow().layout.is_some() {
-                0xffff0000
+        if values.kind.is_none() {
+            values.kind = if element.borrow().layout.is_some() {
+                Some(ComponentKind::Layout)
             } else {
-                0xff0000ff
-            });
+                Some(ComponentKind::Element)
+            };
+        }
 
-        values.push(Value::Struct(
-            [
-                ("width".into(), Value::Number(geom.width() as f64)),
-                ("height".into(), Value::Number(geom.height() as f64)),
-                ("x".into(), Value::Number(position.x as f64)),
-                ("y".into(), Value::Number(position.y as f64)),
-                ("border-color".into(), Value::Brush(border_color.into())),
-            ]
-            .into_iter()
-            .collect(),
-        ));
+        values.geometries.push(LogicalRect { origin, size });
     }
 }
 
