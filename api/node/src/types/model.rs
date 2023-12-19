@@ -6,7 +6,8 @@ use std::rc::{Rc, Weak};
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{Model, ModelNotify};
 use napi::{
-    bindgen_prelude::Object, Env, JsFunction, JsNumber, JsUnknown, NapiRaw, Result, ValueType,
+    bindgen_prelude::Object, Env, JsFunction, JsNumber, JsObject, JsUnknown, NapiRaw, Result,
+    ValueType,
 };
 use slint_interpreter::Value;
 
@@ -14,14 +15,19 @@ use crate::{to_js_unknown, to_value, RefCountedReference};
 
 #[napi]
 pub struct RustModel {
+    env: Env,
+    model: JsObject,
+    data_type: Option<Type>,
     notify: ModelNotify,
 }
 
 #[napi]
 impl RustModel {
     #[napi(constructor)]
-    pub fn new() -> Self {
-        Self { notify: Default::default() }
+    pub fn new(env: Env, model: JsObject) -> Result<Self> {
+        let _: JsFunction = model.get("rowCount")?.unwrap();
+        let _: JsFunction = model.get("rowData")?.unwrap();
+        Ok(Self { env, model, data_type: None, notify: Default::default() })
     }
 
     #[napi]
@@ -43,17 +49,48 @@ impl RustModel {
     pub fn notify_reset(&self) {
         self.notify.reset();
     }
+
+    pub fn set_data_type(&mut self, data_type: Type) {
+        self.data_type = Some(data_type);
+    }
 }
 
 impl Model for RustModel {
     type Data = slint_interpreter::Value;
 
     fn row_count(&self) -> usize {
-        todo!()
+        self.model
+            .get::<&str, JsFunction>("rowCount")
+            .ok()
+            .and_then(|callback| {
+                callback.and_then(|callback| callback.call_without_args(Some(&self.model)).ok())
+            })
+            .and_then(|res| res.coerce_to_number().ok())
+            .map(|num| num.get_uint32().ok().map_or(0, |count| count as usize))
+            .unwrap_or_default()
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        todo!()
+        self.model
+            .get::<&str, JsFunction>("rowData")
+            .ok()
+            .and_then(|callback| {
+                callback.and_then(|callback| {
+                    callback
+                        .call::<JsNumber>(
+                            Some(&self.model),
+                            &[self.env.create_double(row as f64).unwrap()],
+                        )
+                        .ok()
+                })
+            })
+            .and_then(|res| {
+                if res.get_type().unwrap() == ValueType::Undefined {
+                    None
+                } else {
+                    to_value(&self.env, res, self.data_type.as_ref()?).ok()
+                }
+            })
     }
 
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
