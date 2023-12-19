@@ -19,6 +19,7 @@ use lsp_types::notification::Notification;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
+mod debug;
 mod ui;
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 mod wasm;
