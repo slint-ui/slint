@@ -14,9 +14,6 @@ slint::include_modules!();
 pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
     let ui = PreviewUi::new()?;
 
-    // design mode:
-    ui.on_design_mode_changed(super::set_design_mode);
-
     // styles:
     let known_styles = once(&"native")
         .chain(i_slint_compiler::fileaccess::styles().iter())
@@ -39,6 +36,18 @@ pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
     ui.on_style_changed(super::change_style);
     ui.set_known_styles(style_model.into());
     ui.set_current_style(style.clone().into());
+
+    ui.on_show_document(|url, line, column| {
+        super::ask_editor_to_show_document(
+            url.into(),
+            line as u32,
+            column as u32,
+            line as u32,
+            column as u32,
+        )
+    });
+    ui.on_select_at(super::select_element_at);
+    ui.on_select_into(super::select_element_into);
 
     Ok(ui)
 }
