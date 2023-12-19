@@ -132,19 +132,20 @@ impl super::Presenter for EglDisplay {
 
         event_loop_handle
             .insert_source(source, move |_, _, _| {
-                if let Some(this) = self_weak.upgrade() {
-                    for event in this.gbm_device.receive_events()? {
-                        if matches!(event, drm::control::Event::PageFlip(..)) {
-                            *this.page_flip_state.borrow_mut() = PageFlipState::ReadyForNextBuffer;
+                let Some(this) = self_weak.upgrade() else {
+                    return Ok(calloop::PostAction::Continue);
+                };
+                if this
+                    .gbm_device
+                    .receive_events()?
+                    .any(|event| matches!(event, drm::control::Event::PageFlip(..)))
+                {
+                    *this.page_flip_state.borrow_mut() = PageFlipState::ReadyForNextBuffer;
 
-                            if let Some(next_animation_frame_callback) =
-                                this.next_animation_frame_callback.take()
-                            {
-                                next_animation_frame_callback();
-                            }
-
-                            break;
-                        }
+                    if let Some(next_animation_frame_callback) =
+                        this.next_animation_frame_callback.take()
+                    {
+                        next_animation_frame_callback();
                     }
                 }
                 Ok(calloop::PostAction::Continue)
