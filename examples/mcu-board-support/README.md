@@ -180,8 +180,7 @@ When flashing, with `esplash`, you will be prompted to select a USB port. If thi
 To compile and run the demo:
 
 ```sh
-cargo +esp build -p printerdemo_mcu --target xtensa-esp32s2-none-elf --no-default-features --features=mcu-board-support/esp32-s2-kaluga-1 --release --config examples/mcu-board-support/esp32_s2_kaluga_1/cargo-config.toml
-espflash --monitor target/xtensa-esp32s2-none-elf/release/printerdemo_mcu
+cargo +esp run -p printerdemo_mcu --target xtensa-esp32s2-none-elf --no-default-features --features=mcu-board-support/esp32-s2-kaluga-1 --release --config examples/mcu-board-support/esp32_s2_kaluga_1/cargo-config.toml
 ```
 
 The device needs to be connected with the two USB cables (one for power, one for data)
@@ -191,6 +190,5 @@ The device needs to be connected with the two USB cables (one for power, one for
 To compile and run the demo:
 
 ```sh
-cargo +esp build -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box --release --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml
-espflash --monitor target/xtensa-esp32s3-none-elf/release/printerdemo_mcu
+cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box --release --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml
 ```
