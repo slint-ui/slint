@@ -57,47 +57,18 @@ pub struct EglDisplay {
     drm_device: SharedFd,
     pub size: PhysicalWindowSize,
     page_flip_handler_registration_token: RefCell<Option<calloop::RegistrationToken>>,
+    next_animation_frame_callback: Cell<Option<Box<dyn FnOnce()>>>,
 }
 
-impl super::Presenter for EglDisplay {
-    fn register_page_flip_handler(
-        self: Rc<Self>,
-        event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<(), PlatformError> {
-        if self.page_flip_handler_registration_token.borrow().is_some() {
-            return Ok(());
-        }
-        let self_weak = Rc::downgrade(&self);
-        *self.page_flip_handler_registration_token.borrow_mut() =
-            Some(crate::calloop_backend::FileDescriptorActivityNotifier::new(
-                &event_loop_handle,
-                calloop::Interest::READ,
-                self.gbm_device.0.clone(),
-                Box::new(move || {
-                    if let Some(this) = self_weak.upgrade() {
-                        for event in this.gbm_device.receive_events().unwrap() {
-                            if matches!(event, drm::control::Event::PageFlip(..)) {
-                                *this.page_flip_state.borrow_mut() =
-                                    PageFlipState::ReadyForNextBuffer;
-                                break;
-                            }
-                        }
-                    }
-                }),
-            )?);
-        Ok(())
-    }
-
-    fn unregister_page_flip_handler(
+impl EglDisplay {
+    pub fn set_next_animation_frame_callback(
         &self,
-        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+        ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) {
-        if let Some(token) = self.page_flip_handler_registration_token.take() {
-            event_loop_handle.remove(token);
-        }
+        self.next_animation_frame_callback.set(Some(ready_for_next_animation_frame));
     }
 
-    fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut front_buffer = unsafe {
             self.gbm_surface
                 .lock_front_buffer()
@@ -127,9 +98,72 @@ impl super::Presenter for EglDisplay {
                 .set_crtc(self.crtc, Some(fb), (0, 0), &[self.connector.handle()], Some(self.mode))
                 .map_err(|e| format!("Error presenting fb: {e}"))?;
             *self.page_flip_state.borrow_mut() = PageFlipState::InitialBufferPosted;
+
+            if let Some(next_animation_frame_callback) = self.next_animation_frame_callback.take() {
+                i_slint_core::timers::Timer::single_shot(
+                    std::time::Duration::from_millis(16),
+                    move || {
+                        next_animation_frame_callback();
+                    },
+                )
+            }
         }
 
         Ok(())
+    }
+}
+
+impl super::Presenter for EglDisplay {
+    fn register_page_flip_handler(
+        self: Rc<Self>,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) -> Result<(), PlatformError> {
+        if self.page_flip_handler_registration_token.borrow().is_some() {
+            return Ok(());
+        }
+        let self_weak = Rc::downgrade(&self);
+        *self.page_flip_handler_registration_token.borrow_mut() =
+            Some(crate::calloop_backend::FileDescriptorActivityNotifier::new(
+                &event_loop_handle,
+                calloop::Interest::READ,
+                self.gbm_device.0.clone(),
+                Box::new(move || {
+                    if let Some(this) = self_weak.upgrade() {
+                        for event in this.gbm_device.receive_events().unwrap() {
+                            if matches!(event, drm::control::Event::PageFlip(..)) {
+                                *this.page_flip_state.borrow_mut() =
+                                    PageFlipState::ReadyForNextBuffer;
+
+                                if let Some(next_animation_frame_callback) =
+                                    this.next_animation_frame_callback.take()
+                                {
+                                    next_animation_frame_callback();
+                                }
+
+                                break;
+                            }
+                        }
+                    }
+                }),
+            )?);
+        Ok(())
+    }
+
+    fn unregister_page_flip_handler(
+        &self,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) {
+        if let Some(token) = self.page_flip_handler_registration_token.take() {
+            event_loop_handle.remove(token);
+        }
+    }
+
+    fn present_with_next_frame_callback(
+        &self,
+        ready_for_next_animation_frame: Box<dyn FnOnce()>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.set_next_animation_frame_callback(ready_for_next_animation_frame);
+        self.present()
     }
 
     fn is_ready_to_present(&self) -> bool {
@@ -317,5 +351,6 @@ pub fn try_create_egl_display(
         drm_device,
         size: window_size,
         page_flip_handler_registration_token: RefCell::new(None),
+        next_animation_frame_callback: Default::default(),
     })
 }

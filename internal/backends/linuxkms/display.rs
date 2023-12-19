@@ -17,7 +17,10 @@ pub trait Presenter {
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
     );
     // Present updated front-buffer to the screen
-    fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    fn present_with_next_frame_callback(
+        &self,
+        ready_for_next_animation_frame: Box<dyn FnOnce()>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
 #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg"))]
