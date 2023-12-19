@@ -80,7 +80,7 @@ mod eval;
 mod eval_layout;
 mod global_component;
 #[cfg(feature = "highlight")]
-mod highlight;
+pub mod highlight;
 mod value_model;
 
 #[doc(inline)]

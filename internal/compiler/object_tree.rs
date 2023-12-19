@@ -825,6 +825,7 @@ pub struct RepeatedElementInfo {
 }
 
 pub type ElementRc = Rc<RefCell<Element>>;
+pub type ElementWeak = Weak<RefCell<Element>>;
 
 impl Element {
     pub fn make_rc(self) -> ElementRc {
