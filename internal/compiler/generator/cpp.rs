@@ -3107,7 +3107,7 @@ fn compile_builtin_function_call(
 
                 format!("slint_textinput_select(&{window}.handle(), &{item_rc}, static_cast<i32>({from}), static_cast<i32>({to}))")
             } else {
-                panic!("internal error: invalid args to select {:?}", arguments)
+                panic!("internal error: invalid args to TextInputSelect {:?}", arguments)
             }
         }
         BuiltinFunction::ItemMemberFunction(name) => {

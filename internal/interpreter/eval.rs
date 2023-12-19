@@ -643,9 +643,14 @@ fn call_builtin_function(
                     ItemRef::downcast_pin::<corelib::items::TextInput>(item_ref)
                 {
                     let from: i32 =
-                        eval_expression(&arguments[1], local_context).try_into().unwrap();
-                    let to: i32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
-                    textinput.select(&window_adapter, &item_rc, from, to)
+                        eval_expression(&arguments[1], local_context).try_into().expect(
+                            "internal error: second argument to TextInputSelect must be an integer",
+                        );
+                    let to: i32 = eval_expression(&arguments[2], local_context).try_into().expect(
+                        "internal error: third argument to TextInputSelect must be an integer",
+                    );
+
+                    textinput.select(&window_adapter, &item_rc, from, to);
                 } else {
                     panic!(
                         "internal error: member function called on element that doesn't have it: {}",
@@ -655,7 +660,7 @@ fn call_builtin_function(
 
                 Value::Void
             } else {
-                panic!("internal error: argument to TextInputSelectAll must be an element")
+                panic!("internal error: first argument to TextInputSelect must be an element")
             }
         }
         BuiltinFunction::ItemMemberFunction(name) => {

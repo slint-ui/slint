@@ -2377,7 +2377,7 @@ fn compile_builtin_function_call(
                     #item.select(#window_adapter_tokens, #item_rc, #from as i32, #to as i32)
                 )
             } else {
-                panic!("internal error: invalid args to select {:?}", arguments)
+                panic!("internal error: invalid args to TextInputSelect {:?}", arguments)
             }
         }
         BuiltinFunction::ItemMemberFunction(name) => {
