@@ -706,8 +706,15 @@ mod weak_handle {
         /// some other instance still holds a strong reference and the current thread
         /// is the thread that created this component.
         /// Otherwise, this function panics.
+        #[track_caller]
         pub fn unwrap(&self) -> T {
-            self.upgrade().unwrap()
+            #[cfg(feature = "std")]
+            if std::thread::current().id() != self.thread {
+                panic!(
+                    "Trying to upgrade a Weak from a different thread that the one it belongs to"
+                );
+            }
+            T::from_inner(self.inner.upgrade().expect("The Weak doesn't hold a valid component"))
         }
 
         /// A helper function to allow creation on `component_factory::Component` from
