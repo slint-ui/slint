@@ -360,6 +360,7 @@ pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
                 shared_handle.replace(Some(instance));
             }),
         );
+        super::reset_selections(preview_state.ui.as_ref());
     })
 }
 
