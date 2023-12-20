@@ -457,16 +457,9 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 M::Diagnostics { uri, diagnostics } => {
                     crate::preview::notify_lsp_diagnostics(&ctx.server_notifier, uri, diagnostics);
                 }
-                M::ShowDocument { file, start_line, start_column, end_line, end_column } => {
-                    send_show_document_to_editor(
-                        ctx.server_notifier.clone(),
-                        file,
-                        start_line,
-                        start_column,
-                        end_line,
-                        end_column,
-                    )
-                    .await;
+                M::ShowDocument { file, selection } => {
+                    send_show_document_to_editor(ctx.server_notifier.clone(), file, selection)
+                        .await;
                 }
                 M::PreviewTypeChanged { is_external } => {
                     ctx.preview.set_use_external_previewer(is_external);
@@ -485,18 +478,10 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
 pub async fn send_show_document_to_editor(
     sender: ServerNotifier,
     file: String,
-    start_line: u32,
-    start_column: u32,
-    end_line: u32,
-    end_column: u32,
+    range: lsp_types::Range,
 ) {
-    let Some(params) = crate::preview::show_document_request_from_element_callback(
-        &file,
-        start_line,
-        start_column,
-        end_line,
-        end_column,
-    ) else {
+    let Some(params) = crate::preview::show_document_request_from_element_callback(&file, range)
+    else {
         return;
     };
     let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {

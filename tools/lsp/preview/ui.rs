@@ -38,13 +38,10 @@ pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
     ui.set_current_style(style.clone().into());
 
     ui.on_show_document(|url, line, column| {
-        super::ask_editor_to_show_document(
-            url.into(),
-            line as u32,
-            column as u32,
-            line as u32,
-            column as u32,
-        )
+        use lsp_types::{Position, Range};
+        let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
+
+        super::ask_editor_to_show_document(url.into(), Range::new(pos, pos))
     });
     ui.on_select_at(super::select_element_at);
     ui.on_select_into(super::select_element_into);
