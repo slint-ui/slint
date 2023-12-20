@@ -94,7 +94,7 @@ fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
     element.clone()
 }
 
-fn lsp_element_position(element: &ElementRc) -> (String, usize, usize, usize, usize) {
+fn lsp_element_position(element: &ElementRc) -> (String, lsp_types::Range) {
     let e = &element.borrow();
     e.node
         .as_ref()
@@ -106,7 +106,14 @@ fn lsp_element_position(element: &ElementRc) -> (String, usize, usize, usize, us
                     |p| Some(p.source_file.text_size_to_file_line_column(p.text_range().start())),
                 )
         })
-        .unwrap_or_else(|| (String::new(), 0, 0, 0, 0))
+        .map(|(f, sl, sc, el, ec)| {
+            use lsp_types::{Position, Range};
+            let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
+            let end = Position::new((el as u32).saturating_sub(1), (ec as u32).saturating_sub(1));
+
+            (f, Range::new(start, end))
+        })
+        .unwrap_or_default()
 }
 
 // triggered from the UI, running in UI thread
@@ -125,19 +132,16 @@ pub fn select_element_at_impl(
             continue;
         };
         if position.contains(click_position) {
-            let (path, offset) = element_offset(&c);
-            let secondary_positions = component_instance.component_positions(path, offset);
+            let secondary_positions = if let Some((path, offset)) = element_offset(&c) {
+                component_instance.component_positions(path, offset)
+            } else {
+                ComponentPositions::default()
+            };
 
             set_selected_element(Some((&c, position)), secondary_positions);
             let document_position = lsp_element_position(&c);
             if !document_position.0.is_empty() {
-                ask_editor_to_show_document(
-                    document_position.0,
-                    document_position.1 as u32,
-                    document_position.2 as u32,
-                    document_position.3 as u32,
-                    document_position.4 as u32,
-                );
+                ask_editor_to_show_document(document_position.0, document_position.1);
             }
             return Some(c.clone());
         }
@@ -146,13 +150,13 @@ pub fn select_element_at_impl(
     None
 }
 
-fn element_offset(element: &ElementRc) -> (PathBuf, u32) {
+fn element_offset(element: &ElementRc) -> Option<(PathBuf, u32)> {
     let Some(node) = &element.borrow().node else {
-        return (PathBuf::default(), 0);
+        return None;
     };
     let path = node.source_file.path().to_path_buf();
     let offset = node.text_range().start().into();
-    (path, offset)
+    Some((path, offset))
 }
 
 // triggered from the UI, running in UI thread
@@ -398,27 +402,19 @@ pub fn highlight(path: &Option<PathBuf>, offset: u32) {
 
 pub fn show_document_request_from_element_callback(
     file: &str,
-    start_line: u32,
-    start_column: u32,
-    _end_line: u32,
-    end_column: u32,
+    range: lsp_types::Range,
 ) -> Option<lsp_types::ShowDocumentParams> {
-    use lsp_types::{Position, Range, ShowDocumentParams, Url};
+    use lsp_types::{ShowDocumentParams, Url};
 
-    if file.is_empty() || start_column == 0 || end_column == 0 {
+    if file.is_empty() || range.start.character == 0 || range.end.character == 0 {
         return None;
     }
-
-    let start_pos = Position::new(start_line.saturating_sub(1), start_column.saturating_sub(1));
-    // let end_pos = Position::new(end_line.saturating_sub(1), end_column.saturating_sub(1));
-    // Place the cursor at the start of the range and do not mark up the entire range!
-    let selection = Some(Range::new(start_pos, start_pos));
 
     Url::from_file_path(file).ok().map(|uri| ShowDocumentParams {
         uri,
         external: Some(false),
         take_focus: Some(true),
-        selection,
+        selection: Some(range),
     })
 }
 

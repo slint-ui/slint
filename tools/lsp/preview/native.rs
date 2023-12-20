@@ -169,15 +169,6 @@ fn open_ui_impl(preview_state: &mut PreviewState) {
     // TODO: Handle Error!
     let ui = preview_state.ui.get_or_insert_with(|| super::ui::create_ui(default_style).unwrap());
     ui.set_show_preview_ui(show_preview_ui);
-    ui.on_show_document(|url, line, column| {
-        ask_editor_to_show_document(
-            url.as_str().to_string(),
-            line as u32,
-            column as u32,
-            line as u32,
-            column as u32,
-        )
-    });
     ui.window().on_close_requested(|| {
         let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.ui_is_visible = false;
@@ -342,25 +333,12 @@ pub fn send_status(message: &str, health: Health) {
     crate::preview::send_status_notification(&sender, message, health)
 }
 
-pub fn ask_editor_to_show_document(
-    file: String,
-    start_line: u32,
-    start_column: u32,
-    end_line: u32,
-    end_column: u32,
-) {
+pub fn ask_editor_to_show_document(file: String, selection: lsp_types::Range) {
     let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
         return;
     };
 
-    let fut = crate::send_show_document_to_editor(
-        sender,
-        file,
-        start_line,
-        start_column,
-        end_line,
-        end_column,
-    );
+    let fut = crate::send_show_document_to_editor(sender, file, selection);
 
     slint_interpreter::spawn_local(fut).unwrap(); // Fire and forget.
 }

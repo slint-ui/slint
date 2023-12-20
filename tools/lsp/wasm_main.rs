@@ -303,15 +303,8 @@ impl SlintServer {
             M::Diagnostics { diagnostics, uri } => {
                 crate::preview::notify_lsp_diagnostics(&self.ctx.server_notifier, uri, diagnostics);
             }
-            M::ShowDocument { file, start_line, start_column, end_line, end_column } => {
-                send_show_document_to_editor(
-                    self.ctx.server_notifier.clone(),
-                    file,
-                    start_line,
-                    start_column,
-                    end_line,
-                    end_column,
-                )
+            M::ShowDocument { file, selection } => {
+                send_show_document_to_editor(self.ctx.server_notifier.clone(), file, selection)
             }
             M::PreviewTypeChanged { is_external: _ } => {
                 // Nothing to do!
@@ -388,19 +381,12 @@ fn to_value<T: serde::Serialize + ?Sized>(
 pub fn send_show_document_to_editor(
     sender: ServerNotifier,
     file: String,
-    start_line: u32,
-    start_column: u32,
-    end_line: u32,
-    end_column: u32,
+    selection: lsp_types::Range,
 ) {
     wasm_bindgen_futures::spawn_local(async move {
-        let Some(params) = crate::preview::show_document_request_from_element_callback(
-            &file,
-            start_line,
-            start_column,
-            end_line,
-            end_column,
-        ) else {
+        let Some(params) =
+            crate::preview::show_document_request_from_element_callback(&file, selection)
+        else {
             return;
         };
         let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {

@@ -112,7 +112,6 @@ impl PreviewConnector {
                     } else {
                         match super::ui::create_ui(style) {
                             Ok(ui) => {
-                                ui.on_show_document(|url, line, column| ask_editor_to_show_document(url.as_str().to_string(), line as u32, column as u32, line as u32, column as u32));
                                 preview_state.borrow_mut().ui = Some(ui);
                                 resolve.take().call1(&JsValue::UNDEFINED,
                                     &JsValue::from(Self { })).unwrap_throw()
@@ -344,20 +343,8 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
     Some(())
 }
 
-pub fn ask_editor_to_show_document(
-    file: String,
-    start_line: u32,
-    start_column: u32,
-    end_line: u32,
-    end_column: u32,
-) {
-    send_message_to_lsp(crate::common::PreviewToLspMessage::ShowDocument {
-        file,
-        start_line,
-        start_column,
-        end_line,
-        end_column,
-    })
+pub fn ask_editor_to_show_document(file: String, selection: lsp_types::Range) {
+    send_message_to_lsp(crate::common::PreviewToLspMessage::ShowDocument { file, selection })
 }
 
 pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
