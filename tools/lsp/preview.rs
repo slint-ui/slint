@@ -12,11 +12,12 @@ use crate::{
     common::{PreviewComponent, PreviewConfig},
     lsp_ext::Health,
 };
-use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::{diagnostics::SourceFile, object_tree::ElementRc};
 use i_slint_core::{
     component_factory::FactoryContext,
     lengths::{LogicalLength, LogicalPoint, LogicalRect},
 };
+use rowan::TextRange;
 use slint_interpreter::{
     highlight::{ComponentKind, ComponentPositions},
     ComponentDefinition, ComponentHandle, ComponentInstance,
@@ -159,12 +160,46 @@ fn element_offset(element: &ElementRc) -> Option<(PathBuf, u32)> {
     Some((path, offset))
 }
 
+fn element_source_range(element: &ElementRc) -> Option<(SourceFile, TextRange)> {
+    let Some(node) = &element.borrow().node else {
+        return None;
+    };
+    let source_file = node.source_file.clone();
+    let range = node.text_range();
+    Some((source_file, range))
+}
+
+// Return the real root element, skipping any WindowElement that got added
+fn root_element(component_instance: &ComponentInstance) -> ElementRc {
+    let root_element = component_instance.definition().root_component().root_element.clone();
+
+    if root_element.borrow().children.len() != 1 {
+        return root_element;
+    }
+
+    let Some(child) = root_element.borrow().children.get(0).cloned() else {
+        return root_element;
+    };
+    let Some((rsf, rr)) = element_source_range(&root_element) else {
+        return root_element;
+    };
+    let Some((csf, cr)) = element_source_range(&child) else {
+        return root_element;
+    };
+
+    if Rc::ptr_eq(&rsf, &csf) && rr == cr {
+        child
+    } else {
+        root_element
+    }
+}
+
 // triggered from the UI, running in UI thread
 pub fn select_element_at(x: f32, y: f32) {
     let Some(component_instance) = component_instance() else {
         return;
     };
-    let root_element = component_instance.definition().root_component().root_element.clone();
+    let root_element = root_element(&component_instance);
 
     select_element_at_impl(x, y, &component_instance, &root_element);
 }
@@ -182,7 +217,7 @@ pub fn select_element_into(x: f32, y: f32) {
         }
     }
 
-    let root_element = component_instance.definition().root_component().root_element.clone();
+    let root_element = root_element(&component_instance);
     if let Some(se) = select_element_at_impl(x, y, &component_instance, &root_element) {
         select_element_at_impl(x, y, &component_instance, &se);
     }
