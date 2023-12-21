@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import pytest
-import slint
-from slint import ValueType;
+from slint import slint as native
+from slint.slint import ValueType;
 
 def test_basic_compiler():
-    compiler = slint.ComponentCompiler()
+    compiler = native.ComponentCompiler()
 
     assert compiler.include_paths == []
     compiler.include_paths = ["testing"]
@@ -54,7 +54,7 @@ def test_basic_compiler():
     assert instance != None
 
 def test_compiler_build_from_path():
-    compiler = slint.ComponentCompiler()
+    compiler = native.ComponentCompiler()
 
     assert len(compiler.diagnostics) == 0
 
@@ -62,5 +62,5 @@ def test_compiler_build_from_path():
     diags = compiler.diagnostics
     assert len(diags) == 1
 
-    assert diags[0].level == slint.DiagnosticLevel.Error
+    assert diags[0].level == native.DiagnosticLevel.Error
     assert diags[0].message.startswith("Could not load Nonexistent.slint:")

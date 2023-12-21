@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 [package]
-name = "pyslint"
+name = "slint-python"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -14,7 +14,6 @@ publish = false
 rust-version.workspace = true
 
 [lib]
-name = "slint"
 path = "lib.rs"
 crate-type = ["cdylib"]
 
@@ -26,3 +25,6 @@ pyo3 = { version = "0.20.0", features = ["extension-module", "indexmap", "chrono
 indexmap = { version = "2.1.0" }
 chrono = "0.4"
 spin_on = "0.1"
+
+[package.metadata.maturin]
+python-source = "slint"

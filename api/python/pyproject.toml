@@ -6,7 +6,7 @@ requires = ["maturin>=1,<2"]
 build-backend = "maturin"
 
 [project]
-name = "pyslint"
+name = "slint"
 version = "1.4.0"
 classifiers = [
     "Development Status :: 3 - Alpha",

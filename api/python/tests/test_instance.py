@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import pytest
-import slint
-from slint import ValueType;
+from slint import slint as native
+from slint.slint import ValueType;
 
 def test_property_access():
-    compiler = slint.ComponentCompiler()
+    compiler = native.ComponentCompiler()
 
     compdef = compiler.build_from_source("""
         export global TestGlobal {
@@ -69,7 +69,7 @@ def test_property_access():
     assert instance.get_global_property("TestGlobal", "theglobalprop") == "Ok"
 
 def test_callbacks():
-    compiler = slint.ComponentCompiler()
+    compiler = native.ComponentCompiler()
 
     compdef = compiler.build_from_source("""
         export global TestGlobal {
@@ -113,8 +113,7 @@ def test_callbacks():
 
 
 if __name__ == "__main__":
-    compiler = slint.ComponentCompiler()
-    compdef = compiler.build_from_path("../../examples/printerdemo/ui/printerdemo.slint")
-    instance = compdef.create()
+    import slint
+    instance = slint.load_file("../../examples/printerdemo/ui/printerdemo.slint")
     instance.set_global_callback("PrinterQueue", "start-job", lambda title: print(f"new print job {title}"))
     instance.run()
