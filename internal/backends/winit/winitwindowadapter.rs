@@ -145,7 +145,7 @@ impl WinitWindowAdapter {
         renderer_factory_fn: fn(
             window_builder: winit::window::WindowBuilder,
         ) -> Result<
-            (Box<dyn WinitCompatibleRenderer>, winit::window::Window),
+            (Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>),
             PlatformError,
         >,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
@@ -155,8 +155,6 @@ impl WinitWindowAdapter {
             canvas_id,
         )
         .and_then(|builder| renderer_factory_fn(builder))?;
-
-        let winit_window = Rc::new(winit_window);
 
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),

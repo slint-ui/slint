@@ -82,6 +82,7 @@ impl super::Surface for MetalSurface {
         &self,
         _size: PhysicalWindowSize,
         callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
+        pre_present_callback: Option<Box<dyn FnOnce()>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         autoreleasepool(|| {
             let drawable = match self.layer.next_drawable() {
@@ -123,6 +124,10 @@ impl super::Surface for MetalSurface {
             drop(surface);
 
             gr_context.submit(None);
+
+            if let Some(pre_present_callback) = pre_present_callback {
+                pre_present_callback();
+            }
 
             let command_buffer = self.command_queue.new_command_buffer();
             command_buffer.present_drawable(drawable);

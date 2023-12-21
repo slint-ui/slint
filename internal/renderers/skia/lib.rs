@@ -175,10 +175,13 @@ impl SkiaRenderer {
     }
 
     /// Render the scene in the previously associated window.
-    pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+    pub fn render(
+        &self,
+        pre_present_callback: Option<Box<dyn FnOnce()>>,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         let window_adapter = self.window_adapter()?;
         let size = window_adapter.window().size();
-        self.internal_render_with_post_callback(0., (0., 0.), size, None)
+        self.internal_render_with_post_callback(0., (0., 0.), size, None, pre_present_callback)
     }
 
     fn internal_render_with_post_callback(
@@ -187,6 +190,7 @@ impl SkiaRenderer {
         translation: (f32, f32),
         surace_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+        pre_present_callback: Option<Box<dyn FnOnce()>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         let surface = self.surface.borrow();
         let Some(surface) = surface.as_ref() else { return Ok(()) };
@@ -209,87 +213,92 @@ impl SkiaRenderer {
         let window = window_adapter.window();
         let window_inner = WindowInner::from_pub(window);
 
-        surface.render(surace_size, &|skia_canvas, mut gr_context| {
-            skia_canvas.rotate(rotation_angle_degrees, None);
-            skia_canvas.translate(translation);
+        surface.render(
+            surace_size,
+            &|skia_canvas, mut gr_context| {
+                skia_canvas.rotate(rotation_angle_degrees, None);
+                skia_canvas.translate(translation);
 
-            window_inner.draw_contents(|components| {
-                let window_background_brush =
-                    window_inner.window_item().map(|w| w.as_pin_ref().background());
+                window_inner.draw_contents(|components| {
+                    let window_background_brush =
+                        window_inner.window_item().map(|w| w.as_pin_ref().background());
 
-                // Clear with window background if it is a solid color otherwise it will drawn as gradient
-                if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
-                    skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
-                }
+                    // Clear with window background if it is a solid color otherwise it will drawn as gradient
+                    if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
+                        skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
+                    }
 
-                if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                    // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
-                    // the back buffer, in order to allow the callback to provide its own rendering of the background.
-                    // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
+                    if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                        // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
+                        // the back buffer, in order to allow the callback to provide its own rendering of the background.
+                        // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
+                        if let Some(ctx) = gr_context.as_mut() {
+                            ctx.flush(None);
+                        }
+
+                        surface.with_graphics_api(&mut |api| {
+                            callback.notify(RenderingState::BeforeRendering, &api)
+                        })
+                    }
+
+                    let mut box_shadow_cache = Default::default();
+
+                    self.image_cache.clear_cache_if_scale_factor_changed(window);
+                    self.path_cache.clear_cache_if_scale_factor_changed(window);
+
+                    let mut item_renderer = itemrenderer::SkiaItemRenderer::new(
+                        skia_canvas,
+                        window,
+                        &self.image_cache,
+                        &self.path_cache,
+                        &mut box_shadow_cache,
+                    );
+
+                    // Draws the window background as gradient
+                    match window_background_brush {
+                        Some(Brush::SolidColor(..)) | None => {}
+                        Some(brush @ _) => {
+                            item_renderer.draw_rect(
+                                i_slint_core::lengths::logical_size_from_api(
+                                    window.size().to_logical(window_inner.scale_factor()),
+                                ),
+                                brush,
+                            );
+                        }
+                    }
+
+                    for (component, origin) in components {
+                        i_slint_core::item_rendering::render_component_items(
+                            component,
+                            &mut item_renderer,
+                            *origin,
+                        );
+                    }
+
+                    if let Some(collector) = &self.rendering_metrics_collector.borrow_mut().as_ref()
+                    {
+                        collector.measure_frame_rendered(&mut item_renderer);
+                    }
+
+                    if let Some(cb) = post_render_cb.as_ref() {
+                        cb(&mut item_renderer)
+                    }
+
+                    drop(item_renderer);
+
                     if let Some(ctx) = gr_context.as_mut() {
                         ctx.flush(None);
                     }
+                });
 
+                if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
                     surface.with_graphics_api(&mut |api| {
-                        callback.notify(RenderingState::BeforeRendering, &api)
+                        callback.notify(RenderingState::AfterRendering, &api)
                     })
                 }
-
-                let mut box_shadow_cache = Default::default();
-
-                self.image_cache.clear_cache_if_scale_factor_changed(window);
-                self.path_cache.clear_cache_if_scale_factor_changed(window);
-
-                let mut item_renderer = itemrenderer::SkiaItemRenderer::new(
-                    skia_canvas,
-                    window,
-                    &self.image_cache,
-                    &self.path_cache,
-                    &mut box_shadow_cache,
-                );
-
-                // Draws the window background as gradient
-                match window_background_brush {
-                    Some(Brush::SolidColor(..)) | None => {}
-                    Some(brush @ _) => {
-                        item_renderer.draw_rect(
-                            i_slint_core::lengths::logical_size_from_api(
-                                window.size().to_logical(window_inner.scale_factor()),
-                            ),
-                            brush,
-                        );
-                    }
-                }
-
-                for (component, origin) in components {
-                    i_slint_core::item_rendering::render_component_items(
-                        component,
-                        &mut item_renderer,
-                        *origin,
-                    );
-                }
-
-                if let Some(collector) = &self.rendering_metrics_collector.borrow_mut().as_ref() {
-                    collector.measure_frame_rendered(&mut item_renderer);
-                }
-
-                if let Some(cb) = post_render_cb.as_ref() {
-                    cb(&mut item_renderer)
-                }
-
-                drop(item_renderer);
-
-                if let Some(ctx) = gr_context.as_mut() {
-                    ctx.flush(None);
-                }
-            });
-
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                surface.with_graphics_api(&mut |api| {
-                    callback.notify(RenderingState::AfterRendering, &api)
-                })
-            }
-        })
+            },
+            pre_present_callback,
+        )
     }
 
     fn window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
@@ -531,11 +540,13 @@ pub trait Surface {
         Ok(())
     }
     /// Prepares the surface for rendering and invokes the provided callback with access to a Skia canvas and
-    /// rendering context.
+    /// rendering context. The optional pre_present_callback is invoked right before sending the buffer
+    /// rendered into to the windowing system.
     fn render(
         &self,
         size: PhysicalWindowSize,
-        callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
+        render_callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
+        pre_present_callback: Option<Box<dyn FnOnce()>>,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
     /// Called when the surface should be resized.
     fn resize_event(
@@ -573,6 +584,7 @@ impl SkiaRendererExt for SkiaRenderer {
             translation,
             surface_size,
             post_render_cb,
+            None,
         )
     }
 }
