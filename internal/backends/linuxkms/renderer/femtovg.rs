@@ -17,11 +17,12 @@ use glutin::{
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 
-use crate::display::{egldisplay::EglDisplay, Presenter, RenderingRotation};
+use crate::display::{gbmdisplay::GbmDisplay, Presenter, RenderingRotation};
+use crate::drmoutput::DrmOutput;
 
 pub struct FemtoVGRendererAdapter {
     renderer: i_slint_renderer_femtovg::FemtoVGRenderer,
-    egl_display: Rc<EglDisplay>,
+    gbm_display: Rc<GbmDisplay>,
 }
 
 struct GlContextWrapper {
@@ -30,22 +31,17 @@ struct GlContextWrapper {
 }
 
 impl GlContextWrapper {
-    fn new(egl_display: &EglDisplay) -> Result<Self, PlatformError> {
-        let width: std::num::NonZeroU32 = egl_display.size.width.try_into().map_err(|_| {
-            format!(
-                "Attempting to create window surface with an invalid width: {}",
-                egl_display.size.width
-            )
+    fn new(gbm_display: &GbmDisplay) -> Result<Self, PlatformError> {
+        let (width, height) = gbm_display.drm_output.size();
+        let width: std::num::NonZeroU32 = width.try_into().map_err(|_| {
+            format!("Attempting to create window surface with an invalid width: {}", width)
         })?;
-        let height: std::num::NonZeroU32 = egl_display.size.height.try_into().map_err(|_| {
-            format!(
-                "Attempting to create window surface with an invalid height: {}",
-                egl_display.size.height
-            )
+        let height: std::num::NonZeroU32 = height.try_into().map_err(|_| {
+            format!("Attempting to create window surface with an invalid height: {}", height)
         })?;
 
-        let display_handle = egl_display.display_handle().unwrap();
-        let window_handle = egl_display.window_handle().unwrap();
+        let display_handle = gbm_display.display_handle().unwrap();
+        let window_handle = gbm_display.window_handle().unwrap();
 
         let gl_display = unsafe {
             glutin::display::Display::new(
@@ -156,13 +152,14 @@ impl FemtoVGRendererAdapter {
     pub fn new(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
-        let egl_display = Rc::new(crate::display::egldisplay::create_egl_display(device_opener)?);
+        let drm_output = DrmOutput::new(device_opener)?;
+        let egl_display = Rc::new(crate::display::gbmdisplay::GbmDisplay::new(drm_output)?);
 
         let renderer = Box::new(Self {
             renderer: i_slint_renderer_femtovg::FemtoVGRenderer::new(GlContextWrapper::new(
                 &egl_display,
             )?)?,
-            egl_display,
+            gbm_display: egl_display,
         });
 
         eprintln!("Using FemtoVG OpenGL renderer");
@@ -177,7 +174,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
     }
 
     fn is_ready_to_present(&self) -> bool {
-        self.egl_display.is_ready_to_present()
+        self.gbm_display.is_ready_to_present()
     }
 
     fn render_and_present(
@@ -186,25 +183,27 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
         ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), PlatformError> {
+        let size = self.size();
         self.renderer.render_transformed_with_post_callback(
             rotation.degrees(),
-            rotation.translation_after_rotation(self.egl_display.size),
-            self.egl_display.size,
+            rotation.translation_after_rotation(size),
+            size,
             Some(&|item_renderer| {
                 draw_mouse_cursor_callback(item_renderer);
             }),
         )?;
-        self.egl_display.present(ready_for_next_animation_frame)?;
+        self.gbm_display.present(ready_for_next_animation_frame)?;
         Ok(())
     }
     fn size(&self) -> i_slint_core::api::PhysicalSize {
-        self.egl_display.size
+        let (width, height) = self.gbm_display.drm_output.size();
+        i_slint_core::api::PhysicalSize::new(width, height)
     }
 
     fn register_page_flip_handler(
         &self,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
     ) -> Result<(), PlatformError> {
-        self.egl_display.clone().register_page_flip_handler(event_loop_handle)
+        self.gbm_display.clone().register_page_flip_handler(event_loop_handle)
     }
 }

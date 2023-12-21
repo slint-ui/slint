@@ -15,6 +15,9 @@ type DeviceOpener<'a> = dyn Fn(&std::path::Path) -> Result<std::rc::Rc<OwnedFd>,
     + 'a;
 
 #[cfg(target_os = "linux")]
+mod drmoutput;
+
+#[cfg(target_os = "linux")]
 mod display;
 
 #[cfg(target_os = "linux")]
@@ -36,7 +39,8 @@ mod renderer {
 
         #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
         {
-            result = skia::SkiaRendererAdapter::new_try_vulkan_then_opengl(_device_opener);
+            result =
+                skia::SkiaRendererAdapter::new_try_vulkan_then_opengl_then_software(_device_opener);
         }
 
         #[cfg(feature = "renderer-femtovg")]

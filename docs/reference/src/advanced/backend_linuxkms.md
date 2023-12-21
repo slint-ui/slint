@@ -5,8 +5,9 @@ The LinuxKMS backend runs only on Linux and eliminates the need for a windowing 
 Instead it uses the following libraries and interface to render directly to the screen and react to touch, mouse,
 and keyboard input.
 
- - OpenGL via KSM/DRI.
+ - OpenGL via KMS/DRI.
  - Vulkan via the Vulkan KHR Display Extension.
+ - DRM dumb buffers for software rendering.
  - libinput/libudev for input event handling from mice, touch screens, or keyboards.
  - libseat for GPU and input device access without requiring root access. (optional)
 
@@ -29,17 +30,17 @@ files; typically that's the root user.
 The LinuxKMS backend supports different renderers. They can be explicitly selected for use through the
 `SLINT_BACKEND` environment variable.
 
-| Renderer name | Required Graphics APIs | `SLINT_BACKEND` value to select renderer         |
-|---------------|------------------------|--------------------------------------------------|
-| FemtoVG       | OpenGL ES 2.0          | `linuxkms-femtovg`                               |
-| Skia          | OpenGL ES 2.0, Vulkan  | `linuxkms-skia-opengl` or `linuxkms-skia-vulkan` |
+| Renderer name | Required Graphics APIs | `SLINT_BACKEND` value to select renderer                                    |
+|---------------|------------------------|-----------------------------------------------------------------------------|
+| FemtoVG       | OpenGL ES 2.0          | `linuxkms-femtovg`                                                          |
+| Skia          | OpenGL ES 2.0, Vulkan  | `linuxkms-skia-opengl`, `linuxkms-skia-vulkan`, or `linuxkms-skia-software` |
 
 :::{note}
 This backend is still experimental. The backend has not undergone a great variety of testing on different devices
 and there are [known issues](https://github.com/slint-ui/slint/labels/a%3Abackend-linuxkms).
 :::
 
-## Display Selection with OpenGL
+## Display Selection with OpenGL or Skia Software
 
 FemtoVG uses OpenGL, and Skia - unless Vulkan is enabled - uses OpenGL, too. Linux's direct rendering manager
 (DRM) subsystem is used to configure display outputs. Slint defaults to selecting the first connected
