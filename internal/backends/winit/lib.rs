@@ -80,7 +80,7 @@ cfg_if::cfg_if! {
 
 fn default_renderer_factory(
     window_builder: winit::window::WindowBuilder,
-) -> Result<(Box<dyn WinitCompatibleRenderer>, winit::window::Window), PlatformError> {
+) -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "renderer-femtovg")] {
             renderer::femtovg::GlutinFemtoVGRenderer::new(window_builder)
@@ -139,7 +139,7 @@ pub struct Backend {
         fn(
             window_builder: winit::window::WindowBuilder,
         )
-            -> Result<(Box<dyn WinitCompatibleRenderer>, winit::window::Window), PlatformError>,
+            -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError>,
     event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
 }
 

@@ -119,7 +119,7 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
                 return Ok(());
             }
             if self.window.pending_redraw.take() && self.app.native_window().is_some() {
-                self.window.renderer.render()?;
+                self.window.renderer.render(None)?;
             }
         }
     }
@@ -283,7 +283,7 @@ impl AndroidWindowAdapter {
             }
             PollEvent::Main(MainEvent::RedrawNeeded { .. }) => {
                 self.pending_redraw.set(false);
-                self.renderer.render()?;
+                self.renderer.render(None)?;
             }
             PollEvent::Main(MainEvent::GainedFocus) => {
                 self.window.dispatch_event(WindowEvent::WindowActiveChanged(true));

@@ -9,7 +9,7 @@ use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
-use std::cell::RefCell;
+use std::{cell::RefCell, rc::Rc};
 
 use super::WinitCompatibleRenderer;
 
@@ -17,6 +17,7 @@ pub struct WinitSoftwareRenderer {
     renderer: SoftwareRenderer,
     _context: softbuffer::Context,
     surface: RefCell<softbuffer::Surface>,
+    winit_window: Rc<winit::window::Window>,
 }
 
 #[repr(transparent)]
@@ -67,7 +68,7 @@ impl TargetPixel for SoftBufferPixel {
 impl WinitSoftwareRenderer {
     pub fn new(
         window_builder: winit::window::WindowBuilder,
-    ) -> Result<(Box<dyn WinitCompatibleRenderer>, winit::window::Window), PlatformError> {
+    ) -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError> {
         let winit_window = crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
                 format!("Error creating native window for software rendering: {}", winit_os_error)
@@ -84,11 +85,14 @@ impl WinitSoftwareRenderer {
             |softbuffer_error| format!("Error creating softbuffer surface: {}", softbuffer_error),
         )?;
 
+        let winit_window = Rc::new(winit_window);
+
         Ok((
             Box::new(Self {
                 renderer: SoftwareRenderer::new(),
                 _context: context,
                 surface: RefCell::new(surface),
+                winit_window: winit_window.clone(),
             }),
             winit_window,
         ))
@@ -155,6 +159,8 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                 line: vec![Default::default(); width.get() as usize],
             })
         };
+
+        self.winit_window.pre_present_notify();
 
         let size = region.bounding_box_size();
         if let Some((w, h)) = Option::zip(NonZeroU32::new(size.width), NonZeroU32::new(size.height))
