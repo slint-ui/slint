@@ -3,12 +3,73 @@
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 
-use std::cell::RefCell;
+use std::{cell::RefCell, num::NonZeroU32};
+
+pub trait RenderBuffer {
+    fn with_buffer(
+        &self,
+        size: PhysicalWindowSize,
+        render_callback: &mut dyn FnMut(
+            NonZeroU32,
+            NonZeroU32,
+            skia_safe::ColorType,
+            &mut [u8],
+        )
+            -> Result<(), i_slint_core::platform::PlatformError>,
+    ) -> Result<(), i_slint_core::platform::PlatformError>;
+}
+
+struct SoftbufferRenderBuffer {
+    _context: softbuffer::Context,
+    surface: RefCell<softbuffer::Surface>,
+}
+
+impl RenderBuffer for SoftbufferRenderBuffer {
+    fn with_buffer(
+        &self,
+        size: PhysicalWindowSize,
+        render_callback: &mut dyn FnMut(
+            NonZeroU32,
+            NonZeroU32,
+            skia_safe::ColorType,
+            &mut [u8],
+        )
+            -> Result<(), i_slint_core::platform::PlatformError>,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
+        else {
+            // Nothing to render
+            return Ok(());
+        };
+
+        let mut surface = self.surface.borrow_mut();
+
+        surface
+            .resize(width, height)
+            .map_err(|e| format!("Error resizing softbuffer surface: {e}"))?;
+
+        let mut target_buffer = surface
+            .buffer_mut()
+            .map_err(|e| format!("Error retrieving softbuffer rendering buffer: {e}"))?;
+
+        render_callback(
+            width,
+            height,
+            skia_safe::ColorType::BGRA8888,
+            bytemuck::cast_slice_mut(target_buffer.as_mut()),
+        )?;
+
+        target_buffer
+            .present()
+            .map_err(|e| format!("Error presenting softbuffer buffer after skia rendering: {e}"))?;
+
+        Ok(())
+    }
+}
 
 /// This surface renders into the given window using Skia's software rasterize.
 pub struct SoftwareSurface {
-    _context: softbuffer::Context,
-    surface: RefCell<softbuffer::Surface>,
+    render_buffer: Box<dyn RenderBuffer>,
 }
 
 impl super::Surface for SoftwareSurface {
@@ -26,7 +87,10 @@ impl super::Surface for SoftwareSurface {
             |softbuffer_error| format!("Error creating softbuffer surface: {}", softbuffer_error),
         )?;
 
-        Ok(Self { _context, surface: RefCell::new(surface) })
+        let surface_access =
+            Box::new(SoftbufferRenderBuffer { _context, surface: RefCell::new(surface) });
+
+        Ok(Self { render_buffer: surface_access })
     }
 
     fn name(&self) -> &'static str {
@@ -46,49 +110,37 @@ impl super::Surface for SoftwareSurface {
         callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
-        else {
-            // Nothing to render
-            return Ok(());
-        };
-
-        let mut surface = self.surface.borrow_mut();
-
-        surface
-            .resize(width, height)
-            .map_err(|e| format!("Error resizing softbuffer surface: {e}"))?;
-
-        let mut target_buffer = surface
-            .buffer_mut()
-            .map_err(|e| format!("Error retrieving softbuffer rendering buffer: {e}"))?;
-
-        let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
-            &skia_safe::ImageInfo::new(
-                (width.get() as i32, height.get() as i32),
-                skia_safe::ColorType::BGRA8888,
-                skia_safe::AlphaType::Opaque,
+        self.render_buffer.with_buffer(size, &mut |width, height, pixel_format, pixels| {
+            let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
+                &skia_safe::ImageInfo::new(
+                    (width.get() as i32, height.get() as i32),
+                    pixel_format,
+                    skia_safe::AlphaType::Opaque,
+                    None,
+                ),
+                pixels,
                 None,
-            ),
-            bytemuck::cast_slice_mut(target_buffer.as_mut()),
-            None,
-            None,
-        )
-        .ok_or_else(|| format!("Error wrapping target buffer for rendering into with Skia"))?;
+                None,
+            )
+            .ok_or_else(|| format!("Error wrapping target buffer for rendering into with Skia"))?;
 
-        callback(surface_borrow.canvas(), None);
+            callback(surface_borrow.canvas(), None);
 
-        if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
-            pre_present_callback();
-        }
+            if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
+                pre_present_callback();
+            }
 
-        target_buffer
-            .present()
-            .map_err(|e| format!("Error presenting softbuffer buffer after skia rendering: {e}"))?;
-
-        Ok(())
+            Ok(())
+        })
     }
 
     fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {
         Ok(24)
+    }
+}
+
+impl<T: RenderBuffer + 'static> From<T> for SoftwareSurface {
+    fn from(render_buffer: T) -> Self {
+        Self { render_buffer: Box::new(render_buffer) }
     }
 }

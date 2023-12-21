@@ -1,15 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::rc::Rc;
-
 use i_slint_core::api::PhysicalSize;
 use i_slint_core::platform::PlatformError;
 
 pub trait Presenter {
     fn is_ready_to_present(&self) -> bool;
     fn register_page_flip_handler(
-        self: Rc<Self>,
+        &self,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
     ) -> Result<(), PlatformError>;
     // Present updated front-buffer to the screen
@@ -20,7 +18,9 @@ pub trait Presenter {
 }
 
 #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg"))]
-pub mod egldisplay;
+pub mod gbmdisplay;
+#[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
+pub mod swdisplay;
 #[cfg(feature = "renderer-skia-vulkan")]
 pub mod vulkandisplay;
 

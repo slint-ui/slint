@@ -32,7 +32,7 @@ mod itemrenderer;
 mod textlayout;
 
 #[cfg(skia_backend_software)]
-mod software_surface;
+pub mod software_surface;
 
 #[cfg(target_os = "macos")]
 pub mod metal_surface;
@@ -45,6 +45,8 @@ pub mod vulkan_surface;
 
 #[cfg(skia_backend_opengl)]
 pub mod opengl_surface;
+
+pub use skia_safe;
 
 cfg_if::cfg_if! {
     if #[cfg(skia_backend_vulkan)] {

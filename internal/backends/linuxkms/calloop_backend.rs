@@ -95,6 +95,8 @@ impl Backend {
             Some("skia-vulkan") => crate::renderer::skia::SkiaRendererAdapter::new_vulkan,
             #[cfg(feature = "renderer-skia-opengl")]
             Some("skia-opengl") => crate::renderer::skia::SkiaRendererAdapter::new_opengl,
+            #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
+            Some("skia-software") => crate::renderer::skia::SkiaRendererAdapter::new_software,
             #[cfg(feature = "renderer-femtovg")]
             Some("femtovg") => crate::renderer::femtovg::FemtoVGRendererAdapter::new,
             None => crate::renderer::try_skia_then_femtovg,
