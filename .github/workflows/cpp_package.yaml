@@ -49,7 +49,7 @@ jobs:
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: CMakeLists.txt
-        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=RelWithDebInfo'
+        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=RelWithDebInfo -DSLINT_FEATURE_RENDERER_SKIA=ON'
         buildDirectory: ${{ runner.workspace }}/cppbuild
         buildWithCMakeArgs: '--config Release'
     - name: cpack
