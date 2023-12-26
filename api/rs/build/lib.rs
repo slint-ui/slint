@@ -52,7 +52,7 @@ compile_error!(
 
 use std::collections::HashMap;
 use std::env;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
@@ -355,7 +355,7 @@ pub fn compile_with_config(
         );
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
-    let mut code_formatter = CodeFormatter::new(file);
+    let mut code_formatter = CodeFormatter::new(BufWriter::new(file));
     let generated = i_slint_compiler::generator::rust::generate(&doc);
 
     for x in &diag.all_loaded_files {

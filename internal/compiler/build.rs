@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use std::fs::read_dir;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 fn main() -> std::io::Result<()> {
@@ -14,7 +14,7 @@ fn main() -> std::io::Result<()> {
     let output_file_path = Path::new(&std::env::var_os("OUT_DIR").unwrap())
         .join(Path::new("included_library").with_extension("rs"));
 
-    let mut file = std::fs::File::create(&output_file_path)?;
+    let mut file = BufWriter::new(std::fs::File::create(&output_file_path)?);
     write!(
         file,
         r#"
