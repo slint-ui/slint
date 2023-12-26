@@ -5,7 +5,7 @@
 
 use anyhow::{Context, Result};
 use std::ffi::OsString;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 fn symlink_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> Result<()> {
@@ -142,7 +142,8 @@ pub fn generate_enum_docs() -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
 
     let path = root.join("docs/reference/src/language/builtins/enums.md");
-    let mut file = std::fs::File::create(&path).context(format!("error creating {path:?}"))?;
+    let mut file =
+        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
     file.write_all(
         br#"<!-- Generated with `cargo xtask slintdocs` from internal/commons/enums.rs -->
@@ -226,7 +227,8 @@ This structure represents a point with x and y coordinate\n
     let root = super::root_dir();
 
     let path = root.join("docs/reference/src/language/builtins/structs.md");
-    let mut file = std::fs::File::create(&path).context(format!("error creating {path:?}"))?;
+    let mut file =
+        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
     file.write_all(
         br#"<!-- Generated with `cargo xtask slintdocs` from internal/common/builtin_structs.rs -->

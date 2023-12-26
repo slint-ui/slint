@@ -5,7 +5,7 @@ use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::*;
 use itertools::Itertools;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Embedding {
@@ -104,11 +104,15 @@ fn main() -> std::io::Result<()> {
     if args.output == std::path::Path::new("-") {
         generator::generate(args.format, &mut std::io::stdout(), &doc)?;
     } else {
-        generator::generate(args.format, &mut std::fs::File::create(&args.output)?, &doc)?;
+        generator::generate(
+            args.format,
+            &mut BufWriter::new(std::fs::File::create(&args.output)?),
+            &doc,
+        )?;
     }
 
     if let Some(depfile) = args.depfile {
-        let mut f = std::fs::File::create(depfile)?;
+        let mut f = BufWriter::new(std::fs::File::create(depfile)?);
         write!(f, "{}: {}", args.output.display(), args.path.display())?;
         for x in &diag.all_loaded_files {
             if x.is_absolute() {
