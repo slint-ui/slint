@@ -88,8 +88,8 @@ fn find_licenses_directories(dir: &Path) -> Result<Vec<PathBuf>> {
     let licenses_name: Option<&OsStr> = Some(OsStr::new("LICENSES"));
     let dot_name: &OsStr = &OsStr::new(".");
 
-    for d in
-        std::fs::read_dir(dir)?.filter(|d| if let Ok(d) = d { d.path().is_dir() } else { false })
+    for d in std::fs::read_dir(dir)?
+        .filter(|d| d.as_ref().map_or(false, |e| e.file_type().map_or(false, |f| f.is_dir())))
     {
         let path = d?.path();
         let parent_path = path.parent().expect("This is a subdirectory, so it must have a parent!");

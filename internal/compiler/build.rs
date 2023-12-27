@@ -24,10 +24,10 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
     )?;
 
     for style in read_dir(library_dir)?.filter_map(Result::ok) {
-        let path = style.path();
-        if !path.is_dir() {
+        if !style.file_type().map_or(false, |f| f.is_dir()) {
             continue;
         }
+        let path = style.path();
         writeln!(
             file,
             "(\"{}\", &[{}]),",
@@ -47,7 +47,7 @@ fn process_style(path: &Path) -> std::io::Result<String> {
     let library_files: Vec<PathBuf> = read_dir(path)?
         .filter_map(Result::ok)
         .filter(|entry| {
-            entry.path().is_file()
+            entry.file_type().map_or(false, |f| f.is_file())
                 && entry
                     .path()
                     .extension()
