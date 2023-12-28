@@ -37,7 +37,9 @@ export component Resizer {
         @children
     }
 
-    if root.is-resizable: Rectangle {
+    Rectangle {
+        visible: is-resizable;
+
         ResizeHandle { // N
             resize(x-offset, y-offset) => { root.resize(root.width, y-offset * -1.0 + root.height); }
             mouse-cursor: MouseCursor.n-resize;
