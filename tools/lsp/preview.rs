@@ -495,11 +495,7 @@ pub fn send_status_notification(sender: &crate::ServerNotifier, message: &str, h
         .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
 }
 
-pub fn reset_selections(ui: Option<&ui::PreviewUi>) {
-    let Some(ui) = ui else {
-        return;
-    };
-
+pub fn reset_selections(ui: &ui::PreviewUi) {
     let model = Rc::new(slint::VecModel::from(Vec::new()));
     ui.set_selections(slint::ModelRc::from(model));
 }
