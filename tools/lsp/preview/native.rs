@@ -178,7 +178,6 @@ fn open_ui_impl(preview_state: &mut PreviewState) {
 
         slint::CloseRequestResponse::HideWindow
     });
-    ui.show().unwrap();
 }
 
 pub fn close_ui() {
@@ -352,14 +351,17 @@ pub fn update_preview_area(compiled: ComponentDefinition) {
 
         let shared_handle = preview_state.handle.clone();
 
+        let ui = preview_state.ui.as_ref().unwrap();
         super::set_preview_factory(
-            preview_state.ui.as_ref().unwrap(),
+            ui,
             compiled,
             Box::new(move |instance| {
                 shared_handle.replace(Some(instance));
             }),
         );
-        super::reset_selections(preview_state.ui.as_ref());
+        super::reset_selections(ui);
+
+        ui.show().unwrap();
     });
 }
 
