@@ -22,6 +22,7 @@ on:
     - cron: '0 4 * * *'
 
 env:
+  # Keep in sync with features in slint_tool_binary.yaml and cpp_package.yaml
   SLINT_BINARY_FEATURES: "backend-winit,renderer-femtovg,renderer-skia,renderer-software"
   MACOSX_DEPLOYMENT_TARGET: "11.0"
 

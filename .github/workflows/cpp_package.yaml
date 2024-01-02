@@ -9,6 +9,8 @@ on:
 
 env:
   MACOSX_DEPLOYMENT_TARGET: "11.0"
+  # Keep in sync with features in nightly_snapshot.yaml and slint_tool_binary.yaml
+  SLINT_BINARY_FEATURES: "-DSLINT_FEATURE_BACKEND_WINIT=ON -DSLINT_FEATURE_RENDERER_FEMTOVG=ON -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_RENDERER_SOFTWARE=ON"
 
 jobs:
   cmake_package:
@@ -49,7 +51,7 @@ jobs:
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: CMakeLists.txt
-        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=RelWithDebInfo -DSLINT_FEATURE_RENDERER_SKIA=ON'
+        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=RelWithDebInfo ${{ env.SLINT_BINARY_FEATURES }}'
         buildDirectory: ${{ runner.workspace }}/cppbuild
         buildWithCMakeArgs: '--config Release'
     - name: cpack
