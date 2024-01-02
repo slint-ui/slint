@@ -206,7 +206,7 @@ export abstract class Model<T> {
      * @param row index in range 0..(rowCount() - 1).
      * @param data new data item to store on the given row index
      */
-    setRowData(_row: number, _data: T): void {
+    setRowData(row: number, data: T): void {
         console.log(
             "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model"
         );
