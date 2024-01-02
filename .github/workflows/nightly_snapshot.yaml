@@ -390,17 +390,25 @@ jobs:
           name: slint-viewer-windows
       - uses: actions/download-artifact@v3
         with:
+          name: slint-viewer-macos
+      - uses: actions/download-artifact@v3
+        with:
           name: slint-lsp-linux
       - uses: actions/download-artifact@v3
         with:
           name: slint-lsp-windows
+      - uses: actions/download-artifact@v3
+        with:
+          name: slint-lsp-macos
       - name: Extract files
         run: |
             mkdir artifacts
             mv Slint-cpp-*-win64.exe artifacts/
             mv Slint-cpp-*-Linux-x86_64.tar.gz artifacts/
             mv slint-viewer-linux.tar.gz artifacts/
+            mv slint-viewer-macos.tar.gz artifacts/
             mv slint-lsp-linux.tar.gz artifacts/
+            mv slint-lsp-macos.tar.gz artifacts/
       - name: Extract Version
         id: version
         run: |
