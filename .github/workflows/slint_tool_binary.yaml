@@ -15,7 +15,8 @@ on:
       features:
         type: string
         description: features to enable for build
-        default: "backend-winit,renderer-femtovg,renderer-skia"
+        # Keep in sync with features in nightly_snapshot.yaml and cpp_package.yaml
+        default: "backend-winit,renderer-femtovg,renderer-skia,renderer-software"
 
   workflow_call:
     inputs:
@@ -25,7 +26,8 @@ on:
       features:
         type: string
         description: features to enable for build
-        default: "backend-winit,renderer-femtovg,renderer-skia"
+        # Keep in sync with features in nightly_snapshot.yaml and cpp_package.yaml
+        default: "backend-winit,renderer-femtovg,renderer-skia,renderer-software"
 
 env:
   MACOSX_DEPLOYMENT_TARGET: "11.0"
