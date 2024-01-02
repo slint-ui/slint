@@ -89,23 +89,26 @@ module.exports = grammar({
             ),
 
         component_definition: ($) =>
-            choice(
-                seq(
-                    // new syntax
-                    "component",
-                    field("name", $._type_identifier),
-                    optional(
-                        seq("inherits", field("base_type", $._type_identifier)),
+            seq(
+                optional("@native-init()"),
+                choice(
+                    seq(
+                        // new syntax
+                        "component",
+                        field("name", $._type_identifier),
+                        optional(
+                            seq("inherits", field("base_type", $._type_identifier)),
+                        ),
+                        $.block,
                     ),
-                    $.block,
-                ),
-                seq(
-                    // old syntax
-                    field("name", $._type_identifier),
-                    ":=",
-                    field("base_type", $._type_identifier),
-                    $.block,
-                ),
+                    seq(
+                        // old syntax
+                        field("name", $._type_identifier),
+                        ":=",
+                        field("base_type", $._type_identifier),
+                        $.block,
+                    ),
+                )
             ),
 
         _property_type: ($) => seq("<", field("type", $.type), ">"),

@@ -356,6 +356,7 @@ pub struct PublicComponent {
     pub item_tree: ItemTree,
     pub sub_components: Vec<Rc<SubComponent>>,
     pub globals: Vec<GlobalComponent>,
+    pub component_facades: Vec<String>,
 }
 
 impl PublicComponent {

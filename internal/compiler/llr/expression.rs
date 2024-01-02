@@ -185,6 +185,11 @@ pub enum Expression {
         lhs: Box<Expression>,
         rhs: Box<Expression>,
     },
+
+    ComponentFacade {
+        name: String,
+        fields: Vec<PropertyReference>,
+    },
 }
 
 impl Expression {
@@ -198,7 +203,8 @@ impl Expression {
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::ElementReference
-            | Type::LayoutCache => return None,
+            | Type::LayoutCache
+            | Type::ComponentFacade { .. } => return None,
             Type::Float32
             | Type::Duration
             | Type::Int32
@@ -298,6 +304,7 @@ impl Expression {
                 Type::Array(super::lower_expression::grid_layout_cell_data_ty().into())
             }
             Self::MinMax { ty, .. } => ty.clone(),
+            Self::ComponentFacade { .. } => Type::ComponentFacade,
         }
     }
 }
@@ -379,6 +386,7 @@ macro_rules! visit_impl {
                 $visitor(lhs);
                 $visitor(rhs);
             }
+            Expression::ComponentFacade { .. } => {}
         }
     };
 }

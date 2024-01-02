@@ -77,6 +77,8 @@ pub enum Type {
 
     /// This is a `SharedArray<f32>`
     LayoutCache,
+
+    ComponentFacade,
 }
 
 impl core::cmp::PartialEq for Type {
@@ -117,6 +119,7 @@ impl core::cmp::PartialEq for Type {
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
             Type::LayoutCache => matches!(other, Type::LayoutCache),
+            Type::ComponentFacade => matches!(other, Type::ComponentFacade),
         }
     }
 }
@@ -201,6 +204,9 @@ impl Display for Type {
             }
             Type::ElementReference => write!(f, "element ref"),
             Type::LayoutCache => write!(f, "layout cache"),
+            Type::ComponentFacade => {
+                write!(f, "ComponentFacade{{}}")
+            }
         }
     }
 }
@@ -333,6 +339,7 @@ impl Type {
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
             Type::LayoutCache => None,
+            Type::ComponentFacade { .. } => None,
         }
     }
 

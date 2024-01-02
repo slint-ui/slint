@@ -205,18 +205,9 @@ fn inline_element(
     let inlined_init_code = inlined_component
         .init_code
         .borrow()
-        .inlined_init_code
-        .values()
+        .iter_for_inlining()
         .cloned()
-        .chain(
-            inlined_component
-                .init_code
-                .borrow()
-                .constructor_code
-                .iter()
-                .cloned()
-                .map(fixup_init_expression),
-        )
+        .map(fixup_init_expression)
         .collect();
 
     root_component

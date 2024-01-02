@@ -8,7 +8,7 @@
 // cSpell: ignore qualname
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::expression_tree::{self, BindingExpression, Expression, Unit};
+use crate::expression_tree::{self, BindingExpression, BuiltinFunction, Expression, Unit};
 use crate::langtype::{BuiltinElement, Enumeration, NativeClass, Type};
 use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
@@ -280,6 +280,8 @@ pub struct InitCode {
     pub focus_setting_code: Vec<Expression>,
     /// Code to register embedded fonts.
     pub font_registration_code: Vec<Expression>,
+    /// Calls resulting from @native-init usage.
+    pub native_init_code: Vec<Expression>,
 
     /// Code inserted from inlined components, ordered by offset of the place where it was inlined from. This way
     /// we can preserve the order across multiple inlining passes.
@@ -292,6 +294,7 @@ impl InitCode {
             .iter()
             .chain(self.focus_setting_code.iter())
             .chain(self.constructor_code.iter())
+            .chain(self.native_init_code.iter())
             .chain(self.inlined_init_code.values())
     }
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
@@ -299,7 +302,15 @@ impl InitCode {
             .iter_mut()
             .chain(self.focus_setting_code.iter_mut())
             .chain(self.constructor_code.iter_mut())
+            .chain(self.native_init_code.iter_mut())
             .chain(self.inlined_init_code.values_mut())
+    }
+
+    pub fn iter_for_inlining(&self) -> impl Iterator<Item = &Expression> {
+        self.inlined_init_code
+            .values()
+            .chain(self.constructor_code.iter())
+            .chain(self.native_init_code.iter())
     }
 }
 
@@ -382,6 +393,31 @@ impl Component {
         recurse_elem(&c.root_element, &(), &mut |e, _| {
             e.borrow_mut().enclosing_component = weak.clone()
         });
+
+        c.init_code.borrow_mut().native_init_code.extend(node.AtNativeInit().map(
+            |native_init_node| {
+                let root_element = &c.root_element;
+                let fields = root_element
+                    .borrow()
+                    .property_declarations
+                    .keys()
+                    .map(|name| NamedReference::new(&root_element, name))
+                    .collect();
+
+                let name = c.id.clone();
+
+                Expression::FunctionCall {
+                    function: Expression::BuiltinFunctionReference(
+                        BuiltinFunction::NativeInit,
+                        None,
+                    )
+                    .into(),
+                    arguments: vec![Expression::ComponentFacade { name, fields }],
+                    source_location: Some(native_init_node.to_source_location()),
+                }
+            },
+        ));
+
         c
     }
 
@@ -2095,6 +2131,11 @@ pub fn visit_named_references_in_expression(
             vis(&mut nc);
             debug_assert!(nc.element().borrow().repeated.is_some());
             *element = Rc::downgrade(&nc.element());
+        }
+        Expression::ComponentFacade { fields, .. } => {
+            for nr in fields {
+                vis(nr)
+            }
         }
         _ => {}
     }

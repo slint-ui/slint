@@ -259,6 +259,13 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 MinMaxOp::Min => write!(f, "min({}, {})", e(lhs), e(rhs)),
                 MinMaxOp::Max => write!(f, "max({}, {})", e(lhs), e(rhs)),
             },
+            Expression::ComponentFacade { fields, .. } => {
+                write!(
+                    f,
+                    "ComponentFacade[{}]",
+                    fields.iter().map(|pr| format!("{}", DisplayPropertyRef(pr, ctx))).join(", ")
+                )
+            }
         }
     }
 }

@@ -272,7 +272,8 @@ fn to_debug_string(
         | Type::ElementReference
         | Type::LayoutCache
         | Type::Model
-        | Type::PathData => {
+        | Type::PathData
+        | Type::ComponentFacade { .. } => {
             diag.push_error("Cannot debug this expression".into(), &node);
             Expression::Invalid
         }

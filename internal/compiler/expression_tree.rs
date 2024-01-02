@@ -64,6 +64,7 @@ pub enum BuiltinFunction {
     RegisterCustomFontByMemory,
     RegisterBitmapFont,
     Translate,
+    NativeInit,
 }
 
 #[derive(Debug, Clone)]
@@ -225,6 +226,10 @@ impl BuiltinFunction {
                     Type::Array(Type::String.into()),
                 ],
             },
+            BuiltinFunction::NativeInit => Type::Function {
+                return_type: Box::new(Type::Void),
+                args: vec![Type::ComponentFacade],
+            },
         }
     }
 
@@ -279,6 +284,7 @@ impl BuiltinFunction {
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
             BuiltinFunction::Translate => false,
+            BuiltinFunction::NativeInit => false,
         }
     }
 
@@ -326,6 +332,7 @@ impl BuiltinFunction {
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
             BuiltinFunction::Translate => true,
+            BuiltinFunction::NativeInit => false,
         }
     }
 }
@@ -634,6 +641,11 @@ pub enum Expression {
         lhs: Box<Expression>,
         rhs: Box<Expression>,
     },
+
+    ComponentFacade {
+        name: String,
+        fields: Vec<NamedReference>,
+    },
 }
 
 impl Expression {
@@ -761,6 +773,7 @@ impl Expression {
             Expression::ComputeLayoutInfo(..) => crate::layout::layout_info_type(),
             Expression::SolveLayout(..) => Type::LayoutCache,
             Expression::MinMax { ty, .. } => ty.clone(),
+            Expression::ComponentFacade { .. } => Type::ComponentFacade,
         }
     }
 
@@ -863,6 +876,7 @@ impl Expression {
                 visitor(lhs);
                 visitor(rhs);
             }
+            Expression::ComponentFacade { .. } => {}
         }
     }
 
@@ -967,6 +981,7 @@ impl Expression {
                 visitor(lhs);
                 visitor(rhs);
             }
+            Expression::ComponentFacade { .. } => {}
         }
     }
 
@@ -1042,6 +1057,7 @@ impl Expression {
             Expression::ComputeLayoutInfo(..) => false,
             Expression::SolveLayout(..) => false,
             Expression::MinMax { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
+            Expression::ComponentFacade { .. } => true,
         }
     }
 
@@ -1272,6 +1288,7 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
+            Type::ComponentFacade { .. } => Expression::Invalid,
         }
     }
 
@@ -1673,6 +1690,13 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, ", ")?;
             pretty_print(f, rhs)?;
             write!(f, ")")
+        }
+        Expression::ComponentFacade { fields, .. } => {
+            write!(f, "ComponentFacade{{")?;
+            for nr in fields {
+                write!(f, "{:?}", nr)?;
+            }
+            write!(f, "}}")
         }
     }
 }

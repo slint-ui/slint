@@ -425,6 +425,11 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath)) {
             }
             _ => {}
         },
+        Expression::ComponentFacade { fields, .. } => {
+            for nr in fields {
+                vis(&nr.clone().into())
+            }
+        }
         _ => {}
     }
 }

@@ -405,6 +405,10 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 MinMaxOp::Max => Value::Number(lhs.max(rhs)),
             }
         }
+        Expression::ComponentFacade { .. } => {
+            // todo!()
+            Value::Void
+        }
     }
 }
 
@@ -1005,6 +1009,10 @@ fn call_builtin_function(
                 &SharedString::try_from(eval_expression(&arguments[5], local_context)).unwrap(),
             ))
         }
+        BuiltinFunction::NativeInit => {
+            //todo!()
+            Value::Void
+        }
     }
 }
 
@@ -1249,7 +1257,8 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         | Type::InferredCallback
         | Type::Callback { .. }
         | Type::Function { .. }
-        | Type::ElementReference => panic!("not valid property type"),
+        | Type::ElementReference
+        | Type::ComponentFacade { .. } => panic!("not valid property type"),
         Type::Float32 => matches!(value, Value::Number(_)),
         Type::Int32 => matches!(value, Value::Number(_)),
         Type::String => matches!(value, Value::String(_)),
@@ -1568,7 +1577,8 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::InferredProperty
         | Type::InferredCallback
         | Type::ElementReference
-        | Type::Function { .. } => {
+        | Type::Function { .. }
+        | Type::ComponentFacade { .. } => {
             panic!("There can't be such property")
         }
     }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::Expression;
+use crate::expression_tree::{BuiltinFunction, Expression};
 
 /// Check that pure expression only call pure functions
 pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {
@@ -88,6 +88,9 @@ fn ensure_pure(
                     }
                 }
             }
+        }
+        Expression::BuiltinFunctionReference(BuiltinFunction::NativeInit, ..) => {
+            // Allow...
         }
         Expression::BuiltinFunctionReference(func, node) => {
             if !func.is_pure() {

@@ -2916,6 +2916,10 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 rhs_code = rhs_code
             )
         }
+        Expression::ComponentFacade { .. } => {
+            // todo!()
+            String::new()
+        }
     }
 }
 
@@ -3183,6 +3187,10 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::Translate => {
             format!("slint::private_api::translate({})", a.join(","))
+        }
+        BuiltinFunction::NativeInit => {
+            //todo!()
+            String::new()
         }
     }
 }

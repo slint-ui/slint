@@ -15,6 +15,7 @@ use super::r#type::{parse_enum_declaration, parse_rustattr, parse_struct_declara
 /// struct Foo { foo: foo }
 /// enum Foo { hello }
 /// @rust-attr(...) struct X {}
+/// @native-init() component QN {}
 /// /* empty */
 /// ```
 pub fn parse_document(p: &mut impl Parser) -> bool {
@@ -76,8 +77,23 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
                     break;
                 }
             }
+            "@" if p.nth(1).as_str() == "native-init" => {
+                let checkpoint = p.checkpoint();
+
+                {
+                    let mut p = p.start_node(SyntaxKind::AtNativeInit);
+                    p.consume(); // "@"
+                    p.consume(); // "native-init"
+                    p.expect(SyntaxKind::LParent);
+                    p.expect(SyntaxKind::RParent);
+                }
+
+                if !parse_component(&mut *p, Some(checkpoint)) {
+                    break;
+                }
+            }
             _ => {
-                if !parse_component(&mut *p) {
+                if !parse_component(&mut *p, None) {
                     break;
                 }
             }
@@ -99,8 +115,9 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// global Struct { property<int> xx; }
 /// component C { property<int> xx; }
 /// component C inherits D { }
+///
 /// ```
-pub fn parse_component(p: &mut impl Parser) -> bool {
+pub fn parse_component<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) -> bool {
     let simple_component = p.nth(1).kind() == SyntaxKind::ColonEqual;
     let is_global = !simple_component && p.peek().as_str() == "global";
     let is_new_component = !simple_component && p.peek().as_str() == "component";
@@ -110,7 +127,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         );
         return false;
     }
-    let mut p = p.start_node(SyntaxKind::Component);
+    let mut p = p.start_node_at(checkpoint, SyntaxKind::Component);
     if is_global || is_new_component {
         p.consume();
     }
@@ -236,7 +253,7 @@ fn parse_export<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) -> bool
         p.consume();
         p.expect(SyntaxKind::Semicolon)
     } else {
-        parse_component(&mut *p)
+        parse_component(&mut *p, None)
     }
 }
 

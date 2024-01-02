@@ -189,6 +189,15 @@ pub fn generate(doc: &Document) -> TokenStream {
     let resource_symbols = generate_resources(doc);
     let named_exports = generate_named_exports(doc);
 
+    let component_facades = llr
+        .component_facades
+        .iter()
+        .map(|name| {
+            let name = ident(name);
+            quote!(#name)
+        })
+        .collect::<Vec<_>>();
+
     quote! {
         #[allow(non_snake_case)]
         #[allow(non_camel_case_types)]
@@ -214,7 +223,7 @@ pub fn generate(doc: &Document) -> TokenStream {
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         #[allow(unused_imports)]
-        pub use #compo_module::{#compo_id #(,#structs_and_enums_ids)* #(,#globals_ids)* #(,#named_exports)*};
+        pub use #compo_module::{#compo_id #(,#structs_and_enums_ids)* #(,#globals_ids)* #(,#named_exports)* #(,#component_facades)*};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     }
@@ -255,6 +264,15 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
     let global_names =
         llr.globals.iter().map(|g| format_ident!("global_{}", ident(&g.name))).collect::<Vec<_>>();
     let global_types = llr.globals.iter().map(global_inner_name).collect::<Vec<_>>();
+
+    let component_facades = llr
+        .component_facades
+        .iter()
+        .map(|name| {
+            let name = ident(name);
+            quote!(pub struct #name {})
+        })
+        .collect::<Vec<_>>();
 
     quote!(
         #component
@@ -326,6 +344,8 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
                 }
             }
         }
+
+        #(#component_facades)*
     )
 }
 
@@ -2301,6 +2321,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
             }
         }
+        Expression::ComponentFacade { .. } => {
+            // todo!()
+            quote!()
+        }
     }
 }
 
@@ -2540,6 +2564,22 @@ fn compile_builtin_function_call(
                 )
             } else {
                 panic!("internal error: invalid args to MapPointToWindow {:?}", arguments)
+            }
+        }
+        BuiltinFunction::NativeInit => {
+            if let [Expression::ComponentFacade { name, .. }] = arguments {
+                if name == &ctx.public_component.item_tree.root.name {
+                    let compo_id = public_component_id(&ctx.public_component.item_tree.root);
+                    quote!((slint::NativeInit::init(&#compo_id(self_rc.root.get().unwrap().upgrade().unwrap()))))
+                } else {
+                    let name = ident(name);
+                    quote!((slint::NativeInit::init(&#name{})))
+                }
+
+                //let compo_id = public_component_id(ctx.current_sub_component.as_ref().unwrap());
+                //quote!((slint::NativeInit::init(&#compo_id(self_rc.root.get().unwrap().upgrade().unwrap()))))
+            } else {
+                panic!("internal error: invalid args to BuiltinFunction::NativeInit")
             }
         }
     }

@@ -325,3 +325,11 @@ mod compile_fail_tests;
 
 #[cfg(doc)]
 pub mod docs;
+
+/// Use this trait in combination with the `@native-init()` annotation on Slint components, to
+/// invoke your own native component initialization code whenever the component is instantiated
+/// in `.slint` files.
+pub trait NativeInit {
+    /// This function is invoked whenever the component is instantiated in `.slint` files.
+    fn init(&self);
+}

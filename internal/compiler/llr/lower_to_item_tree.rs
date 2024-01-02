@@ -4,12 +4,13 @@
 use by_address::ByAddress;
 
 use super::lower_expression::ExpressionContext;
+use super::Expression;
 use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{ElementType, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, ElementRc, PropertyVisibility};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
 pub fn lower_to_item_tree(component: &Rc<Component>) -> PublicComponent {
@@ -20,18 +21,39 @@ pub fn lower_to_item_tree(component: &Rc<Component>) -> PublicComponent {
         let count = globals.len();
         globals.push(lower_global(g, count, &mut state));
     }
+    let mut component_facades = BTreeSet::new();
     for c in &component.used_types.borrow().sub_components {
         let sc = lower_sub_component(c, &state, None);
+
+        for expr in &sc.sub_component.init_code {
+            expr.visit_recursive(&mut |expr| {
+                let Expression::ComponentFacade { name, .. } = expr else { return };
+                component_facades.insert(name.clone());
+            });
+        }
+
         state.sub_components.insert(ByAddress(c.clone()), sc);
     }
 
     let sc = lower_sub_component(component, &state, None);
+
+    for expr in &sc.sub_component.init_code {
+        expr.visit_recursive(&mut |expr| {
+            let Expression::ComponentFacade { name, .. } = expr else { return };
+            component_facades.insert(name.clone());
+        });
+    }
+
     let public_properties = public_properties(component, &sc.mapping, &state);
     let item_tree = ItemTree {
         tree: make_tree(&state, &component.root_element, &sc, &[]),
         root: Rc::try_unwrap(sc.sub_component).unwrap(),
         parent_context: None,
     };
+    let component_facades = component_facades
+        .into_iter()
+        .filter(|facade_name| facade_name != &item_tree.root.name)
+        .collect();
     let root = PublicComponent {
         item_tree,
         globals,
@@ -46,6 +68,7 @@ pub fn lower_to_item_tree(component: &Rc<Component>) -> PublicComponent {
             .collect(),
         public_properties,
         private_properties: component.private_properties.borrow().clone(),
+        component_facades,
     };
     super::optim_passes::run_passes(&root);
     root

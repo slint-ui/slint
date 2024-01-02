@@ -1063,7 +1063,8 @@ pub(crate) fn generate_item_tree<'id>(
             | Type::Model
             | Type::PathData
             | Type::UnitProduct(_)
-            | Type::ElementReference => panic!("bad type {:?}", &decl.property_type),
+            | Type::ElementReference
+            | Type::ComponentFacade { .. } => panic!("bad type {:?}", &decl.property_type),
         };
         custom_properties.insert(
             name.clone(),

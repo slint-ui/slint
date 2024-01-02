@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+// Verify that the init callback is invoked in the correct order
+
+@native-init()
+component NonInlineButton {
+    in property <string> text;
+    Text {
+        text: root.text;
+    }
+}
+
+@native-init()
+component InlineButton {
+    @children // forces inlining
+}
+
+@native-init()
+component TestCase inherits Rectangle {
+    width: 300phx;
+    height: 300phx;
+    property <string> text;
+
+    button1 := NonInlineButton {
+        text: root.text;
+    }
+    button2 := NonInlineButton {
+        text: root.text;
+    }
+    inline-button1 := InlineButton {        
+    }
+    inline-button2 := InlineButton {        
+    }
+}
+export { TestCase }
+
+/*
+```rust
+
+thread_local! {
+    static MAIN_COMPO_INIT_CALL_COUNT: std::cell::RefCell<usize> = Default::default();
+    static NON_INLINE_BUTTON_CALL_COUNT: std::cell::RefCell<usize> = Default::default();
+    static INLINE_BUTTON_CALL_COUNT: std::cell::RefCell<usize> = Default::default();
+}
+
+impl slint::NativeInit for TestCase {
+    fn init(&self) {
+        MAIN_COMPO_INIT_CALL_COUNT.with(|count| *count.borrow_mut() += 1);
+    }
+}
+
+impl slint::NativeInit for NonInlineButton {
+    fn init(&self) {
+        NON_INLINE_BUTTON_CALL_COUNT.with(|count| *count.borrow_mut() += 1);
+    }
+}
+
+impl slint::NativeInit for InlineButton {
+    fn init(&self) {
+        INLINE_BUTTON_CALL_COUNT.with(|count| *count.borrow_mut() += 1);
+    }
+}
+
+let _instance = TestCase::new().unwrap();
+
+assert!(MAIN_COMPO_INIT_CALL_COUNT.with(|count| *count.borrow() == 1));
+assert!(NON_INLINE_BUTTON_CALL_COUNT.with(|count| *count.borrow() == 2));
+assert!(INLINE_BUTTON_CALL_COUNT.with(|count| *count.borrow() == 2));
+```
+
+
+*/
