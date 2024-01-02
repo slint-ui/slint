@@ -147,6 +147,8 @@ fn visit_node(node: SyntaxNode, results: &mut Messages, current_context: Option<
                     let mut builder = if let Some(plural) = plural {
                         let mut builder = polib::message::Message::build_plural();
                         builder.with_msgid_plural(plural);
+                        // Workaround for #4238 : poedit doesn't add the plural by default.
+                        builder.with_msgstr_plural(vec![String::new(), String::new()]);
                         builder
                     } else {
                         polib::message::Message::build_singular()
