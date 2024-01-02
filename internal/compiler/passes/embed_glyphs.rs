@@ -298,6 +298,19 @@ fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> Vec<fontdue::Font>
             .collect::<Vec<String>>();
     }
 
+    #[cfg(target_family = "windows")]
+    {
+        fallback_families = [
+            "Segoe UI Emoji",
+            "Segoe UI Symbol",
+            "Arial",
+            "Wingdings",
+        ]
+        .into_iter()
+        .map(Into::into)
+        .collect::<Vec<String>>();
+    }
+
     #[cfg(not(any(
         target_family = "windows",
         target_os = "macos",
