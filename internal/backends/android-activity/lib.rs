@@ -6,11 +6,10 @@
 #![cfg_attr(not(target_os = "android"), allow(rustdoc::broken_intra_doc_links))]
 #![cfg(target_os = "android")]
 
-pub use android_activity;
 use android_activity::input::{
     InputEvent, KeyAction, Keycode, MotionAction, MotionEvent, TextInputState, TextSpan,
 };
-pub use android_activity::AndroidApp;
+pub use android_activity::{self, AndroidApp};
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use core::ops::ControlFlow;
 use i_slint_core::api::{EventLoopError, PhysicalPosition, PhysicalSize, PlatformError, Window};
@@ -30,7 +29,7 @@ pub struct AndroidPlatform {
 impl AndroidPlatform {
     /// Instantiate a new Android backend given the [`android_activity::AndroidApp`]
     ///
-    /// Pass the returned value to [`slint::platform::set_platform()`][i_slint_core::platform::set_platform]
+    /// Pass the returned value to [`slint::platform::set_platform()`](`i_slint_core::platform::set_platform()`)
     ///
     /// # Example
     /// ```
@@ -64,7 +63,7 @@ impl AndroidPlatform {
     /// This is the same as [`AndroidPlatform::new()`], but it allow you to get notified
     /// of events.
     ///
-    /// Pass the returned value to [`slint::platform::set_platform()`][i_slint_core::platform::set_platform]
+    /// Pass the returned value to [`slint::platform::set_platform()`](`i_slint_core::platform::set_platform()`)
     ///
     /// # Example
     /// ```
