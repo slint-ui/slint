@@ -240,14 +240,10 @@ impl WinitWindowAdapter {
         Ok(window_builder)
     }
 
-    pub fn take_pending_redraw(&self) -> bool {
-        self.pending_redraw.take()
-    }
-
     /// Draw the items of the specified `component` in the given window.
-    pub fn draw(&self) -> Result<bool, PlatformError> {
+    pub fn draw(&self) -> Result<(), PlatformError> {
         if !self.shown.get() {
-            return Ok(false); // caller bug, doesn't make sense to call draw() when not shown
+            return Ok(()); // caller bug, doesn't make sense to call draw() when not shown
         }
 
         self.pending_redraw.set(false);
@@ -255,7 +251,7 @@ impl WinitWindowAdapter {
         let renderer = self.renderer();
         renderer.render(self.window())?;
 
-        Ok(self.pending_redraw.get())
+        Ok(())
     }
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
