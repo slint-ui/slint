@@ -51,7 +51,7 @@ export class PreviewWidget extends Widget {
             // when searching the document.
             this.#previewer.show_ui().then(() => {
                 console.info("UI should be up!");
-                const canvas = document.getElementById(canvas_id) as HTMLCanvasElement;
+                const canvas = document.getElementById(canvas_id) as HTMLElement;
                 canvas.style.width = "100%";
                 canvas.style.height = "100%";
             });
