@@ -563,6 +563,7 @@ impl Drop for FemtoVGRenderer {
     }
 }
 
+#[doc(hidden)]
 pub trait FemtoVGRendererExt {
     fn render_transformed_with_post_callback(
         &self,
@@ -573,6 +574,7 @@ pub trait FemtoVGRendererExt {
     ) -> Result<(), i_slint_core::platform::PlatformError>;
 }
 
+#[doc(hidden)]
 impl FemtoVGRendererExt for FemtoVGRenderer {
     fn render_transformed_with_post_callback(
         &self,
