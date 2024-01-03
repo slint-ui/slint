@@ -164,7 +164,11 @@ function getPreviewHtml(
         }
     });
 
-    preview_connector.show_ui().then(() => vscode.postMessage({ command: 'preview_ready' }));
+    preview_connector.show_ui().then(() => {
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+        vscode.postMessage({ command: 'preview_ready' });
+    });
 
     </script>
 </head>
