@@ -37,6 +37,8 @@ jobs:
       program: "lsp"
   docs:
     uses: ./.github/workflows/build_docs.yaml
+    with:
+      rustdoc_extra_args: "-p i-slint-core -p i-slint-backend-android-activity -p i-slint-backend-winit"
   wasm_demo:
     uses: ./.github/workflows/wasm_demos.yaml
     with:

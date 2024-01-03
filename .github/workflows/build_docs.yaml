@@ -5,8 +5,11 @@
 name: Build docs
 
 on:
-  workflow_dispatch:
   workflow_call:
+    inputs:
+      rustdoc_extra_args:
+        type: string
+        description: "extra args passed to cargo doc"
 
 jobs:
   docs:
@@ -84,7 +87,7 @@ jobs:
     - name: Build Cpp docs
       run: cargo xtask cppdocs --show-warnings
     - name: "Rust docs"
-      run: cargo doc -p slint -p slint-build -p slint-interpreter --no-deps --all-features
+      run: cargo doc -p slint -p slint-build -p slint-interpreter --no-deps --all-features ${{ github.event.inputs.rustdoc_extra_args }}
     - name: "Rust Tutorial Docs"
       run: mdbook build
       working-directory: docs/tutorial/rust
