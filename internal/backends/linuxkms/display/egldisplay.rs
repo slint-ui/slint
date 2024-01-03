@@ -42,6 +42,7 @@ enum PageFlipState {
     InitialBufferPosted,
     WaitingForPageFlip {
         _buffer_to_keep_alive_until_flip: gbm::BufferObject<OwnedFramebufferHandle>,
+        ready_for_next_animation_frame: Box<dyn FnOnce()>,
     },
     ReadyForNextBuffer,
 }
@@ -57,18 +58,13 @@ pub struct EglDisplay {
     drm_device: SharedFd,
     pub size: PhysicalWindowSize,
     page_flip_event_source_registered: Cell<bool>,
-    next_animation_frame_callback: Cell<Option<Box<dyn FnOnce()>>>,
 }
 
 impl EglDisplay {
-    pub fn set_next_animation_frame_callback(
+    pub fn present(
         &self,
         ready_for_next_animation_frame: Box<dyn FnOnce()>,
-    ) {
-        self.next_animation_frame_callback.set(Some(ready_for_next_animation_frame));
-    }
-
-    pub fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut front_buffer = unsafe {
             self.gbm_surface
                 .lock_front_buffer()
@@ -91,25 +87,22 @@ impl EglDisplay {
                 .page_flip(self.crtc, fb, drm::control::PageFlipFlags::EVENT, None)
                 .map_err(|e| format!("Error presenting fb: {e}"))?;
 
-            *self.page_flip_state.borrow_mut() =
-                PageFlipState::WaitingForPageFlip { _buffer_to_keep_alive_until_flip: last_buffer };
+            *self.page_flip_state.borrow_mut() = PageFlipState::WaitingForPageFlip {
+                _buffer_to_keep_alive_until_flip: last_buffer,
+                ready_for_next_animation_frame,
+            };
         } else {
             self.gbm_device
                 .set_crtc(self.crtc, Some(fb), (0, 0), &[self.connector.handle()], Some(self.mode))
                 .map_err(|e| format!("Error presenting fb: {e}"))?;
             *self.page_flip_state.borrow_mut() = PageFlipState::InitialBufferPosted;
 
-            if let Some(next_animation_frame_callback) = self.next_animation_frame_callback.take() {
-                // We can render the next frame right away, if needed, since we have at least two buffers. The callback
-                // will decide (will check if animation is running). However invoke the callback through the event loop
-                // instead of directly, so that if it decides to set `needs_redraw` to true, the event loop will process it.
-                i_slint_core::timers::Timer::single_shot(
-                    std::time::Duration::default(),
-                    move || {
-                        next_animation_frame_callback();
-                    },
-                )
-            }
+            // We can render the next frame right away, if needed, since we have at least two buffers. The callback
+            // will decide (will check if animation is running). However invoke the callback through the event loop
+            // instead of directly, so that if it decides to set `needs_redraw` to true, the event loop will process it.
+            i_slint_core::timers::Timer::single_shot(std::time::Duration::default(), move || {
+                ready_for_next_animation_frame();
+            })
         }
 
         Ok(())
@@ -143,12 +136,12 @@ impl super::Presenter for EglDisplay {
                     .receive_events()?
                     .any(|event| matches!(event, drm::control::Event::PageFlip(..)))
                 {
-                    *this.page_flip_state.borrow_mut() = PageFlipState::ReadyForNextBuffer;
-
-                    if let Some(next_animation_frame_callback) =
-                        this.next_animation_frame_callback.take()
+                    if let PageFlipState::WaitingForPageFlip {
+                        ready_for_next_animation_frame,
+                        ..
+                    } = this.page_flip_state.replace(PageFlipState::ReadyForNextBuffer)
                     {
-                        next_animation_frame_callback();
+                        ready_for_next_animation_frame();
                     }
                 }
                 Ok(calloop::PostAction::Continue)
@@ -163,8 +156,7 @@ impl super::Presenter for EglDisplay {
         &self,
         ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.set_next_animation_frame_callback(ready_for_next_animation_frame);
-        self.present()
+        self.present(ready_for_next_animation_frame)
     }
 
     fn is_ready_to_present(&self) -> bool {
@@ -352,6 +344,5 @@ pub fn try_create_egl_display(
         drm_device,
         size: window_size,
         page_flip_event_source_registered: Cell::new(false),
-        next_animation_frame_callback: Default::default(),
     })
 }
