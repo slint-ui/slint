@@ -20,8 +20,8 @@ export component LineEditBase inherits Rectangle {
     callback accepted( /* text */ string);
     callback edited(/* text */ string);
 
-    public function select(from: int, to: int) {
-        i-text-input.select(from, to);
+    public function set-selection-offsets(start: int, end: int) {
+        i-text-input.set-selection-offsets(start, end);
     }
 
     public function select-all() {

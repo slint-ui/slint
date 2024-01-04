@@ -19,7 +19,7 @@ All notable changes to this project are documented in this file.
    as well.
  - Errors are thrown when trying to modify properties that must be known at compile time.
  - Added `colorize-icon` property to `Button`.
- - Added `select(int, int)` to `TextInput`, `LineEdit`, and `TextEdit`.
+ - Added `set-selection-offsets(int, int)` to `TextInput`, `LineEdit`, and `TextEdit`.
 
 ### C++
 

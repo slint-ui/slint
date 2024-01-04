@@ -184,7 +184,7 @@ export component TextInput {
     out property <string> preedit-text;
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
-    function select(from: int, to: int) {}
+    function set-selection-offsets(start: int, end: int) {}
     function select-all() {}
     function clear-selection() {}
     function cut() {}

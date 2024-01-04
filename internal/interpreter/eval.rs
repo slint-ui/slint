@@ -610,7 +610,7 @@ fn call_builtin_function(
 
             Value::Void
         }
-        BuiltinFunction::SelectRange => {
+        BuiltinFunction::SetSelectionOffsets => {
             if arguments.len() != 3 {
                 panic!("internal error: incorrect argument count to select range function call")
             }
@@ -644,13 +644,13 @@ fn call_builtin_function(
                 {
                     let from: i32 =
                         eval_expression(&arguments[1], local_context).try_into().expect(
-                            "internal error: second argument to TextInputSelect must be an integer",
+                            "internal error: second argument to set-selection-offsets must be an integer",
                         );
                     let to: i32 = eval_expression(&arguments[2], local_context).try_into().expect(
-                        "internal error: third argument to TextInputSelect must be an integer",
+                        "internal error: third argument to set-selection-offsets must be an integer",
                     );
 
-                    textinput.select(&window_adapter, &item_rc, from, to);
+                    textinput.set_selection_offsets(&window_adapter, &item_rc, from, to);
                 } else {
                     panic!(
                         "internal error: member function called on element that doesn't have it: {}",
@@ -660,7 +660,7 @@ fn call_builtin_function(
 
                 Value::Void
             } else {
-                panic!("internal error: first argument to TextInputSelect must be an element")
+                panic!("internal error: first argument to set-selection-offsets must be an element")
             }
         }
         BuiltinFunction::ItemMemberFunction(name) => {
@@ -712,7 +712,7 @@ fn call_builtin_function(
 
                 Value::Void
             } else {
-                panic!("internal error: argument to TextInputSelectAll must be an element")
+                panic!("internal error: argument to set-selection-offsetsAll must be an element")
             }
         }
         BuiltinFunction::StringIsFloat => {

@@ -1034,7 +1034,7 @@ impl TextInput {
         self.delete_selection(window_adapter, self_rc);
     }
 
-    pub fn select(
+    pub fn set_selection_offsets(
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
@@ -1278,7 +1278,7 @@ fn next_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
 
 #[cfg(feature = "ffi")]
 #[no_mangle]
-pub unsafe extern "C" fn slint_textinput_select(
+pub unsafe extern "C" fn slint_textinput_set_selection_offsets(
     text_input: *const TextInput,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
@@ -1288,7 +1288,7 @@ pub unsafe extern "C" fn slint_textinput_select(
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     let self_rc = ItemRc::new(self_component.clone(), self_index);
-    Pin::new_unchecked(&*text_input).as_ref().select(window_adapter, &self_rc, from, to);
+    Pin::new_unchecked(&*text_input).as_ref().set_selection_offsets(window_adapter, &self_rc, from, to);
 }
 
 #[cfg(feature = "ffi")]

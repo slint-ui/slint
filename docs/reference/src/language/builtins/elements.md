@@ -648,7 +648,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Functions
 
 -   **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
--   **`select(int, int)`** Selects the text between the two positions.
+-   **`set-selection-offsets(int, int)`** Selects the text between two UTF-8 offsets.
 -   **`select-all()`** Selects all text.
 -   **`clear-selection()`** Clears the selection.
 -   **`copy()`** Copies the selected text to the clipboard.

@@ -3097,7 +3097,7 @@ fn compile_builtin_function_call(
             let window = access_window_field(ctx);
             format!("{window}.close_popup()")
         }
-        BuiltinFunction::SelectRange => {
+        BuiltinFunction::SetSelectionOffsets => {
             if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
                 let item = access_member(pr, ctx);
                 let item_rc = access_item_rc(pr, ctx);
@@ -3105,9 +3105,9 @@ fn compile_builtin_function_call(
                 let from = compile_expression(from, ctx);
                 let to = compile_expression(to, ctx);
 
-                format!("slint_textinput_select(&{item}, &{window}.handle(), &{item_rc}, static_cast<int>({from}), static_cast<int>({to}))")
+                format!("slint_textinput_set_selection_offsets(&{item}, &{window}.handle(), &{item_rc}, static_cast<int>({from}), static_cast<int>({to}))")
             } else {
-                panic!("internal error: invalid args to TextInputSelect {:?}", arguments)
+                panic!("internal error: invalid args to set-selection-offsets {:?}", arguments)
             }
         }
         BuiltinFunction::ItemMemberFunction(name) => {

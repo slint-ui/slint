@@ -17,8 +17,8 @@ export component LineEdit {
     callback accepted <=> i-base.accepted;
     callback edited <=> i-base.edited;
     
-    public function select(from: int, to: int) {
-        i-base.select(from, to);
+    public function set-selection-offsets(start: int, end: int) {
+        i-base.set-selection-offsets(start, end);
     }
 
     public function select-all() {
