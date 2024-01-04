@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 env:
-  MACOSX_DEPLOYMENT_TARGET: 11
+  MACOSX_DEPLOYMENT_TARGET: "11.0"
 
 jobs:
   build_and_test:
@@ -30,6 +30,9 @@ jobs:
           - os: windows-2022
             extra_args: "--exclude ffmpeg"
           - os: macos-11
+            extra_args: "--exclude ffmpeg"
+          - os: windows-2022
+            rust_version: "beta"
             extra_args: "--exclude ffmpeg"
         exclude:
           - os: macos-11
@@ -77,7 +80,7 @@ jobs:
     #       cargo update -p clap_lex --precise 0.5.0
     #     fi
     - name: Run tests
-      run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp
+      run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp
       env:
           SLINT_CREATE_SCREENSHOTS: 1
       shell: bash
@@ -140,6 +143,52 @@ jobs:
       run: npm test
     - name: Run test-driver-nodejs
       run: cargo test --verbose --all-features -p test-driver-nodejs -p slint-node
+
+  python_test:
+    env:
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+      QT_QPA_PLATFORM: offscreen
+      RUSTFLAGS: -D warnings
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_INCREMENTAL: false
+      RUST_BACKTRACE: full
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-11, windows-2022]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/install-linux-dependencies
+    - name: Install Qt
+      if: runner.os != 'Windows'
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '5.15.2'
+        setup-python: false
+        cache: true
+    - name: Setup headless display
+      uses: pyvista/setup-headless-display-action@v1
+    - name: Set default style
+      if: matrix.os != 'windows-2022'
+      run: |
+          echo "SLINT_STYLE=native" >> $GITHUB_ENV
+    - name: Set default style
+      if: matrix.os == 'windows-2022'
+      run: |
+          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+    - uses: ./.github/actions/setup-rust
+      with:
+        key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - uses: fjwillemsen/setup-nox2@v3.0.0
+    - name: Run python tests
+      working-directory: ./api/python
+      run: nox
 
   cpp_test_driver:
     env:

@@ -1,13 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 fn main() -> std::io::Result<()> {
-    let mut generated_file = std::fs::File::create(
+    let mut generated_file = BufWriter::new(std::fs::File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
-    )?;
+    )?);
 
     for testcase in test_driver_lib::collect_test_cases("cases")? {
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
@@ -19,9 +19,9 @@ fn main() -> std::io::Result<()> {
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
         let ignored = testcase.is_ignored("rust");
 
-        let mut output = std::fs::File::create(
+        let mut output = BufWriter::new(std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
-        )?;
+        )?);
 
         #[cfg(not(feature = "build-time"))]
         if !generate_macro(&source, &mut output, testcase)? {
@@ -63,7 +63,7 @@ fn main() -> std::io::Result<()> {
 #[cfg(not(feature = "build-time"))]
 fn generate_macro(
     source: &str,
-    output: &mut std::fs::File,
+    output: &mut dyn Write,
     testcase: test_driver_lib::TestCase,
 ) -> Result<bool, std::io::Error> {
     if source.contains("\\{") {
@@ -113,7 +113,7 @@ fn generate_macro(
 #[cfg(feature = "build-time")]
 fn generate_source(
     source: &str,
-    output: &mut std::fs::File,
+    output: &mut impl Write,
     testcase: test_driver_lib::TestCase,
 ) -> Result<(), std::io::Error> {
     use i_slint_compiler::{diagnostics::BuildDiagnostics, *};

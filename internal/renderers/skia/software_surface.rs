@@ -44,6 +44,7 @@ impl super::Surface for SoftwareSurface {
         &self,
         size: PhysicalWindowSize,
         callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
+        pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
         else {
@@ -75,6 +76,10 @@ impl super::Surface for SoftwareSurface {
         .ok_or_else(|| format!("Error wrapping target buffer for rendering into with Skia"))?;
 
         callback(surface_borrow.canvas(), None);
+
+        if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
+            pre_present_callback();
+        }
 
         target_buffer
             .present()

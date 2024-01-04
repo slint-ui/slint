@@ -799,9 +799,6 @@ pub async fn load(
         return (Err(()), diag);
     }
 
-    #[cfg(feature = "highlight")]
-    crate::highlight::add_highlighting(&doc);
-
     (Ok(generate_item_tree(&doc.root_component, guard)), diag)
 }
 

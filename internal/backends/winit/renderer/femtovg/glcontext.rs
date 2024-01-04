@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, rc::Rc};
 
 use glutin::{
     context::{ContextApi, ContextAttributesBuilder},
@@ -15,6 +15,7 @@ use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 pub struct OpenGLContext {
     context: glutin::context::PossiblyCurrentContext,
     surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
+    winit_window: Rc<winit::window::Window>,
 }
 
 unsafe impl i_slint_renderer_femtovg::OpenGLInterface for OpenGLContext {
@@ -27,6 +28,8 @@ unsafe impl i_slint_renderer_femtovg::OpenGLInterface for OpenGLContext {
         Ok(())
     }
     fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.winit_window.pre_present_notify();
+
         self.surface.swap_buffers(&self.context).map_err(|glutin_error| -> PlatformError {
             format!("FemtoVG: Error swapping buffers: {glutin_error}").into()
         })?;
@@ -54,7 +57,7 @@ impl OpenGLContext {
     pub fn new_context<T>(
         window_builder: winit::window::WindowBuilder,
         window_target: &winit::event_loop::EventLoopWindowTarget<T>,
-    ) -> Result<(winit::window::Window, Self), PlatformError> {
+    ) -> Result<(Rc<winit::window::Window>, Self), PlatformError> {
         let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
 
         // On macOS, there's only one GL config and that's initialized based on the values in the config template
@@ -188,6 +191,8 @@ impl OpenGLContext {
             )
             .ok();
 
-        Ok((window, Self { context, surface }))
+        let window = Rc::new(window);
+
+        Ok((window.clone(), Self { context, surface, winit_window: window }))
     }
 }

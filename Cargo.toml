@@ -8,6 +8,7 @@ members = [
     'api/rs/build',
     'api/rs/macros',
     'api/rs/slint',
+    'api/python',
     'api/wasm-interpreter',
     'docs/tutorial/rust/src',
     'examples/7guis',

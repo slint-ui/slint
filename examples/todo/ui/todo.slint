@@ -4,6 +4,7 @@
 import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView, ListView,
     HorizontalBox, VerticalBox, GridBox, StandardButton } from "std-widgets.slint";
 
+@rust-attr(derive(serde::Serialize, serde::Deserialize))
 export struct TodoItem  {
     title: string,
     checked: bool,

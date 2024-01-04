@@ -1,13 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tests_file_path =
         std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");
-    let mut tests_file = std::fs::File::create(&tests_file_path)?;
+    let mut tests_file = BufWriter::new(std::fs::File::create(&tests_file_path)?);
 
     let prefix = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize()?;
     for entry in walkdir::WalkDir::new(&prefix)

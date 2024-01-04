@@ -9,6 +9,7 @@ use slint_interpreter::{
     ComponentDefinition, ComponentHandle, ComponentInstance, SharedString, Value,
 };
 use std::collections::HashMap;
+use std::io::{BufReader, BufWriter};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -153,7 +154,7 @@ fn main() -> Result<()> {
         if data_path == std::path::Path::new("-") {
             serde_json::to_writer_pretty(std::io::stdout(), &obj)?;
         } else {
-            serde_json::to_writer_pretty(std::fs::File::create(data_path)?, &obj)?;
+            serde_json::to_writer_pretty(BufWriter::new(std::fs::File::create(data_path)?), &obj)?;
         }
     }
 
@@ -296,7 +297,7 @@ fn load_data(
     let json: serde_json::Value = if data_path == std::path::Path::new("-") {
         serde_json::from_reader(std::io::stdin())?
     } else {
-        serde_json::from_reader(std::fs::File::open(data_path)?)?
+        serde_json::from_reader(BufReader::new(std::fs::File::open(data_path)?))?
     };
 
     let types = c.properties_and_callbacks().collect::<HashMap<_, _>>();

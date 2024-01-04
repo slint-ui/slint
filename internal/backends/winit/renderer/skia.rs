@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use std::rc::Rc;
+
 use crate::winitwindowadapter::physical_size_to_slint;
 use i_slint_core::platform::PlatformError;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
@@ -12,16 +14,23 @@ pub struct WinitSkiaRenderer {
 impl WinitSkiaRenderer {
     pub fn new(
         window_builder: winit::window::WindowBuilder,
-    ) -> Result<(Box<dyn super::WinitCompatibleRenderer>, winit::window::Window), PlatformError>
+    ) -> Result<(Box<dyn super::WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError>
     {
-        let winit_window = crate::event_loop::with_window_target(|event_loop| {
+        let winit_window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
                 format!("Error creating native window for Skia rendering: {}", winit_os_error)
                     .into()
             })
-        })?;
+        })?);
 
         let renderer = i_slint_renderer_skia::SkiaRenderer::default();
+
+        renderer.set_pre_present_callback(Some(Box::new({
+            let winit_window = winit_window.clone();
+            move || {
+                winit_window.pre_present_notify();
+            }
+        })));
 
         Ok((Box::new(Self { renderer }), winit_window))
     }
@@ -29,16 +38,23 @@ impl WinitSkiaRenderer {
     #[cfg(not(target_os = "android"))]
     pub fn new_software(
         window_builder: winit::window::WindowBuilder,
-    ) -> Result<(Box<dyn super::WinitCompatibleRenderer>, winit::window::Window), PlatformError>
+    ) -> Result<(Box<dyn super::WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError>
     {
-        let winit_window = crate::event_loop::with_window_target(|event_loop| {
+        let winit_window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
                 format!("Error creating native window for Skia rendering: {}", winit_os_error)
                     .into()
             })
-        })?;
+        })?);
 
         let renderer = i_slint_renderer_skia::SkiaRenderer::default_software();
+
+        renderer.set_pre_present_callback(Some(Box::new({
+            let winit_window = winit_window.clone();
+            move || {
+                winit_window.pre_present_notify();
+            }
+        })));
 
         Ok((Box::new(Self { renderer }), winit_window))
     }

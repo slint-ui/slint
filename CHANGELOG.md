@@ -8,7 +8,8 @@ All notable changes to this project are documented in this file.
 ### General
 
 - LinuxKMS backend: Added support rendering output rotation via the `SLINT_KMS_ROTATION` environment variable.
-
+- Winit backend: Fixed `key-released` in `FocusScope` not being invoked when releasing the space bar key.
+- 
 ### Slint Language
 
  - Fixed wrong text input in cupertino SpinBox

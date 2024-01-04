@@ -40,7 +40,7 @@ i-slint-backend-android-activity = { version = "=1.3.0", features = ["native-act
 ```
 
 As with any application using `android-activity`, you need to implement the `android_init` function as `#[no_mangle]`.
-In it, create a [`AndroidPlatform`] and pass it to [`slint::platform::set_platform`][i_slint_core::platform::set_platform].
+In it, create a [`AndroidPlatform`] and pass it to [`slint::platform::set_platform`](`i_slint_core::platform::set_platform`).
 
 Here is an example:
 

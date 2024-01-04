@@ -83,13 +83,14 @@ impl NamedReference {
                 return false;
             }
 
-            if check_binding {
-                if let Some(b) = e.bindings.get(self.name()) {
-                    if !b.borrow().analysis.as_ref().map_or(false, |a| a.is_const) {
-                        return false;
-                    }
-                    check_binding = false;
+            if let Some(b) = e.bindings.get(self.name()) {
+                if check_binding && !b.borrow().analysis.as_ref().map_or(false, |a| a.is_const) {
+                    return false;
                 }
+                if !b.borrow().two_way_bindings.iter().all(|n| n.is_constant()) {
+                    return false;
+                }
+                check_binding = false;
             }
             if let Some(decl) = e.property_declarations.get(self.name()) {
                 if let Some(alias) = &decl.is_alias {

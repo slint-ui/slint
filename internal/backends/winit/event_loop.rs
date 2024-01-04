@@ -246,15 +246,6 @@ impl std::fmt::Debug for CustomEvent {
 
 #[derive(Default)]
 pub struct EventLoopState {
-    // With winit on Windows and with wasm, calling winit::Window::request_redraw() will not always deliver an
-    // Event::RedrawRequested (for example when the mouse cursor is outside of the window). So when we get woken
-    // up by the event loop to process new events from the operating system (NewEvents), we take note of all windows
-    // that called request_redraw() since the last iteration and we will call draw() ourselves, unless they received
-    // an Event::RedrawRequested in this new iteration. This vector collects the window ids of windows with pending
-    // redraw requests in the beginning of the loop iteration, removes ids that are covered by a windowing system
-    // supplied Event::RedrawRequested, and drains them for drawing at RedrawEventsCleared.
-    windows_with_pending_redraw_requests: Vec<winit::window::WindowId>,
-
     // last seen cursor position
     cursor_pos: LogicalPoint,
     pressed: bool,
@@ -302,6 +293,9 @@ impl EventLoopState {
                     match key_code {
                         $($(winit::keyboard::Key::Named(winit::keyboard::NamedKey::$winit) $(if event.location == winit::keyboard::KeyLocation::$pos)? => $char.into(),)*)*
                         winit::keyboard::Key::Character(str) => str.as_str().into(),
+                        // Space is handled separately: When pressed, event.text would be Some(" ") and all is well. But when released,
+                        // event.text is always empty, so we'd never produce a release event.
+                        winit::keyboard::Key::Named(winit::keyboard::NamedKey::Space) => " ".into(),
                         _ => {
                             if let Some(text) = &event.text {
                                 text.as_str().into()
@@ -445,20 +439,9 @@ impl EventLoopState {
         match event {
             Event::WindowEvent { event: WindowEvent::RedrawRequested, window_id: id } => {
                 if let Some(window) = window_by_id(id) {
-                    if let Ok(pos) = self.windows_with_pending_redraw_requests.binary_search(&id) {
-                        self.windows_with_pending_redraw_requests.remove(pos);
+                    if let Err(rendering_error) = window.draw() {
+                        self.loop_error = Some(rendering_error)
                     }
-                    match window.draw() {
-                        Ok(redraw_requested_during_draw) => {
-                            if redraw_requested_during_draw {
-                                // If during rendering a new redraw_request() was issued (for example in a rendering notifier callback), then
-                                // pretend that an animation is running, so that we return Poll from the event loop to ensure a repaint as
-                                // soon as possible.
-                                event_loop_target.set_control_flow(ControlFlow::Poll);
-                            }
-                        }
-                        Err(rendering_error) => self.loop_error = Some(rendering_error),
-                    };
                 }
             }
 
@@ -505,22 +488,6 @@ impl EventLoopState {
             Event::NewEvents(_) => {
                 event_loop_target.set_control_flow(ControlFlow::Wait);
 
-                self.windows_with_pending_redraw_requests.clear();
-                ALL_WINDOWS.with(|windows| {
-                    for (window_id, window_weak) in windows.borrow().iter() {
-                        if window_weak.upgrade().map_or(false, |window| {
-                            window.is_shown() && window.take_pending_redraw()
-                        }) {
-                            if let Err(insert_pos) =
-                                self.windows_with_pending_redraw_requests.binary_search(window_id)
-                            {
-                                self.windows_with_pending_redraw_requests
-                                    .insert(insert_pos, *window_id);
-                            }
-                        }
-                    }
-                });
-
                 corelib::platform::update_timers_and_animations();
             }
 
@@ -550,24 +517,6 @@ impl EventLoopState {
                     })
                 {
                     event_loop_target.set_control_flow(ControlFlow::Poll);
-                }
-
-                for window in
-                    self.windows_with_pending_redraw_requests.drain(..).filter_map(window_by_id)
-                {
-                    match window.draw() {
-                        Ok(redraw_requested_during_draw) => {
-                            if redraw_requested_during_draw {
-                                // If during rendering a new redraw_request() was issued (for example in a rendering notifier callback), then
-                                // pretend that an animation is running, so that we return Poll from the event loop to ensure a repaint as
-                                // soon as possible.
-                                event_loop_target.set_control_flow(ControlFlow::Poll);
-                            }
-                        }
-                        Err(rendering_error) => {
-                            self.loop_error = Some(rendering_error);
-                        }
-                    }
                 }
 
                 if event_loop_target.control_flow() == ControlFlow::Wait {

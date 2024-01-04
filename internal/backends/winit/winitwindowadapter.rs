@@ -145,7 +145,7 @@ impl WinitWindowAdapter {
         renderer_factory_fn: fn(
             window_builder: winit::window::WindowBuilder,
         ) -> Result<
-            (Box<dyn WinitCompatibleRenderer>, winit::window::Window),
+            (Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>),
             PlatformError,
         >,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
@@ -155,8 +155,6 @@ impl WinitWindowAdapter {
             canvas_id,
         )
         .and_then(|builder| renderer_factory_fn(builder))?;
-
-        let winit_window = Rc::new(winit_window);
 
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
@@ -240,14 +238,10 @@ impl WinitWindowAdapter {
         Ok(window_builder)
     }
 
-    pub fn take_pending_redraw(&self) -> bool {
-        self.pending_redraw.take()
-    }
-
     /// Draw the items of the specified `component` in the given window.
-    pub fn draw(&self) -> Result<bool, PlatformError> {
+    pub fn draw(&self) -> Result<(), PlatformError> {
         if !self.shown.get() {
-            return Ok(false); // caller bug, doesn't make sense to call draw() when not shown
+            return Ok(()); // caller bug, doesn't make sense to call draw() when not shown
         }
 
         self.pending_redraw.set(false);
@@ -255,7 +249,7 @@ impl WinitWindowAdapter {
         let renderer = self.renderer();
         renderer.render(self.window())?;
 
-        Ok(self.pending_redraw.get())
+        Ok(())
     }
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {

@@ -5,7 +5,7 @@
 
 use anyhow::{Context, Result};
 use std::ffi::OsString;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 fn symlink_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> Result<()> {
@@ -47,9 +47,10 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
         let file_name = path.file_name().unwrap();
         let symlink_source = target_to_source.as_ref().to_path_buf().join(&file_name);
         let symlink_target = target.as_ref().to_path_buf().join(path.file_name().unwrap());
-        if path.is_file() {
+        let filetype = entry.file_type().context("Cannot determine file type")?;
+        if filetype.is_file() {
             symlink_file(symlink_source, symlink_target).context("Could not symlink file")?;
-        } else if path.is_dir() {
+        } else if filetype.is_dir() {
             symlink_dir(symlink_source, symlink_target).context("Could not symlink directory")?;
         }
     }
@@ -142,7 +143,8 @@ pub fn generate_enum_docs() -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
 
     let path = root.join("docs/reference/src/language/builtins/enums.md");
-    let mut file = std::fs::File::create(&path).context(format!("error creating {path:?}"))?;
+    let mut file =
+        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
     file.write_all(
         br#"<!-- Generated with `cargo xtask slintdocs` from internal/commons/enums.rs -->
@@ -226,7 +228,8 @@ This structure represents a point with x and y coordinate\n
     let root = super::root_dir();
 
     let path = root.join("docs/reference/src/language/builtins/structs.md");
-    let mut file = std::fs::File::create(&path).context(format!("error creating {path:?}"))?;
+    let mut file =
+        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
     file.write_all(
         br#"<!-- Generated with `cargo xtask slintdocs` from internal/common/builtin_structs.rs -->

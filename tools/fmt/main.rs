@@ -17,7 +17,7 @@
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxNode};
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use clap::Parser;
@@ -43,7 +43,7 @@ fn main() -> std::io::Result<()> {
         let source = std::fs::read_to_string(&path)?;
 
         if args.inline {
-            let file = std::fs::File::create(&path)?;
+            let file = BufWriter::new(std::fs::File::create(&path)?);
             process_file(source, path, file)?
         } else {
             process_file(source, path, std::io::stdout())?

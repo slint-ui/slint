@@ -192,6 +192,30 @@ assert_eq(instance.get_touch3(), 2);
 assert_eq(instance.get_touch_double1(), 1);
 assert_eq(instance.get_touch_double2(), 1);
 assert_eq(instance.get_touch_double3(), 2);
+
+
+//click really quickly two different mouse area
+instance.set_pointer_event_test("");
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 108., 108.); // first
+slint_testing::mock_elapsed_time(20);
+slint_testing::send_mouse_click(&instance, 101., 101.); // second
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 1.0, 1.0 }));
+assert_eq(instance.get_touch1(), 2);
+assert_eq(instance.get_touch2(), 2);
+assert_eq(instance.get_touch3(), 2);
+assert_eq(instance.get_touch_double1(), 1);
+assert_eq(instance.get_touch_double2(), 1);
+assert_eq(instance.get_touch_double3(), 2);
+assert_eq(instance.get_pointer_event_test(), "moveotherdownleftupleftmoveotherclick");
+
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_touch1(), 2);
+assert_eq(instance.get_touch2(), 2);
+assert_eq(instance.get_touch3(), 2);
+assert_eq(instance.get_touch_double1(), 1);
+assert_eq(instance.get_touch_double2(), 1);
+assert_eq(instance.get_touch_double3(), 2);
 ```
 
 ```rust
@@ -337,6 +361,32 @@ assert_eq!(instance.get_touch_double3(), 3);
 assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
 
 assert_eq!(instance.get_pointer_event_test().as_str(), "moveotherdownleftupleftmoveothermoveotherdownleftdouble_clickupleftmoveother");
+
+//click really quickly two different mouse area
+instance.set_pointer_event_test("".into());
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 108., 108.); // first
+slint_testing::mock_elapsed_time(20);
+slint_testing::send_mouse_click(&instance, 101., 101.); // second
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(1.0, 1.0) });
+assert_eq!(instance.get_touch1(), 2);
+assert_eq!(instance.get_touch2(), 3);
+assert_eq!(instance.get_touch3(), 2);
+assert_eq!(instance.get_touch_double1(), 1);
+assert_eq!(instance.get_touch_double2(), 1);
+assert_eq!(instance.get_touch_double3(), 3);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(instance.get_pointer_event_test().as_str(), "moveotherdownleftupleftmoveotherclick");
+
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_touch1(), 2);
+assert_eq!(instance.get_touch2(), 3);
+assert_eq!(instance.get_touch3(), 2);
+assert_eq!(instance.get_touch_double1(), 1);
+assert_eq!(instance.get_touch_double2(), 1);
+assert_eq!(instance.get_touch_double3(), 3);
+
+
 ```
 
 ```js

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use std::fs::read_dir;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 fn main() -> std::io::Result<()> {
@@ -14,7 +14,7 @@ fn main() -> std::io::Result<()> {
     let output_file_path = Path::new(&std::env::var_os("OUT_DIR").unwrap())
         .join(Path::new("included_library").with_extension("rs"));
 
-    let mut file = std::fs::File::create(&output_file_path)?;
+    let mut file = BufWriter::new(std::fs::File::create(&output_file_path)?);
     write!(
         file,
         r#"
@@ -24,10 +24,10 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
     )?;
 
     for style in read_dir(library_dir)?.filter_map(Result::ok) {
-        let path = style.path();
-        if !path.is_dir() {
+        if !style.file_type().map_or(false, |f| f.is_dir()) {
             continue;
         }
+        let path = style.path();
         writeln!(
             file,
             "(\"{}\", &[{}]),",
@@ -47,7 +47,7 @@ fn process_style(path: &Path) -> std::io::Result<String> {
     let library_files: Vec<PathBuf> = read_dir(path)?
         .filter_map(Result::ok)
         .filter(|entry| {
-            entry.path().is_file()
+            entry.file_type().map_or(false, |f| f.is_file())
                 && entry
                     .path()
                     .extension()

@@ -203,8 +203,8 @@ export abstract class Model<T> {
     /**
      * Implementations of this function must store the provided data parameter
      * in the model at the specified row.
-     * @param row index in range 0..(rowCount() - 1).
-     * @param data new data item to store on the given row index
+     * @param _row index in range 0..(rowCount() - 1).
+     * @param _data new data item to store on the given row index
      */
     setRowData(_row: number, _data: T): void {
         console.log(

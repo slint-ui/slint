@@ -68,25 +68,9 @@ pub struct Diagnostic {
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToLspMessage {
-    Status {
-        message: String,
-        health: crate::lsp_ext::Health,
-    },
-    Diagnostics {
-        uri: lsp_types::Url,
-        diagnostics: Vec<lsp_types::Diagnostic>,
-    },
-    ShowDocument {
-        file: String,
-        start_line: u32,
-        start_column: u32,
-        end_line: u32,
-        end_column: u32,
-    },
-    PreviewTypeChanged {
-        is_external: bool,
-    },
-    RequestState {
-        unused: bool,
-    }, // send all documents!
+    Status { message: String, health: crate::lsp_ext::Health },
+    Diagnostics { uri: lsp_types::Url, diagnostics: Vec<lsp_types::Diagnostic> },
+    ShowDocument { file: String, selection: lsp_types::Range },
+    PreviewTypeChanged { is_external: bool },
+    RequestState { unused: bool }, // send all documents!
 }

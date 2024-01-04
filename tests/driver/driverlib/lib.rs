@@ -36,11 +36,11 @@ pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
 
     for entry in walkdir::WalkDir::new(case_root_dir.clone()).follow_links(true) {
         let entry = entry?;
-        let absolute_path = entry.into_path();
-        if absolute_path.is_dir() {
-            println!("cargo:rerun-if-changed={}", absolute_path.display());
+        if entry.file_type().is_dir() {
+            println!("cargo:rerun-if-changed={}", entry.into_path().display());
             continue;
         }
+        let absolute_path = entry.into_path();
         let relative_path =
             std::path::PathBuf::from(absolute_path.strip_prefix(&case_root_dir).unwrap());
         if let Some(filter) = &filter {

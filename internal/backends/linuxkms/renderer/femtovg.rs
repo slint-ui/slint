@@ -27,11 +27,10 @@ pub struct FemtoVGRendererAdapter {
 struct GlContextWrapper {
     glutin_context: glutin::context::PossiblyCurrentContext,
     glutin_surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
-    egl_display: Rc<EglDisplay>,
 }
 
 impl GlContextWrapper {
-    fn new(egl_display: Rc<EglDisplay>) -> Result<Self, PlatformError> {
+    fn new(egl_display: &EglDisplay) -> Result<Self, PlatformError> {
         let width: std::num::NonZeroU32 = egl_display.size.width.try_into().map_err(|_| {
             format!(
                 "Attempting to create window surface with an invalid width: {}",
@@ -114,7 +113,7 @@ impl GlContextWrapper {
         drop(window_handle);
         drop(display_handle);
 
-        Ok(Self { glutin_context: context, glutin_surface: surface, egl_display })
+        Ok(Self { glutin_context: context, glutin_surface: surface })
     }
 }
 
@@ -136,8 +135,7 @@ unsafe impl i_slint_renderer_femtovg::OpenGLInterface for GlContextWrapper {
                 format!("FemtoVG: Error swapping buffers: {glutin_error}").into()
             },
         )?;
-
-        self.egl_display.present()
+        Ok(())
     }
 
     fn resize(
@@ -162,7 +160,7 @@ impl FemtoVGRendererAdapter {
 
         let renderer = Box::new(Self {
             renderer: i_slint_renderer_femtovg::FemtoVGRenderer::new(GlContextWrapper::new(
-                egl_display.clone(),
+                &egl_display,
             )?)?,
             egl_display,
         });
@@ -188,7 +186,6 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
         ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), PlatformError> {
-        self.egl_display.set_next_animation_frame_callback(ready_for_next_animation_frame);
         self.renderer.render_transformed_with_post_callback(
             rotation.degrees(),
             rotation.translation_after_rotation(self.egl_display.size),
@@ -196,7 +193,9 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
             Some(&|item_renderer| {
                 draw_mouse_cursor_callback(item_renderer);
             }),
-        )
+        )?;
+        self.egl_display.present(ready_for_next_animation_frame)?;
+        Ok(())
     }
     fn size(&self) -> i_slint_core::api::PhysicalSize {
         self.egl_display.size

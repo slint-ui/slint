@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 /// Returns a list of all the `.slint` files in the `tests/cases` subfolders.
@@ -45,9 +45,9 @@ fn main() -> std::io::Result<()> {
     std::env::set_var("SLINT_DEFAULT_FONT", default_font_path.clone());
     println!("cargo:rustc-env=SLINT_DEFAULT_FONT={}", default_font_path.display());
 
-    let mut generated_file = std::fs::File::create(
+    let mut generated_file = BufWriter::new(std::fs::File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
-    )?;
+    )?);
 
     let references_root_dir: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "references"].iter().collect();
@@ -97,9 +97,9 @@ fn main() -> std::io::Result<()> {
                 })
         });
 
-        let mut output = std::fs::File::create(
+        let mut output = BufWriter::new(std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
-        )?;
+        )?);
 
         generate_source(source.as_str(), &mut output, testcase).unwrap();
 
@@ -136,7 +136,7 @@ fn main() -> std::io::Result<()> {
 
 fn generate_source(
     source: &str,
-    output: &mut std::fs::File,
+    output: &mut impl Write,
     testcase: test_driver_lib::TestCase,
 ) -> Result<(), std::io::Error> {
     use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
