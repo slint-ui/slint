@@ -102,6 +102,7 @@ pub trait Platform {
     ///
     /// A double click event is a series of two pointer clicks.
     fn click_interval(&self) -> core::time::Duration {
+        // 500ms is the default delay according to https://en.wikipedia.org/wiki/Double-click#Speed_and_timing
         core::time::Duration::from_millis(500)
     }
 
