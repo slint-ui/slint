@@ -127,7 +127,7 @@ impl super::Surface for OpenGLSurface {
         &self,
         size: PhysicalWindowSize,
         callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
-        pre_present_callback: Option<Box<dyn FnOnce()>>,
+        pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), PlatformError> {
         self.ensure_context_current()?;
 
@@ -158,7 +158,7 @@ impl super::Surface for OpenGLSurface {
         callback(skia_canvas, Some(gr_context));
         skia_canvas.restore();
 
-        if let Some(pre_present_callback) = pre_present_callback {
+        if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
             pre_present_callback();
         }
 

@@ -149,7 +149,7 @@ impl SwapChain {
     fn render_and_present<T>(
         &mut self,
         callback: impl FnOnce(&mut skia_safe::Surface, &mut skia_safe::gpu::DirectContext) -> T,
-        pre_present_callback: Option<Box<dyn FnOnce()>>,
+        pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<T, PlatformError> {
         let current_fence_value = self.fence_values[self.current_buffer_index];
 
@@ -170,7 +170,7 @@ impl SwapChain {
         );
         self.gr_context.submit(None);
 
-        if let Some(pre_present_callback) = pre_present_callback {
+        if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
             pre_present_callback();
         }
 
@@ -449,7 +449,7 @@ impl super::Surface for D3DSurface {
         &self,
         _size: PhysicalWindowSize,
         callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
-        pre_present_callback: Option<Box<dyn FnOnce()>>,
+        pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.swap_chain.borrow_mut().render_and_present(
             |surface, gr_context| callback(surface.canvas(), Some(gr_context)),
