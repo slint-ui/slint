@@ -342,7 +342,9 @@ impl TypeRegister {
                     "set-selection-offsets".into(),
                     BuiltinPropertyInfo::new(BuiltinFunction::SetSelectionOffsets.ty()),
                 );
-                text_input.member_functions.insert("set-selection-offsets".into(), BuiltinFunction::SetSelectionOffsets);
+                text_input
+                    .member_functions
+                    .insert("set-selection-offsets".into(), BuiltinFunction::SetSelectionOffsets);
             }
 
             _ => unreachable!(),

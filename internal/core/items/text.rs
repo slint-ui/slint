@@ -1288,7 +1288,12 @@ pub unsafe extern "C" fn slint_textinput_set_selection_offsets(
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     let self_rc = ItemRc::new(self_component.clone(), self_index);
-    Pin::new_unchecked(&*text_input).as_ref().set_selection_offsets(window_adapter, &self_rc, start, end);
+    Pin::new_unchecked(&*text_input).as_ref().set_selection_offsets(
+        window_adapter,
+        &self_rc,
+        start,
+        end
+    );
 }
 
 #[cfg(feature = "ffi")]
