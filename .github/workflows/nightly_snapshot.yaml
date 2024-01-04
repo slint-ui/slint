@@ -31,10 +31,20 @@ jobs:
     uses: ./.github/workflows/slint_tool_binary.yaml
     with:
       program: "viewer"
+    secrets:
+      certificate: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+      certificate_password: ${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
+      keychain_password: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+      developer_id: ${{ secrets.APPLE_DEV_ID }}         
   slint-lsp-binary:
     uses: ./.github/workflows/slint_tool_binary.yaml
     with:
       program: "lsp"
+    secrets:
+      certificate: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+      certificate_password: ${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
+      keychain_password: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+      developer_id: ${{ secrets.APPLE_DEV_ID }}         
   docs:
     uses: ./.github/workflows/build_docs.yaml
   wasm_demo:
@@ -149,6 +159,9 @@ jobs:
     needs: [build_vscode_lsp_macos_x86_64, build_vscode_lsp_macos_aarch64]
     runs-on: macos-11
     steps:
+    - uses: actions/checkout@v3
+      with:
+        path: "src"
     - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-x86_64-apple-darwin
@@ -161,6 +174,15 @@ jobs:
         lipo -create -output tmp Slint\ Live\ Preview.app/Contents/MacOS/slint-lsp bin/slint-lsp-aarch64-apple-darwin
         mv tmp Slint\ Live\ Preview.app/Contents/MacOS/slint-lsp
         rm -rf bin
+    - uses: ./src/.github/actions/codesign
+      with:
+        binary: "Slint Live Preview.app"
+        certificate: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+        certificate_password: ${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
+        keychain_password: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+        developer_id: ${{ secrets.APPLE_DEV_ID }}         
+    - name: "Remove temporary source checkout"
+      run: rm -rf src
     - name: "Upload LSP macOS bundle Artifact"
       uses: actions/upload-artifact@v3
       with:

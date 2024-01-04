@@ -17,6 +17,10 @@ on:
         description: features to enable for build
         # Keep in sync with features in nightly_snapshot.yaml and cpp_package.yaml
         default: "backend-winit,renderer-femtovg,renderer-skia,renderer-software"
+      codesign:
+        type: boolean
+        description: Sign binaries on macOS (false for manual builds)
+        default: false
 
   workflow_call:
     inputs:
@@ -28,7 +32,24 @@ on:
         description: features to enable for build
         # Keep in sync with features in nightly_snapshot.yaml and cpp_package.yaml
         default: "backend-winit,renderer-femtovg,renderer-skia,renderer-software"
-
+      codesign:
+        type: boolean
+        description: Sign binaries on macOS
+        default: true
+    secrets:
+      certificate:
+        description: "certificate secret"
+        required: false
+      certificate_password:
+        description: "certificate password"
+        required: false
+      keychain_password:
+        description: "keychain password to use"
+        required: false
+      developer_id:
+        description: "developer id to use"
+        required: false
+      
 env:
   MACOSX_DEPLOYMENT_TARGET: "11.0"
 
@@ -126,6 +147,14 @@ jobs:
             cd ..
             cd tools/${{ github.event.inputs.program || inputs.program }}
             ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}
+      - uses: ./.github/actions/codesign
+        if: ${{ github.event.inputs.codesign == 'true' }}
+        with:
+          binary: slint-${{ github.event.inputs.program || inputs.program }}/slint-${{ github.event.inputs.program || inputs.program }}
+          certificate: ${{ github.event.inputs.certificate }}
+          certificate_password: ${{ github.event.inputs.certificate_password }}
+          keychain_password: ${{ github.event.inputs.keychain_password }}
+          developer_id: ${{ github.event.inputs.developer_id }}          
       - name: Tar artifacts to preserve permissions
         run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
       - name: Upload artifact
