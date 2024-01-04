@@ -31,6 +31,9 @@ jobs:
             extra_args: "--exclude ffmpeg"
           - os: macos-11
             extra_args: "--exclude ffmpeg"
+          - os: windows-2022
+            rust_version: "beta"
+            extra_args: "--exclude ffmpeg"
         exclude:
           - os: macos-11
             rust_version: "1.70"
