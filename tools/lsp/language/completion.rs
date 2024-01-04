@@ -564,6 +564,47 @@ fn add_components_to_import(
     document_cache: &mut DocumentCache,
     mut available_types: HashSet<String>,
     result: &mut Vec<CompletionItem>,
+) {
+    build_import_statements_edits(
+        token,
+        document_cache,
+        &mut |exported_name| {
+            if available_types.contains(exported_name) {
+                false
+            } else {
+                available_types.insert(exported_name.to_string());
+                true
+            }
+        },
+        &mut |exported_name, file, the_import| {
+            result.push(CompletionItem {
+                label: format!("{} (import from \"{}\")", exported_name, file),
+                insert_text: if is_followed_by_brace(token) {
+                    Some(exported_name.to_string())
+                } else {
+                    Some(format!("{} {{$1}}", exported_name))
+                },
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                filter_text: Some(exported_name.to_string()),
+                kind: Some(CompletionItemKind::CLASS),
+                detail: Some(format!("(import from \"{}\")", file)),
+                additional_text_edits: Some(vec![the_import]),
+                ..Default::default()
+            });
+        },
+    );
+}
+
+/// Try to generate `import { XXX } from "foo.slint";` for every component
+///
+/// This is used for auto-completion and also for fixup diagnostics
+///
+/// Call `add_edit` with the component name and file name and TextEdit for every component for which the `filter` callback returns true
+pub fn build_import_statements_edits(
+    token: &SyntaxToken,
+    document_cache: &mut DocumentCache,
+    filter: &mut dyn FnMut(&str) -> bool,
+    add_edit: &mut dyn FnMut(&str, &str, TextEdit),
 ) -> Option<()> {
     // Find out types that can be imported
     let current_file = token.source_file.path().to_owned();
@@ -643,9 +684,6 @@ fn add_components_to_import(
         };
 
         for (exported_name, ty) in &*doc.exports {
-            if available_types.contains(&exported_name.name) {
-                continue;
-            }
             if let Some(c) = ty.as_ref().left() {
                 if c.is_global() {
                     continue;
@@ -653,7 +691,9 @@ fn add_components_to_import(
             } else {
                 continue;
             }
-            available_types.insert(exported_name.name.clone());
+            if !filter(&exported_name.name) {
+                continue;
+            }
             let the_import = import_locations.get(&file).map_or_else(
                 || {
                     TextEdit::new(
@@ -663,20 +703,7 @@ fn add_components_to_import(
                 },
                 |pos| TextEdit::new(Range::new(*pos, *pos), format!(", {}", exported_name.name)),
             );
-            result.push(CompletionItem {
-                label: format!("{} (import from \"{}\")", exported_name.name, file),
-                insert_text: if is_followed_by_brace(token) {
-                    Some(exported_name.name.clone())
-                } else {
-                    Some(format!("{} {{$1}}", exported_name.name))
-                },
-                insert_text_format: Some(InsertTextFormat::SNIPPET),
-                filter_text: Some(exported_name.name.clone()),
-                kind: Some(CompletionItemKind::CLASS),
-                detail: Some(format!("(import from \"{}\")", file)),
-                additional_text_edits: Some(vec![the_import]),
-                ..Default::default()
-            });
+            add_edit(&exported_name.name, &file, the_import);
         }
     }
     Some(())
