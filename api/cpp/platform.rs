@@ -546,7 +546,7 @@ pub mod skia {
     #[no_mangle]
     pub unsafe extern "C" fn slint_skia_renderer_render(r: SkiaRendererOpaque) {
         let r = &*(r as *const SkiaRenderer);
-        r.render(None).unwrap();
+        r.render().unwrap();
     }
 
     #[no_mangle]

@@ -238,7 +238,7 @@ impl super::Surface for VulkanSurface {
         &self,
         size: PhysicalWindowSize,
         callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
-        pre_present_callback: Option<Box<dyn FnOnce()>>,
+        pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         let gr_context = &mut self.gr_context.borrow_mut();
 
@@ -340,7 +340,7 @@ impl super::Surface for VulkanSurface {
 
         gr_context.submit(None);
 
-        if let Some(pre_present_callback) = pre_present_callback {
+        if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
             pre_present_callback();
         }
 

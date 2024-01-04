@@ -9,7 +9,6 @@ use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 pub struct WinitSkiaRenderer {
     renderer: i_slint_renderer_skia::SkiaRenderer,
-    winit_window: Rc<winit::window::Window>,
 }
 
 impl WinitSkiaRenderer {
@@ -26,7 +25,14 @@ impl WinitSkiaRenderer {
 
         let renderer = i_slint_renderer_skia::SkiaRenderer::default();
 
-        Ok((Box::new(Self { renderer, winit_window: winit_window.clone() }), winit_window))
+        renderer.set_pre_present_callback(Some(Box::new({
+            let winit_window = winit_window.clone();
+            move || {
+                winit_window.pre_present_notify();
+            }
+        })));
+
+        Ok((Box::new(Self { renderer }), winit_window))
     }
 
     #[cfg(not(target_os = "android"))]
@@ -43,16 +49,20 @@ impl WinitSkiaRenderer {
 
         let renderer = i_slint_renderer_skia::SkiaRenderer::default_software();
 
-        Ok((Box::new(Self { renderer, winit_window: winit_window.clone() }), winit_window))
+        renderer.set_pre_present_callback(Some(Box::new({
+            let winit_window = winit_window.clone();
+            move || {
+                winit_window.pre_present_notify();
+            }
+        })));
+
+        Ok((Box::new(Self { renderer }), winit_window))
     }
 }
 
 impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
     fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
-        let winit_window = self.winit_window.clone();
-        self.renderer.render(Some(Box::new(move || {
-            winit_window.pre_present_notify();
-        })))
+        self.renderer.render()
     }
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {

@@ -94,6 +94,7 @@ pub struct SkiaRenderer {
         display_handle: raw_window_handle::DisplayHandle<'_>,
         size: PhysicalWindowSize,
     ) -> Result<Box<dyn Surface>, PlatformError>,
+    pre_present_callback: RefCell<Option<Box<dyn FnMut()>>>,
 }
 
 impl Default for SkiaRenderer {
@@ -107,6 +108,7 @@ impl Default for SkiaRenderer {
             rendering_first_time: Default::default(),
             surface: Default::default(),
             surface_factory: create_default_surface,
+            pre_present_callback: Default::default(),
         }
     }
 }
@@ -127,6 +129,7 @@ impl SkiaRenderer {
                 software_surface::SoftwareSurface::new(window_handle, display_handle, size)
                     .map(|r| Box::new(r) as Box<dyn Surface>)
             },
+            pre_present_callback: Default::default(),
         }
     }
 
@@ -152,6 +155,7 @@ impl SkiaRenderer {
             surface_factory: |_, _, _| {
                 Err("Skia renderer constructed with surface does not support dynamic surface re-creation".into())
             },
+            pre_present_callback: Default::default(),
         }
     }
 
@@ -175,13 +179,10 @@ impl SkiaRenderer {
     }
 
     /// Render the scene in the previously associated window.
-    pub fn render(
-        &self,
-        pre_present_callback: Option<Box<dyn FnOnce()>>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         let window_adapter = self.window_adapter()?;
         let size = window_adapter.window().size();
-        self.internal_render_with_post_callback(0., (0., 0.), size, None, pre_present_callback)
+        self.internal_render_with_post_callback(0., (0., 0.), size, None)
     }
 
     fn internal_render_with_post_callback(
@@ -190,7 +191,6 @@ impl SkiaRenderer {
         translation: (f32, f32),
         surace_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-        pre_present_callback: Option<Box<dyn FnOnce()>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         let surface = self.surface.borrow();
         let Some(surface) = surface.as_ref() else { return Ok(()) };
@@ -297,7 +297,7 @@ impl SkiaRenderer {
                     })
                 }
             },
-            pre_present_callback,
+            &self.pre_present_callback,
         )
     }
 
@@ -307,6 +307,12 @@ impl SkiaRenderer {
             .as_ref()
             .and_then(|w| w.upgrade())
             .ok_or_else(|| format!("Renderer must be associated with component before use").into())
+    }
+
+    /// Sets the specified callback, that's invoked before presenting the rendered buffer to the windowing system.
+    /// This can be useful to implement frame throttling, i.e. for requesting a frame callback from the wayland compositor.
+    pub fn set_pre_present_callback(&self, callback: Option<Box<dyn FnMut()>>) {
+        *self.pre_present_callback.borrow_mut() = callback;
     }
 }
 
@@ -540,13 +546,12 @@ pub trait Surface {
         Ok(())
     }
     /// Prepares the surface for rendering and invokes the provided callback with access to a Skia canvas and
-    /// rendering context. The optional pre_present_callback is invoked right before sending the buffer
-    /// rendered into to the windowing system.
+    /// rendering context.
     fn render(
         &self,
         size: PhysicalWindowSize,
         render_callback: &dyn Fn(&skia_safe::Canvas, Option<&mut skia_safe::gpu::DirectContext>),
-        pre_present_callback: Option<Box<dyn FnOnce()>>,
+        pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
     /// Called when the surface should be resized.
     fn resize_event(
@@ -584,7 +589,6 @@ impl SkiaRendererExt for SkiaRenderer {
             translation,
             surface_size,
             post_render_cb,
-            None,
         )
     }
 }
