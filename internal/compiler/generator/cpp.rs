@@ -3102,10 +3102,10 @@ fn compile_builtin_function_call(
                 let item = access_member(pr, ctx);
                 let item_rc = access_item_rc(pr, ctx);
                 let window = access_window_field(ctx);
-                let from = compile_expression(from, ctx);
-                let to = compile_expression(to, ctx);
+                let start = compile_expression(from, ctx);
+                let end = compile_expression(to, ctx);
 
-                format!("slint_textinput_set_selection_offsets(&{item}, &{window}.handle(), &{item_rc}, static_cast<int>({from}), static_cast<int>({to}))")
+                format!("slint_textinput_set_selection_offsets(&{item}, &{window}.handle(), &{item_rc}, static_cast<int>({start}), static_cast<int>({end}))")
             } else {
                 panic!("internal error: invalid args to set-selection-offsets {:?}", arguments)
             }

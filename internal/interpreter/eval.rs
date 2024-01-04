@@ -642,15 +642,15 @@ fn call_builtin_function(
                 if let Some(textinput) =
                     ItemRef::downcast_pin::<corelib::items::TextInput>(item_ref)
                 {
-                    let from: i32 =
+                    let start: i32 =
                         eval_expression(&arguments[1], local_context).try_into().expect(
                             "internal error: second argument to set-selection-offsets must be an integer",
                         );
-                    let to: i32 = eval_expression(&arguments[2], local_context).try_into().expect(
+                    let end: i32 = eval_expression(&arguments[2], local_context).try_into().expect(
                         "internal error: third argument to set-selection-offsets must be an integer",
                     );
 
-                    textinput.set_selection_offsets(&window_adapter, &item_rc, from, to);
+                    textinput.set_selection_offsets(&window_adapter, &item_rc, start, end);
                 } else {
                     panic!(
                         "internal error: member function called on element that doesn't have it: {}",

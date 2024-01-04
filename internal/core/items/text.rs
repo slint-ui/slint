@@ -1038,11 +1038,11 @@ impl TextInput {
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        from: i32,
-        to: i32,
+        start: i32,
+        end: i32,
     ) {
-        self.as_ref().anchor_position_byte_offset.set(from);
-        self.set_cursor_position(to, true, window_adapter, self_rc);
+        self.as_ref().anchor_position_byte_offset.set(start);
+        self.set_cursor_position(end, true, window_adapter, self_rc);
     }
 
     pub fn select_all(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1283,12 +1283,12 @@ pub unsafe extern "C" fn slint_textinput_set_selection_offsets(
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
-    from: i32,
-    to: i32,
+    start: i32,
+    end: i32,
 ) {
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     let self_rc = ItemRc::new(self_component.clone(), self_index);
-    Pin::new_unchecked(&*text_input).as_ref().set_selection_offsets(window_adapter, &self_rc, from, to);
+    Pin::new_unchecked(&*text_input).as_ref().set_selection_offsets(window_adapter, &self_rc, start, end);
 }
 
 #[cfg(feature = "ffi")]

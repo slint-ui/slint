@@ -2371,11 +2371,11 @@ fn compile_builtin_function_call(
                 let item = access_member(pr, ctx);
                 let item_rc = access_item_rc(pr, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
-                let from = compile_expression(from, ctx);
-                let to = compile_expression(to, ctx);
+                let start = compile_expression(from, ctx);
+                let end = compile_expression(to, ctx);
 
                 quote!(
-                    #item.set_selection_offsets(#window_adapter_tokens, #item_rc, #from as i32, #to as i32)
+                    #item.set_selection_offsets(#window_adapter_tokens, #item_rc, #start as i32, #end as i32)
                 )
             } else {
                 panic!("internal error: invalid args to set-selection-offsets {:?}", arguments)
