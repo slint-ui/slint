@@ -1292,7 +1292,7 @@ pub unsafe extern "C" fn slint_textinput_set_selection_offsets(
         window_adapter,
         &self_rc,
         start,
-        end
+        end,
     );
 }
 
