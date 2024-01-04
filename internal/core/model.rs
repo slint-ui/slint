@@ -930,6 +930,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) {
+        // Query is_dirty to track model changes
+        self.data().project_ref().is_dirty.get();
+
         viewport_width.set(listview_width);
         let model = self.model();
         let row_count = model.row_count();
