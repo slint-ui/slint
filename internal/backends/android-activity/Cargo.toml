@@ -25,6 +25,7 @@ i-slint-core = { workspace = true, features = ["std"] }
 raw-window-handle = { version = "0.5.2" }
 android-activity = { version = "0.5" }
 ndk = { version = "0.8.0", features = ["rwh_05"] }
+jni = { version = "0.21", features = ["invocation"] }
 
 [package.metadata.docs.rs]
 targets = [
