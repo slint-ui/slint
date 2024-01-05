@@ -1041,8 +1041,12 @@ impl TextInput {
         start: i32,
         end: i32,
     ) {
-        self.as_ref().anchor_position_byte_offset.set(start);
-        self.set_cursor_position(end, true, window_adapter, self_rc);
+        let text = self.text();
+        let safe_start = safe_byte_offset(start, &text);
+        let safe_end = safe_byte_offset(end, &text);
+
+        self.as_ref().anchor_position_byte_offset.set(safe_start as i32);
+        self.set_cursor_position(safe_end as i32, true, window_adapter, self_rc);
     }
 
     pub fn select_all(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
