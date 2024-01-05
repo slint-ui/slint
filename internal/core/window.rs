@@ -361,6 +361,7 @@ pub struct WindowInner {
 
     pinned_fields: Pin<Box<WindowPinnedFields>>,
     active_popup: RefCell<Option<PopupWindow>>,
+    had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
 }
@@ -413,6 +414,7 @@ impl WindowInner {
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
             active_popup: Default::default(),
+            had_popup_on_press: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
@@ -484,6 +486,10 @@ impl WindowInner {
                 crate::input::process_delayed_event(&window_adapter, mouse_input_state);
         }
 
+        if pressed_event {
+            self.had_popup_on_press.set(self.active_popup.borrow().is_some());
+        }
+
         let close_popup_on_click = self.close_popup_on_click();
         let mut mouse_inside_popup = false;
 
@@ -539,7 +545,8 @@ impl WindowInner {
         self.mouse_input_state.set(mouse_input_state);
 
         if close_popup_on_click
-            && ((mouse_inside_popup && released_event) || (!mouse_inside_popup && pressed_event))
+            && ((mouse_inside_popup && released_event && self.had_popup_on_press.get())
+                || (!mouse_inside_popup && pressed_event))
         {
             self.close_popup();
         }
