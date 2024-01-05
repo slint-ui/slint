@@ -28,7 +28,10 @@ mod renderer {
     #[cfg(feature = "renderer-femtovg")]
     pub mod femtovg;
 
-    pub fn try_skia_then_femtovg(
+    #[cfg(feature = "renderer-software")]
+    pub mod sw;
+
+    pub fn try_skia_then_femtovg_then_software(
         _device_opener: &crate::DeviceOpener,
     ) -> Result<
         Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>,
@@ -46,6 +49,11 @@ mod renderer {
         #[cfg(feature = "renderer-femtovg")]
         if result.is_err() {
             result = femtovg::FemtoVGRendererAdapter::new(_device_opener);
+        }
+
+        #[cfg(feature = "renderer-software")]
+        if result.is_err() {
+            result = sw::SoftwareRendererAdapter::new(_device_opener);
         }
 
         result
