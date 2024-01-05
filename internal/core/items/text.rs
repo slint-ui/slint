@@ -343,9 +343,8 @@ impl Item for TextInput {
                     self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 }
 
-                if !self.has_focus() {
-                    WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
-                }
+                #[cfg(not(target_os = "android"))]
+                self.ensure_focus_and_ime(window_adapter, self_rc);
 
                 match click_count % 3 {
                     0 => self.set_cursor_position(clicked_offset, true, window_adapter, self_rc),
@@ -356,18 +355,21 @@ impl Item for TextInput {
 
                 return InputEventResult::GrabMouse;
             }
-            MouseEvent::Pressed { position, button: PointerEventButton::Middle, .. } => {
-                let clicked_offset = self.byte_offset_for_position(position, window_adapter) as i32;
-                self.as_ref().anchor_position_byte_offset.set(clicked_offset);
-                if !self.has_focus() {
-                    WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
-                }
-                self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
-                self.paste_clipboard(window_adapter, self_rc, Clipboard::SelectionClipboard);
+            MouseEvent::Pressed { .. } => {
+                #[cfg(not(target_os = "android"))]
+                self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 self.as_ref().pressed.set(0);
                 self.copy_clipboard(Clipboard::SelectionClipboard);
+                #[cfg(target_os = "android")]
+                self.ensure_focus_and_ime(window_adapter, self_rc);
+            }
+            MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
+                let clicked_offset = self.byte_offset_for_position(position, window_adapter) as i32;
+                self.as_ref().anchor_position_byte_offset.set(clicked_offset);
+                self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
+                self.paste_clipboard(window_adapter, self_rc, Clipboard::SelectionClipboard);
             }
             MouseEvent::Exit => {
                 if let Some(x) = window_adapter.internal(crate::InternalToken) {
@@ -1236,6 +1238,24 @@ impl TextInput {
             self.font_request(window_adapter),
             ScaleFactor::new(window_adapter.window().scale_factor()),
         )
+    }
+
+    /// When pressing the mouse (or releasing the finger, on android) we should take the focus if we don't have it already.
+    /// Setting the focus will show the virtual keyboard, otherwise we should make sure that the keyboard is shown if it was hidden by the user
+    fn ensure_focus_and_ime(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        if !self.has_focus() {
+            WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
+        } else if !self.read_only() {
+            if let Some(w) = window_adapter.internal(crate::InternalToken) {
+                w.input_method_request(InputMethodRequest::Enable(
+                    self.ime_properties(window_adapter, self_rc),
+                ));
+            }
+        }
     }
 }
 
