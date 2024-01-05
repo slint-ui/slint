@@ -110,7 +110,6 @@ fn android_main(app: i_slint_backend_android_activity::AndroidApp) {
     use i_slint_backend_android_activity::android_activity::{MainEvent, PollEvent};
     slint::platform::set_platform(Box::new(
         i_slint_backend_android_activity::AndroidPlatform::new_with_event_listener(app, |event| {
-            eprintln!("Got event: {event:?}");
             match event {
                 PollEvent::Main(MainEvent::SaveState { saver, .. }) => {
                     STATE.with(|state| -> Option<()> {
@@ -156,7 +155,7 @@ struct SerializedState {
 
 #[cfg(target_os = "android")]
 impl SerializedState {
-    fn restore(mut self, state: &State) {
+    fn restore(self, state: &State) {
         state.todo_model.set_vec(self.items);
         state.main_window.set_hide_done_items(self.hide_done);
         state.main_window.set_is_sort_by_name(self.sort);
