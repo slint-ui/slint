@@ -474,16 +474,18 @@ impl WindowInner {
         // handle multiple press release
         event = self.click_state.check_repeat(event);
 
+        let pressed_event = matches!(event, MouseEvent::Pressed { .. });
+        let released_event = matches!(event, MouseEvent::Released { .. });
+
         let window_adapter = self.window_adapter();
         let mut mouse_input_state = self.mouse_input_state.take();
-        if matches!(event, MouseEvent::Released { .. }) {
+        if released_event {
             mouse_input_state =
                 crate::input::process_delayed_event(&window_adapter, mouse_input_state);
         }
 
-        let close_popup_after_click = matches!(event, MouseEvent::Released { .. })
-            && self.close_popup_after_click()
-            && self.active_popup.borrow().is_some();
+        let close_popup_on_click = self.close_popup_on_click();
+        let mut mouse_inside_popup = false;
 
         mouse_input_state = if let Some(mut event) =
             crate::input::handle_mouse_grab(event, &window_adapter, &mut mouse_input_state)
@@ -495,13 +497,15 @@ impl WindowInner {
             }) = self.active_popup.borrow().as_ref()
             {
                 let geom = ItemTreeRc::borrow_pin(component).as_ref().item_geometry(0);
-                if event
+
+                mouse_inside_popup = event
                     .position()
-                    .map_or(false, |pos| !geom.contains(pos - coordinates.to_vector()))
-                {
-                    (None, LogicalPoint::default())
-                } else {
+                    .map_or(true, |pos| geom.contains(pos - coordinates.to_vector()));
+
+                if mouse_inside_popup {
                     (Some(component.clone()), *coordinates)
+                } else {
+                    (None, LogicalPoint::default())
                 }
             } else {
                 (self.component.borrow().upgrade(), LogicalPoint::default())
@@ -534,7 +538,9 @@ impl WindowInner {
 
         self.mouse_input_state.set(mouse_input_state);
 
-        if close_popup_after_click {
+        if close_popup_on_click
+            && ((mouse_inside_popup && released_event) || (!mouse_inside_popup && pressed_event))
+        {
             self.close_popup();
         }
     }
@@ -913,7 +919,7 @@ impl WindowInner {
     }
 
     /// Returns true if the currently active popup is configured to close on click. None if there is no active popup.
-    pub fn close_popup_after_click(&self) -> bool {
+    pub fn close_popup_on_click(&self) -> bool {
         self.active_popup.borrow().as_ref().map_or(false, |popup| popup.close_on_click)
     }
 
