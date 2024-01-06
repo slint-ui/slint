@@ -34,6 +34,7 @@ The LinuxKMS backend supports different renderers. They can be explicitly select
 |---------------|------------------------|-----------------------------------------------------------------------------|
 | FemtoVG       | OpenGL ES 2.0          | `linuxkms-femtovg`                                                          |
 | Skia          | OpenGL ES 2.0, Vulkan  | `linuxkms-skia-opengl`, `linuxkms-skia-vulkan`, or `linuxkms-skia-software` |
+| software      | None                   | `linuxkms-software`                                                         |
 
 :::{note}
 This backend is still experimental. The backend has not undergone a great variety of testing on different devices
