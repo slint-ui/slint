@@ -18,6 +18,7 @@ a widget able to handle several lines of text.
 ### Functions
 
 -   **`focus()`** Call this function to focus the LineEdit and make it receive future keyboard events.
+-   **`set-selection-offsets(int, int)`** Selects the text between two UTF-8 offsets.
 -   **`select-all()`** Selects all text.
 -   **`clear-selection()`** Clears the selection.
 -   **`copy()`** Copies the selected text to the clipboard.

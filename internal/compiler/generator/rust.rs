@@ -2366,6 +2366,21 @@ fn compile_builtin_function_call(
                 sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup()
             )
         }
+        BuiltinFunction::SetSelectionOffsets => {
+            if let [llr::Expression::PropertyReference(pr), from, to] = arguments {
+                let item = access_member(pr, ctx);
+                let item_rc = access_item_rc(pr, ctx);
+                let window_adapter_tokens = access_window_adapter_field(ctx);
+                let start = compile_expression(from, ctx);
+                let end = compile_expression(to, ctx);
+
+                quote!(
+                    #item.set_selection_offsets(#window_adapter_tokens, #item_rc, #start as i32, #end as i32)
+                )
+            } else {
+                panic!("internal error: invalid args to set-selection-offsets {:?}", arguments)
+            }
+        }
         BuiltinFunction::ItemMemberFunction(name) => {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let item = access_member(pr, ctx);

@@ -335,6 +335,21 @@ impl TypeRegister {
             _ => unreachable!(),
         };
 
+        match &mut register.elements.get_mut("TextInput").unwrap() {
+            ElementType::Builtin(ref mut b) => {
+                let text_input = Rc::get_mut(b).unwrap();
+                text_input.properties.insert(
+                    "set-selection-offsets".into(),
+                    BuiltinPropertyInfo::new(BuiltinFunction::SetSelectionOffsets.ty()),
+                );
+                text_input
+                    .member_functions
+                    .insert("set-selection-offsets".into(), BuiltinFunction::SetSelectionOffsets);
+            }
+
+            _ => unreachable!(),
+        };
+
         register
     }
 

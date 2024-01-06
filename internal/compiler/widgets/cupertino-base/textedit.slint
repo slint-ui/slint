@@ -78,6 +78,10 @@ export component TextEdit {
 
     callback edited(/* text */ string);
 
+    public function set-selection-offsets(start: int, end: int) {
+        i-text-input.set-selection-offsets(start, end);
+    }
+
     public function select-all() {
         i-text-input.select-all();
     }

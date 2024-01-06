@@ -34,7 +34,14 @@ export component TestCase {
         ti.clear-selection();
     }
 
+    callback set_selection_offsets(int, int);
+    set_selection_offsets(start, end) => {
+        ti.set-selection-offsets(start, end);
+    }
+
     out property<bool> has_selection: ti.cursor_position_byte_offset != ti.anchor_position_byte_offset;
+    out property<int> test_cursor_pos: ti.cursor_position_byte_offset;
+    out property<int> test_anchor_pos: ti.anchor_position_byte_offset;
 }
 
 /*
@@ -58,6 +65,16 @@ instance.invoke_do_select();
 assert!(instance.get_has_selection());
 instance.invoke_do_deselect();
 assert!(!instance.get_has_selection());
+
+instance.set_test_text("Hello".into());
+instance.invoke_set_selection_offsets(-3, 10);
+assert_eq!(instance.get_test_anchor_pos(), 0);
+assert_eq!(instance.get_test_cursor_pos(), 5);
+
+instance.set_test_text("🥳😎".into());
+instance.invoke_set_selection_offsets(0, 3);
+assert_eq!(instance.get_test_anchor_pos(), 0);
+assert_eq!(instance.get_test_cursor_pos(), 4);
 
 ```
 */
@@ -85,6 +102,16 @@ assert(instance.get_has_selection());
 instance.invoke_do_deselect();
 assert(!instance.get_has_selection());
 
+instance.set_test_text("Hello");
+instance.invoke_set_selection_offsets(-3, 10);
+assert_eq(instance.get_test_anchor_pos(), 0);
+assert_eq(instance.get_test_cursor_pos(), 5);
+
+instance.set_test_text("🥳😎");
+instance.invoke_set_selection_offsets(0, 3);
+assert_eq(instance.get_test_anchor_pos(), 0);
+assert_eq(instance.get_test_cursor_pos(), 4);
+
 ```
 */
 
@@ -109,6 +136,16 @@ instance.do_select();
 assert(instance.has_selection);
 instance.do_deselect();
 assert(!instance.has_selection);
+
+instance.test_text = "Hello";
+instance.set_selection_offsets(-3, 10);
+assert.equal(instance.test_anchor_pos, 0);
+assert.equal(instance.test_cursor_pos, 5);
+
+instance.test_text = "🥳😎";
+instance.set_selection_offsets(0, 3);
+assert.equal(instance.test_anchor_pos, 0);
+assert.equal(instance.test_cursor_pos, 4);
 
 ```
 */

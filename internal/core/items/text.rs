@@ -1034,6 +1034,21 @@ impl TextInput {
         self.delete_selection(window_adapter, self_rc);
     }
 
+    pub fn set_selection_offsets(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+        start: i32,
+        end: i32,
+    ) {
+        let text = self.text();
+        let safe_start = safe_byte_offset(start, &text);
+        let safe_end = safe_byte_offset(end, &text);
+
+        self.as_ref().anchor_position_byte_offset.set(safe_start as i32);
+        self.set_cursor_position(safe_end as i32, true, window_adapter, self_rc);
+    }
+
     pub fn select_all(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         self.move_cursor(
             TextCursorDirection::StartOfText,
@@ -1263,6 +1278,26 @@ fn next_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
     text.unicode_word_indices()
         .find(|(offset, slice)| *offset + slice.len() >= last_cursor_pos)
         .map_or(text.len(), |(offset, slice)| offset + slice.len())
+}
+
+#[cfg(feature = "ffi")]
+#[no_mangle]
+pub unsafe extern "C" fn slint_textinput_set_selection_offsets(
+    text_input: *const TextInput,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+    start: i32,
+    end: i32,
+) {
+    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    Pin::new_unchecked(&*text_input).as_ref().set_selection_offsets(
+        window_adapter,
+        &self_rc,
+        start,
+        end,
+    );
 }
 
 #[cfg(feature = "ffi")]
