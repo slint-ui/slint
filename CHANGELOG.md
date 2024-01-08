@@ -11,10 +11,15 @@ All notable changes to this project are documented in this file.
 - Winit backend: Fixed `key-released` in `FocusScope` not being invoked when releasing the space bar key.
 - Fix `PopupWindow` close behavior: Close on release when the mouse is on the popup, and close on press when
   it's outside - to match standard behavior.
+- Fixed focus behavior on click in a TextInput
+- Fixed ListView not updating when model changes (#3125)
+- Fixed TextInput on Plasma/Wayland receiveng many empty events causing selection to be cleared (#4148)
+
 
 ### Slint Language
 
  - Fixed wrong text input in cupertino SpinBox
+ - Fixed SpinBox not being enabled by default
  - Added focus state to `StandardListView`
  - Added a `double-clicked` callback in `TouchArea`, which is triggered when a `TouchArea`
    is clicked twice in rapid succession.
@@ -23,10 +28,18 @@ All notable changes to this project are documented in this file.
  - Errors are thrown when trying to modify properties that must be known at compile time.
  - Added `colorize-icon` property to `Button`.
  - Added `set-selection-offsets(int, int)` to `TextInput`, `LineEdit`, and `TextEdit`.
+ - Fixed property wrongly considered as const if it is modified through an alias (#4241)
+ - Added `Palette` global singleton
 
 ### C++
 
  - Added `ComponentInstance::definition()` getter to retrieve the `ComponentDefinition` for an instance.
+
+### LSP
+
+ - Added selection mode to select elements in the preview
+ - Implement code action to add missing import
+ - Fix error when going to the definition of builtin items (#4126)
 
 ## [1.3.2] - 2023-12-01
 
