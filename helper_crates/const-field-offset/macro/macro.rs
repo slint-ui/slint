@@ -218,6 +218,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
             },
             Some(quote! {
                     /// Make sure that Unpin is not implemented
+                    #[allow(dead_code)]
                     pub struct __MustNotImplUnpin<'__dummy_lifetime> (
                         #(#types, )*
                         ::core::marker::PhantomData<&'__dummy_lifetime ()>
@@ -245,7 +246,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     // Build the output, possibly using quasi-quotation
     let expanded = quote! {
         #[doc = #doc]
-        #[allow(missing_docs, non_camel_case_types)]
+        #[allow(missing_docs, non_camel_case_types, dead_code)]
         #struct_vis struct #field_struct_name {
             #(#vis #fields : #crate_::FieldOffset<#struct_name, #types, #pin_flag>,)*
         }
