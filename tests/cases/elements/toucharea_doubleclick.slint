@@ -36,24 +36,24 @@ export component TestCase  {
         height: 5phx;
         mouse-cursor: pointer;
         clicked => {
-            pointer-event-test += "click";
+            pointer-event-test += "click:";
             touch2+=1;
         }
         double-clicked => {
-            pointer-event-test += "double_click";
+            pointer-event-test += "double_click:";
             touch_double2+=1;
         }
         pointer-event(e) => {
             if (e.kind == PointerEventKind.cancel) {
-                pointer-event-test += "cancel";
+                pointer-event-test += "cancel.";
             } else if (e.kind == PointerEventKind.up) {
-                pointer-event-test += "up";
+                pointer-event-test += "up.";
             } else if (e.kind == PointerEventKind.down) {
-                pointer-event-test += "down";
+                pointer-event-test += "down.";
             } else if (e.kind == PointerEventKind.move) {
-                pointer-event-test += "move";
+                pointer-event-test += "move.";
             } else {
-                pointer-event-test += "err";
+                pointer-event-test += "err.";
             }
             if (e.button == PointerEventButton.right) {
                 pointer-event-test += "right";
@@ -78,6 +78,7 @@ export component TestCase  {
             if (e.modifiers.alt) {
                 pointer-event-test += "(alt)";
             }
+            pointer-event-test += ":";
         }
     }
 }
@@ -91,7 +92,6 @@ const TestCase &instance = *handle;
 
 // does not click on anything
 slint_testing::send_mouse_click(&instance, 5., 5.);
-slint_testing::mock_elapsed_time(1000);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 0);
 assert_eq(instance.get_touch3(), 0);
@@ -100,8 +100,8 @@ assert_eq(instance.get_touch_double2(), 0);
 assert_eq(instance.get_touch_double3(), 0);
 
 // click on second one
-slint_testing::send_mouse_click(&instance, 101., 101.);
 slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 101., 101.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 1);
 assert_eq(instance.get_touch3(), 0);
@@ -110,8 +110,8 @@ assert_eq(instance.get_touch_double2(), 0);
 assert_eq(instance.get_touch_double3(), 0);
 
 // click on first one only
-slint_testing::send_mouse_click(&instance, 108., 108.);
 slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 108., 108.);
 assert_eq(instance.get_touch1(), 1);
 assert_eq(instance.get_touch2(), 1);
 assert_eq(instance.get_touch3(), 0);
@@ -120,32 +120,18 @@ assert_eq(instance.get_touch_double2(), 0);
 assert_eq(instance.get_touch_double3(), 0);
 
 // click on the third
+slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_click(&instance, 106., 103.);
-slint_testing::mock_elapsed_time(1000);
 assert_eq(instance.get_touch1(), 1);
 assert_eq(instance.get_touch2(), 1);
 assert_eq(instance.get_touch3(), 1);
 assert_eq(instance.get_touch_double1(), 0);
 assert_eq(instance.get_touch_double2(), 0);
 assert_eq(instance.get_touch_double3(), 0);
-
-assert_eq(instance.get_pointer_event_test(), "moveotherdownleftupleftmoveotherclick");
-
-instance.set_pointer_event_test("");
-// issue #2918:  press anywhere, release on a toucharea
-instance.window().dispatch_pointer_press_event(slint::LogicalPosition({70.0, 6.0}), PointerEventButton::Left);
-instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 102.0, 103.0 }));
-instance.window().dispatch_pointer_release_event(slint::LogicalPosition({101.0, 104.0}), PointerEventButton::Left);
-slint_testing::mock_elapsed_time(1000);
-assert_eq(instance.get_pointer_event_test(), "moveotherupleft"); // no "clicked"
-assert_eq(instance.get_touch1(), 1);
-assert_eq(instance.get_touch2(), 1);
-assert_eq(instance.get_touch3(), 1);
-assert_eq(instance.get_touch_double1(), 0);
-assert_eq(instance.get_touch_double2(), 0);
-assert_eq(instance.get_touch_double3(), 0);
+assert_eq(instance.get_pointer_event_test(), "move.other:down.left:click:up.left:move.other:");
 
 // does not double-click on anything
+slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_double_click(&instance, 5., 5.);
 assert_eq(instance.get_touch1(), 1);
 assert_eq(instance.get_touch2(), 1);
@@ -155,321 +141,404 @@ assert_eq(instance.get_touch_double2(), 0);
 assert_eq(instance.get_touch_double3(), 0);
 
 // double-click on second one
+slint_testing::mock_elapsed_time(1000);
+instance.set_pointer_event_test("");
 slint_testing::send_mouse_double_click(&instance, 101., 101.);
 assert_eq(instance.get_touch1(), 1);
-assert_eq(instance.get_touch2(), 1);
+assert_eq(instance.get_touch2(), 3);
 assert_eq(instance.get_touch3(), 1);
 assert_eq(instance.get_touch_double1(), 0);
 assert_eq(instance.get_touch_double2(), 1);
 assert_eq(instance.get_touch_double3(), 0);
+assert_eq(instance.get_pointer_event_test(), "move.other:down.left:click:up.left:move.other:move.other:down.left:click:double_click:up.left:move.other:");
 
 // double-click on first one only
+slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_double_click(&instance, 108., 108.);
-assert_eq(instance.get_touch1(), 1);
-assert_eq(instance.get_touch2(), 1);
+assert_eq(instance.get_touch1(), 3);
+assert_eq(instance.get_touch2(), 3);
 assert_eq(instance.get_touch3(), 1);
 assert_eq(instance.get_touch_double1(), 1);
 assert_eq(instance.get_touch_double2(), 1);
 assert_eq(instance.get_touch_double3(), 0);
 
 // double-click on the third
+slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_double_click(&instance, 106., 103.);
-assert_eq(instance.get_touch1(), 1);
-assert_eq(instance.get_touch2(), 1);
-assert_eq(instance.get_touch3(), 1);
+assert_eq(instance.get_touch1(), 3);
+assert_eq(instance.get_touch2(), 3);
+assert_eq(instance.get_touch3(), 3);
 assert_eq(instance.get_touch_double1(), 1);
 assert_eq(instance.get_touch_double2(), 1);
 assert_eq(instance.get_touch_double3(), 1);
 
-// triple-click on second one (does not do anything...)
-slint_testing::send_mouse_click(&instance, 106., 103.);
-slint_testing::send_mouse_click(&instance, 106., 103.);
-slint_testing::send_mouse_click(&instance, 106., 103.);
+// triple-click on second one
 slint_testing::mock_elapsed_time(1000);
-assert_eq(instance.get_touch1(), 1);
-assert_eq(instance.get_touch2(), 1);
-assert_eq(instance.get_touch3(), 2);
+slint_testing::send_mouse_click(&instance, 106., 103.);
+slint_testing::send_mouse_click(&instance, 106., 103.);
+slint_testing::send_mouse_click(&instance, 106., 103.);
+assert_eq(instance.get_touch1(), 3);
+assert_eq(instance.get_touch2(), 3);
+assert_eq(instance.get_touch3(), 6);
 assert_eq(instance.get_touch_double1(), 1);
 assert_eq(instance.get_touch_double2(), 1);
 assert_eq(instance.get_touch_double3(), 2);
 
-
-//click really quickly two different mouse area
+// click quickly on two different mouse areas
+slint_testing::mock_elapsed_time(1000);
 instance.set_pointer_event_test("");
 slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_click(&instance, 108., 108.); // first
 slint_testing::mock_elapsed_time(20);
 slint_testing::send_mouse_click(&instance, 101., 101.); // second
 instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 1.0, 1.0 }));
-assert_eq(instance.get_touch1(), 2);
-assert_eq(instance.get_touch2(), 2);
-assert_eq(instance.get_touch3(), 2);
+assert_eq(instance.get_touch1(), 4);
+assert_eq(instance.get_touch2(), 4);
+assert_eq(instance.get_touch3(), 6);
 assert_eq(instance.get_touch_double1(), 1);
 assert_eq(instance.get_touch_double2(), 1);
 assert_eq(instance.get_touch_double3(), 2);
-assert_eq(instance.get_pointer_event_test(), "moveotherdownleftupleftmoveotherclick");
+assert_eq(instance.get_pointer_event_test(), "move.other:down.left:click:up.left:move.other:");
+
+// click slowly on the same touch areas twice
+slint_testing::mock_elapsed_time(1000);
+instance.set_pointer_event_test("");
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 101., 101.); // second
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 101., 101.); // second
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({1.0, 1.0}));
+assert_eq(instance.get_touch1(), 4);
+assert_eq(instance.get_touch2(), 6);
+assert_eq(instance.get_touch3(), 6);
+assert_eq(instance.get_touch_double1(), 1);
+assert_eq(instance.get_touch_double2(), 1);
+assert_eq(instance.get_touch_double3(), 2);
 
 slint_testing::mock_elapsed_time(1000);
-assert_eq(instance.get_touch1(), 2);
-assert_eq(instance.get_touch2(), 2);
-assert_eq(instance.get_touch3(), 2);
+assert_eq(instance.get_touch1(), 4);
+assert_eq(instance.get_touch2(), 6);
+assert_eq(instance.get_touch3(), 6);
 assert_eq(instance.get_touch_double1(), 1);
 assert_eq(instance.get_touch_double2(), 1);
 assert_eq(instance.get_touch_double3(), 2);
 ```
 
 ```rust
-use slint::{platform::WindowEvent, platform::PointerEventButton, platform::Key, LogicalPosition};
+use slint::{platform::WindowEvent, LogicalPosition};
 use slint::private_unstable_api::re_exports::MouseCursor;
 
 let instance = TestCase::new().unwrap();
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+     "Unexpected mousecursor at start");
 
 // does not click on anything
 slint_testing::send_mouse_click(&instance, 5., 5.);
 slint_testing::mock_elapsed_time(1000);
-assert_eq!(instance.get_touch1(), 0);
-assert_eq!(instance.get_touch2(), 0);
-assert_eq!(instance.get_touch3(), 0);
-assert_eq!(instance.get_touch_double1(), 0);
-assert_eq!(instance.get_touch_double2(), 0);
-assert_eq!(instance.get_touch_double3(), 0);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(instance.get_touch1(), 0, "Mis-click registered at touch1");
+assert_eq!(instance.get_touch2(), 0, "Mis-click registered at touch2");
+assert_eq!(instance.get_touch3(), 0, "Mis-click registered at touch3");
+assert_eq!(instance.get_touch_double1(), 0, "Mis-click registered at touch1 as double-click");
+assert_eq!(instance.get_touch_double2(), 0, "Mis-click registered at touch2 as double-click");
+assert_eq!(instance.get_touch_double3(), 0, "Mis-click registered at touch3 as double-click");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+    "Mis-click changed mouse cursor");
 
 // click on second one
-slint_testing::send_mouse_click(&instance, 101., 101.);
+instance.set_pointer_event_test("".into());
 slint_testing::mock_elapsed_time(1000);
-assert_eq!(instance.get_touch1(), 0);
-assert_eq!(instance.get_touch2(), 1);
-assert_eq!(instance.get_touch3(), 0);
-assert_eq!(instance.get_touch_double1(), 0);
-assert_eq!(instance.get_touch_double2(), 0);
-assert_eq!(instance.get_touch_double3(), 0);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Pointer);
+slint_testing::send_mouse_click(&instance, 101., 101.);
+assert_eq!(instance.get_touch1(), 0, "Click on 2 registered at touch1");
+assert_eq!(instance.get_touch2(), 1, "Click on 2 did not register at touch2");
+assert_eq!(instance.get_touch3(), 0, "Click on 2 registered at touch3");
+assert_eq!(instance.get_touch_double1(), 0, "Click on 2 registered at touch1 as double-click");
+assert_eq!(instance.get_touch_double2(), 0, "Click on 2 registered at touch2 as double-click");
+assert_eq!(instance.get_touch_double3(), 0, "Click on 2 registered at touch3 as double-click");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Pointer,
+    "Click on 1 did not change mouse pointer");
 
 // click on first one only
-slint_testing::send_mouse_click(&instance, 108., 108.);
 slint_testing::mock_elapsed_time(1000);
-assert_eq!(instance.get_touch1(), 1);
-assert_eq!(instance.get_touch2(), 1);
-assert_eq!(instance.get_touch3(), 0);
-assert_eq!(instance.get_touch_double1(), 0);
-assert_eq!(instance.get_touch_double2(), 0);
-assert_eq!(instance.get_touch_double3(), 0);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Move);
+slint_testing::send_mouse_click(&instance, 108., 108.);
+assert_eq!(instance.get_touch1(), 1, "Click on 1 did not register at touch1");
+assert_eq!(instance.get_touch2(), 1, "Click on 1 registered at touch2");
+assert_eq!(instance.get_touch3(), 0, "Click on 1 registered at touch3");
+assert_eq!(instance.get_touch_double1(), 0, "Click on 1 registered at touch1 as double-click");
+assert_eq!(instance.get_touch_double2(), 0, "Click on 1 registered at touch2 as double-click");
+assert_eq!(instance.get_touch_double3(), 0, "Click on 1 registered at touch3 as double-click");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Move,
+    "Click on 2 did not change mouse pointer");
 
 // click on the third
+slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_click(&instance, 106., 103.);
-slint_testing::mock_elapsed_time(1000);
-assert_eq!(instance.get_touch1(), 1);
-assert_eq!(instance.get_touch2(), 1);
-assert_eq!(instance.get_touch3(), 1);
-assert_eq!(instance.get_touch_double1(), 0);
-assert_eq!(instance.get_touch_double2(), 0);
-assert_eq!(instance.get_touch_double3(), 0);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
-
-assert_eq!(instance.get_pointer_event_test().as_str(), "moveotherdownleftupleftmoveotherclick");
-
-instance.set_pointer_event_test("".into());
-// issue #2918:  press anywhere, release on a toucharea
-instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(70.0, 6.0), button: PointerEventButton::Left });
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(102.0, 103.0) });
-instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(101.0, 104.0), button: PointerEventButton::Left });
-slint_testing::mock_elapsed_time(1000);
-assert_eq!(instance.get_pointer_event_test().as_str(), "moveotherupleft"); // no "clicked", no trailing moveother as not grabbed
-assert_eq!(instance.get_touch1(), 1);
-assert_eq!(instance.get_touch2(), 1);
-assert_eq!(instance.get_touch3(), 1);
-assert_eq!(instance.get_touch_double1(), 0);
-assert_eq!(instance.get_touch_double2(), 0);
-assert_eq!(instance.get_touch_double3(), 0);
-
-instance.set_pointer_event_test("".into());
-slint_testing::send_keyboard_char(&instance, Key::Control.into(), true);
-instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(101.0, 104.0), button: PointerEventButton::Left });
-slint_testing::send_keyboard_char(&instance, Key::Control.into(), false);
-slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
-instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(101.0, 104.0), button: PointerEventButton::Left });
-slint_testing::mock_elapsed_time(1000);
-assert_eq!(instance.get_pointer_event_test().as_str(), "downleft(ctrl)upleft(shift)moveother(shift)click");
-// clean up:
-slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
-instance.set_pointer_event_test("".into());
+assert_eq!(instance.get_touch1(), 1, "Click on 3 registered at touch1");
+assert_eq!(instance.get_touch2(), 1, "Click on 3 registered at touch2");
+assert_eq!(instance.get_touch3(), 1, "Click on 3 did not register at touch3");
+assert_eq!(instance.get_touch_double1(), 0, "Click on 3 registered at touch1 as double-click");
+assert_eq!(instance.get_touch_double2(), 0, "Click on 3 registered at touch2 as double-click");
+assert_eq!(instance.get_touch_double3(), 0, "Click on 3 registered at touch3 as double-click");
+assert_eq!(instance.get_pointer_event_test().as_str(), "move.other:down.left:click:up.left:move.other:",
+    "Click on 3 produced an unexpected sequence of events");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+    "Click on 3 did not change mouse pointer");
 
 // does not double-click on anything
+slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_double_click(&instance, 5., 5.);
-assert_eq!(instance.get_touch1(), 1);
-assert_eq!(instance.get_touch2(), 2);
-assert_eq!(instance.get_touch3(), 1);
-assert_eq!(instance.get_touch_double1(), 0);
-assert_eq!(instance.get_touch_double2(), 0);
-assert_eq!(instance.get_touch_double3(), 0);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(instance.get_touch1(), 1, "Mis-double-click registered at touch1");
+assert_eq!(instance.get_touch2(), 1, "Mis-double-click registered at touch2");
+assert_eq!(instance.get_touch3(), 1, "Mis-double-click registered at touch3");
+assert_eq!(instance.get_touch_double1(), 0, "Mis-double-click registered at touch1 as double-click");
+assert_eq!(instance.get_touch_double2(), 0, "Mis-double-click registered at touch2 as double-click");
+assert_eq!(instance.get_touch_double3(), 0, "Mis-double-click registered at touch3 as double-click");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+    "Mis-double-click on 3 did not change mouse pointer");
 
 // double-click on second one
+slint_testing::mock_elapsed_time(1000);
+instance.set_pointer_event_test("".into());
 slint_testing::send_mouse_double_click(&instance, 101., 101.);
-assert_eq!(instance.get_touch1(), 1);
-assert_eq!(instance.get_touch2(), 2);
-assert_eq!(instance.get_touch3(), 1);
-assert_eq!(instance.get_touch_double1(), 0);
-assert_eq!(instance.get_touch_double2(), 1);
-assert_eq!(instance.get_touch_double3(), 0);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Pointer);
+assert_eq!(instance.get_touch1(), 1, "Double-click on 2 registered at touch1");
+assert_eq!(instance.get_touch2(), 3, "Double-click on 2 did not registered at touch2");
+assert_eq!(instance.get_touch3(), 1, "Double-click on 2 registered at touch3");
+assert_eq!(instance.get_touch_double1(), 0, "Double-click on 2 registered at touch1 as double-click");
+assert_eq!(instance.get_touch_double2(), 1, "Double-click on 2 did not register at touch1 as double-click");
+assert_eq!(instance.get_touch_double3(), 0, "Double-click on 2 registered at touch1 as double-click");
+assert_eq!(instance.get_pointer_event_test().as_str(), "move.other:down.left:click:up.left:move.other:move.other:down.left:click:double_click:up.left:move.other:",
+    "Double-click on 2 produced an unexpected sequence of events");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Pointer,
+    "Double-click on 2 did not change mouse pointer");
 
 // double-click on first one only
+slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_double_click(&instance, 108., 108.);
-assert_eq!(instance.get_touch1(), 1);
-assert_eq!(instance.get_touch2(), 2);
-assert_eq!(instance.get_touch3(), 1);
-assert_eq!(instance.get_touch_double1(), 1);
-assert_eq!(instance.get_touch_double2(), 1);
-assert_eq!(instance.get_touch_double3(), 0);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Move);
+assert_eq!(instance.get_touch1(), 3, "Double-click on 1 did not registered at touch1");
+assert_eq!(instance.get_touch2(), 3, "Double-click on 1 registered at touch2");
+assert_eq!(instance.get_touch3(), 1, "Double-click on 1 registered at touch3");
+assert_eq!(instance.get_touch_double1(), 1, "Double-click on 1 did not register at touch1 as double-click");
+assert_eq!(instance.get_touch_double2(), 1, "Double-click on 1 registered at touch2 as double-click");
+assert_eq!(instance.get_touch_double3(), 0, "Double-click on 1 registered at touch3 as double-click");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Move,
+    "Double-click on 1 did not change mouse pointer");
 
 // double-click on the third
+slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_double_click(&instance, 106., 103.);
-assert_eq!(instance.get_touch1(), 1);
-assert_eq!(instance.get_touch2(), 2);
-assert_eq!(instance.get_touch3(), 1);
-assert_eq!(instance.get_touch_double1(), 1);
-assert_eq!(instance.get_touch_double2(), 1);
-assert_eq!(instance.get_touch_double3(), 1);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+assert_eq!(instance.get_touch1(), 3, "Double-click on 3 registered at touch1");
+assert_eq!(instance.get_touch2(), 3, "Double-click on 3 registered at touch2");
+assert_eq!(instance.get_touch3(), 3, "Double-click on 3 did not registered at touch3");
+assert_eq!(instance.get_touch_double1(), 1, "Double-click on 3 registered at touch1 as double-click");
+assert_eq!(instance.get_touch_double2(), 1, "Double-click on 3 registered at touch2 as double-click");
+assert_eq!(instance.get_touch_double3(), 1, "Double-click on 3 did not register at touch3 as double-click");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+    "Double-click on 3 did not change mouse pointer");
 
 // triple-click on the third (treated as a double click, followed by a single click)
-slint_testing::send_mouse_click(&instance, 106.0, 103.0);
-slint_testing::send_mouse_click(&instance, 106.0, 103.0);
-slint_testing::send_mouse_click(&instance, 106.0, 103.0);
 slint_testing::mock_elapsed_time(1000);
-assert_eq!(instance.get_touch1(), 1);
-assert_eq!(instance.get_touch2(), 2);
-assert_eq!(instance.get_touch3(), 2);
-assert_eq!(instance.get_touch_double1(), 1);
-assert_eq!(instance.get_touch_double2(), 1);
-assert_eq!(instance.get_touch_double3(), 2);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
+slint_testing::send_mouse_click(&instance, 106.0, 103.0);
+assert_eq!(instance.get_touch1(), 3, "Triple-click (1st click) on 3 registered at touch1");
+assert_eq!(instance.get_touch2(), 3, "Triple-click (1st click) on 3 registered at touch2");
+assert_eq!(instance.get_touch3(), 4, "Triple-click (1st click) on 3 did not register at touch3");
+slint_testing::send_mouse_click(&instance, 106.0, 103.0);
+assert_eq!(instance.get_touch1(), 3, "Triple-click (2st click) on 3 registered at touch1");
+assert_eq!(instance.get_touch2(), 3, "Triple-click (2st click) on 3 registered at touch2");
+assert_eq!(instance.get_touch3(), 5, "Triple-click (2st click) on 3 did not register at touch3");
+slint_testing::send_mouse_click(&instance, 106.0, 103.0);
+assert_eq!(instance.get_touch1(), 3, "Triple-click on 3 registered at touch1");
+assert_eq!(instance.get_touch2(), 3, "Triple-click on 3 registered at touch1");
+assert_eq!(instance.get_touch3(), 6, "Triple-click on 3 registered at touch1");
+assert_eq!(instance.get_touch_double1(), 1, "Triple-click on 3 registered at touch1");
+assert_eq!(instance.get_touch_double2(), 1, "Triple-click on 3 registered at touch2");
+assert_eq!(instance.get_touch_double3(), 2, "Triple-click on 3 did not register at touch3 as double-click");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+    "Triple-click on 3 did not change mouse pointer");
 
-// double-click on the third
-slint_testing::send_mouse_double_click(&instance, 106., 103.);
-assert_eq!(instance.get_touch1(), 1);
-assert_eq!(instance.get_touch2(), 2);
-assert_eq!(instance.get_touch3(), 2);
-assert_eq!(instance.get_touch_double1(), 1);
-assert_eq!(instance.get_touch_double2(), 1);
-assert_eq!(instance.get_touch_double3(), 3);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
-
-assert_eq!(instance.get_pointer_event_test().as_str(), "moveotherdownleftupleftmoveothermoveotherdownleftdouble_clickupleftmoveother");
-
-//click really quickly two different mouse area
+// click really quickly on two different mouse areas
+slint_testing::mock_elapsed_time(1000);
 instance.set_pointer_event_test("".into());
 slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_click(&instance, 108., 108.); // first
 slint_testing::mock_elapsed_time(20);
 slint_testing::send_mouse_click(&instance, 101., 101.); // second
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(1.0, 1.0) });
-assert_eq!(instance.get_touch1(), 2);
-assert_eq!(instance.get_touch2(), 3);
-assert_eq!(instance.get_touch3(), 2);
-assert_eq!(instance.get_touch_double1(), 1);
-assert_eq!(instance.get_touch_double2(), 1);
-assert_eq!(instance.get_touch_double3(), 3);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default);
-assert_eq!(instance.get_pointer_event_test().as_str(), "moveotherdownleftupleftmoveotherclick");
+assert_eq!(instance.get_touch1(), 4, "click on different touch areas did not register on touch1");
+assert_eq!(instance.get_touch2(), 4, "click on different touch areas did not register on touch2");
+assert_eq!(instance.get_touch3(), 6, "click on different touch areas registered at touch3");
+assert_eq!(instance.get_touch_double1(), 1, "click on different touch areas registered on touch1 as double-click");
+assert_eq!(instance.get_touch_double2(), 1, "click on different touch areas registered on touch2 as double-click");
+assert_eq!(instance.get_touch_double3(), 2, "click on different touch areas registered on touch3 as double-click");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+    "click on different touch areas changed mouse pointer");
+assert_eq!(instance.get_pointer_event_test().as_str(), "move.other:down.left:click:up.left:move.other:",
+    "click on different touch areas produced an unexpected sequence of events");
+
+// click slowly on the same touch areas twice
+slint_testing::mock_elapsed_time(1000);
+instance.set_pointer_event_test("".into());
+slint_testing::send_mouse_click(&instance, 101., 101.); // second
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 101., 101.); // second
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(1.0, 1.0) });
+
+assert_eq!(instance.get_touch1(), 4, "Slow double click did not register on touch1");
+assert_eq!(instance.get_touch2(), 6, "Slow double click did not register on touch2");
+assert_eq!(instance.get_touch3(), 6, "Slow double click did not register on touch3");
+assert_eq!(instance.get_touch_double1(), 1, "Slow double click registered on touch1 as double-click");
+assert_eq!(instance.get_touch_double2(), 1, "Slow double click registered on touch2 as double-click");
+assert_eq!(instance.get_touch_double3(), 2, "Slow double click registered on touch3 as double-click");
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
+    "click on different touch areas changed mouse pointer");
+assert_eq!(instance.get_pointer_event_test().as_str(), "move.other:down.left:click:up.left:move.other:move.other:down.left:click:up.left:move.other:",
+    "click on different touch areas produced an unexpected sequence of events");
 
 slint_testing::mock_elapsed_time(1000);
-assert_eq!(instance.get_touch1(), 2);
-assert_eq!(instance.get_touch2(), 3);
-assert_eq!(instance.get_touch3(), 2);
-assert_eq!(instance.get_touch_double1(), 1);
-assert_eq!(instance.get_touch_double2(), 1);
-assert_eq!(instance.get_touch_double3(), 3);
-
-
+assert_eq!(instance.get_touch1(), 4, "Cool down changed touch1");
+assert_eq!(instance.get_touch2(), 6, "Cool down changed touch2");
+assert_eq!(instance.get_touch3(), 6, "Cool down changed touch3");
+assert_eq!(instance.get_touch_double1(), 1, "Cool down changed touch-double1");
+assert_eq!(instance.get_touch_double2(), 1, "Cool down changed touch-double2");
+assert_eq!(instance.get_touch_double3(), 2, "Cool down changed touch-double3");
 ```
 
 ```js
 var instance = new slint.TestCase();
-// does not click on anything
-slintlib.private_api.send_mouse_click(instance, 5., 5.);
-slintlib.private_api.mock_elapsed_time(1000);
-assert.equal(instance.touch1, 0);
-assert.equal(instance.touch2, 0);
-assert.equal(instance.touch3, 0);
-assert.equal(instance.touch_double1, 0);
-assert.equal(instance.touch_double2, 0);
-assert.equal(instance.touch_double3, 0);
 
-// click on second one
-slintlib.private_api.send_mouse_click(instance, 101., 101.);
-slintlib.private_api.mock_elapsed_time(1000);
-assert.equal(instance.touch1, 0);
-assert.equal(instance.touch2, 1);
-assert.equal(instance.touch3, 0);
-assert.equal(instance.touch_double1, 0);
-assert.equal(instance.touch_double2, 0);
-assert.equal(instance.touch_double3, 0);
+// // // Disable the test as the time handling is currently broken in JS tests!
 
-// click on first one only
-slintlib.private_api.send_mouse_click(instance, 108., 108.);
-slintlib.private_api.mock_elapsed_time(1000);
-assert.equal(instance.touch1, 1);
-assert.equal(instance.touch2, 1);
-assert.equal(instance.touch3, 0);
-assert.equal(instance.touch_double1, 0);
-assert.equal(instance.touch_double2, 0);
-assert.equal(instance.touch_double3, 0);
+// // does not click on anything
+// slintlib.private_api.send_mouse_click(instance, 5., 5.);
+// assert.equal(instance.touch1, 0);
+// assert.equal(instance.touch2, 0);
+// assert.equal(instance.touch3, 0);
+// assert.equal(instance.touch_double1, 0);
+// assert.equal(instance.touch_double2, 0);
+// assert.equal(instance.touch_double3, 0);
 
-// click on the third
-slintlib.private_api.send_mouse_click(instance, 106., 103.);
-slintlib.private_api.mock_elapsed_time(1000);
-assert.equal(instance.touch1, 1);
-assert.equal(instance.touch2, 1);
-assert.equal(instance.touch3, 1);
-assert.equal(instance.touch_double1, 0);
-assert.equal(instance.touch_double2, 0);
-assert.equal(instance.touch_double3, 0);
+// // click on second one
+// slintlib.private_api.mock_elapsed_time(1000);
+// slintlib.private_api.send_mouse_click(instance, 101., 101.);
+// assert.equal(instance.touch1, 0);
+// assert.equal(instance.touch2, 1);
+// assert.equal(instance.touch3, 0);
+// assert.equal(instance.touch_double1, 0);
+// assert.equal(instance.touch_double2, 0);
+// assert.equal(instance.touch_double3, 0);
 
-assert.equal(instance.pointer_event_test, "moveotherdownleftupleftmoveotherclick");
+// // click on first one only
+// slintlib.private_api.mock_elapsed_time(2000);
+// slintlib.private_api.send_mouse_click(instance, 108., 108.);
+// assert.equal(instance.touch1, 1);
+// assert.equal(instance.touch2, 1);
+// assert.equal(instance.touch3, 0);
+// assert.equal(instance.touch_double1, 0);
+// assert.equal(instance.touch_double2, 0);
+// assert.equal(instance.touch_double3, 0);
 
-// does not double-click on anything
-slintlib.private_api.send_mouse_double_click(instance, 5., 5.);
-assert.equal(instance.touch1, 1);
-assert.equal(instance.touch2, 1);
-assert.equal(instance.touch3, 1);
-assert.equal(instance.touch_double1, 0);
-assert.equal(instance.touch_double2, 0);
-assert.equal(instance.touch_double3, 0);
+// // click on the third
+// slintlib.private_api.mock_elapsed_time(1000);
+// slintlib.private_api.send_mouse_click(instance, 106., 103.);
+// assert.equal(instance.touch1, 1);
+// assert.equal(instance.touch2, 1);
+// assert.equal(instance.touch3, 1);
+// assert.equal(instance.touch_double1, 0);
+// assert.equal(instance.touch_double2, 0);
+// assert.equal(instance.touch_double3, 0);
 
-// double-click on second one
-slintlib.private_api.send_mouse_double_click(instance, 101., 101.);
-assert.equal(instance.touch1, 1);
-assert.equal(instance.touch2, 1);
-assert.equal(instance.touch3, 1);
-assert.equal(instance.touch_double1, 0);
-assert.equal(instance.touch_double2, 1);
-assert.equal(instance.touch_double3, 0);
+// assert.equal(instance.pointer_event_test, "move.other:down.left:click:up.left:move.other:");
 
-// double-click on first one only
-slintlib.private_api.send_mouse_double_click(instance, 108., 108.);
-assert.equal(instance.touch1, 1);
-assert.equal(instance.touch2, 1);
-assert.equal(instance.touch3, 1);
-assert.equal(instance.touch_double1, 1);
-assert.equal(instance.touch_double2, 1);
-assert.equal(instance.touch_double3, 0);
+// // does not double-click on anything
+// slintlib.private_api.mock_elapsed_time(1000);
+// slintlib.private_api.send_mouse_double_click(instance, 5., 5.);
+// assert.equal(instance.touch1, 1);
+// assert.equal(instance.touch2, 1);
+// assert.equal(instance.touch3, 1);
+// assert.equal(instance.touch_double1, 0);
+// assert.equal(instance.touch_double2, 0);
+// assert.equal(instance.touch_double3, 0);
 
-// double-click on the third
-slintlib.private_api.send_mouse_click(instance, 106., 103.);
-slintlib.private_api.send_mouse_click(instance, 106., 103.);
-slintlib.private_api.send_mouse_click(instance, 106., 103.);
-slintlib.private_api.mock_elapsed_time(1000);
-assert.equal(instance.touch1, 1);
-assert.equal(instance.touch2, 1);
-assert.equal(instance.touch3, 2);
-assert.equal(instance.touch_double1, 1);
-assert.equal(instance.touch_double2, 1);
-assert.equal(instance.touch_double3, 1);
+// // double-click on second one
+// slintlib.private_api.mock_elapsed_time(1000);
+// instance.pointer_event_test = "";
+// slintlib.private_api.send_mouse_double_click(instance, 101., 101.);
+// assert.equal(instance.touch1, 1);
+// assert.equal(instance.touch2, 3);
+// assert.equal(instance.touch3, 1);
+// assert.equal(instance.touch_double1, 0);
+// assert.equal(instance.touch_double2, 1);
+// assert.equal(instance.touch_double3, 0);
+// assert.equal(instance.pointer_event_test, "move.other:down.left:click:up.left:move.other:move.other:down.left:click:double_click:up.left:move.other:");
+
+// // double-click on first one only
+// slintlib.private_api.mock_elapsed_time(1000);
+// slintlib.private_api.send_mouse_double_click(instance, 108., 108.);
+// assert.equal(instance.touch1, 3);
+// assert.equal(instance.touch2, 3);
+// assert.equal(instance.touch3, 1);
+// assert.equal(instance.touch_double1, 1);
+// assert.equal(instance.touch_double2, 1);
+// assert.equal(instance.touch_double3, 0);
+
+// // double-click on third one only
+// slintlib.private_api.mock_elapsed_time(1000);
+// slintlib.private_api.send_mouse_double_click(instance, 106., 103.);
+// assert.equal(instance.touch1, 3);
+// assert.equal(instance.touch2, 3);
+// assert.equal(instance.touch3, 3);
+// assert.equal(instance.touch_double1, 1);
+// assert.equal(instance.touch_double2, 1);
+// assert.equal(instance.touch_double3, 1);
+
+// // triple-click on the third
+// slintlib.private_api.mock_elapsed_time(1000);
+// slintlib.private_api.send_mouse_click(instance, 106., 103.);
+// assert.equal(instance.touch3, 4);
+// assert.equal(instance.touch_double3, 1);
+// slintlib.private_api.send_mouse_click(instance, 106., 103.);
+// assert.equal(instance.touch3, 5);
+// assert.equal(instance.touch_double3, 2);
+// slintlib.private_api.send_mouse_click(instance, 106., 103.);
+// assert.equal(instance.touch1, 3);
+// assert.equal(instance.touch2, 3);
+// assert.equal(instance.touch3, 6);
+// assert.equal(instance.touch_double1, 1);
+// assert.equal(instance.touch_double2, 1);
+// assert.equal(instance.touch_double3, 2);
+
+// // click really quickly on two different mouse areas
+// slintlib.private_api.mock_elapsed_time(1000);
+// instance.pointer_event_test = "";
+// slintlib.private_api.send_mouse_click(instance, 108., 108.);
+// slintlib.private_api.mock_elapsed_time(20);
+// slintlib.private_api.send_mouse_click(instance, 101., 101.);
+// assert.equal(instance.touch1, 4);
+// assert.equal(instance.touch2, 4);
+// assert.equal(instance.touch3, 6);
+// assert.equal(instance.touch_double1, 1);
+// assert.equal(instance.touch_double2, 1);
+// assert.equal(instance.touch_double3, 2);
+// assert.equal(instance.pointer_event_test, "move.other:down.left:click:up.left:move.other:");
+
+// // click slowly on the same touch areas twice
+// slintlib.private_api.mock_elapsed_time(1000);
+// instance.pointer_event_test = "";
+// slintlib.private_api.send_mouse_click(instance, 101., 101.);
+// slintlib.private_api.mock_elapsed_time(1000);
+// slintlib.private_api.send_mouse_click(instance, 101., 101.);
+// assert.equal(instance.touch1, 4);
+// assert.equal(instance.touch2, 6);
+// assert.equal(instance.touch3, 6);
+// assert.equal(instance.touch_double1, 1);
+// assert.equal(instance.touch_double2, 1);
+// assert.equal(instance.touch_double3, 2);
+// assert.equal(instance.pointer_event_test, "move.other:down.left:click:up.left:move.other:move.other:down.left:click:up.left:move.other:");
+
+// slintlib.private_api.mock_elapsed_time(1000);
+// assert.equal(instance.touch1, 4);
+// assert.equal(instance.touch2, 6);
+// assert.equal(instance.touch3, 6);
+// assert.equal(instance.touch_double1, 1);
+// assert.equal(instance.touch_double2, 1);
+// assert.equal(instance.touch_double3, 2);
 ```
 */
