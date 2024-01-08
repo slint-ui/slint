@@ -1,0 +1,139 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { FluentPalette } from "styling.slint";
+
+export component Slider {
+    in property <Orientation> orientation: horizontal;
+    in property <float> maximum: 100;
+    in property <float> minimum: 0;
+    in property <bool> enabled <=> i-touch-area.enabled;
+    out property <bool> has-focus: i-focus-scope.has-focus;
+    in-out property <float> value;
+
+    callback changed( /* value */ float);
+
+    private property <bool> vertical: orientation == Orientation.vertical;
+
+    min-width: vertical ? 20px : 0px;
+    min-height: vertical ? 0px : 20px;
+    vertical-stretch: vertical ? 1 : 0;
+    horizontal-stretch: vertical ? 0 : 1;
+    accessible-role: slider;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: (root.maximum - root.minimum) / 100;
+
+    states [
+        disabled when !root.enabled : {
+            i-track.background: FluentPalette.accent-disabled;
+            i-rail.background: FluentPalette.accent-disabled;
+            i-thumb-inner.background: FluentPalette.accent-disabled;
+        }
+        pressed when ( i-touch-area.pressed &&  i-touch-area.has-hover) || i-focus-scope.has-focus : {
+            i-thumb-inner.width: 10px;
+            i-thumb-inner.background: FluentPalette.tertiary-accent-background;
+            i-thumb.border-color: FluentPalette.border;
+        }
+        hover when i-touch-area.has-hover : {
+            i-thumb-inner.width: 14px;
+            i-thumb-inner.background: FluentPalette.secondary-accent-background;
+        }
+    ]
+
+    i-rail := Rectangle {
+        width: vertical ? 4px : parent.width;
+        height: vertical ? parent.height : 4px;
+        background: FluentPalette.border;
+        border-radius: 2px;
+    }
+
+    i-track := Rectangle {
+        x: vertical ? (parent.width - self.width) / 2 : 0;
+        y: vertical ? 0 : (parent.height - self.height) / 2;
+        width: vertical ? i-rail.width : i-thumb.x + (i-thumb.width / 2);
+        height: vertical ? i-thumb.y + (i-thumb.height / 2) : i-rail.height;
+        background: FluentPalette.accent-background;
+        border-radius: i-rail.border-radius;
+    }
+
+    i-thumb := Rectangle {
+        x: vertical ? (parent.width - self.width) / 2 : (parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
+        y: vertical ? (parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum) : (parent.height - self.height) / 2;
+        width: 20px;
+        height: self.width;
+        border-radius: 10px;
+        background: FluentPalette.control-solid;
+
+        i-thumb-border := Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 21px;
+            height: self.width;
+            border-radius: 10.5px;
+            border-width: 1px;
+            border-color: FluentPalette.circle-border;
+        }
+
+        i-thumb-inner := Rectangle {
+            width: 12px;
+            height: self.width;
+            border-radius: self.width / 2;
+            background: FluentPalette.accent-background;
+
+            animate background, width { duration: 150ms; }
+        }
+    }
+
+    i-touch-area := TouchArea {
+        property <float> pressed-value;
+
+        width: parent.width;
+        height: parent.height;
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                self.pressed-value = root.value;
+            }
+        }
+
+        moved => {
+            if (!vertical && self.enabled && self.pressed) {
+                root.value = max(root.minimum, min(root.maximum,
+                    self.pressed-value + (i-touch-area.mouse-x - i-touch-area.pressed-x) * (root.maximum - root.minimum) / (root.width - i-thumb.width)));
+                root.changed(root.value);
+            }
+            if (vertical && self.enabled && self.pressed) {
+                root.value = max(root.minimum, min(root.maximum,
+                    self.pressed-value + (i-touch-area.mouse-y - i-touch-area.pressed-y) * (root.maximum - root.minimum) / (root.height - i-thumb.height)));
+                root.changed(root.value);
+            }
+        }
+    }
+
+    i-focus-scope := FocusScope {
+        x: 0;
+        y: 0;
+        width: 0;
+        height: 0;
+
+        key-pressed(event) => {
+            if (!vertical && self.enabled && event.text == Key.RightArrow) {
+                root.value = Math.min(root.value + 1, root.maximum);
+                accept
+            } else if (!vertical && self.enabled && event.text == Key.LeftArrow) {
+                root.value = Math.max(root.value - 1, root.minimum);
+                accept
+            } else if (vertical && self.enabled && event.text == Key.DownArrow) {
+                root.value = Math.min(root.value + 1, root.maximum);
+                accept
+            } else if (vertical && self.enabled && event.text == Key.UpArrow) {
+                root.value = Math.max(root.value - 1, root.minimum);
+                accept
+            } else {
+                reject
+            }
+        }
+    }
+}

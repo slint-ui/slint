@@ -1,0 +1,113 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { FluentFontSettings, FluentPalette, Icons } from "styling.slint";
+import { FocusBorder } from "components.slint";
+
+export component CheckBox {
+    in property <string> text;
+    in property <bool> enabled <=> i-touch-area.enabled;
+    out property <bool> has-focus: i-focus-scope.has-focus;
+    in-out property <bool> checked;
+
+    callback toggled;
+
+    private property <color> text-color: FluentPalette.text-secondary;
+
+    min-height: max(32px, i-layout.min-height);
+    accessible-checkable: true;
+    accessible-label: root.text;
+    accessible-checked <=> root.checked;
+    accessible-role: checkbox;
+
+    states [
+        disabled when !root.enabled : {
+            i-border.border-color: FluentPalette.control-strong-stroke-disabled;
+            i-background.background: root.checked ? FluentPalette.accent-disabled : FluentPalette.control-alt-disabled;
+            i-icon.colorize: FluentPalette.text-accent-foreground-disabled;
+            root.text-color: FluentPalette.text-disabled;
+        }
+        pressed when i-touch-area.pressed : {
+            i-border.border-color: FluentPalette.control-strong-stroke-disabled;
+            i-background.background: root.checked ? FluentPalette.tertiary-accent-background : FluentPalette.control-alt-quartiary;
+            i-icon.colorize: FluentPalette.text-accent-foreground-secondary;
+        }
+        hover when i-touch-area.has-hover : {
+            i-background.background: root.checked ?  FluentPalette.secondary-accent-background : FluentPalette.control-alt-tertiary;
+        }
+        checked when root.checked && root.enabled : {
+            i-background.background: FluentPalette.accent-background;
+        }
+    ]
+
+    animate text-color { duration: 200ms; }
+
+    i-layout := HorizontalLayout {
+        padding-left: 8px;
+        padding-right: root.text == "" ? 8px : 12px;
+        spacing: 12px;
+
+        i-background := Rectangle {
+            width: 18px;
+            height: self.width;
+            y: (parent.height - self.height) / 2;
+            background: FluentPalette.control-alt-secondary;
+            border-radius: 2px;
+
+            animate background, border-color { duration: 150ms; }
+
+            i-border := Rectangle {
+                border-color: FluentPalette.control-strong-stroke;
+                border-width: root.checked ? 0 : 1px;
+                border-radius: parent.border-radius;
+            }
+
+            i-icon := Image {
+                image-fit: contain;
+                visible: root.checked;
+                source: Icons.check-mark;
+                colorize: FluentPalette.accent-foreground;
+                width: 12px;
+
+                animate colorize { duration: 150ms; }
+            }
+        }
+
+        if (root.text != "") : Text {
+            text: root.text;
+            color: root.text-color;
+            font-size: FluentFontSettings.body.font-size;
+            font-weight: FluentFontSettings.body.font-weight;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+
+    i-touch-area := TouchArea {
+        clicked => {
+            if (root.enabled) {
+                root.checked = !root.checked;
+                root.toggled();
+            }
+        }
+    }
+
+    i-focus-scope := FocusScope {
+        x: 0;
+        width: 0; // Do not react on clicks
+        enabled <=> root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                i-touch-area.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    // focus border
+    if (root.has-focus && root.enabled) : FocusBorder {
+        border-radius: 4px;
+    }
+}

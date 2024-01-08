@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { CosmicPalette, CosmicFontSettings, Icons } from "styling.slint";
+import { SpinBoxBase } from "../common/spinbox-base.slint";
+import { StateLayer } from "components.slint";
+
+export component SpinBoxButton {
+    in property <string> text;
+
+    callback clicked <=> state-layer.clicked;
+
+    min-width: 32px;
+    min-height: 32px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    forward-focus: state-layer;
+
+    background := Rectangle {
+        border-radius: 16px;
+
+        animate background, border-color { duration: 150ms; }
+
+        text := Text {
+            font-size: CosmicFontSettings.body.font-size;
+            font-weight: CosmicFontSettings.body.font-weight;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            text: root.text;
+            color:CosmicPalette.control-foreground;
+        }
+    }
+
+    state-layer := StateLayer {
+        border-radius: background.border-radius;
+    }
+}
+
+export component SpinBox {
+    in property <int> minimum <=> base.minimum;
+    in property <int> maximum <=> base.maximum;
+    in property <bool> enabled <=> base.enabled;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <int> value <=> base.value;
+
+    callback edited <=> base.edited;
+
+    min-width: 112px;
+    min-height: 32px;
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+    accessible-role: spinbox;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: (root.maximum - root.minimum) / 100;
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.5;
+        }
+    ]
+
+    layout := HorizontalLayout {
+        spacing: 1px;
+
+        SpinBoxButton {
+            visible: root.enabled;
+            text: "-";
+
+            clicked => {
+                base.increment();
+            }
+        }
+
+        background := Rectangle {
+            clip: true;
+            horizontal-stretch: 1;
+            border-radius: 8px;
+            border-width: 1px;
+
+            base := SpinBoxBase {
+                color: CosmicPalette.control-foreground;
+                font-size: CosmicFontSettings.body.font-size;
+                font-weight: CosmicFontSettings.body.font-weight;
+                selection-background-color: CosmicPalette.selection-background;
+                selection-foreground-color: CosmicPalette.accent-foreground;
+                horizontal-alignment: center;
+            }
+
+            states [
+                focus when base.has-focus : {
+                    background.background: CosmicPalette.control-background;
+                    background.border-color: CosmicPalette.state-focus;
+                }
+            ]
+        }
+
+        SpinBoxButton {
+            visible: root.enabled;
+            text: "+";
+
+            clicked => {
+                base.decrement();
+            }
+        }
+    }
+}

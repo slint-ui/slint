@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { ColorSchemeSelector } from "color-scheme.slint";
+
+export struct TextStyle {
+    font-size: relative-font-size,
+    font-weight: int,
+}
+
+export global CosmicFontSettings {
+    out property <int> light-font-weight: 300;
+    out property <int> regular-font-weight: 400;
+    out property <int> semibold-font-weight: 600;
+    out property <TextStyle> body: {
+        font-size: 15 * 0.0769rem,
+        font-weight: regular-font-weight
+    };
+    out property <TextStyle> body-strong: {
+        font-size: 15 * 0.0769rem,
+        font-weight: semibold-font-weight
+    };
+}
+
+export global CosmicPalette {
+    in-out property <bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
+
+    // base palette
+    out property <brush> background: dark-color-scheme ? #1B1B1B : #D7D7D7;
+    out property <brush> foreground: dark-color-scheme ? #C4C4C4 : #292929;
+    out property <brush> alternate-background: dark-color-scheme ? #2E2E2E : #F2F2F2;
+    out property <brush> alternate-foreground: dark-color-scheme ? #DEDEDE : #000000E6;
+    out property <brush> control-background: dark-color-scheme ? #262626 : #C7C7C7;
+    out property <brush> control-foreground: dark-color-scheme ? #C4C4C4 : #3D3D3D;
+    out property <brush> accent-background: dark-color-scheme ? #63D0DF : #00525A;
+    out property <brush> accent-foreground: dark-color-scheme ? #161616 : #FFFFFF;
+    out property <brush> selection-background: dark-color-scheme ? #63D0DF : #00525A;
+    out property <brush> selection-foreground: dark-color-scheme ? #161616 : #FFFFFF;
+    out property <brush> border: dark-color-scheme ? #C4C4C433 : #29292933;
+
+    // additional cosmic palette
+    out property <brush> state-hover: #63636333;
+    out property <brush> state-pressed: dark-color-scheme ? #16161680 : #BEBEBE80;
+    out property <brush> state-selected: dark-color-scheme ? #4D4D4D4D : #98989833;
+    out property <brush> state-focus: dark-color-scheme ? #63D0DF : #00525A;
+    out property <brush> alternate-border: dark-color-scheme ? #BEBEBE : #161616;
+    out property <brush> control-divider: dark-color-scheme ? #DEDEDE33 : #3D3D3D33;
+    out property <brush> shadow: dark-color-scheme ? #00000052 : #00000014;
+    out property <brush> accent-text: dark-color-scheme ? #63D0DF : #00525A;
+    out property <brush> placeholder-foreground: dark-color-scheme ? #959595 : #585858;
+    out property <brush> neutral-5-background: #636363;
+    out property <brush> neutral-6-background: dark-color-scheme ? #808080 :#484848;
+
+    out property <brush> control-disabled: dark-color-scheme ? #212121 :#cfcfcf;
+    out property <brush> text-disabled: dark-color-scheme ? #707070 :#808080;
+}
+
+export global Icons {
+    out property <image> arrow-down: @image-url("_arrow-down.svg");
+    out property <image> arrow-up: @image-url("_arrow-up.svg");
+    out property <image> check-mark: @image-url("_check-mark.svg");
+    out property <image> chevron-down: @image-url("_chevron-down.svg");
+    out property <image> chevron-up: @image-url("_chevron-up.svg");
+    out property <image> down: @image-url("_down.svg");
+    out property <image> dropdown: @image-url("_dropdown.svg");
+    out property <image> left: @image-url("_left.svg");
+    out property <image> right: @image-url("_right.svg");
+    out property <image> up: @image-url("_up.svg");
+}

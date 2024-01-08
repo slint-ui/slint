@@ -1,0 +1,153 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { FluentPalette, FluentFontSettings } from "styling.slint";
+import { FocusBorder } from "components.slint";
+
+export component TabWidgetImpl inherits Rectangle {
+    in property <length> tabbar-preferred-height;
+    in property <length> tabbar-preferred-width;
+    in property <length> content-min-height;
+    in property <length> content-min-width;
+    in property <int> current-index;
+    in property <int> current-focused;
+    out property <length> content-x: 0;
+    out property <length> content-y: root.tabbar-preferred-height;
+    out property <length> content-height: root.height - root.tabbar-preferred-height;
+    out property <length> content-width: root.width;
+    out property <length> tabbar-x: 0;
+    out property <length> tabbar-y: 0;
+    out property <length> tabbar-height: root.tabbar-preferred-height;
+    out property <length> tabbar-width: root.width;
+
+    preferred-width: root.content-min-width;
+    min-width: max(root.content-min-width, root.tabbar-preferred-width);
+    preferred-height: root.content-min-height + root.tabbar-preferred-height;
+    min-height: root.content-min-height + root.tabbar-preferred-height;
+}
+
+export component TabImpl inherits Rectangle {
+    in property <int> current-focused; // The currently focused tab
+    in property <int> tab-index; // The index of this tab
+    in property <int> num-tabs; // The total number of tabs
+    in property <string> title <=> i-text.text;
+    in property <bool> enabled: true;
+    out property <bool> has-focus: root.current-focused == root.tab-index;
+    in-out property <int> current; // The currently selected tab
+
+    private property <bool> hide-right-border: root.tab-index == root.num-tabs - 1 || tab-index + 1 == current;
+    private property <bool> is-current: root.tab-index == root.current;
+
+    min-width: max(160px, i-text.min-width);
+    min-height: max(32px, i-text.min-height);
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    accessible-role: tab;
+    accessible-label: root.title;
+
+    Rectangle {
+        clip: true;
+        width: 100%;
+        height: 100%;
+
+        i-background := Rectangle {
+            y: 1px;
+            width: 100%;
+            height: parent.height + self.border-radius;
+            border-radius: 7px;
+            border-width: root.is-current ? 1px : 0px;
+            border-color: FluentPalette.card-stroke;
+            background: i-touch-area.pressed || root.is-current ? FluentPalette.layer-on-mica-base-alt :
+                i-touch-area.has-hover ? FluentPalette.layer-on-mica-base-alt-secondary : transparent;
+        }
+    }
+
+    i-touch-area := TouchArea {
+        enabled <=> root.enabled;
+
+        clicked => {
+            root.current = root.tab-index;
+        }
+    }
+
+    i-layout := HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+
+        i-text := Text {
+            vertical-alignment: center;
+            horizontal-alignment: left;
+            font-size: root.is-current ? FluentFontSettings.body-strong.font-size : FluentFontSettings.body.font-size;
+            font-weight: root.is-current ? FluentFontSettings.body-strong.font-weight : FluentFontSettings.body.font-weight;
+            color: root.is-current ? FluentPalette.control-foreground : FluentPalette.text-secondary;
+        }
+    }
+
+    if (!root.is-current && !root.hide-right-border && !i-touch-area.has-hover && !i-touch-area.pressed) : Rectangle {
+        x: (parent.width - self.width);
+        width: 2px;
+        height: 16px;
+        background: FluentPalette.divider;
+    }
+
+    if (!root.is-current && !i-touch-area.has-hover && !i-touch-area.pressed) : Rectangle {
+        y: (parent.height - self.height);
+        width: 100%;
+        height: 1px;
+        background: FluentPalette.divider;
+    }
+
+    // focus border
+    if (root.has-focus && root.enabled) : FocusBorder {
+        border-radius: i-background.border-radius;
+    }
+}
+
+export component TabBarImpl {
+    // injected properties:
+    in-out property <int> current; // The currently selected tab
+    in-out property <int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1; // The currently focused tab
+    in-out property <int> num-tabs; // The total number of tabs
+
+    HorizontalLayout {
+        alignment: start;
+
+        @children
+    }
+
+    accessible-role: tab;
+    accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
+
+    i-focus-scope := FocusScope {
+        property <int> focused-tab: 0;
+
+        x: 0;
+        width: 0px; // Do not react on clicks
+
+        key-pressed(event) => {
+            if (event.text == "\n") {
+                 root.current = root.current-focused;
+                 return accept;
+            }
+            if (event.text == Key.LeftArrow) {
+                 self.focused-tab = Math.max(self.focused-tab - 1,  0);
+                 return accept;
+            }
+            if (event.text == Key.RightArrow) {
+                 self.focused-tab = Math.min(self.focused-tab + 1, root.num-tabs - 1);
+                 return accept;
+            }
+            return reject;
+        }
+
+        key-released(event) => {
+            if (event.text == " ") {
+                 root.current = root.current-focused;
+                 return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+export component TabWidget inherits TabWidget {}

@@ -1,0 +1,122 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { CosmicPalette } from "styling.slint";
+import { StateLayerBase } from "components.slint";
+
+export component Slider {
+    in property <Orientation> orientation: horizontal;
+    in property <float> maximum: 100;
+    in property <float> minimum: 0;
+    in property <bool> enabled <=> touch-area.enabled;
+    out property <bool> has-focus: focus-scope.has-focus;
+    in-out property <float> value;
+
+    callback changed( /* value */ float);
+
+    private property <bool> vertical: orientation == Orientation.vertical;
+
+    min-width: vertical ? 20px : 0px;
+    min-height: vertical ? 0px : 20px;
+    vertical-stretch: vertical ? 1 : 0;
+    horizontal-stretch: vertical ? 0 : 1;
+    accessible-role: slider;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: (root.maximum - root.minimum) / 100;
+
+    states [
+        disabled when !root.enabled : {
+            opacity: 0.5;
+        }
+    ]
+
+    rail := Rectangle {
+        width: vertical ? 4px : parent.width;
+        height: vertical ? parent.height : 4px;
+        background: CosmicPalette.neutral-6-background;
+        border-radius: 2px;
+    }
+
+    track := Rectangle {
+        x: vertical ? (parent.width - self.width) / 2 : 0;
+        y: vertical ? 0 : (parent.height - self.height) / 2;
+        width: vertical ? rail.width : thumb.x + (thumb.width / 2);
+        height: vertical ? thumb.y + (thumb.height / 2) : rail.height;
+        background: CosmicPalette.accent-background;
+        border-radius: rail.border-radius;
+        opacity: 0.75;
+    }
+
+    thumb := Rectangle {
+        x: vertical ? (parent.width - self.width) / 2 : (parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
+        y: vertical ? (parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum) : (parent.height - self.height) / 2;
+        width: 20px;
+        height: self.width;
+        border-radius: 10px;
+        background: CosmicPalette.accent-background;
+
+        StateLayerBase {
+            width: parent.width + 8px;
+            height: parent.height + 8px;
+            border-radius: max(self.width, self.height) / 2;
+            enabled: touch-area.enabled;
+            focus-boder-margin: 0px;
+            pressed: touch-area.pressed;
+            has-hover: touch-area.has-hover;
+            has-focus: focus-scope.has-focus;
+        }
+    }
+
+    touch-area := TouchArea {
+        property <float> pressed-value;
+
+        width: parent.width;
+        height: parent.height;
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                self.pressed-value = root.value;
+            }
+        }
+
+        moved => {
+            if (!vertical && self.enabled && self.pressed) {
+                root.value = max(root.minimum, min(root.maximum,
+                    self.pressed-value + (touch-area.mouse-x - touch-area.pressed-x) * (root.maximum - root.minimum) / (root.width - thumb.width)));
+                root.changed(root.value);
+            }
+            if (vertical && self.enabled && self.pressed) {
+                root.value = max(root.minimum, min(root.maximum,
+                    self.pressed-value + (touch-area.mouse-y - touch-area.pressed-y) * (root.maximum - root.minimum) / (root.height - thumb.height)));
+                root.changed(root.value);
+            }
+        }
+    }
+
+    focus-scope := FocusScope {
+        x: 0;
+        y: 0;
+        width: 0;
+        height: 0;
+
+        key-pressed(event) => {
+            if (!vertical && self.enabled && event.text == Key.RightArrow) {
+                root.value = Math.min(root.value + 1, root.maximum);
+                accept
+            } else if (!vertical && self.enabled && event.text == Key.LeftArrow) {
+                root.value = Math.max(root.value - 1, root.minimum);
+                accept
+            } else if (vertical && self.enabled && event.text == Key.DownArrow) {
+                root.value = Math.min(root.value + 1, root.maximum);
+                accept
+            } else if (vertical && self.enabled && event.text == Key.UpArrow) {
+                root.value = Math.max(root.value - 1, root.minimum);
+                accept
+            } else {
+                reject
+            }
+        }
+    }
+}

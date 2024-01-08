@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { ColorSchemeSelector } from "color-scheme.slint";
+
+import { Button } from "button.slint";
+export { Button }
+
+import { ScrollView } from "scrollview.slint";
+export { ScrollView }
+
+import { ListItem } from "components.slint";
+export { ListItem }
+
+import { FluentPalette, FluentFontSettings } from "styling.slint";
+
+export global StyleMetrics  {
+    out property <length> layout-spacing: 8px;
+    out property <length> layout-padding: 8px;
+    out property <length> text-cursor-width: 1px;
+    out property <color> window-background: FluentPalette.background;
+    out property <color> default-text-color: FluentPalette.foreground;
+    out property <color> textedit-background: FluentPalette.background;
+    out property <color> textedit-text-color: FluentPalette.foreground;
+    out property <color> textedit-background-disabled: FluentPalette.control-disabled;
+    out property <color> textedit-text-color-disabled: FluentPalette.text-disabled;
+    out property <bool> dark-color-scheme: FluentPalette.dark-color-scheme;
+}
+
+export global Palette {
+    out property <brush> background: FluentPalette.background;
+    out property <brush> foreground: FluentPalette.foreground;
+    out property <brush> alternate-background: FluentPalette.alternate-background;
+    out property <brush> alternate-foreground: FluentPalette.alternate-foreground;
+    out property <brush> control-background: FluentPalette.control-background;
+    out property <brush> control-foreground: FluentPalette.control-foreground;
+    out property <brush> accent-background: FluentPalette.accent-background;
+    out property <brush> accent-foreground: FluentPalette.accent-foreground;
+    out property <brush> selection-background: FluentPalette.selection-background;
+    out property <brush> selection-foreground: FluentPalette.selection-foreground;
+    out property <brush> border: FluentPalette.border;
+}

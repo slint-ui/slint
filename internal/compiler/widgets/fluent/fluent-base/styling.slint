@@ -1,0 +1,95 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { ColorSchemeSelector } from "color-scheme.slint";
+
+export struct TextStyle {
+    font-size: relative-font-size,
+    font-weight: int,
+}
+
+export global FluentFontSettings {
+    out property <int> light-font-weight: 300;
+    out property <int> regular-font-weight: 400;
+    out property <int> semibold-font-weight: 600;
+    out property <TextStyle> body: {
+        font-size: 14 * 0.0769rem,
+        font-weight: regular-font-weight
+    };
+    out property <TextStyle> body-strong: {
+        font-size: 14 * 0.0769rem,
+        font-weight: semibold-font-weight
+    };
+}
+
+export global FluentPalette {
+    in-out property <bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
+
+    // base palette
+    out property <brush> background: dark-color-scheme ? #1C1C1C : #FAFAFA;
+    out property <brush> foreground: dark-color-scheme ? #FFFFFF : #000000E6;
+    out property <brush> alternate-background: dark-color-scheme ? #2C2C2C : #f0f0f0;
+    out property <brush> alternate-foreground: dark-color-scheme ? #FFFFFF : #000000E6;
+    out property <brush> control-background: dark-color-scheme ? #FFFFFF0F : #FFFFFFB3;
+    out property <brush> control-foreground: dark-color-scheme ? #FFFFFF : #000000E6;
+    out property <brush> accent-background: dark-color-scheme ? #60CDFF : #005FB8;
+    out property <brush> accent-foreground: dark-color-scheme ? #000000 : #FFFFFF;
+    out property <brush> selection-background: #0078D4;
+    out property <brush> selection-foreground: dark-color-scheme ? #000000 : #FFFFFF;
+    out property <brush> border: dark-color-scheme ? #FFFFFF14 : #00000073;
+
+    // additional palette
+    out property <brush> secondary-accent-background: dark-color-scheme ? #60CDFFE6 : #005FB8E6;
+    out property <brush> tertiary-accent-background: dark-color-scheme ? #60CDFFCC : #005FB8CC;
+    out property <brush> accent-disabled: dark-color-scheme ? #FFFFFF29 : #00000038;
+    out property <brush> accent-control-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF14 90.67%, #00000024 100%)
+        : @linear-gradient(180deg, #FFFFFF14 90.67%, #00000066 100%);
+    out property <brush> control-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF17 0%, #00000012 8.33%)
+        : @linear-gradient(180deg, #0000000F 90.58%, #00000029 100%);
+    out property <brush> text-accent-foreground-secondary: dark-color-scheme ? #00000080 : #FFFFFFB3;
+    out property <brush> text-accent-foreground-disabled: dark-color-scheme ? #FFFFFF87 : #FFFFFF;
+    out property <brush> text-secondary: dark-color-scheme ? #FFFFFFC9 : #00000099;
+    out property <brush> text-tertiary: dark-color-scheme ? #FFFFFF8A : #00000073;
+    out property <brush> text-disabled: dark-color-scheme ? #FFFFFF5E : #0000005E;
+    out property <brush> text-control-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF14 99.98%, #FFFFFF8A 100%, #FFFFFF8A 100%)
+        : @linear-gradient(180deg, #0000000F 99.99%, #00000073 100%, #00000073 100%);
+    out property <brush> control-secondary: dark-color-scheme ? #FFFFFF14 : #F9F9F980;
+    out property <brush> control-tertiary: dark-color-scheme ? #FFFFFF08 : #F9F9F94D;
+    out property <brush> control-disabled: dark-color-scheme ? #FFFFFF0A : #F9F9F94D;
+    out property <brush> control-alt-secondary: dark-color-scheme ? #0000001A : #00000005;
+    out property <brush> control-alt-tertiary: dark-color-scheme ? #FFFFFF0A : #0000000F;
+    out property <brush> control-alt-quartiary: dark-color-scheme ? #FFFFFF12 : #00000017;
+    out property <brush> control-alt-disabled: transparent;
+    out property <brush> control-strong-stroke: dark-color-scheme ? #FFFFFF99 : #00000099;
+    out property <brush> control-strong-stroke-disabled: dark-color-scheme ? #FFFFFF29 : #00000038;
+    out property <brush> control-solid: dark-color-scheme ? #454545: #FFFFFF;
+    out property <brush> circle-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF17 0%, #FFFFFF12 100%)
+    : @linear-gradient(180deg, #0000000F 0%, #00000029 100%);
+    out property <brush> control-input-active: dark-color-scheme ? #1E1E1EB3 : #FFFFFF;
+    out property <brush> focus-stroke-inner: dark-color-scheme ? #000000B3 : #FFFFFF;
+    out property <brush> focus-stroke-outer: dark-color-scheme ? #FFFFFF : #000000E6;
+    out property <brush> control-background-stroke-flyout: dark-color-scheme ? #00000033 : #0000000F;
+    out property <brush> sub-title-secondary: dark-color-scheme ? #FFFFFF0F : #0000000A;
+    out property <brush> sub-title-tertiary: dark-color-scheme ? #FFFFFF0A : #00000005;
+    out property <brush> shadow: dark-color-scheme ? #00000042 : #00000024;
+    out property <brush> subtle: dark-color-scheme ? #FFFFFF0F : #0000000A;
+    out property <brush> subtle-secondary: dark-color-scheme ? #FFFFFF0F : #0000000A;
+    out property <brush> subtle-tertiary: dark-color-scheme ? #FFFFFF0A : #00000005;
+    out property <brush> divider: dark-color-scheme ? #FFFFFF14 : #00000014;
+    out property <brush> layer-on-mica-base-alt: dark-color-scheme ? #3A3A3A73 : #FFFFFFB3;
+    out property <brush> layer-on-mica-base-alt-secondary: dark-color-scheme ? #FFFFFF0F : #0000000A;
+    out property <brush> card-stroke: dark-color-scheme ? #0000001A : #0000000F;
+}
+
+export global Icons {
+    out property <image> arrow-down: @image-url("_arrow-down.svg");
+    out property <image> arrow-up: @image-url("_arrow-up.svg");
+    out property <image> check-mark: @image-url("_check-mark.svg");
+    out property <image> chevron-down: @image-url("_chevron-down.svg");
+    out property <image> chevron-up: @image-url("_chevron-up.svg");
+    out property <image> down: @image-url("_down.svg");
+    out property <image> dropdown: @image-url("_dropdown.svg");
+    out property <image> left: @image-url("_left.svg");
+    out property <image> right: @image-url("_right.svg");
+    out property <image> up: @image-url("_up.svg");
+}

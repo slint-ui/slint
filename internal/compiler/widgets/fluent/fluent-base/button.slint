@@ -1,0 +1,119 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { FluentFontSettings, FluentPalette } from "styling.slint";
+import { FocusBorder } from "components.slint";
+
+export component Button {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> primary;
+    in property <bool> enabled <=> i-touch-area.enabled;
+    in property <bool> checkable;
+    in property <bool> colorize-icon;
+    out property <bool> has-focus: i-focus-scope.has-focus;
+    out property <bool> pressed: self.enabled && i-touch-area.pressed;
+    in-out property <bool> checked;
+
+    callback clicked;
+
+    private property <brush> text-color: primary || checked ? FluentPalette.accent-foreground : FluentPalette.control-foreground;
+
+    min-width: max(32px, i-layout.min-width);
+    min-height: max(32px, i-layout.min-height);
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    accessible-label: text;
+    accessible-role: button;
+    forward-focus: i-focus-scope;
+
+    states [
+        disabled when !root.enabled : {
+            i-background.background: root.primary || root.checked ? FluentPalette.accent-disabled : FluentPalette.control-disabled;
+            i-border.border-color: root.primary || root.checked ? transparent : FluentPalette.border;
+            root.text-color: root.primary || root.checked ? FluentPalette.text-accent-foreground-disabled : FluentPalette.text-disabled;
+        }
+        pressed when root.pressed : {
+            i-background.background: root.primary || root.checked ? FluentPalette.tertiary-accent-background : FluentPalette.control-tertiary;
+            i-border.border-color: FluentPalette.border;
+            root.text-color: root.primary || root.checked ? FluentPalette.text-accent-foreground-secondary : FluentPalette.text-secondary;
+        }
+        hover when i-touch-area.has-hover : {
+            i-background.background: root.primary || root.checked ? FluentPalette.secondary-accent-background : FluentPalette.control-secondary;
+        }
+        checked when root.checked : {
+            i-background.background: FluentPalette.accent-background;
+            i-border.border-color: FluentPalette.accent-control-border;
+            root.text-color: FluentPalette.accent-foreground;
+        }
+    ]
+
+    i-background := Rectangle {
+        border-radius: 4px;
+        background: root.primary ? FluentPalette.accent-background : FluentPalette.control-background;
+
+        animate background, border-color { duration: 150ms; }
+
+        i-border := Rectangle {
+            border-radius: parent.border-radius;
+            border-width: 1px;
+            border-color: root.primary ? FluentPalette.accent-control-border : FluentPalette.control-border;
+        }
+
+        i-layout := HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            spacing: 4px;
+            alignment: center;
+
+            if (root.icon.width > 0 && root.icon.height > 0) : Image {
+                y: (parent.height - self.height) / 2;
+                source <=> root.icon;
+                width: 20px;
+                colorize: root.colorize-icon ? root.text-color : transparent;
+            }
+
+            if (root.text != ""): Text {
+                font-size: FluentFontSettings.body.font-size;
+                font-weight: FluentFontSettings.body.font-weight;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                text: root.text;
+                color: root.text-color;
+
+                animate color { duration: 150ms; }
+            }
+        }
+    }
+
+    i-touch-area := TouchArea {
+        clicked => {
+            if (root.checkable) {
+                root.checked = !root.checked;
+            }
+            root.clicked();
+        }
+    }
+
+    i-focus-scope := FocusScope {
+        x: 0;
+        width: 0; // Do not react on clicks
+        enabled <=> root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                i-touch-area.clicked();
+                 return accept;
+            }
+
+            return reject;
+        }
+    }
+
+    // focus border
+    if (root.has-focus && root.enabled) : FocusBorder {
+        border-radius: i-background.border-radius;
+    }
+}

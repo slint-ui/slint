@@ -1,0 +1,179 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { FluentPalette, Icons } from "styling.slint";
+
+component ScrollViewButton inherits TouchArea {
+    in property <image> icon;
+
+    width: 8px;
+    height: 8px;
+
+    i-icon := Image {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: parent.width;
+        source: root.icon;
+        colorize: FluentPalette.border;
+
+        animate colorize, opacity { duration: 150ms; }
+        animate width, height { duration: 150ms; easing: ease-out; }
+    }
+
+    states [
+        pressed when root.pressed : {
+            opacity: 1;
+            i-icon.width: 6px;
+        }
+        hover when root.has-hover : {
+            opacity: 1;
+            i-icon.colorize: FluentPalette.text-secondary;
+        }
+    ]
+}
+
+component ScrollBar inherits Rectangle {
+    in-out property <bool> horizontal;
+    in-out property <length> maximum;
+    in-out property <length> page-size;
+    in-out property <length> value;
+    in property <bool> enabled;
+
+    private property <length> offset: 16px;
+    private property <length> size: 2px;
+    private property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
+    private property <length> step-size: 10px;
+
+    border-width: 1px;
+    border-radius: 7px;
+
+    states [
+        hover when i-touch-area.has-hover || i-down-scroll-button.has-hover || i-up-scroll-button.has-hover : {
+            root.background: FluentPalette.alternate-background;
+            root.size: 6px;
+            i-up-scroll-button.opacity: 1;
+            i-down-scroll-button.opacity: 1;
+        }
+    ]
+
+    animate size { duration: 150ms; easing: ease-out; }
+
+    i-thumb := Rectangle {
+        width: !root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(16px, root.track-size * root.page-size / (root.maximum + root.page-size));
+        height: root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(16px, root.track-size * (root.page-size / (root.maximum + root.page-size)));
+        x: !root.horizontal ? parent.width - 4px - self.width : root.offset + (root.track-size - i-thumb.width) * (-root.value / root.maximum);
+        y: root.horizontal ? parent.height - 4px - self.height : root.offset + (root.track-size - i-thumb.height) * (-root.value / root.maximum);
+        border-radius: (root.horizontal ? self.height : self.width) / 2;
+        background: FluentPalette.border;
+
+        animate width, height { duration: 150ms; easing: ease-out; }
+    }
+
+    i-touch-area := TouchArea {
+        property <length> pressed-value;
+
+        width: parent.width;
+        height: parent.height;
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                self.pressed-value = -root.value;
+            }
+        }
+
+        moved => {
+            if (self.enabled && self.pressed) {
+                root.value = -max(0px, min(root.maximum, self.pressed-value + (
+                    root.horizontal ? (i-touch-area.mouse-x - i-touch-area.pressed-x) * (root.maximum / (root.track-size - i-thumb.width))
+                               : (i-touch-area.mouse-y - i-touch-area.pressed-y) * (root.maximum / (root.track-size - i-thumb.height))
+                )));
+            }
+        }
+
+        scroll-event(event) => {
+            if (root.horizontal && event.delta-x != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-x));
+                return accept;
+            } else if (!root.horizontal && event.delta-y != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-y));
+                return accept;
+            }
+            reject
+        }
+    }
+
+    i-up-scroll-button := ScrollViewButton {
+        opacity: 0;
+        x: !root.horizontal ? (parent.width - self.width) / 2 : 4px;
+        y: root.horizontal ? (parent.height - self.height) / 2 : 4px;
+        icon: root.horizontal ? Icons.left : Icons.up;
+
+        clicked => {
+            root.value = min(0px, root.value + root.step-size);
+        }
+    }
+
+    i-down-scroll-button := ScrollViewButton {
+        opacity: 0;
+        x: !root.horizontal ? (parent.width - self.width) / 2 : root.width - self.width - 4px;
+        y: root.horizontal ? (parent.height - self.height) / 2 : root.height - self.height - 4px;
+        icon: root.horizontal ? Icons.right : Icons.down;
+
+        clicked => {
+            root.value = max(-root.maximum, root.value - root.step-size);
+        }
+    }
+}
+
+export component ScrollView {
+    in property <bool> enabled: true;
+    out property <length> visible-width <=> i-flickable.width;
+    out property <length> visible-height <=> i-flickable.height;
+    in-out property <length> viewport-width <=> i-flickable.viewport-width;
+    in-out property <length> viewport-height <=> i-flickable.viewport-height;
+    in-out property <length> viewport-x <=> i-flickable.viewport-x;
+    in-out property <length> viewport-y <=> i-flickable.viewport-y;
+    // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
+    in-out property <bool> has-focus;
+
+    min-height: 50px;
+    min-width: 50px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    preferred-height: 100%;
+    preferred-width: 100%;
+
+    i-flickable := Flickable {
+        interactive: false;
+        viewport-y <=> i-vertical-bar.value;
+        viewport-x <=> i-horizontal-bar.value;
+        width: parent.width;
+        height: parent.height;
+
+        @children
+    }
+
+    i-vertical-bar := ScrollBar {
+        enabled: root.enabled;
+        width: 14px;
+        x: i-flickable.width + i-flickable.x - self.width;
+        y: i-flickable.y;
+        height:  i-flickable.height;
+        horizontal: false;
+        maximum:  i-flickable.viewport-height - i-flickable.height;
+        page-size:  i-flickable.height;
+        visible: i-flickable.viewport-height > i-flickable.height;
+    }
+
+    i-horizontal-bar := ScrollBar {
+        enabled: root.enabled;
+        width:  i-flickable.width;
+        height: 14px;
+        y: i-flickable.height + i-flickable.y - self.height;
+        x: i-flickable.x;
+        horizontal: true;
+        maximum:  i-flickable.viewport-width - i-flickable.width;
+        page-size:  i-flickable.width;
+        visible: i-flickable.viewport-width > i-flickable.width;
+    }
+}

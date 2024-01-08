@@ -1,0 +1,85 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { CosmicFontSettings, CosmicPalette } from "styling.slint";
+import { LineEditBase} from "../common/lineedit-base.slint";
+
+export component LineEdit {
+    in property <bool> enabled <=> base.enabled;
+    in property <InputType> input-type <=> base.input-type;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
+    in property <bool> read-only <=> base.read-only;
+    in property <length> font-size <=> base.font-size;
+    in property <string> placeholder-text <=> base.placeholder-text;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <string> text <=> base.text;
+
+    callback accepted <=> base.accepted;
+    callback edited <=> base.edited;
+
+    public function set-selection-offsets(start: int, end: int) {
+        base.set-selection-offsets(start, end);
+    }
+
+    public function select-all() {
+        base.select-all();
+    }
+
+    public function clear-selection() {
+        base.clear-selection();
+    }
+
+    public function cut() {
+        base.cut();
+    }
+
+    public function copy() {
+        base.copy();
+    }
+
+    public function paste() {
+        base.paste();
+    }
+
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+    min-width: max(160px, layout.min-width);
+    min-height: max(32px, layout.min-height);
+    forward-focus: base;
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.5;
+        }
+    ]
+
+    background := Rectangle {
+        border-radius: 8px;
+        background: CosmicPalette.control-background;
+        border-width: 1px;
+        border-color: CosmicPalette.control-divider;
+
+        layout := HorizontalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+
+            base := LineEditBase {
+                font-size: CosmicFontSettings.body.font-size;
+                font-weight: CosmicFontSettings.body.font-weight;
+                selection-background-color: CosmicPalette.selection-background;
+                selection-foreground-color: CosmicPalette.accent-foreground;
+                text-color: CosmicPalette.foreground;
+                placeholder-color: CosmicPalette.placeholder-foreground;
+                margin: layout.padding-left + layout.padding-right;
+            }
+        }
+
+         if (root.has-focus && root.enabled) : Rectangle {
+            width: parent.width + 2px;
+            height: parent.height + 2px;
+            border-radius: parent.border-radius + 2px;
+            border-color: CosmicPalette.state-focus;
+            border-width: 1px;
+        }
+    }
+}

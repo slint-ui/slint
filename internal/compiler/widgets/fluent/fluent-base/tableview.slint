@@ -1,0 +1,296 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { FluentPalette, FluentFontSettings, Icons } from "styling.slint";
+import { ListView } from "../common/listview.slint";
+
+component TableViewColumn inherits Rectangle {
+    in property <SortOrder> sort-order: SortOrder.unsorted;
+
+    callback clicked <=> i-touch-area.clicked;
+    callback adjust_size(length);
+
+    background: FluentPalette.background;
+
+    states [
+        pressed when i-touch-area.pressed : {
+            background: FluentPalette.control-secondary;
+        }
+        hover when i-touch-area.has-hover : {
+            background: FluentPalette.sub-title-tertiary;
+        }
+    ]
+
+    i-touch-area := TouchArea {
+        width: parent.width - 11px;
+    }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 2px;
+
+        HorizontalLayout {
+            @children
+        }
+
+        i-icon := Image {
+            image-fit: contain;
+            colorize: FluentPalette.text-secondary;
+            visible: root.sort-order != SortOrder.unsorted;
+            width: 12px;
+            y: (parent.height - self.height) / 2;
+            source: root.sort-order == SortOrder.ascending ? Icons.arrow-down : Icons.arrow-up;
+
+            animate colorize { duration: 150ms; }
+        }
+    }
+
+    // border
+    Rectangle {
+        y: parent.height - self.height;
+        width: 100%;
+        height: 1px;
+        background: FluentPalette.divider;
+    }
+
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+
+        states [
+            hover when i-movable-touch-area.has-hover : {
+                background: FluentPalette.control-secondary;
+            }
+        ]
+
+        animate background { duration: 150ms; }
+
+        i-movable-touch-area := TouchArea {
+            width: 10px;
+            mouse-cursor: ew-resize;
+
+            moved => {
+                if (self.pressed) {
+                    adjust_size(self.mouse-x - self.pressed-x);
+                }
+            }
+        }
+    }
+}
+
+component TableViewCell inherits Rectangle {
+    clip: true;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 9px;
+        padding-bottom: 9px;
+
+        @children
+    }
+}
+
+component TableViewRow inherits Rectangle {
+    in property <bool> selected;
+    in property <bool> even;
+
+    callback clicked <=> i-touch-area.clicked;
+    callback pointer-event(/* event */ PointerEvent, /* absolute mouse position */ Point);
+
+    min-width: i-layout.min-width;
+    min-height: max(34px, i-layout.min-height);
+    border-radius: 4px;
+    background: root.even ? FluentPalette.control-background : transparent;
+
+    states [
+        pressed when i-touch-area.pressed : {
+            root.background: selected ? FluentPalette.subtle-secondary : FluentPalette.subtle-tertiary;
+        }
+        hover when i-touch-area.has-hover : {
+            root.background: selected ? FluentPalette.subtle-tertiary : FluentPalette.subtle-secondary;
+            i-selector.height: root.selected ? 16px : 0;
+        }
+        selected when root.selected : {
+            root.background: FluentPalette.subtle-secondary;
+            i-selector.height: 16px;
+        }
+    ]
+
+    i-touch-area := TouchArea {
+        pointer-event(pe) => {
+            root.pointer-event(pe, {
+                x: self.absolute-position.x + self.mouse-x,
+                y: self.absolute-position.y + self.mouse-y,
+            });
+        }
+    }
+
+    i-layout := HorizontalLayout {
+       @children
+    }
+
+    i-selector := Rectangle {
+        x: 0px;
+        y: (parent.height - self.height) / 2;
+        width: 3px;
+        height: 0px;
+        background: FluentPalette.accent-background;
+        border-radius: 2px;
+
+        animate height { duration: 150ms; easing: ease-out; }
+    }
+}
+
+export component StandardTableView {
+    in property <[[StandardListViewItem]]> rows;
+    out property <int> current-sort-column: -1;
+    in-out property <[TableColumn]> columns;
+    in-out property <int> current-row: -1;
+
+    callback sort-ascending(/* column-index */ int);
+    callback sort-descending(/* column-index */ int);
+    callback row-pointer-event(/* row-index */ int, /* event */ PointerEvent,  /* absolute mouse position */ Point);
+    callback current-row-changed(/* current-row */ int);
+
+    public function set-current-row(index: int) {
+        if (index < 0 || index >= rows.length) {
+            return;
+        }
+
+        current-row = index;
+        current-row-changed(current-row);
+
+        if (current-item-y < 0) {
+            i-scroll-view.viewport-y += 0 - current-item-y;
+        }
+
+        if (current-item-y + item-height > i-scroll-view.visible-height) {
+            i-scroll-view.viewport-y -= current-item-y + item-height - i-scroll-view.visible-height;
+        }
+    }
+
+    private property <length> min-header-height: 42px;
+    private property <length> item-height: i-scroll-view.viewport-height / rows.length;
+    private property <length> current-item-y: i-scroll-view.viewport-y + current-row * item-height;
+
+    function sort(index: int) {
+        if (root.current-sort-column != index) {
+            root.columns[root.current-sort-column].sort-order = SortOrder.unsorted;
+        }
+
+        if(root.columns[index].sort-order == SortOrder.ascending) {
+            root.columns[index].sort-order = SortOrder.descending;
+            root.sort-descending(index);
+        } else {
+            root.columns[index].sort-order = SortOrder.ascending;
+            root.sort-ascending(index);
+        }
+
+        root.current-sort-column = index;
+    }
+
+    min-width: 400px;
+    min-height: 200px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    forward-focus: i-focus-scope;
+
+    VerticalLayout {
+        Rectangle {
+            clip: true;
+            vertical-stretch: 0;
+            min-height: i-header-layout.min-height;
+
+            i-header-layout := HorizontalLayout {
+                width: max(self.preferred-width, parent.width);
+                x: i-scroll-view.viewport-x;
+                padding-right: 6px;
+                min-height: root.min-header-height;
+
+                for column[index] in root.columns : TableViewColumn {
+                    sort-order: column.sort-order;
+                    horizontal-stretch: column.horizontal-stretch;
+                    min-width: max(column.min-width, column.width);
+                    preferred-width: self.min-width;
+                    max-width: (index < columns.length && column.width >= 1px) ? max(column.min-width, column.width) : 100000px;
+
+                    clicked => {
+                        root.sort(index);
+                    }
+
+                    adjust-size(diff) => {
+                        column.width = max(1px, self.width + diff);
+                    }
+
+                    Text {
+                        vertical-alignment: center;
+                        text: column.title;
+                        font-weight: FluentFontSettings.body.font-weight;
+                        font-size: FluentFontSettings.body.font-size;
+                        color: FluentPalette.text-secondary;
+                        overflow: elide;
+                    }
+                }
+            }
+        }
+
+        i-scroll-view := ListView {
+            for row[idx] in root.rows : TableViewRow {
+                selected: idx == root.current-row;
+                even: mod(idx, 2) == 0;
+
+                pointer-event(pe, pos) => {
+                    root.row-pointer-event(idx, pe, {
+                        x: pos.x - root.absolute-position.x,
+                        y: pos.y - root.absolute-position.y,
+                    });
+                }
+
+                clicked => {
+                    root.focus();
+                    root.set-current-row(idx);
+                }
+
+                for cell[index] in row : TableViewCell {
+                    private property <bool> has_inner_focus;
+
+                    horizontal-stretch: root.columns[index].horizontal-stretch;
+                    min-width: max(columns[index].min-width, columns[index].width);
+                    preferred-width: self.min-width;
+                    max-width: (index < columns.length && columns[index].width >= 1px) ? max(columns[index].min-width, columns[index].width) : 100000px;
+
+                    Rectangle {
+                        Text {
+                            width: 100%;
+                            height: 100%;
+                            overflow: elide;
+                            vertical-alignment: center;
+                            text: cell.text;
+                            font-weight: FluentFontSettings.body.font-weight;
+                            font-size: FluentFontSettings.body.font-size;
+                            color: mod(idx, 2) == 0 ? FluentPalette.control-foreground : FluentPalette.text-secondary;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    i-focus-scope := FocusScope {
+        x: 0;
+        width: 0; // Do not react on clicks
+
+        key-pressed(event) => {
+            if (event.text == Key.UpArrow) {
+                root.set-current-row(root.current-row - 1);
+                return accept;
+            } else if (event.text == Key.DownArrow) {
+                root.set-current-row(root.current-row + 1);
+                return accept;
+            }
+            reject
+        }
+    }
+}

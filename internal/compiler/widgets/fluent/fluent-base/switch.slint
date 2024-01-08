@@ -1,0 +1,132 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { FluentFontSettings, FluentPalette } from "styling.slint";
+import { FocusBorder } from "components.slint";
+
+export component Switch {
+    in property <bool> enabled: true;
+    in property <string> text;
+    in-out property <bool> checked: true;
+    out property <bool> has-focus: i-focus-scope.has-focus;
+
+    callback toggled;
+
+    private property <color> text-color: FluentPalette.text-secondary;
+
+    function toggle-checked() {
+        if(!root.enabled) {
+            return;
+        }
+
+        root.checked = !root.checked;
+        root.toggled();
+    }
+
+    min-width: 40px;
+    min-height: max(20px, i-layout.min-height);
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+    accessible-label: root.text;
+    accessible-checkable: true;
+    accessible-checked <=> root.checked;
+    accessible-role: checkbox;
+    forward-focus: i-focus-scope;
+
+    states [
+        disabled when !root.enabled : {
+            i-rail.background: root.checked ? FluentPalette.accent-disabled : transparent;
+            i-rail.border-color: FluentPalette.control-strong-stroke-disabled;
+            i-thumb.background: FluentPalette.text-disabled;
+            root.text-color: FluentPalette.text-disabled;
+            i-thumb.background: root.checked ? FluentPalette.text-accent-foreground-disabled : FluentPalette.text-secondary;
+        }
+        pressed when i-touch-area.pressed : {
+            i-rail.background: root.checked ? FluentPalette.tertiary-accent-background : FluentPalette.control-alt-quartiary;
+            i-thumb.width: 17px;
+            i-thumb.height: 14px;
+            i-thumb.border-width: root.checked ? 1px : 0;
+            i-thumb.background: root.checked ? FluentPalette.accent-foreground : FluentPalette.text-secondary;
+        }
+        hover when i-touch-area.has-hover : {
+            i-rail.background:  root.checked ? FluentPalette.secondary-accent-background : FluentPalette.control-alt-tertiary;
+            i-thumb.width: 14px;
+            i-thumb.border-width: root.checked ? 1px : 0;
+            i-thumb.background: root.checked ? FluentPalette.accent-foreground : FluentPalette.text-secondary;
+        }
+        selected when root.checked : {
+            i-rail.background: FluentPalette.accent-background;
+            i-thumb.border-width: 1px;
+            i-thumb.border-color: FluentPalette.circle-border;
+            i-thumb.background: FluentPalette.accent-foreground;
+        }
+    ]
+
+    i-layout := HorizontalLayout {
+        spacing: 12px;
+
+        VerticalLayout {
+            alignment: center;
+
+           Rectangle {
+                width: 40px;
+                height: 20px;
+
+                i-rail := Rectangle {
+                    border-radius: 10px;
+                    border-width: root.checked ? 0 : 1px;
+                    border-color: FluentPalette.control-strong-stroke;
+                    background: FluentPalette.control-alt-secondary;
+                }
+
+                i-thumb := Rectangle {
+                    x: root.checked ? parent.width - self.width - 4px : 4px;
+                    y: (parent.height - self.height) / 2;
+                    width: 12px;
+                    height: self.width;
+                    border-radius: self.height / 2;
+                    background: FluentPalette.text-secondary;
+                    border-color: FluentPalette.circle-border;
+
+                    animate background, width { duration: 150ms; easing: linear; }
+                }
+
+                // focus border
+                if (root.has-focus && root.enabled) : FocusBorder {
+                    border-radius: i-rail.border-radius;
+                }
+            }
+        }
+
+        if (root.text != "") : Text {
+            text: root.text;
+            color: root.text-color;
+            font-size: FluentFontSettings.body.font-size;
+            font-weight: FluentFontSettings.body.font-weight;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+
+    i-touch-area := TouchArea {
+        enabled <=> root.enabled;
+
+        clicked => {
+            root.toggle-checked();
+        }
+    }
+
+    i-focus-scope := FocusScope {
+        x:0;
+        width: 0px; // Do not react on clicks
+        enabled <=> root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                 root.toggle-checked();
+                 return accept;
+            }
+            return reject;
+        }
+    }
+}

@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { FluentPalette, FluentFontSettings } from "styling.slint";
+
+export component FocusBorder inherits Rectangle {
+    border-width: 2px;
+    border-color: FluentPalette.focus-stroke-outer;
+
+    Rectangle {
+        x: parent.border-width;
+        y: parent.border-width;
+        width: parent.width - 2 * parent.border-width;
+        height: parent.height - 2 * parent.border-width;
+        border-width: 1px;
+        border-radius: parent.border-radius - 2px;
+        border-color: FluentPalette.focus-stroke-inner;
+    }
+}
+
+export component MenuBorder inherits Rectangle {
+    border-radius: 7px;
+    background: FluentPalette.alternate-background;
+    drop-shadow-blur: 16px;
+    drop-shadow-offset-y: 8px;
+    drop-shadow-color: FluentPalette.shadow;
+
+    Rectangle {
+        border-width: 1px;
+        border-radius: parent.border-radius;
+        border-color: FluentPalette.control-background-stroke-flyout;
+    }
+}
+
+export component ListItem {
+    in property <bool> is-selected;
+    in property <StandardListViewItem> item;
+    in property <bool> has-focus;
+    in property <bool> has-hover;
+    in property <bool> pressed;
+    in property <int> index;
+    in property <length> pressed-x;
+    in property <length> pressed-y;
+
+    min-width: i-layout.min-width;
+    min-height: max(40px, i-layout.min-height);
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+
+    states [
+        pressed when root.pressed : {
+            i-background.background: is-selected ? FluentPalette.subtle-secondary : FluentPalette.subtle-tertiary;
+        }
+        hover when root.has-hover : {
+            i-text.color: FluentPalette.text-secondary;
+            i-background.background: is-selected ? FluentPalette.subtle-tertiary : FluentPalette.subtle-secondary;
+            i-selector.height: root.is-selected ? 16px : 0;
+        }
+        is-selected when root.is-selected : {
+            i-background.background: FluentPalette.subtle-secondary;
+            i-selector.height: 16px;
+        }
+    ]
+
+    if (root.has-focus) : FocusBorder {
+        border-radius: 4px;
+    }
+
+    i-background := Rectangle {
+        width: root.width - 6px;
+        height: root.height - 4px;
+        background: transparent;
+        border-radius: 4px;
+
+        animate background { duration: 150ms; }
+
+        i-layout := HorizontalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            spacing: 4px;
+
+            i-text := Text {
+                text: root.item.text;
+                color: FluentPalette.control-foreground;
+                font-size: FluentFontSettings.body.font-size;
+                font-weight: FluentFontSettings.body.font-weight;
+                vertical-alignment: center;
+                horizontal-alignment: left;
+                overflow: elide;
+
+                animate color { duration: 200ms; }
+            }
+        }
+
+        i-selector := Rectangle {
+            x: 0px;
+            y: (parent.height - self.height) / 2;
+            width: 3px;
+            height: 0px;
+            background: FluentPalette.accent-background;
+            border-radius: 2px;
+
+            animate height { duration: 150ms; easing: ease-out; }
+        }
+    }
+
+    @children
+}

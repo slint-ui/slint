@@ -1,0 +1,122 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { FluentPalette, FluentFontSettings, Icons } from "styling.slint";
+import { SpinBoxBase } from "../common/spinbox-base.slint";
+
+component SpinBoxButton {
+    callback clicked <=> i-touch-area.clicked;
+
+    in property <image> icon <=> i-icon.source;
+
+    min-width: 28px;
+    horizontal-stretch: 0;
+
+    states [
+        pressed when i-touch-area.pressed : {
+            i-background.background: FluentPalette.subtle;
+        }
+    ]
+
+    i-background := Rectangle {
+        border-radius: 3px;
+
+        i-icon := Image {
+            image-fit: contain;
+            colorize: FluentPalette.text-secondary;
+            width: 12px;
+
+            animate colorize { duration: 150ms; }
+        }
+    }
+
+    i-touch-area := TouchArea {}
+}
+
+export component SpinBox {
+    in property <int> minimum <=> i-base.minimum;
+    in property <int> maximum <=> i-base.maximum;
+    in property <bool> enabled <=> i-base.enabled;
+    out property <bool> has-focus <=> i-base.has-focus;
+    in-out property <int> value <=> i-base.value;
+
+    callback edited <=> i-base.edited;
+
+    min-width: 128px;
+    min-height: 30px;
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+    accessible-role: spinbox;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: (root.maximum - root.minimum) / 100;
+
+    states [
+        disabled when !root.enabled : {
+            i-background.background: FluentPalette.control-disabled;
+            i-background.border-color: FluentPalette.border;
+            i-base.color: FluentPalette.text-disabled;
+            i-base.selection-foreground-color: FluentPalette.text-accent-foreground-disabled;
+        }
+        focused when root.has-focus : {
+            i-background.background: FluentPalette.control-input-active;
+            i-background.border-color: FluentPalette.border;
+            i-focus-border.background: FluentPalette.accent-background;
+        }
+    ]
+
+    i-background := Rectangle {
+        border-radius: 4px;
+        background: FluentPalette.control-background;
+        border-width: 1px;
+        border-color: FluentPalette.text-control-border;
+
+        i-layout := HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 2px;
+            padding-top: 4px;
+            padding-bottom: 4px;
+            spacing: 4px;
+
+            Rectangle {
+                clip: true;
+                horizontal-stretch: 1;
+
+                i-base := SpinBoxBase {
+                    width: 100%;
+                    color: FluentPalette.control-foreground;
+                    font-size: FluentFontSettings.body.font-size;
+                    font-weight: FluentFontSettings.body.font-weight;
+                    selection-background-color: FluentPalette.selection-background;
+                    selection-foreground-color: FluentPalette.accent-foreground;
+                }
+            }
+
+            SpinBoxButton {
+                visible: root.enabled;
+                icon: Icons.chevron-up;
+
+                clicked => {
+                    i-base.increment();
+                }
+            }
+
+            SpinBoxButton {
+                visible: root.enabled;
+                icon: Icons.chevron-down;
+
+                clicked => {
+                    i-base.decrement();
+                }
+            }
+        }
+
+        i-focus-border := Rectangle {
+            x: parent.border-radius;
+            y: parent.height - self.height;
+            width: parent.width - 2 * parent.border-radius;
+            height: 2px;
+        }
+    }
+}
