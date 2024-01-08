@@ -5,6 +5,8 @@ This page explains how to build and test Slint.
 
 ## Prerequisites
 
+
+
 ### Installing Rust
 
 Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
@@ -12,6 +14,24 @@ have Rust installed, make sure that it's at least version 1.70 or newer. You can
 by running `rustc --version`.
 
 Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your path.
+### Dependencies
+* **FFMPEG**
+
+* **Skia** (only few available binaries): 
+<center> 
+
+| Platform                          | Binaries                                           |
+| --------------------------------- | -------------------------------------------------- |
+| Windows                           | `x86_64-pc-windows-msvc`                           |
+| Linux Ubuntu 16+<br />CentOS 7, 8 | `x86_64-unknown-linux-gnu`                         |
+| macOS                             | `x86_64-apple-darwin`                              |
+| Android                           | `aarch64-linux-android`<br/>`x86_64-linux-android` |
+| iOS                               | `aarch64-apple-ios`<br/>`x86_64-apple-ios`         |
+| WebAssembly                       | `wasm32-unknown-emscripten`                        |
+  
+</center> 
+
+  - Use Skia capable toolchain `rustup default stable-x86_64-pc-windows-msvc`
 
 ### Linux
 
@@ -21,6 +41,7 @@ For Linux a few additional packages beyond the usual build essentials are needed
 - xkbcommon (`libxkbcommon-dev` on debian based distributions)
 - fontconfig library (`libfontconfig-dev` on debian based distributions)
 - (optional) Qt will be used when `qmake` is found in `PATH`
+- FFMPEG library `clang` `libavcodec-dev` `libavformat-dev` `libavutil-dev` `libavfilter-dev` `libavdevice-dev` `libasound2-dev` `pkg-config`
 
 `xcb` and `xcbcommon` aren't needed if you are only using `backend-winit-wayland` without `backend-winit-x11`.
 
@@ -28,11 +49,25 @@ For Linux a few additional packages beyond the usual build essentials are needed
 
 - Make sure the "Xcode Command Line Tools" are installed: `xcode-select --install`
 - (optional) Qt will be used when `qmake` is found in `PATH`
+- FFMPEG `brew install pkg-config ffmpeg`
+
+
 
 ### Windows
-
+- See [System Link](#symlinks-in-the-repository-windows) 
 - Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2022.BuildTools`
 - (optional) make sure Qt is installed and `qmake` is in the `Path`
+- FFMPEG 
+  -  Option 1:
+      - install [vcpkg](https://github.com/microsoft/vcpkg#quick-start-windows)
+      - `vcpkg install ffmpeg --triplet x64-windows`
+      - Make sure `VCPKG_ROOT` is set to where `vcpkg` is installed
+      - Make sure `%VCPKG_ROOT%\installed\x64-windows\bin` is in your path 
+
+    - Option 2: 
+      - Download FFMPEG 4.4 shared and extract (https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest) 
+      - Add FFMPEG to path: `*\ffmpeg\bin` `*\ffmpeg\include\libavutil` `*\ffmpeg\lib`
+
 
 ### C++ API (optional)
 
@@ -71,6 +106,21 @@ cargo build
 cargo test
 ```
 
+### Building workspace
+
+<center> **  <strong> Not recommended</strong>  **    </center>
+
+
+To build all examples install the entire workplace to executables 
+(excluding [UEFI-demo](https://github.com/slint-ui/slint/tree/master/examples/uefi-demo) - different target)
+
+
+ - Build workspace
+    ```sh
+        cargo build --workspace --exclude uefi-demo --release
+    ```
+
+
 **Important:** Note that `cargo test` does not work without first calling `cargo build` because the
 the required dynamic library won't be found.
 
@@ -96,6 +146,8 @@ cargo build -p test-driver-nodejs
 ### More Info About Tests
 
 For more details about the tests and how they are implemented, see [testing.md](./testing.md).
+
+
 
 ## C++ API Build
 

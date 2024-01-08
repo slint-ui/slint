@@ -55,6 +55,7 @@ members = [
     'tests/screenshots',
     'tools/compiler',
     'tools/fmt',
+    'tools/figma_import',
     'tools/lsp',
     'tools/updater',
     'tools/viewer',
@@ -86,6 +87,7 @@ default-members = [
     'tests/screenshots',
     'tools/compiler',
     'tools/fmt',
+    'tools/figma_import',
     'tools/lsp',
     'tools/viewer',
 ]
