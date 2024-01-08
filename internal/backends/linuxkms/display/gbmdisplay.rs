@@ -43,8 +43,17 @@ impl GbmDisplay {
 
         Ok(GbmDisplay { drm_output, gbm_surface, gbm_device })
     }
+}
 
-    pub fn present(
+impl super::Presenter for GbmDisplay {
+    fn register_page_flip_handler(
+        &self,
+        event_loop_handle: crate::calloop_backend::EventLoopHandle,
+    ) -> Result<(), PlatformError> {
+        self.drm_output.register_page_flip_handler(event_loop_handle)
+    }
+
+    fn present_with_next_frame_callback(
         &self,
         ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -70,22 +79,6 @@ impl GbmDisplay {
             .map_err(|e| format!("Error setting userdata on gbm surface front buffer: {e}"))?;
 
         self.drm_output.present(front_buffer, fb, ready_for_next_animation_frame)
-    }
-}
-
-impl super::Presenter for GbmDisplay {
-    fn register_page_flip_handler(
-        &self,
-        event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<(), PlatformError> {
-        self.drm_output.register_page_flip_handler(event_loop_handle)
-    }
-
-    fn present_with_next_frame_callback(
-        &self,
-        ready_for_next_animation_frame: Box<dyn FnOnce()>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.present(ready_for_next_animation_frame)
     }
 
     fn is_ready_to_present(&self) -> bool {

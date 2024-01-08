@@ -192,7 +192,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
                 draw_mouse_cursor_callback(item_renderer);
             }),
         )?;
-        self.gbm_display.present(ready_for_next_animation_frame)?;
+        self.gbm_display.present_with_next_frame_callback(ready_for_next_animation_frame)?;
         Ok(())
     }
     fn size(&self) -> i_slint_core::api::PhysicalSize {
