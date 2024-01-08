@@ -27,14 +27,16 @@ impl SoftwareBufferDisplay {
         &self,
         callback: &mut dyn FnMut(
             drm::control::dumbbuffer::DumbMapping<'_>,
+            u8,
         ) -> Result<(), PlatformError>,
     ) -> Result<(), PlatformError> {
         let mut back_buffer = self.back_buffer.borrow_mut();
+        let age = back_buffer.age;
         self.drm_output
             .drm_device
             .map_dumb_buffer(&mut back_buffer.buffer_handle)
             .map_err(|e| PlatformError::Other(format!("Error mapping dumb buffer: {e}").into()))
-            .and_then(callback)
+            .and_then(|buffer| callback(buffer, age))
     }
 }
 
@@ -52,6 +54,13 @@ impl super::Presenter for SoftwareBufferDisplay {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // TODO: dirty framebuffer
         self.front_buffer.swap(&self.back_buffer);
+        self.front_buffer.borrow_mut().age = 1;
+        {
+            let mut back_buffer = self.back_buffer.borrow_mut();
+            if back_buffer.age != 0 {
+                back_buffer.age += 1;
+            }
+        }
         self.drm_output.present(
             self.front_buffer.borrow().buffer_handle,
             self.front_buffer.borrow().fb_handle,
@@ -68,6 +77,7 @@ impl super::Presenter for SoftwareBufferDisplay {
 struct DumbBuffer {
     fb_handle: drm::control::framebuffer::Handle,
     buffer_handle: drm::control::dumbbuffer::DumbBuffer,
+    age: u8,
 }
 
 impl DumbBuffer {
@@ -82,6 +92,6 @@ impl DumbBuffer {
             .add_framebuffer(&buffer_handle, 24, 32)
             .map_err(|e| format!("Error creating framebuffer for dumb buffer: {e}"))?;
 
-        Ok(Self { fb_handle, buffer_handle })
+        Ok(Self { fb_handle, buffer_handle, age: 0 })
     }
 }

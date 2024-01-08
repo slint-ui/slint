@@ -186,7 +186,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
             return Ok(());
         };
 
-        self.display.map_back_buffer(&mut |mut pixels| {
+        self.display.map_back_buffer(&mut |mut pixels, _age| {
             render_callback(width, height, skia_safe::ColorType::BGRA8888, pixels.as_mut())
         })
     }
