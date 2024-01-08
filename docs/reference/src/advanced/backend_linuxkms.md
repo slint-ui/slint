@@ -119,7 +119,7 @@ environment variables to configure support for different keyboards:
 
 If your display's default orientation does not match the desired orientation of your user interface, then you can
 set the `SLINT_KMS_ROTATION` environment variable to instruct Slint to rotate at rendering time. Supported values
-are the rotation in degress: `0`, `90`, `180`, and `270`.
+are the rotation in degrees: `0`, `90`, `180`, and `270`.
 
 Note that this variable merely rotates the rendering output. If you're using a touch screen attached to the same
 display, then you may need to configure it to also apply a rotation on the touch events generated. For configuring

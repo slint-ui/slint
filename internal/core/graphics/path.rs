@@ -60,7 +60,7 @@ pub struct PathArcTo {
     /// The radius on the y-axis of the arc.
     pub radius_y: f32,
     #[rtti_field]
-    /// The rotation along the x-axis of the arc in degress.
+    /// The rotation along the x-axis of the arc in degrees.
     pub x_rotation: f32,
     #[rtti_field]
     /// large_arc indicates whether to take the long or the shorter path to complete the arc.
