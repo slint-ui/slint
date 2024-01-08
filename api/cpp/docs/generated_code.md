@@ -1,5 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-# Generated code
+# Generated Code
 
 The Slint compiler called by the build system will generate a header file for the root `.slint`
 file. This header file will contain a `class` with the same name as the root
