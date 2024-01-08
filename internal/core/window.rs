@@ -309,7 +309,7 @@ impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
 /// This enum describes the different ways a popup can be rendered by the back-end.
 enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
-    TopLevel(Rc<dyn WindowAdapter>),
+    TopLevel { _adapter: Rc<dyn WindowAdapter> },
     /// The popup is rendered as an embedded child window at the given position.
     ChildWindow(LogicalPoint),
 }
@@ -780,7 +780,7 @@ impl WindowInner {
 
             let popup_component =
                 self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
-                    PopupWindowLocation::TopLevel(_) => None,
+                    PopupWindowLocation::TopLevel { .. } => None,
                     PopupWindowLocation::ChildWindow(coordinates) => {
                         Some((popup.component.clone(), coordinates))
                     }
@@ -893,7 +893,7 @@ impl WindowInner {
 
             Some(window_adapter) => {
                 WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
-                PopupWindowLocation::TopLevel(window_adapter)
+                PopupWindowLocation::TopLevel { _adapter: window_adapter }
             }
         };
 
