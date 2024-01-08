@@ -35,6 +35,7 @@ use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use once_cell::unsync::OnceCell;
+use winit::window::WindowBuilder;
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -140,22 +141,10 @@ pub struct WinitWindowAdapter {
 
 impl WinitWindowAdapter {
     /// Creates a new reference-counted instance.
-    #[allow(clippy::new_ret_no_self)]
     pub(crate) fn new(
-        renderer_factory_fn: fn(
-            window_builder: winit::window::WindowBuilder,
-        ) -> Result<
-            (Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>),
-            PlatformError,
-        >,
-        #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        let (renderer, winit_window) = Self::window_builder(
-            #[cfg(target_arch = "wasm32")]
-            canvas_id,
-        )
-        .and_then(|builder| renderer_factory_fn(builder))?;
-
+        renderer: Box<dyn WinitCompatibleRenderer>,
+        winit_window: Rc<winit::window::Window>,
+    ) -> Rc<Self> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
             #[cfg(target_arch = "wasm32")]
@@ -188,18 +177,17 @@ impl WinitWindowAdapter {
             .unwrap_or_else(|| self_rc.winit_window().scale_factor() as f32);
         self_rc.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
 
-        Ok(self_rc as _)
+        self_rc
     }
 
     fn renderer(&self) -> &dyn WinitCompatibleRenderer {
         self.renderer.as_ref()
     }
 
-    fn window_builder(
+    pub(crate) fn window_builder(
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> Result<winit::window::WindowBuilder, PlatformError> {
-        let mut window_builder =
-            winit::window::WindowBuilder::new().with_transparent(true).with_visible(false);
+    ) -> Result<WindowBuilder, PlatformError> {
+        let mut window_builder = WindowBuilder::new().with_transparent(true).with_visible(false);
 
         if std::env::var("SLINT_FULLSCREEN").is_ok() {
             window_builder =

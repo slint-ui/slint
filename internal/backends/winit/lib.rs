@@ -63,7 +63,10 @@ pub(crate) mod wasm_input_helper;
 pub fn create_gl_window_with_canvas_id(
     canvas_id: &str,
 ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-    WinitWindowAdapter::new(renderer::femtovg::GlutinFemtoVGRenderer::new, canvas_id)
+    let builder = WinitWindowAdapter::window_builder(canvas_id)?;
+    let (renderer, window) = renderer::femtovg::GlutinFemtoVGRenderer::new(builder)?;
+    let adapter = WinitWindowAdapter::new(renderer, window);
+    Ok(adapter)
 }
 
 cfg_if::cfg_if! {
@@ -94,7 +97,9 @@ fn default_renderer_factory(
     }
 }
 
-fn try_create_window_with_fallback_renderer() -> Option<Rc<dyn WindowAdapter>> {
+fn try_create_window_with_fallback_renderer(
+    builder: winit::window::WindowBuilder,
+) -> Option<Rc<WinitWindowAdapter>> {
     [
         #[cfg(any(
             feature = "renderer-skia",
@@ -109,12 +114,8 @@ fn try_create_window_with_fallback_renderer() -> Option<Rc<dyn WindowAdapter>> {
     ]
     .into_iter()
     .find_map(|renderer_factory| {
-        WinitWindowAdapter::new(
-            renderer_factory,
-            #[cfg(target_arch = "wasm32")]
-            "canvas".into(),
-        )
-        .ok()
+        let (renderer, winit_window) = renderer_factory(builder.clone()).ok()?;
+        Some(WinitWindowAdapter::new(renderer, winit_window))
     })
 }
 
@@ -131,7 +132,7 @@ pub mod native_widgets {}
 /// Slint to use winit for all windowing system interaction.
 ///
 /// ```rust,no_run
-/// # use i_slint_backend_winit::Backend;
+/// use i_slint_backend_winit::Backend;
 /// slint::platform::set_platform(Box::new(Backend::new().unwrap()));
 /// ```
 pub struct Backend {
@@ -141,6 +142,20 @@ pub struct Backend {
         )
             -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError>,
     event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
+
+    /// This hook is called before a Window is created.
+    ///
+    /// It can be used to adjust settings of window that will be created
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// let mut backend = i_slint_backend_winit::Backend::new().unwrap();
+    /// backend.window_builder_hook = Some(Box::new(|builder| builder.with_content_protected(true)));
+    /// slint::platform::set_platform(Box::new(backend));
+    /// ```
+    pub window_builder_hook:
+        Option<Box<dyn Fn(winit::window::WindowBuilder) -> winit::window::WindowBuilder>>,
 }
 
 impl Backend {
@@ -175,7 +190,11 @@ impl Backend {
                 default_renderer_factory
             }
         };
-        Ok(Self { renderer_factory_fn, event_loop_state: Default::default() })
+        Ok(Self {
+            renderer_factory_fn,
+            event_loop_state: Default::default(),
+            window_builder_hook: None,
+        })
     }
 }
 
@@ -214,17 +233,22 @@ fn send_event_via_global_event_loop_proxy(
 
 impl i_slint_core::platform::Platform for Backend {
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        WinitWindowAdapter::new(
-            self.renderer_factory_fn,
+        let mut builder = WinitWindowAdapter::window_builder(
             #[cfg(target_arch = "wasm32")]
             "canvas".into(),
-        )
-        .or_else(|e| {
-            try_create_window_with_fallback_renderer().ok_or_else(|| {
-                format!("Winit backend failed to find a suitable renderer. Last failure was: {e}")
-                    .into()
-            })
-        })
+        )?;
+
+        if let Some(hook) = &self.window_builder_hook {
+            builder = hook(builder);
+        }
+
+        let adapter = (self.renderer_factory_fn)(builder.clone())
+            .map(|(renderer, window)| WinitWindowAdapter::new(renderer, window))
+            .or_else(|e| {
+                try_create_window_with_fallback_renderer(builder)
+                    .ok_or_else(|| format!("Winit backend failed to find a suitable renderer: {e}"))
+            })?;
+        Ok(adapter)
     }
 
     #[doc(hidden)]
