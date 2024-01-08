@@ -118,6 +118,22 @@ fn lsp_element_position(element: &ElementRc) -> (String, lsp_types::Range) {
 }
 
 // triggered from the UI, running in UI thread
+pub fn element_covers_point(
+    x: f32,
+    y: f32,
+    component_instance: &ComponentInstance,
+    selected_element: &ElementRc,
+) -> bool {
+    let click_position = LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
+
+    let Some(position) = component_instance.element_position(selected_element) else {
+        return false;
+    };
+
+    position.contains(click_position)
+}
+
+// triggered from the UI, running in UI thread
 pub fn select_element_at_impl(
     x: f32,
     y: f32,
@@ -127,7 +143,7 @@ pub fn select_element_at_impl(
     let click_position = LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
 
     for c in &root_element.borrow().children {
-        let c = self_or_embedded_component_root(&c);
+        let c = self_or_embedded_component_root(c);
 
         let Some(position) = component_instance.element_position(&c) else {
             continue;
@@ -177,7 +193,7 @@ fn root_element(component_instance: &ComponentInstance) -> ElementRc {
         return root_element;
     }
 
-    let Some(child) = root_element.borrow().children.get(0).cloned() else {
+    let Some(child) = root_element.borrow().children.first().cloned() else {
         return root_element;
     };
     let Some((rsf, rr)) = element_source_range(&root_element) else {
@@ -199,6 +215,14 @@ pub fn select_element_at(x: f32, y: f32) {
     let Some(component_instance) = component_instance() else {
         return;
     };
+
+    if let Some(selected_element) = selected_element() {
+        if element_covers_point(x, y, &component_instance, &selected_element) {
+            // We clicked on the already selected element: Do nothing!
+            return;
+        }
+    }
+
     let root_element = root_element(&component_instance);
 
     select_element_at_impl(x, y, &component_instance, &root_element);
@@ -210,17 +234,12 @@ pub fn select_element_into(x: f32, y: f32) {
         return;
     };
 
-    // We have an actively selected element:
-    if let Some(selected_element) = selected_element() {
-        if select_element_at_impl(x, y, &component_instance, &selected_element).is_some() {
-            return;
-        }
-    }
+    // We have an actively selected element (via the earlier click-event :-):
+    let Some(selected_element) = selected_element() else {
+        return;
+    };
 
-    let root_element = root_element(&component_instance);
-    if let Some(se) = select_element_at_impl(x, y, &component_instance, &root_element) {
-        select_element_at_impl(x, y, &component_instance, &se);
-    }
+    let _ = select_element_at_impl(x, y, &component_instance, &selected_element);
 }
 
 fn change_style() {
