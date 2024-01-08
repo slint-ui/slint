@@ -21,7 +21,7 @@ use crate::items::{InputType, ItemRef, MouseCursor};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, Coord, SharedString};
+use crate::{Callback, Coord, SharedString, GLOBAL_CONTEXT};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use core::cell::{Cell, RefCell};
@@ -812,6 +812,11 @@ impl WindowInner {
 
         self.update_window_properties();
         self.window_adapter().set_visible(true)?;
+        GLOBAL_CONTEXT.with(|ctx| {
+            if let Some(ctx) = ctx.get() {
+                *(ctx.window_count.borrow_mut()) += 1;
+            }
+        });
         // Make sure that the window's inner size is in sync with the root window item's
         // width/height.
         let size = self.window_adapter().size();
@@ -824,6 +829,16 @@ impl WindowInner {
     pub fn hide(&self) -> Result<(), PlatformError> {
         let result = self.window_adapter().set_visible(false);
         self.strong_component_ref.borrow_mut().take();
+        GLOBAL_CONTEXT.with(|ctx| {
+            if let Some(ctx) = ctx.get() {
+                let mut count = ctx.window_count.borrow_mut();
+                *count -= 1;
+                if *count <= 0 {
+                    drop(count);
+                    let _ = crate::api::quit_event_loop();
+                }
+            }
+        });
         result
     }
 

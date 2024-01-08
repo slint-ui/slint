@@ -182,6 +182,7 @@ cpp! {{
         // Leak the QApplication, otherwise it crashes on exit
         // (because the QGuiApplication destructor access some Q_GLOBAL_STATIC which are already gone)
         new QApplication(argc, argv);
+        qApp->setQuitOnLastWindowClosed(false);
     }
 
     // HACK ALERT: This struct declaration is duplicated in api/cpp/bindgen.rs - keep in sync.

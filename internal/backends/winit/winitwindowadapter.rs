@@ -248,10 +248,6 @@ impl WinitWindowAdapter {
         self.winit_window.clone()
     }
 
-    pub fn is_shown(&self) -> bool {
-        self.shown.get()
-    }
-
     #[cfg(target_arch = "wasm32")]
     pub fn input_method_focused(&self) -> bool {
         match self.virtual_keyboard_helper.try_borrow() {
@@ -401,10 +397,6 @@ impl WindowAdapter for WinitWindowAdapter {
             if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
                 existing_blinker.stop();
             }*/
-            crate::send_event_via_global_event_loop_proxy(crate::SlintUserEvent::CustomEvent {
-                event: crate::event_loop::CustomEvent::WindowHidden,
-            })
-            .ok(); // It's okay to call hide() even after the event loop is closed. We don't need the logic for quitting the event loop anymore at this point.
             Ok(())
         }
     }

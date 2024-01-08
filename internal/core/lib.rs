@@ -99,7 +99,8 @@ thread_local! {
 /// Currently it is not possible to have several platform at the same time in one process, but in the future it might be.
 /// See issue #4294
 pub struct SlintContext {
-    pub(crate) platform: Box<dyn Platform>,
+    pub(crate) platform: alloc::boxed::Box<dyn Platform>,
+    pub window_count: core::cell::RefCell<isize>,
 }
 
 /// Internal function to access the platform abstraction.

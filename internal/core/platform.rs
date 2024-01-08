@@ -62,13 +62,14 @@ pub trait Platform {
         Err(PlatformError::NoEventLoopProvider)
     }
 
-    /// Specify if the event loop should quit quen the last window is closed.
-    /// The default behavior is `true`.
-    /// When this is set to `false`, the event loop must keep running until
-    /// [`slint::quit_event_loop()`](crate::api::quit_event_loop()) is called
     #[doc(hidden)]
-    fn set_event_loop_quit_on_last_window_closed(&self, _quit_on_last_window_closed: bool) {
-        unimplemented!("The backend does not implement event loop quit behaviors")
+    /// This is being phased out, see #1499
+    fn set_event_loop_quit_on_last_window_closed(&self, quit_on_last_window_closed: bool) {
+        if !quit_on_last_window_closed {
+            crate::GLOBAL_CONTEXT.with(|ctx| (*ctx.get().unwrap().window_count.borrow_mut()) += 1);
+        } else {
+            crate::GLOBAL_CONTEXT.with(|ctx| (*ctx.get().unwrap().window_count.borrow_mut()) -= 1);
+        }
     }
 
     /// Return an [`EventLoopProxy`] that can be used to send event to the event loop
@@ -200,7 +201,7 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
             EVENTLOOP_PROXY.set(proxy).map_err(|_| SetPlatformError::AlreadySet)?
         }
         instance
-            .set(crate::SlintContext { platform })
+            .set(crate::SlintContext { platform, window_count: 0.into() })
             .map_err(|_| SetPlatformError::AlreadySet)
             .unwrap();
         Ok(())
