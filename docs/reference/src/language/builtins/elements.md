@@ -754,8 +754,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 -   **`clicked()`**: Invoked when clicked: The mouse is pressed, then released on this element.
 -   **`double-clicked()`**: Invoked when double-clicked. The mouse is pressed and released twice on this element in a short
-    period of time. Assigning this callback will cause the `clicked` callback to get delayed, so that Slint can
-    detect whether the first click was a click or the first half of a double click.
+    period of time. The `clicked()` callbacks will be triggered before the `double-clicked()` callback is triggered.
 -   **`moved()`**: The mouse has been moved. This will only be called if the mouse is also pressed.
     See also **pointer-event(PointerEvent)**.
 -   **`pointer-event(PointerEvent)`**: Invoked when a button was pressed or released or the pointer moved.
