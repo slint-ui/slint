@@ -102,8 +102,8 @@ pub extern "C" fn send_keyboard_string_sequence(
 /// implementation details for debug_log()
 #[doc(hidden)]
 pub fn debug_log_impl(args: core::fmt::Arguments) {
-    crate::platform::PLATFORM_INSTANCE.with(|p| match p.get() {
-        Some(platform) => platform.debug_log(args),
+    crate::GLOBAL_CONTEXT.with(|p| match p.get() {
+        Some(ctx) => ctx.platform.debug_log(args),
         None => default_debug_log(args),
     });
 }

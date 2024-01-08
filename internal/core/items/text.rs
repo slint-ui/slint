@@ -1110,9 +1110,9 @@ impl TextInput {
             return;
         }
         let text = self.text();
-        crate::platform::PLATFORM_INSTANCE.with(|p| {
-            if let Some(backend) = p.get() {
-                backend.set_clipboard_text(&text[anchor..cursor], clipboard);
+        crate::GLOBAL_CONTEXT.with(|p| {
+            if let Some(ctx) = p.get() {
+                ctx.platform.set_clipboard_text(&text[anchor..cursor], clipboard);
             }
         });
     }
@@ -1127,8 +1127,8 @@ impl TextInput {
         self_rc: &ItemRc,
         clipboard: Clipboard,
     ) {
-        if let Some(text) = crate::platform::PLATFORM_INSTANCE
-            .with(|p| p.get().and_then(|p| p.clipboard_text(clipboard)))
+        if let Some(text) = crate::GLOBAL_CONTEXT
+            .with(|p| p.get().and_then(|p| p.platform.clipboard_text(clipboard)))
         {
             self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);
