@@ -6,7 +6,7 @@
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
-use i_slint_core::software_renderer::{PremultipliedRgbaColor, TargetPixel};
+use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use std::rc::Rc;
 
 use crate::display::{Presenter, RenderingRotation};
@@ -96,7 +96,13 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
         _draw_mouse_cursor_callback: &dyn Fn(&mut dyn i_slint_core::item_rendering::ItemRenderer),
         ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), PlatformError> {
-        self.display.map_back_buffer(&mut |mut pixels| {
+        self.display.map_back_buffer(&mut |mut pixels, age| {
+            self.renderer.set_repaint_buffer_type(match age {
+                1 => RepaintBufferType::ReusedBuffer,
+                2 => RepaintBufferType::SwappedBuffers,
+                _ => RepaintBufferType::NewBuffer,
+            });
+
             self.renderer.set_rendering_rotation(match rotation {
                 RenderingRotation::NoRotation => {
                     i_slint_core::software_renderer::RenderingRotation::NoRotation
