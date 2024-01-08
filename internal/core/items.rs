@@ -439,7 +439,7 @@ pub struct TouchArea {
 impl TouchArea {
     fn start_clicked_timer(self: Pin<&Self>, item_rc: &ItemRc) -> bool {
         let Some(double_click_interval) =
-            crate::platform::PLATFORM_INSTANCE.with(|p| p.get().map(|p| p.click_interval()))
+            crate::GLOBAL_CONTEXT.with(|p| p.get().map(|p| p.platform.click_interval()))
         else {
             return false;
         };

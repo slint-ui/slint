@@ -15,6 +15,8 @@ pub(crate) mod unsafe_single_threaded;
 compile_error!(
     "At least one of the following feature need to be enabled: `std` or `unsafe-single-threaded`"
 );
+#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+use crate::unsafe_single_threaded::thread_local;
 
 pub mod accessibility;
 pub mod animations;
@@ -88,6 +90,18 @@ pub type Coord = i32;
 /// parameter cannot be called from the public API without naming it
 pub struct InternalToken;
 
+thread_local! {
+    pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
+        = once_cell::unsync::OnceCell::new()
+}
+
+/// This context is meant to hold the state and the backend.
+/// Currently it is not possible to have several platform at the same time in one process, but in the future it might be.
+/// See issue #4294
+pub struct SlintContext {
+    pub(crate) platform: Box<dyn Platform>,
+}
+
 /// Internal function to access the platform abstraction.
 /// The factory function is called if the platform abstraction is not yet
 /// initialized, and should be given by the platform_selector
@@ -95,11 +109,11 @@ pub fn with_platform<R>(
     factory: impl FnOnce() -> Result<alloc::boxed::Box<dyn Platform + 'static>, PlatformError>,
     f: impl FnOnce(&dyn Platform) -> Result<R, PlatformError>,
 ) -> Result<R, PlatformError> {
-    platform::PLATFORM_INSTANCE.with(|p| match p.get() {
-        Some(p) => f(&**p),
+    GLOBAL_CONTEXT.with(|p| match p.get() {
+        Some(ctx) => f(&*ctx.platform),
         None => {
             platform::set_platform(factory()?).map_err(PlatformError::SetPlatformError)?;
-            f(&**p.get().unwrap())
+            f(&*p.get().unwrap().platform)
         }
     })
 }
