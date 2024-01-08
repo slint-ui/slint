@@ -446,6 +446,11 @@ impl Window {
         crate::window::WindowAdapter::set_size(&*self.0.window_adapter(), size);
     }
 
+    /// Set or unset the window to display fullscreen.
+    pub fn set_fullscreen(&self, fullscreen: bool) {
+        self.0.window_adapter().set_fullscreen(fullscreen);
+    }
+
     /// Dispatch a window event to the scene.
     ///
     /// Use this when you're implementing your own backend and want to forward user input events.

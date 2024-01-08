@@ -1530,11 +1530,7 @@ impl WindowAdapter for QtWindow {
     fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
         if visible {
             let widget_ptr = self.widget_ptr();
-            let fullscreen = std::env::var("SLINT_FULLSCREEN").is_ok();
-            cpp! {unsafe [widget_ptr as "QWidget*", fullscreen as "bool"] {
-                if (fullscreen) {
-                    widget_ptr->setWindowState(Qt::WindowFullScreen);
-                }
+            cpp! {unsafe [widget_ptr as "QWidget*"] {
                 widget_ptr->show();
             }};
             let qt_platform_name = cpp! {unsafe [] -> qttypes::QString as "QString" {
@@ -1700,6 +1696,18 @@ impl WindowAdapter for QtWindow {
             widget_ptr->setMinimumSize(min_size);
             widget_ptr->setMaximumSize(max_size);
         }};
+    }
+
+    fn set_fullscreen(&self, fullscreen: bool) {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*", fullscreen as "bool"] {
+                if (fullscreen) {
+                    widget_ptr->setWindowState(Qt::WindowFullScreen);
+                } else {
+                    widget_ptr->setWindowState(Qt::WindowNoState);
+                }
+            }
+        };
     }
 
     fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {

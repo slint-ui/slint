@@ -10,10 +10,3 @@ macOS, Windows, Linux with Wayland and X11, and direct full-screen rendering via
 The Qt backend only supports software rendering at the moment. That means it runs with any graphics driver,
 but it does not utilize GPU hardware acceleration.
 
-## Configuration Options
-
-The Qt backend reads and interprets the following environment variables:
-
-| Name               | Accepted Values | Description                                                        |
-|--------------------|-----------------|--------------------------------------------------------------------|
-| `SLINT_FULLSCREEN` | any value       | If this variable is set, every window is shown in fullscreen mode. |

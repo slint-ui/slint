@@ -189,11 +189,6 @@ impl WinitWindowAdapter {
     ) -> Result<WindowBuilder, PlatformError> {
         let mut window_builder = WindowBuilder::new().with_transparent(true).with_visible(false);
 
-        if std::env::var("SLINT_FULLSCREEN").is_ok() {
-            window_builder =
-                window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
-        }
-
         window_builder = window_builder.with_title("Slint Window".to_string());
 
         #[cfg(target_arch = "wasm32")]
@@ -559,6 +554,14 @@ impl WindowAdapter for WinitWindowAdapter {
                 }
             }
         });
+    }
+
+    fn set_fullscreen(&self, fullscreen: bool) {
+        if fullscreen {
+            self.winit_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+        } else {
+            self.winit_window.set_fullscreen(None);
+        }
     }
 
     fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {

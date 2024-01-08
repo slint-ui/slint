@@ -53,6 +53,5 @@ RUN apt-get update \
 
 COPY --from=build /slint/demos/* /usr/bin/
 
-ENV SLINT_FULLSCREEN=1
 ENV SLINT_BACKEND=winit-skia
 CMD /usr/bin/printerdemo

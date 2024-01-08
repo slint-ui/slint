@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    callback fullscreen-toggle();
+    VerticalBox {
+        Text {
+            text: "Toggle Button";
+        }
+        Button {
+            text: "Toggle fullscreen";
+            clicked => {
+                root.fullscreen-toggle();
+            }
+        }
+    }
+}
+

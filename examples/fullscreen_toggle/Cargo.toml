@@ -1,0 +1,21 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "fullscreen_toggle"
+version = "1.4.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2021"
+publish = false
+license = "MIT"
+
+[[bin]]
+path = "main.rs"
+name = "fullscreen_toggle"
+
+[dependencies]
+slint = { path = "../../api/rs/slint" }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
+
