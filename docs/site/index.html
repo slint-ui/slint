@@ -12,7 +12,7 @@
         <link rel="icon" type="image/x-icon" href="https://slint.dev/assets/img/favicon.svg">
 
         <!-- ===== All CSS files ===== -->
-        <link rel="stylesheet" href="https://slint.dev/assets/css/style.css?v=1.9.1" />
+        <link rel="stylesheet" href="https://slint.dev/assets/css/style.css?v=1.11.14" />
 
         <!-- ===== Header from individual pages ===== -->
          
@@ -43,15 +43,16 @@
 
                         <ul>
                             <li id="use-cases"><a href="https://slint.dev/use-cases.html">Use Cases</a></li>
-                            <li id="docs"><a href="https://slint.dev/docs.html">Docs</a></li>
                             <li id="pricing"><a href="https://slint.dev/pricing.html">Pricing</a></li>
                             <li id="blog"><a href="https://slint.dev/blog">Blog</a></li>
+                            <li id="docs"><a href="https://slint.dev/docs.html">Docs</a></li>
                             <li class="navi-item-has-children" id="resources"><a href="#">Resources</a>
                                 <ul>
-                                    <li><a href="https://slint.dev/demos.html">Demos</a></li>
-                                    <li><a href="https://slint.dev/videos.html">Videos</a></li>
-                                    <li><a href="https://slint.dev/community.html">Community</a></li>
-                                    <li><a href="https://slint.dev/supported-boards.html">Supported Boards</a></li>
+                                    <li id="demos"><a href="https://slint.dev/demos.html">Demos</a></li>
+                                    <li id="partners"><a href="https://slint.dev/partners.html">Partners</a></li>
+                                    <li id="community"><a href="https://slint.dev/community.html">Community</a></li>
+                                    <li id="success"><a href="https://slint.dev/success">Success Stories</a></li>
+                                    <li id="supported-boards"><a href="https://slint.dev/supported-boards.html">Supported Boards</a></li>
                                   </ul>
                             </li>
                             <!-- <li class="search"><a href="/search-results.html">Search</a></li> -->
@@ -145,7 +146,14 @@
                     const opt = document.createElement("option");
                     opt.value = "snapshots/master";
                     opt.text = "development snapshot";
-                    sel.add(opt)
+                    sel.add(opt);
+                    
+                    const version = document.location.pathname.match(/releases\/([0-9]*.[0-9]*.[0-9]*)|snapshots\/master|releases\/latest/);
+                    console.log(version);
+                    if (version) {
+                        sel.value = version[0];
+                    }
+
                     updateButtonHrefs();
                 }
 
@@ -218,9 +226,7 @@
             </section>
 
             <section class="one-column" style="padding: 50px 0 2em;">
-                <p><a href="https://slint.dev/contact.html" class="btn btn-center" style="	background-color: var(--color_blue);
-                    border-radius: 4px;
-                    font-weight: 600; color: #fff;">Contact Us</a></p>
+                <p class="cta"><a href="https://slint.dev/contact.html" class="btn blue btn-center">Contact Us</a></p>
             </section>
 
         </main>
@@ -286,6 +292,7 @@
                             <dd><a href="https://slint.dev/meeting.html?event=online">Schedule Meeting</a></dd>
                             <dd><a href="mailto:info@slint.dev?subject=Contact%20from%20Website">Email</a></dd>
                             <dd><a href="https://chat.slint.dev">Chat</a></dd>
+                            <dd><a href="https://slint.dev/pricing.html#support">Support</a></dd>
                             <dd><a href="https://github.com/slint-ui/slint/" target="_blank">GitHub</a></dd>
                             <dd hidden><a href="#">Twitter</a></dd>
                             <dd hidden><a href="#">Mastodon</a></dd>
@@ -303,7 +310,7 @@
         </div><!-- .wrap -->
 
         <!-- ====== All Javascript Files ====== -->
-        <script src="https://slint.dev/assets/js/script.js?ver=1.2.5"></script>
+        <script src="https://slint.dev/assets/js/script.js?ver=1.2.14"></script>
     </body>
 
 </html>
