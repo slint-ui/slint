@@ -23,9 +23,6 @@ use std::rc::{Rc, Weak};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopWindowTarget;
 
-pub(crate) static QUIT_ON_LAST_WINDOW_CLOSED: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(true);
-
 /// The Default, and the selection clippoard
 type ClipboardPair = (Box<dyn ClipboardProvider>, Box<dyn ClipboardProvider>);
 
@@ -227,8 +224,6 @@ pub enum CustomEvent {
     WakeEventLoopWorkaround,
     /// Slint internal: Invoke the
     UserEvent(Box<dyn FnOnce() + Send>),
-    /// Sent from `WinitWindowAdapter::hide` so that we can check if we should quit the event loop
-    WindowHidden,
     Exit,
 }
 
@@ -238,7 +233,6 @@ impl std::fmt::Debug for CustomEvent {
             #[cfg(target_arch = "wasm32")]
             Self::WakeEventLoopWorkaround => write!(f, "WakeEventLoopWorkaround"),
             Self::UserEvent(_) => write!(f, "UserEvent"),
-            Self::WindowHidden => write!(f, "WindowHidden"),
             Self::Exit => write!(f, "Exit"),
         }
     }
@@ -451,21 +445,6 @@ impl EventLoopState {
                     window.accesskit_adapter.process_event(&window.winit_window(), &event);
                     self.process_window_event(window, event);
                 };
-            }
-
-            Event::UserEvent(SlintUserEvent::CustomEvent { event: CustomEvent::WindowHidden }) => {
-                if QUIT_ON_LAST_WINDOW_CLOSED.load(std::sync::atomic::Ordering::Relaxed) {
-                    let window_count = ALL_WINDOWS.with(|windows| {
-                        windows
-                            .borrow()
-                            .values()
-                            .filter(|window| window.upgrade().map_or(false, |w| w.is_shown()))
-                            .count()
-                    });
-                    if window_count == 0 {
-                        event_loop_target.exit();
-                    }
-                }
             }
 
             Event::UserEvent(SlintUserEvent::CustomEvent { event: CustomEvent::Exit }) => {

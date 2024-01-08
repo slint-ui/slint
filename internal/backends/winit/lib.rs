@@ -251,12 +251,6 @@ impl i_slint_core::platform::Platform for Backend {
         Ok(adapter)
     }
 
-    #[doc(hidden)]
-    fn set_event_loop_quit_on_last_window_closed(&self, quit_on_last_window_closed: bool) {
-        event_loop::QUIT_ON_LAST_WINDOW_CLOSED
-            .store(quit_on_last_window_closed, std::sync::atomic::Ordering::Relaxed);
-    }
-
     fn run_event_loop(&self) -> Result<(), PlatformError> {
         let loop_state = self.event_loop_state.borrow_mut().take().unwrap_or_default();
         let new_state = loop_state.run()?;
