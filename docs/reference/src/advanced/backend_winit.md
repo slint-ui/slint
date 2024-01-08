@@ -17,3 +17,11 @@ The Winit backend supports different renderers. They can be explicitly selected 
 | Skia Software | Software-only rendering with Skia           | `winit-skia-software`                    |
 | software      | Software-rendering, no GPU required         | `winit-software`                         |
 
+
+## Configuration Options
+
+The Winit backend reads and interprets the following environment variables:
+
+| Name               | Accepted Values | Description                                                        |
+|--------------------|-----------------|--------------------------------------------------------------------|
+| `SLINT_FULLSCREEN` | any value       | If this variable is set, every window is shown in fullscreen mode. |

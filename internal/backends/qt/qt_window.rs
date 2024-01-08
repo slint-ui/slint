@@ -1530,7 +1530,11 @@ impl WindowAdapter for QtWindow {
     fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
         if visible {
             let widget_ptr = self.widget_ptr();
-            cpp! {unsafe [widget_ptr as "QWidget*"] {
+            let fullscreen = std::env::var("SLINT_FULLSCREEN").is_ok();
+            cpp! {unsafe [widget_ptr as "QWidget*", fullscreen as "bool"] {
+                if (fullscreen) {
+                    widget_ptr->setWindowState(widget_ptr->windowState() | Qt::WindowFullScreen);
+                }
                 widget_ptr->show();
             }};
             let qt_platform_name = cpp! {unsafe [] -> qttypes::QString as "QString" {
@@ -1701,10 +1705,13 @@ impl WindowAdapter for QtWindow {
     fn set_fullscreen(&self, fullscreen: bool) {
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*", fullscreen as "bool"] {
+                // Depending on the request, we either set or clear the fullscreen bits.
+                // See also: https://doc.qt.io/qt-6/qt.html#WindowState-enum
+                const auto state = widget_ptr->windowState();
                 if (fullscreen) {
-                    widget_ptr->setWindowState(Qt::WindowFullScreen);
+                    widget_ptr->setWindowState(state | Qt::WindowFullScreen);
                 } else {
-                    widget_ptr->setWindowState(Qt::WindowNoState);
+                    widget_ptr->setWindowState(state & ~Qt::WindowFullScreen);
                 }
             }
         };
