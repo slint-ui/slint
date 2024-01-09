@@ -63,6 +63,12 @@ export component Foo {
 
     pw := PopupWindow {}
     fs := FocusScope {}
+
+    callback model() -> [int];
+    for xx in model() : Rectangle {
+//            ^error{Call of impure callback 'model'}
+        property <int> abc: xx;
+    }
 }
 
 
