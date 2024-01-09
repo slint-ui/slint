@@ -243,6 +243,12 @@ public:
             return out;
         }
 
+        /// Returns true if the window should be shown fullscreen; false otherwise.
+        bool fullscreen() const
+        {
+            return cbindgen_private::slint_window_properties_get_fullscreen(inner());
+        }
+
         /// This struct describes the layout constraints of a window.
         ///
         /// It is the return value of WindowProperties::layout_constraints().

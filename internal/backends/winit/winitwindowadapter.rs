@@ -499,6 +499,12 @@ impl WindowAdapter for WinitWindowAdapter {
         }
 
         self.with_window_handle(&mut |winit_window| {
+            if properties.fullscreen() {
+                winit_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+            } else {
+                winit_window.set_fullscreen(None);
+            }
+
             // If we're in fullscreen state, don't try to resize the window but maintain the surface
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it
             // when we create a surface that's bigger than the screen due to constraints (#532).
@@ -551,14 +557,6 @@ impl WindowAdapter for WinitWindowAdapter {
                 }
             }
         });
-    }
-
-    fn set_fullscreen(&self, fullscreen: bool) {
-        if fullscreen {
-            self.winit_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
-        } else {
-            self.winit_window.set_fullscreen(None);
-        }
     }
 
     fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
