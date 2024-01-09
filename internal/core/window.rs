@@ -132,6 +132,9 @@ pub trait WindowAdapter {
     /// be called again.
     fn update_window_properties(&self, _properties: WindowProperties<'_>) {}
 
+    /// Set to display the window as fullscreen.
+    fn set_fullscreen(&self, _fullscreen: bool) {}
+
     #[doc(hidden)]
     fn internal(&self, _: crate::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         None

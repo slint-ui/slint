@@ -239,10 +239,6 @@ fn main() {
     if !args.backend.is_empty() {
         std::env::set_var("SLINT_BACKEND", &args.backend);
     }
-    if args.fullscreen {
-        // TODO: Have an API to set the Window fullscreen #3283
-        std::env::set_var("SLINT_FULLSCREEN", "1");
-    }
 
     #[cfg(feature = "preview-engine")]
     {

@@ -553,6 +553,14 @@ impl WindowAdapter for WinitWindowAdapter {
         });
     }
 
+    fn set_fullscreen(&self, fullscreen: bool) {
+        if fullscreen {
+            self.winit_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+        } else {
+            self.winit_window.set_fullscreen(None);
+        }
+    }
+
     fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }

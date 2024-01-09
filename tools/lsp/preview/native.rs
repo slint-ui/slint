@@ -150,7 +150,7 @@ pub fn open_ui(sender: &ServerNotifier) {
 }
 
 fn open_ui_impl(preview_state: &mut PreviewState) {
-    let (default_style, show_preview_ui) = {
+    let (default_style, show_preview_ui, fullscreen) = {
         let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         let style = cache.config.style.clone();
         let style = if style.is_empty() {
@@ -163,12 +163,14 @@ fn open_ui_impl(preview_state: &mut PreviewState) {
             .hide_ui
             .or_else(|| CLI_ARGS.with(|args| args.get().map(|a| a.no_toolbar.clone())))
             .unwrap_or(false);
-        (style, !hide_ui)
+        let fullscreen = CLI_ARGS.with(|args| args.get().map(|a| a.fullscreen).unwrap_or_default());
+        (style, !hide_ui, fullscreen)
     };
 
     // TODO: Handle Error!
     let ui = preview_state.ui.get_or_insert_with(|| super::ui::create_ui(default_style).unwrap());
     ui.set_show_preview_ui(show_preview_ui);
+    ui.window().set_fullscreen(fullscreen);
     ui.window().on_close_requested(|| {
         let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.ui_is_visible = false;
