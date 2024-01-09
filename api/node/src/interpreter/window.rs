@@ -123,4 +123,10 @@ impl JsWindow {
     pub fn request_redraw(&self) {
         self.inner.request_redraw();
     }
+
+    /// Set or unset the window to display fullscreen.
+    #[napi(setter)]
+    pub fn set_fullscreen(&self, enable: bool) {
+        self.inner.window().set_fullscreen(enable)
+    }
 }
