@@ -417,7 +417,7 @@ impl WindowInner {
                     "i_slint_core::Window::text_input_focused",
                 ),
             }),
-            fullscreen: Default::default(),
+            fullscreen: Cell::new(std::env::var("SLINT_FULLSCREEN").is_ok()),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
             active_popup: Default::default(),
