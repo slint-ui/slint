@@ -18,6 +18,11 @@ pub fn mock_elapsed_time(ms: f64) {
 }
 
 #[napi]
+pub fn get_mocked_time() -> f64 {
+    i_slint_core::tests::slint_get_mocked_time() as f64
+}
+
+#[napi]
 pub enum ProcessEventsResult {
     Continue,
     Exited,
