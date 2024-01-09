@@ -558,6 +558,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Install Android API level 30
+        run: sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "platforms;android-30"
       - name: Cache cargo-apk
         id: cargo-apk-cache
         uses: actions/cache@v3
