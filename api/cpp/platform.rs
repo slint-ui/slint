@@ -113,7 +113,7 @@ pub extern "C" fn slint_window_properties_get_background(
 
 #[no_mangle]
 pub extern "C" fn slint_window_properties_get_fullscreen(wp: &WindowProperties) -> bool {
-    wp.fullscreen();
+    wp.fullscreen()
 }
 
 #[repr(C)]
