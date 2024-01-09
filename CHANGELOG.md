@@ -14,7 +14,7 @@ All notable changes to this project are documented in this file.
 - Fixed focus behavior on click in a TextInput
 - Fixed ListView not updating when model changes (#3125)
 - Fixed TextInput on Plasma/Wayland receiveng many empty events causing selection to be cleared (#4148)
-
+- Added API to programmatically show a window in fullscreen mode (C++/Rust: `Window::set_fullscreen(bool)`, Node.js: `window.fullscreen`)
 
 ### Slint Language
 
