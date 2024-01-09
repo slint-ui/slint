@@ -78,6 +78,9 @@ export interface Window {
 
     /** Issues a request to the windowing system to re-render the contents of the window. */
     requestRedraw(): void;
+
+    /** Set or unset the window to display fullscreen. */
+    set fullscreen(enable: boolean);
 }
 
 /**
