@@ -111,6 +111,11 @@ pub extern "C" fn slint_window_properties_get_background(
     *out = wp.background();
 }
 
+#[no_mangle]
+pub extern "C" fn slint_window_properties_get_fullscreen(wp: &WindowProperties) -> bool {
+    wp.fullscreen()
+}
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 /// a Repr(C) variant of slint::platform::LayoutConstraints

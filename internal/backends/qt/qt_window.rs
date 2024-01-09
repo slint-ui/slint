@@ -1530,11 +1530,7 @@ impl WindowAdapter for QtWindow {
     fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
         if visible {
             let widget_ptr = self.widget_ptr();
-            let fullscreen = std::env::var("SLINT_FULLSCREEN").is_ok();
-            cpp! {unsafe [widget_ptr as "QWidget*", fullscreen as "bool"] {
-                if (fullscreen) {
-                    widget_ptr->setWindowState(widget_ptr->windowState() | Qt::WindowFullScreen);
-                }
+            cpp! {unsafe [widget_ptr as "QWidget*"] {
                 widget_ptr->show();
             }};
             let qt_platform_name = cpp! {unsafe [] -> qttypes::QString as "QString" {
@@ -1658,12 +1654,27 @@ impl WindowAdapter for QtWindow {
             }
         };
 
-        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QBrush", no_frame as "bool", always_on_top as "bool"] {
+        let fullscreen: bool = properties.fullscreen();
+
+        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QBrush", no_frame as "bool", always_on_top as "bool",
+                      fullscreen as "bool"] {
             if (size != widget_ptr->size()) {
                 widget_ptr->resize(size.expandedTo({1, 1}));
             }
             widget_ptr->setWindowFlag(Qt::FramelessWindowHint, no_frame);
             widget_ptr->setWindowFlag(Qt::WindowStaysOnTopHint, always_on_top);
+
+            {
+                // Depending on the request, we either set or clear the fullscreen bits.
+                // See also: https://doc.qt.io/qt-6/qt.html#WindowState-enum
+                const auto state = widget_ptr->windowState();
+                if (fullscreen) {
+                    widget_ptr->setWindowState(state | Qt::WindowFullScreen);
+                } else {
+                    widget_ptr->setWindowState(state & ~Qt::WindowFullScreen);
+                }
+            }
+
             widget_ptr->setWindowTitle(title);
             auto pal = widget_ptr->palette();
 
@@ -1700,21 +1711,6 @@ impl WindowAdapter for QtWindow {
             widget_ptr->setMinimumSize(min_size);
             widget_ptr->setMaximumSize(max_size);
         }};
-    }
-
-    fn set_fullscreen(&self, fullscreen: bool) {
-        let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*", fullscreen as "bool"] {
-                // Depending on the request, we either set or clear the fullscreen bits.
-                // See also: https://doc.qt.io/qt-6/qt.html#WindowState-enum
-                const auto state = widget_ptr->windowState();
-                if (fullscreen) {
-                    widget_ptr->setWindowState(state | Qt::WindowFullScreen);
-                } else {
-                    widget_ptr->setWindowState(state & ~Qt::WindowFullScreen);
-                }
-            }
-        };
     }
 
     fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {

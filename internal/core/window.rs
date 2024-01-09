@@ -132,9 +132,6 @@ pub trait WindowAdapter {
     /// be called again.
     fn update_window_properties(&self, _properties: WindowProperties<'_>) {}
 
-    /// Set to display the window as fullscreen.
-    fn set_fullscreen(&self, _fullscreen: bool) {}
-
     #[doc(hidden)]
     fn internal(&self, _: crate::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         None
@@ -280,6 +277,11 @@ impl<'a> WindowProperties<'a> {
             ),
         }
     }
+
+    /// Returns true if the window should be shown fullscreen; false otherwise.
+    pub fn fullscreen(&self) -> bool {
+        self.0.fullscreen.get()
+    }
 }
 
 struct WindowPropertiesTracker {
@@ -363,6 +365,7 @@ pub struct WindowInner {
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
 
     pinned_fields: Pin<Box<WindowPinnedFields>>,
+    fullscreen: Cell<bool>,
     active_popup: RefCell<Option<PopupWindow>>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
@@ -414,6 +417,10 @@ impl WindowInner {
                     "i_slint_core::Window::text_input_focused",
                 ),
             }),
+            #[cfg(feature = "std")]
+            fullscreen: Cell::new(std::env::var("SLINT_FULLSCREEN").is_ok()),
+            #[cfg(not(feature = "std"))]
+            fullscreen: Cell::new(false),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
             active_popup: Default::default(),
@@ -1007,6 +1014,12 @@ impl WindowInner {
             CloseRequestResponse::HideWindow => true,
             CloseRequestResponse::KeepWindowShown => false,
         }
+    }
+
+    /// Set or unset the window to display fullscreen.
+    pub fn set_fullscreen(&self, enabled: bool) {
+        self.fullscreen.set(enabled);
+        self.update_window_properties()
     }
 
     /// Returns the upgraded window adapter

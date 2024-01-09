@@ -448,7 +448,7 @@ impl Window {
 
     /// Set or unset the window to display fullscreen.
     pub fn set_fullscreen(&self, fullscreen: bool) {
-        self.0.window_adapter().set_fullscreen(fullscreen);
+        self.0.set_fullscreen(fullscreen);
     }
 
     /// Dispatch a window event to the scene.
