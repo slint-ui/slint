@@ -953,6 +953,7 @@ export function quitEventLoop() {
  */
 export namespace private_api {
     export import mock_elapsed_time = napi.mockElapsedTime;
+    export import get_mocked_time = napi.getMockedTime;
     export import ComponentCompiler = napi.ComponentCompiler;
     export import ComponentDefinition = napi.ComponentDefinition;
     export import ComponentInstance = napi.ComponentInstance;
