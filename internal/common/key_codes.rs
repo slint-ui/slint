@@ -47,6 +47,8 @@ macro_rules! for_each_special_keys {
 '\u{0017}'  # Meta        # Qt_Key_Key_Meta         # Super(Left)  # Meta_L     ;
 '\u{0018}'  # MetaR       #                         # Super(Right) # Meta_R     ;
 
+'\u{0020}'  # Space       # Qt_Key_Key_Space        # Space # Space     ;
+
 '\u{F700}'	# UpArrow     # Qt_Key_Key_Up           # ArrowUp           # Up         ;
 '\u{F701}'	# DownArrow   # Qt_Key_Key_Down         # ArrowDown         # Down       ;
 '\u{F702}'	# LeftArrow   # Qt_Key_Key_Left         # ArrowLeft         # Left       ;
