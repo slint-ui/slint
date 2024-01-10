@@ -582,3 +582,9 @@ jobs:
           sed -i "s/#wasm# //" Cargo.toml
           cargo apk build -p todo --target aarch64-linux-android --lib
         working-directory: examples/todo/rust
+      
+      - name: Build printerdemo example
+        run: |
+          sed -i "s/#wasm# //" Cargo.toml
+          cargo apk build -p printerdemo --target aarch64-linux-android --lib
+        working-directory: examples/printerdemo/rust

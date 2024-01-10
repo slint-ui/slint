@@ -19,6 +19,9 @@ slint = { path = "../../../api/rs/slint" }
 
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}
 
+[target.'cfg(target_os = "android")'.dependencies]
+i-slint-backend-android-activity = { workspace = true, features = ["native-activity"] }
+
 [build-dependencies]
 slint-build = { path = "../../../api/rs/build" }
 

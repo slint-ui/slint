@@ -104,3 +104,10 @@ pub fn main() {
 
     main_window.run().unwrap();
 }
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+fn android_main(app: i_slint_backend_android_activity::AndroidApp) {
+    slint::platform::set_platform(Box::new(i_slint_backend_android_activity::AndroidPlatform::new(app))).unwrap();
+    main()
+}
