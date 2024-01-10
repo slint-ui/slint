@@ -19,7 +19,7 @@ pub fn is_url(path: &Path) -> bool {
 }
 
 /// Convert a `Path` to an `url::Url` if possible
-fn to_url(path: &str) -> Option<url::Url> {
+pub fn to_url(path: &str) -> Option<url::Url> {
     let Ok(url) = url::Url::parse(path) else {
         return None;
     };
@@ -35,7 +35,7 @@ fn to_url(path: &str) -> Option<url::Url> {
 fn test_to_url() {
     #[track_caller]
     fn th(input: &str, expected: bool) {
-        assert_eq!(to_url(&input).is_some(), expected);
+        assert_eq!(to_url(input).is_some(), expected);
     }
 
     th("https://foo.bar/", true);
