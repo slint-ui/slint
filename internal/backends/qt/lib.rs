@@ -269,6 +269,8 @@ impl i_slint_core::platform::Platform for Backend {
         let text: qttypes::QString = _text.into();
         cpp! {unsafe [text as "QString", is_selection as "bool"] {
             ensure_initialized();
+            if (is_selection && !QGuiApplication::clipboard()->supportsSelection())
+                return;
             QGuiApplication::clipboard()->setText(text, is_selection ? QClipboard::Selection : QClipboard::Clipboard);
         } }
     }
@@ -283,6 +285,8 @@ impl i_slint_core::platform::Platform for Backend {
         };
         let has_text = cpp! {unsafe [is_selection as "bool"] -> bool as "bool" {
             ensure_initialized();
+            if (is_selection && !QGuiApplication::clipboard()->supportsSelection())
+                return false;
             return QGuiApplication::clipboard()->mimeData(is_selection ? QClipboard::Selection : QClipboard::Clipboard)->hasText();
         } };
         if has_text {
