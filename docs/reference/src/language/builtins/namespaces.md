@@ -41,6 +41,7 @@ against the constants below.
 -   **`ControlR`**
 -   **`Meta`**
 -   **`MetaR`**
+-   **`Space`**
 -   **`UpArrow`**
 -   **`DownArrow`**
 -   **`LeftArrow`**

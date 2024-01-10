@@ -287,9 +287,6 @@ impl EventLoopState {
                     match key_code {
                         $($(winit::keyboard::Key::Named(winit::keyboard::NamedKey::$winit) $(if event.location == winit::keyboard::KeyLocation::$pos)? => $char.into(),)*)*
                         winit::keyboard::Key::Character(str) => str.as_str().into(),
-                        // Space is handled separately: When pressed, event.text would be Some(" ") and all is well. But when released,
-                        // event.text is always empty, so we'd never produce a release event.
-                        winit::keyboard::Key::Named(winit::keyboard::NamedKey::Space) => " ".into(),
                         _ => {
                             if let Some(text) = &event.text {
                                 text.as_str().into()
