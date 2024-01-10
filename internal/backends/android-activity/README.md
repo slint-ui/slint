@@ -11,8 +11,13 @@ This crate implements the Android backend/platform for Slint.
 It uses the [android-activity](https://github.com/rust-mobile/android-activity) crate
 to initialize the app and provide events handling.
 
+## Status
+
 At the moment, this is a work in progress. In the future, we expect to add features directly to the the slint crate.
 In the mean time, it is already possible to use this crate to test Slint applications on Android.
+
+An example of app using it is the `todo` example: https://github.com/slint-ui/slint/tree/master/examples/todo/rust
+In order to try it out, edit the Cargo.toml to uncomment the `#wasm#` lines, and add `-p todo` to the cargo apk command bellow.
 
 ## Usage
 
