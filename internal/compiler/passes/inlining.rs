@@ -149,7 +149,31 @@ fn inline_element(
             .iter()
             .map(|p| duplicate_popup(p, &mut mapping, priority_delta)),
     );
-    for (k, val) in inlined_component.root_element.borrow().bindings.iter() {
+
+    let fixup_init_expression = |init_code: &Expression| {
+        let mut init_code = init_code.clone();
+        // Fix up any property references from within already collected init code.
+        visit_named_references_in_expression(&mut init_code, &mut |nr| {
+            fixup_reference(nr, &mapping)
+        });
+        fixup_element_references(&mut init_code, &mapping);
+        init_code
+    };
+
+    // When inlining a component before the collect_init_code phase, do the collect_init_code phase for
+    // the init callback in the inlined component manually, by cloning the expression into the init_code
+    // and skipping "init" in the binding merge phase.
+    let init_callback_to_inline = inlined_component
+        .root_element
+        .borrow()
+        .bindings
+        .get("init")
+        .map(|binding| fixup_init_expression(&binding.borrow().expression));
+    root_component.init_code.borrow_mut().constructor_code.extend(init_callback_to_inline);
+
+    for (k, val) in
+        inlined_component.root_element.borrow().bindings.iter().filter(|(k, _)| *k != "init")
+    {
         match elem_mut.bindings.entry(k.clone()) {
             std::collections::btree_map::Entry::Vacant(entry) => {
                 let priority = &mut entry.insert(val.clone()).get_mut().priority;
@@ -180,17 +204,9 @@ fn inline_element(
         .inlined_init_code
         .values()
         .cloned()
-        .chain(inlined_component.init_code.borrow().constructor_code.iter().map(
-            |constructor_code_expr| {
-                // Fix up any property references from within already collected init code.
-                let mut new_constructor_code = constructor_code_expr.clone();
-                visit_named_references_in_expression(&mut new_constructor_code, &mut |nr| {
-                    fixup_reference(nr, &mapping)
-                });
-                fixup_element_references(&mut new_constructor_code, &mapping);
-                new_constructor_code
-            },
-        ))
+        .chain(
+            inlined_component.init_code.borrow().constructor_code.iter().map(fixup_init_expression),
+        )
         .collect();
 
     root_component
