@@ -74,6 +74,17 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                         )
                     }),
                 );
+                // Synthesize focus() as styles written in .slint will have it but the qt style exposes NativeXX directly.
+                if b.accepts_focus {
+                    result.properties.insert(
+                        "focus".into(),
+                        PropertyInfo {
+                            ty: Type::Function { return_type: Type::Void.into(), args: vec![] },
+                            vis: PropertyVisibility::Public,
+                            pure: false,
+                        },
+                    );
+                }
                 break;
             }
             i_slint_compiler::langtype::ElementType::Native(_) => unreachable!(),

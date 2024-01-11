@@ -20,6 +20,7 @@ export component CheckBox {
     accessible-label: root.text;
     accessible-checked <=> root.checked;
     accessible-role: checkbox;
+    forward-focus: i-focus-scope;
 
     states [
         disabled when !root.enabled : {

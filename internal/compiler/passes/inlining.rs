@@ -512,15 +512,8 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
 
     let root_element = &component.root_element;
     if super::flickable::is_flickable_element(root_element)
-        || super::focus_item::get_explicit_forward_focus(root_element).is_some()
         || super::lower_layout::is_layout_element(root_element)
     {
-        return true;
-    }
-
-    // the focus_item pass needs to refer to elements that are focusable, if it is not inline
-    // it is not possible to refer to them in an  Expression::ElementReference
-    if matches!(&root_element.borrow().base_type, ElementType::Builtin(b) if b.accepts_focus) {
         return true;
     }
 
