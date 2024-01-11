@@ -3,10 +3,11 @@
 
 // cSpell: ignore descr rfind unindented
 
-use crate::common::ComponentInformation;
+use crate::common::{ComponentInformation, Position};
 use crate::language::DocumentCache;
 
 use i_slint_compiler::langtype::ElementType;
+use i_slint_compiler::pathutils::to_url;
 
 use std::path::Path;
 
@@ -28,8 +29,7 @@ fn builtin_component_info(name: &str) -> ComponentInformation {
         is_builtin: true,
         is_std_widget: false,
         is_exported: true,
-        file: None,
-        offset: 0,
+        defined_at: None,
     }
 }
 
@@ -52,16 +52,14 @@ fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
         is_builtin: false,
         is_std_widget: true,
         is_exported: true,
-        file: None,
-        offset: 0,
+        defined_at: None,
     }
 }
 
 fn exported_project_component_info(
     name: &str,
     is_global: bool,
-    file: String,
-    offset: u32,
+    position: Position,
 ) -> ComponentInformation {
     ComponentInformation {
         name: name.to_string(),
@@ -70,12 +68,11 @@ fn exported_project_component_info(
         is_builtin: false,
         is_std_widget: false,
         is_exported: true,
-        file: Some(file),
-        offset,
+        defined_at: Some(position),
     }
 }
 
-fn file_local_component_info(name: &str, file: String, offset: u32) -> ComponentInformation {
+fn file_local_component_info(name: &str, position: Position) -> ComponentInformation {
     ComponentInformation {
         name: name.to_string(),
         category: "User Defined".to_string(),
@@ -83,12 +80,10 @@ fn file_local_component_info(name: &str, file: String, offset: u32) -> Component
         is_builtin: false,
         is_std_widget: false,
         is_exported: false,
-        file: Some(file),
-        offset,
+        defined_at: Some(position),
     }
 }
 
-#[allow(unused)]
 pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<ComponentInformation>) {
     let registry = document_cache.documents.global_type_registry.borrow();
     result.extend(registry.all_elements().iter().filter_map(|(name, ty)| {
@@ -116,14 +111,15 @@ pub fn all_exported_components(
             let to_push = if is_std_widget && !exported_name.as_str().ends_with("Impl") {
                 Some(std_widgets_info(exported_name.as_str(), c.is_global()))
             } else if !is_builtin {
-                let file = file.to_string_lossy().to_string();
+                let Some(url) = to_url(&file.to_string_lossy()) else {
+                    continue;
+                };
                 let offset =
                     c.node.as_ref().map(|n| n.text_range().start().into()).unwrap_or_default();
                 Some(exported_project_component_info(
                     exported_name.as_str(),
                     c.is_global(),
-                    file,
-                    offset,
+                    Position { url, offset },
                 ))
             } else {
                 None
@@ -142,12 +138,15 @@ pub fn all_exported_components(
     }
 }
 
-#[allow(unused)]
 pub fn file_local_components(
     document_cache: &DocumentCache,
     file: &Path,
     result: &mut Vec<ComponentInformation>,
 ) {
+    let Some(url) = to_url(&file.to_string_lossy()) else {
+        return;
+    };
+
     let Some(doc) = document_cache.documents.get_document(file) else { return };
     for component in &*doc.inner_components {
         if component.is_global() {
@@ -159,8 +158,7 @@ pub fn file_local_components(
                 component.node.as_ref().map(|n| n.text_range().start().into()).unwrap_or_default();
             result.push(file_local_component_info(
                 &component.id,
-                file.to_string_lossy().to_string(),
-                offset,
+                Position { url: url.clone(), offset },
             ));
         }
     }

@@ -9,10 +9,10 @@ use std::{
 };
 
 use crate::{
-    common::{PreviewComponent, PreviewConfig},
+    common::{ComponentInformation, PreviewComponent, PreviewConfig, VersionedUrl},
     lsp_ext::Health,
 };
-use i_slint_compiler::{diagnostics::SourceFile, object_tree::ElementRc};
+use i_slint_compiler::{diagnostics::SourceFile, object_tree::ElementRc, pathutils::to_url};
 use i_slint_core::{
     component_factory::FactoryContext,
     lengths::{LogicalLength, LogicalPoint, LogicalRect},
@@ -23,7 +23,7 @@ use slint_interpreter::{
     ComponentDefinition, ComponentHandle, ComponentInstance,
 };
 
-use lsp_types::notification::Notification;
+use lsp_types::{notification::Notification, Url};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -54,31 +54,34 @@ enum PreviewFutureState {
 
 #[derive(Default)]
 struct ContentCache {
-    source_code: HashMap<PathBuf, String>,
-    dependency: HashSet<PathBuf>,
-    current: PreviewComponent,
+    source_code: HashMap<Url, String>,
+    dependency: HashSet<Url>,
+    current: Option<PreviewComponent>,
     config: PreviewConfig,
     loading_state: PreviewFutureState,
-    highlight: Option<(PathBuf, u32)>,
+    highlight: Option<(Url, u32)>,
     ui_is_visible: bool,
 }
 
 static CONTENT_CACHE: std::sync::OnceLock<Mutex<ContentCache>> = std::sync::OnceLock::new();
 
-pub fn set_contents(path: &Path, content: String) {
+pub fn set_contents(url: &VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let old = cache.source_code.insert(path.to_owned(), content.clone());
-    if cache.dependency.contains(path) {
+    let old = cache.source_code.insert(url.url.clone(), content.clone());
+    if cache.dependency.contains(&url.url) {
         if let Some(old) = old {
             if content == old {
                 return;
             }
         }
-        let current = cache.current.clone();
+        let Some(current) = cache.current.clone() else {
+            return;
+        };
         let ui_is_visible = cache.ui_is_visible;
+
         drop(cache);
 
-        if ui_is_visible && !current.path.as_os_str().is_empty() {
+        if ui_is_visible {
             load_preview(current);
         }
     }
@@ -245,10 +248,12 @@ pub fn select_element_into(x: f32, y: f32) {
 fn change_style() {
     let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let ui_is_visible = cache.ui_is_visible;
-    let current = cache.current.clone();
+    let Some(current) = cache.current.clone() else {
+        return;
+    };
     drop(cache);
 
-    if ui_is_visible && !current.path.as_os_str().is_empty() {
+    if ui_is_visible {
         load_preview(current);
     }
 }
@@ -283,7 +288,7 @@ pub fn config_changed(config: PreviewConfig) {
                 if let Some(hide_ui) = hide_ui {
                     set_show_preview_ui(!hide_ui);
                 }
-                if !current.path.as_os_str().is_empty() {
+                if let Some(current) = current {
                     load_preview(current);
                 }
             }
@@ -293,17 +298,22 @@ pub fn config_changed(config: PreviewConfig) {
 
 /// If the file is in the cache, returns it.
 /// In any way, register it as a dependency
-fn get_file_from_cache(path: PathBuf) -> Option<String> {
+fn get_url_from_cache(url: &Url) -> Option<String> {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let r = cache.source_code.get(&path).cloned();
-    cache.dependency.insert(path);
+    let r = cache.source_code.get(&url).cloned();
+    cache.dependency.insert(url.to_owned());
     r
+}
+
+fn get_path_from_cache(path: &Path) -> Option<String> {
+    let url = to_url(&path.to_string_lossy())?;
+    get_url_from_cache(&url)
 }
 
 pub fn load_preview(preview_component: PreviewComponent) {
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.current = preview_component.clone();
+        cache.current = Some(preview_component.clone());
         if !cache.ui_is_visible {
             return;
         }
@@ -323,6 +333,10 @@ pub fn load_preview(preview_component: PreviewComponent) {
         loop {
             let (preview_component, config) = {
                 let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+                let Some(current) = &mut cache.current.clone() else { return };
+                let preview_component = current.clone();
+                current.style.clear();
+
                 assert_eq!(cache.loading_state, PreviewFutureState::PreLoading);
                 if !cache.ui_is_visible {
                     cache.loading_state = PreviewFutureState::Pending;
@@ -330,8 +344,6 @@ pub fn load_preview(preview_component: PreviewComponent) {
                 }
                 cache.loading_state = PreviewFutureState::Loading;
                 cache.dependency.clear();
-                let preview_component = cache.current.clone();
-                cache.current.style.clear();
                 (preview_component, cache.config.clone())
             };
             let style = if preview_component.style.is_empty() {
@@ -386,18 +398,19 @@ async fn reload_preview_impl(
 
     builder.set_file_loader(|path| {
         let path = path.to_owned();
-        Box::pin(async move { get_file_from_cache(path).map(Result::Ok) })
+        Box::pin(async move { get_path_from_cache(&path).map(Result::Ok) })
     });
 
-    let compiled = if let Some(mut from_cache) = get_file_from_cache(component.path.clone()) {
+    let path = component.url.to_string().into();
+    let compiled = if let Some(mut from_cache) = get_url_from_cache(&component.url) {
         if let Some(component_name) = &component.component {
             from_cache = format!(
                 "{from_cache}\nexport component _Preview inherits {component_name} {{ }}\n"
             );
         }
-        builder.build_from_source(from_cache, component.path).await
+        builder.build_from_source(from_cache, path).await
     } else {
-        builder.build_from_path(component.path).await
+        builder.build_from_path(path).await
     };
 
     notify_diagnostics(builder.diagnostics());
@@ -424,10 +437,12 @@ pub fn set_preview_factory(
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
 
-        if let Some((path, offset)) =
+        if let Some((url, offset)) =
             CONTENT_CACHE.get().and_then(|c| c.lock().unwrap().highlight.clone())
         {
-            highlight(&Some(path), offset);
+            highlight(Some(url), offset);
+        } else {
+            highlight(None, 0);
         }
 
         callback(instance.clone_strong());
@@ -439,8 +454,8 @@ pub fn set_preview_factory(
 
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
-pub fn highlight(path: &Option<PathBuf>, offset: u32) {
-    let highlight = path.clone().map(|x| (x, offset));
+pub fn highlight(url: Option<Url>, offset: u32) {
+    let highlight = url.clone().map(|x| (x, offset));
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
 
     if cache.highlight == highlight {
@@ -448,17 +463,22 @@ pub fn highlight(path: &Option<PathBuf>, offset: u32) {
     }
     cache.highlight = highlight;
 
-    if cache.highlight.as_ref().map_or(true, |(path, _)| cache.dependency.contains(path)) {
-        let path = path.clone().unwrap_or_default();
-        update_highlight(path, offset);
+    if cache.highlight.as_ref().map_or(true, |(url, _)| cache.dependency.contains(url)) {
+        update_highlight(url, offset);
     }
+}
+
+/// Highlight the element pointed at the offset in the path.
+/// When path is None, remove the highlight.
+pub fn known_components(url: &Option<VersionedUrl>, components: Vec<ComponentInformation>) {
+    i_slint_core::debug_log!("Preview got known component information:\n{url:?} => {components:?}");
 }
 
 pub fn show_document_request_from_element_callback(
     file: &str,
     range: lsp_types::Range,
 ) -> Option<lsp_types::ShowDocumentParams> {
-    use lsp_types::{ShowDocumentParams, Url};
+    use lsp_types::ShowDocumentParams;
 
     if file.is_empty() || range.start.character == 0 || range.end.character == 0 {
         return None;
