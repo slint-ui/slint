@@ -36,7 +36,8 @@ pub trait FullscreenRenderer {
 pub struct FullscreenWindowAdapter {
     window: i_slint_core::api::Window,
     renderer: Box<dyn FullscreenRenderer>,
-    needs_redraw: Cell<bool>,
+    redraw_requested: Cell<bool>,
+    needs_redraw_after_present: Cell<bool>,
     rotation: RenderingRotation,
 }
 
@@ -54,7 +55,7 @@ impl WindowAdapter for FullscreenWindowAdapter {
     }
 
     fn request_redraw(&self) {
-        self.needs_redraw.set(true)
+        self.redraw_requested.set(true)
     }
 
     fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
@@ -81,7 +82,8 @@ impl FullscreenWindowAdapter {
         Ok(Rc::<FullscreenWindowAdapter>::new_cyclic(|self_weak| FullscreenWindowAdapter {
             window: i_slint_core::api::Window::new(self_weak.clone()),
             renderer,
-            needs_redraw: Cell::new(true),
+            redraw_requested: Cell::new(true),
+            needs_redraw_after_present: Cell::new(false),
             rotation,
         }))
     }
@@ -93,7 +95,7 @@ impl FullscreenWindowAdapter {
         if !self.renderer.is_ready_to_present() {
             return Ok(());
         }
-        if self.needs_redraw.replace(false) {
+        if self.redraw_requested.replace(false) {
             self.renderer.render_and_present(
                 self.rotation,
                 &|item_renderer| {
@@ -113,12 +115,17 @@ impl FullscreenWindowAdapter {
                         let Some(this) = self_weak.upgrade() else {
                             return;
                         };
-                        if this.window.has_active_animations() {
+                        if this.needs_redraw_after_present.replace(false) {
                             this.request_redraw();
                         }
                     }
                 }),
             )?;
+            // Check once after rendering if we have running animations and
+            // remember that to trigger a redraw after the frame is on the screen.
+            // Timers might have been updated if the event loop is woken up
+            // due to other reasons, which would also reset has_active_animations.
+            self.needs_redraw_after_present.set(self.window.has_active_animations());
         }
         Ok(())
     }
