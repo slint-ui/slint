@@ -63,13 +63,13 @@ pub trait Platform {
     }
 
     #[doc(hidden)]
-    /// This is being phased out, see #1499
+    #[deprecated(
+        note = "i-slint-core takes care of closing behavior. Application should call run_event_loop_until_quit"
+    )]
+    /// This is being phased out, see #1499.
     fn set_event_loop_quit_on_last_window_closed(&self, quit_on_last_window_closed: bool) {
-        if !quit_on_last_window_closed {
-            crate::GLOBAL_CONTEXT.with(|ctx| (*ctx.get().unwrap().window_count.borrow_mut()) += 1);
-        } else {
-            crate::GLOBAL_CONTEXT.with(|ctx| (*ctx.get().unwrap().window_count.borrow_mut()) -= 1);
-        }
+        assert!(!quit_on_last_window_closed);
+        crate::GLOBAL_CONTEXT.with(|ctx| (*ctx.get().unwrap().window_count.borrow_mut()) += 1);
     }
 
     /// Return an [`EventLoopProxy`] that can be used to send event to the event loop

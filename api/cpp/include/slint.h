@@ -1261,13 +1261,29 @@ struct [[deprecated]] VersionCheckHelper
 };
 }
 
+/// Enum for the event loop mode parameter of the slint::run_event_loop() function.
+/// It is used to determine when the event loop quits.
+enum class EventLoopMode {
+    /// The event loop will quit when the last window is closed
+    /// or when slint::quit_event_loop() is called.
+    QuitOnLastWindowClosed,
+
+    /// The event loop will keep running until slint::quit_event_loop() is called,
+    /// even when all windows are closed.
+    RunUntilQuit
+};
+
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
-inline void run_event_loop()
+///
+/// The mode parameter determines the behavior of the event loop when all windows are closed.
+/// By default, it is set to QuitOnLastWindowClose, which means the event loop will
+/// quit when the last window is closed.
+inline void run_event_loop(EventLoopMode mode = EventLoopMode::QuitOnLastWindowClosed)
 {
     private_api::assert_main_thread();
-    cbindgen_private::slint_run_event_loop();
+    cbindgen_private::slint_run_event_loop(mode == EventLoopMode::QuitOnLastWindowClosed);
 }
 
 /// Schedules the main event loop for termination. This function is meant
