@@ -99,7 +99,6 @@ pub struct ComponentInformation {
 }
 
 impl ComponentInformation {
-    #[allow(unused)]
     pub fn import_file_name(&self, current_uri: &lsp_types::Url) -> Option<String> {
         if self.is_std_widget {
             Some("std-widgets.slint".to_string())
