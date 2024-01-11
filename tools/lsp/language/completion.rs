@@ -3,7 +3,9 @@
 
 // cSpell: ignore rfind
 
+use super::component_catalog::all_exported_components;
 use super::DocumentCache;
+use crate::common::ComponentInformation;
 use crate::util::{lookup_current_element_type, map_position, with_lookup_ctx};
 
 #[cfg(target_arch = "wasm32")]
@@ -665,47 +667,35 @@ pub fn build_import_statements_edits(
         Position::new(map_position(&token.source_file, last.into()).line + 1, 0)
     };
 
-    for file in document_cache.documents.all_files() {
-        let Some(doc) = document_cache.documents.get_document(file) else { continue };
-        let file = if file.starts_with("builtin:/") {
-            match file.file_name() {
-                Some(file) if file == "std-widgets.slint" => "std-widgets.slint".into(),
-                _ => continue,
-            }
-        } else {
-            match lsp_types::Url::make_relative(
-                &current_uri,
-                &lsp_types::Url::from_file_path(file)
-                    .unwrap_or_else(|()| panic!("Cannot parse URL for file '{file:?}'")),
-            ) {
-                Some(file) => file,
-                None => continue,
-            }
+    let exports = {
+        let mut tmp = Vec::new();
+        all_exported_components(
+            document_cache,
+            &mut move |ci: &ComponentInformation| {
+                !filter(&ci.name) || ci.is_global || !ci.is_exported
+            },
+            &mut tmp,
+        );
+        tmp
+    };
+
+    for ci in &exports {
+        let Some(file) = ci.import_file_name(&current_uri) else {
+            continue;
         };
 
-        for (exported_name, ty) in &*doc.exports {
-            if let Some(c) = ty.as_ref().left() {
-                if c.is_global() {
-                    continue;
-                }
-            } else {
-                continue;
-            }
-            if !filter(&exported_name.name) {
-                continue;
-            }
-            let the_import = import_locations.get(&file).map_or_else(
-                || {
-                    TextEdit::new(
-                        Range::new(new_import_position, new_import_position),
-                        format!("import {{ {} }} from \"{}\";\n", exported_name.name, file),
-                    )
-                },
-                |pos| TextEdit::new(Range::new(*pos, *pos), format!(", {}", exported_name.name)),
-            );
-            add_edit(&exported_name.name, &file, the_import);
-        }
+        let the_import = import_locations.get(&file).map_or_else(
+            || {
+                TextEdit::new(
+                    Range::new(new_import_position, new_import_position),
+                    format!("import {{ {} }} from \"{}\";\n", ci.name, file),
+                )
+            },
+            |pos| TextEdit::new(Range::new(*pos, *pos), format!(", {}", ci.name)),
+        );
+        add_edit(&ci.name, &file, the_import);
     }
+
     Some(())
 }
 

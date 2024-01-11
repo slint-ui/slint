@@ -97,7 +97,6 @@ pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<Compo
     }));
 }
 
-#[allow(unused)]
 pub fn all_exported_components(
     document_cache: &DocumentCache,
     filter: &mut dyn FnMut(&ComponentInformation) -> bool,
@@ -135,8 +134,10 @@ pub fn all_exported_components(
             };
 
             if filter(&to_push) {
-                result.push(to_push);
+                continue;
             }
+
+            result.push(to_push);
         }
     }
 }
