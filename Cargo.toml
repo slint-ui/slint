@@ -136,6 +136,7 @@ resvg = { version= "0.36.0", default-features = false, features = ["text"] }
 send_wrapper = { version = "0.6.0" }
 softbuffer = { version = "0.3.3", default-features = false }
 toml_edit = { version = "0.21" }
+cfg_aliases = { version = "0.2.0" }
 
 [profile.release]
 lto = true

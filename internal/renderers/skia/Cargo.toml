@@ -75,4 +75,4 @@ skia-safe = { version = "0.69.0", features = ["metal"] }
 skia-safe = { version = "0.69.0", features = ["gl"] }
 
 [build-dependencies]
-cfg_aliases = "0.1.0"
+cfg_aliases = { workspace = true }
