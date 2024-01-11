@@ -595,7 +595,7 @@ public:
     void run() const
     {
         show();
-        cbindgen_private::slint_run_event_loop();
+        slint::run_event_loop();
         hide();
     }
 #    if defined(SLINT_FEATURE_BACKEND_QT) || defined(DOXYGEN)

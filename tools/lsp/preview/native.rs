@@ -87,11 +87,7 @@ pub fn start_ui_event_loop(cli_args: crate::Cli) {
         }
     }
 
-    i_slint_backend_selector::with_platform(|b| {
-        b.set_event_loop_quit_on_last_window_closed(false);
-        b.run_event_loop()
-    })
-    .unwrap();
+    slint::run_event_loop_until_quit().unwrap();
 }
 
 pub fn quit_ui_event_loop() {

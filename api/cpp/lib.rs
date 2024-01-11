@@ -49,8 +49,16 @@ pub unsafe extern "C" fn slint_ensure_backend() {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn slint_run_event_loop() {
-    with_platform(|b| b.run_event_loop()).unwrap();
+/// Enters the main event loop.
+pub extern "C" fn slint_run_event_loop(quit_on_last_window_closed: bool) {
+    with_platform(|b| {
+        if !quit_on_last_window_closed {
+            #[allow(deprecated)]
+            b.set_event_loop_quit_on_last_window_closed(false);
+        }
+        b.run_event_loop()
+    })
+    .unwrap();
 }
 
 /// Will execute the given functor in the main thread

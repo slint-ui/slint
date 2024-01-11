@@ -221,10 +221,29 @@ pub use i_slint_core::{format, string::SharedString};
 pub mod private_unstable_api;
 
 /// Enters the main event loop. This is necessary in order to receive
-/// events from the windowing system in order to render to the screen
-/// and react to user input.
+/// events from the windowing system for rendering to the screen
+/// and reacting to user input.
+/// This function will run until the last window is closed or until
+/// [`quit_event_loop()`] is called.
+///
+/// See also [`run_event_loop_until_quit()`] to keep the event loop running until
+/// [`quit_event_loop()`] is called, even if all windows are closed.
 pub fn run_event_loop() -> Result<(), PlatformError> {
     i_slint_backend_selector::with_platform(|b| b.run_event_loop())
+}
+
+/// Similar to [`run_event_loop()`], but this function enters the main event loop
+/// and continues to run even when the last window is closed, until
+/// [`quit_event_loop()`] is called.
+///
+/// This is useful for system tray applications where the application needs to stay alive
+/// even if no windows are visible.
+pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
+    i_slint_backend_selector::with_platform(|b| {
+        #[allow(deprecated)]
+        b.set_event_loop_quit_on_last_window_closed(false);
+        b.run_event_loop()
+    })
 }
 
 /// Include the code generated with the slint-build crate from the build script. After calling `slint_build::compile`
