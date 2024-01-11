@@ -8,13 +8,13 @@ use crate::ServerNotifier;
 
 use i_slint_compiler::object_tree::{ElementRc, ElementWeak};
 use i_slint_core::lengths::LogicalRect;
+use lsp_types::Url;
 use slint::VecModel;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::future::Future;
-use std::path::PathBuf;
 use std::rc::{Rc, Weak};
 use std::sync::{Condvar, Mutex};
 
@@ -365,7 +365,7 @@ pub fn update_preview_area(compiled: ComponentDefinition) {
 
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
-pub fn update_highlight(path: PathBuf, offset: u32) {
+pub fn update_highlight(url: Option<Url>, offset: u32) {
     run_in_ui_thread(move || async move {
         let handle = PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow();
@@ -374,6 +374,7 @@ pub fn update_highlight(path: PathBuf, offset: u32) {
         });
 
         if let Some(handle) = handle {
+            let path = url.as_ref().map(|u| u.to_string().into()).unwrap_or_default();
             let element_positions = handle.component_positions(path, offset);
             set_selected_element(None, element_positions);
         }

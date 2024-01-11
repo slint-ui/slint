@@ -13,21 +13,21 @@ pub mod lsp_ext;
 mod preview;
 pub mod util;
 
-use common::{PreviewApi, Result};
+use common::{ComponentInformation, PreviewApi, Result, VersionedUrl};
+use i_slint_compiler::pathutils::to_url;
 use language::*;
 
 use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::{
     DidChangeConfiguration, DidChangeTextDocument, DidOpenTextDocument, Notification,
 };
-use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams};
+use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, Url};
 
 use clap::Parser;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
-use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::{atomic, Arc, Mutex};
@@ -53,19 +53,19 @@ impl PreviewApi for Previewer {
         }
     }
 
-    fn set_contents(&self, _path: &std::path::Path, _contents: &str) {
+    fn set_contents(&self, _url: &VersionedUrl, _contents: &str) {
         if *self.use_external_previewer.borrow() {
             #[cfg(feature = "preview-external")]
             let _ = self.server_notifier.send_notification(
                 "slint/lsp_to_preview".to_string(),
                 crate::common::LspToPreviewMessage::SetContents {
-                    path: _path.to_string_lossy().to_string(),
+                    url: _url.to_owned(),
                     contents: _contents.to_string(),
                 },
             );
         } else {
             #[cfg(feature = "preview-builtin")]
-            preview::set_contents(_path, _contents.to_string());
+            preview::set_contents(_url, _contents.to_string());
         }
     }
 
@@ -76,11 +76,7 @@ impl PreviewApi for Previewer {
             #[cfg(feature = "preview-external")]
             let _ = self.server_notifier.send_notification(
                 "slint/lsp_to_preview".to_string(),
-                crate::common::LspToPreviewMessage::ShowPreview {
-                    path: component.path.to_string_lossy().to_string(),
-                    component: component.component,
-                    style: component.style.to_string(),
-                },
+                crate::common::LspToPreviewMessage::ShowPreview(component),
             );
         } else {
             #[cfg(feature = "preview-builtin")]
@@ -104,23 +100,43 @@ impl PreviewApi for Previewer {
         }
     }
 
-    fn highlight(&self, _path: Option<std::path::PathBuf>, _offset: u32) -> Result<()> {
-        {
-            if *self.use_external_previewer.borrow() {
-                #[cfg(feature = "preview-external")]
-                self.server_notifier.send_notification(
+    fn highlight(&self, _url: Option<Url>, _offset: u32) -> Result<()> {
+        if *self.use_external_previewer.borrow() {
+            #[cfg(feature = "preview-external")]
+            self.server_notifier.send_notification(
+                "slint/lsp_to_preview".to_string(),
+                crate::common::LspToPreviewMessage::HighlightFromEditor {
+                    url: _url.clone(),
+                    offset: _offset,
+                },
+            )?;
+            Ok(())
+        } else {
+            #[cfg(feature = "preview-builtin")]
+            preview::highlight(_url, _offset);
+            Ok(())
+        }
+    }
+
+    fn report_known_components(
+        &self,
+        _url: Option<VersionedUrl>,
+        _components: Vec<ComponentInformation>,
+    ) {
+        if *self.use_external_previewer.borrow() {
+            #[cfg(feature = "preview-external")]
+            {
+                let _ = self.server_notifier.send_notification(
                     "slint/lsp_to_preview".to_string(),
-                    crate::common::LspToPreviewMessage::HighlightFromEditor {
-                        path: _path.as_ref().map(|p| p.to_string_lossy().to_string()),
-                        offset: _offset,
+                    crate::common::LspToPreviewMessage::KnownComponents {
+                        url: _url,
+                        components: _components,
                     },
-                )?;
-                Ok(())
-            } else {
-                #[cfg(feature = "preview-builtin")]
-                preview::highlight(&_path, _offset);
-                Ok(())
+                );
             }
+        } else {
+            #[cfg(feature = "preview-builtin")]
+            preview::known_components(&_url, _components);
         }
     }
 
@@ -325,7 +341,9 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         Box::pin(async move {
             let contents = std::fs::read_to_string(&path);
             if let Ok(contents) = &contents {
-                preview_notifier.set_contents(&PathBuf::from(path), contents);
+                if let Some(url) = to_url(&path) {
+                    preview_notifier.set_contents(&VersionedUrl { url, version: None }, contents);
+                }
             }
             Some(contents)
         })

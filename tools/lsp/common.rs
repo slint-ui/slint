@@ -3,15 +3,31 @@
 
 //! Data structures common between LSP and previewer
 
-use i_slint_compiler::pathutils::to_url;
+use lsp_types::Url;
 
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, path::PathBuf};
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
+pub type UrlVersion = Option<i32>;
+
+/// A versioned file
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct VersionedUrl {
+    /// The file url
+    pub url: Url,
+    // The file version
+    pub version: UrlVersion,
+}
+
+/// A versioned file
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct Position {
+    /// The file url
+    pub url: Url,
+    /// The offset in the file pointed to by the `url`
+    pub offset: u32,
+}
 
 #[derive(Default, Clone, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
 pub struct PreviewConfig {
@@ -25,21 +41,27 @@ pub struct PreviewConfig {
 /// ServerNotifier
 pub trait PreviewApi {
     fn set_use_external_previewer(&self, use_external: bool);
-    fn set_contents(&self, path: &Path, contents: &str);
+    fn set_contents(&self, url: &VersionedUrl, contents: &str);
     fn load_preview(&self, component: PreviewComponent);
     fn config_changed(&self, config: PreviewConfig);
-    fn highlight(&self, path: Option<PathBuf>, offset: u32) -> Result<()>;
+    fn highlight(&self, url: Option<Url>, offset: u32) -> Result<()>;
 
     /// What is the current component to preview?
     fn current_component(&self) -> Option<PreviewComponent>;
+
+    fn report_known_components(
+        &self,
+        url: Option<VersionedUrl>,
+        components: Vec<ComponentInformation>,
+    );
 }
 
 /// The Component to preview
 #[allow(unused)]
-#[derive(Default, Clone, Debug)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct PreviewComponent {
     /// The file name to preview
-    pub path: PathBuf,
+    pub url: Url,
     /// The name of the component within that file.
     /// If None, then the last component is going to be shown.
     pub component: Option<String>,
@@ -51,10 +73,11 @@ pub struct PreviewComponent {
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum LspToPreviewMessage {
-    SetContents { path: String, contents: String },
+    SetContents { url: VersionedUrl, contents: String },
     SetConfiguration { config: PreviewConfig },
-    ShowPreview { path: String, component: Option<String>, style: String },
-    HighlightFromEditor { path: Option<String>, offset: u32 },
+    ShowPreview(PreviewComponent),
+    HighlightFromEditor { url: Option<Url>, offset: u32 },
+    KnownComponents { url: Option<VersionedUrl>, components: Vec<ComponentInformation> },
 }
 
 #[allow(unused)]
@@ -71,7 +94,7 @@ pub struct Diagnostic {
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToLspMessage {
     Status { message: String, health: crate::lsp_ext::Health },
-    Diagnostics { uri: lsp_types::Url, diagnostics: Vec<lsp_types::Diagnostic> },
+    Diagnostics { uri: Url, diagnostics: Vec<lsp_types::Diagnostic> },
     ShowDocument { file: String, selection: lsp_types::Range },
     PreviewTypeChanged { is_external: bool },
     RequestState { unused: bool }, // send all documents!
@@ -93,9 +116,7 @@ pub struct ComponentInformation {
     /// This type was exported
     pub is_exported: bool,
     /// The URL to the file containing this type
-    pub file: Option<String>,
-    /// The offset in the file (if one is set)
-    pub offset: u32,
+    pub defined_at: Option<Position>,
 }
 
 impl ComponentInformation {
@@ -103,9 +124,8 @@ impl ComponentInformation {
         if self.is_std_widget {
             Some("std-widgets.slint".to_string())
         } else {
-            let file = self.file.clone()?;
-            let url = to_url(&file)?;
-            lsp_types::Url::make_relative(current_uri, &url)
+            let url = self.defined_at.as_ref().map(|p| &p.url)?;
+            lsp_types::Url::make_relative(current_uri, url)
         }
     }
 }

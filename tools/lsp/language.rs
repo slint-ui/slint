@@ -11,7 +11,7 @@ mod semantic_tokens;
 #[cfg(test)]
 mod test;
 
-use crate::common::{PreviewApi, PreviewConfig, Result};
+use crate::common::{ComponentInformation, PreviewApi, PreviewConfig, Result, VersionedUrl};
 use crate::language::properties::find_element_indent;
 use crate::util::{lookup_current_element_type, map_node, map_range, map_token, to_lsp_diag};
 
@@ -83,14 +83,19 @@ fn create_show_preview_command(
 
 #[cfg(feature = "preview-external")]
 pub fn request_state(ctx: &std::rc::Rc<Context>) {
+    use i_slint_compiler::{diagnostics::Spanned, pathutils::to_url};
+
     let cache = ctx.document_cache.borrow();
     let documents = &cache.documents;
 
     for (p, d) in documents.all_file_documents() {
-        let Some(node) = &d.node else {
-            continue;
-        };
-        ctx.preview.set_contents(p, &node.text().to_string());
+        if let Some(node) = &d.node {
+            let Some(url) = to_url(&p.to_string_lossy()) else {
+                continue;
+            };
+            let url = VersionedUrl { url, version: node.source_file().and_then(|sf| sf.version()) };
+            ctx.preview.set_contents(&url, &node.text().to_string());
+        }
     }
     ctx.preview.config_changed(cache.preview_config.clone());
     if let Some(c) = ctx.preview.current_component() {
@@ -345,7 +350,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
             {
                 if let Some(range) = map_node(&p) {
-                    ctx.preview.highlight(uri_to_file(&uri), _off)?;
+                    ctx.preview.highlight(Some(uri), _off)?;
                     return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
                 }
             }
@@ -415,13 +420,17 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
     };
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
-    let path = uri_to_file(&url).unwrap_or_default();
 
     ctx.preview.load_preview(crate::common::PreviewComponent {
-        path,
+        url,
         component,
         style: config.style.clone().unwrap_or_default(),
     });
+
+    // Update known Components
+    let (url, components) = collect_known_components(document_cache, ctx);
+    ctx.preview.report_known_components(url, components);
+
     Ok(())
 }
 
@@ -635,21 +644,21 @@ pub async fn remove_binding_command(
 pub(crate) async fn reload_document_impl(
     ctx: Option<&Rc<Context>>,
     mut content: String,
-    uri: lsp_types::Url,
+    url: lsp_types::Url,
     version: Option<i32>,
     document_cache: &mut DocumentCache,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
-    let Some(path) = uri_to_file(&uri) else { return Default::default() };
+    let Some(path) = uri_to_file(&url) else { return Default::default() };
     if path.extension().map_or(false, |e| e == "rs") {
         content = match i_slint_compiler::lexer::extract_rust_macro(content) {
             Some(content) => content,
             // A rust file without a rust macro, just ignore it
-            None => return [(uri, vec![])].into_iter().collect(),
+            None => return [(url, vec![])].into_iter().collect(),
         };
     }
 
     if let Some(ctx) = ctx {
-        ctx.preview.set_contents(&path, &content);
+        ctx.preview.set_contents(&VersionedUrl { url, version }, &content);
     }
     let mut diag = BuildDiagnostics::default();
     document_cache.documents.load_file(&path, version, &path, content, false, &mut diag).await;
@@ -675,14 +684,40 @@ pub(crate) async fn reload_document_impl(
     lsp_diags
 }
 
+fn collect_known_components(
+    document_cache: &mut DocumentCache,
+    ctx: &Rc<Context>,
+) -> (Option<VersionedUrl>, Vec<ComponentInformation>) {
+    let mut components = Vec::new();
+    component_catalog::builtin_components(document_cache, &mut components);
+    component_catalog::all_exported_components(
+        document_cache,
+        &mut |ci| ci.is_global,
+        &mut components,
+    );
+
+    let url = ctx.preview.current_component().map(|pc| {
+        let url = pc.url.clone();
+        let file = PathBuf::from(url.to_string());
+        let version = document_cache.document_version(&url);
+
+        component_catalog::file_local_components(document_cache, &file, &mut components);
+
+        VersionedUrl { url, version }
+    });
+
+    (url, components)
+}
+
 pub async fn reload_document(
     ctx: &Rc<Context>,
     content: String,
-    uri: lsp_types::Url,
+    url: lsp_types::Url,
     version: Option<i32>,
     document_cache: &mut DocumentCache,
 ) -> Result<()> {
-    let lsp_diags = reload_document_impl(Some(ctx), content, uri, version, document_cache).await;
+    let lsp_diags =
+        reload_document_impl(Some(ctx), content, url.clone(), version, document_cache).await;
 
     for (uri, diagnostics) in lsp_diags {
         ctx.server_notifier.send_notification(
@@ -690,6 +725,11 @@ pub async fn reload_document(
             PublishDiagnosticsParams { uri, diagnostics, version: None },
         )?;
     }
+
+    // Tell Preview about the Components:
+    let (url, components) = collect_known_components(document_cache, ctx);
+    ctx.preview.report_known_components(url, components);
+
     Ok(())
 }
 
@@ -1320,21 +1360,21 @@ mod tests {
 
     #[test]
     fn test_text_document_color_no_color_set() {
-        let (mut dc, url, _) = loaded_document_cache(
+        let (mut dc, uri, _) = loaded_document_cache(
             r#"
             component Main inherits Rectangle { }
             "#
             .into(),
         );
 
-        let result = get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url })
+        let result = get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri })
             .expect("Color Vec was returned");
         assert!(result.is_empty());
     }
 
     #[test]
     fn test_text_document_color_rgba_color() {
-        let (mut dc, url, _) = loaded_document_cache(
+        let (mut dc, uri, _) = loaded_document_cache(
             r#"
             component Main inherits Rectangle {
                 background: #1200FF80;
@@ -1343,7 +1383,7 @@ mod tests {
             .into(),
         );
 
-        let result = get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url })
+        let result = get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri })
             .expect("Color Vec was returned");
 
         assert_eq!(result.len(), 1);

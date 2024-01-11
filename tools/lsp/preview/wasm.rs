@@ -4,16 +4,17 @@
 //! This wasm library can be loaded from JS to load and display the content of .slint files
 #![cfg(target_arch = "wasm32")]
 
-use std::{cell::RefCell, future::Future, path::PathBuf, pin::Pin, rc::Rc, rc::Weak};
+use std::{cell::RefCell, future::Future, pin::Pin, rc::Rc, rc::Weak};
 
 use wasm_bindgen::prelude::*;
 
 use i_slint_compiler::object_tree::{ElementRc, ElementWeak};
 use i_slint_core::lengths::LogicalRect;
+use lsp_types::Url;
 use slint::VecModel;
 use slint_interpreter::{highlight::ComponentPositions, ComponentHandle, ComponentInstance};
 
-use crate::{common::PreviewComponent, lsp_ext::Health};
+use crate::lsp_ext::Health;
 
 #[wasm_bindgen(typescript_custom_section)]
 const CALLBACK_FUNCTION_SECTION: &'static str = r#"
@@ -155,21 +156,24 @@ impl PreviewConnector {
         let message: M = serde_wasm_bindgen::from_value(value)
             .map_err(|e| -> JsValue { format!("{e:?}").into() })?;
         match message {
-            M::SetContents { path, contents } => {
-                super::set_contents(&PathBuf::from(&path), contents);
+            M::SetContents { url, contents } => {
+                super::set_contents(&url, contents);
                 Ok(())
             }
             M::SetConfiguration { config } => {
                 super::config_changed(config);
                 Ok(())
             }
-            M::ShowPreview { path, component, style } => {
-                let pc = PreviewComponent { path: PathBuf::from(path), component, style };
+            M::ShowPreview(pc) => {
                 super::load_preview(pc);
                 Ok(())
             }
-            M::HighlightFromEditor { path, offset } => {
-                super::highlight(&path.map(PathBuf::from), offset);
+            M::HighlightFromEditor { url, offset } => {
+                super::highlight(url, offset);
+                Ok(())
+            }
+            M::KnownComponents { url, components } => {
+                super::known_components(&url, components);
                 Ok(())
             }
         }
@@ -365,7 +369,7 @@ pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
     })
 }
 
-pub fn update_highlight(path: PathBuf, offset: u32) {
+pub fn update_highlight(url: Option<Url>, offset: u32) {
     slint::invoke_from_event_loop(move || {
         let handle = PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow();
@@ -374,6 +378,7 @@ pub fn update_highlight(path: PathBuf, offset: u32) {
         });
 
         if let Some(handle) = handle {
+            let path = url.as_ref().map(|u| u.to_string().into()).unwrap_or_default();
             let element_positions = handle.component_positions(path, offset);
             set_selected_element(None, element_positions);
         }
