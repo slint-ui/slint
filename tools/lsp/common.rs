@@ -3,6 +3,8 @@
 
 //! Data structures common between LSP and previewer
 
+use i_slint_compiler::pathutils::to_url;
+
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -73,4 +75,38 @@ pub enum PreviewToLspMessage {
     ShowDocument { file: String, selection: lsp_types::Range },
     PreviewTypeChanged { is_external: bool },
     RequestState { unused: bool }, // send all documents!
+}
+
+/// Information on the Element types available
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct ComponentInformation {
+    /// The name of the type
+    pub name: String,
+    /// A broad category to group types by
+    pub category: String,
+    /// This type is a global component
+    pub is_global: bool,
+    /// This type is built into Slint
+    pub is_builtin: bool,
+    /// This type is a standard widget
+    pub is_std_widget: bool,
+    /// This type was exported
+    pub is_exported: bool,
+    /// The URL to the file containing this type
+    pub file: Option<String>,
+    /// The offset in the file (if one is set)
+    pub offset: u32,
+}
+
+impl ComponentInformation {
+    #[allow(unused)]
+    pub fn import_file_name(&self, current_uri: &lsp_types::Url) -> Option<String> {
+        if self.is_std_widget {
+            Some("std-widgets.slint".to_string())
+        } else {
+            let file = self.file.clone()?;
+            let url = to_url(&file)?;
+            lsp_types::Url::make_relative(current_uri, &url)
+        }
+    }
 }

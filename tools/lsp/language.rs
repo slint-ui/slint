@@ -4,6 +4,7 @@
 // cSpell: ignore descr rfind unindented
 
 mod completion;
+mod component_catalog;
 mod goto;
 mod properties;
 mod semantic_tokens;
