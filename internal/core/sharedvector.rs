@@ -456,7 +456,7 @@ where
     where
         D: serde::Deserializer<'de>,
     {
-        let mut elements: Vec<T> = serde::Deserialize::deserialize(deserializer)?;
+        let mut elements: alloc::vec::Vec<T> = serde::Deserialize::deserialize(deserializer)?;
         let mut shared_vec = SharedVector::with_capacity(elements.len());
         for elem in elements.drain(..) {
             shared_vec.push(elem);
