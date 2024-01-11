@@ -1322,16 +1322,16 @@ pub fn set_state_binding(property: Pin<&Property<StateInfo>>, binding: impl Fn()
 
 #[doc(hidden)]
 pub trait PropertyDirtyHandler {
-    fn notify(&self);
+    fn notify(self: Pin<&Self>);
 }
 
 impl PropertyDirtyHandler for () {
-    fn notify(&self) {}
+    fn notify(self: Pin<&Self>) {}
 }
 
 impl<F: Fn()> PropertyDirtyHandler for F {
-    fn notify(&self) {
-        self()
+    fn notify(self: Pin<&Self>) {
+        (self.get_ref())()
     }
 }
 
@@ -1462,7 +1462,7 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
             was_dirty: bool,
         ) {
             if !was_dirty {
-                ((*(_self as *const BindingHolder<B>)).binding).notify();
+                Pin::new_unchecked(&(*(_self as *const BindingHolder<B>)).binding).notify();
             }
         }
 

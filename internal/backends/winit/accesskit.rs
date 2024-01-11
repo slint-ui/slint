@@ -511,7 +511,7 @@ struct AccessibilitiesPropertyTracker {
 }
 
 impl i_slint_core::properties::PropertyDirtyHandler for AccessibilitiesPropertyTracker {
-    fn notify(&self) {
+    fn notify(self: Pin<&Self>) {
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = win.upgrade() {

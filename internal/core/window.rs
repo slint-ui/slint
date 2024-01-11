@@ -324,7 +324,7 @@ struct WindowPropertiesTracker {
 }
 
 impl crate::properties::PropertyDirtyHandler for WindowPropertiesTracker {
-    fn notify(&self) {
+    fn notify(self: Pin<&Self>) {
         let win = self.window_adapter_weak.clone();
         crate::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = win.upgrade() {
@@ -339,7 +339,7 @@ struct WindowRedrawTracker {
 }
 
 impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
-    fn notify(&self) {
+    fn notify(self: Pin<&Self>) {
         if let Some(window_adapter) = self.window_adapter_weak.upgrade() {
             window_adapter.request_redraw();
         };
