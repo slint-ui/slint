@@ -378,6 +378,7 @@ export component NativeButton {
     in property <StandardButtonKind> standard-button-kind;
     in property <bool> is-standard-button;
     //-is_internal
+    //-accepts_focus
 }
 
 export component NativeCheckBox {
@@ -387,6 +388,7 @@ export component NativeCheckBox {
     out property <bool> has-focus;
     callback toggled;
     //-is_internal
+    //-accepts_focus
 }
 
 export component NativeSpinBox {
@@ -397,6 +399,7 @@ export component NativeSpinBox {
     in property <int> maximum: 100;
     callback edited(int /* value */);
     //-is_internal
+    //-accepts_focus
 }
 
 export component NativeSlider {

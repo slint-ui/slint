@@ -21,7 +21,7 @@ mod embed_glyphs;
 mod embed_images;
 mod ensure_window;
 mod flickable;
-mod focus_item;
+mod focus_handling;
 pub mod generate_item_indices;
 pub mod infer_aliases_types;
 mod inlining;
@@ -52,7 +52,6 @@ mod z_order;
 use crate::expression_tree::Expression;
 use crate::langtype::ElementType;
 use crate::namedreference::NamedReference;
-use std::rc::Rc;
 
 pub async fn run_passes(
     doc: &crate::object_tree::Document,
@@ -105,15 +104,7 @@ pub async fn run_passes(
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents);
     collect_subcomponents::collect_subcomponents(root_component);
 
-    for component in (root_component.used_types.borrow().sub_components.iter())
-        .chain(std::iter::once(root_component))
-    {
-        focus_item::resolve_element_reference_in_set_focus_calls(component, diag);
-        if Rc::ptr_eq(component, root_component) {
-            focus_item::determine_initial_focus_item(component, diag);
-        }
-        focus_item::erase_forward_focus_properties(component);
-    }
+    focus_handling::call_focus_on_init(root_component);
 
     ensure_window::ensure_window(root_component, &doc.local_registry, &style_metrics);
 
@@ -282,6 +273,7 @@ pub fn run_import_passes(
 ) {
     infer_aliases_types::resolve_aliases(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
+    focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);
     check_expressions::check_expressions(doc, diag);
     purity_check::purity_check(doc, diag);
     check_rotation::check_rotation(doc, diag);

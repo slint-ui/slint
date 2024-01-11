@@ -18,6 +18,7 @@ export component CheckBox {
     accessible-checkable: true;
     accessible-checked <=> root.checked;
     accessible-role: checkbox;
+    forward-focus: i-focus-scope;
 
     states [
         disabled-selected when !root.enabled && root.checked  : {
