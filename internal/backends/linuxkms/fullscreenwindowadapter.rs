@@ -65,10 +65,6 @@ impl WindowAdapter for FullscreenWindowAdapter {
             {
                 self.window.dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
             }
-        } else if crate::calloop_backend::QUIT_ON_LAST_WINDOW_CLOSED
-            .load(std::sync::atomic::Ordering::Relaxed)
-        {
-            i_slint_core::api::quit_event_loop().ok();
         }
         Ok(())
     }
