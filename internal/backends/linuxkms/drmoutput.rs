@@ -125,22 +125,53 @@ impl DrmOutput {
                 .ok_or_else(|| format!("No connected display connector found"))?
         };
 
-        let mode = *connector
-            .modes()
-            .iter()
-            .max_by(|current_mode, next_mode| {
-                let current = (
-                    current_mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED),
-                    current_mode.size().0 as u32 * current_mode.size().1 as u32,
-                );
-                let next = (
-                    next_mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED),
-                    next_mode.size().0 as u32 * next_mode.size().1 as u32,
-                );
+        let mode = std::env::var("SLINT_DRM_MODE").map_or_else(
+            |_| {
+                connector
+                    .modes()
+                    .iter()
+                    .max_by(|current_mode, next_mode| {
+                        let current = (
+                            current_mode
+                                .mode_type()
+                                .contains(drm::control::ModeTypeFlags::PREFERRED),
+                            current_mode.size().0 as u32 * current_mode.size().1 as u32,
+                        );
+                        let next = (
+                            next_mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED),
+                            next_mode.size().0 as u32 * next_mode.size().1 as u32,
+                        );
 
-                current.cmp(&next)
-            })
-            .ok_or_else(|| format!("No preferred or non-zero size display mode found"))?;
+                        current.cmp(&next)
+                    })
+                    .cloned()
+                    .ok_or_else(|| format!("No preferred or non-zero size display mode found"))
+            },
+            |mode_str| {
+                let mut modes_and_index = connector.modes().iter().cloned().enumerate();
+
+                if mode_str.to_lowercase() == "list" {
+                    let mode_names: Vec<String> = modes_and_index
+                        .map(|(index, mode)| {
+                            let (width, height) = mode.size();
+                            format!(
+                                "Index: {index} Width: {width} Height: {height} Refresh Rate: {}",
+                                mode.vrefresh()
+                            )
+                        })
+                        .collect();
+
+                    // Can't return error here because newlines are escaped.
+                    panic!("DRM Mode List Requested:\n{}\n", mode_names.join("\n"));
+                }
+                let mode_index: usize =
+                    mode_str.parse().map_err(|_| format!("Invalid mode index {mode_str}"))?;
+                modes_and_index.nth(mode_index).map_or_else(
+                    || Err(format!("Mode index is out of bounds: {mode_index}")),
+                    |(_, mode)| Ok(mode),
+                )
+            },
+        )?;
 
         let encoder = connector
             .current_encoder()
