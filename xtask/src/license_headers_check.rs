@@ -451,6 +451,7 @@ lazy_static! {
         ("\\.npmignore$", LicenseLocation::NoLicense),
         ("\\.h$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.html$", LicenseLocation::NoLicense),
+        ("\\.java$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.jpg$", LicenseLocation::NoLicense),
         ("\\.js$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.json$", LicenseLocation::NoLicense),
