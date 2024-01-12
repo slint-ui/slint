@@ -61,8 +61,9 @@ TestCase := Rectangle {
     }
 
     Container {
+        property <string> name-outside: "container-instantiation";
         init => {
-            InitOrder.observed-order += "|container-instantiation";
+            InitOrder.observed-order += "|" + self.name-outside;
         }
     }
 
