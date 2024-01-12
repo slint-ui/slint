@@ -96,7 +96,7 @@ impl DrmOutput {
                     .map(|(name, _, connected)| format!("{} (connected: {})", name, connected))
                     .collect::<Vec<_>>();
                 // Can't return error here because newlines are escaped.
-                eprintln!("\nDRM Output List Requested:\n{}\nPlease select an output and re-run the program.", names_and_status.join("\n"));
+                eprintln!("\nDRM Output List Requested:\n{}\nPlease select an output with the SLINT_DRM_OUTPUT environment variable and re-run the program.", names_and_status.join("\n"));
                 std::process::exit(1);
             } else {
                 let (_, connector, connected) =
@@ -163,7 +163,7 @@ impl DrmOutput {
                         .collect();
 
                     // Can't return error here because newlines are escaped.
-                    eprintln!("DRM Mode List Requested:\n{}\nPlease select a mode and re-run the program.", mode_names.join("\n"));
+                    eprintln!("DRM Mode List Requested:\n{}\nPlease select a mode with the SLINT_DRM_MODE environment variable and re-run the program.", mode_names.join("\n"));
                     std::process::exit(1);
                 }
                 let mode_index: usize =

@@ -96,7 +96,7 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
                     .collect();
 
                 // Can't return error here because newlines are escaped.
-                eprintln!("\nVulkan Display List Requested:\n{}\nPlease select a display and re-run the program.", display_names.join("\n"));
+                eprintln!("\nVulkan Display List Requested:\n{}\nPlease select a display with the SLINT_VULKAN_DISPLAY environment variable and re-run the program.", display_names.join("\n"));
                 std::process::exit(1);
             }
             let display_index: usize =
@@ -146,7 +146,7 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
                     .collect();
 
                 // Can't return error here because newlines are escaped.
-                eprintln!("\nVulkan Mode List Requested:\n{}\nPlease select a mode and re-run the program.", mode_names.join("\n"));
+                eprintln!("\nVulkan Mode List Requested:\n{}\nPlease select a mode with the SLINT_VULKAN_MODE environment variable and re-run the program.", mode_names.join("\n"));
                 std::process::exit(1);
             }
             let mode_index: usize =
