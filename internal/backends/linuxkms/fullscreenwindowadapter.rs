@@ -75,6 +75,18 @@ impl FullscreenWindowAdapter {
         renderer: Box<dyn FullscreenRenderer>,
         rotation: RenderingRotation,
     ) -> Result<Rc<Self>, PlatformError> {
+        let size = renderer.size();
+        let rotation_degrees = rotation.degrees();
+        eprintln!(
+            "Rendering at {}x{}{}",
+            size.width,
+            size.height,
+            if rotation_degrees != 0. {
+                format!(" with {} rotation_degrees rotation", rotation_degrees)
+            } else {
+                String::new()
+            }
+        );
         Ok(Rc::<FullscreenWindowAdapter>::new_cyclic(|self_weak| FullscreenWindowAdapter {
             window: i_slint_core::api::Window::new(self_weak.clone()),
             renderer,
