@@ -124,10 +124,7 @@ impl ComponentContainer {
     }
 
     pub fn subtree_component(self: Pin<&Self>) -> ItemTreeWeak {
-        self.item_tree
-            .borrow()
-            .as_ref()
-            .map_or(ItemTreeWeak::default(), |rc| vtable::VRc::downgrade(rc))
+        self.item_tree.borrow().as_ref().map_or(ItemTreeWeak::default(), vtable::VRc::downgrade)
     }
 
     pub fn visit_children_item(
