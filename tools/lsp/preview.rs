@@ -300,7 +300,7 @@ pub fn config_changed(config: PreviewConfig) {
 /// In any way, register it as a dependency
 fn get_url_from_cache(url: &Url) -> Option<String> {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let r = cache.source_code.get(&url).cloned();
+    let r = cache.source_code.get(url).cloned();
     cache.dependency.insert(url.to_owned());
     r
 }
@@ -415,12 +415,9 @@ async fn reload_preview_impl(
 
     notify_diagnostics(builder.diagnostics());
 
-    if let Some(compiled) = compiled {
-        update_preview_area(compiled);
-        finish_parsing(true);
-    } else {
-        finish_parsing(false);
-    };
+    let success = compiled.is_some();
+    update_preview_area(compiled);
+    finish_parsing(success);
 }
 
 /// This sets up the preview area to show the ComponentInstance
@@ -471,7 +468,10 @@ pub fn highlight(url: Option<Url>, offset: u32) {
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
 pub fn known_components(url: &Option<VersionedUrl>, components: Vec<ComponentInformation>) {
-    i_slint_core::debug_log!("Preview got known component information:\n{url:?} => {components:?}");
+    i_slint_core::debug_log!(
+        "Preview got known component information:\n{url:?} => {} components",
+        components.len()
+    );
 }
 
 pub fn show_document_request_from_element_callback(

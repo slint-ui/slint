@@ -351,21 +351,23 @@ pub fn ask_editor_to_show_document(file: String, selection: lsp_types::Range) {
     send_message_to_lsp(crate::common::PreviewToLspMessage::ShowDocument { file, selection })
 }
 
-pub fn update_preview_area(compiled: slint_interpreter::ComponentDefinition) {
+pub fn update_preview_area(compiled: Option<slint_interpreter::ComponentDefinition>) {
     PREVIEW_STATE.with(|preview_state| {
-        let preview_state = preview_state.borrow_mut();
+        if let Some(compiled) = compiled {
+            let preview_state = preview_state.borrow_mut();
 
-        let shared_handle = preview_state.handle.clone();
+            let shared_handle = preview_state.handle.clone();
 
-        let ui = preview_state.ui.as_ref().unwrap();
-        super::set_preview_factory(
-            ui,
-            compiled,
-            Box::new(move |instance| {
-                shared_handle.replace(Some(instance));
-            }),
-        );
-        super::reset_selections(ui);
+            let ui = preview_state.ui.as_ref().unwrap();
+            super::set_preview_factory(
+                ui,
+                compiled,
+                Box::new(move |instance| {
+                    shared_handle.replace(Some(instance));
+                }),
+            );
+            super::reset_selections(ui);
+        }
     })
 }
 
