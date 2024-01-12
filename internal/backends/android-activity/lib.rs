@@ -44,6 +44,7 @@ impl AndroidPlatform {
     /// }
     /// ```
     pub fn new(app: AndroidApp) -> Self {
+        let slint_java_helper = SlintJavaHelper::new(&app).unwrap();
         Self {
             app: app.clone(),
             window: Rc::<AndroidWindowAdapter>::new_cyclic(|w| AndroidWindowAdapter {
@@ -52,6 +53,7 @@ impl AndroidPlatform {
                 renderer: i_slint_renderer_skia::SkiaRenderer::default(),
                 event_queue: Default::default(),
                 pending_redraw: Default::default(),
+                slint_java_helper,
             }),
             event_listener: None,
         }
@@ -166,6 +168,7 @@ struct AndroidWindowAdapter {
     renderer: i_slint_renderer_skia::SkiaRenderer,
     event_queue: EventQueue,
     pending_redraw: Cell<bool>,
+    slint_java_helper: SlintJavaHelper,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -201,7 +204,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
                 #[cfg(not(feature = "native-activity"))]
                 self.app.show_soft_input(true);
                 #[cfg(feature = "native-activity")]
-                show_or_hide_soft_input(&self.app, true).unwrap();
+                show_or_hide_soft_input(&self.slint_java_helper, &self.app, true).unwrap();
                 props
             }
             i_slint_core::window::InputMethodRequest::Update(props) => props,
@@ -209,7 +212,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
                 #[cfg(not(feature = "native-activity"))]
                 self.app.hide_soft_input(true);
                 #[cfg(feature = "native-activity")]
-                show_or_hide_soft_input(&self.app, false).unwrap();
+                show_or_hide_soft_input(&self.slint_java_helper, &self.app, false).unwrap();
                 return;
             }
             _ => return,
@@ -724,54 +727,73 @@ fn map_key_code(code: android_activity::input::Keycode) -> Option<SharedString> 
     }
 }
 
+struct SlintJavaHelper(#[cfg(feature = "native-activity")] jni::objects::GlobalRef);
+
+impl SlintJavaHelper {
+    fn new(_app: &AndroidApp) -> Result<Self, jni::errors::Error> {
+        Ok(Self(
+            #[cfg(feature = "native-activity")]
+            load_java_helper(_app)?,
+        ))
+    }
+}
+
 #[cfg(feature = "native-activity")]
 /// Unfortunately, the way that the android-activity crate uses to show or hide the virtual keyboard doesn't
 /// work with native-activity. So do it manually with JNI
-fn show_or_hide_soft_input(app: &AndroidApp, show: bool) -> Result<(), jni::errors::Error> {
-    use jni::objects::{JObject, JValue};
-
+fn show_or_hide_soft_input(
+    helper: &SlintJavaHelper,
+    app: &AndroidApp,
+    show: bool,
+) -> Result<(), jni::errors::Error> {
     // Safety: as documented in android-activity to obtain a jni::JavaVM
     let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
     let mut env = vm.attach_current_thread()?;
+    let helper = helper.0.as_obj();
+    if show {
+        env.call_method(helper, "show_keyboard", "()V", &[])?;
+    } else {
+        env.call_method(helper, "hide_keyboard", "()V", &[])?;
+    };
+    Ok(())
+}
 
-    // https://stackoverflow.com/questions/5864790/how-to-show-the-soft-keyboard-on-native-activity
-
+#[cfg(feature = "native-activity")]
+fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::errors::Error> {
+    use jni::objects::{JObject, JValue};
+    // Safety: as documented in android-activity to obtain a jni::JavaVM
+    let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
     let native_activity = unsafe { JObject::from_raw(app.activity_as_ptr() as *mut _) };
 
-    let class_context = env.find_class("android/content/Context")?;
-    let input_method_service =
-        env.get_static_field(class_context, "INPUT_METHOD_SERVICE", "Ljava/lang/String;")?.l()?;
+    let mut env = vm.attach_current_thread()?;
 
-    let input_method_manager = env
+    let dex_data = include_bytes!(concat!(env!("OUT_DIR"), "/classes.dex"));
+
+    // Safety: dex_data is 'static and the InMemoryDexClassLoader will not mutate it it
+    let dex_buffer =
+        unsafe { env.new_direct_byte_buffer(dex_data.as_ptr() as *mut _, dex_data.len()).unwrap() };
+
+    let dex_loader = env.new_object(
+        "dalvik/system/InMemoryDexClassLoader",
+        "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V",
+        &[JValue::Object(&dex_buffer), JValue::Object(&JObject::null())],
+    )?;
+
+    let class_name = env.new_string("SlintAndroidJavaHelper").unwrap();
+    let helper_class = env
         .call_method(
-            &native_activity,
-            "getSystemService",
-            "(Ljava/lang/String;)Ljava/lang/Object;",
-            &[JValue::Object(&input_method_service)],
+            dex_loader,
+            "findClass",
+            "(Ljava/lang/String;)Ljava/lang/Class;",
+            &[JValue::Object(&class_name)],
         )?
         .l()?;
 
-    let window =
-        env.call_method(native_activity, "getWindow", "()Landroid/view/Window;", &[])?.l()?;
-    let decor_view = env.call_method(window, "getDecorView", "()Landroid/view/View;", &[])?.l()?;
-
-    if show {
-        env.call_method(
-            input_method_manager,
-            "showSoftInput",
-            "(Landroid/view/View;I)Z",
-            &[JValue::Object(&decor_view), 0.into()],
-        )?;
-    } else {
-        let binder =
-            env.call_method(decor_view, "getWindowToken", "()Landroid/os/IBinder;", &[])?.l()?;
-        env.call_method(
-            input_method_manager,
-            "hideSoftInputFromWindow",
-            "(Landroid/os/IBinder;I)Z",
-            &[JValue::Object(&binder), 0.into()],
-        )?;
-    };
-
-    Ok(())
+    let helper_class: jni::objects::JClass = helper_class.into();
+    let helper_instance = env.new_object(
+        helper_class,
+        "(Landroid/app/Activity;)V",
+        &[JValue::Object(&native_activity)],
+    )?;
+    Ok(env.new_global_ref(&helper_instance)?)
 }
