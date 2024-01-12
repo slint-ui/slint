@@ -157,7 +157,7 @@ fn open_ui_impl(preview_state: &mut PreviewState) {
         let hide_ui = cache
             .config
             .hide_ui
-            .or_else(|| CLI_ARGS.with(|args| args.get().map(|a| a.no_toolbar.clone())))
+            .or_else(|| CLI_ARGS.with(|args| args.get().map(|a| a.no_toolbar)))
             .unwrap_or(false);
         let fullscreen = CLI_ARGS.with(|args| args.get().map(|a| a.fullscreen).unwrap_or_default());
         (style, !hide_ui, fullscreen)
@@ -341,23 +341,25 @@ pub fn ask_editor_to_show_document(file: String, selection: lsp_types::Range) {
 }
 
 /// This runs `set_preview_factory` in the UI thread
-pub fn update_preview_area(compiled: ComponentDefinition) {
+pub fn update_preview_area(compiled: Option<ComponentDefinition>) {
     PREVIEW_STATE.with(|preview_state| {
         let mut preview_state = preview_state.borrow_mut();
 
         open_ui_impl(&mut preview_state);
 
+        let ui = preview_state.ui.as_ref().unwrap();
         let shared_handle = preview_state.handle.clone();
 
-        let ui = preview_state.ui.as_ref().unwrap();
-        super::set_preview_factory(
-            ui,
-            compiled,
-            Box::new(move |instance| {
-                shared_handle.replace(Some(instance));
-            }),
-        );
-        super::reset_selections(ui);
+        if let Some(compiled) = compiled {
+            super::set_preview_factory(
+                ui,
+                compiled,
+                Box::new(move |instance| {
+                    shared_handle.replace(Some(instance));
+                }),
+            );
+            super::reset_selections(ui);
+        }
 
         ui.show().unwrap();
     });
