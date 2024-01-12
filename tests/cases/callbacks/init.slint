@@ -36,8 +36,9 @@ Sub3 := Rectangle {
 }
 
 Container := Rectangle {
+    in property <string> name-inside: "container";
     init => {
-        InitOrder.observed-order += "|container";
+        InitOrder.observed-order += "|" + self.name-inside;
     }
     @children
 }
@@ -61,7 +62,10 @@ TestCase := Rectangle {
     }
 
     Container {
-
+        property <string> name-outside: "container-instantiation";
+        init => {
+            InitOrder.observed-order += "|" + self.name-outside;
+        }
     }
 
     Rectangle {
@@ -79,7 +83,7 @@ TestCase := Rectangle {
 
     property <string> test_global_prop_value: InitOrder.observed-order;
 
-    property <string> expected_static_order: "start|sub1|sub2|subsub|sub3|root|sub1-use-site|container|element";
+    property <string> expected_static_order: "start|sub1|sub2|subsub|sub3|container|root|sub1-use-site|container-instantiation|element";
 
     property <bool> test: InitOrder.observed-order == expected_static_order;
 }
