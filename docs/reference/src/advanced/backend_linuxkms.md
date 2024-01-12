@@ -62,6 +62,26 @@ DP-4 (connected: false)
 
 Setting `SLINT_DRM_OUTPUT` to `DP-3` will render on the second monitor.
 
+To select a specific resolution and refresh rate (mode), set the `SLINT_DRM_MODE` variable. Set it
+to `list` to get a list of available modes. For example the output could look like this:
+
+```
+DRM Mode List Requested:
+Index: 0 Width: 3840 Height: 2160 Refresh Rate: 60
+Index: 1 Width: 3840 Height: 2160 Refresh Rate: 59
+Index: 2 Width: 3840 Height: 2160 Refresh Rate: 50
+Index: 3 Width: 3840 Height: 2160 Refresh Rate: 30
+Index: 4 Width: 3840 Height: 2160 Refresh Rate: 29
+Index: 5 Width: 2560 Height: 1440 Refresh Rate: 59
+Index: 6 Width: 1920 Height: 1080 Refresh Rate: 60
+Index: 7 Width: 1920 Height: 1080 Refresh Rate: 59
+Index: 8 Width: 1920 Height: 1080 Refresh Rate: 50
+Index: 9 Width: 1680 Height: 1050 Refresh Rate: 59
+...
+```
+
+Set `SLINT_DRM_MODE` to `6` to select 1920x1080@60.
+
 ## Display Selection with Vulkan
 
 When Skia's Vulkan feature is enabled, Skia will attempt use Vulkan's KHR Display extension to render
