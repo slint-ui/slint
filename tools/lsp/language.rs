@@ -83,14 +83,21 @@ fn create_show_preview_command(
 
 #[cfg(feature = "preview-external")]
 pub fn request_state(ctx: &std::rc::Rc<Context>) {
-    use i_slint_compiler::{diagnostics::Spanned, pathutils::to_url};
+    use i_slint_compiler::diagnostics::Spanned;
 
     let cache = ctx.document_cache.borrow();
     let documents = &cache.documents;
 
     for (p, d) in documents.all_file_documents() {
         if let Some(node) = &d.node {
-            let Some(url) = to_url(&p.to_string_lossy()) else {
+            if p.starts_with("builtin:/") {
+                continue; // The preview knows these, too.
+            }
+            let Ok(url) = Url::from_file_path(p) else {
+                i_slint_core::debug_log!(
+                    "Could not sent contents of file {p:?}: NOT AN URL (request state!)"
+                );
+
                 continue;
             };
             let url = VersionedUrl { url, version: node.source_file().and_then(|sf| sf.version()) };

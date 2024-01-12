@@ -12,12 +12,19 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub type UrlVersion = Option<i32>;
 
 /// A versioned file
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct VersionedUrl {
     /// The file url
     pub url: Url,
     // The file version
     pub version: UrlVersion,
+}
+
+impl std::fmt::Debug for VersionedUrl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let version = self.version.map(|v| format!("v{v}")).unwrap_or_else(|| "none".to_string());
+        write!(f, "{}@{}", self.url, version)
+    }
 }
 
 /// A versioned file

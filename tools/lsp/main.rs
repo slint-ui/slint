@@ -14,7 +14,6 @@ mod preview;
 pub mod util;
 
 use common::{ComponentInformation, PreviewApi, Result, VersionedUrl};
-use i_slint_compiler::pathutils::to_url;
 use language::*;
 
 use i_slint_compiler::CompilerConfiguration;
@@ -341,8 +340,12 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         Box::pin(async move {
             let contents = std::fs::read_to_string(&path);
             if let Ok(contents) = &contents {
-                if let Some(url) = to_url(&path) {
+                if let Ok(url) = Url::from_file_path(&path) {
                     preview_notifier.set_contents(&VersionedUrl { url, version: None }, contents);
+                } else {
+                    i_slint_core::debug_log!(
+                        "Could not sent contents of file {path:?}: NOT AN URL"
+                    );
                 }
             }
             Some(contents)
