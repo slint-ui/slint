@@ -150,26 +150,15 @@ fn inline_element(
             .map(|p| duplicate_popup(p, &mut mapping, priority_delta)),
     );
 
-    let fixup_init_expression = |init_code: &Expression| {
-        let mut init_code = init_code.clone();
-        // Fix up any property references from within already collected init code.
-        visit_named_references_in_expression(&mut init_code, &mut |nr| {
-            fixup_reference(nr, &mapping)
-        });
-        fixup_element_references(&mut init_code, &mapping);
-        init_code
-    };
-
     // When inlining a component before the collect_init_code phase, do the collect_init_code phase for
     // the init callback in the inlined component manually, by cloning the expression into the init_code
     // and skipping "init" in the binding merge phase.
-    let init_callback_to_inline = inlined_component
+    let maybe_init_callback_to_inline = inlined_component
         .root_element
         .borrow()
         .bindings
         .get("init")
-        .map(|binding| fixup_init_expression(&binding.borrow().expression));
-    root_component.init_code.borrow_mut().constructor_code.extend(init_callback_to_inline);
+        .map(|binding| binding.borrow().expression.clone());
 
     for (k, val) in
         inlined_component.root_element.borrow().bindings.iter().filter(|(k, _)| *k != "init")
@@ -198,6 +187,21 @@ fn inline_element(
 
     core::mem::drop(elem_mut);
 
+    let fixup_init_expression = |mut init_code: Expression| {
+        // Fix up any property references from within already collected init code.
+        visit_named_references_in_expression(&mut init_code, &mut |nr| {
+            fixup_reference(nr, &mapping)
+        });
+        fixup_element_references(&mut init_code, &mapping);
+        init_code
+    };
+
+    root_component
+        .init_code
+        .borrow_mut()
+        .constructor_code
+        .extend(maybe_init_callback_to_inline.map(fixup_init_expression));
+
     let inlined_init_code = inlined_component
         .init_code
         .borrow()
@@ -205,7 +209,13 @@ fn inline_element(
         .values()
         .cloned()
         .chain(
-            inlined_component.init_code.borrow().constructor_code.iter().map(fixup_init_expression),
+            inlined_component
+                .init_code
+                .borrow()
+                .constructor_code
+                .iter()
+                .cloned()
+                .map(fixup_init_expression),
         )
         .collect();
 

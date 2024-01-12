@@ -36,8 +36,9 @@ Sub3 := Rectangle {
 }
 
 Container := Rectangle {
+    in property <string> name-inside: "container";
     init => {
-        InitOrder.observed-order += "|container";
+        InitOrder.observed-order += "|" + self.name-inside;
     }
     @children
 }
