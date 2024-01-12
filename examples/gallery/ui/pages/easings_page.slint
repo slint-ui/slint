@@ -52,8 +52,8 @@ component EaseTest {
 
 export component EasingsPage inherits Page {
     show-enable-switch: false;
-    title: "Easings";
-    description: "Easing demos";
+    title: @tr("Easings");
+    description: @tr("Easing demos");
 
     private property <int> curr-duration: slider.value;
 
@@ -63,7 +63,7 @@ export component EasingsPage inherits Page {
 
         HorizontalBox {
             Button {
-                text: "Animate All";
+                text: @tr("Animate All");
                 clicked => {
                     linear-test.animate();
                     ease-in-quad-test.animate();
@@ -99,7 +99,7 @@ export component EasingsPage inherits Page {
                     ease-in-out-bounce-test.animate();
                 }
             }
-            Text { text: "Duration:"; vertical-alignment: center ;}
+            Text { text: @tr("Duration:"); vertical-alignment: center ;}
             slider := Slider { minimum: 100; maximum: 5000; value: 1000; }
             Text { text: "" + round(slider.value) + "ms"; vertical-alignment: center; }
         }
