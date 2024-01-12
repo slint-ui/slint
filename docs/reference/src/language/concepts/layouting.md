@@ -96,7 +96,7 @@ A special case is to set the preferred size to be the size of the parent using `
 For example,this component will use the size of the parent by default:
 
 ```slint
-component MyComponent {
+export component MyComponent {
     preferred-width: 100%;
     preferred-height: 100%;
     // ...

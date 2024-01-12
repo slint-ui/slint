@@ -45,7 +45,7 @@ by a `std::vector<T>`.
 Let's assume we've this code in our `.slint` file:
 
 ```slint,no-preview
-component SampleComponent inherits Window {
+export component SampleComponent inherits Window {
     in-out property<int> counter;
     in-out property<string> user_name;
     callback hello;
