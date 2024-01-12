@@ -160,6 +160,8 @@ export component PreviewUi inherits Window {
 
                     // Diagnostics overlay:
                     DiagnosticsOverlay {
+                        width: 100%;
+                        height: 100%;
                         diagnostics <=> root.diagnostics;
                         show-document(url, line, column) => { root.show-document(url, line, column); }
                     }
