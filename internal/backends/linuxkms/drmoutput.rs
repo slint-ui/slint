@@ -96,7 +96,8 @@ impl DrmOutput {
                     .map(|(name, _, connected)| format!("{} (connected: {})", name, connected))
                     .collect::<Vec<_>>();
                 // Can't return error here because newlines are escaped.
-                panic!("\nDRM Output List Requested:\n{}\n", names_and_status.join("\n"));
+                eprintln!("\nDRM Output List Requested:\n{}\nPlease select an output and re-run the program.", names_and_status.join("\n"));
+                std::process::exit(1);
             } else {
                 let (_, connector, connected) =
                     connectors.find(|(name, _, _)| name == &requested_connector_name).ok_or_else(
@@ -162,7 +163,8 @@ impl DrmOutput {
                         .collect();
 
                     // Can't return error here because newlines are escaped.
-                    panic!("DRM Mode List Requested:\n{}\n", mode_names.join("\n"));
+                    eprintln!("DRM Mode List Requested:\n{}\nPlease select a mode and re-run the program.", mode_names.join("\n"));
+                    std::process::exit(1);
                 }
                 let mode_index: usize =
                     mode_str.parse().map_err(|_| format!("Invalid mode index {mode_str}"))?;
