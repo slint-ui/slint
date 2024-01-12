@@ -260,11 +260,6 @@ impl i_slint_core::platform::Platform for Backend {
         Ok(())
     }
 
-    fn set_event_loop_quit_on_last_window_closed(&self, quit_on_last_window_closed: bool) {
-        QUIT_ON_LAST_WINDOW_CLOSED
-            .store(quit_on_last_window_closed, std::sync::atomic::Ordering::Relaxed);
-    }
-
     fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
         Some(Box::new(self.proxy.clone()))
     }
@@ -304,8 +299,5 @@ impl AsFd for Device {
         unsafe { BorrowedFd::borrow_raw(self.fd) }
     }
 }
-
-pub(crate) static QUIT_ON_LAST_WINDOW_CLOSED: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(true);
 
 pub type EventLoopHandle<'a> = calloop::LoopHandle<'a, LoopData>;
