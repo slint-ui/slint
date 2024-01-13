@@ -148,13 +148,11 @@ fn compare_images(
 
         let idx = |x: u32, y: u32| -> u32 {
             match rotated {
-                RenderingRotation::Rotate90 => x * reference.width() + reference.width() - y - 1,
+                RenderingRotation::Rotate90 => (reference.height() - x - 1) * reference.width() + y,
                 RenderingRotation::Rotate180 => {
                     (reference.height() - y - 1) * reference.width() + reference.width() - x - 1
                 }
-                RenderingRotation::Rotate270 => {
-                    (reference.height() - x - 1) * reference.width() + y
-                }
+                RenderingRotation::Rotate270 => x * reference.width() + reference.width() - y - 1,
                 _ => y * reference.width() + x,
             }
         };

@@ -76,11 +76,11 @@ mod internal {
         /// No rotation
         #[default]
         NoRotation,
-        /// Rotate 90° to the left
+        /// Rotate 90° to the right
         Rotate90,
         /// 180° rotation (upside-down)
         Rotate180,
-        /// Rotate 90° to the right
+        /// Rotate 90° to the left
         Rotate270,
     }
 }
@@ -95,10 +95,10 @@ impl RenderingRotation {
         matches!(self, Self::Rotate90 | Self::Rotate270)
     }
     fn mirror_width(self) -> bool {
-        matches!(self, Self::Rotate90 | Self::Rotate180)
+        matches!(self, Self::Rotate270 | Self::Rotate180)
     }
     fn mirror_height(self) -> bool {
-        matches!(self, Self::Rotate270 | Self::Rotate180)
+        matches!(self, Self::Rotate90 | Self::Rotate180)
     }
     /// Angle of the rotation in degrees
     fn angle(self) -> f32 {
@@ -168,13 +168,13 @@ impl<T: Copy> Transform for BorderRadius<T, PhysicalPx> {
         match info.orientation {
             RenderingRotation::NoRotation => self,
             RenderingRotation::Rotate90 => {
-                Self::new(self.top_right, self.bottom_right, self.bottom_left, self.top_left)
+                Self::new(self.bottom_left, self.top_left, self.top_right, self.bottom_right)
             }
             RenderingRotation::Rotate180 => {
                 Self::new(self.bottom_right, self.bottom_left, self.top_left, self.top_right)
             }
             RenderingRotation::Rotate270 => {
-                Self::new(self.bottom_left, self.top_left, self.top_right, self.bottom_right)
+                Self::new(self.top_right, self.bottom_right, self.bottom_left, self.top_left)
             }
         }
     }
@@ -1661,7 +1661,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     .round()
                     .cast()
                     .transformed(self.rotation);
-                let angle = g.angle() - self.rotation.orientation.angle();
+                let axis_angle = (360. - self.rotation.orientation.angle()) % 360.;
+                let angle = g.angle() - axis_angle;
                 let tan = angle.to_radians().tan().abs();
                 let start = if !tan.is_finite() {
                     255.
