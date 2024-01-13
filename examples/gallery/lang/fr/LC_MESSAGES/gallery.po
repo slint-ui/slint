@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-01-09 03:03+0000\n"
+"POT-Creation-Date: 2024-01-13 03:03+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: French (https://app.transifex.com/slint/teams/170022/fr/)\n"
@@ -55,6 +55,39 @@ msgstr ""
 msgctxt "Menu"
 msgid "About"
 msgstr "À Propos"
+
+#: ui/pages/about_page.slint:9
+#, fuzzy
+msgctxt "AboutPage"
+msgid "About"
+msgstr "À Propos"
+
+#: ui/pages/about_page.slint:11
+msgctxt "AboutPage"
+msgid ""
+"Are you curious now? Check out the docs and getting starteds from the Github "
+"repository and the website https://slint.dev and try it yourself."
+msgstr ""
+
+#: ui/pages/easings_page.slint:55
+msgctxt "EasingsPage"
+msgid "Easings"
+msgstr ""
+
+#: ui/pages/easings_page.slint:56
+msgctxt "EasingsPage"
+msgid "Easing demos"
+msgstr ""
+
+#: ui/pages/easings_page.slint:66
+msgctxt "EasingsPage"
+msgid "Animate All"
+msgstr ""
+
+#: ui/pages/easings_page.slint:102
+msgctxt "EasingsPage"
+msgid "Duration:"
+msgstr ""
 
 #: ui/pages/page.slint:26
 msgctxt "Page"
@@ -299,7 +332,7 @@ msgctxt "ControlsPage"
 msgid "Content of tab 3"
 msgstr "Contenu du 3ᵉ conglet"
 
-#: ui/pages/list_view_page.slint:9
+#: ui/pages/list_view_page.slint:9 ui/pages/list_view_page.slint:16
 msgctxt "ListViewPage"
 msgid "ListView"
 msgstr "ListView"
@@ -319,6 +352,12 @@ msgstr ""
 msgctxt "ListViewPage"
 msgid "Item {}"
 msgstr "Élement {}"
+
+#: ui/pages/list_view_page.slint:33
+#, fuzzy
+msgctxt "ListViewPage"
+msgid "StandardListView"
+msgstr "StandardTableView"
 
 #: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
 #: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
