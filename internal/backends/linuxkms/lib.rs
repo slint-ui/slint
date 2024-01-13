@@ -22,6 +22,10 @@ mod display;
 
 #[cfg(target_os = "linux")]
 mod renderer {
+    use i_slint_core::platform::PlatformError;
+
+    use crate::fullscreenwindowadapter::FullscreenRenderer;
+
     #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
     pub mod skia;
 
@@ -33,30 +37,41 @@ mod renderer {
 
     pub fn try_skia_then_femtovg_then_software(
         _device_opener: &crate::DeviceOpener,
-    ) -> Result<
-        Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>,
-        i_slint_core::platform::PlatformError,
-    > {
-        #[allow(unused_mut, unused_assignments)]
-        let mut result = Err(format!("No renderer configured").into());
+    ) -> Result<Box<dyn FullscreenRenderer>, PlatformError> {
+        type FactoryFn =
+            fn(&crate::DeviceOpener) -> Result<Box<(dyn FullscreenRenderer)>, PlatformError>;
 
-        #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
-        {
-            result =
-                skia::SkiaRendererAdapter::new_try_vulkan_then_opengl_then_software(_device_opener);
+        let renderers = [
+            #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
+            (
+                "Skia",
+                skia::SkiaRendererAdapter::new_try_vulkan_then_opengl_then_software as FactoryFn,
+            ),
+            #[cfg(feature = "renderer-femtovg")]
+            ("FemtoVG", femtovg::FemtoVGRendererAdapter::new as FactoryFn),
+            #[cfg(feature = "renderer-software")]
+            ("Software", sw::SoftwareRendererAdapter::new as FactoryFn),
+            ("", |_| Err(PlatformError::NoPlatform)),
+        ];
+
+        let mut renderer_errors: Vec<String> = Vec::new();
+        for (name, factory) in renderers {
+            match factory(_device_opener) {
+                Ok(renderer) => return Ok(renderer),
+                Err(err) => {
+                    renderer_errors.push(if !name.is_empty() {
+                        format!("Error from {} renderer: {}", name, err).into()
+                    } else {
+                        "No renderers configured.".into()
+                    });
+                }
+            }
         }
 
-        #[cfg(feature = "renderer-femtovg")]
-        if result.is_err() {
-            result = femtovg::FemtoVGRendererAdapter::new(_device_opener);
-        }
-
-        #[cfg(feature = "renderer-software")]
-        if result.is_err() {
-            result = sw::SoftwareRendererAdapter::new(_device_opener);
-        }
-
-        result
+        Err(PlatformError::Other(format!(
+            "Could not initialize any renderer for LinuxKMS backend.\n{}",
+            renderer_errors.join("\n")
+        )))
     }
 }
 
