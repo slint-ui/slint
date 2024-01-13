@@ -32,11 +32,11 @@ pub enum RenderingRotation {
     /// No rotation
     #[default]
     NoRotation,
-    /// Rotate 90° to the left
+    /// Rotate 90° to the right
     Rotate90,
     /// 180° rotation (upside-down)
     Rotate180,
-    /// Rotate 90° to the right
+    /// Rotate 90° to the left
     Rotate270,
 }
 
