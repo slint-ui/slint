@@ -33,6 +33,8 @@ Slint C++ documentation
 
    api/library_root
 
+   cmake_reference.md
+
    genindex
 
 .. image:: https://github.com/slint-ui/slint/workflows/CI/badge.svg

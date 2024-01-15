@@ -15,10 +15,10 @@
 
 ## Install Slint
 
-To install Slint, either download the [binary packages](#install-binary-packages) or [build from sources](#build-from-sources).  
+To install Slint, either download the [binary packages](#install-binary-packages) or [build from sources](#build-from-sources).
 
 *Note*: Binary packages are available for only Linux and Windows on x86-64 architecture. The recommended and most flexible way to use the C++ API is to build Slint from sources.
-  
+
 ### Install Binary Packages
 
 The Slint binary packages work without any Rust development environment.
@@ -72,17 +72,6 @@ FetchContent_MakeAvailable(Slint)
 
 * To include Slint as an external CMake package, build Slint from source like a regular CMake project, install it into a prefix directory of your choice and use `find_package(Slint)` in your `CMakeLists.txt`.
 
-### Resource Embedding
-
-By default, images or fonts that your Slint files reference are loaded from disk at run-time. This minimises build times, but requires that the directory structure with the files remains stable. If you want to build a program that runs anywhere, then you can configure the Slint compiler to embed such sources into the binary.
-
-Set the `SLINT_EMBED_RESOURCES` target property on your CMake target to one of the following values:
-
-* `embed-files`: The raw files are embedded in the application binary.
-* `embed-for-software-renderer`: The files will be loaded by the Slint compiler, optimized for use with the software renderer and embedded in the application binary.
-* `as-absolute-path`: The paths of files are made absolute and will be used at run-time to load the resources from the file system. This is the default.
-
-This target property is initialised from the global `DEFAULT_SLINT_EMBED_RESOURCES` cache variable. Set it to configure the default for all CMake targets.
 
 ### Features
 
@@ -121,8 +110,6 @@ abstraction and window adapter interfaces.
 For more information about the available backends, their system requirements, and configuration
 options, see the [Backend & Renderers Documentation](slint-reference:src/advanced/backends_and_renderers.html).
 
-#### Compile Time Backend Selection
-
 By default Slint will include both the Qt and
 [winit](https://crates.io/crates/winit) back-ends -- if both are detected at
 compile time. You can enable or disable back-ends using the
@@ -133,20 +120,6 @@ project configuration.
 The winit back-end needs a renderer. `SLINT_FEATURE_RENDERER_FEMTOVG` and
 `SLINT_FEATURE_RENDERER_SKIA` are the only stable renderers, the other ones are
 experimental.
-
-#### Run Time Backend Selection
-
-It's also possible to select any of the compiled in backends and renderer at
-runtime, using the `SLINT_BACKEND` environment variable.
-
-* `SLINT_BACKEND=Qt` selects the Qt back-end
-* `SLINT_BACKEND=winit` selects the winit back-end
-* `SLINT_BACKEND=winit-femtovg` selects the winit back-end with the femtovg renderer
-* `SLINT_BACKEND=winit-skia` selects the winit back-end with the skia renderer
-* `SLINT_BACKEND=winit-software` selects the winit back-end with the software renderer
-
-If the selected back-end or renderer isn't available, the default will be used
-instead.
 
 ### Cross-compiling
 

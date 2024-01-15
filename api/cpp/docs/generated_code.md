@@ -1,8 +1,9 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Generated Code
 
-The Slint compiler called by the build system will generate a header file for the root `.slint`
-file. This header file will contain a `class` with the same name as the root
+The Slint compiler [called by the build system](cmake_reference.md#slint_target_sources)
+will generate a header file for the root `.slint` file.
+This header file will contain a `class` with the same name as the root
 component.
 
 This class will have the following public member functions:

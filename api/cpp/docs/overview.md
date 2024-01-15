@@ -23,7 +23,7 @@ handling callbacks to react to events triggered by the user.
 ## Compiled `.slint` Designs
 
 The provided CMake integration makes it easy to compile your Slint sources:
-The `slint_target_sources` CMake command makes the translation automatic. The
+The [`slint_target_sources` CMake command](cmake_reference.md#slint_target_sources) makes the translation automatic. The
 [generated code](generated_code.md) has an API to set and get property values,
 etc. This API uses types from the {ref}`slint <namespace_slint>` namespace, for
 example {cpp:class}`slint::SharedString` or {cpp:class}`slint::Color`.
