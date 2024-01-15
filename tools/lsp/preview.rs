@@ -401,7 +401,9 @@ async fn reload_preview_impl(
         Box::pin(async move { get_path_from_cache(&path).map(Result::Ok) })
     });
 
-    let path = component.url.to_string().into();
+    // to_file_path on a WASM Url just returns the URL as the path!
+    let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
+
     let compiled = if let Some(mut from_cache) = get_url_from_cache(&component.url) {
         if let Some(component_name) = &component.component {
             from_cache = format!(
