@@ -33,10 +33,12 @@ pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
         model
     });
 
-    ui.on_style_changed(super::change_style);
     ui.set_known_styles(style_model.into());
     ui.set_current_style(style.clone().into());
+    #[cfg(feature = "experimental")]
+    ui.set_experimental(true);
 
+    ui.on_style_changed(super::change_style);
     ui.on_show_document(|url, line, column| {
         use lsp_types::{Position, Range};
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));

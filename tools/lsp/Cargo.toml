@@ -34,6 +34,7 @@ name = "slint_lsp_wasm"
 [features]
 # Remove once MSRV > 1.70 (1.70 does not yet work!):
 slint = []
+experimental = []
 backend-qt = ["slint/backend-qt", "preview"]
 
 backend-winit = ["slint/backend-winit", "preview"]

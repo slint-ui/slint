@@ -6,6 +6,7 @@
     "main": "index.js",
     "scripts": {
         "build": "npm run clean && npx vite build",
+        "build:wasm_experimental_lsp": "wasm-pack build --dev --target web ../lsp -- --no-default-features --features backend-winit,renderer-femtovg,preview,experimental",
         "build:wasm_lsp": "wasm-pack build --dev --target web ../lsp -- --no-default-features --features backend-winit,renderer-femtovg,preview",
         "build:wasm_lsp-release": "wasm-pack build --release --target web ../lsp -- --no-default-features --features backend-winit,renderer-femtovg,preview",
         "build:wasm_interpreter": "wasm-pack build --dev --target web ../../api/wasm-interpreter -- --features console_error_panic_hook",
