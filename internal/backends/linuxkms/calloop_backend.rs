@@ -227,11 +227,17 @@ impl i_slint_core::platform::Platform for Backend {
             );
         };
 
+        let callbacks_to_invoke_per_iteration = Rc::new(RefCell::new(Vec::new()));
+
         event_loop
             .handle()
-            .insert_source(user_event_receiver, |event, _, _| {
-                let calloop::channel::Event::Msg(callback) = event else { return };
-                callback();
+            .insert_source(user_event_receiver, {
+                let callbacks_to_invoke_per_iteration = callbacks_to_invoke_per_iteration.clone();
+                move |event, _, _| {
+                    let calloop::channel::Event::Msg(callback) = event else { return };
+                    // Remember the callbacks and invoke them after updating the animation tick
+                    callbacks_to_invoke_per_iteration.borrow_mut().push(callback);
+                }
             })
             .map_err(
                 |e: calloop::InsertError<calloop::channel::Channel<Box<dyn FnOnce() + Send>>>| {
@@ -245,6 +251,12 @@ impl i_slint_core::platform::Platform for Backend {
 
         while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
             i_slint_core::platform::update_timers_and_animations();
+
+            // Only after updating the animation tick, invoke callbacks from invoke_from_event_loop(). They
+            // might set animated properties, which requires an up-to-date start time.
+            for callback in callbacks_to_invoke_per_iteration.take().into_iter() {
+                callback();
+            }
 
             if let Some(adapter) = self.window.borrow().as_ref() {
                 adapter.register_event_loop(event_loop.handle())?;
