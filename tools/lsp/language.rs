@@ -53,7 +53,7 @@ const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
 const SET_BINDING_COMMAND: &str = "slint/setBinding";
 
 pub fn uri_to_file(uri: &lsp_types::Url) -> Option<PathBuf> {
-    let Ok(path) = uri.to_file_path() else { return None };
+    let path = uri.to_file_path().ok()?;
     let cleaned_path = clean_path(&path);
     Some(cleaned_path)
 }
