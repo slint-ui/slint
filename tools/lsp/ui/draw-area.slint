@@ -1,0 +1,111 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+// cSpell: ignore Heade
+
+import { Button, ComboBox, HorizontalBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
+import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
+import { Resizer } from "resizer.slint";
+
+export struct Selection {
+    x: length,
+    y: length,
+    width: length,
+    height: length,
+    border-color: color,
+}
+
+export component DrawArea {
+    in property <[Diagnostics]> diagnostics;
+    in property <[Selection]> selections;
+    in property <bool> experimental: false;
+    in property <component-factory> preview-area;
+    in property <bool> design-mode;
+
+    callback select-at(/* x */ length, /* y */ length);
+    callback select-into(/* x */ length, /* y */ length);
+    callback show-document(/* url */ string, /* line */ int, /* column */ int);
+
+    preferred-height: max(i-preview-area-container.preferred-height, i-preview-area-container.min-height) + 2 * i-scroll-view.border;
+    preferred-width: max(i-preview-area-container.preferred-width, i-preview-area-container.min-width) + 2 * i-scroll-view.border;
+
+    i-scroll-view := ScrollView {
+        out property <length> border: 60px;
+
+        viewport-width: i-drawing-rect.width;
+        viewport-height: i-drawing-rect.height;
+
+        i-drawing-rect := Rectangle {
+            background: root.experimental ? Colors.pink : Colors.white ;
+
+            width: max(i-scroll-view.visible-width, i-resizer.width + i-scroll-view.border);
+            height: max(i-scroll-view.visible-height, i-resizer.height + i-scroll-view.border);
+
+            i-resizer := Resizer {
+                is-resizable <=> i-preview-area-container.is-resizable;
+
+                resize(w, h) => {
+                    i-preview-area-container.width = clamp(w, i-preview-area-container.min-width, i-preview-area-container.max-width);
+                    i-preview-area-container.height = clamp(h, i-preview-area-container.min-height, i-preview-area-container.max-height);
+                }
+
+                width: i-preview-area-container.width;
+                height: i-preview-area-container.height;
+
+                i-preview-area-container := ComponentContainer {
+
+                    property <bool> is-resizable: (self.min-width != self.max-width && self.min-height != self.max-height) && self.has-component;
+
+                    component-factory <=> root.preview-area;
+
+                    // The width and the height can't depend on the layout info of the inner item otherwise this would
+                    // cause a recursion if this happens (#3989)
+                    // Instead, we use a init function to initialize
+                    width: 0px;
+                    height: 0px;
+                    init => {
+                        self.width = max(self.preferred-width, self.min-width);
+                        self.height = max(self.preferred-height, self.min-height);
+                    }
+                }
+
+                // Also make a condition that abuses the fact that the init callback
+                // is called every time the condition is dirty, to make sure that the size
+                // is within the bounds.
+                // Querty the preview-area to make sure this is evaluated when it changes
+                if i-preview-area-container.has-component && root.preview-area == i-preview-area-container.component-factory : Rectangle {
+                    init => {
+                        i-preview-area-container.width = clamp(i-preview-area-container.width, i-preview-area-container.min-width, i-preview-area-container.max-width);
+                        i-preview-area-container.height = clamp(i-preview-area-container.height, i-preview-area-container.min-height, i-preview-area-container.max-height);
+                    }
+                }
+
+                i-selection-area := TouchArea {
+                    clicked => { root.select-at(self.pressed-x, self.pressed-y); }
+                    double-clicked => { root.select-into(self.pressed-x, self.pressed-y); }
+                    mouse-cursor: crosshair;
+                    enabled <=> root.design-mode;
+                }
+
+                i-selection-display-area := Rectangle {
+                    for s in root.selections: Rectangle {
+                        x: s.x;
+                        y: s.y;
+                        width: s.width;
+                        height: s.height;
+                        border-color: s.border-color;
+                        border-width: 1px;
+                    }
+                }
+            }
+
+            // Diagnostics overlay:
+            DiagnosticsOverlay {
+                width: 100%;
+                height: 100%;
+                diagnostics <=> root.diagnostics;
+                show-document(url, line, column) => { root.show-document(url, line, column); }
+            }
+        }
+    }
+}
