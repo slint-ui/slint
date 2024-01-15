@@ -495,9 +495,13 @@ impl WindowAdapter for WinitWindowAdapter {
 
         self.with_window_handle(&mut |winit_window| {
             if properties.fullscreen() {
-                winit_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+                if winit_window.fullscreen().is_none() {
+                    winit_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+                }
             } else {
-                winit_window.set_fullscreen(None);
+                if winit_window.fullscreen().is_some() {
+                    winit_window.set_fullscreen(None);
+                }
             }
 
             // If we're in fullscreen state, don't try to resize the window but maintain the surface
