@@ -186,6 +186,7 @@ impl CellsModel {
                 self.update_cell(r, c, None);
             }
         } else if new_form {
+            drop(r);
             r_model.notify.row_changed(col);
         }
 
