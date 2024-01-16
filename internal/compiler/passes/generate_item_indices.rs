@@ -69,6 +69,7 @@ impl crate::generator::ItemTreeBuilder for Helper {
     fn push_component_placeholder_item(
         &mut self,
         item: &crate::object_tree::ElementRc,
+        _container_count: u32,
         _parent_index: u32,
         component_state: &Self::SubComponentState,
     ) {

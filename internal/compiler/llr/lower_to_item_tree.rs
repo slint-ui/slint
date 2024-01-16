@@ -62,13 +62,15 @@ pub enum LoweredElement {
     SubComponent { sub_component_index: usize },
     NativeItem { item_index: u32 },
     Repeated { repeated_index: u32 },
-    ComponentPlaceholder { component_container_index: ComponentContainerIndex },
+    ComponentPlaceholder { repeated_index: u32 },
 }
 
 #[derive(Default, Debug, Clone)]
 pub struct LoweredSubComponentMapping {
     pub element_mapping: HashMap<ByAddress<ElementRc>, LoweredElement>,
     pub property_mapping: HashMap<NamedReference, PropertyReference>,
+    pub repeater_count: u32,
+    pub container_count: u32,
 }
 
 impl LoweredSubComponentMapping {
@@ -259,11 +261,13 @@ fn lower_sub_component(
             });
         }
         if elem.is_component_placeholder {
-            let index = parent.as_ref().unwrap().borrow().item_index.get().copied().unwrap();
             mapping.element_mapping.insert(
                 element.clone().into(),
-                LoweredElement::ComponentPlaceholder { component_container_index: index.into() },
+                LoweredElement::ComponentPlaceholder {
+                    repeated_index: component_container_data.len() as u32,
+                },
             );
+            mapping.container_count += 1;
             component_container_data.push(parent.as_ref().unwrap().clone());
             return None;
         }
@@ -273,6 +277,7 @@ fn lower_sub_component(
                 LoweredElement::Repeated { repeated_index: repeated.len() as u32 },
             );
             repeated.push(element.clone());
+            mapping.repeater_count += 1;
             return None;
         }
         match &elem.base_type {
@@ -391,7 +396,8 @@ fn lower_sub_component(
     sub_component.repeated =
         repeated.into_iter().map(|elem| lower_repeated_component(&elem, &ctx)).collect();
     for s in &mut sub_component.sub_components {
-        s.repeater_offset += sub_component.repeated.len() as u32;
+        s.repeater_offset +=
+            (sub_component.repeated.len() + sub_component.component_containers.len()) as u32;
     }
     sub_component.component_containers = component_container_data
         .into_iter()
@@ -563,10 +569,12 @@ fn lower_component_container(
 ) -> ComponentContainerElement {
     let c = container.borrow();
 
-    let component_container_index: ComponentContainerIndex = (*c.item_index.get().unwrap()).into();
-    let ti = component_container_index.as_item_tree_index();
-    let component_container_items_index =
-        sub_component.items.iter().position(|i| i.index_in_tree == ti).unwrap() as u32;
+    let component_container_index = *c.item_index.get().unwrap();
+    let component_container_items_index = sub_component
+        .items
+        .iter()
+        .position(|i| i.index_in_tree == component_container_index)
+        .unwrap() as u32;
 
     ComponentContainerElement {
         component_container_item_tree_index: component_container_index,
@@ -738,6 +746,7 @@ fn make_tree(
 ) -> TreeNode {
     let e = element.borrow();
     let children = e.children.iter().map(|c| make_tree(state, c, component, sub_component_path));
+    let repeater_count = component.mapping.repeater_count;
     match component.mapping.element_mapping.get(&ByAddress(element.clone())).unwrap() {
         LoweredElement::SubComponent { sub_component_index } => {
             let sub_component = e.sub_component().unwrap();
@@ -762,6 +771,7 @@ fn make_tree(
             item_index: *item_index,
             children: children.collect(),
             repeated: false,
+            component_container: false,
         },
         LoweredElement::Repeated { repeated_index } => TreeNode {
             is_accessible: false,
@@ -769,13 +779,15 @@ fn make_tree(
             item_index: *repeated_index,
             children: vec![],
             repeated: true,
+            component_container: false,
         },
-        LoweredElement::ComponentPlaceholder { component_container_index } => TreeNode {
+        LoweredElement::ComponentPlaceholder { repeated_index } => TreeNode {
             is_accessible: false,
             sub_component_path: sub_component_path.into(),
-            item_index: component_container_index.as_repeater_index(),
+            item_index: *repeated_index + repeater_count,
             children: vec![],
-            repeated: true,
+            repeated: false,
+            component_container: true,
         },
     }
 }

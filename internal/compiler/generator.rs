@@ -115,6 +115,7 @@ pub trait ItemTreeBuilder {
     fn push_component_placeholder_item(
         &mut self,
         item: &crate::object_tree::ElementRc,
+        container_count: u32, // Must start at repeater.len()!
         parent_index: u32,
         component_state: &Self::SubComponentState,
     );
@@ -163,7 +164,17 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         build_item_tree::<T>(sub_component, &sub_compo_state, builder);
     } else {
         let mut repeater_count = 0;
-        visit_item(initial_state, &root_component.root_element, 1, &mut repeater_count, 0, builder);
+        let mut container_count =
+            repeater_count_in_sub_component(&root_component.root_element) as u32;
+        visit_item(
+            initial_state,
+            &root_component.root_element,
+            1,
+            &mut repeater_count,
+            &mut container_count,
+            0,
+            builder,
+        );
 
         visit_children(
             initial_state,
@@ -175,6 +186,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
             1,
             1,
             &mut repeater_count,
+            &mut container_count,
             builder,
         );
     }
@@ -193,6 +205,15 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         count
     }
 
+    // Number of repeaters in this sub component
+    fn repeater_count_in_sub_component(e: &ElementRc) -> usize {
+        let mut count = if e.borrow().repeated.is_some() { 0 } else { 1 };
+        for i in &e.borrow().children {
+            count += repeater_count_in_sub_component(i);
+        }
+        count
+    }
+
     fn visit_children<T: ItemTreeBuilder>(
         state: &T::SubComponentState,
         children: &[ElementRc],
@@ -203,6 +224,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         children_offset: u32,
         relative_children_offset: u32,
         repeater_count: &mut u32,
+        container_count: &mut u32,
         builder: &mut T,
     ) {
         debug_assert_eq!(
@@ -241,6 +263,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
                     children_offset,
                     relative_children_offset,
                     repeater_count,
+                    container_count,
                     builder,
                 );
                 return;
@@ -260,12 +283,21 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
                     &sub_component.root_element,
                     offset,
                     repeater_count,
+                    container_count,
                     parent_index,
                     builder,
                 );
                 sub_component_states.push_back(sub_component_state);
             } else {
-                visit_item(state, child, offset, repeater_count, parent_index, builder);
+                visit_item(
+                    state,
+                    child,
+                    offset,
+                    repeater_count,
+                    container_count,
+                    parent_index,
+                    builder,
+                );
             }
             offset += item_sub_tree_size(child) as u32;
         }
@@ -289,6 +321,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
                     offset,
                     1,
                     repeater_count,
+                    container_count,
                     builder,
                 );
             } else {
@@ -302,6 +335,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
                     offset,
                     relative_offset,
                     repeater_count,
+                    container_count,
                     builder,
                 );
             }
@@ -319,11 +353,17 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         item: &ElementRc,
         children_offset: u32,
         repeater_count: &mut u32,
+        container_count: &mut u32,
         parent_index: u32,
         builder: &mut T,
     ) {
         if item.borrow().is_component_placeholder {
-            builder.push_component_placeholder_item(item, parent_index, component_state);
+            builder.push_component_placeholder_item(
+                item,
+                *container_count,
+                parent_index,
+                component_state,
+            );
         } else if item.borrow().repeated.is_some() {
             builder.push_repeated_item(item, *repeater_count, parent_index, component_state);
             *repeater_count += 1;
