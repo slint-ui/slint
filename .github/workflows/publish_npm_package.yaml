@@ -48,16 +48,39 @@ jobs:
          echo $version
          echo "PKG_VERSION=$version" >> $GITHUB_OUTPUT
 
-  build_linux_package:
-    runs-on: ubuntu-22.04
-    needs: determine_version
+  build_binaries:
     env:
       PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
       RELEASE_INPUT: ${{ github.event.inputs.release }}
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-20.04
+            rust-target: x86_64-unknown-linux-gnu
+            napi-rs-target: linux-x64-gnu
+          - os: macos-latest
+            rust-target: x86_64-apple-darwin
+            napi-rs-target:  darwin-x64
+          - os: macos-latest
+            rust-target: aarch64-apple-darwin
+            napi-rs-target:  darwin-arm64
+          - os: windows-2022
+            rust-target: x86_64-pc-windows-msvc
+            napi-rs-target:  win32-x64-msvc
+          - os: windows-2022
+            rust-target: i686-pc-windows-msvc
+            napi-rs-target:  win32-ia32-msvc
+    needs: determine_version            
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install-linux-dependencies
+        with:
+          old-ubuntu: true
       - uses: ./.github/actions/setup-rust
+        with:
+          target: ${{ matrix.rust-target }}
       # Setup .npmrc file to publish to npm
       - uses: actions/setup-node@v3
         with:
@@ -65,21 +88,24 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Set version
         working-directory: api/node
+        shell: bash
         run: |
           if [ "$RELEASE_INPUT" != "true" ]; then
               npm version $PKG_VERSION
           fi    
       - name: Build binary
+        shell: bash
         working-directory: api/node      
         run: |
             npm install --ignore-scripts
-            npm run build
+            npm run build -- --target ${{ matrix.rust-target }}
       - name: Create package
+        shell: bash
         working-directory: api/node      
         run: |
           npx napi create-npm-dir -t . -c ./binaries.json
-          mv index.linux-x64-gnu.node npm/linux-x64-gnu/
-          cd npm/linux-x64-gnu/
+          mv index.${{ matrix.napi-rs-target }}.node npm/${{ matrix.napi-rs-target }}/
+          cd npm/${{ matrix.napi-rs-target }}/
           if [ "$RELEASE_INPUT" != "true" ]; then
             npm version $PKG_VERSION
           fi    
@@ -87,12 +113,12 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: binaries-x86_64-unknown-linux-gnu
-          path: "api/node/npm/linux-x64-gnu/*.tgz"
-    
+          name: binaries-${{ matrix.rust-target }}
+          path: "api/node/npm/${{ matrix.napi-rs-target }}/*.tgz"
+
   build_and_publish_npm_package:
     runs-on: ubuntu-22.04
-    needs: [determine_version, build_linux_package]
+    needs: [determine_version, build_binaries]
     env:
       PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
       RELEASE_INPUT: ${{ github.event.inputs.release }}
@@ -131,11 +157,33 @@ jobs:
       with:
         name: binaries-x86_64-unknown-linux-gnu
         path: api/node/
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: binaries-x86_64-apple-darwin
+        path: api/node/
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: binaries-aarch64-apple-darwin
+        path: api/node/  
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: binaries-x86_64-pc-windows-msvc
+        path: api/node/  
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: binaries-i686-pc-windows-msvc
+        path: api/node/      
     - name: Add binary dependencies
       working-directory: api/node
       run: |
-          npm install --no-save ./slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
-          npm install --save-optional --save-exact @slint-ui/slint-ui-binary-linux-x64-gnu@$PKG_VERSION
+          for package in @slint-ui/slint-ui-binary-linux-x64-gnu @slint-ui/slint-ui-binary-darwin-x64 @slint-ui/slint-ui-binary-darwin-arm64 @slint-ui/slint-ui-binary-win32-x64-msvc @slint-ui/slint-ui-binary-win32-ia32-msvc; do
+              jq --arg pkg "$package" --arg version "$PKG_VERSION" '.optionalDependencies[$pkg]=$version' package.json > new.json
+              mv new.json package.json
+          done
     - name: Build package
       run: |
           cargo xtask node_package $PKG_EXTRA_ARGS
@@ -155,6 +203,10 @@ jobs:
       if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
       run: |        
         npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
+        npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-x64-$PKG_VERSION.tgz
+        npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-arm64-$PKG_VERSION.tgz
+        npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-x64-msvc-$PKG_VERSION.tgz
+        npm publish --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-ia32-msvc-$PKG_VERSION.tgz
         npm publish $PUBLISH_TAG api/node/slint-ui-$PKG_VERSION.tgz
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
