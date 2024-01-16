@@ -1,0 +1,102 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { CosmicFontSettings, CosmicPalette } from "styling.slint";
+import { StateLayer } from "components.slint";
+
+export component Switch {
+    in property <bool> enabled: true;
+    in property <string> text;
+    in-out property <bool> checked: true;
+    out property <bool> has-focus: state-layer.has-focus;
+
+    callback toggled;
+
+    private property <color> text-color: CosmicPalette.foreground;
+
+    function toggle-checked() {
+        if(!root.enabled) {
+            return;
+        }
+
+        root.checked = !root.checked;
+        root.toggled();
+    }
+
+    min-width: 48px;
+    min-height: max(24px, layout.min-height);
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+    accessible-label: root.text;
+    accessible-checkable: true;
+    accessible-checked <=> root.checked;
+    accessible-role: checkbox;
+    forward-focus: state-layer;
+
+    states [
+        disabled when !root.enabled : {
+            opacity: 0.5;
+        }
+    ]
+
+    touch-area := TouchArea {
+        enabled <=> root.enabled;
+
+        clicked => {
+            state-layer.clicked();
+        }
+    }
+
+    layout := HorizontalLayout {
+        spacing: 12px;
+
+        VerticalLayout {
+            alignment: center;
+
+          Rectangle {
+                width: 48px;
+                height: 24px;
+
+                background := Rectangle {
+                    border-radius: 12px;
+                    background: CosmicPalette.neutral-5-background;
+                }
+
+                thumb := Rectangle {
+                    x: root.checked ? parent.width - self.width - 2px : 2px;
+                    y: (parent.height - self.height) / 2;
+                    width: 20px;
+                    height: self.width;
+                    border-radius: self.height / 2;
+                    background: CosmicPalette.accent-foreground;
+                }
+
+                state-layer := StateLayer {
+                    border-radius: background.border-radius;
+
+                    clicked => {
+                        if (root.enabled) {
+                            root.checked = !root.checked;
+                            root.toggled();
+                        }
+                    }
+                }
+            }
+
+            states [
+                selected when root.checked : {
+                    background.background: CosmicPalette.accent-background;
+                }
+            ]
+        }
+
+        if (root.text != "") : Text {
+            text: root.text;
+            color: root.text-color;
+            font-size: CosmicFontSettings.body.font-size;
+            font-weight: CosmicFontSettings.body.font-weight;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+}

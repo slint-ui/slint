@@ -1,0 +1,80 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { CosmicFontSettings, CosmicPalette } from "styling.slint";
+import { StateLayer } from "components.slint";
+
+export component Button {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> primary;
+    in property <bool> enabled <=> state-layer.enabled;
+    in property <bool> checkable;
+    in property <bool> colorize-icon;
+    out property <bool> has-focus: state-layer.has-focus;
+    out property <bool> pressed: self.enabled && state-layer.pressed;
+    in-out property <bool> checked <=> state-layer.checked;
+
+    callback clicked;
+
+    private property <brush> text-color: primary ? CosmicPalette.accent-foreground : CosmicPalette.control-foreground;
+
+    min-width: max(32px, layout.min-width);
+    min-height: max(32px, layout.min-height);
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    accessible-label: text;
+    accessible-role: button;
+    forward-focus: state-layer;
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.5;
+        }
+    ]
+
+    background := Rectangle {
+        border-radius: 16px;
+        background: root.primary ? CosmicPalette.accent-background : CosmicPalette.control-background;
+
+        animate background, border-color { duration: 150ms; }
+
+        layout := HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            spacing: 4px;
+            alignment: center;
+
+            if (root.icon.width > 0 && root.icon.height > 0) : Image {
+                y: (parent.height - self.height) / 2;
+                source <=> root.icon;
+                width: 20px;
+                colorize: root.colorize-icon ? root.text-color : transparent;
+            }
+
+            if (root.text != ""): Text {
+                font-size: CosmicFontSettings.body.font-size;
+                font-weight: CosmicFontSettings.body.font-weight;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                text: root.text;
+                color: root.text-color;
+
+                animate color { duration: 150ms; }
+            }
+        }
+    }
+
+    state-layer := StateLayer {
+        border-radius: background.border-radius;
+
+        clicked => {
+            if (root.checkable) {
+                root.checked = !root.checked;
+            }
+            root.clicked();
+        }
+    }
+}

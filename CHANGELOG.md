@@ -31,6 +31,7 @@ All notable changes to this project are documented in this file.
  - Added `set-selection-offsets(int, int)` to `TextInput`, `LineEdit`, and `TextEdit`.
  - Fixed property wrongly considered as const if it is modified through an alias (#4241)
  - Added `Palette` global singleton
+ - Added `Cosmic` style.
 
 ### C++
 

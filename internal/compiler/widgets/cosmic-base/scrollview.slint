@@ -1,0 +1,129 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { CosmicPalette, Icons } from "styling.slint";
+import { StateLayerBase } from "components.slint";
+
+export component ScrollBar {
+    in property <bool> enabled;
+    out property <bool> has-hover: touch-area.has-hover;
+    in-out property <bool> horizontal;
+    in-out property <length> maximum;
+    in-out property <length> page-size;
+    in-out property <length> value;
+
+    private property <length> track-size: root.horizontal ? root.width - 2 * root.offset : root.height - 2 * offset;
+    private property <length> step-size: 10px;
+    private property <length> offset: 2px;
+
+    opacity: 0.6;
+
+    animate width, height { duration: 150ms; easing: ease-out; }
+
+    thumb := Rectangle {
+        width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * root.page-size / (root.maximum + root.page-size));
+        height: root.horizontal ? parent.height : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * (root.page-size / (root.maximum + root.page-size)));
+        x: !root.horizontal ? (parent.width - self.width) / 2 : root.offset + (root.track-size - thumb.width) * (-root.value / root.maximum);
+        y: root.horizontal ? (parent.height - self.height) / 2 : root.offset + (root.track-size - thumb.height) * (-root.value / root.maximum);
+        border-radius: (root.horizontal ? self.height : self.width) / 2;
+        background: CosmicPalette.neutral-6-background;
+
+        StateLayerBase {
+            width: 100%;
+            height: 100%;
+            border-radius: parent.border-radius;
+            pressed: touch-area.pressed;
+            has-hover: touch-area.has-hover;
+        }
+
+        animate width, height { duration: 100ms; easing: ease-out; }
+    }
+
+    touch-area := TouchArea {
+        property <length> pressed-value;
+
+        width: parent.width;
+        height: parent.height;
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                self.pressed-value = -root.value;
+            }
+        }
+
+        moved => {
+            if (self.enabled && self.pressed) {
+                root.value = -max(0px, min(root.maximum, self.pressed-value + (
+                    root.horizontal ? (touch-area.mouse-x - touch-area.pressed-x) * (root.maximum / (root.track-size - thumb.width))
+                               : (touch-area.mouse-y - touch-area.pressed-y) * (root.maximum / (root.track-size - thumb.height))
+                )));
+            }
+        }
+
+        scroll-event(event) => {
+            if (root.horizontal && event.delta-x != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-x));
+                return accept;
+            } else if (!root.horizontal && event.delta-y != 0) {
+                root.value = max(-root.maximum, min(0px, root.value + event.delta-y));
+                return accept;
+            }
+            reject
+        }
+    }
+}
+
+export component ScrollView {
+    in property <bool> enabled: true;
+    out property <length> visible-width <=> flickable.width;
+    out property <length> visible-height <=> flickable.height;
+    in-out property <length> viewport-width <=> flickable.viewport-width;
+    in-out property <length> viewport-height <=> flickable.viewport-height;
+    in-out property <length> viewport-x <=> flickable.viewport-x;
+    in-out property <length> viewport-y <=> flickable.viewport-y;
+    // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
+    in-out property <bool> has-focus;
+
+    min-height: 50px;
+    min-width: 50px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    preferred-height: 100%;
+    preferred-width: 100%;
+
+    flickable := Flickable {
+        x: 2px;
+        y: 2px;
+        interactive: false;
+        viewport-y <=> vertical-bar.value;
+        viewport-x <=> horizontal-bar.value;
+        width: 100%;
+        height: 100%;
+
+        @children
+    }
+
+    vertical-bar := ScrollBar {
+        enabled: root.enabled;
+        x: parent.width  - self.width;
+        y: 0;
+        width: self.has-hover ? 8px : 4px;
+        height: horizontal-bar.visible ? parent.height - horizontal-bar.height : parent.height;
+        horizontal: false;
+        maximum:  flickable.viewport-height - flickable.height;
+        page-size:  flickable.height;
+        visible: flickable.viewport-height > flickable.height;
+    }
+
+    horizontal-bar := ScrollBar {
+        enabled: root.enabled;
+        width: vertical-bar.visible ? parent.width - vertical-bar.width : parent.width;
+        height: self.has-hover ? 8px : 4px;
+        y: parent.height - self.height;
+        x: 0;
+        horizontal: true;
+        maximum:  flickable.viewport-width - flickable.width;
+        page-size:  flickable.width;
+        visible: flickable.viewport-width > flickable.width;
+    }
+}

@@ -10,6 +10,7 @@ The styles available include:
 | `fluent`   | `fluent-light`| `fluent-dark`| These variants belong to the **Fluent** style, which is based on the [Fluent Design System](https://fluent2.microsoft.design/). |
 | `material` | `material-light`| `material-dark`| These variants are part of the **Material** style, which follows the [Material Design](https://m3.material.io). |
 | `cupertino`| `cupertino-light`| `cupertino-dark`| The **Cupertino** variants emulate the style used by macOS. |
+| `cosmic`| `cosmic-light`| `cosmic-dark`| The **Cosmic** variants emulate the style used by [Cosmic Desktop](https://github.com/pop-os/cosmic). |
 | `qt`   | | | The **Qt** style uses [Qt](https://en.wikipedia.org/wiki/Qt_(software)) to render widgets. This style requires Qt to be installed on your system. |
 | `native` | | | This is an alias to one of the other styles depending on the platform. It is `cupertino` on macOS, `fluent` on Windows, `material` on Android, `qt` on linux if Qt is available, or `fluent` otherwise. |
 

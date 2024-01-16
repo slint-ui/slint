@@ -31,6 +31,7 @@ jobs:
         export SLINT_STYLE=fluent && wasm-pack build --release  --out-dir pkg/fluent --target web
         export SLINT_STYLE=material && wasm-pack build --release --out-dir pkg/material --target web
         export SLINT_STYLE=cupertino && wasm-pack build --release --out-dir pkg/cupertino --target web
+        export SLINT_STYLE=cosmic && wasm-pack build --release --out-dir pkg/cosmic --target web
       working-directory: examples/gallery
     - name: Printer demo WASM build
       run: |
