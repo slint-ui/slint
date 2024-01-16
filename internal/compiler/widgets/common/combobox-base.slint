@@ -36,6 +36,8 @@ export component ComboBoxBase {
     forward-focus: i-focus-scope;
 
     i-focus-scope := FocusScope {
+        enabled: root.enabled;
+
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
                 root.move-selection-up();
