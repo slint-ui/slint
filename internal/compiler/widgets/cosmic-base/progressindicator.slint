@@ -19,12 +19,11 @@ export component ProgressIndicator {
         background: CosmicPalette.neutral-6-background;
 
         track := Rectangle {
-            opacity: 0.75;
             width: !root.indeterminate ?  parent.width * min(1, max(0, root.progress)) : parent.width;
             height: 100%;
             x: !root.indeterminate ? 0px : -parent.width + (parent.width * mod(animation-tick(), 2s) / 1s);
             border-radius: parent.border-radius;
-            background: CosmicPalette.accent-background;
+            background: CosmicPalette.secondary-accent-background;
         }
     }
 }

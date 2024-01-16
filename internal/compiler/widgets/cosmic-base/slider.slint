@@ -44,9 +44,8 @@ export component Slider {
         y: vertical ? 0 : (parent.height - self.height) / 2;
         width: vertical ? rail.width : thumb.x + (thumb.width / 2);
         height: vertical ? thumb.y + (thumb.height / 2) : rail.height;
-        background: CosmicPalette.accent-background;
+        background: CosmicPalette.secondary-accent-background;
         border-radius: rail.border-radius;
-        opacity: 0.75;
     }
 
     thumb := Rectangle {
