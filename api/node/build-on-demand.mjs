@@ -9,7 +9,7 @@ import { spawn } from "child_process";
 
 const worker = new Worker("./rust-module.cjs")
 // Define dummy error handler to prevent node from aborting on errors
-worker.on('error', () => { console.log(`Error loading rust-module.cjs: {error}`) })
+worker.on('error', (error) => { console.log(`Error loading rust-module.cjs: {error}`) })
 worker.on('exit', (code) => {
     if (code != 0) {
         console.log("slint-ui: loading rust-module.cjs failed, building now")
