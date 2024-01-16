@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+TestCase := Rectangle {
+    width: 100phx;
+    height: 100phx;
+
+    focus-scope := FocusScope {
+        key-pressed(e) => {
+            root.text = e.text;
+            return accept;
+        }
+    }
+
+    property <bool> focus-scope-focused: focus-scope.has_focus;
+    property <bool> focus-scope-enabled <=> focus-scope.enabled;
+    property <string> text;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_focus_scope_focused());
+assert!(instance.get_text().is_empty());
+slint_testing::send_keyboard_char(&instance, 'a', true);
+assert_eq!(instance.get_text(), "a");
+
+instance.set_text("".into());
+instance.set_focus_scope_enabled(false);
+slint_testing::send_keyboard_char(&instance, 'a', true);
+assert!(instance.get_text().is_empty());
+```
+*/

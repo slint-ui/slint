@@ -704,6 +704,10 @@ impl Item for FocusScope {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
+        if !self.enabled() {
+            return KeyEventResult::EventIgnored;
+        }
+
         let r = match event.event_type {
             KeyEventType::KeyPressed => {
                 Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
