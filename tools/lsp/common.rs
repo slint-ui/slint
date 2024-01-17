@@ -28,7 +28,7 @@ impl std::fmt::Debug for VersionedUrl {
 }
 
 /// A versioned file
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Position {
     /// The file url
     pub url: Url,
@@ -108,7 +108,7 @@ pub enum PreviewToLspMessage {
 }
 
 /// Information on the Element types available
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct ComponentInformation {
     /// The name of the type
     pub name: String,

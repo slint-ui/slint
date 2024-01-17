@@ -7,9 +7,12 @@ use crate::common::{ComponentInformation, Position};
 use crate::language::DocumentCache;
 
 use i_slint_compiler::langtype::ElementType;
-use i_slint_compiler::pathutils::to_url;
+use lsp_types::Url;
 
-use std::path::Path;
+use std::{path::Path, rc::Rc};
+
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::UrlWasm;
 
 fn builtin_component_info(name: &str) -> ComponentInformation {
     let category = {
@@ -111,7 +114,7 @@ pub fn all_exported_components(
             let to_push = if is_std_widget && !exported_name.as_str().ends_with("Impl") {
                 Some(std_widgets_info(exported_name.as_str(), c.is_global()))
             } else if !is_builtin {
-                let Some(url) = to_url(&file.to_string_lossy()) else {
+                let Ok(url) = Url::from_file_path(file) else {
                     continue;
                 };
                 let offset =
@@ -122,7 +125,7 @@ pub fn all_exported_components(
                     Position { url, offset },
                 ))
             } else {
-                None
+                continue;
             };
 
             let Some(to_push) = to_push else {
@@ -143,17 +146,17 @@ pub fn file_local_components(
     file: &Path,
     result: &mut Vec<ComponentInformation>,
 ) {
-    let Some(url) = to_url(&file.to_string_lossy()) else {
+    let Ok(url) = Url::from_file_path(file) else {
         return;
     };
 
     let Some(doc) = document_cache.documents.get_document(file) else { return };
+    let exported_components =
+        doc.exports.iter().filter_map(|(_, e)| e.as_ref().left()).cloned().collect::<Vec<_>>();
     for component in &*doc.inner_components {
-        if component.is_global() {
-            continue;
-        };
-
-        if component.exported_global_names.borrow().is_empty() {
+        // component.exported_global_names is always empty since the pass populating it has not
+        // run.
+        if !exported_components.iter().any(|rc| Rc::ptr_eq(rc, component)) {
             let offset =
                 component.node.as_ref().map(|n| n.text_range().start().into()).unwrap_or_default();
             result.push(file_local_component_info(
@@ -161,5 +164,133 @@ pub fn file_local_components(
                 Position { url: url.clone(), offset },
             ));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builtin_component_catalog() {
+        let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
+
+        let mut result = Default::default();
+        builtin_components(&dc, &mut result);
+
+        assert!(result.iter().all(|ci| !ci.is_std_widget));
+        assert!(result.iter().all(|ci| ci.is_exported));
+        assert!(result.iter().all(|ci| ci.is_builtin));
+        assert!(result.iter().all(|ci| !ci.is_global));
+        assert!(result.iter().any(|ci| &ci.name == "TouchArea"));
+        assert!(!result.iter().any(|ci| &ci.name == "AboutSlint"));
+        assert!(!result.iter().any(|ci| &ci.name == "ProgressIndicator"));
+    }
+
+    #[test]
+    fn exported_component_catalog_std_widgets_only() {
+        let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
+
+        let mut result = Default::default();
+        all_exported_components(&dc, &mut |_| false, &mut result);
+
+        assert!(result.iter().all(|ci| ci.is_std_widget));
+        assert!(result.iter().all(|ci| ci.is_exported));
+        assert!(result.iter().all(|ci| !ci.is_builtin));
+        // assert!(result.iter().all(|ci| ci.is_global)); // mixed!
+        assert!(!result.iter().any(|ci| &ci.name == "TouchArea"));
+        assert!(result.iter().any(|ci| &ci.name == "AboutSlint"));
+        assert!(result.iter().any(|ci| &ci.name == "ProgressIndicator"));
+    }
+
+    #[test]
+    fn exported_component_catalog_filtered() {
+        let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
+
+        let mut result = Default::default();
+        all_exported_components(&dc, &mut |_| true, &mut result);
+
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn exported_component_catalog_exported_component() {
+        let baseline = {
+            let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
+
+            let mut result = Default::default();
+            all_exported_components(&dc, &mut |_| false, &mut result);
+            result.len()
+        };
+
+        let (dc, _, _) = crate::language::test::loaded_document_cache(
+            r#"export component Test1 {}"#.to_string(),
+        );
+
+        let mut result = Default::default();
+        all_exported_components(&dc, &mut |_| false, &mut result);
+
+        assert!(result.iter().any(|ci| &ci.name == "Test1"));
+        assert!(!result.iter().any(|ci| &ci.name == "TouchArea"));
+        assert!(result.iter().any(|ci| &ci.name == "AboutSlint"));
+        assert!(result.iter().any(|ci| &ci.name == "ProgressIndicator"));
+        assert_eq!(result.len(), baseline + 1);
+    }
+
+    #[test]
+    fn local_component_catalog_one_unexported_component() {
+        let (dc, url, _) =
+            crate::language::test::loaded_document_cache(r#"component Test1 {}"#.to_string());
+
+        let mut result = Default::default();
+        file_local_components(&dc, &url.to_file_path().unwrap(), &mut result);
+        assert!(result.is_empty()); // Test1 is implicitly exported!
+    }
+
+    #[test]
+    fn local_component_catalog_two_unexported_components_without_export() {
+        let (dc, url, _) = crate::language::test::loaded_document_cache(
+            r#"
+            component Test1 {}
+            component Test2 {}"#
+                .to_string(),
+        );
+
+        let mut result = Default::default();
+        file_local_components(&dc, &url.to_file_path().unwrap(), &mut result);
+        assert_eq!(result.len(), 1);
+
+        let test1 = result.iter().find(|ci| &ci.name == "Test1").unwrap();
+        assert!(!test1.is_std_widget);
+        assert!(!test1.is_builtin);
+        assert!(!test1.is_exported);
+        assert!(!test1.is_global);
+        assert!(!result.iter().any(|ci| &ci.name == "Test2")); // Test2 is implicitly exported
+    }
+    #[test]
+    fn local_component_catalog_two_unexported_components_with_export() {
+        let (dc, url, _) = crate::language::test::loaded_document_cache(
+            r#"
+            component Test1 {}
+            export component Export1 {}
+            component Test2 {}"#
+                .to_string(),
+        );
+
+        let mut result = Default::default();
+        file_local_components(&dc, &url.to_file_path().unwrap(), &mut result);
+        assert_eq!(result.len(), 2);
+
+        let test1 = result.iter().find(|ci| &ci.name == "Test1").unwrap();
+        assert!(!test1.is_std_widget);
+        assert!(!test1.is_builtin);
+        assert!(!test1.is_exported);
+        assert!(!test1.is_global);
+        let test2 = result.iter().find(|ci| &ci.name == "Test2").unwrap();
+        assert!(!test2.is_std_widget);
+        assert!(!test2.is_builtin);
+        assert!(!test2.is_exported);
+        assert!(!test2.is_global);
+        assert!(!result.iter().any(|ci| &ci.name == "Export1"));
     }
 }
