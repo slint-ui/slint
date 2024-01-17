@@ -393,18 +393,18 @@ fn lower_sub_component(
             }
         }
     });
-    sub_component.repeated =
-        repeated.into_iter().map(|elem| lower_repeated_component(&elem, &ctx)).collect();
-    for s in &mut sub_component.sub_components {
-        s.repeater_offset +=
-            (sub_component.repeated.len() + sub_component.component_containers.len()) as u32;
-    }
     sub_component.component_containers = component_container_data
         .into_iter()
         .map(|component_container| {
             lower_component_container(&component_container, &sub_component, &ctx)
         })
         .collect();
+    sub_component.repeated =
+        repeated.into_iter().map(|elem| lower_repeated_component(&elem, &ctx)).collect();
+    for s in &mut sub_component.sub_components {
+        s.repeater_offset +=
+            (sub_component.repeated.len() + sub_component.component_containers.len()) as u32;
+    }
 
     sub_component.popup_windows = component
         .popup_windows
