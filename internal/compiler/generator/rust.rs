@@ -743,9 +743,10 @@ fn generate_sub_component(
         repeated_element_components.push(rep_inner_component_id);
     }
 
-    for container in component.component_containers.iter() {
+    // Use ids following the real repeaters to piggyback on their forwarding through sub-components!
+    for (idx, container) in component.component_containers.iter().enumerate() {
+        let idx = (component.repeated.len() + idx) as u32;
         let items_index = container.component_container_items_index;
-        let repeater_index = container.component_container_item_tree_index.as_repeater_index();
 
         let embed_item = access_member(
             &llr::PropertyReference::InNativeItem {
@@ -763,19 +764,19 @@ fn generate_sub_component(
         };
 
         repeated_visit_branch.push(quote!(
-            #repeater_index => {
+            #idx => {
                 #ensure_updated
                 #embed_item.visit_children_item(-1, order, visitor)
             }
         ));
         repeated_subtree_ranges.push(quote!(
-            #repeater_index => {
+            #idx => {
                 #ensure_updated
-               #embed_item.subtree_range()
+                #embed_item.subtree_range()
             }
         ));
         repeated_subtree_components.push(quote!(
-            #repeater_index => {
+            #idx => {
                 #ensure_updated
                 if subtree_index == 0 {
                     *result = #embed_item.subtree_component()
@@ -1350,7 +1351,7 @@ fn generate_item_tree(
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
         let (path, component) = follow_sub_component_path(&sub_tree.root, &node.sub_component_path);
-        if node.repeated {
+        if node.repeated || node.component_container {
             assert_eq!(node.children.len(), 0);
             let mut repeater_index = node.item_index;
             let mut sub_component = &sub_tree.root;

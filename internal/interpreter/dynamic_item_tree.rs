@@ -9,7 +9,6 @@ use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::diagnostics::SourceFileVersion;
 use i_slint_compiler::expression_tree::{Expression, NamedReference};
 use i_slint_compiler::langtype::{ElementType, Type};
-use i_slint_compiler::llr::ComponentContainerIndex;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::*;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
@@ -673,8 +672,8 @@ extern "C" fn visit_children_item(
         order,
         v,
         |_, order, visitor, index| {
-            if let Some(_) = ComponentContainerIndex::try_from_repeater_index(index) {
-                // Do nothing: Our parent already did all the work!
+            if index as usize >= instance_ref.description.repeater.len() {
+                // Do nothing: We are ComponentContainer and Our parent already did all the work!
                 VisitChildrenResult::CONTINUE
             } else {
                 // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
@@ -895,14 +894,12 @@ pub(crate) fn generate_item_tree<'id>(
         fn push_component_placeholder_item(
             &mut self,
             item: &i_slint_compiler::object_tree::ElementRc,
+            container_count: u32,
             parent_index: u32,
             _component_state: &Self::SubComponentState,
         ) {
-            let component_index = ComponentContainerIndex::from(parent_index);
-            self.tree_array.push(ItemTreeNode::DynamicTree {
-                index: component_index.as_repeater_index(),
-                parent_index,
-            });
+            self.tree_array
+                .push(ItemTreeNode::DynamicTree { index: container_count, parent_index });
             self.original_elements.push(item.clone());
         }
 
@@ -1647,8 +1644,16 @@ unsafe extern "C" fn get_item_ref(component: ItemTreeRefPin, index: u32) -> Pin<
 extern "C" fn get_subtree_range(component: ItemTreeRefPin, index: u32) -> IndexRange {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    if let Some(container_index) = ComponentContainerIndex::try_from_repeater_index(index) {
-        let container = component.as_ref().get_item_ref(container_index.as_item_tree_index());
+    if index as usize >= instance_ref.description.repeater.len() {
+        let container_index = {
+            let tree_node = &component.as_ref().get_item_tree()[index as usize];
+            if let ItemTreeNode::DynamicTree { parent_index, .. } = tree_node {
+                *parent_index
+            } else {
+                u32::MAX
+            }
+        };
+        let container = component.as_ref().get_item_ref(container_index);
         let container = i_slint_core::items::ItemRef::downcast_pin::<
             i_slint_core::items::ComponentContainer,
         >(container)
@@ -1673,8 +1678,16 @@ extern "C" fn get_subtree(
 ) {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    if let Some(container_index) = ComponentContainerIndex::try_from_repeater_index(index) {
-        let container = component.as_ref().get_item_ref(container_index.as_item_tree_index());
+    if index as usize >= instance_ref.description.repeater.len() {
+        let container_index = {
+            let tree_node = &component.as_ref().get_item_tree()[index as usize];
+            if let ItemTreeNode::DynamicTree { parent_index, .. } = tree_node {
+                *parent_index
+            } else {
+                u32::MAX
+            }
+        };
+        let container = component.as_ref().get_item_ref(container_index);
         let container = i_slint_core::items::ItemRef::downcast_pin::<
             i_slint_core::items::ComponentContainer,
         >(container)
