@@ -23,6 +23,11 @@ pub fn loaded_document_cache(
     content: String,
 ) -> (DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
     let mut dc = empty_document_cache();
+
+    // Pre-load std-widgets.slint:
+    let mut diag = i_slint_compiler::diagnostics::BuildDiagnostics::default();
+    spin_on::spin_on(dc.documents.import_component("std-widgets.slint", "StyleMetrics", &mut diag));
+
     let dummy_absolute_path =
         if cfg!(target_family = "windows") { "c://foo/bar.slint" } else { "/foo/bar.slint" };
     let url = Url::from_file_path(dummy_absolute_path).unwrap();
