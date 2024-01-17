@@ -6,19 +6,22 @@
 #![cfg_attr(not(target_os = "android"), allow(rustdoc::broken_intra_doc_links))]
 #![cfg(target_os = "android")]
 
-use android_activity::input::{
-    InputEvent, KeyAction, Keycode, MotionAction, MotionEvent, TextInputState, TextSpan,
-};
+use android_activity::input::{InputEvent, KeyAction, Keycode, MotionAction, MotionEvent};
 pub use android_activity::{self, AndroidApp};
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use core::ops::ControlFlow;
 use i_slint_core::api::{EventLoopError, PhysicalPosition, PhysicalSize, PlatformError, Window};
 use i_slint_core::platform::{Key, PointerEventButton, WindowAdapter, WindowEvent};
 use i_slint_core::SharedString;
+use jni::sys::jint;
 use raw_window_handle::HasRawWindowHandle;
-use std::cell::Cell;
-use std::rc::Rc;
+use std::cell::{Cell, RefCell};
+use std::rc::{Rc, Weak};
 use std::sync::{Arc, Mutex};
+
+thread_local! {
+    static CURRENT_WINDOW: RefCell<Weak<AndroidWindowAdapter>> = RefCell::new(Default::default());
+}
 
 pub struct AndroidPlatform {
     app: AndroidApp,
@@ -44,19 +47,18 @@ impl AndroidPlatform {
     /// }
     /// ```
     pub fn new(app: AndroidApp) -> Self {
-        let slint_java_helper = SlintJavaHelper::new(&app).unwrap();
-        Self {
+        let slint_java_helper =
+            SlintJavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
+        let window = Rc::<AndroidWindowAdapter>::new_cyclic(|w| AndroidWindowAdapter {
             app: app.clone(),
-            window: Rc::<AndroidWindowAdapter>::new_cyclic(|w| AndroidWindowAdapter {
-                app,
-                window: Window::new(w.clone()),
-                renderer: i_slint_renderer_skia::SkiaRenderer::default(),
-                event_queue: Default::default(),
-                pending_redraw: Default::default(),
-                slint_java_helper,
-            }),
-            event_listener: None,
-        }
+            window: Window::new(w.clone()),
+            renderer: i_slint_renderer_skia::SkiaRenderer::default(),
+            event_queue: Default::default(),
+            pending_redraw: Default::default(),
+            slint_java_helper,
+        });
+        CURRENT_WINDOW.set(Rc::downgrade(&window));
+        Self { app, window, event_listener: None }
     }
 
     /// Instantiate a new Android backend given the [`android_activity::AndroidApp`]
@@ -198,21 +200,39 @@ impl WindowAdapter for AndroidWindowAdapter {
 }
 
 impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
+    #[cfg(feature = "native-activity")]
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
+        match request {
+            i_slint_core::window::InputMethodRequest::Enable(props) => {
+                set_imm_data(&self.slint_java_helper, &self.app, &props)
+                    .unwrap_or_else(|e| print_jni_error(&self.app, e));
+                show_or_hide_soft_input(&self.slint_java_helper, &self.app, true)
+                    .unwrap_or_else(|e| print_jni_error(&self.app, e));
+            }
+            i_slint_core::window::InputMethodRequest::Update(props) => {
+                set_imm_data(&self.slint_java_helper, &self.app, &props)
+                    .unwrap_or_else(|e| print_jni_error(&self.app, e));
+            }
+            i_slint_core::window::InputMethodRequest::Disable => {
+                show_or_hide_soft_input(&self.slint_java_helper, &self.app, false)
+                    .unwrap_or_else(|e| print_jni_error(&self.app, e));
+            }
+            _ => (),
+        };
+    }
+
+    #[cfg(not(feature = "native-activity"))]
+    fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
+        use android_activity::input::{TextInputState, TextSpan};
+
         let props = match request {
             i_slint_core::window::InputMethodRequest::Enable(props) => {
-                #[cfg(not(feature = "native-activity"))]
                 self.app.show_soft_input(true);
-                #[cfg(feature = "native-activity")]
-                show_or_hide_soft_input(&self.slint_java_helper, &self.app, true).unwrap();
                 props
             }
             i_slint_core::window::InputMethodRequest::Update(props) => props,
             i_slint_core::window::InputMethodRequest::Disable => {
-                #[cfg(not(feature = "native-activity"))]
                 self.app.hide_soft_input(true);
-                #[cfg(feature = "native-activity")]
-                show_or_hide_soft_input(&self.slint_java_helper, &self.app, false).unwrap();
                 return;
             }
             _ => return,
@@ -727,6 +747,14 @@ fn map_key_code(code: android_activity::input::Keycode) -> Option<SharedString> 
     }
 }
 
+#[track_caller]
+fn print_jni_error(app: &AndroidApp, e: jni::errors::Error) -> ! {
+    let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }.unwrap();
+    let env = vm.attach_current_thread().unwrap();
+    let _ = env.exception_describe();
+    panic!("JNI error: {e:?}")
+}
+
 struct SlintJavaHelper(#[cfg(feature = "native-activity")] jni::objects::GlobalRef);
 
 impl SlintJavaHelper {
@@ -736,26 +764,6 @@ impl SlintJavaHelper {
             load_java_helper(_app)?,
         ))
     }
-}
-
-#[cfg(feature = "native-activity")]
-/// Unfortunately, the way that the android-activity crate uses to show or hide the virtual keyboard doesn't
-/// work with native-activity. So do it manually with JNI
-fn show_or_hide_soft_input(
-    helper: &SlintJavaHelper,
-    app: &AndroidApp,
-    show: bool,
-) -> Result<(), jni::errors::Error> {
-    // Safety: as documented in android-activity to obtain a jni::JavaVM
-    let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
-    let mut env = vm.attach_current_thread()?;
-    let helper = helper.0.as_obj();
-    if show {
-        env.call_method(helper, "show_keyboard", "()V", &[])?;
-    } else {
-        env.call_method(helper, "hide_keyboard", "()V", &[])?;
-    };
-    Ok(())
 }
 
 #[cfg(feature = "native-activity")]
@@ -779,7 +787,7 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
         &[JValue::Object(&dex_buffer), JValue::Object(&JObject::null())],
     )?;
 
-    let class_name = env.new_string("SlintAndroidJavaHelper").unwrap();
+    let class_name = env.new_string("SlintAndroidJavaHelper")?;
     let helper_class = env
         .call_method(
             dex_loader,
@@ -788,12 +796,134 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
             &[JValue::Object(&class_name)],
         )?
         .l()?;
-
     let helper_class: jni::objects::JClass = helper_class.into();
+
+    let methods = [jni::NativeMethod {
+        name: "updateText".into(),
+        sig: "(Ljava/lang/String;IILjava/lang/String;I)V".into(),
+        fn_ptr: Java_SlintAndroidJavaHelper_updateText as *mut _,
+    }];
+    env.register_native_methods(&helper_class, &methods)?;
+
     let helper_instance = env.new_object(
         helper_class,
         "(Landroid/app/Activity;)V",
         &[JValue::Object(&native_activity)],
     )?;
     Ok(env.new_global_ref(&helper_instance)?)
+}
+
+#[cfg(feature = "native-activity")]
+/// Unfortunately, the way that the android-activity crate uses to show or hide the virtual keyboard doesn't
+/// work with native-activity. So do it manually with JNI
+fn show_or_hide_soft_input(
+    helper: &SlintJavaHelper,
+    app: &AndroidApp,
+    show: bool,
+) -> Result<(), jni::errors::Error> {
+    // Safety: as documented in android-activity to obtain a jni::JavaVM
+    let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
+    let mut env = vm.attach_current_thread()?;
+    let helper = helper.0.as_obj();
+    if show {
+        env.call_method(helper, "show_keyboard", "()V", &[])?;
+    } else {
+        env.call_method(helper, "hide_keyboard", "()V", &[])?;
+    };
+    Ok(())
+}
+
+#[cfg(feature = "native-activity")]
+fn set_imm_data(
+    helper: &SlintJavaHelper,
+    app: &AndroidApp,
+    data: &i_slint_core::window::InputMethodProperties,
+) -> Result<(), jni::errors::Error> {
+    use jni::objects::JValue;
+
+    // Safety: as documented in android-activity to obtain a jni::JavaVM
+    let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
+    let mut env = vm.attach_current_thread()?;
+    let text = &env.new_string(data.text.as_str())?;
+    let preedit_text = env.new_string(data.preedit_text.as_str())?;
+    let to_utf16 = |x| convert_utf8_index_to_utf16(&data.text, x as usize);
+    env.call_method(
+        helper.0.as_obj(),
+        "set_imm_data",
+        "(Ljava/lang/String;IILjava/lang/String;IIIIII)V",
+        &[
+            JValue::Object(&text),
+            JValue::from(to_utf16(data.cursor_position) as jint),
+            JValue::from(to_utf16(data.anchor_position.unwrap_or(data.cursor_position)) as jint),
+            JValue::Object(&preedit_text),
+            JValue::from(to_utf16(data.preedit_offset) as jint),
+            JValue::from(data.cursor_rect_origin.x as jint),
+            JValue::from(data.cursor_rect_origin.y as jint),
+            JValue::from(data.cursor_rect_size.width as jint),
+            JValue::from(data.cursor_rect_size.height as jint),
+            JValue::from(data.input_type as jint),
+        ],
+    )?;
+
+    Ok(())
+}
+
+#[no_mangle]
+extern "system" fn Java_SlintAndroidJavaHelper_updateText(
+    mut env: jni::JNIEnv,
+    _class: jni::objects::JClass,
+    text: jni::objects::JString,
+    cursor_position: jint,
+    anchor_position: jint,
+    preedit: jni::objects::JString,
+    preedit_offset: jint,
+) {
+    fn make_shared_string(
+        env: &mut jni::JNIEnv,
+        string: &jni::objects::JString,
+    ) -> Option<SharedString> {
+        let java_str = env.get_string(&string).ok()?;
+        let decoded: std::borrow::Cow<str> = (&java_str).into();
+        Some(SharedString::from(decoded.as_ref()))
+    }
+    let Some(text) = make_shared_string(&mut env, &text) else { return };
+    let Some(preedit) = make_shared_string(&mut env, &preedit) else { return };
+    let cursor_position = convert_utf16_index_to_utf8(&text, cursor_position as usize);
+    let anchor_position = convert_utf16_index_to_utf8(&text, anchor_position as usize);
+    let preedit_offset = convert_utf16_index_to_utf8(&text, preedit_offset as usize) as i32;
+
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            let runtime_window = i_slint_core::window::WindowInner::from_pub(&adaptor.window);
+            let event = i_slint_core::input::KeyEvent {
+                event_type: i_slint_core::input::KeyEventType::UpdateComposition,
+                text,
+                replacement_range: Some(i32::MIN..i32::MAX),
+                cursor_position: Some(cursor_position as _),
+                anchor_position: Some(anchor_position as _),
+                preedit_selection: (!preedit.is_empty())
+                    .then(|| preedit_offset..(preedit_offset + preedit.len() as i32)),
+                preedit_text: preedit,
+                ..Default::default()
+            };
+            runtime_window.process_key_input(event);
+        }
+    })
+    .unwrap()
+}
+
+fn convert_utf16_index_to_utf8(in_str: &str, utf16_index: usize) -> usize {
+    let mut utf16_counter = 0;
+
+    for (utf8_index, c) in in_str.char_indices() {
+        if utf16_counter >= utf16_index {
+            return utf8_index;
+        }
+        utf16_counter += c.len_utf16();
+    }
+    in_str.len()
+}
+
+fn convert_utf8_index_to_utf16(in_str: &str, utf8_index: usize) -> usize {
+    in_str[..utf8_index].encode_utf16().count()
 }
