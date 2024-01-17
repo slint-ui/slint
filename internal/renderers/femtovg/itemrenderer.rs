@@ -1451,12 +1451,10 @@ impl<'a> GLItemRenderer<'a> {
                 let path_width = path_bounds.width();
                 let path_height = path_bounds.height();
 
-
                 let (start, end) = i_slint_core::graphics::line_for_angle(
                     gradient.angle(),
                     [path_width, path_height].into(),
                 );
-
 
                 let stops =
                     gradient.stops().map(|stop| (stop.position, to_femtovg_color(&stop.color)));
