@@ -13,7 +13,7 @@ fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
 
     let slint_path = "dev/slint/android-activity";
-    let java_class = "SlintAndroidJavaHelper";
+    let java_class = "SlintAndroidJavaHelper.java";
 
     let out_class = format!("{out_dir}/java/{slint_path}");
 
@@ -39,7 +39,7 @@ fn main() {
 
     // Compile the Java file into a .class file
     let o = Command::new(&javac_path)
-        .arg(format!("java/{java_class}.java"))
+        .arg(format!("java/{java_class}"))
         .arg("-d")
         .arg(&out_class)
         .arg("-classpath").arg(&classpath)
@@ -64,9 +64,18 @@ fn main() {
         if cfg!(windows) { "d8.exe" } else { "d8" },
     )
     .expect("d8 tool not found");
+
+    // collect all the *.class files
+    let classes = fs::read_dir(&out_class)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().extension() == Some(std::ffi::OsStr::new("class")))
+        .map(|entry| entry.path())
+        .collect::<Vec<_>>();
+
     let o = Command::new(&d8_path)
         .args(&["--classpath", &out_class])
-        .arg(format!("{out_class}/{java_class}.class"))
+        .args(&classes)
         .arg("--output")
         .arg(&out_dir)
         .output()
@@ -76,7 +85,7 @@ fn main() {
         panic!("Dex conversion failed: {}", String::from_utf8_lossy(&o.stderr));
     }
 
-    println!("cargo:rerun-if-changed=java/{java_class}.java");
+    println!("cargo:rerun-if-changed=java/{java_class}");
 }
 
 fn env_var(var: &str) -> Result<String, env::VarError> {
