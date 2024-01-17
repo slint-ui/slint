@@ -4,7 +4,7 @@
 export component ComboBoxBase {
     in property <[string]> model;
     in property <bool> enabled <=> i-focus-scope.enabled;
-    out property <bool> has-focus <=> i-focus-scope.has-focus;
+    out property <bool> has-focus: i-focus-scope.has-focus && root.enabled;
     out property <bool> pressed <=> i-touch-area.pressed;
     out property <bool> has-hover: i-touch-area.has-hover;
     in-out property <int> current-index: 0;
@@ -37,11 +37,14 @@ export component ComboBoxBase {
 
     i-focus-scope := FocusScope {
         key-pressed(event) => {
+            if (!self.enabled) {
+                return reject;
+            }
+
             if (event.text == Key.UpArrow) {
                 root.move-selection-up();
                 return accept;
             } else if (event.text == Key.DownArrow) {
-
                 root.move-selection-down();
                 return accept;
             } else if (event.text == Key.Return) {
@@ -51,6 +54,8 @@ export component ComboBoxBase {
         }
 
         i-touch-area := TouchArea {
+            enabled: root.enabled;
+
             clicked => {
                 root.focus();
                 root.show-popup();
