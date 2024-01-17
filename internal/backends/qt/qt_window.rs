@@ -438,14 +438,16 @@ fn into_qbrush(
             })
         }
         i_slint_core::Brush::LinearGradient(g) => {
-            let (start, end) = i_slint_core::graphics::line_for_angle(g.angle());
+            let (start, end) = i_slint_core::graphics::line_for_angle(
+                g.angle(),
+                [width as f32, height as f32].into(),
+            );
             let p1 = qttypes::QPointF { x: start.x as _, y: start.y as _ };
             let p2 = qttypes::QPointF { x: end.x as _, y: end.y as _ };
             cpp_class!(unsafe struct QLinearGradient as "QLinearGradient");
             let mut qlg = cpp! {
                 unsafe [p1 as "QPointF", p2 as "QPointF"] -> QLinearGradient as "QLinearGradient" {
                     QLinearGradient qlg(p1, p2);
-                    qlg.setCoordinateMode(QGradient::ObjectMode);
                     return qlg;
                 }
             };

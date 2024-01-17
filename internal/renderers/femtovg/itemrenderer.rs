@@ -1451,13 +1451,12 @@ impl<'a> GLItemRenderer<'a> {
                 let path_width = path_bounds.width();
                 let path_height = path_bounds.height();
 
-                let transform = euclid::Transform2D::scale(path_width, path_height)
-                    .then_translate(path_bounds.min.to_vector());
 
-                let (start, end) = i_slint_core::graphics::line_for_angle(gradient.angle());
+                let (start, end) = i_slint_core::graphics::line_for_angle(
+                    gradient.angle(),
+                    [path_width, path_height].into(),
+                );
 
-                let start: Point = transform.transform_point(start);
-                let end: Point = transform.transform_point(end);
 
                 let stops =
                     gradient.stops().map(|stop| (stop.position, to_femtovg_color(&stop.color)));

@@ -8,7 +8,7 @@ This module contains brush related types for the run-time library.
 use super::Color;
 use crate::properties::InterpolatedPropertyValue;
 use crate::SharedVector;
-use euclid::default::Point2D;
+use euclid::default::{Point2D, Size2D};
 
 #[cfg(not(feature = "std"))]
 use num_traits::float::Float;
@@ -232,14 +232,14 @@ pub struct GradientStop {
     pub position: f32,
 }
 
-/// Returns the start / end points of a gradient within the [-0.5; 0.5] unit square, based on the angle (in degree).
-pub fn line_for_angle(angle: f32) -> (Point2D<f32>, Point2D<f32>) {
+/// Returns the start / end points of a gradient within a rectangle of the given size, based on the angle (in degree).
+pub fn line_for_angle(angle: f32, size: Size2D<f32>) -> (Point2D<f32>, Point2D<f32>) {
     let angle = angle.to_radians();
-    let r = (angle.sin().abs() + angle.cos().abs()) / 2.;
+    let r = (size.height * angle.sin().abs() + size.width * angle.cos().abs()) / 2.;
     let (y, x) = (angle - core::f32::consts::PI / 2.).sin_cos();
     let (y, x) = (y * r, x * r);
-    let start = Point2D::new(0.5 - x, 0.5 - y);
-    let end = Point2D::new(0.5 + x, 0.5 + y);
+    let start = Point2D::new(size.width / 2.0 - x, size.height / 2.0 - y);
+    let end = Point2D::new(size.width / 2.0 + x, size.height / 2.0 + y);
     (start, end)
 }
 
