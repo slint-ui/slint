@@ -79,7 +79,10 @@ impl<'a> SkiaItemRenderer<'a> {
         match brush {
             Brush::SolidColor(color) => Some(skia_safe::shaders::color(to_skia_color(&color))),
             Brush::LinearGradient(g) => {
-                let (start, end) = i_slint_core::graphics::line_for_angle(g.angle());
+                let (start, end) = i_slint_core::graphics::line_for_angle(
+                    g.angle(),
+                    [width.get(), height.get()].into(),
+                );
                 let (colors, pos): (Vec<_>, Vec<_>) =
                     g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
                 skia_safe::gradient_shader::linear(
@@ -88,7 +91,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     Some(&*pos),
                     skia_safe::TileMode::Clamp,
                     skia_safe::gradient_shader::Flags::INTERPOLATE_COLORS_IN_PREMUL,
-                    &skia_safe::Matrix::scale((width.get(), height.get())),
+                    &skia_safe::Matrix::new_identity(),
                 )
             }
             Brush::RadialGradient(g) => {
