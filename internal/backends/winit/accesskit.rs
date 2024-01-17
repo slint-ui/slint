@@ -55,13 +55,13 @@ impl AccessKitAdapter {
         window_adapter_weak: Weak<WinitWindowAdapter>,
         winit_window: &winit::window::Window,
     ) -> Self {
-        let wrapped_window_adapter_weak =
-            send_wrapper::SendWrapper::new(window_adapter_weak.clone());
+        let window_id = winit_window.id();
+        let ui_thread_id = std::thread::current().id();
         Self {
             inner: accesskit_winit::Adapter::with_action_handler(
                 winit_window,
-                move || Self::build_initial_tree(wrapped_window_adapter_weak),
-                Box::new(ActionForwarder::new(&window_adapter_weak)),
+                move || Self::build_initial_tree(window_id, ui_thread_id),
+                Box::new(ActionForwarder::new(window_id)),
             ),
             window_adapter_weak: window_adapter_weak.clone(),
             node_classes: RefCell::new(accesskit::NodeClassSet::new()),
@@ -281,21 +281,19 @@ impl AccessKitAdapter {
     }
 
     fn build_initial_tree(
-        wrapped_window_adapter_weak: send_wrapper::SendWrapper<Weak<WinitWindowAdapter>>,
+        window_id: winit::window::WindowId,
+        ui_thread_id: std::thread::ThreadId,
     ) -> TreeUpdate {
-        if wrapped_window_adapter_weak.valid() {
-            let window_adapter_weak = wrapped_window_adapter_weak.take();
-            return window_adapter_weak
-                .upgrade()
+        if std::thread::current().id() == ui_thread_id {
+            return crate::event_loop::window_by_id(window_id)
                 .map(|adapter| adapter.accesskit_adapter.build_new_tree())
                 .unwrap_or_else(|| {
                     // We failed to upgrade the Weak window adapter despite being called in the mean thread. That means
                     // we're trying to build the initial tree while the window adapter is still being constructed. Report
                     // a dummy tree and schedule a rebuild later.
 
-                    let win = window_adapter_weak.clone();
                     i_slint_core::timers::Timer::single_shot(Default::default(), move || {
-                        if let Some(window_adapter) = win.upgrade() {
+                        if let Some(window_adapter) = crate::event_loop::window_by_id(window_id) {
                             let self_ = &window_adapter.accesskit_adapter;
                             self_.inner.update_if_active(|| self_.build_new_tree())
                         };
@@ -320,7 +318,7 @@ impl AccessKitAdapter {
                 let (lock, wait_condition) = &*update_from_main_thread;
                 let mut update = lock.lock().unwrap();
 
-                *update = Some(Self::build_initial_tree(wrapped_window_adapter_weak));
+                *update = Some(Self::build_initial_tree(window_id, ui_thread_id));
 
                 wait_condition.notify_one();
             }
@@ -458,26 +456,20 @@ struct CachedNode {
 }
 
 struct ActionForwarder {
-    wrapped_window_adapter_weak: Arc<send_wrapper::SendWrapper<Weak<WinitWindowAdapter>>>,
+    window_id: winit::window::WindowId,
 }
 
 impl ActionForwarder {
-    pub fn new(window_adapter: &Weak<WinitWindowAdapter>) -> Self {
-        Self {
-            wrapped_window_adapter_weak: Arc::new(send_wrapper::SendWrapper::new(
-                window_adapter.clone(),
-            )),
-        }
+    pub fn new(window_id: winit::window::WindowId) -> Self {
+        Self { window_id }
     }
 }
 
 impl accesskit::ActionHandler for ActionForwarder {
     fn do_action(&mut self, request: ActionRequest) {
-        let wrapped_window_adapter_weak = self.wrapped_window_adapter_weak.clone();
+        let window_id = self.window_id;
         i_slint_core::api::invoke_from_event_loop(move || {
-            let Some(window_adapter) =
-                wrapped_window_adapter_weak.as_ref().clone().take().upgrade()
-            else {
+            let Some(window_adapter) = crate::event_loop::window_by_id(window_id) else {
                 return;
             };
             window_adapter.accesskit_adapter.handle_request(request)
