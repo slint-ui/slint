@@ -211,7 +211,7 @@ pub fn unregister_window(id: winit::window::WindowId) {
     });
 }
 
-fn window_by_id(id: winit::window::WindowId) -> Option<Rc<WinitWindowAdapter>> {
+pub fn window_by_id(id: winit::window::WindowId) -> Option<Rc<WinitWindowAdapter>> {
     ALL_WINDOWS.with(|windows| windows.borrow().get(&id).and_then(|weakref| weakref.upgrade()))
 }
 
