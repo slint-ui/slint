@@ -469,11 +469,8 @@ pub fn highlight(url: Option<Url>, offset: u32) {
 
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
-pub fn known_components(url: &Option<VersionedUrl>, components: Vec<ComponentInformation>) {
-    i_slint_core::debug_log!(
-        "Preview got known component information:\n{url:?} => {} components",
-        components.len()
-    );
+pub fn known_components(_url: &Option<VersionedUrl>, components: Vec<ComponentInformation>) {
+    set_known_components(components)
 }
 
 pub fn show_document_request_from_element_callback(

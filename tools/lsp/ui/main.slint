@@ -4,6 +4,7 @@
 // cSpell: ignore Heade
 
 import { Button, ComboBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
+import { ComponentList, ComponentListItem } from "component-list.slint";
 import { DrawArea, Selection } from "draw-area.slint";
 import { HeaderBar } from "header-bar.slint";
 import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
@@ -11,6 +12,7 @@ import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
 export { Diagnostics }
 
 export component PreviewUi inherits Window {
+    in property <[ComponentListItem]> known-components;
     in property <[Diagnostics]> diagnostics;
     in property <[Selection]> selections;
     in property <[string]> known-styles;
@@ -54,13 +56,13 @@ export component PreviewUi inherits Window {
                 height: self.preferred-height;
 
                 i-pick-button := Button {
-                    text: "Pick Mode";
+                    text: @tr("Pick Mode");
                     checkable: true;
                     checked <=> root.design-mode;
                 }
 
                 Text {
-                    text: "Style:";
+                    text: @tr("Style:");
                     vertical-alignment: center;
                 }
                 i-style-select := ComboBox {
@@ -77,16 +79,29 @@ export component PreviewUi inherits Window {
                 }
             }
 
-            DrawArea {
-                design-mode <=> root.design-mode;
-                diagnostics <=> root.diagnostics;
-                experimental <=> root.experimental;
-                preview-area <=> root.preview-area;
-                selections <=> root.selections;
+            HorizontalLayout {
+                if (root.experimental): left-sidebar := Rectangle {
+                    width: 200px;
+                    background: Colors.red;
 
-                select-at(x, y) => { root.select-at(x, y); }
-                select-into(x, y) => { root.select-into(x, y); }
-                show-document(url, line, column) => { root.show-document(url, line, column); }
+                    VerticalBox {
+                        ComponentList {
+                            known-components <=> root.known-components;
+                        }
+                    }
+                }
+
+                DrawArea {
+                    design-mode <=> root.design-mode;
+                    diagnostics <=> root.diagnostics;
+                    experimental <=> root.experimental;
+                    preview-area <=> root.preview-area;
+                    selections <=> root.selections;
+
+                    select-at(x, y) => { root.select-at(x, y); }
+                    select-into(x, y) => { root.select-into(x, y); }
+                    show-document(url, line, column) => { root.show-document(url, line, column); }
+                }
             }
         }
     }
