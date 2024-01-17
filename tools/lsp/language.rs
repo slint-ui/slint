@@ -703,6 +703,8 @@ fn collect_known_components(
         &mut components,
     );
 
+    components.sort_by(|a, b| a.name.cmp(&b.name));
+
     let url = ctx.preview.current_component().map(|pc| {
         let url = pc.url.clone();
         let file = PathBuf::from(url.to_string());

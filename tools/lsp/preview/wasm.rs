@@ -14,7 +14,7 @@ use lsp_types::Url;
 use slint::VecModel;
 use slint_interpreter::{highlight::ComponentPositions, ComponentHandle, ComponentInstance};
 
-use crate::lsp_ext::Health;
+use crate::{common::ComponentInformation, lsp_ext::Health};
 
 #[wasm_bindgen(typescript_custom_section)]
 const CALLBACK_FUNCTION_SECTION: &'static str = r#"
@@ -268,6 +268,15 @@ pub fn send_message_to_lsp(message: crate::common::PreviewToLspMessage) {
             let callback = js_sys::Function::from((*callback).clone());
             let value = serde_wasm_bindgen::to_value(&message).unwrap();
             let _ = callback.call1(&JsValue::UNDEFINED, &value);
+        }
+    })
+}
+
+pub fn set_known_components(known_components: Vec<ComponentInformation>) {
+    PREVIEW_STATE.with(|preview_state| {
+        let preview_state = preview_state.borrow();
+        if let Some(ui) = &preview_state.ui {
+            crate::preview::ui::ui_set_known_components(ui, &known_components)
         }
     })
 }

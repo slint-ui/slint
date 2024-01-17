@@ -1,12 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::iter::once;
+use std::{collections::HashMap, iter::once, rc::Rc};
 
-use i_slint_core::{
-    model::{Model, VecModel},
-    SharedString,
-};
+use slint::{Model, SharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 
 slint::include_modules!();
@@ -26,7 +23,7 @@ pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
         known_styles.first().map(|s| s.to_string()).unwrap_or_default()
     };
 
-    let style_model = std::rc::Rc::new({
+    let style_model = Rc::new({
         let model = VecModel::default();
         model.extend(known_styles.iter().map(|s| SharedString::from(*s)));
         assert!(model.row_count() > 1);
@@ -70,4 +67,33 @@ pub fn convert_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Vec
             }
         })
         .collect::<Vec<_>>()
+}
+
+pub fn ui_set_known_components(
+    ui: &PreviewUi,
+    known_components: &[crate::common::ComponentInformation],
+) {
+    let mut map: HashMap<String, Vec<ComponentListSubItem>> = Default::default();
+    for ci in known_components {
+        if ci.is_global {
+            continue;
+        }
+        map.entry(ci.category.clone()).or_default().push(ComponentListSubItem {
+            name: ci.name.clone().into(),
+            is_builtin: ci.is_builtin,
+            is_std_widget: ci.is_std_widget,
+            is_exported: ci.is_exported,
+        });
+    }
+    let mut result = map
+        .into_iter()
+        .map(|(k, v)| {
+            let model = Rc::new(VecModel::from(v));
+            ComponentListItem { category: k.into(), components: model.into() }
+        })
+        .collect::<Vec<_>>();
+    result.sort_by_key(|k| k.category.clone());
+
+    let result = Rc::new(VecModel::from(result));
+    ui.set_known_components(result.into());
 }

@@ -3,8 +3,8 @@
 
 // cSpell: ignore condvar
 
-use crate::lsp_ext::Health;
 use crate::ServerNotifier;
+use crate::{common::ComponentInformation, lsp_ext::Health};
 
 use i_slint_compiler::object_tree::{ElementRc, ElementWeak};
 use i_slint_core::lengths::LogicalRect;
@@ -260,6 +260,17 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
         crate::preview::notify_lsp_diagnostics(&sender, url, diagnostics)?;
     }
     Some(())
+}
+
+pub fn set_known_components(known_components: Vec<ComponentInformation>) {
+    run_in_ui_thread(move || async move {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow();
+            if let Some(ui) = &preview_state.ui {
+                crate::preview::ui::ui_set_known_components(ui, &known_components)
+            }
+        })
+    });
 }
 
 pub fn set_show_preview_ui(show_preview_ui: bool) {

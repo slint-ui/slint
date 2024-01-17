@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { ScrollView, VerticalBox } from "std-widgets.slint";
+
+export struct ComponentListSubItem {
+    name: string,
+    is_builtin: bool,
+    is_std_widget: bool,
+    is_exported: bool,
+}
+export struct ComponentListItem {
+    category: string,
+    components: [ComponentListSubItem]
+}
+
+export component ComponentList {
+    in property <[ComponentListItem]> known-components;
+
+    ScrollView {
+        VerticalBox {
+            Text {
+                font-weight: 800;
+                text: @tr("Assets");
+            }
+
+            for cli in root.known-components: VerticalLayout {
+                Rectangle {
+                    height: title.preferred-height + 10px;
+
+                    background: #ffffff40; // Darken default background
+
+                    title := Text {
+                        font-size: 1.2rem;
+                        font-weight: 800;
+
+                        text: cli.category;
+                    }
+                }
+                for ci in cli.components: TouchArea {
+                    height: name.preferred-height + 10px;
+                    width: 100%;
+
+                    name := Text {
+                        text: ci.name;
+                    }
+                }
+            }
+        }
+    }
+}
