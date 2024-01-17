@@ -17,7 +17,7 @@ name = "opengl_underlay"
 [dependencies]
 slint = { path = "../../api/rs/slint" }
 glow = { version = "0.13" }
-web-time = { version = "0.2" }
+web-time = { version = "1.0" }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
