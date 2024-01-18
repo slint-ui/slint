@@ -424,7 +424,7 @@ lazy_static! {
         ("(^|/)\\.eslintrc\\.yml$", LicenseLocation::NoLicense),
         ("(^|/)memory\\.x$", LicenseLocation::NoLicense), // third-party file
         ("(^|/)webpack\\..+\\.js$", LicenseLocation::NoLicense),
-        ("(^|/)partitions\\.csv$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("(^|/)partitions\\.csv$", LicenseLocation::NoLicense),
         ("(^|/)sdkconfig", LicenseLocation::NoLicense), // auto-generated
 
         // Path prefix matches:
