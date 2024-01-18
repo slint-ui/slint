@@ -11,4 +11,12 @@ RUN dpkg --add-architecture armhf && \
     libfontconfig1-dev \
     clang libstdc++-10-dev:armhf
 
+# Work around the Skia source build requiring a newer git version (that supports --path-format=relative with rev-parse, as needed by git-sync-deps.py),
+# as well as a disabling of the directory safety checks (https://github.blog/2022-04-12-git-security-vulnerability-announced/#cve-2022-24765) as
+# /cargo comes from ~/.cargo and may have differing user ids, which breaks when the skia-bindings build clones additional git repos (skia/third_party/external/*)
+RUN DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes software-properties-common && \
+    add-apt-repository -y ppa:git-core/ppa && \
+    apt-get install --assume-yes git && \
+    git config --global safe.directory '*'
+
 ENV PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig
