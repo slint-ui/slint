@@ -44,6 +44,8 @@ pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
     });
     ui.on_select_at(super::select_element_at);
     ui.on_select_into(super::select_element_into);
+    ui.on_can_drop(super::can_drop_component);
+    ui.on_drop(super::drop_component);
 
     Ok(ui)
 }

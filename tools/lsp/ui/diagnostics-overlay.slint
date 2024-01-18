@@ -15,9 +15,11 @@ export struct Diagnostics {
 
 export component DiagnosticsOverlay {
     in property<[Diagnostics]> diagnostics;
+    out property<bool> diagnostics-open: diagnostics.length != 0;
+
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
 
-    if (root.diagnostics.length != 0): Rectangle {
+    if (root.diagnostics-open): Rectangle {
         background: #fff;
 
         VerticalBox {

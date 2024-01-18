@@ -23,6 +23,8 @@ export component PreviewUi inherits Window {
     in-out property <string> current-style;
     out property <bool> design-mode;
 
+    callback can-drop(/* component_type */ string, /* x */ length, /* y */ length) -> bool;
+    callback drop(/* component_type */ string, /* x */ length, /* y */ length);
     callback select-at(/* x */ length, /* y */ length);
     callback select-into(/* x */ length, /* y */ length);
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
@@ -87,11 +89,18 @@ export component PreviewUi inherits Window {
                     VerticalBox {
                         ComponentList {
                             known-components <=> root.known-components;
+                            preview-area-position-x: draw-area.preview-area-position-x;
+                            preview-area-position-y: draw-area.preview-area-position-y;
+                            preview-area-width: draw-area.preview-area-width;
+                            preview-area-height: draw-area.preview-area-height;
+
+                            can-drop(ct, x, y) => { return root.can-drop(ct, x, y); }
+                            drop(ct, x, y) => { root.drop(ct, x, y); }
                         }
                     }
                 }
 
-                DrawArea {
+                draw-area := DrawArea {
                     design-mode <=> root.design-mode;
                     diagnostics <=> root.diagnostics;
                     experimental <=> root.experimental;

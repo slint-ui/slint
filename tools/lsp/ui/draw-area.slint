@@ -22,6 +22,13 @@ export component DrawArea {
     in property <component-factory> preview-area;
     in property <bool> design-mode;
 
+    out property <bool> preview-visible: i-preview-area-container.has-component && !diagnostics.diagnostics-open;
+
+    out property <length> preview-area-position-x: i-preview-area-container.absolute-position.x;
+    out property <length> preview-area-position-y: i-preview-area-container.absolute-position.y;
+    out property <length> preview-area-width: preview-visible ? i-preview-area-container.width : 0px;
+    out property <length> preview-area-height: preview-visible ? i-preview-area-container.height : 0px;
+
     callback select-at(/* x */ length, /* y */ length);
     callback select-into(/* x */ length, /* y */ length);
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
@@ -100,7 +107,7 @@ export component DrawArea {
             }
 
             // Diagnostics overlay:
-            DiagnosticsOverlay {
+            diagnostics := DiagnosticsOverlay {
                 width: 100%;
                 height: 100%;
                 diagnostics <=> root.diagnostics;
