@@ -84,6 +84,10 @@ Files: examples/carousel/fonts/*.ttf
 Copyright: Roboto <https://fonts.google.com/specimen/Roboto/about>
 License: Apache-2.0
 
+Files: examples/*/esp-idf/*/partitions.csv examples/*/esp-idf/partitions.csv
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
+License: MIT
+
 Files: internal/compiler/widgets/fluent-base/_*.svg
 Copyright: Copyright © Microsoft Corporation <https://github.com/microsoft/fluentui-system-icons/blob/main/LICENSE>
 License: MIT
@@ -99,3 +103,15 @@ License: Apache-2.0
 Files: internal/compiler/widgets/cosmic-base/_*.svg
 Copyright: Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>
 License: Apache-2.0
+
+Files: internal/backends/linuxkms/mouse-pointer.svg examples/virtual_keyboard/ui/assets/*.svg examples/ffmpeg/pause.svg examples/ffmpeg/play.svg
+Copyright: Copyright © 2018 Dave Gandy & Fork Awesome
+License: MIT
+
+Files: examples/energy-monitor/ui/assets/sunny.svg examples/energy-monitor/ui/assets/settings.svg examples/energy-monitor/ui/assets/information.svg examples/energy-monitor/ui/assets/cloudy.svg examples/energy-monitor/ui/assets/cloud.svg examples/energy-monitor/ui/assets/check.svg examples/energy-monitor/ui/assets/arrow-right.svg examples/energy-monitor/ui/assets/arrow-left.svg
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
+License: MIT
+
+Files: examples/energy-monitor/ui/assets/spyrosoft-logo.svg
+Copyright: Copyright © Spyrosoft Solutions GmbH <office@spyro-soft.com>
+License: CC-BY-4.0
