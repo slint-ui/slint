@@ -1,13 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { Palette } from "std-widgets.slint";
+
 export component Label inherits Text {
     font-size: 28px;
     horizontal-stretch: 1;
 }
 
 export component Page inherits Rectangle {
-    background: white;
+    background: Palette.background;
     animate y { duration: 300ms; easing: ease-out; }
 }
 
