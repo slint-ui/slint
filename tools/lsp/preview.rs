@@ -245,6 +245,17 @@ pub fn select_element_into(x: f32, y: f32) {
     let _ = select_element_at_impl(x, y, &component_instance, &selected_element);
 }
 
+// triggered from the UI, running in UI thread
+pub fn can_drop_component(component_name: slint::SharedString, x: f32, y: f32) -> bool {
+    i_slint_core::debug_log!("can drop? {} at {x}x{y}", component_name.as_str());
+    ((x.round() as i32) / 10) % 2 == 0 && ((y.round() as i32) / 10) % 2 == 0
+}
+
+// triggered from the UI, running in UI thread
+pub fn drop_component(component_name: slint::SharedString, x: f32, y: f32) {
+    i_slint_core::debug_log!("drop! {} at {x}x{y}", component_name.as_str());
+}
+
 fn change_style() {
     let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let ui_is_visible = cache.ui_is_visible;
