@@ -68,13 +68,13 @@ jobs:
       with:
         toolchain: ${{ matrix.rust_version }}
         key: x-v2
-    - name: Pin dependencies to make it build with our MSRV
-      if: matrix.rust_version == '1.70'
-      shell: bash
-      run: |
-        if [ ! -f ./Cargo.lock ]; then
-          cargo update -p ureq --precise 2.9.1
-        fi
+#    - name: Pin dependencies to make it build with our MSRV
+#      if: matrix.rust_version == '1.70'
+#      shell: bash
+#      run: |
+#        if [ ! -f ./Cargo.lock ]; then
+#          cargo update -p ureq --precise 2.9.1
+#        fi
     - name: Run tests
       run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp
       env:
