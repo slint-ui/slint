@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export component SliderBase {
+    in property <bool> enabled <=> touch-area.enabled;
+    in property <float> minimum;
+    in property <float> maximum: 100;
+    in property <Orientation> orientation;
+    in property <length> ref-width;
+    out property <bool> pressed <=> touch-area.enabled;
+    out property <bool> has-hover <=> touch-area.has-hover;
+    out property <bool> vertical: root.orientation == Orientation.vertical;
+    out property <bool> has-focus <=> focus-scope.has-focus;
+    in-out property <float> value;
+
+    callback changed(/* value */ float);
+
+    forward-focus: focus-scope;
+    
+    touch-area := TouchArea {
+        property <float> pressed-value;
+
+        width: 100%;
+        height: 100%;
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                self.pressed-value = root.value;
+            }
+        }
+
+        moved => {
+            if (!vertical && self.enabled && self.pressed) {
+                root.value = max(root.minimum, min(root.maximum,
+                    self.pressed-value + (touch-area.mouse-x - touch-area.pressed-x) * (root.maximum - root.minimum) / (root.width - root.ref-width)));
+                root.changed(root.value);
+            }
+            if (vertical && self.enabled && self.pressed) {
+                root.value = max(root.minimum, min(root.maximum,
+                    self.pressed-value + (touch-area.mouse-y - touch-area.pressed-y) * (root.maximum - root.minimum) / (root.height - root.ref-width)));
+                root.changed(root.value);
+            }
+        }
+    }
+
+    focus-scope := FocusScope {
+        x: 0;
+        y: 0;
+        width: 0;
+        height: 0;
+        enabled: root.enabled;
+
+        key-pressed(event) => {
+            if (!self.enabled) {
+                return reject;
+            } 
+            if (!vertical && self.enabled && event.text == Key.RightArrow) {
+                root.value = Math.min(root.value + 1, root.maximum);
+                accept
+            } else if (!vertical && self.enabled && event.text == Key.LeftArrow) {
+                root.value = Math.max(root.value - 1, root.minimum);
+                accept
+            } else if (vertical && self.enabled && event.text == Key.DownArrow) {
+                root.value = Math.min(root.value + 1, root.maximum);
+                accept
+            } else if (vertical && self.enabled && event.text == Key.UpArrow) {
+                root.value = Math.max(root.value - 1, root.minimum);
+                accept
+            } else {
+                reject
+            }
+        }
+    }
+}
