@@ -539,6 +539,22 @@ public:
         data.insert(data.begin() + index, value);
         this->row_added(index, 1);
     }
+
+    /// Erases all rows from the VectorModel.
+    void clear()
+    {
+        if (!data.empty()) {
+            data.clear();
+            this->reset();
+        }
+    }
+
+    /// Replaces the underlying VectorModel's vector with \a array.
+    void set_vector(std::vector<ModelData> &&array)
+    {
+        data = std::move(array);
+        this->reset();
+    }
 };
 
 template<typename ModelData>

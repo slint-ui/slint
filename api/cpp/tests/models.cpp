@@ -494,3 +494,34 @@ SCENARIO("Reverse Model Change")
     REQUIRE(reverse_model->row_data(2) == 10);
     REQUIRE(reverse_model->row_data(3) == 3);
 }
+
+TEST_CASE("VectorModel clear and replace")
+{
+    using namespace slint::private_api;
+
+    auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
+
+    auto observer = std::make_shared<ModelObserver>();
+    model->attach_peer(observer);
+
+    REQUIRE(model->row_count() == 5);
+    model->clear();
+    REQUIRE(model->row_count() == 0);
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.empty());
+    REQUIRE(observer->model_reset);
+    observer->clear();
+
+    model->clear();
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
+    model->set_vector({ 2, 3, 4 });
+    REQUIRE(model->row_count() == 3);
+    REQUIRE(model->row_data(1) == 3);
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.empty());
+    REQUIRE(observer->model_reset);
+}

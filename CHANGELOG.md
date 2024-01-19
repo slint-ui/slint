@@ -36,6 +36,7 @@ All notable changes to this project are documented in this file.
 ### C++
 
  - Added `ComponentInstance::definition()` getter to retrieve the `ComponentDefinition` for an instance.
+ - Added `slint::VectorModel::clear()` and `slint::VectorModel::set_vector()` to conveniently clear or replace the underlying data.
 
 ### LSP
 
