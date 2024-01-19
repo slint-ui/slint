@@ -160,7 +160,28 @@ Set up the environment and build:
 cd <PROJECT_ROOT>
 mkdir build
 cd build
-cmake -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DCMAKE_INSTALL_PREFIX=/slint/install/path ...
+cmake -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DCMAKE_INSTALL_PREFIX=/slint/install/path ..
 cmake --build .
 cmake --install .
+```
+
+#### Microcontrollers
+
+To target a Microcontroller environment, all of the following additional CMake configuration options must be set when compiling Slint:
+
+| Option                                                        | Description                                                          |
+|---------------------------------------------------------------|----------------------------------------------------------------------|
+| `-DSLINT_FEATURE_FREESTANDING=ON`                             | Enables building for environments without a standard library.        |
+| `-DBUILD_SHARED_LIBS=OFF`                                     | Disables shared library support and instead builds Slint statically. |
+| `-DSLINT_FEATURE_RENDERER_SOFTWARE=ON`                        | Enable support for the software renderer.                            |
+| `-DDEFAULT_SLINT_EMBED_RESOURCES=embed-for-software-renderer` | Default to pre-compiling images and fonts.                           |
+
+
+For example, if you're targeting an MCU with a ARM Cortex-M processor, the complete command line for CMake could look like this:
+
+```sh
+cmake -DRust_CARGO_TARGET=thumbv7em-none-eabihf -DSLINT_FEATURE_FREESTANDING=ON
+      -DBUILD_SHARED_LIBS=OFF -DSLINT_FEATURE_RENDERER_SOFTWARE=ON
+      -DDEFAULT_SLINT_EMBED_RESOURCES=embed-for-software-renderer
+      ..
 ```
