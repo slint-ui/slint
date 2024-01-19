@@ -42,8 +42,10 @@ pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
 
         super::ask_editor_to_show_document(url.into(), Range::new(pos, pos))
     });
-    ui.on_select_at(super::select_element_at);
-    ui.on_select_into(super::select_element_into);
+    ui.on_unselect(super::element_selection::unselect_element);
+    ui.on_select_at(super::element_selection::select_element_at);
+    ui.on_select_front_to_back(super::element_selection::select_element_front_to_back);
+    ui.on_select_down(super::element_selection::select_element_down);
     ui.on_can_drop(super::can_drop_component);
     ui.on_drop(super::drop_component);
 
