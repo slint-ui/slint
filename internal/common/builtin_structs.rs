@@ -29,21 +29,25 @@
 macro_rules! for_each_builtin_structs {
     ($macro:ident) => {
         $macro![
-            /// KeyboardModifier provides booleans to indicate possible modifier keys on a keyboard, such as Shift, Control, etc.
-            /// This structure is generated as part of `KeyEvent`
-            /// On macOS, the command key is mapped to the meta modifier.
-            /// On Windows, the windows key is mapped to the meta modifier.
+            /// The `KeyboardModifiers` struct provides booleans to indicate possible modifier keys on a keyboard, such as Shift, Control, etc.
+            /// It is provided as part of `KeyEvent`'s `modifiers` field.
+            ///
+            /// Keyboard shortcuts on Apple platforms typically use the Command key (⌘), such as Command+C for "Copy". On other platforms
+            /// the same shortcut is typically represented using Control+C. To make it easier to develop cross-platform applications, on macOS,
+            /// Slint maps the Command key to the control modifier, and the Control key to the meta modifier.
+            ///
+            /// On Windows, the Windows key is mapped to the meta modifier.
             #[derive(Copy, Eq)]
             struct KeyboardModifiers {
                 @name = "slint::private_api::KeyboardModifiers"
                 export {
-                    /// Indicates the alt key on a keyboard.
+                    /// Indicates the Alt key on a keyboard.
                     alt: bool,
-                    /// Indicates the control key on a keyboard.
+                    /// Indicates the Control key on a keyboard, except on macOS, where it is the Command key (⌘).
                     control: bool,
-                    /// Indicates the shift key on a keyboard.
+                    /// Indicates the Shift key on a keyboard.
                     shift: bool,
-                    /// Indicates the command key on macos.
+                    /// Indicates the Control key on macos, and the Windows key on Windows.
                     meta: bool,
                 }
                 private {
