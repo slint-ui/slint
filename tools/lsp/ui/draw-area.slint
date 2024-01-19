@@ -7,6 +7,12 @@ import { Button, ComboBox, HorizontalBox, ListView, ScrollView, VerticalBox } fr
 import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
 import { Resizer } from "resizer.slint";
 
+enum SelectionKind {
+    none,
+    select_at,
+    select_up_or_down,
+}
+
 export struct Selection {
     x: length,
     y: length,
@@ -30,8 +36,10 @@ export component DrawArea {
     out property <length> preview-area-height: preview-visible ? i-preview-area-container.height : 0px;
 
     callback select-at(/* x */ length, /* y */ length);
-    callback select-into(/* x */ length, /* y */ length);
+    callback select-front-to-back(/* x */ length, /* y */ length, /* reverse? */ bool);
+    callback select-down(/* x */ length, /* y */ length, /* reverse? */ bool);
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
+    callback unselect();
 
     preferred-height: max(i-preview-area-container.preferred-height, i-preview-area-container.min-height) + 2 * i-scroll-view.border;
     preferred-width: max(i-preview-area-container.preferred-width, i-preview-area-container.min-width) + 2 * i-scroll-view.border;
@@ -47,6 +55,12 @@ export component DrawArea {
 
             width: max(i-scroll-view.visible-width, i-resizer.width + i-scroll-view.border);
             height: max(i-scroll-view.visible-height, i-resizer.height + i-scroll-view.border);
+
+            unselect-area := TouchArea {
+                clicked => { root.unselect(); }
+                mouse-cursor: crosshair;
+                enabled <=> root.design-mode;
+            }
 
             i-resizer := Resizer {
                 is-resizable <=> i-preview-area-container.is-resizable;
@@ -88,8 +102,36 @@ export component DrawArea {
                 }
 
                 i-selection-area := TouchArea {
-                    clicked => { root.select-at(self.pressed-x, self.pressed-y); }
-                    double-clicked => { root.select-into(self.pressed-x, self.pressed-y); }
+                    private property <length> selection-x: 0px;
+                    private property <length> selection-y: 0px;
+                    private property <SelectionKind> selection-kind: SelectionKind.none;
+
+                    clicked => {
+                        self.selection-x = self.pressed-x;
+                        self.selection-y = self.pressed-y;
+                        self.selection-kind = SelectionKind.select-at;
+                    }
+                    double-clicked => {
+                        self.selection-x = self.pressed-x;
+                        self.selection-y = self.pressed-y;
+                        self.selection-kind = SelectionKind.select-up-or-down;
+                    }
+
+                    pointer-event(event) => {
+                        // This needs to fire AFTER clicked and double-clicked to work :-/
+                        if (event.kind == PointerEventKind.up) {
+                            if (self.selection-kind == SelectionKind.select_up_or_down) {
+                                root.select_down(self.selection-x, self.selection-y, event.modifiers.shift);
+                            } else if (self.selection-kind == SelectionKind.select-at) {
+                                if (event.modifiers.control) {
+                                    root.select-front-to-back(self.selection-x, self.selection-y, event.modifiers.shift);
+                                } else {
+                                    root.select-at(self.selection-x, self.selection-y);
+                                }
+                            }
+                        }
+                        self.selection-kind = SelectionKind.none;
+                    }
                     mouse-cursor: crosshair;
                     enabled <=> root.design-mode;
                 }

@@ -26,9 +26,11 @@ export component PreviewUi inherits Window {
     callback can-drop(/* component_type */ string, /* x */ length, /* y */ length) -> bool;
     callback drop(/* component_type */ string, /* x */ length, /* y */ length);
     callback select-at(/* x */ length, /* y */ length);
-    callback select-into(/* x */ length, /* y */ length);
+    callback select-down(/* x */ length, /* y */ length, /* upwards? */ bool);
+    callback select-front-to-back(/* x */ length, /* y */ length, /* backwards? */ bool);
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
     callback style-changed();
+    callback unselect();
 
     property <length> border: 20px;
 
@@ -108,8 +110,10 @@ export component PreviewUi inherits Window {
                     selections <=> root.selections;
 
                     select-at(x, y) => { root.select-at(x, y); }
-                    select-into(x, y) => { root.select-into(x, y); }
+                    select-front-to-back(x, y, front) => { root.select-front-to-back(x, y, front); }
+                    select-down(x, y, up) => { root.select-down(x, y, up); }
                     show-document(url, line, column) => { root.show-document(url, line, column); }
+                    unselect() => { root.unselect(); }
                 }
             }
         }

@@ -12,12 +12,8 @@ use crate::{
     common::{ComponentInformation, PreviewComponent, PreviewConfig, VersionedUrl},
     lsp_ext::Health,
 };
-use i_slint_compiler::{diagnostics::SourceFile, object_tree::ElementRc, pathutils::to_url};
-use i_slint_core::{
-    component_factory::FactoryContext,
-    lengths::{LogicalLength, LogicalPoint, LogicalRect},
-};
-use rowan::TextRange;
+use i_slint_compiler::{object_tree::ElementRc, pathutils::to_url};
+use i_slint_core::{component_factory::FactoryContext, lengths::LogicalRect};
 use slint_interpreter::{
     highlight::{ComponentKind, ComponentPositions},
     ComponentDefinition, ComponentHandle, ComponentInstance,
@@ -29,6 +25,7 @@ use lsp_types::{notification::Notification, Url};
 use crate::wasm_prelude::*;
 
 mod debug;
+mod element_selection;
 mod ui;
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 mod wasm;
@@ -85,164 +82,6 @@ pub fn set_contents(url: &VersionedUrl, content: String) {
             load_preview(current);
         }
     }
-}
-
-// Look at an element and if it is a sub component, jump to its root_element()
-fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
-    let elem = element.borrow();
-    if elem.repeated.is_some() {
-        if let i_slint_compiler::langtype::ElementType::Component(base) = &elem.base_type {
-            return base.root_element.clone();
-        }
-    }
-    element.clone()
-}
-
-fn lsp_element_position(element: &ElementRc) -> (String, lsp_types::Range) {
-    let e = &element.borrow();
-    e.node
-        .as_ref()
-        .and_then(|n| {
-            n.parent()
-                .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
-                .map_or_else(
-                    || Some(n.source_file.text_size_to_file_line_column(n.text_range().start())),
-                    |p| Some(p.source_file.text_size_to_file_line_column(p.text_range().start())),
-                )
-        })
-        .map(|(f, sl, sc, el, ec)| {
-            use lsp_types::{Position, Range};
-            let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
-            let end = Position::new((el as u32).saturating_sub(1), (ec as u32).saturating_sub(1));
-
-            (f, Range::new(start, end))
-        })
-        .unwrap_or_default()
-}
-
-// triggered from the UI, running in UI thread
-pub fn element_covers_point(
-    x: f32,
-    y: f32,
-    component_instance: &ComponentInstance,
-    selected_element: &ElementRc,
-) -> bool {
-    let click_position = LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
-
-    let Some(position) = component_instance.element_position(selected_element) else {
-        return false;
-    };
-
-    position.contains(click_position)
-}
-
-// triggered from the UI, running in UI thread
-pub fn select_element_at_impl(
-    x: f32,
-    y: f32,
-    component_instance: &ComponentInstance,
-    root_element: &ElementRc,
-) -> Option<ElementRc> {
-    let click_position = LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
-
-    for c in &root_element.borrow().children {
-        let c = self_or_embedded_component_root(c);
-
-        let Some(position) = component_instance.element_position(&c) else {
-            continue;
-        };
-        if position.contains(click_position) {
-            let secondary_positions = if let Some((path, offset)) = element_offset(&c) {
-                component_instance.component_positions(path, offset)
-            } else {
-                ComponentPositions::default()
-            };
-
-            set_selected_element(Some((&c, position)), secondary_positions);
-            let document_position = lsp_element_position(&c);
-            if !document_position.0.is_empty() {
-                ask_editor_to_show_document(document_position.0, document_position.1);
-            }
-            return Some(c.clone());
-        }
-    }
-
-    None
-}
-
-fn element_offset(element: &ElementRc) -> Option<(PathBuf, u32)> {
-    let Some(node) = &element.borrow().node else {
-        return None;
-    };
-    let path = node.source_file.path().to_path_buf();
-    let offset = node.text_range().start().into();
-    Some((path, offset))
-}
-
-fn element_source_range(element: &ElementRc) -> Option<(SourceFile, TextRange)> {
-    let Some(node) = &element.borrow().node else {
-        return None;
-    };
-    let source_file = node.source_file.clone();
-    let range = node.text_range();
-    Some((source_file, range))
-}
-
-// Return the real root element, skipping any WindowElement that got added
-fn root_element(component_instance: &ComponentInstance) -> ElementRc {
-    let root_element = component_instance.definition().root_component().root_element.clone();
-
-    if root_element.borrow().children.len() != 1 {
-        return root_element;
-    }
-
-    let Some(child) = root_element.borrow().children.first().cloned() else {
-        return root_element;
-    };
-    let Some((rsf, rr)) = element_source_range(&root_element) else {
-        return root_element;
-    };
-    let Some((csf, cr)) = element_source_range(&child) else {
-        return root_element;
-    };
-
-    if Rc::ptr_eq(&rsf, &csf) && rr == cr {
-        child
-    } else {
-        root_element
-    }
-}
-
-// triggered from the UI, running in UI thread
-pub fn select_element_at(x: f32, y: f32) {
-    let Some(component_instance) = component_instance() else {
-        return;
-    };
-
-    if let Some(selected_element) = selected_element() {
-        if element_covers_point(x, y, &component_instance, &selected_element) {
-            // We clicked on the already selected element: Do nothing!
-            return;
-        }
-    }
-
-    let root_element = root_element(&component_instance);
-
-    select_element_at_impl(x, y, &component_instance, &root_element);
-}
-
-// triggered from the UI, running in UI thread
-pub fn select_element_into(x: f32, y: f32) {
-    let Some(component_instance) = component_instance() else {
-        return;
-    };
-
-    // We have an actively selected element (via the earlier click-event :-):
-    let Some(selected_element) = selected_element() else {
-        return;
-    };
-
-    let _ = select_element_at_impl(x, y, &component_instance, &selected_element);
 }
 
 // triggered from the UI, running in UI thread
