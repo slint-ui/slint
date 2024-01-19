@@ -459,7 +459,7 @@ fn resolve_element_scope(
     Some(result)
 }
 
-/// Given a property name in the specified element, gibve the non-normalized name (so that the '_' and '-' fits the definition of the property)
+/// Given a property name in the specified element, give the non-normalized name (so that the '_' and '-' fits the definition of the property)
 fn de_normalize_property_name<'a>(element_type: &ElementType, prop: &'a str) -> Cow<'a, str> {
     match element_type {
         ElementType::Component(base) => {
