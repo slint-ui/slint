@@ -4,69 +4,88 @@
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
 use std::cell::RefCell;
-use windows::core::ComInterface;
-use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
-use windows::Win32::Graphics::Dxgi::Common::DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN;
 
 use raw_window_handle::HasRawWindowHandle;
 
-use windows::Win32::Foundation::{DXGI_STATUS_OCCLUDED, HANDLE, HWND, S_OK};
-use windows::Win32::Graphics::Direct3D12::{
-    D3D12CreateDevice, ID3D12CommandQueue, ID3D12Device, ID3D12Fence, ID3D12Resource,
-    D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC, D3D12_FENCE_FLAG_NONE,
-    D3D12_RESOURCE_STATE_PRESENT,
+use winapi::{
+    shared::{dxgi, dxgi1_2, dxgi1_3, dxgi1_4, dxgiformat},
+    shared::{
+        dxgitype,
+        guiddef::GUID,
+        winerror::{DXGI_STATUS_OCCLUDED, HRESULT, S_OK},
+    },
+    um::{d3d12, d3dcommon},
+    Interface,
 };
-use windows::Win32::Graphics::Dxgi::{
-    Common::{DXGI_FORMAT, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_SAMPLE_DESC},
-    CreateDXGIFactory2, IDXGIFactory4, IDXGISwapChain3, DXGI_ADAPTER_DESC1, DXGI_ADAPTER_FLAG,
-    DXGI_ADAPTER_FLAG_NONE, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_SWAP_CHAIN_DESC,
-    DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_EFFECT_FLIP_DISCARD, DXGI_USAGE_RENDER_TARGET_OUTPUT,
-};
-use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObjectEx, INFINITE};
+use wio::com::ComPtr;
 
-trait MapToPlatformError<T> {
-    fn map_platform_error(self, msg: &str) -> std::result::Result<T, PlatformError>;
+fn resolve_interface<T: Interface>(
+    f: impl FnOnce(&GUID, &mut *mut std::ffi::c_void) -> HRESULT,
+) -> Result<ComPtr<T>, HRESULT> {
+    let mut ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+    let r = f(&T::uuidof(), &mut ptr);
+    if r == S_OK {
+        Ok(unsafe { ComPtr::from_raw(ptr as *mut T) })
+    } else {
+        Err(r)
+    }
 }
 
-impl<T> MapToPlatformError<T> for windows::core::Result<T> {
-    fn map_platform_error(self, msg: &str) -> std::result::Result<T, PlatformError> {
+fn resolve_specific<T: Interface>(
+    f: impl FnOnce(&mut *mut T) -> HRESULT,
+) -> Result<ComPtr<T>, HRESULT> {
+    let mut ptr: *mut T = std::ptr::null_mut();
+    let r = f(&mut ptr);
+    if r == S_OK {
+        Ok(unsafe { ComPtr::from_raw(ptr) })
+    } else {
+        Err(r)
+    }
+}
+
+trait MapToPlatformError<T> {
+    fn map_platform_error(self, msg: &str) -> Result<T, PlatformError>;
+}
+
+impl<T> MapToPlatformError<T> for Result<T, HRESULT> {
+    fn map_platform_error(self, msg: &str) -> Result<T, PlatformError> {
         match self {
             Ok(r) => Ok(r),
-            Err(hr) => Err(format!("{} failed. {:x}", msg, hr.code().0).into()),
+            Err(hr) => Err(format!("{} failed. {:x}", msg, hr).into()),
         }
     }
 }
 
-const DEFAULT_SURFACE_FORMAT: DXGI_FORMAT = DXGI_FORMAT_R8G8B8A8_UNORM;
+const DEFAULT_SURFACE_FORMAT: dxgiformat::DXGI_FORMAT = dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM;
 
 struct SwapChain {
-    command_queue: ID3D12CommandQueue,
-    swap_chain: IDXGISwapChain3,
+    command_queue: ComPtr<d3d12::ID3D12CommandQueue>,
+    swap_chain: ComPtr<dxgi1_4::IDXGISwapChain3>,
     surfaces: Option<[skia_safe::Surface; 2]>,
     current_buffer_index: usize,
-    fence: ID3D12Fence,
+    fence: ComPtr<d3d12::ID3D12Fence>,
     fence_values: [u64; 2],
-    fence_event: HANDLE,
+    fence_event: *mut std::ffi::c_void,
     gr_context: skia_safe::gpu::DirectContext,
 }
 
 impl SwapChain {
     fn new(
-        command_queue: ID3D12CommandQueue,
-        device: &ID3D12Device,
+        command_queue: ComPtr<d3d12::ID3D12CommandQueue>,
+        device: &ComPtr<d3d12::ID3D12Device>,
         mut gr_context: skia_safe::gpu::DirectContext,
         window_handle: raw_window_handle::WindowHandle<'_>,
         size: PhysicalWindowSize,
-        dxgi_factory: &IDXGIFactory4,
+        dxgi_factory: &ComPtr<dxgi1_4::IDXGIFactory4>,
     ) -> Result<Self, PlatformError> {
-        let swap_chain_desc = DXGI_SWAP_CHAIN_DESC1 {
+        let swap_chain_desc = dxgi1_2::DXGI_SWAP_CHAIN_DESC1 {
             Width: size.width,
             Height: size.height,
             Format: DEFAULT_SURFACE_FORMAT,
             BufferCount: 2,
-            BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
-            SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
-            SampleDesc: DXGI_SAMPLE_DESC { Count: 1, ..Default::default() },
+            BufferUsage: dxgitype::DXGI_USAGE_RENDER_TARGET_OUTPUT,
+            SwapEffect: dxgi::DXGI_SWAP_EFFECT_FLIP_DISCARD,
+            SampleDesc: dxgitype::DXGI_SAMPLE_DESC { Count: 1, ..Default::default() },
             ..Default::default()
         };
 
@@ -74,27 +93,37 @@ impl SwapChain {
             raw_window_handle::RawWindowHandle::Win32(raw_window_handle::Win32WindowHandle {
                 hwnd,
                 ..
-            }) => HWND(hwnd as _),
+            }) => hwnd,
             _ => {
                 return Err(format!("Metal surface is only supported with Win32WindowHandle").into())
             }
         };
 
-        let swap_chain1 = unsafe {
-            dxgi_factory.CreateSwapChainForHwnd(&command_queue, hwnd, &swap_chain_desc, None, None)
-        }
+        let swap_chain1 = resolve_specific(|ptr| unsafe {
+            dxgi_factory.CreateSwapChainForHwnd(
+                command_queue.as_raw() as _,
+                hwnd as _,
+                &swap_chain_desc,
+                std::ptr::null(),
+                std::ptr::null_mut(),
+                ptr,
+            )
+        })
         .map_platform_error("unable to create D3D swap chain")?;
 
-        let swap_chain: IDXGISwapChain3 =
+        let swap_chain: ComPtr<dxgi1_4::IDXGISwapChain3> =
             swap_chain1.cast().map_platform_error("unable to cast swap chain 1 to v3")?;
 
-        let fence = unsafe { device.CreateFence(0, D3D12_FENCE_FLAG_NONE) }
-            .map_platform_error("unable to create D3D12 fence")?;
+        let fence = resolve_interface(|iid, ptr| unsafe {
+            device.CreateFence(0, d3d12::D3D12_FENCE_FLAG_NONE, iid, ptr)
+        })
+        .map_platform_error("unable to create D3D12 fence")?;
 
         let fence_values = [0, 0];
 
-        let fence_event = unsafe { CreateEventW(None, false, false, None) }
-            .map_platform_error("error creating fence event")?;
+        let fence_event = unsafe {
+            winapi::um::synchapi::CreateEventW(std::ptr::null_mut(), 0, 0, std::ptr::null())
+        };
 
         let current_buffer_index = unsafe { swap_chain.GetCurrentBackBufferIndex() } as usize;
 
@@ -147,26 +176,35 @@ impl SwapChain {
 
         let present_result = unsafe { self.swap_chain.Present(1, 0) };
         if present_result != S_OK && present_result != DXGI_STATUS_OCCLUDED {
-            return Err(format!("Error presenting d3d swap chain: {:x}", present_result.0).into());
+            return Err(format!("Error presenting d3d swap chain: {:x}", present_result).into());
         }
 
-        unsafe {
-            self.command_queue.Signal(&self.fence, self.fence_values[self.current_buffer_index])
+        let signal_result = unsafe {
+            self.command_queue
+                .Signal(self.fence.as_raw() as _, self.fence_values[self.current_buffer_index])
+        };
+        if signal_result != S_OK {
+            return Err(format!(
+                "error setting up completion signal for d3d12 command queue: {:x}",
+                signal_result
+            )
+            .into());
         }
-        .map_platform_error("error setting up completion signal for d3d12 command queue")?;
 
         Ok(result)
     }
 
     fn create_surfaces(
-        swap_chain: &IDXGISwapChain3,
+        swap_chain: &ComPtr<dxgi1_4::IDXGISwapChain3>,
         gr_context: &mut skia_safe::gpu::DirectContext,
         width: i32,
         height: i32,
     ) -> Result<[skia_safe::Surface; 2], PlatformError> {
         let mut make_surface = |buffer_index| {
-            let buffer: ID3D12Resource = unsafe { swap_chain.GetBuffer(buffer_index) }
-                .map_err(|hr| format!("unable to retrieve swap chain back buffer: {hr}"))?;
+            let buffer: ComPtr<d3d12::ID3D12Resource> = resolve_interface(|iid, ptr| unsafe {
+                swap_chain.GetBuffer(buffer_index, iid, ptr)
+            })
+            .map_err(|hr| format!("unable to retrieve swap chain back buffer: {hr}"))?;
 
             debug_assert_eq!(unsafe { buffer.GetDesc().Width }, width as u64);
             debug_assert_eq!(unsafe { buffer.GetDesc().Height }, height as u32);
@@ -174,11 +212,11 @@ impl SwapChain {
             let texture_info = skia_safe::gpu::d3d::TextureResourceInfo {
                 resource: buffer,
                 alloc: None,
-                resource_state: D3D12_RESOURCE_STATE_PRESENT,
+                resource_state: d3d12::D3D12_RESOURCE_STATE_PRESENT,
                 format: DEFAULT_SURFACE_FORMAT,
                 sample_count: 1,
                 level_count: 1,
-                sample_quality_pattern: DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
+                sample_quality_pattern: dxgitype::DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
                 protected: skia_safe::gpu::Protected::No,
             };
             let backend_texture =
@@ -210,8 +248,15 @@ impl SwapChain {
 
         drop(self.surfaces.take());
 
-        unsafe { self.swap_chain.ResizeBuffers(0, width, height, DEFAULT_SURFACE_FORMAT, 0) }
-            .map_platform_error("Error resizing swap chain buffers")?;
+        unsafe {
+            let resize_result =
+                self.swap_chain.ResizeBuffers(0, width, height, DEFAULT_SURFACE_FORMAT, 0);
+            if resize_result != S_OK {
+                return Err(
+                    format!("Error resizing swap chain buffers: {:x}", resize_result).into()
+                );
+            }
+        }
 
         self.surfaces = Some(Self::create_surfaces(
             &self.swap_chain,
@@ -224,13 +269,22 @@ impl SwapChain {
 
     fn wait_for_buffer(&mut self, buffer_index: usize) -> Result<(), PlatformError> {
         if unsafe { self.fence.GetCompletedValue() } < self.fence_values[buffer_index] {
-            unsafe {
+            let set_completion_result = unsafe {
                 self.fence.SetEventOnCompletion(self.fence_values[buffer_index], self.fence_event)
+            };
+            if set_completion_result != S_OK {
+                return Err(format!(
+                    "error setting event on command queue completion: {:x}",
+                    set_completion_result
+                )
+                .into());
             }
-            .map_platform_error("error setting event on command queue completion")?;
-
             unsafe {
-                WaitForSingleObjectEx(self.fence_event, INFINITE, false);
+                winapi::um::synchapi::WaitForSingleObjectEx(
+                    self.fence_event,
+                    winapi::um::winbase::INFINITE,
+                    0,
+                );
             }
         }
         Ok(())
@@ -264,8 +318,10 @@ impl super::Surface for D3DSurface {
         }
         */
 
-        let dxgi_factory: IDXGIFactory4 = unsafe { CreateDXGIFactory2(factory_flags) }
-            .map_platform_error("unable to create DXGIFactory4")?;
+        let dxgi_factory: ComPtr<dxgi1_4::IDXGIFactory4> = resolve_interface(|iid, ptr| unsafe {
+            dxgi1_3::CreateDXGIFactory2(factory_flags, iid, ptr)
+        })
+        .map_err(|hr| format!("unable to create DXGIFactory4: {hr}"))?;
 
         let mut software_adapter_index = None;
         let use_warp = std::env::var("SLINT_D3D_USE_WARP").is_ok();
@@ -273,17 +329,17 @@ impl super::Surface for D3DSurface {
         let adapter = {
             let mut i = 0;
             loop {
-                let adapter = match unsafe { dxgi_factory.EnumAdapters1(i) } {
-                    Ok(adapter) => adapter,
-                    Err(_) => break None,
-                };
+                let adapter =
+                    match resolve_specific(|ptr| unsafe { dxgi_factory.EnumAdapters1(i, ptr) }) {
+                        Ok(adapter) => adapter,
+                        Err(_) => break None,
+                    };
 
-                let mut desc = DXGI_ADAPTER_DESC1::default();
-                let _ = unsafe { adapter.GetDesc1(&mut desc) };
+                let mut desc = dxgi::DXGI_ADAPTER_DESC1::default();
+                unsafe { adapter.GetDesc1(&mut desc) };
 
-                let adapter_is_warp = (DXGI_ADAPTER_FLAG(desc.Flags as i32)
-                    & DXGI_ADAPTER_FLAG_SOFTWARE)
-                    != DXGI_ADAPTER_FLAG_NONE;
+                let adapter_is_warp =
+                    (desc.Flags & dxgi::DXGI_ADAPTER_FLAG_SOFTWARE) != dxgi::DXGI_ADAPTER_FLAG_NONE;
 
                 if adapter_is_warp {
                     if software_adapter_index.is_none() {
@@ -306,13 +362,13 @@ impl super::Surface for D3DSurface {
                 // Check to see whether the adapter supports Direct3D 12, but don't
                 // create the actual device yet.
                 if unsafe {
-                    D3D12CreateDevice(
-                        &adapter,
-                        D3D_FEATURE_LEVEL_11_0,
-                        std::ptr::null_mut::<Option<ID3D12Device>>(),
+                    d3d12::D3D12CreateDevice(
+                        adapter.as_raw() as _,
+                        d3dcommon::D3D_FEATURE_LEVEL_11_0,
+                        &d3d12::ID3D12Device::uuidof(),
+                        std::ptr::null_mut(),
                     )
-                }
-                .is_ok()
+                } == S_OK
                 {
                     break Some(adapter);
                 }
@@ -325,24 +381,33 @@ impl super::Surface for D3DSurface {
             || {
                 let software_adapter_index = software_adapter_index
                     .ok_or_else(|| format!("unable to locate D3D software adapter"))?;
-                unsafe { dxgi_factory.EnumAdapters1(software_adapter_index) }
-                    .map_err(|hr| format!("unable to create D3D software adapter: {hr}"))
+                resolve_specific(|ptr| unsafe {
+                    dxgi_factory.EnumAdapters1(software_adapter_index, ptr)
+                })
+                .map_err(|hr| format!("unable to create D3D software adapter: {hr}"))
             },
             |adapter| Ok(adapter),
         )?;
 
-        let mut device: Option<ID3D12Device> = None;
-        unsafe { D3D12CreateDevice(&adapter, D3D_FEATURE_LEVEL_11_0, &mut device) }
-            .map_platform_error("error calling D3D12CreateDevice")?;
-        let device = device.unwrap();
+        let device: ComPtr<d3d12::ID3D12Device> = resolve_interface(|iid, ptr| unsafe {
+            d3d12::D3D12CreateDevice(
+                adapter.as_raw() as _,
+                d3dcommon::D3D_FEATURE_LEVEL_11_0,
+                iid,
+                ptr,
+            )
+        })
+        .map_platform_error("error calling D3D12CreateDevice")?;
 
-        let queue: ID3D12CommandQueue = {
-            let desc = D3D12_COMMAND_QUEUE_DESC {
-                Type: D3D12_COMMAND_LIST_TYPE_DIRECT,
-                ..Default::default()
+        let queue: ComPtr<d3d12::ID3D12CommandQueue> = {
+            let desc = d3d12::D3D12_COMMAND_QUEUE_DESC {
+                Type: d3d12::D3D12_COMMAND_LIST_TYPE_DIRECT,
+                Priority: d3d12::D3D12_COMMAND_QUEUE_PRIORITY_NORMAL as _,
+                Flags: d3d12::D3D12_COMMAND_QUEUE_FLAG_NONE,
+                NodeMask: 0,
             };
 
-            unsafe { device.CreateCommandQueue(&desc) }
+            resolve_interface(|iid, ptr| unsafe { device.CreateCommandQueue(&desc, iid, ptr) })
                 .map_platform_error("Creating command queue")?
         };
 
@@ -393,9 +458,8 @@ impl super::Surface for D3DSurface {
     }
 
     fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {
-        let mut desc = DXGI_SWAP_CHAIN_DESC::default();
-        unsafe { self.swap_chain.borrow().swap_chain.GetDesc(&mut desc) }
-            .map_platform_error("error getting swap chain description")?;
+        let mut desc = dxgi::DXGI_SWAP_CHAIN_DESC::default();
+        unsafe { self.swap_chain.borrow().swap_chain.GetDesc(&mut desc) };
         Ok(match desc.BufferDesc.Format {
             DEFAULT_SURFACE_FORMAT => 32,
             fmt @ _ => {
