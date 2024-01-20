@@ -14,11 +14,13 @@ use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult};
+use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
     Range, TextEdit,
 };
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -400,6 +402,7 @@ fn resolve_element_scope(
         .property_list()
         .into_iter()
         .map(|(k, t)| {
+            let k = de_normalize_property_name(&element_type, &k).into_owned();
             let mut c = CompletionItem::new_simple(k, t.to_string());
             c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
                 CompletionItemKind::METHOD
@@ -408,23 +411,21 @@ fn resolve_element_scope(
             });
             c
         })
-        .chain(element.PropertyDeclaration().map(|pr| {
+        .chain(element.PropertyDeclaration().filter_map(|pr| {
             let mut c = CompletionItem::new_simple(
-                i_slint_compiler::parser::identifier_text(&pr.DeclaredIdentifier())
-                    .unwrap_or_default(),
+                pr.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?,
                 pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
             );
             c.kind = Some(CompletionItemKind::PROPERTY);
-            c
+            Some(c)
         }))
-        .chain(element.CallbackDeclaration().map(|cd| {
+        .chain(element.CallbackDeclaration().filter_map(|cd| {
             let mut c = CompletionItem::new_simple(
-                i_slint_compiler::parser::identifier_text(&cd.DeclaredIdentifier())
-                    .unwrap_or_default(),
+                cd.DeclaredIdentifier().child_text(SyntaxKind::Identifier)?,
                 "callback".into(),
             );
             c.kind = Some(CompletionItemKind::METHOD);
-            c
+            Some(c)
         }))
         .collect::<Vec<_>>();
 
@@ -458,6 +459,29 @@ fn resolve_element_scope(
     Some(result)
 }
 
+/// Given a property name in the specified element, give the non-normalized name (so that the '_' and '-' fits the definition of the property)
+fn de_normalize_property_name<'a>(element_type: &ElementType, prop: &'a str) -> Cow<'a, str> {
+    match element_type {
+        ElementType::Component(base) => {
+            de_normalize_property_name_with_element(&base.root_element, prop)
+        }
+        _ => prop.into(),
+    }
+}
+
+// Same as de_normalize_property_name, but use a elementrc
+fn de_normalize_property_name_with_element<'a>(element: &ElementRc, prop: &'a str) -> Cow<'a, str> {
+    if let Some(d) = element.borrow().property_declarations.get(prop) {
+        d.node
+            .as_ref()
+            .and_then(|n| n.child_node(SyntaxKind::DeclaredIdentifier))
+            .and_then(|n| n.child_text(SyntaxKind::Identifier))
+            .map_or(prop.into(), |x| x.into())
+    } else {
+        de_normalize_property_name(&element.borrow().base_type, prop)
+    }
+}
+
 fn resolve_expression_scope(lookup_context: &LookupCtx) -> Option<Vec<CompletionItem>> {
     let mut r = Vec::new();
     let global = i_slint_compiler::lookup::global_lookup();
@@ -471,7 +495,16 @@ fn resolve_expression_scope(lookup_context: &LookupCtx) -> Option<Vec<Completion
 fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> CompletionItem {
     match lookup_result {
         LookupResult::Expression { expression, .. } => {
-            let mut c = CompletionItem::new_simple(str.to_string(), expression.ty().to_string());
+            let label = match &expression {
+                Expression::CallbackReference(nr, ..)
+                | Expression::FunctionReference(nr, ..)
+                | Expression::PropertyReference(nr) => {
+                    de_normalize_property_name_with_element(&nr.element(), str).into_owned()
+                }
+                _ => str.to_string(),
+            };
+
+            let mut c = CompletionItem::new_simple(label, expression.ty().to_string());
             c.kind = match expression {
                 Expression::BoolLiteral(_) => Some(CompletionItemKind::CONSTANT),
                 Expression::CallbackReference(..) => Some(CompletionItemKind::METHOD),
@@ -784,6 +817,50 @@ mod tests {
             assert!(!res.iter().any(|ci| ci.label == "Clip"));
             assert!(!res.iter().any(|ci| ci.label == "NativeStyleMetrics"));
             assert!(!res.iter().any(|ci| ci.label == "SlintInternal"));
+        }
+    }
+
+    #[test]
+    fn dashes_and_underscores() {
+        let in_element = r#"
+            component Bar { property <string> super_property-1; }
+            component Foo {
+                Bar {
+                    function nope() {}
+                    property<int> hello_world;
+                    pure callback with_underscores-and_dash();
+                    🔺
+                }
+            }
+        "#;
+        let in_expr1 = r#"
+        component Bar { property <string> nope; }
+        component Foo {
+            function hello_world() {}
+            Bar {
+                property <string> super_property-1;
+                pure callback with_underscores-and_dash();
+                width: 🔺
+            }
+        }
+        "#;
+        let in_expr2 = r#"
+        component Bar { property <string> super_property-1; }
+        component Foo {
+            property <int> nope;
+            Bar {
+                function hello_world() {}
+                pure callback with_underscores-and_dash();
+                width: self.🔺
+            }
+        }
+        "#;
+        for source in [in_element, in_expr1, in_expr2] {
+            let res = get_completions(source).unwrap();
+            assert!(!res.iter().any(|ci| ci.label == "nope"));
+            res.iter().find(|ci| ci.label == "with_underscores-and_dash").unwrap();
+            res.iter().find(|ci| ci.label == "super_property-1").unwrap();
+            res.iter().find(|ci| ci.label == "hello_world").unwrap();
         }
     }
 
