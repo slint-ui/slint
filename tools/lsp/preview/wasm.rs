@@ -48,16 +48,17 @@ struct PreviewState {
     lsp_notifier: Option<SignalLspFunction>,
     resource_url_mapper: Option<ResourceUrlMapperFunction>,
     selected_element: Option<ElementWeak>,
+    selected_layer: usize,
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
-pub fn selected_element() -> Option<ElementRc> {
+pub fn selected_element() -> Option<(ElementRc, usize)> {
     PREVIEW_STATE.with(move |preview_state| {
         let preview_state = preview_state.borrow();
         let Some(weak) = &preview_state.selected_element else {
             return None;
         };
-        Weak::upgrade(&weak)
+        Weak::upgrade(&weak).map(|e| (e, preview_state.selected_layer))
     })
 }
 
@@ -68,15 +69,17 @@ pub fn component_instance() -> Option<ComponentInstance> {
 }
 
 pub fn set_selected_element(
-    element_position: Option<(&ElementRc, LogicalRect)>,
+    element_position: Option<(&ElementRc, LogicalRect, usize)>,
     positions: ComponentPositions,
 ) {
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
-        if let Some((e, _)) = element_position.as_ref() {
+        if let Some((e, _, l)) = element_position.as_ref() {
             preview_state.selected_element = Some(Rc::downgrade(e));
+            preview_state.selected_layer = *l;
         } else {
             preview_state.selected_element = None;
+            preview_state.selected_layer = 0;
         }
 
         super::set_selections(preview_state.ui.as_ref(), element_position, positions);
