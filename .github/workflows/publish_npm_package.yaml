@@ -42,7 +42,7 @@ jobs:
       run: |
          version=`npm pkg get version | jq -r`
          if [ "$RELEASE_INPUT" != "true" ]; then
-             nightly_version_suffix=`git log -1 --format=%cd --date="format:%Y%-m%-d%H"`
+             nightly_version_suffix=`git log -1 --format=%cd --date="format:%Y%m%d%H"`
              version="$version-nightly.$nightly_version_suffix"
          fi
          echo $version
