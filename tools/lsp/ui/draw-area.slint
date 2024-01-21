@@ -36,8 +36,7 @@ export component DrawArea {
     out property <length> preview-area-height: preview-visible ? i-preview-area-container.height : 0px;
 
     callback select-at(/* x */ length, /* y */ length);
-    callback select-front-to-back(/* x */ length, /* y */ length, /* reverse? */ bool);
-    callback select-down(/* x */ length, /* y */ length, /* reverse? */ bool);
+    callback select-behind(/* x */ length, /* y */ length, /* stay_in_file? */ bool, /* reverse */ bool);
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
     callback unselect();
 
@@ -121,13 +120,9 @@ export component DrawArea {
                         // This needs to fire AFTER clicked and double-clicked to work :-/
                         if (event.kind == PointerEventKind.up) {
                             if (self.selection-kind == SelectionKind.select_up_or_down) {
-                                root.select_down(self.selection-x, self.selection-y, event.modifiers.shift);
+                                root.select_behind(self.selection-x, self.selection-y, event.modifiers.control, event.modifiers.shift);
                             } else if (self.selection-kind == SelectionKind.select-at) {
-                                if (event.modifiers.control) {
-                                    root.select-front-to-back(self.selection-x, self.selection-y, event.modifiers.shift);
-                                } else {
-                                    root.select-at(self.selection-x, self.selection-y);
-                                }
+                                root.select-at(self.selection-x, self.selection-y);
                             }
                         }
                         self.selection-kind = SelectionKind.none;

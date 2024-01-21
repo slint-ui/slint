@@ -63,74 +63,26 @@ pub fn unselect_element() {
 }
 
 fn select_element(
-    x: f32,
-    y: f32,
     component_instance: &ComponentInstance,
-    selected_element: Option<&ElementRc>,
-) -> Option<ElementRc> {
-    let click_position = LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
-
-    let Some(c) = selected_element else {
-        unselect_element();
-        return None;
+    selected_element: &ElementRc,
+    layer: usize,
+) {
+    eprintln!("  select_element({}, {layer})", selected_element.borrow().id);
+    let Some(position) = component_instance.element_position(&selected_element) else {
+        return;
     };
 
-    let Some(position) = component_instance.element_position(&c) else {
-        return None;
+    let secondary_positions = if let Some((path, offset)) = element_offset(selected_element) {
+        component_instance.component_positions(path, offset)
+    } else {
+        ComponentPositions::default()
     };
-    if position.contains(click_position) {
-        let secondary_positions = if let Some((path, offset)) = element_offset(&c) {
-            component_instance.component_positions(path, offset)
-        } else {
-            ComponentPositions::default()
-        };
 
-        super::set_selected_element(Some((&c, position)), secondary_positions);
-        let document_position = lsp_element_position(&c);
-        if !document_position.0.is_empty() {
-            super::ask_editor_to_show_document(document_position.0, document_position.1);
-        }
-        return Some(c.clone());
+    super::set_selected_element(Some((&selected_element, position, layer)), secondary_positions);
+    let document_position = lsp_element_position(&selected_element);
+    if !document_position.0.is_empty() {
+        super::ask_editor_to_show_document(document_position.0, document_position.1);
     }
-
-    None
-}
-
-// triggered from the UI, running in UI thread
-pub fn select_element_at_impl(
-    x: f32,
-    y: f32,
-    component_instance: &ComponentInstance,
-    root_element: &ElementRc,
-    current_element: Option<&ElementRc>,
-    reverse: bool,
-) -> Option<ElementRc> {
-    let re = root_element.borrow();
-    let mut fw_iter = re.children.iter();
-    let mut bw_iter = re.children.iter().rev();
-
-    let iterator: &mut dyn Iterator<Item = &ElementRc> =
-        if reverse { &mut bw_iter } else { &mut fw_iter };
-
-    let mut skip = current_element.is_some();
-    for c in &mut *iterator {
-        let c = self_or_embedded_component_root(c);
-
-        if skip {
-            if let Some(ce) = current_element {
-                if Rc::ptr_eq(ce, &c) {
-                    skip = false;
-                }
-            }
-            continue;
-        }
-
-        if let Some(result) = select_element(x, y, component_instance, Some(&c)) {
-            return Some(result);
-        }
-    }
-
-    None
 }
 
 fn element_offset(element: &ElementRc) -> Option<(PathBuf, u32)> {
@@ -176,23 +128,84 @@ fn root_element(component_instance: &ComponentInstance) -> ElementRc {
     }
 }
 
-fn parent_element(root_element: &ElementRc, element: &ElementRc) -> Option<ElementRc> {
-    for c in &root_element.borrow().children {
-        if Rc::ptr_eq(c, element) {
-            return Some(root_element.clone());
+fn visit_tree_element(
+    x: f32,
+    y: f32,
+    component_instance: &ComponentInstance,
+    root_element: &ElementRc,
+    current_element: &ElementRc,
+    target_layer: usize,
+    current_layer: usize,
+    switch_files: bool,
+    previous: &(usize, Option<ElementRc>),
+) -> ((usize, Option<ElementRc>), (usize, Option<ElementRc>)) {
+    let ce = self_or_embedded_component_root(current_element);
+
+    let mut current_layer = current_layer;
+    let mut previous = previous.clone();
+
+    for c in ce.borrow().children.iter().rev() {
+        let (p, (ncl, fe)) = visit_tree_element(
+            x,
+            y,
+            component_instance,
+            root_element,
+            c,
+            target_layer,
+            current_layer,
+            switch_files,
+            &previous,
+        );
+
+        current_layer = ncl;
+        previous = p;
+
+        if fe.is_some() {
+            return (previous, (current_layer, fe));
         }
     }
 
-    for c in &root_element.borrow().children {
-        if let Some(p) = parent_element(c, element) {
-            return Some(p);
+    if element_covers_point(x, y, component_instance, &ce)
+        && !Rc::ptr_eq(current_element, root_element)
+    {
+        current_layer += 1;
+
+        let same_source = (|| {
+            let Some(re) = &root_element.borrow().node else {
+                return false;
+            };
+            let Some(ce) = &ce.borrow().node else {
+                return false;
+            };
+            Rc::ptr_eq(&re.source_file, &ce.source_file)
+        })();
+        let file_ok = switch_files || same_source;
+
+        if file_ok && current_layer < target_layer && current_layer > previous.0 {
+            eprintln!(
+                "    visit: {x},{y} (target: {target_layer}/{current_layer}): {} => Found prev candidate in self!",
+                ce.borrow().id
+            );
+            previous = (current_layer, Some(ce.clone()))
+        }
+
+        if file_ok && current_layer > target_layer {
+            eprintln!(
+                "    visit: {x},{y} (target: {target_layer}/{current_layer}): {} => Found next in self!",
+                ce.borrow().id
+            );
+            return (previous, (current_layer, Some(ce)));
+        }
+
+        if file_ok && current_layer < target_layer {
+            previous = (current_layer, Some(ce.clone()));
         }
     }
 
-    None
+    // eprintln!("    visit: {x},{y} (target: {target_layer}/{current_layer}): {} => mot found", current_element.borrow().id);
+    (previous, (current_layer, None))
 }
 
-// triggered from the UI, running in UI thread
 pub fn select_element_at(x: f32, y: f32) {
     let Some(component_instance) = super::component_instance() else {
         return;
@@ -200,75 +213,54 @@ pub fn select_element_at(x: f32, y: f32) {
 
     let root_element = root_element(&component_instance);
 
-    if let Some(selected_element) = super::selected_element() {
+    if let Some((selected_element, _)) = super::selected_element() {
         if element_covers_point(x, y, &component_instance, &selected_element) {
             // We clicked on the already selected element: Do nothing!
             return;
         }
-
-        let mut parent = parent_element(&root_element, &selected_element);
-        while let Some(p) = &parent {
-            if select_element_at_impl(x, y, &component_instance, p, None, true).is_some() {
-                return;
-            }
-            parent = parent_element(&root_element, p);
-        }
     }
 
-    select_element_at_impl(x, y, &component_instance, &root_element, None, true);
+    let (_, (layer, next)) = visit_tree_element(
+        x,
+        y,
+        &component_instance,
+        &root_element,
+        &root_element,
+        0,
+        0,
+        false,
+        &(0, None),
+    );
+    if let Some(n) = next {
+        select_element(&component_instance, &n, layer);
+    }
 }
 
-// triggered from the UI, running in UI thread
-pub fn select_element_down(x: f32, y: f32, reverse: bool) {
+pub fn select_element_behind(x: f32, y: f32, switch_files: bool, reverse: bool) {
     let Some(component_instance) = super::component_instance() else {
         return;
     };
 
-    // We have an actively selected element (via the earlier click-event :-):
-    let Some(selected_element) = super::selected_element() else {
-        return;
-    };
+    let root_element = root_element(&component_instance);
+    let target_layer = super::selected_element().map(|(_, l)| l).unwrap_or_default();
+    eprintln!("select_element_behind: {x},{y} (switch: {switch_files}, reverse: {reverse}), target: {target_layer}");
 
-    if !reverse {
-        let _ = select_element_at_impl(x, y, &component_instance, &selected_element, None, true);
-    } else {
-        if element_covers_point(x, y, &component_instance, &selected_element) {
-            let _ = select_element(
-                x,
-                y,
-                &component_instance,
-                parent_element(&root_element(&component_instance), &selected_element).as_ref(),
-            );
-        }
-    }
-}
-
-// triggered from the UI, running in UI thread
-pub fn select_element_front_to_back(x: f32, y: f32, reverse: bool) {
-    let Some(component_instance) = super::component_instance() else {
-        return;
-    };
-
-    // We have an actively selected element (via the earlier click-event :-):
-    let Some(selected_element) = super::selected_element() else {
-        return;
-    };
-
-    if element_covers_point(x, y, &component_instance, &selected_element) {
-        let Some(parent_element) =
-            parent_element(&root_element(&component_instance), &selected_element)
-        else {
-            return;
-        };
-        // We clicked on the already selected element: Do nothing!
-        let _ = select_element_at_impl(
-            x,
-            y,
-            &component_instance,
-            &parent_element,
-            Some(&selected_element),
-            !reverse,
-        );
-        return;
+    let (previous, next) = visit_tree_element(
+        x,
+        y,
+        &component_instance,
+        &root_element,
+        &root_element,
+        target_layer,
+        0,
+        switch_files,
+        &(0, None),
+    );
+    eprintln!("select_element_behind: {x},{y} (switch: {switch_files}, reverse: {reverse}) => Prev: {:?}, Next: {:?}", previous.1.as_ref().map(|e| e.borrow().id.clone()), next.1.as_ref().map(|e| e.borrow().id.clone()));
+    let to_select = if reverse { previous } else { next };
+    eprintln!("select_element_behind: {x},{y} (switch: {switch_files}, reverse: {reverse}) => To select: {:?}", to_select.1.as_ref().map(|e| e.borrow().id.clone()));
+    if let (layer, Some(ts)) = to_select {
+        eprintln!("select_element_behind: {x},{y} (switch: {switch_files}, reverse: {reverse}) => SETTING {}@{layer}", ts.borrow().id);
+        select_element(&component_instance, &ts, layer);
     }
 }
