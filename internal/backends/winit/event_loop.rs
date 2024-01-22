@@ -251,6 +251,7 @@ impl EventLoopState {
     fn process_window_event(&mut self, window: Rc<WinitWindowAdapter>, event: WindowEvent) {
         let runtime_window = WindowInner::from_pub(window.window());
         match event {
+            WindowEvent::RedrawRequested => self.loop_error = window.draw().err(),
             WindowEvent::Resized(size) => {
                 self.loop_error = window.resize_event(size).err();
             }
@@ -428,14 +429,6 @@ impl EventLoopState {
         use winit::event_loop::ControlFlow;
 
         match event {
-            Event::WindowEvent { event: WindowEvent::RedrawRequested, window_id: id } => {
-                if let Some(window) = window_by_id(id) {
-                    if let Err(rendering_error) = window.draw() {
-                        self.loop_error = Some(rendering_error)
-                    }
-                }
-            }
-
             Event::WindowEvent { event, window_id } => {
                 if let Some(window) = window_by_id(window_id) {
                     #[cfg(enable_accesskit)]
@@ -478,21 +471,14 @@ impl EventLoopState {
             }),
 
             Event::AboutToWait => {
-                if !event_loop_target.exiting()
-                    && ALL_WINDOWS.with(|windows| {
-                        windows.borrow().iter().any(|(_, w)| {
-                            w.upgrade()
-                                .and_then(|w| {
-                                    w.window().has_active_animations().then(|| {
-                                        w.request_redraw();
-                                        true
-                                    })
-                                })
-                                .unwrap_or_default()
-                        })
+                if !event_loop_target.exiting() {
+                    ALL_WINDOWS.with(|windows| {
+                        for w in windows.borrow().iter().filter_map(|(_, w)| w.upgrade()) {
+                            if w.window().has_active_animations() {
+                                w.request_redraw();
+                            }
+                        }
                     })
-                {
-                    event_loop_target.set_control_flow(ControlFlow::Poll);
                 }
 
                 if event_loop_target.control_flow() == ControlFlow::Wait {

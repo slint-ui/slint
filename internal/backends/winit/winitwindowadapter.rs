@@ -420,8 +420,9 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 
     fn request_redraw(&self) {
-        self.pending_redraw.set(true);
-        self.with_window_handle(&mut |window| window.request_redraw())
+        if !self.pending_redraw.replace(true) {
+            self.winit_window.request_redraw()
+        }
     }
 
     #[allow(clippy::unnecessary_cast)] // Coord is used!
