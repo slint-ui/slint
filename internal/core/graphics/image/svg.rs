@@ -7,14 +7,11 @@ use super::{ImageCacheKey, SharedImageBuffer, SharedPixelBuffer};
 use crate::lengths::PhysicalPx;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::SharedString;
-use resvg::{
-    tiny_skia,
-    usvg::{self, TreeTextToPath},
-};
-use usvg::TreeParsing;
+use resvg::{tiny_skia, usvg};
+use usvg::{TreeParsing, TreePostProc};
 
 pub struct ParsedSVG {
-    svg_tree: resvg::Tree,
+    svg_tree: usvg::Tree,
     cache_key: ImageCacheKey,
 }
 
@@ -75,7 +72,7 @@ impl ParsedSVG {
         )
         .ok_or(usvg::Error::InvalidSize)?;
 
-        tree.render(transform, &mut skia_buffer);
+        resvg::render(&tree, transform, &mut skia_buffer);
         Ok(SharedImageBuffer::RGBA8Premultiplied(buffer))
     }
 }
@@ -88,7 +85,7 @@ fn with_svg_options<T>(callback: impl FnOnce(&usvg::Options) -> T) -> T {
 fn fixup_text(mut tree: usvg::Tree) -> usvg::Tree {
     if tree.has_text_nodes() {
         i_slint_common::sharedfontdb::FONT_DB.with(|db| {
-            tree.convert_text(&db.borrow());
+            tree.postprocess(Default::default(), &db.borrow());
         })
     }
     tree
@@ -104,7 +101,6 @@ pub fn load_from_path(
     with_svg_options(|options| {
         usvg::Tree::from_data(&svg_data, options)
             .map(fixup_text)
-            .map(|usvg_tree| resvg::Tree::from_usvg(&usvg_tree))
             .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     })
@@ -114,7 +110,6 @@ pub fn load_from_data(slice: &[u8], cache_key: ImageCacheKey) -> Result<ParsedSV
     with_svg_options(|options| {
         usvg::Tree::from_data(slice, options)
             .map(fixup_text)
-            .map(|usvg_tree| resvg::Tree::from_usvg(&usvg_tree))
             .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
     })
 }
