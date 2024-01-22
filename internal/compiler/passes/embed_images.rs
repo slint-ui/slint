@@ -362,15 +362,15 @@ fn load_image(
 ) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
     use resvg::{tiny_skia, usvg};
     use std::ffi::OsStr;
-    use usvg::TreeParsing;
+    use usvg::{TreeParsing, TreePostProc as _};
     if file.canon_path.extension() == Some(OsStr::new("svg"))
         || file.canon_path.extension() == Some(OsStr::new("svgz"))
     {
         let options = usvg::Options::default();
-        let tree = match file.builtin_contents {
+        let mut tree = match file.builtin_contents {
             Some(data) => usvg::Tree::from_data(data, &options),
             None => usvg::Tree::from_data(
-                std::fs::read(file.canon_path).map_err(image::ImageError::IoError)?.as_slice(),
+                std::fs::read(&file.canon_path).map_err(image::ImageError::IoError)?.as_slice(),
                 &options,
             ),
         }
@@ -380,6 +380,9 @@ fn load_image(
                 e,
             ))
         })?;
+        i_slint_common::sharedfontdb::FONT_DB.with(|db| {
+            tree.postprocess(Default::default(), &db.borrow());
+        });
         let scale_factor = scale_factor as f32;
         // TODO: ideally we should find the size used for that `Image`
         let original_size = tree.size;
@@ -395,8 +398,8 @@ fn load_image(
         let mut skia_buffer =
             tiny_skia::PixmapMut::from_bytes(buffer.as_mut_slice(), width as u32, height as u32)
                 .ok_or_else(size_error)?;
-        let rtree = resvg::Tree::from_usvg(&tree);
-        rtree.render(
+        resvg::render(
+            &tree,
             tiny_skia::Transform::from_scale(scale_factor as _, scale_factor as _),
             &mut skia_buffer,
         );

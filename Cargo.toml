@@ -128,11 +128,11 @@ slint-macros = { version = "=1.4.0", path = "api/rs/macros", default-features = 
 bytemuck = { version = "1.13.1" }
 cbindgen = { version = "0.26", default-features = false }
 css-color-parser2 = { version = "1.0.1" }
-fontdb = { version = "0.15.0", default-features = false }
+fontdb = { version = "0.16.0", default-features = false }
 fontdue = { version = "0.8.0" }
 glutin = { version = "0.31.1", default-features = false }
 itertools = { version = "0.12" }
-resvg = { version= "0.36.0", default-features = false, features = ["text"] }
+resvg = { version= "0.38.0", default-features = false, features = ["text"] }
 send_wrapper = { version = "0.6.0" }
 softbuffer = { version = "0.3.3", default-features = false }
 toml_edit = { version = "0.21" }
