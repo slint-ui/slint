@@ -1692,7 +1692,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         let item_field = access_component_field_offset(&component_id, &item_name);
         if prop_name.is_empty() {
             // then this is actually a reference to the element itself
-            quote!((#compo_path #item_field).apply_pin(_self))
+            quote!((#compo_path #item_field).apply_pin(#path))
         } else {
             let property_name = ident(prop_name);
             let item_ty = ident(&sub_component.items[item_index as usize].ty.class_name);
