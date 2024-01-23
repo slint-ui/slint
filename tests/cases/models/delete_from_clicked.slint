@@ -76,6 +76,17 @@ assert_eq(instance.global<Glob>().get_value(), "world");
 ```
 
 
+```js
+var instance = new slint.TestCase({});
+let model = new slintlib.ArrayModel(["hello", "world"]);
+instance.Glob.model = model;
+instance.Glob.clicked = (val) => {
+    assert.equal(val, "world");
+    model.remove(1, 1);
+};
+slintlib.private_api.send_mouse_click(instance, 150., 150.);
+assert.equal(instance.Glob.value, "world");
+```
 
 
 */
