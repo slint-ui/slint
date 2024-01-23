@@ -77,6 +77,22 @@ fn main() {
 
 </details>
 
+<details data-snippet-language="javascript">
+<summary>Usage from JavaScript</summary>
+
+```js
+let slint = require("slint-ui");
+let file = slint.loadFile("app.slint");
+let app = new file.App();
+app.Logic.magic_operation = (value) => {
+    return value * 2;
+};
+app.Logic.the_value = 42;
+// ...
+```
+
+</details>
+
 It's possible to re-expose a callback or properties from a global using the two way binding syntax.
 
 ```slint,no-preview

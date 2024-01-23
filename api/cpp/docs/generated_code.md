@@ -111,7 +111,7 @@ private:
 You can declare <a href="../slint/src/reference/globals.html">globally available singletons</a> in your
 `.slint` files. If exported, these singletons are available via the
 `global()` getter function on the generated C++ class. Each global singleton
-maps to a class iwith getter/setter functions for properties and callbacks,
+maps to a class with getter/setter functions for properties and callbacks,
 similar to API that's created for your `.slint` component.
 
 For example the following `.slint` markup defines a global `Logic` singleton that's also exported:

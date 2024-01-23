@@ -493,6 +493,21 @@ int main(int argc, char **argv)
 ```
 </details>
 
+<details  data-snippet-language="javascript">
+<summary>JavaScript code</summary>
+In C++ you can set the callback like this:
+
+```js
+let slint = require("slint-ui");
+let file = slint.loadFile("recipe.slint");
+let recipe = new file.Recipe();
+recipe.Logic.to_upper_case = (str) => {
+    return str.toUpperCase();
+};
+// ...
+```
+</details>
+
 # Custom Widgets
 
 ## Custom Button
