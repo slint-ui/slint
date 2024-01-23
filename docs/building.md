@@ -222,27 +222,66 @@ cargo run --release --bin slint-viewer -- examples/printerdemo/ui/printerdemo.sl
 
 ## Generating the Documentation
 
-### Rust
+The Slint documentation consists of four parts:
 
-The documentation for the different crates is built using rustdoc.
+- The Slint tutorials
+- The Slint Rust DSL documentation
+- The Slint C++ API documentation
+- The Slint Node.js API documentation
 
-The language documentation has snippets in the .slint language which can be previewed by injecting
-html to the documentation with the `--html-in-header` rustdoc flag.
+### Prerequisites
 
-Use the following command line to build the documentation to include preview of the .slint files.
+- [mdbook](https://rust-lang.github.io/mdBook/guide/installation.html)
+- [pipenv](https://pipenv.pypa.io/en/latest/)
+- [Python](https://www.python.org/downloads/)
+- [Doxygen](https://www.doxygen.nl/download.html)
 
-```sh
-RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/slint-docs-preview.html --html-in-header=$PWD/docs/resources/slint-docs-highlight.html" cargo doc --no-deps --features slint/document-features,slint/log
+### Tutorials
+
+There are three tutorials, one for each of the three languages supported by Slint.
+
+#### Rust tutorial
+
+```shell
+mdbook build docs/tutorial/rust
 ```
 
-The documentation will be located in the `target/doc` sub-folder.
+#### C++ tutorial
+
+```shell
+mdbook build docs/tutorial/cpp
+```
+
+#### NodeJS tutorial
+
+```shell
+mdbook build docs/tutorial/node
+```
+
+### Slint DSL (Rust) docs
+
+
+Use the following command line to build the documentation for the different crates using `rustdoc` to the `target/slintdocs/html` folder:
+
+```shell
+cargo xtask slintdocs --show-warnings
+```
+
+By default, the language documentation has snippets in the slint language injected into the HTML at build time with the `--html-in-header` flag.
 
 ### C++
-
-The C++ documentation requires Python and doxygen to be installed on your system.
 
 Run the following command to invoke doxygen and related tools and generate the documentation in the `target/cppdocs` sub-folder:
 
 ```sh
 cargo xtask cppdocs
+```
+
+### Node.js
+
+Run the following commands from the `/api/node` sub-folder to generate the docs in the `/api/node/docs` sub-folder:
+
+```sh
+npm install
+npm run docs
 ```
