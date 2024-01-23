@@ -127,7 +127,7 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 
 /// Spawns a Future to execute in the Slint event loop.
 ///
-/// This function is intended to be invoked only from the main Slint thread that executes the event loop.
+/// This function is intended to be invoked only from the main Slint thread that runs the event loop.
 /// The event loop must be initialized prior to calling this function.
 ///
 /// For spawning a `Send` future from a different thread, this function should be called from a closure
@@ -150,8 +150,8 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 /// may not work. To overcome this, these futures should be executed in a thread where the specific
 /// runtime is running.
 ///
-/// For Tokio, this can be achieved using [tokio::spawn](https://docs.rs/tokio/latest/tokio/task/fn.spawn.html)
-/// which can be awaited in the future passed to slint::spawn_local.
+/// For Tokio, this can be achieved by awaiting [tokio::spawn](https://docs.rs/tokio/latest/tokio/task/fn.spawn.html)
+/// in the future passed to slint::spawn_local.
 ///
 /// ```rust
 /// # i_slint_backend_testing::init_with_event_loop();
