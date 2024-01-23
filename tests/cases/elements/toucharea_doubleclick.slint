@@ -194,9 +194,9 @@ assert_eq(instance.get_touch_double3(), 2);
 slint_testing::mock_elapsed_time(1000);
 instance.set_pointer_event_test("");
 slint_testing::mock_elapsed_time(1000);
-slint_testing::send_mouse_click(&instance, 108., 108.); // first
+slint_testing::send_mouse_click(&instance, 101., 106.); // first
 slint_testing::mock_elapsed_time(20);
-slint_testing::send_mouse_click(&instance, 101., 101.); // second
+slint_testing::send_mouse_click(&instance, 101., 104.); // second
 instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 1.0, 1.0 }));
 assert_eq(instance.get_touch1(), 4);
 assert_eq(instance.get_touch2(), 4);
@@ -222,7 +222,19 @@ assert_eq(instance.get_touch_double2(), 1);
 assert_eq(instance.get_touch_double3(), 2);
 
 slint_testing::mock_elapsed_time(1000);
-assert_eq(instance.get_touch1(), 4);
+slint_testing::send_mouse_click(&instance, 109., 101.); // first
+slint_testing::mock_elapsed_time(10);
+slint_testing::send_mouse_click(&instance, 101., 109.); // first
+assert_eq(instance.get_touch1(), 6);
+assert_eq(instance.get_touch2(), 6);
+assert_eq(instance.get_touch3(), 6);
+assert_eq(instance.get_touch_double1(), 1);
+assert_eq(instance.get_touch_double2(), 1);
+assert_eq(instance.get_touch_double3(), 2);
+
+
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_touch1(), 6);
 assert_eq(instance.get_touch2(), 6);
 assert_eq(instance.get_touch3(), 6);
 assert_eq(instance.get_touch_double1(), 1);
@@ -372,9 +384,9 @@ assert_eq!(slint_testing::access_testing_window(instance.window(), |window| wind
 slint_testing::mock_elapsed_time(1000);
 instance.set_pointer_event_test("".into());
 slint_testing::mock_elapsed_time(1000);
-slint_testing::send_mouse_click(&instance, 108., 108.); // first
+slint_testing::send_mouse_click(&instance, 101., 106.); // first
 slint_testing::mock_elapsed_time(20);
-slint_testing::send_mouse_click(&instance, 101., 101.); // second
+slint_testing::send_mouse_click(&instance, 101., 104.); // second
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(1.0, 1.0) });
 assert_eq!(instance.get_touch1(), 4, "click on different touch areas did not register on touch1");
 assert_eq!(instance.get_touch2(), 4, "click on different touch areas did not register on touch2");
@@ -406,8 +418,22 @@ assert_eq!(slint_testing::access_testing_window(instance.window(), |window| wind
 assert_eq!(instance.get_pointer_event_test().as_str(), "move.other:down.left:click:up.left:move.other:move.other:down.left:click:up.left:move.other:",
     "click on different touch areas produced an unexpected sequence of events");
 
+
+// Click on the same mouse area but using a distance which is more than the threshold
 slint_testing::mock_elapsed_time(1000);
-assert_eq!(instance.get_touch1(), 4, "Cool down changed touch1");
+slint_testing::send_mouse_click(&instance, 109., 101.); // first
+slint_testing::mock_elapsed_time(10);
+slint_testing::send_mouse_click(&instance, 101., 109.); // first
+assert_eq!(instance.get_touch1(), 6, "long distance click 1");
+assert_eq!(instance.get_touch2(), 6, "long distance click 2");
+assert_eq!(instance.get_touch3(), 6, "long distance click 3");
+assert_eq!(instance.get_touch_double1(), 1, "long distance click as double click 1");
+assert_eq!(instance.get_touch_double2(), 1, "long distance click as double click 2");
+assert_eq!(instance.get_touch_double3(), 2, "long distance click as double click 3");
+
+
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_touch1(), 6, "Cool down changed touch1");
 assert_eq!(instance.get_touch2(), 6, "Cool down changed touch2");
 assert_eq!(instance.get_touch3(), 6, "Cool down changed touch3");
 assert_eq!(instance.get_touch_double1(), 1, "Cool down changed touch-double1");

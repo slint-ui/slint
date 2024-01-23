@@ -432,35 +432,10 @@ pub struct TouchArea {
     pub cached_rendering_data: CachedRenderingData,
     /// true when we are currently grabbing the mouse
     grabbed: Cell<bool>,
-    // U64::MAX when unset. This is accessed through FFI, so Option is not an option
-    last_click_time_stamp: Cell<crate::animations::Instant>,
-}
-
-impl TouchArea {
-    fn touch_last_click_timestamp(self: Pin<&Self>) {
-        self.last_click_time_stamp.set(crate::animations::Instant::now());
-    }
-
-    fn reset_last_click_timestamp(self: Pin<&Self>) {
-        self.last_click_time_stamp.set(crate::animations::Instant(u64::MAX));
-    }
-
-    fn had_double_click(self: Pin<&Self>) -> bool {
-        let click_timestamp = self.last_click_time_stamp.get();
-        let now = crate::animations::Instant::now();
-
-        click_timestamp <= now
-            && now - click_timestamp
-                < crate::GLOBAL_CONTEXT
-                    .with(|p| p.get().map(|p| p.platform.click_interval()))
-                    .unwrap_or_default()
-    }
 }
 
 impl Item for TouchArea {
-    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
-        self.reset_last_click_timestamp();
-    }
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn layout_info(
         self: Pin<&Self>,
@@ -526,8 +501,6 @@ impl Item for TouchArea {
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit => {
-                self.reset_last_click_timestamp();
-
                 Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
                 if self.grabbed.replace(false) {
                     Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
@@ -540,25 +513,15 @@ impl Item for TouchArea {
                 InputEventResult::EventAccepted
             }
 
-            MouseEvent::Released { button, position, .. } => {
+            MouseEvent::Released { button, position, click_count } => {
                 let geometry = self_rc.geometry();
-                let double_clicked_set =
-                    Self::FIELD_OFFSETS.double_clicked.apply_pin(self).has_handler();
-
                 if button == PointerEventButton::Left
                     && LogicalRect::new(LogicalPoint::default(), geometry.size).contains(position)
                     && self.pressed()
                 {
                     Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
-                    if double_clicked_set {
-                        let in_double_click_interval = self.had_double_click();
-                        self.reset_last_click_timestamp();
-
-                        if in_double_click_interval {
-                            Self::FIELD_OFFSETS.double_clicked.apply_pin(self).call(&())
-                        } else {
-                            self.touch_last_click_timestamp();
-                        }
+                    if (click_count % 2) == 1 {
+                        Self::FIELD_OFFSETS.double_clicked.apply_pin(self).call(&())
                     }
                 }
 
