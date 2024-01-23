@@ -424,7 +424,8 @@ impl FontCache {
         target_family = "windows",
         target_os = "macos",
         target_os = "ios",
-        target_arch = "wasm32"
+        target_arch = "wasm32",
+        target_os = "android",
     )))]
     fn font_fallbacks_for_request(
         &self,
@@ -444,7 +445,7 @@ impl FontCache {
         })
     }
 
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", target_os = "android"))]
     fn font_fallbacks_for_request(
         &self,
         _family: Option<&SharedString>,
