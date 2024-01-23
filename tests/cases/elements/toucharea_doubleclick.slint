@@ -90,6 +90,12 @@ using slint::PointerEventButton;
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
+auto double_click = [&](float x, float y) {
+    slint_testing::send_mouse_click(&instance, x, y);
+    slint_testing::mock_elapsed_time(50);
+    slint_testing::send_mouse_click(&instance, x, y);
+};
+
 // does not click on anything
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq(instance.get_touch1(), 0);
@@ -132,7 +138,7 @@ assert_eq(instance.get_pointer_event_test(), "move.other:down.left:click:up.left
 
 // does not double-click on anything
 slint_testing::mock_elapsed_time(1000);
-slint_testing::send_mouse_double_click(&instance, 5., 5.);
+double_click(5., 5.);
 assert_eq(instance.get_touch1(), 1);
 assert_eq(instance.get_touch2(), 1);
 assert_eq(instance.get_touch3(), 1);
@@ -143,7 +149,7 @@ assert_eq(instance.get_touch_double3(), 0);
 // double-click on second one
 slint_testing::mock_elapsed_time(1000);
 instance.set_pointer_event_test("");
-slint_testing::send_mouse_double_click(&instance, 101., 101.);
+double_click(101., 101.);
 assert_eq(instance.get_touch1(), 1);
 assert_eq(instance.get_touch2(), 3);
 assert_eq(instance.get_touch3(), 1);
@@ -154,7 +160,7 @@ assert_eq(instance.get_pointer_event_test(), "move.other:down.left:click:up.left
 
 // double-click on first one only
 slint_testing::mock_elapsed_time(1000);
-slint_testing::send_mouse_double_click(&instance, 108., 108.);
+double_click(108., 108.);
 assert_eq(instance.get_touch1(), 3);
 assert_eq(instance.get_touch2(), 3);
 assert_eq(instance.get_touch3(), 1);
@@ -164,7 +170,7 @@ assert_eq(instance.get_touch_double3(), 0);
 
 // double-click on the third
 slint_testing::mock_elapsed_time(1000);
-slint_testing::send_mouse_double_click(&instance, 106., 103.);
+double_click(106., 103.);
 assert_eq(instance.get_touch1(), 3);
 assert_eq(instance.get_touch2(), 3);
 assert_eq(instance.get_touch3(), 3);
@@ -229,6 +235,14 @@ use slint::{platform::WindowEvent, LogicalPosition};
 use slint::private_unstable_api::re_exports::MouseCursor;
 
 let instance = TestCase::new().unwrap();
+
+let double_click = |x, y| {
+    slint_testing::send_mouse_click(&instance, x, y);
+    slint_testing::mock_elapsed_time(50);
+    slint_testing::send_mouse_click(&instance, x, y);
+};
+
+
 assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor.get()), MouseCursor::Default,
      "Unexpected mousecursor at start");
 
@@ -285,7 +299,7 @@ assert_eq!(slint_testing::access_testing_window(instance.window(), |window| wind
 
 // does not double-click on anything
 slint_testing::mock_elapsed_time(1000);
-slint_testing::send_mouse_double_click(&instance, 5., 5.);
+double_click(5., 5.);
 assert_eq!(instance.get_touch1(), 1, "Mis-double-click registered at touch1");
 assert_eq!(instance.get_touch2(), 1, "Mis-double-click registered at touch2");
 assert_eq!(instance.get_touch3(), 1, "Mis-double-click registered at touch3");
@@ -298,7 +312,7 @@ assert_eq!(slint_testing::access_testing_window(instance.window(), |window| wind
 // double-click on second one
 slint_testing::mock_elapsed_time(1000);
 instance.set_pointer_event_test("".into());
-slint_testing::send_mouse_double_click(&instance, 101., 101.);
+double_click(101., 101.);
 assert_eq!(instance.get_touch1(), 1, "Double-click on 2 registered at touch1");
 assert_eq!(instance.get_touch2(), 3, "Double-click on 2 did not registered at touch2");
 assert_eq!(instance.get_touch3(), 1, "Double-click on 2 registered at touch3");
@@ -312,7 +326,7 @@ assert_eq!(slint_testing::access_testing_window(instance.window(), |window| wind
 
 // double-click on first one only
 slint_testing::mock_elapsed_time(1000);
-slint_testing::send_mouse_double_click(&instance, 108., 108.);
+double_click(108., 108.);
 assert_eq!(instance.get_touch1(), 3, "Double-click on 1 did not registered at touch1");
 assert_eq!(instance.get_touch2(), 3, "Double-click on 1 registered at touch2");
 assert_eq!(instance.get_touch3(), 1, "Double-click on 1 registered at touch3");
@@ -324,7 +338,7 @@ assert_eq!(slint_testing::access_testing_window(instance.window(), |window| wind
 
 // double-click on the third
 slint_testing::mock_elapsed_time(1000);
-slint_testing::send_mouse_double_click(&instance, 106., 103.);
+double_click(106., 103.);
 assert_eq!(instance.get_touch1(), 3, "Double-click on 3 registered at touch1");
 assert_eq!(instance.get_touch2(), 3, "Double-click on 3 registered at touch2");
 assert_eq!(instance.get_touch3(), 3, "Double-click on 3 did not registered at touch3");
@@ -404,6 +418,12 @@ assert_eq!(instance.get_touch_double3(), 2, "Cool down changed touch-double3");
 ```js
 var instance = new slint.TestCase();
 
+function double_click(x, y) {
+    slintlib.private_api.send_mouse_click(instance, x, y);
+    slintlib.private_api.mock_elapsed_time(50);
+    slintlib.private_api.send_mouse_click(instance, x, y);
+}
+
 // // // Disable the test as the time handling is currently broken in JS tests!
 
 // // does not click on anything
@@ -449,7 +469,7 @@ var instance = new slint.TestCase();
 
 // // does not double-click on anything
 // slintlib.private_api.mock_elapsed_time(1000);
-// slintlib.private_api.send_mouse_double_click(instance, 5., 5.);
+// double_click(5., 5.);
 // assert.equal(instance.touch1, 1);
 // assert.equal(instance.touch2, 1);
 // assert.equal(instance.touch3, 1);
@@ -460,7 +480,7 @@ var instance = new slint.TestCase();
 // // double-click on second one
 // slintlib.private_api.mock_elapsed_time(1000);
 // instance.pointer_event_test = "";
-// slintlib.private_api.send_mouse_double_click(instance, 101., 101.);
+// double_click(101., 101.);
 // assert.equal(instance.touch1, 1);
 // assert.equal(instance.touch2, 3);
 // assert.equal(instance.touch3, 1);
@@ -471,7 +491,7 @@ var instance = new slint.TestCase();
 
 // // double-click on first one only
 // slintlib.private_api.mock_elapsed_time(1000);
-// slintlib.private_api.send_mouse_double_click(instance, 108., 108.);
+// double_click(108., 108.);
 // assert.equal(instance.touch1, 3);
 // assert.equal(instance.touch2, 3);
 // assert.equal(instance.touch3, 1);
@@ -481,7 +501,7 @@ var instance = new slint.TestCase();
 
 // // double-click on third one only
 // slintlib.private_api.mock_elapsed_time(1000);
-// slintlib.private_api.send_mouse_double_click(instance, 106., 103.);
+// double_click(106., 103.);
 // assert.equal(instance.touch1, 3);
 // assert.equal(instance.touch2, 3);
 // assert.equal(instance.touch3, 3);

@@ -334,11 +334,6 @@ impl JsComponentInstance {
     }
 
     #[napi]
-    pub fn send_mouse_double_click(&self, x: f64, y: f64) {
-        slint_interpreter::testing::send_mouse_double_click(&self.inner, x as f32, y as f32);
-    }
-
-    #[napi]
     pub fn send_keyboard_string_sequence(&self, sequence: String) {
         slint_interpreter::testing::send_keyboard_string_sequence(&self.inner, sequence.into());
     }
