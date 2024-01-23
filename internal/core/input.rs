@@ -74,6 +74,16 @@ impl MouseEvent {
             *pos += vec;
         }
     }
+
+    /// Set the click count of the pressed or released event
+    fn set_click_count(&mut self, count: u8) {
+        match self {
+            MouseEvent::Pressed { click_count, .. } | MouseEvent::Released { click_count, .. } => {
+                *click_count = count
+            }
+            _ => (),
+        }
+    }
 }
 
 /// This value is returned by the `input_event` function of an Item
@@ -475,6 +485,12 @@ impl ClickState {
         self.click_button.set(button);
     }
 
+    /// Reset to an invalid state
+    pub fn reset(&self) {
+        self.click_count.set(0);
+        self.click_count_time_stamp.replace(None);
+    }
+
     /// Check if the click is repeated.
     pub fn check_repeat(&self, mouse_event: MouseEvent) -> MouseEvent {
         match mouse_event {
@@ -532,6 +548,13 @@ pub struct MouseInputState {
     delayed_exit_items: Vec<ItemWeak>,
 }
 
+impl MouseInputState {
+    /// Return the item in the top of the stack
+    pub fn top_item(&self) -> Option<ItemRc> {
+        self.item_stack.last().and_then(|x| x.0.upgrade())
+    }
+}
+
 /// Try to handle the mouse grabber. Return None if the event has been handled, otherwise
 /// return the event that must be handled
 pub(crate) fn handle_mouse_grab(
@@ -587,7 +610,7 @@ pub(crate) fn handle_mouse_grab(
         return Some(mouse_event);
     }
 
-    let grabber = mouse_input_state.item_stack.last().unwrap().0.upgrade().unwrap();
+    let grabber = mouse_input_state.top_item().unwrap();
     let input_result = grabber.borrow().as_ref().input_event(event, window_adapter, &grabber);
     if input_result != InputEventResult::GrabMouse {
         mouse_input_state.grabbed = false;
@@ -648,7 +671,14 @@ pub fn process_mouse_input(
 ) -> MouseInputState {
     let mut result = MouseInputState::default();
     let root = ItemRc::new(component.clone(), 0);
-    let r = send_mouse_event_to_item(mouse_event, root, window_adapter, &mut result, false);
+    let r = send_mouse_event_to_item(
+        mouse_event,
+        root,
+        window_adapter,
+        &mut result,
+        mouse_input_state.top_item().as_ref(),
+        false,
+    );
     if mouse_input_state.delayed.is_some()
         && (!r.has_aborted()
             || Option::zip(result.item_stack.last(), mouse_input_state.item_stack.last())
@@ -684,7 +714,7 @@ pub(crate) fn process_delayed_event(
         None => return mouse_input_state,
     };
 
-    let top_item = match mouse_input_state.item_stack.last().unwrap().0.upgrade() {
+    let top_item = match mouse_input_state.top_item() {
         Some(i) => i,
         None => return MouseInputState::default(),
     };
@@ -696,6 +726,7 @@ pub(crate) fn process_delayed_event(
                 ItemRc::new(component.clone(), index),
                 window_adapter,
                 &mut mouse_input_state,
+                Some(&top_item),
                 true,
             )
         };
@@ -713,6 +744,7 @@ fn send_mouse_event_to_item(
     item_rc: ItemRc,
     window_adapter: &Rc<dyn WindowAdapter>,
     result: &mut MouseInputState,
+    last_top_item: Option<&ItemRc>,
     ignore_delays: bool,
 ) -> VisitChildrenResult {
     let item = item_rc.borrow();
@@ -768,6 +800,7 @@ fn send_mouse_event_to_item(
                     ItemRc::new(component.clone(), index),
                     window_adapter,
                     result,
+                    last_top_item,
                     ignore_delays,
                 )
             };
@@ -787,6 +820,9 @@ fn send_mouse_event_to_item(
     } else {
         let mut event = mouse_event;
         event.translate(-geom.origin.to_vector());
+        if last_top_item.map_or(true, |x| *x != item_rc) {
+            event.set_click_count(0);
+        }
         item.as_ref().input_event(event, window_adapter, &item_rc)
     };
     match r {
