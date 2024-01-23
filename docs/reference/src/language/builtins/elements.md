@@ -752,12 +752,12 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 ### Callbacks
 
--   **`clicked()`**: Invoked when clicked: The mouse is pressed, then released on this element.
--   **`double-clicked()`**: Invoked when double-clicked. The mouse is pressed and released twice on this element in a short
-    period of time. The `clicked()` callbacks will be triggered before the `double-clicked()` callback is triggered.
--   **`moved()`**: The mouse has been moved. This will only be called if the mouse is also pressed.
-    See also **pointer-event(PointerEvent)**.
--   **`pointer-event(PointerEvent)`**: Invoked when a button was pressed or released or the pointer moved.
+-   **`clicked()`**: Invoked when clicked: A finger or the left mouse button is pressed, then released on this element.
+-   **`double-clicked()`**: Invoked when double-clicked. The left mouse button is pressed and released twice on this element in a short
+    period of time, or the same is done with a finger. The `clicked()` callbacks will be triggered before the `double-clicked()` callback is triggered.
+-   **`moved()`**: The mouse or finger has been moved. This will only be called if the mouse is also pressed or the finger continues to touch
+    the display. See also **pointer-event(PointerEvent)**.
+-   **`pointer-event(PointerEvent)`**: Invoked when a button was pressed or released, a finger touched, or the pointer moved.
     The [_`PointerEvent`_](structs.md#pointerevent) argument contains information such which button was pressed
     and any active keyboard modifiers.
     In the [_`PointerEventKind::Move`_](structs.md#pointereventkind) case the `buttons` field will always
