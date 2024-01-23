@@ -46,18 +46,6 @@ pub extern "C" fn slint_send_mouse_click(
     window_adapter.window().dispatch_event(WindowEvent::PointerReleased { position, button });
 }
 
-/// Simulate a click on a position within the component.
-#[no_mangle]
-pub extern "C" fn slint_send_mouse_double_click(
-    x: f32,
-    y: f32,
-    window_adapter: &crate::window::WindowAdapterRc,
-) {
-    slint_send_mouse_click(x, y, window_adapter);
-    slint_mock_elapsed_time(50);
-    slint_send_mouse_click(x, y, window_adapter);
-}
-
 /// Simulate a character input event (pressed or released).
 #[no_mangle]
 pub extern "C" fn slint_send_keyboard_char(

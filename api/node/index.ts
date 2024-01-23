@@ -977,14 +977,6 @@ export namespace private_api {
         component.component_instance.sendMouseClick(x, y);
     }
 
-    export function send_mouse_double_click(
-        component: Component,
-        x: number,
-        y: number
-    ) {
-        component.component_instance.sendMouseDoubleClick(x, y);
-    }
-
     export function send_keyboard_string_sequence(
         component: Component,
         s: string

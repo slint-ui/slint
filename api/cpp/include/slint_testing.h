@@ -30,12 +30,6 @@ inline void send_mouse_click(const Component *component, float x, float y)
 }
 
 template<typename Component>
-inline void send_mouse_double_click(const Component *component, float x, float y)
-{
-    cbindgen_private::slint_send_mouse_double_click(x, y, &component->window().window_handle());
-}
-
-template<typename Component>
 inline void send_keyboard_char(const Component *component, const slint::SharedString &str,
                                bool pressed)
 {
