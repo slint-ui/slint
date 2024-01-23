@@ -204,6 +204,8 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
             .set(crate::SlintContext { platform, window_count: 0.into() })
             .map_err(|_| SetPlatformError::AlreadySet)
             .unwrap();
+        // Ensure a sane starting point for the animation tick.
+        update_timers_and_animations();
         Ok(())
     })
 }
@@ -357,3 +359,29 @@ impl WindowEvent {
         }
     }
 }
+
+/**
+ * Test the animation tick is updated when a platform is set
+```rust
+use i_slint_core::platform::*;
+struct DummyBackend;
+impl Platform for DummyBackend {
+     fn create_window_adapter(
+        &self,
+    ) -> Result<std::rc::Rc<dyn WindowAdapter>, PlatformError> {
+        Err(PlatformError::Other("not implemented".into()))
+    }
+    fn duration_since_start(&self) -> core::time::Duration {
+        core::time::Duration::from_millis(100)
+    }
+}
+
+let start_time = i_slint_core::tests::slint_get_mocked_time();
+i_slint_core::platform::set_platform(Box::new(DummyBackend{}));
+let time_after_platform_init = i_slint_core::tests::slint_get_mocked_time();
+assert_ne!(time_after_platform_init, start_time);
+assert_eq!(time_after_platform_init, 100);
+```
+ */
+#[cfg(doctest)]
+const _ANIM_TICK_UPDATED_ON_PLATFORM_SET: () = ();
