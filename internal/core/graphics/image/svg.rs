@@ -83,11 +83,9 @@ fn with_svg_options<T>(callback: impl FnOnce(&usvg::Options) -> T) -> T {
 }
 
 fn fixup_text(mut tree: usvg::Tree) -> usvg::Tree {
-    if tree.has_text_nodes() {
-        i_slint_common::sharedfontdb::FONT_DB.with(|db| {
-            tree.postprocess(Default::default(), &db.borrow());
-        })
-    }
+    i_slint_common::sharedfontdb::FONT_DB.with(|db| {
+        tree.postprocess(Default::default(), &db.borrow());
+    });
     tree
 }
 

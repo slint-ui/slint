@@ -25,7 +25,7 @@ fontdb = { workspace = true, optional = true }
 derive_more = { version = "0.99.5", optional = true }
 cfg-if = { version = "1", optional = true }
 
-[target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
+[target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32", target_os = "android")))'.dependencies]
 libloading = { version = "0.8.0", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
