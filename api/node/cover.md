@@ -205,3 +205,32 @@ component.model = component.model.concat(4);
 ```
 
 Another option is to set an object that implements the {@link Model} interface. Rreading a Slint array property from JavaScript that was previously initialised from a {@link Model} object, will return a reference to the model.
+
+### Globals
+
+You can declare [globally available singletons](../slint/src/language/syntax/globals) in your
+`.slint` files. If exported, these singletons are accessible as properties on your main
+componen instance. Each global singleton is represented by an object with properties and callbacks,
+similar to API that's created for your `.slint` component.
+
+For example the following `.slint` markup defines a global `Logic` singleton that's also exported:
+
+```
+export global Logic {
+    callback to_uppercase(string) -> string;
+}
+```
+
+Assuming this global is used together with the `MyComponent` from the
+previous section, you can access `Logic` like this:
+
+```js
+import * as slint from "slint-ui";
+
+let ui = slint.loadFile("ui/my-component.slint");
+let component = new ui.MyComponent();
+
+component.Logic.to_upper_case = (str) => {
+    return str.toUpperCase();
+};
+```
