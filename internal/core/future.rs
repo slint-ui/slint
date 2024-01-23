@@ -125,22 +125,54 @@ impl<T> JoinHandle<T> {
 // Safety: JoinHandle doesn't access the future, only the
 unsafe impl<T: Send> Send for JoinHandle<T> {}
 
-/// Spawn a Future to run in the Slint event loop
+/// Spawns a Future to execute in the Slint event loop.
 ///
-/// Since the future isn't sent, this function must only be run on the main Slint thread that runs the event loop.
-/// And the event loop must have been initialized to be able to call this function.
-/// If you have a `Sent` future that you want to spawn form an other thread, call this function from a closure to
-/// to [`invoke_from_event_loop`]
+/// This function is intended to be invoked only from the main Slint thread that executes the event loop.
+/// The event loop must be initialized prior to calling this function.
+///
+/// For spawning a `Send` future from a different thread, this function should be called from a closure
+/// passed to [`invoke_from_event_loop()`].
+///
+/// This function is typically called from a UI callback.
 ///
 /// # Example
 ///
 /// ```rust,no_run
 /// slint::spawn_local(async move {
-///     // code here that can await
+///     // your async code goes here
 /// }).unwrap();
 /// ```
+///
+/// # Compatibility with Tokio and other runtimes
+///
+/// The runtime used to execute the future on the main thread is platform-dependent,
+/// for instance, it could be the winit event loop. Therefore, futures that assume a specific runtime
+/// may not work. To overcome this, these futures should be executed in a thread where the specific
+/// runtime is running.
+///
+/// For Tokio, this can be achieved using [tokio::spawn](https://docs.rs/tokio/latest/tokio/task/fn.spawn.html)
+/// which can be awaited in the future passed to slint::spawn_local.
+///
+/// ```rust
+/// # i_slint_backend_testing::init_with_event_loop();
+/// // In your main function, create a runtime that runs on the other threads
+/// let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
+///
+/// // ...
+/// // Within the UI thread (for example in a callback handler)
+/// slint::spawn_local(async move {
+///     let result = tokio_runtime.spawn(async move {
+///         // This code is running on the Tokio runtime's thread, you can await futures that depends on Tokio here.
+///         42
+///     }).await.unwrap();
+///     // now we are back on the UI thread so we can do something with the result on the UI thread
+///     assert_eq!(result, 42);
+///     # slint::quit_event_loop();
+/// }).unwrap();
+/// # slint::run_event_loop().unwrap();
+/// ```
 pub fn spawn_local<F: Future + 'static>(fut: F) -> Result<JoinHandle<F::Output>, EventLoopError> {
-    // make sure we are in the backend's thread
+    // ensure we are in the backend's thread
     if crate::GLOBAL_CONTEXT.with(|p| p.get().is_none()) {
         return Err(EventLoopError::NoEventLoopProvider);
     }

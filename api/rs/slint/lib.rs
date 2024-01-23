@@ -165,6 +165,8 @@ thread to avoid blocking animations. Use the [`invoke_from_event_loop`] function
 
 To run a function with a delay or with an interval use a [`Timer`].
 
+To run an async function or a future, use [`spawn_local()`]
+
 ## Exported Global singletons
 
 */
