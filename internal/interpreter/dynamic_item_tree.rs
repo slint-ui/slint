@@ -68,6 +68,8 @@ impl<'id> ItemTreeBox<'id> {
     }
 }
 
+type ErasedItemTreeBoxWeak = vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>;
+
 pub(crate) struct ItemWithinItemTree {
     offset: usize,
     pub(crate) rtti: Rc<ItemRTTI>,
@@ -264,7 +266,7 @@ pub type DynamicComponentVRc = vtable::VRc<ItemTreeVTable, ErasedItemTreeBox>;
 #[derive(Default)]
 pub(crate) struct ComponentExtraData {
     pub(crate) globals: OnceCell<crate::global_component::GlobalStorage>,
-    pub(crate) self_weak: OnceCell<vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>>,
+    pub(crate) self_weak: OnceCell<ErasedItemTreeBoxWeak>,
     pub(crate) embedding_position: OnceCell<(ItemTreeWeak, u32)>,
     // resource id -> file path
     pub(crate) embedded_file_resources: OnceCell<HashMap<usize, String>>,
@@ -360,9 +362,8 @@ pub struct ItemTreeDescription<'id> {
     pub repeater_names: HashMap<String, usize>,
     /// Offset to a Option<ComponentPinRef>
     pub(crate) parent_item_tree_offset:
-        Option<FieldOffset<Instance<'id>, OnceCell<ItemTreeRefPin<'id>>>>,
-    pub(crate) root_offset:
-        FieldOffset<Instance<'id>, OnceCell<vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>>>,
+        Option<FieldOffset<Instance<'id>, OnceCell<ErasedItemTreeBoxWeak>>>,
+    pub(crate) root_offset: FieldOffset<Instance<'id>, OnceCell<ErasedItemTreeBoxWeak>>,
     /// Offset to the window reference
     pub(crate) window_adapter_offset: FieldOffset<Instance<'id>, OnceCell<WindowAdapterRc>>,
     /// Offset of a ComponentExtraData
@@ -697,7 +698,7 @@ fn ensure_repeater_updated<'id>(
     let init = || {
         let instance = instantiate(
             rep_in_comp.item_tree_to_repeat.clone(),
-            Some(instance_ref.borrow()),
+            instance_ref.self_weak().get().cloned(),
             None,
             None,
             Default::default(),
@@ -1087,15 +1088,13 @@ pub(crate) fn generate_item_tree<'id>(
         );
     }
 
-    let parent_component_offset = if component.parent_element.upgrade().is_some() {
-        Some(builder.type_builder.add_field_type::<OnceCell<ItemTreeRefPin>>())
+    let parent_item_tree_offset = if component.parent_element.upgrade().is_some() {
+        Some(builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>())
     } else {
         None
     };
 
-    let root_offset = builder
-        .type_builder
-        .add_field_type::<OnceCell<vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>>>();
+    let root_offset = builder.type_builder.add_field_type::<OnceCell<ErasedItemTreeBoxWeak>>();
 
     let window_adapter_offset = builder.type_builder.add_field_type::<OnceCell<WindowAdapterRc>>();
 
@@ -1161,7 +1160,7 @@ pub(crate) fn generate_item_tree<'id>(
         original_elements: builder.original_elements,
         repeater: builder.repeater,
         repeater_names: builder.repeater_names,
-        parent_item_tree_offset: parent_component_offset,
+        parent_item_tree_offset,
         root_offset,
         window_adapter_offset,
         extra_data_offset,
@@ -1231,7 +1230,7 @@ pub fn animation_for_property(
 
 fn make_callback_eval_closure(
     expr: Expression,
-    self_weak: &vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>,
+    self_weak: &ErasedItemTreeBoxWeak,
 ) -> impl Fn(&[Value]) -> Value {
     let self_weak = self_weak.clone();
     move |args| {
@@ -1247,7 +1246,7 @@ fn make_callback_eval_closure(
 
 fn make_binding_eval_closure(
     expr: Expression,
-    self_weak: &vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>,
+    self_weak: &ErasedItemTreeBoxWeak,
 ) -> impl Fn() -> Value {
     let self_weak = self_weak.clone();
     move || {
@@ -1264,8 +1263,8 @@ fn make_binding_eval_closure(
 
 pub fn instantiate(
     description: Rc<ItemTreeDescription>,
-    parent_ctx: Option<ItemTreeRefPin>,
-    root: Option<vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>>,
+    parent_ctx: Option<ErasedItemTreeBoxWeak>,
+    root: Option<ErasedItemTreeBoxWeak>,
     window_options: Option<&WindowOptions>,
     mut globals: crate::global_component::GlobalStorage,
 ) -> DynamicComponentVRc {
@@ -1289,8 +1288,11 @@ pub fn instantiate(
             .embed_component(parent_item_tree, *parent_item_tree_index);
         description.root_offset.apply(instance_ref.as_ref()).set(self_weak.clone()).ok().unwrap();
     } else {
+        generativity::make_guard!(guard);
         let root = root
-            .or_else(|| instance_ref.parent_instance().map(|parent| parent.root_weak().clone()))
+            .or_else(|| {
+                instance_ref.parent_instance(guard).map(|parent| parent.root_weak().clone())
+            })
             .unwrap_or_else(|| self_weak.clone());
         description.root_offset.apply(instance_ref.as_ref()).set(root).ok().unwrap();
     }
@@ -1739,11 +1741,12 @@ unsafe extern "C" fn parent_node(component: ItemTreeRefPin, result: &mut ItemWea
                 .upgrade()
                 .and_then(|e| e.borrow().item_index.get().cloned())
                 .unwrap_or(u32::MAX);
-            let parent_component = parent_offset.apply(instance_ref.as_ref()).get().map(|prp| {
-                generativity::make_guard!(new_guard);
-                let instance = InstanceRef::from_pin_ref(*prp, new_guard);
-                instance.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap()
-            });
+            let parent_component = parent_offset
+                .apply(instance_ref.as_ref())
+                .get()
+                .and_then(|p| p.upgrade())
+                .map(vtable::VRc::into_dyn);
+
             (parent_component, parent_item_index)
         } else if let Some((parent_component, parent_index)) = instance_ref
             .description
@@ -1919,12 +1922,12 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         }
     }
 
-    pub fn self_weak(&self) -> &OnceCell<vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox>> {
+    pub fn self_weak(&self) -> &OnceCell<ErasedItemTreeBoxWeak> {
         let extra_data = self.description.extra_data_offset.apply(self.as_ref());
         &extra_data.self_weak
     }
 
-    pub fn root_weak(&self) -> &vtable::VWeak<ItemTreeVTable, ErasedItemTreeBox> {
+    pub fn root_weak(&self) -> &ErasedItemTreeBoxWeak {
         self.description.root_offset.apply(self.as_ref()).get().unwrap()
     }
 
@@ -2007,18 +2010,22 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         callback(WindowInner::from_pub(self.window_adapter().window()))
     }
 
-    pub fn parent_instance(&self) -> Option<InstanceRef<'a, 'id>> {
+    pub fn parent_instance<'id2>(
+        &self,
+        _guard: generativity::Guard<'id2>,
+    ) -> Option<InstanceRef<'a, 'id2>> {
+        // we need a 'static guard in order to be able to re-borrow with lifetime 'a.
+        // Safety: This is the only 'static Id in scope.
         if let Some(parent_offset) = self.description.parent_item_tree_offset {
-            if let Some(parent) = parent_offset.apply(self.as_ref()).get() {
+            if let Some(parent) =
+                parent_offset.apply(self.as_ref()).get().and_then(vtable::VWeak::upgrade)
+            {
+                let parent_instance = parent.unerase(_guard);
+                // And also assume that the parent lives for at least 'a.  FIXME: this may not be sound
                 let parent_instance = unsafe {
-                    Self {
-                        instance: Pin::new_unchecked(
-                            &*(parent.as_ref().as_ptr() as *const Instance<'id>),
-                        ),
-                        description: &*(Pin::into_inner_unchecked(*parent).get_vtable()
-                            as *const ItemTreeVTable
-                            as *const ItemTreeDescription<'id>),
-                    }
+                    std::mem::transmute::<InstanceRef<'_, 'id2>, InstanceRef<'a, 'id2>>(
+                        parent_instance.borrow_instance(),
+                    )
                 };
                 return Some(parent_instance);
             };
@@ -2026,11 +2033,19 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         None
     }
 
-    pub fn toplevel_instance(&self) -> InstanceRef<'a, 'id> {
-        if let Some(parent) = self.parent_instance() {
-            parent.toplevel_instance()
+    pub fn toplevel_instance<'id2>(
+        &self,
+        guard: generativity::Guard<'id2>,
+    ) -> InstanceRef<'a, 'id2> {
+        generativity::make_guard!(guard2);
+        if let Some(parent) = self.parent_instance(guard2) {
+            let tl = parent.toplevel_instance(guard);
+            // assuming that the parent lives at least for lifetime 'a.
+            // FIXME: this may not be sound
+            unsafe { std::mem::transmute::<InstanceRef<'_, 'id2>, InstanceRef<'a, 'id2>>(tl) }
         } else {
-            *self
+            // Safety: casting from an id to a new id is valid
+            unsafe { std::mem::transmute::<InstanceRef<'a, 'id>, InstanceRef<'a, 'id2>>(*self) }
         }
     }
 }
@@ -2040,7 +2055,7 @@ pub fn show_popup(
     popup: &object_tree::PopupWindow,
     pos: i_slint_core::graphics::Point,
     close_on_click: bool,
-    parent_comp: ItemTreeRefPin,
+    parent_comp: ErasedItemTreeBoxWeak,
     parent_window_adapter: WindowAdapterRc,
     parent_item: &ItemRc,
 ) {

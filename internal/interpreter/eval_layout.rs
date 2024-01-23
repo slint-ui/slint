@@ -201,7 +201,7 @@ fn box_layout_data(
             rep.0.as_ref().ensure_updated(|| {
                 let instance = crate::dynamic_item_tree::instantiate(
                     rep.1.clone(),
-                    Some(component.borrow()),
+                    component.self_weak().get().cloned(),
                     None,
                     None,
                     Default::default(),
