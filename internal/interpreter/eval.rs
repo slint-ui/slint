@@ -280,8 +280,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     corelib::graphics::Image::load_from_path(std::path::Path::new(path))
                 }
                 i_slint_compiler::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                    let toplevel_instance = match local_context.component_instance {
-                        ComponentInstance::InstanceRef(instance) => instance.toplevel_instance(),
+                    generativity::make_guard!(guard);
+                    let toplevel_instance = match &local_context.component_instance {
+                        ComponentInstance::InstanceRef(instance) => instance.toplevel_instance(guard),
                         ComponentInstance::GlobalComponent(_) => unimplemented!(),
                     };
                     let extra_data = toplevel_instance.description.extra_data_offset.apply(toplevel_instance.as_ref());
@@ -589,7 +590,7 @@ fn call_builtin_function(
                         y.try_into().unwrap(),
                     ),
                     popup.close_on_click,
-                    component.borrow(),
+                    component.self_weak().get().unwrap().clone(),
                     component.window_adapter(),
                     &parent_item,
                 );
@@ -1353,32 +1354,6 @@ pub(crate) fn call_function(
     }
 }
 
-fn root_component_instance<'a, 'old_id, 'new_id>(
-    component: InstanceRef<'a, 'old_id>,
-    _guard: generativity::Guard<'new_id>,
-) -> InstanceRef<'a, 'new_id> {
-    if let Some(parent_offset) = component.description.parent_item_tree_offset {
-        let parent_component =
-            if let Some(parent) = parent_offset.apply(component.instance.get_ref()).get() {
-                *parent
-            } else {
-                panic!("invalid parent ptr");
-            };
-        // we need a 'static guard in order to be able to re-borrow with lifetime 'a.
-        // Safety: This is the only 'static Id in scope.
-        let static_guard = unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
-        root_component_instance(
-            unsafe { InstanceRef::from_pin_ref(parent_component, static_guard) },
-            _guard,
-        )
-    } else {
-        // Safety: new_id is an unique id
-        unsafe {
-            std::mem::transmute::<InstanceRef<'a, 'old_id>, InstanceRef<'a, 'new_id>>(component)
-        }
-    }
-}
-
 /// Return the component instance which hold the given element.
 /// Does not take in account the global component.
 pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
@@ -1394,18 +1369,12 @@ pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
         }
     } else {
         assert!(!enclosing.is_global());
-        let parent_component = component
-            .description
-            .parent_item_tree_offset
-            .unwrap()
-            .apply(component.as_ref())
-            .get()
-            .unwrap();
-        generativity::make_guard!(new_guard);
-        let parent_instance = unsafe { InstanceRef::from_pin_ref(*parent_component, new_guard) };
-        let parent_instance = unsafe {
-            core::mem::transmute::<InstanceRef, InstanceRef<'a, 'static>>(parent_instance)
-        };
+        // Safety: this is the only place we use this 'static lifetime in this function and nothing is returned with it
+        // For some reason we can't make a new guard here because the compiler thinks we are returning that
+        // (it assumes that the 'id must outlive 'a , which is not true)
+        let static_guard = unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
+
+        let parent_instance = component.parent_instance(static_guard).unwrap();
         enclosing_component_for_element(element, parent_instance, _guard)
     }
 }
@@ -1421,11 +1390,7 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'new_id>(
     match component_instance {
         ComponentInstance::InstanceRef(component) => {
             if enclosing.is_global() && !Rc::ptr_eq(enclosing, &component.description.original) {
-                // we need a 'static guard in order to be able to borrow from `root` otherwise it does not work because of variance.
-                // Safety: This is the only 'static Id in scope.
-                let static_guard =
-                    unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
-                let root = root_component_instance(component, static_guard);
+                let root = component.toplevel_instance(guard);
                 ComponentInstance::GlobalComponent(
                     &root
                         .description
