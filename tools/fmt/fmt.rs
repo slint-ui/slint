@@ -1147,7 +1147,6 @@ A := B {
 }
 "#,
         );
-        // FIXME: this doesn't format through the if_else parser
         assert_formatting(
             r#"A := B { c => { if !abc{nothing}else   if  true{if 0== 8 {}    } else{  } } } "#,
             r#"A := B {

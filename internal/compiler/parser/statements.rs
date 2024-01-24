@@ -24,7 +24,17 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
     }
     let checkpoint = p.checkpoint();
 
-    if p.peek().as_str() == "if" && p.nth(1).kind() == SyntaxKind::LParent {
+    if p.peek().as_str() == "if"
+        && !matches!(
+            p.nth(1).kind(),
+            SyntaxKind::Dot
+                | SyntaxKind::Comma
+                | SyntaxKind::Semicolon
+                | SyntaxKind::RBrace
+                | SyntaxKind::RBracket
+                | SyntaxKind::RParent
+        )
+    {
         let mut p = p.start_node(SyntaxKind::Expression);
         parse_if_statement(&mut *p);
         return true;
