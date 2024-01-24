@@ -58,6 +58,29 @@ impl WinitSkiaRenderer {
 
         Ok((Box::new(Self { renderer }), winit_window))
     }
+
+    pub fn new_opengl(
+        window_builder: winit::window::WindowBuilder,
+    ) -> Result<(Box<dyn super::WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError>
+    {
+        let winit_window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
+            window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
+                format!("Error creating native window for Skia rendering: {}", winit_os_error)
+                    .into()
+            })
+        })?);
+
+        let renderer = i_slint_renderer_skia::SkiaRenderer::default_opengl();
+
+        renderer.set_pre_present_callback(Some(Box::new({
+            let winit_window = winit_window.clone();
+            move || {
+                winit_window.pre_present_notify();
+            }
+        })));
+
+        Ok((Box::new(Self { renderer }), winit_window))
+    }
 }
 
 impl super::WinitCompatibleRenderer for WinitSkiaRenderer {

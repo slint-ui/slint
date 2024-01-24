@@ -43,7 +43,6 @@ pub mod d3d_surface;
 #[cfg(skia_backend_vulkan)]
 pub mod vulkan_surface;
 
-#[cfg(skia_backend_opengl)]
 pub mod opengl_surface;
 
 pub use skia_safe;
@@ -129,6 +128,24 @@ impl SkiaRenderer {
             surface: Default::default(),
             surface_factory: |window_handle, display_handle, size| {
                 software_surface::SoftwareSurface::new(window_handle, display_handle, size)
+                    .map(|r| Box::new(r) as Box<dyn Surface>)
+            },
+            pre_present_callback: Default::default(),
+        }
+    }
+
+    /// Creates a new SkiaRenderer that will always use Skia's OpenGL renderer.
+    pub fn default_opengl() -> Self {
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            image_cache: Default::default(),
+            path_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Default::default(),
+            surface: Default::default(),
+            surface_factory: |window_handle, display_handle, size| {
+                opengl_surface::OpenGLSurface::new(window_handle, display_handle, size)
                     .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),

@@ -15,6 +15,7 @@ The Winit backend supports different renderers. They can be explicitly selected 
 | FemtoVG       | OpenGL                                      | `winit-femtovg`                          |
 | Skia          | OpenGL, Metal, Direct3D, Software-rendering | `winit-skia`                             |
 | Skia Software | Software-only rendering with Skia           | `winit-skia-software`                    |
+| Skia OpenGL   | OpenGL rendering with Skia                  | `winit-skia-opengl`                      |
 | software      | Software-rendering, no GPU required         | `winit-software`                         |
 
 
