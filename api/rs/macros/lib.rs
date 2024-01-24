@@ -398,7 +398,7 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         .map(|p| quote! {const _ : &'static [u8] = ::core::include_bytes!(#p);});
 
     result.extend(reload);
-    result.extend(quote! {const _ : Option<&'static str> = ::core::option_env!("SLINT_STYLE");});
+    result.extend(quote! {const _ : ::core::option::Option<&'static str> = ::core::option_env!("SLINT_STYLE");});
 
     let mut result = TokenStream::from(result);
     if !diag.is_empty() {

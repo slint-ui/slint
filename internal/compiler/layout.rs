@@ -493,7 +493,7 @@ pub fn layout_info_type() -> Type {
                     .map(|s| (s.to_string(), Type::Float32)),
             )
             .collect(),
-        name: Some("LayoutInfo".into()),
+        name: Some("slint::private_api::LayoutInfo".into()),
         node: None,
         rust_attributes: None,
     }

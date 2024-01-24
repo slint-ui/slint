@@ -38,29 +38,17 @@
 /// \endrst
 namespace slint {
 
-// Bring opaque structure in scope
 namespace private_api {
-using cbindgen_private::ItemTreeVTable;
-using cbindgen_private::ItemVTable;
+// Bring opaque structure in scope
+using namespace cbindgen_private;
 using ItemTreeRef = vtable::VRef<private_api::ItemTreeVTable>;
 using IndexRange = cbindgen_private::IndexRange;
 using ItemRef = vtable::VRef<private_api::ItemVTable>;
 using ItemVisitorRefMut = vtable::VRefMut<cbindgen_private::ItemVisitorVTable>;
-using cbindgen_private::ItemTreeWeak;
-using cbindgen_private::ItemWeak;
-using cbindgen_private::TraversalOrder;
-}
-
-namespace private_api {
 using ItemTreeNode = cbindgen_private::ItemTreeNode;
 using ItemArrayEntry =
         vtable::VOffset<uint8_t, slint::cbindgen_private::ItemVTable, vtable::AllowPin>;
 using ItemArray = slint::cbindgen_private::Slice<ItemArrayEntry>;
-using cbindgen_private::KeyboardModifiers;
-using cbindgen_private::KeyEvent;
-using cbindgen_private::PointerEvent;
-using cbindgen_private::PointerScrollEvent;
-using cbindgen_private::TableColumn;
 
 constexpr inline ItemTreeNode make_item_node(uint32_t child_count, uint32_t child_index,
                                              uint32_t parent_index, uint32_t item_array_index,

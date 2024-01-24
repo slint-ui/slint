@@ -130,7 +130,7 @@ macro_rules! for_each_builtin_structs {
             /// This is used to define the column and the column header of a TableView
             #[non_exhaustive]
             struct TableColumn {
-                @name = "TableColumn"
+                @name = "slint::private_api::TableColumn"
                 export {
                     /// The title of the column header
                     title: SharedString,

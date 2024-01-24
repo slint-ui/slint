@@ -415,7 +415,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
     fn animation_ty() -> Type {
         Type::Struct {
             fields: animation_fields().collect(),
-            name: Some("PropertyAnimation".into()),
+            name: Some("slint::private_api::PropertyAnimation".into()),
             node: None,
             rust_attributes: None,
         }
@@ -560,7 +560,7 @@ fn solve_layout(
                     llr_Expression::ExtraBuiltinFunctionCall {
                         function: "solve_grid_layout".into(),
                         arguments: vec![make_struct(
-                            "GridLayoutData".into(),
+                            "GridLayoutData",
                             [
                                 ("size", Type::Float32, size),
                                 ("spacing", Type::Float32, spacing),
@@ -582,7 +582,7 @@ fn solve_layout(
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "solve_grid_layout".into(),
                     arguments: vec![make_struct(
-                        "GridLayoutData".into(),
+                        "GridLayoutData",
                         [
                             ("size", Type::Float32, size),
                             ("spacing", Type::Float32, spacing),
@@ -599,7 +599,7 @@ fn solve_layout(
             let bld = box_layout_data(layout, o, ctx);
             let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
             let data = make_struct(
-                "BoxLayoutData".into(),
+                "BoxLayoutData",
                 [
                     ("size", Type::Float32, size),
                     ("spacing", Type::Float32, spacing),
@@ -694,7 +694,7 @@ fn box_layout_data(
                     let layout_info =
                         get_layout_info(&li.element, ctx, &li.constraints, orientation);
                     make_struct(
-                        "BoxLayoutCellData".into(),
+                        "BoxLayoutCellData",
                         [("constraint", crate::layout::layout_info_type(), layout_info)],
                     )
                 })
@@ -717,7 +717,7 @@ fn box_layout_data(
                 let layout_info =
                     get_layout_info(&item.element, ctx, &item.constraints, orientation);
                 elements.push(Either::Left(make_struct(
-                    "BoxLayoutCellData".into(),
+                    "BoxLayoutCellData",
                     [("constraint", crate::layout::layout_info_type(), layout_info)],
                 )));
             }
@@ -746,7 +746,7 @@ fn grid_layout_cell_data(
                     get_layout_info(&c.item.element, ctx, &c.item.constraints, orientation);
 
                 make_struct(
-                    "GridLayoutCellData".into(),
+                    "GridLayoutCellData",
                     [
                         ("constraint", crate::layout::layout_info_type(), layout_info),
                         ("col_or_row", Type::Int32, llr_Expression::NumberLiteral(col_or_row as _)),
@@ -976,7 +976,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
 }
 
 fn make_struct(
-    name: String,
+    name: &str,
     it: impl IntoIterator<Item = (&'static str, Type, llr_Expression)>,
 ) -> llr_Expression {
     let mut fields = BTreeMap::<String, Type>::new();
@@ -987,7 +987,12 @@ fn make_struct(
     }
 
     llr_Expression::Struct {
-        ty: Type::Struct { fields, name: Some(name), node: None, rust_attributes: None },
+        ty: Type::Struct {
+            fields,
+            name: Some(format!("slint::private_api::{name}")),
+            node: None,
+            rust_attributes: None,
+        },
         values,
     }
 }
