@@ -21,7 +21,7 @@ path = "lib.rs"
 [features]
 wayland = ["glutin/wayland", "softbuffer/wayland", "softbuffer/wayland-dlopen"]
 x11 = ["glutin/x11", "glutin/glx", "softbuffer/x11", "softbuffer/x11-dlopen"]
-opengl = ["skia-safe/gl"]
+opengl = []
 vulkan = ["skia-safe/vulkan", "ash", "vulkano"]
 kms = ["softbuffer/kms"]
 default = []
@@ -42,7 +42,7 @@ pin-weak = "1"
 scoped-tls-hkt = "0.1"
 raw-window-handle = { version = "0.5", features = ["std"] }
 
-skia-safe = { version = "0.69.0", features = ["textlayout"] }
+skia-safe = { version = "0.69.0", features = ["textlayout", "gl"] }
 glow = { version = "0.13" }
 unicode-segmentation = { version = "1.8.0" }
 
