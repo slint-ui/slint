@@ -16,6 +16,7 @@ export component SliderBase {
     out property <bool> has-focus <=> focus-scope.has-focus;
     out property <bool> handle-has-hover: touch-area.mouse-x >= root.handle-x && touch-area.mouse-x <= root.handle-x + root.handle-width &&
         touch-area.mouse-y >= root.handle-y && touch-area.mouse-y <= root.handle-y + root.handle-height;
+    out property <bool> handle-pressed;
     in-out property <float> value: 0;
 
     callback changed(/* value */ float);
@@ -31,9 +32,15 @@ export component SliderBase {
         height: 100%;
 
         pointer-event(event) => {
-            if (event.button != PointerEventButton.left || event.kind != PointerEventKind.down) {
+            if (event.button != PointerEventButton.left) {
                 return;
             }
+
+            if (event.kind == PointerEventKind.up) {
+                root.handle-pressed = false;
+                return;
+            }
+
 
             if (!root.handle-has-hover) {
                 root.set-value((!root.vertical ? root.size-to-value(touch-area.mouse-x, root.width) :
@@ -41,6 +48,7 @@ export component SliderBase {
             } 
      
             self.pressed-value = value;
+            root.handle-pressed = true;        
         }
 
         moved => {

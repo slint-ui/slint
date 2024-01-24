@@ -33,11 +33,11 @@ export component Slider {
             i-background.background: MaterialPalette.control-foreground;
             root.opacity: 0.38;
         }
-        pressed when (i-base.pressed && i-base.handle-has-hover) || i-base.has-focus : {
+        pressed when i-base.handle-pressed || i-base.has-focus : {
             i-state-layer.opacity: 0.12;
             i-handle.drop-shadow-blur: Elevation.level0;
         }
-        hover when i-base.handle-has-hover : {
+        hover when i-base.has-hover : {
             i-state-layer.background: MaterialPalette.control-foreground;
             i-state-layer.opacity: 0.08;
         }
