@@ -222,12 +222,13 @@ cargo run --release --bin slint-viewer -- examples/printerdemo/ui/printerdemo.sl
 
 ## Generating the Documentation
 
-The Slint documentation consists of four parts:
+The Slint documentation consists of five parts:
 
-- The Slint tutorials
-- The Slint Rust DSL documentation
-- The Slint C++ API documentation
-- The Slint Node.js API documentation
+- The tutorials
+- The Rust API documentation
+- The C++ API documentation
+- The Node.js API documentation
+- The DSL documentation
 
 ### Prerequisites
 
@@ -238,7 +239,7 @@ The Slint documentation consists of four parts:
 
 ### Tutorials
 
-There are three tutorials, one for each of the three languages supported by Slint.
+There are three tutorials built with mdbook, one for each of the three languages supported by Slint.
 
 #### Rust tutorial
 
@@ -258,28 +259,35 @@ mdbook build docs/tutorial/cpp
 mdbook build docs/tutorial/node
 ```
 
-### Slint DSL (Rust) docs
+### Slint DSL docs
 
-
-Use the following command line to build the documentation for the different crates using `rustdoc` to the `target/slintdocs/html` folder:
+Use the following command line to build the documentation for the Slint DSL using `rustdoc` to the `target/slintdocs/html` folder:
 
 ```shell
 cargo xtask slintdocs --show-warnings
 ```
 
-By default, the language documentation has snippets in the slint language injected into the HTML at build time with the `--html-in-header` flag.
+By default, the language documentation has snippets in the Slint language injected into the HTML at build time with the `--html-in-header` flag.
 
-### C++
+### Rust API docs
 
-Run the following command to invoke doxygen and related tools and generate the documentation in the `target/cppdocs` sub-folder:
+Run the following command to generate the documentation using rustdoc in the `target/doc/` sub-folder:
+
+```sh
+RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/slint-docs-preview.html --html-in-header=$PWD/docs/resources/slint-docs-highlight.html" cargo doc --no-deps --features slint/document-features,slint/log
+```
+
+### C++ API docs
+
+Run the following command to generate the documentation using sphinx/exhale/breathe/doxygen/myst_parser in the `target/cppdocs` sub-folder:
 
 ```sh
 cargo xtask cppdocs
 ```
 
-### Node.js
+### Node.js API docs
 
-Run the following commands from the `/api/node` sub-folder to generate the docs in the `/api/node/docs` sub-folder:
+Run the following commands from the `/api/node` sub-folder to generate the docs using [typedoc](https://typedoc.org/) in the `/api/node/docs` sub-folder:
 
 ```sh
 npm install
