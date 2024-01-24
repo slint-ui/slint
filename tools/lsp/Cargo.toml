@@ -82,6 +82,7 @@ default = ["backend-qt", "backend-winit", "renderer-femtovg", "preview"]
 i-slint-compiler = { workspace = true, features = ["default"] }
 
 euclid = "0.22"
+itertools = { workspace = true }
 lsp-types = { version = "0.95.0", features = ["proposed"] }
 rowan = "0.15.5"
 serde = "1.0.118"
