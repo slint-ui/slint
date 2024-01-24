@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+// FIXME: Skip embedding test on C++ and NodeJS since ComponentFactory is not implemented there!
+//ignore: cpp,js
+
+export component TestCase {
+    HorizontalLayout {
+        cont := ComponentContainer { }
+    }
+    in property<component-factory> component-factory <=> cont.component-factory;
+    out property<length> pref-height: root.preferred-height;
+}
+
+/*
+
+
+
+```rust
+
+// Test that it doesn't panic when we have some focus things in the init callback
+use slint::ComponentHandle;
+let inner_instance = std::rc::Rc::<core::cell::RefCell<Option<slint_interpreter::ComponentInstance>>>::default();
+let inner_instance_clone = inner_instance.clone();
+let factory = slint::ComponentFactory::new(move |ctx| {
+    let mut compiler = slint_interpreter::ComponentCompiler::new();
+    let e = spin_on::spin_on(compiler.build_from_source(
+        r#"export component Inner {
+                preferred-height: 42px;
+                forward-focus: b;
+                b := TextInput {
+                    text: "Hello 🌍";
+                }
+                init => {
+                    b.focus();
+                    b.select_all();
+                    b.set-selection-offsets(2, 2);
+                }
+                out property cursor <=> b.cursor_position_byte_offset ;
+            }"#.into(),
+        std::path::PathBuf::from("embedded.slint"),
+     )).unwrap_or_else(|| panic!("compile error {:?}", compiler.diagnostics()));
+
+    let inner = e.create_embedded(ctx).unwrap();
+    inner_instance_clone.replace(Some(inner.clone_strong()));
+    Some(inner)
+});
+
+let instance = TestCase::new().unwrap();
+instance.set_component_factory(factory.clone());
+assert_eq!(instance.get_pref_height(), 42.);
+let cursor = inner_instance.borrow().as_ref().expect("should have been created").get_property("cursor").unwrap();
+assert_eq!(cursor, slint_interpreter::Value::from(2.));
+```
+
+
+*/

@@ -911,7 +911,7 @@ impl TextInput {
     }
 
     fn update_ime(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
-        if self.read_only() {
+        if self.read_only() || !self.has_focus() {
             return;
         }
         if let Some(w) = window_adapter.internal(crate::InternalToken) {
