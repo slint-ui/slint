@@ -45,6 +45,17 @@ export Xxx := Rectangle {
 
         comp.f3();
 //           ^error{The function 'f3' is protected}
+
+        notexist();
+//      ^error{Unknown unqualified identifier 'notexist'}
+        comp.notexist(56, foo("fff"));
+//           ^error{Element 'Comp' does not have a property 'notexist'}
+//                            ^^error{Cannot convert string to int}
+        45()()();
+//      ^error{The expression is not a function}
+        (foo)(1);
+//       ^error{'foo' must be called. Did you forgot the '\(\)'}
+
     }
 
     callback xx <=> foo;
