@@ -6,36 +6,41 @@ export component SliderBase {
     in property <float> minimum: 0;
     in property <float> maximum: 100;
     in property <Orientation> orientation;
-    in property <length> ref-width;
+    in property <length> handle-x;
+    in property <length> handle-y;
+    in property <length> handle-width;
+    in property <length> handle-height;
     out property <bool> pressed <=> touch-area.enabled;
     out property <bool> has-hover <=> touch-area.has-hover;
     out property <bool> vertical: root.orientation == Orientation.vertical;
     out property <bool> has-focus <=> focus-scope.has-focus;
+    out property <bool> handle-has-hover: touch-area.mouse-x >= root.handle-x && touch-area.mouse-x <= root.handle-x + root.handle-width &&
+        touch-area.mouse-y >= root.handle-y && touch-area.mouse-y <= root.handle-y + root.handle-height;
     in-out property <float> value: 0;
 
     callback changed(/* value */ float);
+
+    private property <length> ref-size: !root.vertical ? root.handle-width : root.handle-height;
 
     forward-focus: focus-scope;
 
     touch-area := TouchArea {
         property <float> pressed-value;
-        property <bool> pointer-moved;
 
         width: 100%;
         height: 100%;
 
         pointer-event(event) => {
-            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                self.pressed-value = root.value;
-                self.pointer-moved = false;
+            if (event.button != PointerEventButton.left || event.kind != PointerEventKind.down) {
                 return;
             }
 
-            if (!self.pointer-moved && event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
-                 root.set-value((!root.vertical ? root.size-to-value(touch-area.mouse-x, root.width) :
+            if (!root.handle-has-hover) {
+                root.set-value((!root.vertical ? root.size-to-value(touch-area.mouse-x, root.width) :
                     root.size-to-value(touch-area.mouse-y, root.height)) + root.minimum);
-                self.pointer-moved = false;
-            }
+            } 
+     
+            self.pressed-value = value;
         }
 
         moved => {
@@ -43,10 +48,8 @@ export component SliderBase {
                 return;
             }
 
-            self.pointer-moved = true;
-
-            root.set-value(self.pressed-value + (!vertical ? root.size-to-value(touch-area.mouse-x - touch-area.pressed-x, root.width - root.ref-width) :
-                root.size-to-value(touch-area.mouse-y - touch-area.pressed-y, root.height - root.ref-width))
+            root.set-value(self.pressed-value + (!vertical ? root.size-to-value(touch-area.mouse-x - touch-area.pressed-x, root.width - root.ref-size) :
+                root.size-to-value(touch-area.mouse-y - touch-area.pressed-y, root.height - root.ref-size))
             );
         }
     }
@@ -75,7 +78,7 @@ export component SliderBase {
         }
     }
 
-    function size-to-value(size: length, range: length) -> float {
+    pure function size-to-value(size: length, range: length) -> float {
         size * (root.maximum - root.minimum) / range;
     }
 

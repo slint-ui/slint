@@ -31,12 +31,12 @@ export component Slider {
             i-rail.background: FluentPalette.accent-disabled;
             i-thumb-inner.background: FluentPalette.accent-disabled;
         }
-        pressed when ( i-base.pressed &&  i-base.has-hover) || i-base.has-focus : {
+        pressed when (i-base.pressed && i-base.handle-has-hover) || i-base.has-focus : {
             i-thumb-inner.width: 10px;
             i-thumb-inner.background: FluentPalette.tertiary-accent-background;
             i-thumb.border-color: FluentPalette.border;
         }
-        hover when i-base.has-hover : {
+        hover when i-base.handle-has-hover : {
             i-thumb-inner.width: 14px;
             i-thumb-inner.background: FluentPalette.secondary-accent-background;
         }
@@ -89,6 +89,9 @@ export component Slider {
     i-base := SliderBase {
         width: 100%;
         height: 100%;
-        ref-width: i-thumb.width;
+        handle-x: i-thumb.x;
+        handle-y: i-thumb.y;
+        handle-width: i-thumb.width;
+        handle-height: i-thumb.height;
     }
 }
