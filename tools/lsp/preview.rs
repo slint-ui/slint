@@ -390,7 +390,7 @@ pub fn reset_selections(ui: &ui::PreviewUi) {
 
 pub fn set_selections(
     ui: Option<&ui::PreviewUi>,
-    element_position: Option<(&ElementRc, LogicalRect, usize)>,
+    element_position: Option<(&ElementRc, LogicalRect)>,
     positions: ComponentPositions,
 ) {
     let Some(ui) = ui else {
@@ -402,7 +402,7 @@ pub fn set_selections(
             positions.geometries.len() + if element_position.is_some() { 1 } else { 0 },
         );
 
-        if let Some((e, primary_position, _)) = element_position.as_ref() {
+        if let Some((e, primary_position)) = element_position.as_ref() {
             let border_color = if e.borrow().layout.is_some() {
                 i_slint_core::Color::from_argb_encoded(0xffff0000)
             } else {

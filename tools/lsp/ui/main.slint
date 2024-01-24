@@ -25,8 +25,8 @@ export component PreviewUi inherits Window {
 
     callback can-drop(/* component_type */ string, /* x */ length, /* y */ length) -> bool;
     callback drop(/* component_type */ string, /* x */ length, /* y */ length);
-    callback select-at(/* x */ length, /* y */ length);
-    callback select-behind(/* x */ length, /* y */ length, /* stay_in_file* */ bool, /* reverse */ bool);
+    callback select-at(/* x */ length, /* y */ length, /* enter_component? */ bool);
+    callback select-behind(/* x */ length, /* y */ length, /* enter_component* */ bool, /* reverse */ bool);
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
     callback style-changed();
     callback unselect();
@@ -108,7 +108,7 @@ export component PreviewUi inherits Window {
                     preview-area <=> root.preview-area;
                     selections <=> root.selections;
 
-                    select-at(x, y) => { root.select-at(x, y); }
+                    select-at(x, y, enter_component) => { root.select-at(x, y, enter_component); }
                     select-behind(x, y, stay_in_file, reverse) => { root.select-behind(x, y, stay_in_file, reverse); }
                     show-document(url, line, column) => { root.show-document(url, line, column); }
                     unselect() => { root.unselect(); }

@@ -35,8 +35,8 @@ export component DrawArea {
     out property <length> preview-area-width: preview-visible ? i-preview-area-container.width : 0px;
     out property <length> preview-area-height: preview-visible ? i-preview-area-container.height : 0px;
 
-    callback select-at(/* x */ length, /* y */ length);
-    callback select-behind(/* x */ length, /* y */ length, /* stay_in_file? */ bool, /* reverse */ bool);
+    callback select-at(/* x */ length, /* y */ length, /* enter_component? */ bool);
+    callback select-behind(/* x */ length, /* y */ length, /* enter_component? */ bool, /* reverse */ bool);
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
     callback unselect();
 
@@ -122,7 +122,7 @@ export component DrawArea {
                             if (self.selection-kind == SelectionKind.select_up_or_down) {
                                 root.select_behind(self.selection-x, self.selection-y, event.modifiers.control, event.modifiers.shift);
                             } else if (self.selection-kind == SelectionKind.select-at) {
-                                root.select-at(self.selection-x, self.selection-y);
+                                root.select-at(self.selection-x, self.selection-y, event.modifiers.control);
                             }
                         }
                         self.selection-kind = SelectionKind.none;
