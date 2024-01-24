@@ -32,6 +32,7 @@ All notable changes to this project are documented in this file.
  - Fixed property wrongly considered as const if it is modified through an alias (#4241)
  - Added `Palette` global singleton
  - Added `Cosmic` style.
+ - Improved Slider drag and click behaviour
 
 ### C++
 
