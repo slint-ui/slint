@@ -68,9 +68,7 @@ fn parse_if_statement(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::ConditionalExpression);
     debug_assert_eq!(p.peek().as_str(), "if");
     p.expect(SyntaxKind::Identifier);
-    p.expect(SyntaxKind::LParent);
     parse_expression(&mut *p);
-    p.expect(SyntaxKind::RParent);
     {
         let mut p = p.start_node(SyntaxKind::Expression);
         parse_code_block(&mut *p);
