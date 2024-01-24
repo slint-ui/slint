@@ -891,6 +891,10 @@ impl Expression {
                         .collect()
                 }
             }
+            Type::Invalid => {
+                debug_assert!(ctx.diag.has_error());
+                arguments.into_iter().map(|x| x.0).collect()
+            }
             _ => {
                 ctx.diag.push_error("The expression is not a function".into(), &node);
                 arguments.into_iter().map(|x| x.0).collect()
