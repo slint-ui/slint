@@ -141,6 +141,7 @@ cfg_aliases = { version = "0.2.0" }
 [profile.release]
 lto = true
 panic = "abort"
+strip = "debuginfo"
 
 [profile.dev]
 panic = "abort"
