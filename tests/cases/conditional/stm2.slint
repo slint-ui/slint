@@ -1,0 +1,98 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+TestCase := Rectangle {
+    property<int> value;
+    property<int> result : 3;
+    callback action;
+    action => {
+        if value == 5 {
+            result += 1;
+            result += 1;
+        }
+
+        if value != 8 {
+
+        } else {
+            result += 33;
+        }
+    }
+
+    callback xxx;
+    xxx => {
+        if false {
+            action();
+        }
+
+        if true {
+            result -=1;
+        } else {
+            action();
+        }
+    }
+
+    callback elseif(int) -> int;
+    elseif(v) => {
+        if v == 1 {
+            41
+        } else if v == 2 {
+            42
+        } else {
+            43
+        }
+    }
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.invoke_action();
+assert_eq(instance.get_result(), 3);
+instance.set_value(5);
+instance.invoke_action();
+assert_eq(instance.get_result(), 5);
+instance.set_value(8);
+instance.invoke_action();
+assert_eq(instance.get_result(), 5+33);
+instance.invoke_xxx();
+assert_eq(instance.get_result(), 5+33-1);
+assert_eq(instance.invoke_elseif(1), 41);
+assert_eq(instance.invoke_elseif(2), 42);
+assert_eq(instance.invoke_elseif(3), 43);
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.invoke_action();
+assert_eq!(instance.get_result(), 3);
+instance.set_value(5);
+instance.invoke_action();
+assert_eq!(instance.get_result(), 5);
+instance.set_value(8);
+instance.invoke_action();
+assert_eq!(instance.get_result(), 5+33);
+instance.invoke_xxx();
+assert_eq!(instance.get_result(), 5+33-1);
+assert_eq!(instance.invoke_elseif(1), 41);
+assert_eq!(instance.invoke_elseif(2), 42);
+assert_eq!(instance.invoke_elseif(3), 43);
+```
+
+```js
+var instance = new slint.TestCase({});
+instance.action();
+assert.equal(instance.result, 3);
+instance.value = 5;
+instance.action();
+assert.equal(instance.result, 5);
+instance.value = 8;
+instance.action();
+assert.equal(instance.result, 5+33);
+instance.xxx();
+assert.equal(instance.result, 5+33-1);
+assert.equal(instance.elseif(1), 41);
+assert.equal(instance.elseif(2), 42);
+assert.equal(instance.elseif(3), 43);
+```
+*/

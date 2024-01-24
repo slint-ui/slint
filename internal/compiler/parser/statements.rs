@@ -24,7 +24,17 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
     }
     let checkpoint = p.checkpoint();
 
-    if p.peek().as_str() == "if" && p.nth(1).kind() == SyntaxKind::LParent {
+    if p.peek().as_str() == "if"
+        && !matches!(
+            p.nth(1).kind(),
+            SyntaxKind::Dot
+                | SyntaxKind::Comma
+                | SyntaxKind::Semicolon
+                | SyntaxKind::RBrace
+                | SyntaxKind::RBracket
+                | SyntaxKind::RParent
+        )
+    {
         let mut p = p.start_node(SyntaxKind::Expression);
         parse_if_statement(&mut *p);
         return true;
@@ -68,9 +78,7 @@ fn parse_if_statement(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::ConditionalExpression);
     debug_assert_eq!(p.peek().as_str(), "if");
     p.expect(SyntaxKind::Identifier);
-    p.expect(SyntaxKind::LParent);
     parse_expression(&mut *p);
-    p.expect(SyntaxKind::RParent);
     {
         let mut p = p.start_node(SyntaxKind::Expression);
         parse_code_block(&mut *p);

@@ -532,9 +532,7 @@ fn format_conditional_expression(
     let mut sub = node.children_with_tokens();
     if has_if {
         let ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
-            && whitespace_to(&mut sub, SyntaxKind::LParent, writer, state, " ")?
-            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
-            && whitespace_to(&mut sub, SyntaxKind::RParent, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?
             && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
         if !ok {
             finish_node(sub, writer, state)?;
@@ -557,9 +555,7 @@ fn format_conditional_expression(
                     SyntaxMatch::NotFound => false,
                     // "if"
                     SyntaxMatch::Found(SyntaxKind::Identifier) => {
-                        whitespace_to(&mut sub, SyntaxKind::LParent, writer, state, " ")?
-                            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
-                            && whitespace_to(&mut sub, SyntaxKind::RParent, writer, state, "")?
+                        whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?
                             && whitespace_to(&mut sub, SyntaxKind::CodeBlock, writer, state, " ")?
                     }
                     SyntaxMatch::Found(_) => true,
@@ -1144,6 +1140,21 @@ A := B {
             nothing
         } else if (true) {
             if (0 == 8) {
+            }
+        } else {
+        }
+    }
+}
+"#,
+        );
+        assert_formatting(
+            r#"A := B { c => { if !abc{nothing}else   if  true{if 0== 8 {}    } else{  } } } "#,
+            r#"A := B {
+    c => {
+        if !abc {
+            nothing
+        } else if true {
+            if 0 == 8 {
             }
         } else {
         }
