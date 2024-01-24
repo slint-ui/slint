@@ -204,8 +204,9 @@ pub fn generate(doc: &Document) -> TokenStream {
                                           // according to clippy!
         #[allow(clippy::overly_complex_bool_expr)]
         mod #compo_module {
-            use slint::private_unstable_api::re_exports::*;
             use slint::private_unstable_api::re_exports as sp;
+            #[allow(unused_imports)]
+            use sp::{RepeatedItemTree as _, ModelExt as _, Model as _, Float as _};
             #(#structs_and_enum_def)*
             #(#globals)*
             #(#sub_compos)*
@@ -248,7 +249,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
     let property_and_callback_accessors = public_api(
         &llr.public_properties,
         &llr.private_properties,
-        quote!(vtable::VRc::as_pin_ref(&self.0)),
+        quote!(sp::VRc::as_pin_ref(&self.0)),
         &ctx,
     );
 
@@ -258,7 +259,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
 
     quote!(
         #component
-        pub struct #public_component_id(vtable::VRc<sp::ItemTreeVTable, #inner_component_id>);
+        pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
 
         impl #public_component_id {
             pub fn new() -> core::result::Result<Self, slint::PlatformError> {
@@ -271,7 +272,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
             #property_and_callback_accessors
         }
 
-        impl From<#public_component_id> for vtable::VRc<sp::ItemTreeVTable, #inner_component_id> {
+        impl From<#public_component_id> for sp::VRc<sp::ItemTreeVTable, #inner_component_id> {
             fn from(value: #public_component_id) -> Self {
                 value.0
             }
@@ -287,7 +288,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
                 Self(self.0.clone())
             }
 
-            fn from_inner(inner: vtable::VRc<sp::ItemTreeVTable, #inner_component_id>) -> Self {
+            fn from_inner(inner: sp::VRc<sp::ItemTreeVTable, #inner_component_id>) -> Self {
                 Self(inner)
             }
 
@@ -319,7 +320,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
         struct #global_container_id {
             #(#global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
         }
-        impl Default for #global_container_id {
+        impl::core::default::Default for #global_container_id {
             fn default() -> Self {
                 Self {
                     #(#global_names : #global_types::new(),)*
@@ -735,7 +736,7 @@ fn generate_sub_component(
             #idx => {
                 #ensure_updated
                 if let Some(instance) = _self.#repeater_id.instance_at(subtree_index) {
-                    *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(instance));
+                    *result = sp::VRc::downgrade(&sp::VRc::into_dyn(instance));
                 }
             }
         ));
@@ -794,7 +795,7 @@ fn generate_sub_component(
         } else {
             let what = ident(what);
             accessible_string_property_branch
-                .push(quote!((#index, AccessibleStringProperty::#what) => #expr,));
+                .push(quote!((#index, sp::AccessibleStringProperty::#what) => #expr,));
         }
     }
 
@@ -838,12 +839,12 @@ fn generate_sub_component(
         let sub_compo_field = access_component_field_offset(&format_ident!("Self"), &field_name);
 
         init.push(quote!(#sub_component_id::init(
-            VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
+            sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
             &#root_ref_tokens,
             #global_index, #global_children
         );));
         user_init_code.push(quote!(#sub_component_id::user_init(
-            VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
+            sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
         );));
 
         let sub_component_repeater_count = sub.ty.repeater_count();
@@ -896,7 +897,7 @@ fn generate_sub_component(
         let p1 = access_member(prop1, &ctx);
         let p2 = access_member(prop2, &ctx);
         init.push(quote!(
-            Property::link_two_way(#p1, #p2);
+            sp::Property::link_two_way(#p1, #p2);
         ));
     }
 
@@ -977,8 +978,8 @@ fn generate_sub_component(
                     tree_index: u32, tree_index_of_first_child: u32) {
                 #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
-                _self.self_weak.set(VRcMapped::downgrade(&self_rc));
-                _self.root.set(VRc::downgrade(root));
+                _self.self_weak.set(sp::VRcMapped::downgrade(&self_rc));
+                _self.root.set(sp::VRc::downgrade(root));
                 _self.tree_index.set(tree_index);
                 _self.tree_index_of_first_child.set(tree_index_of_first_child);
                 #(#init)*
@@ -1054,7 +1055,7 @@ fn generate_sub_component(
                 match index {
                     #(#accessible_role_branch)*
                     //#(#forward_sub_ranges => #forward_sub_field.apply_pin(_self).accessible_role())*
-                    _ => AccessibleRole::default(),
+                    _ => sp::AccessibleRole::default(),
                 }
             }
 
@@ -1067,7 +1068,7 @@ fn generate_sub_component(
                 let _self = self;
                 match (index, what) {
                     #(#accessible_string_property_branch)*
-                    _ => Default::default(),
+                    _ => ::core::default::Default::default(),
                 }
             }
 
@@ -1227,7 +1228,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
             }
             fn init(self: ::core::pin::Pin<sp::Rc<Self>>, root: &sp::VRc<sp::ItemTreeVTable, #root_component_id>) {
                 #![allow(unused)]
-                self.root.set(VRc::downgrade(root));
+                self.root.set(sp::VRc::downgrade(root));
                 let self_rc = self;
                 let _self = self_rc.as_ref();
                 #(#init)*
@@ -1274,12 +1275,12 @@ fn generate_item_tree(
         (
             quote!(
                 #[allow(unused)]
-                fn window_adapter_impl(&self) -> Rc<dyn sp::WindowAdapter> {
+                fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
                     self.root.get().unwrap().upgrade().unwrap().window_adapter_impl()
                 }
 
                 #[allow(unused)]
-                fn maybe_window_adapter_impl(&self) -> Option<Rc<dyn sp::WindowAdapter>> {
+                fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
                     self.root
                         .get()
                         .and_then(|root_weak| root_weak.upgrade())
@@ -1300,24 +1301,26 @@ fn generate_item_tree(
         (
             quote!(
                 #[allow(unused)]
-                fn window_adapter_impl(&self) -> Rc<dyn sp::WindowAdapter> {
-                    Rc::clone(self.window_adapter_ref().unwrap())
+                fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
+                    sp::Rc::clone(self.window_adapter_ref().unwrap())
                 }
 
                 fn window_adapter_ref(
                     &self,
-                ) -> Result<&Rc<dyn sp::WindowAdapter>, slint::PlatformError> {
+                ) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
+                {
                     self.window_adapter_.get_or_try_init(|| {
                         let adapter = slint::private_unstable_api::create_window_adapter()?;
-                        let self_rc =
-                            VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap());
+                        let self_rc = sp::VRcMapped::origin(
+                            &self.self_weak.get().unwrap().upgrade().unwrap(),
+                        );
                         sp::WindowInner::from_pub(adapter.window()).set_component(&self_rc);
                         core::result::Result::Ok(adapter)
                     })
                 }
 
                 #[allow(unused)]
-                fn maybe_window_adapter_impl(&self) -> Option<Rc<dyn sp::WindowAdapter>> {
+                fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
                     self.window_adapter_.get().cloned()
                 }
             ),
@@ -1339,7 +1342,7 @@ fn generate_item_tree(
                 .parent
                 .clone()
                 .upgrade()
-                .map(|sc| (VRcMapped::origin(&sc), sc.tree_index_of_first_child.get()))
+                .map(|sc| (sp::VRcMapped::origin(&sc), sc.tree_index_of_first_child.get()))
             {
                 *_result = sp::ItemRc::new(parent_component, parent_index + #sub_component_offset - 1)
                     .downgrade();
@@ -1385,7 +1388,7 @@ fn generate_item_tree(
                     item_array_index: #item_array_len,
                 }
             ));
-            item_array.push(quote!(VOffset::new(#path #field)));
+            item_array.push(quote!(sp::VOffset::new(#path #field)));
         }
     });
 
@@ -1396,13 +1399,13 @@ fn generate_item_tree(
         #sub_comp
 
         impl #inner_component_id {
-            pub fn new(#(parent: #parent_component_type)*) -> core::result::Result<vtable::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
+            pub fn new(#(parent: #parent_component_type)*) -> core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 #![allow(unused)]
                 slint::private_unstable_api::ensure_backend()?;
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
-                let self_rc = VRc::new(_self);
-                let self_dyn_rc = vtable::VRc::into_dyn(self_rc.clone());
+                let self_rc = sp::VRc::new(_self);
+                let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
                 sp::register_item_tree(&self_dyn_rc, (*#root_token).maybe_window_adapter_impl());
                 Self::init(sp::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
                 #new_end
@@ -1413,10 +1416,10 @@ fn generate_item_tree(
                 &ITEM_TREE
             }
 
-            fn item_array() -> &'static [vtable::VOffset<Self, ItemVTable, vtable::AllowPin>] {
+            fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
                 // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
                 static ITEM_ARRAY : sp::OnceBox<
-                    [vtable::VOffset<#inner_component_id, ItemVTable, vtable::AllowPin>; #item_array_len]
+                    [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
                 > = sp::OnceBox::new();
                 &*ITEM_ARRAY.get_or_init(|| sp::Box::new([#(#item_array),*]))
             }
@@ -1428,7 +1431,7 @@ fn generate_item_tree(
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
                 use slint::private_unstable_api::re_exports::*;
                 ItemTreeVTable_static!(static VT for self::#inner_component_id);
-                new_vref!(let vref : VRef<ItemTreeVTable> for ItemTree = self.as_ref().get_ref());
+                new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
                 if let Some(wa) = self.maybe_window_adapter_impl() {
                     sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
                 }
@@ -1439,19 +1442,19 @@ fn generate_item_tree(
             fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
                 -> sp::VisitChildrenResult
             {
-                return sp::visit_item_tree(self, &VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
+                return sp::visit_item_tree(self, &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
                 #[allow(unused)]
-                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sp::TraversalOrder, visitor: ItemVisitorRefMut<'_>, dyn_index: u32) -> VisitChildrenResult  {
+                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>, dyn_index: u32) -> sp::VisitChildrenResult  {
                     _self.visit_dynamic_children(dyn_index, order, visitor)
                 }
             }
 
-            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<ItemRef<'_>> {
+            fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<sp::ItemRef<'_>> {
                 match &self.get_item_tree().as_slice()[index as usize] {
-                    ItemTreeNode::Item { item_array_index, .. } => {
+                    sp::ItemTreeNode::Item { item_array_index, .. } => {
                         Self::item_array()[*item_array_index as usize].apply_pin(self)
                     }
-                    ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
+                    sp::ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
 
                 }
             }
@@ -1512,10 +1515,10 @@ fn generate_item_tree(
             fn window_adapter(
                 self: ::core::pin::Pin<&Self>,
                 do_create: bool,
-                result: &mut Option<Rc<dyn WindowAdapter>>,
+                result: &mut sp::Option<sp::Rc<dyn sp::WindowAdapter>>,
             ) {
                 if do_create {
-                    *result = Some(self.window_adapter_impl());
+                    *result = sp::Some(self.window_adapter_impl());
                 } else {
                     *result = self.maybe_window_adapter_impl();
                 }
@@ -1579,7 +1582,7 @@ fn generate_repeated_component(
             fn box_layout_data(self: ::core::pin::Pin<&Self>, o: sp::Orientation)
                 -> sp::BoxLayoutCellData
             {
-                BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
+                sp::BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
             }
         }
     };
@@ -1621,7 +1624,7 @@ fn generate_repeated_component(
             fn init(&self) {
                 let self_rc = self.self_weak.get().unwrap().upgrade().unwrap();
                 #inner_component_id::user_init(
-                    VRcMapped::map(self_rc, |x| x),
+                    sp::VRcMapped::map(self_rc, |x| x),
                 );
             }
             #extra_fn
@@ -1634,11 +1637,13 @@ fn inner_component_id(component: &llr::SubComponent) -> proc_macro2::Ident {
     format_ident!("Inner{}", ident(&component.name))
 }
 
-fn global_inner_name(g: &llr::GlobalComponent) -> proc_macro2::Ident {
+fn global_inner_name(g: &llr::GlobalComponent) -> TokenStream {
     if g.is_builtin {
-        ident(&g.name)
+        let i = ident(&g.name);
+        quote!(sp::#i)
     } else {
-        format_ident!("Inner{}", ident(&g.name))
+        let i = format_ident!("Inner{}", ident(&g.name));
+        quote!(#i)
     }
 }
 
@@ -1696,7 +1701,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         } else {
             let property_name = ident(prop_name);
             let item_ty = ident(&sub_component.items[item_index as usize].ty.class_name);
-            quote!((#compo_path #item_field + #item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path))
+            quote!((#compo_path #item_field + sp::#item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path))
         }
     }
     match reference {
@@ -1711,7 +1716,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             } else if let Some(current_global) = ctx.current_global {
                 let global_name = global_inner_name(current_global);
                 let property_name = ident(&current_global.properties[*property_index].name);
-                let property_field = access_component_field_offset(&global_name, &property_name);
+                let property_field = quote!({ *&#global_name::FIELD_OFFSETS.#property_name });
                 quote!(#property_field.apply_pin(_self))
             } else {
                 unreachable!()
@@ -1854,7 +1859,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Token
                 component_access_tokens = quote!(#component_access_tokens . #sub_component_name);
                 sub_component = &sub_component.sub_components[*i].ty;
             }
-            let component_rc_tokens = quote!(VRcMapped::origin(&#component_access_tokens.self_weak.get().unwrap().upgrade().unwrap()));
+            let component_rc_tokens = quote!(sp::VRcMapped::origin(&#component_access_tokens.self_weak.get().unwrap().upgrade().unwrap()));
             let item_index_in_tree = sub_component.items[*item_index as usize].index_in_tree;
             let item_index_tokens = if item_index_in_tree == 0 {
                 quote!(#component_access_tokens.tree_index.get())
@@ -1862,7 +1867,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Token
                 quote!(#component_access_tokens.tree_index_of_first_child.get() + #item_index_in_tree - 1)
             };
 
-            quote!(&ItemRc::new(#component_rc_tokens, #item_index_tokens))
+            quote!(&sp::ItemRc::new(#component_rc_tokens, #item_index_tokens))
         }
         _ => unreachable!(),
     }
@@ -1883,7 +1888,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     quote!(sp::SharedString::from(sp::format!("{}", #f).as_str()))
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    quote!(sp::ModelRc::new(#f.max(Default::default()) as usize))
+                    quote!(sp::ModelRc::new(#f.max(::core::default::Default::default()) as usize))
                 }
                 (Type::Float32, Type::Color) => {
                     quote!(sp::Color::from_argb_encoded(#f as u32))
@@ -1916,7 +1921,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                                 // Close{} is a struct with no fields in markup, and PathElement::Close has no fields, so map to an empty token stream
                                 // and thus later just unit type, which can convert into PathElement::Close.
                                 if matches!(path_elem_expr, Expression::Struct { ty: Type::Struct { fields, .. }, .. } if fields.is_empty()) {
-                                    Default::default()
+                                    ::core::default::Default::default()
                                 } else {
                                     compile_expression(path_elem_expr, ctx)
                                 }
@@ -1979,7 +1984,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     arg
                 }
             });
-            quote! { #f(#(#a as _),*) }
+            quote! { sp::#f(#(#a as _),*) }
         }
         Expression::FunctionParameterReference { index } => {
             let i = proc_macro2::Literal::usize_unsuffixed(*index);
@@ -2117,7 +2122,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
                 let format = proc_macro2::Literal::byte_string(extension.as_bytes());
-                quote!(sp::load_image_from_embedded_data(#symbol.into(), Slice::from_slice(#format)))
+                quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
             }
             crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
@@ -2148,7 +2153,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     )
                 ))
             } else {
-                quote!(Slice::from_slice(&[#(#val),*]))
+                quote!(sp::Slice::from_slice(&[#(#val),*]))
             }
         }
         Expression::Struct { ty, values } => {
@@ -2157,7 +2162,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 if let Some(name) = name {
                     let name_tokens: TokenStream = struct_name_to_tokens(name.as_str());
                     let keys = fields.keys().map(|k| ident(k));
-                    if name.contains("LayoutData") {
+                    if name.starts_with("slint::private_api::") && name.ends_with("LayoutData") {
                         quote!(#name_tokens{#(#keys: #elem as _,)*})
                     } else {
                         quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys =  #elem as _;)* the_struct})
@@ -2347,12 +2352,12 @@ fn compile_builtin_function_call(
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 quote!(
                     sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
-                        &VRc::into_dyn({
+                        &sp::VRc::into_dyn({
                             let instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
                             #popup_window_id::user_init(sp::VRc::map(instance.clone(), |x| x));
                             instance.into()
                         }),
-                        Point::new(#x as sp::Coord, #y as sp::Coord),
+                        sp::Point::new(#x as sp::Coord, #y as sp::Coord),
                         #close_on_click,
                         #parent_component
                     )
@@ -2537,7 +2542,7 @@ fn compile_builtin_function_call(
             if let [Expression::PropertyReference(pr)] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 quote!(
-                    sp::logical_position_to_api((*#item_rc).map_to_window(Default::default()))
+                    sp::logical_position_to_api((*#item_rc).map_to_window(::core::default::Default::default()))
                 )
             } else {
                 panic!("internal error: invalid args to MapPointToWindow {:?}", arguments)
@@ -2675,8 +2680,8 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                         static #symbol: sp::StaticTextures = sp::StaticTextures{
                             size: sp::IntSize::new(#width as _, #height as _),
                             original_size: sp::IntSize::new(#unscaled_width as _, #unscaled_height as _),
-                            data: Slice::from_slice(&#symbol_data),
-                            textures: Slice::from_slice(&[
+                            data: sp::Slice::from_slice(&#symbol_data),
+                            textures: sp::Slice::from_slice(&[
                                 sp::StaticTexture {
                                     rect: sp::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
                                     format: #format,
@@ -2707,7 +2712,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                                     width: #width,
                                     height: #height,
                                     x_advance: #x_advance,
-                                    data: Slice::from_slice({
+                                    data: sp::Slice::from_slice({
                                         #link_section
                                         static DATA : [u8; #data_size] = [#(#data),*];
                                         &DATA
@@ -2719,7 +2724,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                         quote!(
                             sp::BitmapGlyphs {
                                 pixel_size: #pixel_size,
-                                glyph_data: Slice::from_slice({
+                                glyph_data: sp::Slice::from_slice({
                                     #link_section
                                     static GDATA : [sp::BitmapGlyph; #glyph_data_size] = [#(#glyph_data),*];
                                     &GDATA
@@ -2731,8 +2736,8 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     quote!(
                         #link_section
                         static #symbol: sp::BitmapFont = sp::BitmapFont {
-                            family_name: Slice::from_slice(#family_name.as_bytes()),
-                            character_map: Slice::from_slice({
+                            family_name: sp::Slice::from_slice(#family_name.as_bytes()),
+                            character_map: sp::Slice::from_slice({
                                 #link_section
                                 static CM : [sp::CharacterMapEntry; #character_map_size] = [#(#character_map),*];
                                 &CM
@@ -2740,7 +2745,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                             units_per_em: #units_per_em,
                             ascent: #ascent,
                             descent: #descent,
-                            glyphs: Slice::from_slice({
+                            glyphs: sp::Slice::from_slice({
                                 #link_section
                                 static GLYPHS : [sp::BitmapGlyphs; #glyphs_size] = [#(#glyphs),*];
                                 &GLYPHS

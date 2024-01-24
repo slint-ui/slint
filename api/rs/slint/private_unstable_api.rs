@@ -175,6 +175,8 @@ pub mod re_exports {
     pub use alloc::{vec, vec::Vec};
     pub use const_field_offset::{self, FieldOffsets, PinnedDrop};
     pub use core::iter::FromIterator;
+    pub use core::option::{Option, Option::*};
+    pub use core::result::{Result, Result::*};
     // This one is empty when Qt is not available, which triggers a warning
     #[allow(unused_imports)]
     pub use i_slint_backend_selector::native_widgets::*;

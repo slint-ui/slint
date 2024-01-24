@@ -147,7 +147,7 @@ fn compile_path_from_string_literal(
             ("y".to_owned(), Type::Float32),
         ])
         .collect(),
-        name: Some("Point".into()),
+        name: Some("slint::private_api::Point".into()),
         node: None,
         rust_attributes: None,
     };
