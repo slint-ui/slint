@@ -230,16 +230,13 @@ The Slint documentation consists of five parts:
 - The Node.js API documentation
 - The DSL documentation
 
-### Prerequisites
-
-- [mdbook](https://rust-lang.github.io/mdBook/guide/installation.html)
-- [pipenv](https://pipenv.pypa.io/en/latest/)
-- [Python](https://www.python.org/downloads/)
-- [Doxygen](https://www.doxygen.nl/download.html)
-
 ### Tutorials
 
 There are three tutorials built with mdbook, one for each of the three languages supported by Slint.
+
+**Prerequisites**:
+
+- [mdbook](https://rust-lang.github.io/mdBook/guide/installation.html)
 
 #### Rust tutorial
 
@@ -261,6 +258,11 @@ mdbook build docs/tutorial/node
 
 ### Slint DSL docs
 
+**Prerequisites**:
+
+- [pipenv](https://pipenv.pypa.io/en/latest/)
+- [Python](https://www.python.org/downloads/)
+
 Use the following command line to build the documentation for the Slint DSL using `rustdoc` to the `target/slintdocs/html` folder:
 
 ```shell
@@ -278,6 +280,10 @@ RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/slint-docs-preview.html --htm
 ```
 
 ### C++ API docs
+
+**Prerequisites**:
+
+- [Doxygen](https://www.doxygen.nl/download.html)
 
 Run the following command to generate the documentation using sphinx/exhale/breathe/doxygen/myst_parser in the `target/cppdocs` sub-folder:
 
