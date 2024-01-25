@@ -10,6 +10,7 @@ use i_slint_compiler::object_tree::{ElementRc, ElementWeak};
 use i_slint_core::lengths::LogicalRect;
 use lsp_types::Url;
 use slint::VecModel;
+use slint_interpreter::highlight::ComponentPositions;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 
 use once_cell::sync::Lazy;
@@ -387,8 +388,13 @@ pub fn update_highlight(url: Option<Url>, offset: u32) {
         });
 
         if let Some(handle) = handle {
-            let path = url.as_ref().map(|u| u.to_string().into()).unwrap_or_default();
-            let element_positions = handle.component_positions(path, offset);
+            let element_positions =
+                if let Some(path) = url.as_ref().and_then(|u| u.to_file_path().ok()) {
+                    handle.component_positions(path, offset)
+                } else {
+                    ComponentPositions::default()
+                };
+
             set_selected_element(None, element_positions);
         }
     })
