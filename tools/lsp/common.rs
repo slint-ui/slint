@@ -44,25 +44,6 @@ pub struct PreviewConfig {
     pub library_paths: HashMap<String, PathBuf>,
 }
 
-/// API used by the LSP to talk to the Preview. The other direction uses the
-/// ServerNotifier
-pub trait PreviewApi {
-    fn set_use_external_previewer(&self, use_external: bool);
-    fn set_contents(&self, url: &VersionedUrl, contents: &str);
-    fn load_preview(&self, component: PreviewComponent);
-    fn config_changed(&self, config: PreviewConfig);
-    fn highlight(&self, url: Option<Url>, offset: u32) -> Result<()>;
-
-    /// What is the current component to preview?
-    fn current_component(&self) -> Option<PreviewComponent>;
-
-    fn report_known_components(
-        &self,
-        url: Option<VersionedUrl>,
-        components: Vec<ComponentInformation>,
-    );
-}
-
 /// The Component to preview
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]

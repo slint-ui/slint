@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use crate::common::{ComponentInformation, PreviewComponent, PreviewConfig, VersionedUrl};
+use crate::common::{
+    ComponentInformation, LspToPreviewMessage, PreviewComponent, PreviewConfig, VersionedUrl,
+};
 use crate::lsp_ext::Health;
 use i_slint_compiler::object_tree::{ElementRc, ElementWeak};
 use i_slint_core::model::VecModel;
@@ -559,7 +561,7 @@ fn update_preview_area(compiled: Option<ComponentDefinition>) {
         #[allow(unused_mut)]
         let mut preview_state = preview_state.borrow_mut();
 
-        #[cfg(all(not(target_arch = "wasm32")))]
+        #[cfg(not(target_arch = "wasm32"))]
         native::open_ui_impl(&mut preview_state);
 
         let ui = preview_state.ui.as_ref().unwrap();
@@ -578,4 +580,29 @@ fn update_preview_area(compiled: Option<ComponentDefinition>) {
 
         ui.show().unwrap();
     });
+}
+
+pub fn lsp_to_preview_message(
+    message: LspToPreviewMessage,
+    #[cfg(not(target_arch = "wasm32"))] sender: &crate::ServerNotifier,
+) {
+    match message {
+        LspToPreviewMessage::SetContents { url, contents } => {
+            set_contents(&url, contents);
+        }
+        LspToPreviewMessage::SetConfiguration { config } => {
+            config_changed(config);
+        }
+        LspToPreviewMessage::ShowPreview(pc) => {
+            #[cfg(not(target_arch = "wasm32"))]
+            native::open_ui(sender);
+            load_preview(pc);
+        }
+        LspToPreviewMessage::HighlightFromEditor { url, offset } => {
+            highlight(url, offset);
+        }
+        LspToPreviewMessage::KnownComponents { url, components } => {
+            known_components(&url, components);
+        }
+    }
 }
