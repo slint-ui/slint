@@ -11,7 +11,7 @@ mod semantic_tokens;
 #[cfg(test)]
 mod test;
 
-use crate::common::{ComponentInformation, PreviewApi, PreviewConfig, Result, VersionedUrl};
+use crate::common::{LspToPreviewMessage, PreviewComponent, PreviewConfig, Result, VersionedUrl};
 use crate::language::properties::find_element_indent;
 use crate::util::{lookup_current_element_type, map_node, map_range, map_token, to_lsp_diag};
 
@@ -100,13 +100,17 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
 
                 continue;
             };
-            let url = VersionedUrl { url, version: node.source_file().and_then(|sf| sf.version()) };
-            ctx.preview.set_contents(&url, &node.text().to_string());
+            ctx.server_notifier.send_preview_message(LspToPreviewMessage::SetContents {
+                url: VersionedUrl { url, version: node.source_file().and_then(|sf| sf.version()) },
+                contents: node.text().to_string(),
+            })
         }
     }
-    ctx.preview.config_changed(cache.preview_config.clone());
-    if let Some(c) = ctx.preview.current_component() {
-        ctx.preview.load_preview(c);
+    ctx.server_notifier.send_preview_message(LspToPreviewMessage::SetConfiguration {
+        config: cache.preview_config.clone(),
+    });
+    if let Some(c) = ctx.to_show.borrow().clone() {
+        ctx.server_notifier.send_preview_message(LspToPreviewMessage::ShowPreview(c))
     }
 }
 
@@ -134,7 +138,8 @@ pub struct Context {
     pub document_cache: RefCell<DocumentCache>,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
-    pub preview: Rc<dyn PreviewApi>,
+    /// The last component for which the user clicked "show preview"
+    pub to_show: RefCell<Option<PreviewComponent>>,
 }
 
 #[derive(Default)]
@@ -349,7 +354,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
     rh.register::<DocumentHighlightRequest, _>(|_params, ctx| async move {
         let document_cache = &mut ctx.document_cache.borrow_mut();
         let uri = _params.text_document_position_params.text_document.uri;
-        if let Some((tk, _off)) =
+        if let Some((tk, offset)) =
             token_descr(document_cache, &uri, &_params.text_document_position_params.position)
         {
             let p = tk.parent();
@@ -357,13 +362,17 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
             {
                 if let Some(range) = map_node(&p) {
-                    ctx.preview.highlight(Some(uri), _off)?;
+                    ctx.server_notifier.send_preview_message(
+                        LspToPreviewMessage::HighlightFromEditor { url: Some(uri), offset },
+                    );
                     return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
                 }
             }
 
             if let Some(value) = find_element_id_for_highlight(&tk, &p) {
-                ctx.preview.highlight(None, 0)?;
+                ctx.server_notifier.send_preview_message(
+                    LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
+                );
                 return Ok(Some(
                     value
                         .into_iter()
@@ -375,7 +384,10 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 ));
             }
         }
-        ctx.preview.highlight(None, 0)?;
+        ctx.server_notifier.send_preview_message(LspToPreviewMessage::HighlightFromEditor {
+            url: None,
+            offset: 0,
+        });
         Ok(None)
     });
     rh.register::<Rename, _>(|params, ctx| async move {
@@ -428,15 +440,12 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
-    ctx.preview.load_preview(crate::common::PreviewComponent {
-        url,
-        component,
-        style: config.style.clone().unwrap_or_default(),
-    });
+    let c = PreviewComponent { url, component, style: config.style.clone().unwrap_or_default() };
+    ctx.to_show.replace(Some(c.clone()));
+    ctx.server_notifier.send_preview_message(LspToPreviewMessage::ShowPreview(c));
 
     // Update known Components
-    let (url, components) = collect_known_components(document_cache, ctx);
-    ctx.preview.report_known_components(url, components);
+    report_known_components(document_cache, ctx);
 
     Ok(())
 }
@@ -665,7 +674,10 @@ pub(crate) async fn reload_document_impl(
     }
 
     if let Some(ctx) = ctx {
-        ctx.preview.set_contents(&VersionedUrl { url, version }, &content);
+        ctx.server_notifier.send_preview_message(LspToPreviewMessage::SetContents {
+            url: VersionedUrl { url, version },
+            contents: content.clone(),
+        });
     }
     let mut diag = BuildDiagnostics::default();
     document_cache.documents.load_file(&path, version, &path, content, false, &mut diag).await;
@@ -691,10 +703,7 @@ pub(crate) async fn reload_document_impl(
     lsp_diags
 }
 
-fn collect_known_components(
-    document_cache: &mut DocumentCache,
-    ctx: &Rc<Context>,
-) -> (Option<VersionedUrl>, Vec<ComponentInformation>) {
+fn report_known_components(document_cache: &mut DocumentCache, ctx: &Rc<Context>) {
     let mut components = Vec::new();
     component_catalog::builtin_components(document_cache, &mut components);
     component_catalog::all_exported_components(
@@ -705,7 +714,7 @@ fn collect_known_components(
 
     components.sort_by(|a, b| a.name.cmp(&b.name));
 
-    let url = ctx.preview.current_component().map(|pc| {
+    let url = ctx.to_show.borrow().as_ref().map(|pc| {
         let url = pc.url.clone();
         let file = PathBuf::from(url.to_string());
         let version = document_cache.document_version(&url);
@@ -715,7 +724,8 @@ fn collect_known_components(
         VersionedUrl { url, version }
     });
 
-    (url, components)
+    ctx.server_notifier
+        .send_preview_message(LspToPreviewMessage::KnownComponents { url, components });
 }
 
 pub async fn reload_document(
@@ -736,8 +746,7 @@ pub async fn reload_document(
     }
 
     // Tell Preview about the Components:
-    let (url, components) = collect_known_components(document_cache, ctx);
-    ctx.preview.report_known_components(url, components);
+    report_known_components(document_cache, ctx);
 
     Ok(())
 }
@@ -1330,13 +1339,14 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
     document_cache.documents.import_component("std-widgets.slint", "StyleMetrics", &mut diag).await;
 
     let cc = &document_cache.documents.compiler_config;
-    document_cache.preview_config = PreviewConfig {
+    let config = PreviewConfig {
         hide_ui,
         style: cc.style.clone().unwrap_or_default(),
         include_paths: cc.include_paths.clone(),
         library_paths: cc.library_paths.clone(),
     };
-    ctx.preview.config_changed(document_cache.preview_config.clone());
+    document_cache.preview_config = config.clone();
+    ctx.server_notifier.send_preview_message(LspToPreviewMessage::SetConfiguration { config });
     Ok(())
 }
 

@@ -109,32 +109,10 @@ impl PreviewConnector {
 
     #[wasm_bindgen]
     pub fn process_lsp_to_preview_message(&self, value: JsValue) -> Result<(), JsValue> {
-        use crate::common::LspToPreviewMessage as M;
-
-        let message: M = serde_wasm_bindgen::from_value(value)
+        let message = serde_wasm_bindgen::from_value(value)
             .map_err(|e| -> JsValue { format!("{e:?}").into() })?;
-        match message {
-            M::SetContents { url, contents } => {
-                super::set_contents(&url, contents);
-                Ok(())
-            }
-            M::SetConfiguration { config } => {
-                super::config_changed(config);
-                Ok(())
-            }
-            M::ShowPreview(pc) => {
-                super::load_preview(pc);
-                Ok(())
-            }
-            M::HighlightFromEditor { url, offset } => {
-                super::highlight(url, offset);
-                Ok(())
-            }
-            M::KnownComponents { url, components } => {
-                super::known_components(&url, components);
-                Ok(())
-            }
-        }
+        super::lsp_to_preview_message(message);
+        Ok(())
     }
 }
 
