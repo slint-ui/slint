@@ -267,7 +267,6 @@ Use the following command line to build the documentation for the Slint DSL usin
 cargo xtask slintdocs --show-warnings
 ```
 
-By default, the language documentation has snippets in the Slint language injected into the HTML at build time with the `--html-in-header` flag.
 
 ### Rust API docs
 
