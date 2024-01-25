@@ -330,12 +330,12 @@ fn to_value<T: serde::Serialize + ?Sized>(
 
 pub fn send_show_document_to_editor(
     sender: ServerNotifier,
-    file: String,
+    file: Url,
     selection: lsp_types::Range,
 ) {
     wasm_bindgen_futures::spawn_local(async move {
         let Some(params) =
-            crate::preview::show_document_request_from_element_callback(&file, selection)
+            crate::preview::show_document_request_from_element_callback(file, selection)
         else {
             return;
         };
