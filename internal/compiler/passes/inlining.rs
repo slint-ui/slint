@@ -3,6 +3,7 @@
 
 //! Inline each object_tree::Component within the main Component
 
+use crate::diagnostics::Spanned;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;

@@ -44,7 +44,7 @@ pub fn handle_clip(
                     _ => {
                         diag.push_error(
                             "The 'clip' property can only be applied to a Rectangle or a Path for now".into(),
-                            &elem.bindings.get("clip").and_then(|x| x.borrow().span.clone()).or_else(|| elem.node.as_ref().map(|e| e.to_source_location())),
+                            &elem.bindings.get("clip").and_then(|x| x.borrow().span.clone()).unwrap_or_else(|| elem.to_source_location()),
                         );
                         return;
                     }
