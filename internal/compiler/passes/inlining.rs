@@ -130,6 +130,7 @@ fn inline_element(
     }
 
     elem_mut.children = new_children;
+    elem_mut.node.extend_from_slice(&inlined_component.root_element.borrow().node);
 
     if let ElementType::Component(c) = &mut elem_mut.base_type {
         if c.parent_element.upgrade().is_some() {

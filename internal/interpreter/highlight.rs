@@ -136,7 +136,7 @@ fn find_element_at_offset(component: &Rc<Component>, path: PathBuf, offset: u32)
             if elem.borrow().repeated.is_some() {
                 return;
             }
-            if let Some(node) = elem.borrow().node.as_ref().and_then(|n| n.QualifiedName()) {
+            for node in elem.borrow().node.iter().filter_map(|n| n.QualifiedName()) {
                 if node.source_file.path() == path && node.text_range().contains(offset.into()) {
                     result.push(elem.clone());
                 }

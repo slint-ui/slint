@@ -525,7 +525,7 @@ pub async fn set_binding_command(
             element
                 .borrow()
                 .node
-                .as_ref()
+                .first()
                 .ok_or("The element was found, but had no range defined!")?,
         )
         .ok_or("Failed to map node")?;
@@ -608,7 +608,7 @@ pub async fn remove_binding_command(
             element
                 .borrow()
                 .node
-                .as_ref()
+                .first()
                 .ok_or("The element was found, but had no range defined!")?,
         )
         .ok_or("Failed to map node")?;
@@ -755,7 +755,7 @@ fn get_document_and_offset<'a>(
 }
 
 fn element_contains(element: &i_slint_compiler::object_tree::ElementRc, offset: u32) -> bool {
-    element.borrow().node.as_ref().map_or(false, |n| n.text_range().contains(offset.into()))
+    element.borrow().node.first().map_or(false, |n| n.text_range().contains(offset.into()))
 }
 
 pub fn element_at_position(
@@ -1110,7 +1110,7 @@ fn get_document_symbols(
         .iter()
         .filter_map(|c| {
             let root_element = c.root_element.borrow();
-            let element_node = root_element.node.as_ref()?;
+            let element_node = root_element.node.first()?;
             let component_node = syntax_nodes::Component::new(element_node.parent()?)?;
             let selection_range = map_node(&component_node.DeclaredIdentifier())?;
             if c.id.is_empty() {
@@ -1161,8 +1161,8 @@ fn get_document_symbols(
             .filter_map(|child| {
                 let e = child.borrow();
                 Some(DocumentSymbol {
-                    range: map_node(e.node.as_ref()?)?,
-                    selection_range: map_node(e.node.as_ref()?.QualifiedName().as_ref()?)?,
+                    range: map_node(e.node.first()?)?,
+                    selection_range: map_node(e.node.first()?.QualifiedName().as_ref()?)?,
                     name: e.base_type.to_string(),
                     detail: (!e.id.is_empty()).then(|| e.id.clone()),
                     kind: lsp_types::SymbolKind::VARIABLE,
@@ -1194,7 +1194,7 @@ fn get_code_lenses(
         // Handle preview lens
         r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
-                range: map_node(c.root_element.borrow().node.as_ref()?)?,
+                range: map_node(c.root_element.borrow().node.first()?)?,
                 command: Some(create_show_preview_command(true, &text_document.uri, c.id.as_str())),
                 data: None,
             })

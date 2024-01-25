@@ -26,7 +26,7 @@ fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
 fn lsp_element_position(element: &ElementRc) -> Option<(String, lsp_types::Range)> {
     let e = &element.borrow();
     e.node
-        .as_ref()
+        .first()
         .and_then(|n| {
             n.parent()
                 .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
@@ -77,7 +77,7 @@ fn select_element(component_instance: &ComponentInstance, selected_element: &Ele
 }
 
 fn element_offset(element: &ElementRc) -> Option<(PathBuf, u32)> {
-    let Some(node) = &element.borrow().node else {
+    let Some(node) = element.borrow().node.first().cloned() else {
         return None;
     };
     let path = node.source_file.path().to_path_buf();
@@ -86,7 +86,7 @@ fn element_offset(element: &ElementRc) -> Option<(PathBuf, u32)> {
 }
 
 fn element_source_range(element: &ElementRc) -> Option<(SourceFile, TextRange)> {
-    let Some(node) = &element.borrow().node else {
+    let Some(node) = element.borrow().node.first().cloned() else {
         return None;
     };
     let source_file = node.source_file.clone();
@@ -140,7 +140,7 @@ impl SelectionCandidate {
 
     fn is_builtin(&self) -> bool {
         let elem = self.element.borrow();
-        let Some(node) = &elem.node else {
+        let Some(node) = elem.node.first() else {
             return true;
         };
         let Some(sf) = node.source_file() else {

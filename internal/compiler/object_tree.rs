@@ -650,8 +650,10 @@ pub struct Element {
     /// How many times the element was inlined
     pub inline_depth: i32,
 
-    /// The AST node, if available
-    pub node: Option<syntax_nodes::Element>,
+    /// The AST nodes, if available.
+    /// There can be several in case of inlining or optimization (child merged into their parent).
+    /// The order in the list is first the parent, and then the removed children.
+    pub node: Vec<syntax_nodes::Element>,
 
     /// This element was a layout that has been lowered to a Rectangle
     pub layout: Option<crate::layout::Layout>,
@@ -659,11 +661,11 @@ pub struct Element {
 
 impl Spanned for Element {
     fn span(&self) -> crate::diagnostics::Span {
-        self.node.as_ref().map(|n| n.span()).unwrap_or_default()
+        self.node.first().map(|n| n.span()).unwrap_or_default()
     }
 
     fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
-        self.node.as_ref().map(|n| &n.source_file)
+        self.node.first().map(|n| &n.source_file)
     }
 }
 
@@ -897,7 +899,7 @@ impl Element {
         let mut r = Element {
             id,
             base_type,
-            node: Some(node.clone()),
+            node: vec![node.clone()],
             is_legacy_syntax,
             ..Default::default()
         };
@@ -1632,7 +1634,7 @@ impl Element {
     /// Returns the element's name as specified in the markup, not normalized.
     pub fn original_name(&self) -> String {
         self.node
-            .as_ref()
+            .first()
             .and_then(|n| n.child_token(parser::SyntaxKind::Identifier))
             .map(|n| n.to_string())
             .unwrap_or_else(|| self.id.clone())
@@ -1777,7 +1779,7 @@ fn animation_element_from_node(
         None
     } else {
         let mut anim_element =
-            Element { id: "".into(), base_type: anim_type, node: None, ..Default::default() };
+            Element { id: "".into(), base_type: anim_type, ..Default::default() };
         anim_element.parse_bindings(
             anim.Binding().filter_map(|b| {
                 Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
