@@ -48,27 +48,39 @@
     </a>
   </p>
   <script type="module">
+    var galleries = [];
+    var currentGallery = undefined;
+
     function initGallery(gallery) {
       document.getElementById("spinner").hidden = false;
 
-      let canvas = document.getElementById("canvas");
+      if (currentGallery !== undefined) {
+        let currentGalleryCanvas = document.getElementById("canvas");
 
-      // remove old canvas and unload window
-      if (canvas != undefined) {
-        canvas.remove();
+        // remove old canvas and unload window
+        if (currentGalleryCanvas != undefined) {
+          document.getElementById("canvas-parent").removeChild(currentGalleryCanvas);
+        }
       }
 
-      import(gallery).then(module => {
-        let canvas = document.createElement("canvas");
-        canvas.id = "canvas";
-        canvas.dataset.slintAutoResizeToPreferred = "true";
+      if (galleries[gallery] !== undefined) {
+        document.getElementById("canvas-parent").appendChild(galleries[gallery]);
+        document.getElementById("spinner").hidden = true;
+      } else {
+        import(gallery).then(module => {
+          let canvas = document.createElement("canvas");
+          canvas.id = "canvas";
+          canvas.dataset.slintAutoResizeToPreferred = "true";
+          currentGallery = gallery;
+          galleries[gallery] = canvas;
 
-        document.getElementById("canvas-parent").appendChild(canvas);
-        module.default().finally(() => {
-          document.getElementById("canvas").hidden = false;
-          document.getElementById("spinner").hidden = true;
-        });
-      })
+          document.getElementById("canvas-parent").appendChild(canvas);
+          module.default().finally(() => {
+            document.getElementById("canvas").hidden = false;
+            document.getElementById("spinner").hidden = true;
+          });
+        })
+      }
     }
 
     var styleSelection = document.getElementById("style-selection");
