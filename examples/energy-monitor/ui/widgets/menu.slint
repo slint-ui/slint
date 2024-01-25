@@ -3,6 +3,7 @@
 
 import { Theme } from "../theme.slint";
 import { MenuButton } from "menu_button.slint";
+import { MenuBackground } from "../components/menu_background.slint";
 
 export component Menu {
     in-out property <bool> menu-button-visible;
@@ -63,11 +64,8 @@ export component Menu {
         width: root.width / 3;
         height: root.height - 75px;
 
-        i-container := Rectangle {
+        i-container := MenuBackground {
             visible: container-visibility == 1.0;
-            border-radius: 4px;
-            background: Theme.palette.ebony-radial-gradient;
-            clip: true;
 
             // avoid click-through
             TouchArea {}
@@ -93,5 +91,61 @@ export component Menu {
                 }
             }
         }
+    }
+}
+
+export component MobileMenu {
+    out property <bool> open;
+    in property <length> end-y;
+    in property <length> menu-x;
+    out property <length> menu-width: 200px;
+
+    if (root.open) : Rectangle {
+        background: Theme.palette.pure-black;
+        opacity: 0.5;
+
+        TouchArea {
+            clicked => {
+                hide();
+            }
+        }
+    }
+
+    public function open-menu() {
+        root.open = true;
+    }
+
+    public function hide() {
+       root.open = false;
+    }
+
+    menu := Rectangle {
+        x: root.menu-x;
+        y: -self.height;
+        width: root.menu-width;
+        height: root.height / 2;
+        visible: visibility > 0.0;
+
+        private property <float> visibility;
+
+        MenuBackground {
+            // avoid click-through
+            TouchArea {}
+
+            @children
+        }
+
+        states [
+            open when root.open : {
+                menu.y: end-y;
+                visibility: 1.0;
+
+                out {
+                    animate visibility { duration: Theme.durations.medium; }
+                }
+            }
+        ]
+
+        animate y { duration: Theme.durations.slow; }
     }
 }

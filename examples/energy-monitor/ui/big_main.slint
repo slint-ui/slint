@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 
-import { TabWidget, BarTileModel } from "widgets/widgets.slint";
+import { TabWidget, TabItem, BarTileModel } from "widgets/widgets.slint";
 import { Dashboard, WeatherAdapter } from "pages/pages.slint";
 import { Header, HeaderAdapter } from "blocks/blocks.slint";
 
@@ -12,11 +12,11 @@ export component BigMain{
 
         i-tab-widget := TabWidget {
             tabs: [
-                "Dashboard",
-                "Energy Flow",
-                "Weather",
-                "Statistics",
-                "Settings",
+                { text: "Dashboard" },
+                { text: "Energy Flow" },
+                { text: "Weather" },
+                { text: "Statistics" },
+                { text: "Settings" }
             ];
 
             Dashboard {

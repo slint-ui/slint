@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+
+export component MobileHeader {
+    min-height: 30px;
+    vertical-stretch: 0;
+
+    Rectangle {
+        background: Theme.palette.pure-black;
+
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+
+            @children
+        }
+    }
+}

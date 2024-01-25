@@ -108,7 +108,7 @@ Files: internal/backends/linuxkms/mouse-pointer.svg examples/virtual_keyboard/ui
 Copyright: Copyright © 2018 Dave Gandy & Fork Awesome
 License: MIT
 
-Files: examples/energy-monitor/ui/assets/sunny.svg examples/energy-monitor/ui/assets/settings.svg examples/energy-monitor/ui/assets/information.svg examples/energy-monitor/ui/assets/cloudy.svg examples/energy-monitor/ui/assets/cloud.svg examples/energy-monitor/ui/assets/check.svg examples/energy-monitor/ui/assets/arrow-right.svg examples/energy-monitor/ui/assets/arrow-left.svg
+Files: examples/energy-monitor/ui/assets/sunny.svg examples/energy-monitor/ui/assets/settings.svg examples/energy-monitor/ui/assets/information.svg examples/energy-monitor/ui/assets/cloudy.svg examples/energy-monitor/ui/assets/cloud.svg examples/energy-monitor/ui/assets/check.svg examples/energy-monitor/ui/assets/arrow-right.svg examples/energy-monitor/ui/assets/arrow-left.svg examples/energy-monitor/ui/assets/dashboard.svg
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 

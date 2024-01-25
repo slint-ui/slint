@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Page } from "page.slint";
+import { OverviewAdapter } from "overview.slint";
+import { BalanceAdapter } from "balance.slint";
+import { UsageAdapter } from "usage.slint";
+import { ScrollView} from "../widgets/widgets.slint";
+import { ValueTile, BalanceTile, BarChartTile } from "dashboard.slint";
+
+export component DashboardMobile inherits Page {
+    ScrollView {
+        VerticalLayout {
+            alignment: start;
+            spacing: 16px;
+
+            ValueTile {
+                title: OverviewAdapter.production-title;
+                model: OverviewAdapter.production-model;
+                active: root.active;
+             }
+
+            ValueTile {
+                title: OverviewAdapter.self-consumption-title;
+                model: OverviewAdapter.self-consumption-model;
+                alternative-colors: true;
+                active: root.active;
+             }
+
+             BarChartTile {
+                title: UsageAdapter.title;
+                model: UsageAdapter.model;
+                min: UsageAdapter.min;
+                max: UsageAdapter.max;
+                value-model: UsageAdapter.overview-model;
+                active: root.active;
+            }
+        }
+    }
+}

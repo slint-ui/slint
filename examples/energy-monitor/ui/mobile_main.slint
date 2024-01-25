@@ -1,0 +1,79 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "theme.slint";
+import { Navigation, MenuButton, MobileMenu, Value, IconButton } from "widgets/widgets.slint";
+import { Balance, Overview, Usage, UsageAdapter, Weather, MenuPage, MenuOverviewAdapter, About } from "pages/pages.slint";
+import { Images } from "images.slint";
+
+import { TabWidget, TabItem } from "widgets/widgets.slint";
+import { DashboardMobile, Weather } from "pages/pages.slint";
+import { MobileHeader } from "blocks/blocks.slint";
+import { MenuBackground } from "components/menu_background.slint";
+
+export component MobileMain {
+    tab-widget := TabWidget {
+        y: header.height + 16px;
+        width: 100%;
+        height: parent.height - header.height - 16px;
+        tabs: [
+            { text: "Dashboard", icon: Images.dashboard },
+            { text: "Weather", icon: Images.sunny },
+        ];
+
+        DashboardMobile {
+            index: 0;
+            current-index: tab-widget.selected-tab;
+        }
+
+        Weather {
+            index: 1;
+            current-index: tab-widget.selected-tab;
+        }
+    }
+
+    menu := MobileMenu {
+        end-y: settings-button.y + settings-button.height;
+        menu-x: settings-button.x + settings-button.width - self.menu-width;
+        width: 100%;
+        height: 100%;
+
+        MenuPage {
+            width: 100%;
+            height: 100%;
+        }
+    }
+
+    header := MobileHeader {
+        width: 100%;
+        y: 0px;
+
+        HorizontalLayout {
+            alignment: start;
+        }
+
+        HorizontalLayout {
+            alignment: center;
+
+            Image {
+                horizontal-stretch: 1;
+                y: (parent.height - self.height) / 2;
+                height: 24px;
+                source: Images.slint-logo;
+            }
+        }
+
+        settings-button := IconButton {
+            y: (parent.height - self.height) / 2;
+            icon: Images.settings;
+
+            clicked => {
+                if (!menu.open) {
+                    menu.open-menu();
+                    return;
+                }
+                menu.hide();
+            }
+        }
+    }
+}

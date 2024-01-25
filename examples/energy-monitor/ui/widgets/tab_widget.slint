@@ -6,10 +6,12 @@ import { Theme } from "../theme.slint";
 component Tab {
     in property <string> title;
     in property <bool> selected;
+    in property <image> icon;
 
     callback clicked <=> i-touch-area.clicked;
 
     private property <angle> angle: Math.atan(self.height / 2 / self.width);
+    private property <bool> has-icon: root.icon.width > 0 && root.icon.height > 0;
 
     preferred-width: 200px;
 
@@ -22,22 +24,35 @@ component Tab {
     ]
 
     GridLayout {
-        padding: 25px;
+        padding: root.has-icon ? 7px : 25px;
 
-        i-title := Text {
-            text: title;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            font-size: Theme.typo.header-item-light.size;
-            font-weight: Theme.typo.header-item-light.weight;
-            color: Theme.palette.white;
+        VerticalLayout {
+            spacing: root.has-icon ? 7px : 0;
 
-            animate color { duration: Theme.durations.medium; }
+            if (root.has-icon) : Image {
+                x: (parent.width - self.width) / 2;
+                width: 24px;
+                height: 24px;
+                source: root.icon;
+                colorize: i-title.color;
+            }
+
+            i-title := Text {
+                text: title;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                font-size: root.has-icon ? Theme.typo.description-light.size : Theme.typo.header-item-light.size;
+                font-weight: root.has-icon ? Theme.typo.header-item-light.weight : Theme.typo.description-light.weight;
+                color: Theme.palette.white;
+
+                animate color { duration: Theme.durations.medium; }
+            }
         }
     }
 
     i-gradient := Rectangle {
         opacity: 0;
+        visible: !root.has-icon;
 
         Rectangle {
             y: 0;
@@ -71,8 +86,13 @@ component Tab {
     i-touch-area := TouchArea {}
 }
 
+export struct TabItem {
+    text: string,
+    icon: image
+}
+
 export component TabWidget {
-    in property <[string]> tabs;
+    in property <[TabItem]> tabs;
     in-out property <int> selected-tab;
 
     vertical-stretch: 1;
@@ -94,7 +114,8 @@ export component TabWidget {
                 vertical-stretch: 0;
 
                 for tab[index] in tabs : Tab {
-                    title: tab;
+                    title: tab.text;
+                    icon: tab.icon;
                     selected: index == selected-tab;
 
                     clicked => {
