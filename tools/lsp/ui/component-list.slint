@@ -67,7 +67,7 @@ export component ComponentList {
                     moved() => {
                         if (drop-x >= preview-area-position-x && drop-x <= preview-area-position-x + preview-area-width &&
                             drop-y >= preview-area-position-y && drop-y <= preview-area-position-y + preview-area-height) {
-                            self.can-drop-here = root.can-drop(ci.name, drop-x, drop-y);
+                            self.can-drop-here = root.can-drop(ci.name, drop-x - preview-area-position-x, drop-y - preview-area-position-y);
                         } else {
                             can-drop-here = false;
                         }
