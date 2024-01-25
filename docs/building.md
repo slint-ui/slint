@@ -269,7 +269,6 @@ Use the following command line to build the documentation for the Slint DSL usin
 cargo xtask slintdocs --show-warnings
 ```
 
-By default, the language documentation has snippets in the Slint language injected into the HTML at build time with the `--html-in-header` flag.
 
 ### Rust API docs
 
@@ -279,6 +278,7 @@ Run the following command to generate the documentation using rustdoc in the `ta
 RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/slint-docs-preview.html --html-in-header=$PWD/docs/resources/slint-docs-highlight.html" cargo doc --no-deps --features slint/document-features,slint/log
 ```
 
+ Note: `--html-in-header` arguments passed to rustdoc via `RUSTDOCFLAGS` are used to enable syntax highlighting and live-preview for Slint example snippets.
 ### C++ API docs
 
 **Prerequisites**:
