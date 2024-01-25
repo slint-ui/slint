@@ -1523,11 +1523,6 @@ impl Element {
         )
     }
 
-    /// Return the Span of this element in the AST for error reporting
-    pub fn span(&self) -> crate::diagnostics::Span {
-        self.node.as_ref().map(|n| n.span()).unwrap_or_default()
-    }
-
     fn parse_bindings(
         &mut self,
         bindings: impl Iterator<Item = (crate::parser::SyntaxToken, SyntaxNode)>,

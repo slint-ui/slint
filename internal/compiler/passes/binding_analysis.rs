@@ -216,7 +216,7 @@ fn analyze_binding(
             .borrow()
             .span
             .clone()
-            .or_else(|| element.borrow().node.as_ref().map(|n| n.to_source_location()));
+            .unwrap_or_else(|| element.borrow().to_source_location());
         diag.push_error(format!("Property '{name}' cannot refer to itself"), &span);
         return depends_on_external;
     }
@@ -231,11 +231,9 @@ fn analyze_binding(
                 break;
             }
 
-            let span =
-                binding.span.clone().or_else(|| elem.node.as_ref().map(|n| n.to_source_location()));
             diag.push_error(
                 format!("The binding for the property '{}' is part of a binding loop", p.name()),
-                &span,
+                &binding.span.clone().unwrap_or_else(|| elem.to_source_location()),
             );
 
             if it == current {

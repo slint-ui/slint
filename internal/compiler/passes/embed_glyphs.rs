@@ -43,8 +43,7 @@ pub fn embed_glyphs<'a>(
 ) {
     use crate::diagnostics::Spanned;
 
-    let generic_diag_location =
-        component.root_element.borrow().node.as_ref().map(|e| e.to_source_location());
+    let generic_diag_location = component.root_element.borrow().to_source_location();
 
     characters_seen.extend(
         ('a'..='z')
@@ -101,7 +100,7 @@ fn embed_glyphs_with_fontdb<'a>(
     characters_seen: HashSet<char>,
     all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     diag: &mut BuildDiagnostics,
-    generic_diag_location: Option<crate::diagnostics::SourceLocation>,
+    generic_diag_location: crate::diagnostics::SourceLocation,
 ) {
     let fallback_fonts = get_fallback_fonts(fontdb);
 
