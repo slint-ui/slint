@@ -222,27 +222,80 @@ cargo run --release --bin slint-viewer -- examples/printerdemo/ui/printerdemo.sl
 
 ## Generating the Documentation
 
-### Rust
+The Slint documentation consists of five parts:
 
-The documentation for the different crates is built using rustdoc.
+- The tutorials
+- The Rust API documentation
+- The C++ API documentation
+- The Node.js API documentation
+- The DSL documentation
 
-The language documentation has snippets in the .slint language which can be previewed by injecting
-html to the documentation with the `--html-in-header` rustdoc flag.
+### Tutorials
 
-Use the following command line to build the documentation to include preview of the .slint files.
+There are three tutorials built with mdbook, one for each of the three languages supported by Slint.
+
+**Prerequisites**:
+
+- [mdbook](https://rust-lang.github.io/mdBook/guide/installation.html)
+
+#### Rust tutorial
+
+```shell
+mdbook build docs/tutorial/rust
+```
+
+#### C++ tutorial
+
+```shell
+mdbook build docs/tutorial/cpp
+```
+
+#### NodeJS tutorial
+
+```shell
+mdbook build docs/tutorial/node
+```
+
+### Slint DSL docs
+
+**Prerequisites**:
+
+- [pipenv](https://pipenv.pypa.io/en/latest/)
+- [Python](https://www.python.org/downloads/)
+
+Use the following command line to build the documentation for the Slint DSL using `rustdoc` to the `target/slintdocs/html` folder:
+
+```shell
+cargo xtask slintdocs --show-warnings
+```
+
+
+### Rust API docs
+
+Run the following command to generate the documentation using rustdoc in the `target/doc/` sub-folder:
 
 ```sh
 RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/slint-docs-preview.html --html-in-header=$PWD/docs/resources/slint-docs-highlight.html" cargo doc --no-deps --features slint/document-features,slint/log
 ```
 
-The documentation will be located in the `target/doc` sub-folder.
+ Note: `--html-in-header` arguments passed to rustdoc via `RUSTDOCFLAGS` are used to enable syntax highlighting and live-preview for Slint example snippets.
+### C++ API docs
 
-### C++
+**Prerequisites**:
 
-The C++ documentation requires Python and doxygen to be installed on your system.
+- [Doxygen](https://www.doxygen.nl/download.html)
 
-Run the following command to invoke doxygen and related tools and generate the documentation in the `target/cppdocs` sub-folder:
+Run the following command to generate the documentation using sphinx/exhale/breathe/doxygen/myst_parser in the `target/cppdocs` sub-folder:
 
 ```sh
 cargo xtask cppdocs
+```
+
+### Node.js API docs
+
+Run the following commands from the `/api/node` sub-folder to generate the docs using [typedoc](https://typedoc.org/) in the `/api/node/docs` sub-folder:
+
+```sh
+npm install
+npm run docs
 ```
