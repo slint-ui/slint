@@ -183,7 +183,7 @@ pub fn load_preview(preview_component: PreviewComponent) {
         loop {
             let (preview_component, config) = {
                 let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-                let Some(current) = &mut cache.current.clone() else { return };
+                let Some(current) = &mut cache.current else { return };
                 let preview_component = current.clone();
                 current.style.clear();
 
