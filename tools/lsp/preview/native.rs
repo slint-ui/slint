@@ -3,20 +3,12 @@
 
 // cSpell: ignore condvar
 
+use super::PreviewState;
+use crate::lsp_ext::Health;
 use crate::ServerNotifier;
-use crate::{common::ComponentInformation, lsp_ext::Health};
-
-use i_slint_compiler::object_tree::{ElementRc, ElementWeak};
-use i_slint_core::lengths::LogicalRect;
-use lsp_types::Url;
-use slint::VecModel;
-use slint_interpreter::highlight::ComponentPositions;
-use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
-
 use once_cell::sync::Lazy;
-use std::cell::RefCell;
+use slint_interpreter::ComponentHandle;
 use std::future::Future;
-use std::rc::{Rc, Weak};
 use std::sync::{Condvar, Mutex};
 
 #[derive(PartialEq)]
@@ -137,7 +129,7 @@ pub fn open_ui(sender: &ServerNotifier) {
     };
 
     i_slint_core::api::invoke_from_event_loop(move || {
-        PREVIEW_STATE.with(|preview_state| {
+        super::PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
 
             open_ui_impl(&mut preview_state);
@@ -146,7 +138,7 @@ pub fn open_ui(sender: &ServerNotifier) {
     .unwrap();
 }
 
-fn open_ui_impl(preview_state: &mut PreviewState) {
+pub(super) fn open_ui_impl(preview_state: &mut PreviewState) {
     let (default_style, show_preview_ui, fullscreen) = {
         let cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         let style = cache.config.style.clone();
@@ -189,7 +181,7 @@ pub fn close_ui() {
     }
 
     i_slint_core::api::invoke_from_event_loop(move || {
-        PREVIEW_STATE.with(move |preview_state| {
+        super::PREVIEW_STATE.with(move |preview_state| {
             let mut preview_state = preview_state.borrow_mut();
             close_ui_impl(&mut preview_state)
         });
@@ -207,49 +199,8 @@ fn close_ui_impl(preview_state: &mut PreviewState) {
 static SERVER_NOTIFIER: std::sync::OnceLock<Mutex<Option<ServerNotifier>>> =
     std::sync::OnceLock::new();
 
-#[derive(Default)]
-struct PreviewState {
-    ui: Option<super::ui::PreviewUi>,
-    handle: Rc<RefCell<Option<ComponentInstance>>>,
-    selected_element: Option<ElementWeak>,
-}
-
-thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
-
-pub fn set_selected_element(
-    element_position: Option<(&ElementRc, LogicalRect)>,
-    secondary: slint_interpreter::highlight::ComponentPositions,
-) {
-    PREVIEW_STATE.with(move |preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
-        if let Some((e, _)) = element_position {
-            preview_state.selected_element = Some(Rc::downgrade(e));
-        } else {
-            preview_state.selected_element = None;
-        }
-
-        super::set_selections(preview_state.ui.as_ref(), element_position, secondary);
-    })
-}
-
-pub fn selected_element() -> Option<ElementRc> {
-    PREVIEW_STATE.with(move |preview_state| {
-        let preview_state = preview_state.borrow();
-        let Some(weak) = &preview_state.selected_element else {
-            return None;
-        };
-        Weak::upgrade(&weak)
-    })
-}
-
-pub fn component_instance() -> Option<ComponentInstance> {
-    PREVIEW_STATE.with(move |preview_state| {
-        preview_state.borrow().handle.borrow().as_ref().map(|ci| ci.clone_strong())
-    })
-}
-
 pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Option<()> {
-    set_diagnostics(diagnostics);
+    super::set_diagnostics(diagnostics);
 
     let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
         return Some(());
@@ -261,77 +212,6 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
         crate::preview::notify_lsp_diagnostics(&sender, url, diagnostics)?;
     }
     Some(())
-}
-
-pub fn set_known_components(known_components: Vec<ComponentInformation>) {
-    run_in_ui_thread(move || async move {
-        PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow();
-            if let Some(ui) = &preview_state.ui {
-                crate::preview::ui::ui_set_known_components(ui, &known_components)
-            }
-        })
-    });
-}
-
-pub fn set_show_preview_ui(show_preview_ui: bool) {
-    run_in_ui_thread(move || async move {
-        PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow();
-            if let Some(ui) = &preview_state.ui {
-                ui.set_show_preview_ui(show_preview_ui)
-            }
-        })
-    });
-}
-
-pub fn set_current_style(style: String) {
-    PREVIEW_STATE.with(move |preview_state| {
-        let preview_state = preview_state.borrow_mut();
-        if let Some(ui) = &preview_state.ui {
-            ui.set_current_style(style.into())
-        }
-    });
-}
-
-pub fn get_current_style() -> String {
-    PREVIEW_STATE.with(|preview_state| -> String {
-        let preview_state = preview_state.borrow();
-        if let Some(ui) = &preview_state.ui {
-            ui.get_current_style().as_str().to_string()
-        } else {
-            String::new()
-        }
-    })
-}
-
-pub fn set_status_text(text: &str) {
-    let text = text.to_string();
-
-    i_slint_core::api::invoke_from_event_loop(move || {
-        PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow_mut();
-            if let Some(ui) = &preview_state.ui {
-                ui.set_status_text(text.into());
-            }
-        });
-    })
-    .unwrap();
-}
-
-pub fn set_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) {
-    let data = crate::preview::ui::convert_diagnostics(diagnostics);
-
-    i_slint_core::api::invoke_from_event_loop(move || {
-        PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow_mut();
-            if let Some(ui) = &preview_state.ui {
-                let model = VecModel::from(data);
-                ui.set_diagnostics(Rc::new(model).into());
-            }
-        });
-    })
-    .unwrap();
 }
 
 pub fn send_status(message: &str, health: Health) {
@@ -350,52 +230,4 @@ pub fn ask_editor_to_show_document(file: String, selection: lsp_types::Range) {
     let fut = crate::send_show_document_to_editor(sender, file, selection);
 
     slint_interpreter::spawn_local(fut).unwrap(); // Fire and forget.
-}
-
-/// This runs `set_preview_factory` in the UI thread
-pub fn update_preview_area(compiled: Option<ComponentDefinition>) {
-    PREVIEW_STATE.with(|preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
-
-        open_ui_impl(&mut preview_state);
-
-        let ui = preview_state.ui.as_ref().unwrap();
-        let shared_handle = preview_state.handle.clone();
-
-        if let Some(compiled) = compiled {
-            super::set_preview_factory(
-                ui,
-                compiled,
-                Box::new(move |instance| {
-                    shared_handle.replace(Some(instance));
-                }),
-            );
-            super::reset_selections(ui);
-        }
-
-        ui.show().unwrap();
-    });
-}
-
-/// Highlight the element pointed at the offset in the path.
-/// When path is None, remove the highlight.
-pub fn update_highlight(url: Option<Url>, offset: u32) {
-    run_in_ui_thread(move || async move {
-        let handle = PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow();
-            let result = preview_state.handle.borrow().as_ref().map(|h| h.clone_strong());
-            result
-        });
-
-        if let Some(handle) = handle {
-            let element_positions =
-                if let Some(path) = url.as_ref().and_then(|u| u.to_file_path().ok()) {
-                    handle.component_positions(path, offset)
-                } else {
-                    ComponentPositions::default()
-                };
-
-            set_selected_element(None, element_positions);
-        }
-    })
 }

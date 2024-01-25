@@ -1,25 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::{Path, PathBuf},
-    rc::Rc,
-    sync::Mutex,
-};
-
-use crate::{
-    common::{ComponentInformation, PreviewComponent, PreviewConfig, VersionedUrl},
-    lsp_ext::Health,
-};
-use i_slint_compiler::object_tree::ElementRc;
+use crate::common::{ComponentInformation, PreviewComponent, PreviewConfig, VersionedUrl};
+use crate::lsp_ext::Health;
+use i_slint_compiler::object_tree::{ElementRc, ElementWeak};
+use i_slint_core::model::VecModel;
 use i_slint_core::{component_factory::FactoryContext, lengths::LogicalRect};
-use slint_interpreter::{
-    highlight::{ComponentKind, ComponentPositions},
-    ComponentDefinition, ComponentHandle, ComponentInstance,
-};
-
 use lsp_types::{notification::Notification, Url};
+use slint_interpreter::highlight::{ComponentKind, ComponentPositions};
+use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::Mutex;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -62,6 +56,14 @@ struct ContentCache {
 
 static CONTENT_CACHE: std::sync::OnceLock<Mutex<ContentCache>> = std::sync::OnceLock::new();
 
+#[derive(Default)]
+struct PreviewState {
+    ui: Option<ui::PreviewUi>,
+    handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
+    selected_element: Option<ElementWeak>,
+}
+thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
+
 pub fn set_contents(url: &VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let old = cache.source_code.insert(url.url.clone(), content.clone());
@@ -85,13 +87,13 @@ pub fn set_contents(url: &VersionedUrl, content: String) {
 }
 
 // triggered from the UI, running in UI thread
-pub fn can_drop_component(component_name: slint::SharedString, x: f32, y: f32) -> bool {
+fn can_drop_component(component_name: slint::SharedString, x: f32, y: f32) -> bool {
     i_slint_core::debug_log!("can drop? {} at {x}x{y}", component_name.as_str());
     ((x.round() as i32) / 10) % 2 == 0 && ((y.round() as i32) / 10) % 2 == 0
 }
 
 // triggered from the UI, running in UI thread
-pub fn drop_component(component_name: slint::SharedString, x: f32, y: f32) {
+fn drop_component(component_name: slint::SharedString, x: f32, y: f32) {
     i_slint_core::debug_log!("drop! {} at {x}x{y}", component_name.as_str());
 }
 
@@ -108,13 +110,13 @@ fn change_style() {
     }
 }
 
-pub fn start_parsing() {
+fn start_parsing() {
     set_status_text("Updating Preview...");
     set_diagnostics(&[]);
     send_status("Loading Preview…", Health::Ok);
 }
 
-pub fn finish_parsing(ok: bool) {
+fn finish_parsing(ok: bool) {
     set_status_text("");
     if ok {
         send_status("Preview Loaded", Health::Ok);
@@ -275,7 +277,7 @@ async fn reload_preview_impl(
 /// This sets up the preview area to show the ComponentInstance
 ///
 /// This must be run in the UI thread.
-pub fn set_preview_factory(
+fn set_preview_factory(
     ui: &ui::PreviewUi,
     compiled: ComponentDefinition,
     callback: Box<dyn Fn(ComponentInstance)>,
@@ -313,14 +315,38 @@ pub fn highlight(url: Option<Url>, offset: u32) {
     cache.highlight = highlight;
 
     if cache.highlight.as_ref().map_or(true, |(url, _)| cache.dependency.contains(url)) {
-        update_highlight(url, offset);
+        run_in_ui_thread(move || async move {
+            let handle = PREVIEW_STATE.with(|preview_state| {
+                let preview_state = preview_state.borrow();
+                let result = preview_state.handle.borrow().as_ref().map(|h| h.clone_strong());
+                result
+            });
+
+            if let Some(handle) = handle {
+                let element_positions =
+                    if let Some(path) = url.as_ref().and_then(|u| u.to_file_path().ok()) {
+                        handle.component_positions(path, offset)
+                    } else {
+                        ComponentPositions::default()
+                    };
+
+                set_selected_element(None, element_positions);
+            }
+        })
     }
 }
 
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
 pub fn known_components(_url: &Option<VersionedUrl>, components: Vec<ComponentInformation>) {
-    set_known_components(components)
+    run_in_ui_thread(move || async move {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow();
+            if let Some(ui) = &preview_state.ui {
+                ui::ui_set_known_components(ui, &components)
+            }
+        })
+    });
 }
 
 pub fn show_document_request_from_element_callback(
@@ -341,7 +367,7 @@ pub fn show_document_request_from_element_callback(
     })
 }
 
-pub fn convert_diagnostics(
+fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
 ) -> HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> {
     let mut result: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> = Default::default();
@@ -383,12 +409,12 @@ pub fn send_status_notification(sender: &crate::ServerNotifier, message: &str, h
         .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
 }
 
-pub fn reset_selections(ui: &ui::PreviewUi) {
+fn reset_selections(ui: &ui::PreviewUi) {
     let model = Rc::new(slint::VecModel::from(Vec::new()));
     ui.set_selections(slint::ModelRc::from(model));
 }
 
-pub fn set_selections(
+fn set_selections(
     ui: Option<&ui::PreviewUi>,
     element_position: Option<(&ElementRc, LogicalRect)>,
     positions: ComponentPositions,
@@ -433,4 +459,123 @@ pub fn set_selections(
     };
     let model = Rc::new(slint::VecModel::from(values));
     ui.set_selections(slint::ModelRc::from(model));
+}
+
+fn set_selected_element(
+    element_position: Option<(&ElementRc, LogicalRect)>,
+    secondary: slint_interpreter::highlight::ComponentPositions,
+) {
+    PREVIEW_STATE.with(move |preview_state| {
+        let mut preview_state = preview_state.borrow_mut();
+        if let Some((e, _)) = element_position {
+            preview_state.selected_element = Some(Rc::downgrade(e));
+        } else {
+            preview_state.selected_element = None;
+        }
+
+        set_selections(preview_state.ui.as_ref(), element_position, secondary);
+    })
+}
+
+fn selected_element() -> Option<ElementRc> {
+    PREVIEW_STATE.with(move |preview_state| {
+        let preview_state = preview_state.borrow();
+        let Some(weak) = &preview_state.selected_element else {
+            return None;
+        };
+        weak.upgrade()
+    })
+}
+
+fn component_instance() -> Option<ComponentInstance> {
+    PREVIEW_STATE.with(move |preview_state| {
+        preview_state.borrow().handle.borrow().as_ref().map(|ci| ci.clone_strong())
+    })
+}
+
+fn set_show_preview_ui(show_preview_ui: bool) {
+    run_in_ui_thread(move || async move {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow();
+            if let Some(ui) = &preview_state.ui {
+                ui.set_show_preview_ui(show_preview_ui)
+            }
+        })
+    });
+}
+
+fn set_current_style(style: String) {
+    PREVIEW_STATE.with(move |preview_state| {
+        let preview_state = preview_state.borrow_mut();
+        if let Some(ui) = &preview_state.ui {
+            ui.set_current_style(style.into())
+        }
+    });
+}
+
+fn get_current_style() -> String {
+    PREVIEW_STATE.with(|preview_state| -> String {
+        let preview_state = preview_state.borrow();
+        if let Some(ui) = &preview_state.ui {
+            ui.get_current_style().as_str().to_string()
+        } else {
+            String::new()
+        }
+    })
+}
+
+fn set_status_text(text: &str) {
+    let text = text.to_string();
+
+    i_slint_core::api::invoke_from_event_loop(move || {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow_mut();
+            if let Some(ui) = &preview_state.ui {
+                ui.set_status_text(text.into());
+            }
+        });
+    })
+    .unwrap();
+}
+
+fn set_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) {
+    let data = crate::preview::ui::convert_diagnostics(diagnostics);
+
+    i_slint_core::api::invoke_from_event_loop(move || {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow_mut();
+            if let Some(ui) = &preview_state.ui {
+                let model = VecModel::from(data);
+                ui.set_diagnostics(Rc::new(model).into());
+            }
+        });
+    })
+    .unwrap();
+}
+
+/// This runs `set_preview_factory` in the UI thread
+fn update_preview_area(compiled: Option<ComponentDefinition>) {
+    PREVIEW_STATE.with(|preview_state| {
+        #[allow(unused_mut)]
+        let mut preview_state = preview_state.borrow_mut();
+
+        #[cfg(all(not(target_arch = "wasm32")))]
+        native::open_ui_impl(&mut preview_state);
+
+        let ui = preview_state.ui.as_ref().unwrap();
+        let shared_handle = preview_state.handle.clone();
+
+        if let Some(compiled) = compiled {
+            set_preview_factory(
+                ui,
+                compiled,
+                Box::new(move |instance| {
+                    shared_handle.replace(Some(instance));
+                }),
+            );
+            reset_selections(ui);
+        }
+
+        ui.show().unwrap();
+    });
 }
