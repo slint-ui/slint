@@ -11,7 +11,7 @@ mod preview;
 pub mod util;
 
 use common::{ComponentInformation, PreviewApi, Result, VersionedUrl};
-use i_slint_compiler::{pathutils::to_url, CompilerConfiguration};
+use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
 pub use language::{Context, DocumentCache, RequestHandler};
 use lsp_types::Url;
@@ -21,6 +21,9 @@ use std::future::Future;
 use std::io::ErrorKind;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
 
 type JsResult<T> = std::result::Result<T, JsError>;
 
@@ -262,7 +265,7 @@ pub fn create(
         let preview_notifier = preview_notifier.clone();
         Box::pin(async move {
             let contents = self::load_file(path.clone(), &load_file).await;
-            let Some(url) = to_url(&path) else {
+            let Ok(url) = Url::from_file_path(&path) else {
                 return Some(contents);
             };
             if let Ok(contents) = &contents {
