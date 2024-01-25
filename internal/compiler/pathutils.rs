@@ -19,7 +19,7 @@ pub fn is_url(path: &Path) -> bool {
 }
 
 /// Convert a `Path` to an `url::Url` if possible
-pub fn to_url(path: &str) -> Option<url::Url> {
+fn to_url(path: &str) -> Option<url::Url> {
     let Ok(url) = url::Url::parse(path) else {
         return None;
     };

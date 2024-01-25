@@ -12,7 +12,7 @@ use crate::{
     common::{ComponentInformation, PreviewComponent, PreviewConfig, VersionedUrl},
     lsp_ext::Health,
 };
-use i_slint_compiler::{object_tree::ElementRc, pathutils::to_url};
+use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::{component_factory::FactoryContext, lengths::LogicalRect};
 use slint_interpreter::{
     highlight::{ComponentKind, ComponentPositions},
@@ -156,7 +156,7 @@ fn get_url_from_cache(url: &Url) -> Option<String> {
 }
 
 fn get_path_from_cache(path: &Path) -> Option<String> {
-    let url = to_url(&path.to_string_lossy())?;
+    let url = Url::from_file_path(path).ok()?;
     get_url_from_cache(&url)
 }
 
