@@ -44,8 +44,7 @@ fn lsp_element_position(element: &ElementRc) -> Option<(String, lsp_types::Range
         })
 }
 
-// triggered from the UI, running in UI thread
-pub fn element_covers_point(
+fn element_covers_point(
     x: f32,
     y: f32,
     component_instance: &ComponentInstance,
@@ -134,21 +133,6 @@ struct SelectionCandidate {
 impl SelectionCandidate {
     fn is_element(&self, element: &ElementRc) -> bool {
         Rc::ptr_eq(&self.element, element)
-    }
-
-    fn element_of(&self, component: &Rc<Component>) -> bool {
-        self.component_stack.iter().any(|c| Rc::ptr_eq(component, c))
-    }
-
-    fn is_direct_child_of(&self, component: &Rc<Component>) -> bool {
-        let Some(last_component) = self.component_stack.last() else {
-            return false;
-        };
-        Rc::ptr_eq(last_component, component)
-    }
-
-    fn is_component_root_element_of(&self, component: &Rc<Component>) -> bool {
-        Rc::ptr_eq(&self.element, &component.root_element)
     }
 
     fn is_component_root_element(&self) -> bool {
