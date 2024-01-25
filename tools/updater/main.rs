@@ -222,7 +222,7 @@ fn visit_node(
                     .borrow()
                     .children
                     .iter()
-                    .find(|c| c.borrow().node.as_ref().map_or(false, |n| n.node == node.node))
+                    .find(|c| c.borrow().node.first().map_or(false, |n| n.node == node.node))
                     .cloned()
             } else if let Some(parent_co) = &state.current_component {
                 if node.parent().map_or(false, |n| n.kind() == SyntaxKind::Component) {

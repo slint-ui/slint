@@ -152,7 +152,7 @@ pub fn with_property_lookup_ctx<R>(
         loop {
             scope.push(it.clone());
             if let Some(c) = it.clone().borrow().children.iter().find(|c| {
-                c.borrow().node.as_ref().map_or(false, |n| n.text_range().contains(offset))
+                c.borrow().node.first().map_or(false, |n| n.text_range().contains(offset))
             }) {
                 it = c.clone();
             } else {
