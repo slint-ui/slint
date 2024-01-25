@@ -64,7 +64,7 @@ pub(crate) fn component_positions(
 pub(crate) fn element_position(
     component_instance: &DynamicComponentVRc,
     element: &ElementRc,
-) -> Option<LogicalRect> {
+) -> Vec<LogicalRect> {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
@@ -72,7 +72,7 @@ pub(crate) fn element_position(
     if let Some(repeater_path) = repeater_path(element) {
         fill_highlight_data(&repeater_path, &element, &c, &c, &mut values);
     }
-    values.geometries.get(0).cloned()
+    values.geometries
 }
 
 fn fill_highlight_data(

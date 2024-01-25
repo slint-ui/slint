@@ -1203,7 +1203,7 @@ impl ComponentInstance {
     pub fn element_position(
         &self,
         element: &i_slint_compiler::object_tree::ElementRc,
-    ) -> Option<i_slint_core::lengths::LogicalRect> {
+    ) -> Vec<i_slint_core::lengths::LogicalRect> {
         crate::highlight::element_position(&self.inner, element)
     }
 }

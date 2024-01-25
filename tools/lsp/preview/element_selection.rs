@@ -52,11 +52,7 @@ fn element_covers_point(
 ) -> bool {
     let click_position = LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
 
-    let Some(position) = component_instance.element_position(selected_element) else {
-        return false;
-    };
-
-    position.contains(click_position)
+    component_instance.element_position(selected_element).iter().any(|p| p.contains(click_position))
 }
 
 pub fn unselect_element() {
@@ -64,14 +60,14 @@ pub fn unselect_element() {
 }
 
 fn select_element(component_instance: &ComponentInstance, selected_element: &ElementRc) {
-    let Some(position) = component_instance.element_position(&selected_element) else {
-        return;
-    };
-
     let secondary_positions = if let Some((path, offset)) = element_offset(selected_element) {
         component_instance.component_positions(path, offset)
     } else {
         ComponentPositions::default()
+    };
+
+    let Some(position) = secondary_positions.geometries.get(0).cloned() else {
+        return;
     };
 
     super::set_selected_element(Some((&selected_element, position)), secondary_positions);
