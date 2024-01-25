@@ -352,16 +352,14 @@ pub fn known_components(_url: &Option<VersionedUrl>, components: Vec<ComponentIn
 }
 
 pub fn show_document_request_from_element_callback(
-    file: &str,
+    uri: Url,
     range: lsp_types::Range,
 ) -> Option<lsp_types::ShowDocumentParams> {
-    use lsp_types::ShowDocumentParams;
-
-    if file.is_empty() || range.start.character == 0 || range.end.character == 0 {
+    if range.start.character == 0 || range.end.character == 0 {
         return None;
     }
 
-    Url::from_file_path(file).ok().map(|uri| ShowDocumentParams {
+    Some(lsp_types::ShowDocumentParams {
         uri,
         external: Some(false),
         take_focus: Some(true),

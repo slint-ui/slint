@@ -390,10 +390,10 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
 #[cfg(feature = "preview-engine")]
 pub async fn send_show_document_to_editor(
     sender: ServerNotifier,
-    file: String,
+    file: Url,
     range: lsp_types::Range,
 ) {
-    let Some(params) = crate::preview::show_document_request_from_element_callback(&file, range)
+    let Some(params) = crate::preview::show_document_request_from_element_callback(file, range)
     else {
         return;
     };

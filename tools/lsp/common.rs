@@ -83,7 +83,7 @@ pub struct Diagnostic {
 pub enum PreviewToLspMessage {
     Status { message: String, health: crate::lsp_ext::Health },
     Diagnostics { uri: Url, diagnostics: Vec<lsp_types::Diagnostic> },
-    ShowDocument { file: String, selection: lsp_types::Range },
+    ShowDocument { file: Url, selection: lsp_types::Range },
     PreviewTypeChanged { is_external: bool },
     RequestState { unused: bool }, // send all documents!
 }

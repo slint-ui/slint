@@ -222,12 +222,11 @@ pub fn send_status(message: &str, health: Health) {
     crate::preview::send_status_notification(&sender, message, health)
 }
 
-pub fn ask_editor_to_show_document(file: String, selection: lsp_types::Range) {
+pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range) {
     let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
         return;
     };
-
-    let fut = crate::send_show_document_to_editor(sender, file, selection);
-
+    let Ok(url) = lsp_types::Url::from_file_path(file) else { return };
+    let fut = crate::send_show_document_to_editor(sender, url, selection);
     slint_interpreter::spawn_local(fut).unwrap(); // Fire and forget.
 }

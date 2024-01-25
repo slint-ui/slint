@@ -5,6 +5,7 @@
 #![cfg(target_arch = "wasm32")]
 
 use crate::lsp_ext::Health;
+use crate::wasm_prelude::*;
 use slint_interpreter::ComponentHandle;
 use std::cell::RefCell;
 use std::future::Future;
@@ -221,6 +222,7 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
     Some(())
 }
 
-pub fn ask_editor_to_show_document(file: String, selection: lsp_types::Range) {
+pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range) {
+    let Ok(file) = lsp_types::Url::from_file_path(file) else { return };
     send_message_to_lsp(crate::common::PreviewToLspMessage::ShowDocument { file, selection })
 }
