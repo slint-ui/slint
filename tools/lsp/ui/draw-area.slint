@@ -3,7 +3,7 @@
 
 // cSpell: ignore Heade
 
-import { Button, ComboBox, HorizontalBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
+import { Button, ComboBox, HorizontalBox, ListView, ScrollView, Palette, VerticalBox } from "std-widgets.slint";
 import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
 import { Resizer } from "resizer.slint";
 
@@ -50,7 +50,7 @@ export component DrawArea {
         viewport-height: i-drawing-rect.height;
 
         i-drawing-rect := Rectangle {
-            background: root.experimental ? Colors.pink : Colors.white ;
+            background: root.experimental ? Palette.alternate-background.mix(Colors.red, 0.9) : Palette.alternate-background.darker(0.1);
 
             width: max(i-scroll-view.visible-width, i-resizer.width + i-scroll-view.border);
             height: max(i-scroll-view.visible-height, i-resizer.height + i-scroll-view.border);
