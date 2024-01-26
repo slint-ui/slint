@@ -261,7 +261,8 @@ async fn reload_preview_impl(
     let compiled = if let Some(mut from_cache) = get_url_from_cache(&component.url) {
         if let Some(component_name) = &component.component {
             from_cache = format!(
-                "{from_cache}\nexport component _Preview inherits {component_name} {{ }}\n"
+                "{from_cache}\nexport component _SLINT_LivePreview inherits {component_name} {{ /* {} */ }}\n",
+                crate::common::NODE_IGNORE_COMMENT,
             );
         }
         builder.build_from_source(from_cache, path).await

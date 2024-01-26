@@ -3,6 +3,10 @@
 
 //! Data structures common between LSP and previewer
 
+use i_slint_compiler::{
+    object_tree::Element,
+    parser::{syntax_nodes, SyntaxKind},
+};
 use lsp_types::Url;
 
 use std::{collections::HashMap, path::PathBuf};
@@ -10,6 +14,21 @@ use std::{collections::HashMap, path::PathBuf};
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
 pub type UrlVersion = Option<i32>;
+
+/// Use this in nodes you want the language server and preview to
+/// ignore a node for code analysis purposes.
+pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
+
+/// Filter nodes that are marked up to be ignored from the list of nodes.
+pub fn filter_ignore_nodes_in_element(
+    element: &Element,
+) -> impl Iterator<Item = &syntax_nodes::Element> {
+    element.node.iter().filter(move |e| {
+        !e.children().any(|n| {
+            n.kind() == SyntaxKind::Comment && format!("{}", n.text()).contains(NODE_IGNORE_COMMENT)
+        })
+    })
+}
 
 /// A versioned file
 #[derive(Clone, serde::Deserialize, serde::Serialize)]
