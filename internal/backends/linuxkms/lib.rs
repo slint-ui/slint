@@ -14,7 +14,7 @@ use std::os::fd::OwnedFd;
 type DeviceOpener<'a> = dyn Fn(&std::path::Path) -> Result<std::rc::Rc<OwnedFd>, i_slint_core::platform::PlatformError>
     + 'a;
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "drm"))]
 mod drmoutput;
 
 #[cfg(target_os = "linux")]

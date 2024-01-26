@@ -80,6 +80,7 @@ impl RenderingRotation {
         }
     }
 
+    #[allow(unused)]
     pub fn translation_after_rotation(&self, screen_size: PhysicalSize) -> (f32, f32) {
         match self {
             RenderingRotation::NoRotation => (0., 0.),
