@@ -19,6 +19,7 @@ use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
+use core::time::Duration;
 
 /// A mouse or touch event
 ///
@@ -492,16 +493,13 @@ impl ClickState {
     }
 
     /// Check if the click is repeated.
-    pub fn check_repeat(&self, mouse_event: MouseEvent) -> MouseEvent {
+    pub fn check_repeat(&self, mouse_event: MouseEvent, click_interval: Duration) -> MouseEvent {
         match mouse_event {
             MouseEvent::Pressed { position, button, .. } => {
                 let instant_now = crate::animations::Instant::now();
 
                 if let Some(click_count_time_stamp) = self.click_count_time_stamp.get() {
-                    if instant_now - click_count_time_stamp
-                        < crate::context::GLOBAL_CONTEXT
-                            .with(|p| p.get().map(|p| p.0.platform.click_interval()))
-                            .unwrap_or_default()
+                    if instant_now - click_count_time_stamp < click_interval
                         && button == self.click_button.get()
                         && (position - self.click_position.get()).square_length() < 100 as _
                     {
@@ -776,7 +774,7 @@ fn send_mouse_event_to_item(
             let w = Rc::downgrade(window_adapter);
             timer.start(
                 crate::timers::TimerMode::SingleShot,
-                core::time::Duration::from_millis(duration),
+                Duration::from_millis(duration),
                 move || {
                     if let Some(w) = w.upgrade() {
                         WindowInner::from_pub(w.window()).process_delayed_event();
@@ -899,7 +897,7 @@ impl TextCursorBlinker {
             };
             self.cursor_blink_timer.start(
                 crate::timers::TimerMode::Repeated,
-                core::time::Duration::from_millis(500),
+                Duration::from_millis(500),
                 toggle_cursor,
             );
         }
