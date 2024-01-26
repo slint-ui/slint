@@ -4,7 +4,7 @@
 [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/slint-ui)
 
 [Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
-Slint-node is the integration with Node.js.
+Slint-node is the integration with [Node.js](https://nodejs.org/en) and [Deno](https://deno.com).
 
 To get started you use the [walk-through tutorial](https://slint.dev/docs/tutorial/node).
 We also have a [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template) repository with
@@ -24,12 +24,21 @@ To use Slint with Node.js, ensure the following programs are installed:
 
   * **[Node.js](https://nodejs.org/download/release/)** (v16. or newer)
   * **[npm](https://www.npmjs.com/)**
+
+To use Slint with Deno, ensure the following programs are installed:
+
+  * **[Deno](https://docs.deno.com/runtime/manual)**
+
+### Building from Source
+
+Slint-node comes with pre-built binaries for macOS, Linux, and Windows. If you'd like to use Slint-node on a system
+without pre-built binaries, you need to additional software:
+
   * **[Rust compiler](https://www.rust-lang.org/tools/install)** (1.70 or newer)
+  * Depending on your operating system, you may need additional components. For a list of required system libraries,
+    see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>.
 
-Depending on your operating system, you may need additional components. For a list of required system libraries,
-see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>.
-
-## Getting Started
+## Getting Started (Node.js)
 
 1. In a new directory, create a new Node.js project by calling [`npm init`](https://docs.npmjs.com/cli/v10/commands/npm-init).
 2. Install Slint for your project using [`npm install slint-ui`](https://docs.npmjs.com/cli/v10/commands/npm-install).
@@ -78,6 +87,62 @@ This is your main JavaScript entry point:
 
 For a complete example, see [/examples/todo/node](https://github.com/slint-ui/slint/tree/master/examples/todo/node).
 
+## Getting Started (Deno)
+
+1. Create a new file called `main.slint` with the following contents:
+
+```
+import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
+export component Demo {
+    in-out property <string> greeting <=> label.text;
+    VerticalBox {
+        alignment: start;
+        label := Text {
+            text: "Hello World!";
+            font-size: 24px;
+            horizontal-alignment: center;
+        }
+        AboutSlint {
+            preferred-height: 150px;
+        }
+        HorizontalLayout { alignment: center; Button { text: "OK!"; } }
+    }
+}
+```
+
+This file declares the user interface.
+
+2. Create a new file called `deno.json` (a [Deno Import Map](https://docs.deno.com/runtime/manual/basics/import_maps))
+   with the following contents:
+
+```json
+{
+  "imports": {
+    "slint-ui": "npm:slint-ui"
+  }
+}
+```
+
+3. Create a new file called `index.ts` with the following contents:
+
+```
+import * as slint from "slint-ui";
+let ui = slint.loadFile("main.slint");
+let demo = new ui.Demo();
+
+await demo.run();
+```
+
+This is your main JavaScript entry point:
+
+* Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module through Deno's
+  NPM compatibility layer.
+* Invoke `loadFile()` to compile and load the `.slint` file.
+* Instantiate the `Demo` component declared in `main.slint`.
+* Run it by showing it on the screen and reacting to user input.
+
+1. Run the example with `deno run --allow-read --allow-ffi --allow-sys index.ts`
+
 ## API Overview
 
 ### Instantiating a Component
@@ -106,7 +171,7 @@ export component MainWindow inherits Window {
 The exported component is exposed as a type constructor. The type constructor takes as parameter
 an object which allow to initialize the value of public properties or callbacks.
 
-**`main.js`**
+**`main.mjs`**
 
 ```js
 import * as slint from "slint-ui";
@@ -154,7 +219,7 @@ export component MyComponent inherits Window {
 }
 ```
 
-**`main.js`**
+**`main.mjs`**
 
 ```js
 import * as slint from "slint-ui";
