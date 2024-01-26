@@ -361,7 +361,7 @@ impl Item for TextInput {
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 self.as_ref().pressed.set(0);
-                self.copy_clipboard(Clipboard::SelectionClipboard);
+                self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
                 #[cfg(target_os = "android")]
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
@@ -1111,21 +1111,26 @@ impl TextInput {
         self.set_cursor_position(new_c as i32, true, window_adapter, self_rc);
     }
 
-    pub fn copy(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
-        self.copy_clipboard(Clipboard::DefaultClipboard);
+    pub fn copy(self: Pin<&Self>, w: &Rc<dyn WindowAdapter>, _: &ItemRc) {
+        self.copy_clipboard(w, Clipboard::DefaultClipboard);
     }
 
-    fn copy_clipboard(self: Pin<&Self>, clipboard: Clipboard) {
+    fn copy_clipboard(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        clipboard: Clipboard,
+    ) {
         let (anchor, cursor) = self.selection_anchor_and_cursor();
         if anchor == cursor {
             return;
         }
         let text = self.text();
-        crate::context::GLOBAL_CONTEXT.with(|p| {
-            if let Some(ctx) = p.get() {
-                ctx.0.platform.set_clipboard_text(&text[anchor..cursor], clipboard);
-            }
-        });
+
+        WindowInner::from_pub(window_adapter.window())
+            .ctx
+            .0
+            .platform
+            .set_clipboard_text(&text[anchor..cursor], clipboard);
     }
 
     pub fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1138,8 +1143,8 @@ impl TextInput {
         self_rc: &ItemRc,
         clipboard: Clipboard,
     ) {
-        if let Some(text) = crate::context::GLOBAL_CONTEXT
-            .with(|p| p.get().and_then(|p| p.0.platform.clipboard_text(clipboard)))
+        if let Some(text) =
+            WindowInner::from_pub(window_adapter.window()).ctx.0.platform.clipboard_text(clipboard)
         {
             self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);

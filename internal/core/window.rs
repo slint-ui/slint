@@ -372,6 +372,7 @@ pub struct WindowInner {
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
+    pub(crate) ctx: once_cell::unsync::Lazy<crate::SlintContext>,
 }
 
 impl Drop for WindowInner {
@@ -431,6 +432,11 @@ impl WindowInner {
             close_requested: Default::default(),
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
+            // The ctx is lazy so that a Window can be initialized before the backend.
+            // (for example in test_empty_window)
+            ctx: once_cell::unsync::Lazy::new(|| {
+                crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().clone())
+            }),
         }
     }
 
@@ -487,7 +493,7 @@ impl WindowInner {
         crate::animations::update_animations();
 
         // handle multiple press release
-        event = self.click_state.check_repeat(event);
+        event = self.click_state.check_repeat(event, self.ctx.0.platform.click_interval());
 
         let pressed_event = matches!(event, MouseEvent::Pressed { .. });
         let released_event = matches!(event, MouseEvent::Released { .. });
@@ -558,7 +564,7 @@ impl WindowInner {
 
         if last_top_item != mouse_input_state.top_item() {
             self.click_state.reset();
-            self.click_state.check_repeat(event);
+            self.click_state.check_repeat(event, self.ctx.0.platform.click_interval());
         }
 
         self.mouse_input_state.set(mouse_input_state);
@@ -828,11 +834,7 @@ impl WindowInner {
         if let Some(component) = self.try_component() {
             let was_visible = self.strong_component_ref.replace(Some(component)).is_some();
             if !was_visible {
-                crate::context::GLOBAL_CONTEXT.with(|ctx| {
-                    if let Some(ctx) = ctx.get() {
-                        *(ctx.0.window_count.borrow_mut()) += 1;
-                    }
-                });
+                *(self.ctx.0.window_count.borrow_mut()) += 1;
             }
         }
 
@@ -851,16 +853,12 @@ impl WindowInner {
         let result = self.window_adapter().set_visible(false);
         let was_visible = self.strong_component_ref.borrow_mut().take().is_some();
         if was_visible {
-            crate::context::GLOBAL_CONTEXT.with(|ctx| {
-                if let Some(ctx) = ctx.get() {
-                    let mut count = ctx.0.window_count.borrow_mut();
-                    *count -= 1;
-                    if *count <= 0 {
-                        drop(count);
-                        let _ = crate::api::quit_event_loop();
-                    }
-                }
-            });
+            let mut count = self.ctx.0.window_count.borrow_mut();
+            *count -= 1;
+            if *count <= 0 {
+                drop(count);
+                let _ = self.ctx.event_loop_proxy().and_then(|p| p.quit_event_loop().ok());
+            }
         }
         result
     }
