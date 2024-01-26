@@ -22,8 +22,7 @@ crate-type = ["cdylib"]
 [features]
 default = ["backend-winit", "renderer-femtovg", "backend-qt", "accessibility"]
 # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, and slint_tool_binary.yaml
-# binaries: default = ["backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
-# binaries-linux: default = ["backend-linuxkms-noseat", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
+# binaries: default = ["backend-linuxkms-noseat", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
 
 backend-qt = ["slint-interpreter/backend-qt"]
 backend-winit = ["slint-interpreter/backend-winit"]

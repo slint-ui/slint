@@ -20,7 +20,7 @@ backend-winit = ["backend-winit-x11", "backend-winit-wayland"]
 backend-winit-x11 = ["i-slint-backend-winit/x11"]
 backend-winit-wayland = ["i-slint-backend-winit/wayland"]
 backend-linuxkms = ["i-slint-backend-linuxkms/libseat"]
-backend-linuxkms-noseat = ["i-slint-backend-linuxkms", "i-slint-backend-linuxkms"]
+backend-linuxkms-noseat = ["i-slint-backend-linuxkms"]
 
 renderer-femtovg = ["i-slint-backend-winit?/renderer-femtovg", "i-slint-backend-linuxkms?/renderer-femtovg"]
 renderer-skia = ["i-slint-backend-winit?/renderer-skia", "i-slint-backend-linuxkms?/renderer-skia"]
@@ -40,8 +40,10 @@ i-slint-core = { workspace = true }
 [target.'cfg(not(target_os = "android"))'.dependencies]
 i-slint-backend-winit = { workspace = true, features = ["default"], optional = true }
 i-slint-backend-qt = { workspace = true, features = ["default"], optional = true }
-i-slint-backend-linuxkms = { workspace = true, features = ["default"], optional = true }
 i-slint-renderer-skia = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+i-slint-backend-linuxkms = { workspace = true, features = ["default"], optional = true }
 
 [build-dependencies]
 i-slint-common = { workspace = true }
