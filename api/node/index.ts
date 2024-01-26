@@ -884,7 +884,7 @@ class EventLoop {
     constructor() {
     }
 
-    start(running_callback?: Function): Promise<unknown> {
+    start(running_callback?: Function, quitOnLastWindowClosed: boolean = true): Promise<unknown> {
         if (this.#terminationPromise != null) {
             return this.#terminationPromise;
         }
@@ -905,7 +905,7 @@ class EventLoop {
         // can do right now.
         const nodejsPollInterval = 16;
         let id = setInterval(() => {
-            if (napi.processEvents() == napi.ProcessEventsResult.Exited || this.#quit_loop) {
+            if ((napi.processEvents() == napi.ProcessEventsResult.Exited && quitOnLastWindowClosed) || this.#quit_loop) {
                 clearInterval(id);
                 this.#terminateResolveFn!(undefined);
                 this.#terminateResolveFn = null;
@@ -941,6 +941,19 @@ var globalEventLoop: EventLoop = new EventLoop;
  */
 export function runEventLoop(runningCallback?: Function): Promise<unknown> {
     return globalEventLoop.start(runningCallback)
+}
+
+/**
+ * Similar to {@link runEventLoop}, but this function enters the main event loop and continues to run even when the last window is closed, 
+ * until {@link quitEventLoop} is called.
+ *
+ * @param runningCallback Optional callback that's invoked once when the event loop is running.
+ *                         The function's return value is ignored.
+ *
+ * This is useful for system tray applications where the application needs to stay alive even if no windows are visible.
+ */
+export function runEventLoopUntilQuit(runningCallback?: Function): Promise<unkown> {
+    return globalEventLoop.start(runningCallback, false)
 }
 
 /**
