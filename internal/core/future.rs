@@ -173,7 +173,7 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 /// ```
 pub fn spawn_local<F: Future + 'static>(fut: F) -> Result<JoinHandle<F::Output>, EventLoopError> {
     // ensure we are in the backend's thread
-    if crate::GLOBAL_CONTEXT.with(|p| p.get().is_none()) {
+    if crate::context::GLOBAL_CONTEXT.with(|p| p.get().is_none()) {
         return Err(EventLoopError::NoEventLoopProvider);
     }
 

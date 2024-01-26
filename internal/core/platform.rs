@@ -69,7 +69,8 @@ pub trait Platform {
     /// This is being phased out, see #1499.
     fn set_event_loop_quit_on_last_window_closed(&self, quit_on_last_window_closed: bool) {
         assert!(!quit_on_last_window_closed);
-        crate::GLOBAL_CONTEXT.with(|ctx| (*ctx.get().unwrap().window_count.borrow_mut()) += 1);
+        crate::context::GLOBAL_CONTEXT
+            .with(|ctx| (*ctx.get().unwrap().window_count.borrow_mut()) += 1);
     }
 
     /// Return an [`EventLoopProxy`] that can be used to send event to the event loop
@@ -193,7 +194,7 @@ pub enum SetPlatformError {
 ///
 /// If the platform abstraction was already set this will return `Err`.
 pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlatformError> {
-    crate::GLOBAL_CONTEXT.with(|instance| {
+    crate::context::GLOBAL_CONTEXT.with(|instance| {
         if instance.get().is_some() {
             return Err(SetPlatformError::AlreadySet);
         }
@@ -231,7 +232,7 @@ pub fn update_timers_and_animations() {
 /// returns false.
 pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
     crate::timers::TimerList::next_timeout().map(|timeout| {
-        let duration_since_start = crate::GLOBAL_CONTEXT
+        let duration_since_start = crate::context::GLOBAL_CONTEXT
             .with(|p| p.get().map(|p| p.platform.duration_since_start()))
             .unwrap_or_default();
         core::time::Duration::from_millis(

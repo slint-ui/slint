@@ -215,7 +215,7 @@ impl Instant {
     }
 
     fn duration_since_start() -> core::time::Duration {
-        crate::GLOBAL_CONTEXT
+        crate::context::GLOBAL_CONTEXT
             .with(|p| p.get().map(|p| p.platform.duration_since_start()))
             .unwrap_or_default()
     }
