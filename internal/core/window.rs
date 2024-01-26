@@ -830,7 +830,7 @@ impl WindowInner {
             if !was_visible {
                 crate::context::GLOBAL_CONTEXT.with(|ctx| {
                     if let Some(ctx) = ctx.get() {
-                        *(ctx.window_count.borrow_mut()) += 1;
+                        *(ctx.0.window_count.borrow_mut()) += 1;
                     }
                 });
             }
@@ -853,7 +853,7 @@ impl WindowInner {
         if was_visible {
             crate::context::GLOBAL_CONTEXT.with(|ctx| {
                 if let Some(ctx) = ctx.get() {
-                    let mut count = ctx.window_count.borrow_mut();
+                    let mut count = ctx.0.window_count.borrow_mut();
                     *count -= 1;
                     if *count <= 0 {
                         drop(count);
