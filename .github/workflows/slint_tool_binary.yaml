@@ -16,7 +16,7 @@ on:
         type: string
         description: features to enable for build
         # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, and api/node/Cargo.toml
-        default: "backend-winit,renderer-femtovg,renderer-skia,renderer-software"
+        default: "backend-linuxkms-noseat,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
       codesign:
         type: boolean
         description: Sign binaries on macOS (false for manual builds)
@@ -31,7 +31,7 @@ on:
         type: string
         description: features to enable for build
         # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, and api/node/Cargo.toml
-        default: "backend-winit,renderer-femtovg,renderer-skia,renderer-software"
+        default: "backend-linuxkms-noseat,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
       codesign:
         type: boolean
         description: Sign binaries on macOS
@@ -94,6 +94,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
+      - uses: ./.github/actions/install-linux-dependencies
+        with:
+          old-ubuntu: true
       - uses: ./.github/actions/setup-rust
         with:
           target: x86_64-unknown-linux-gnu
