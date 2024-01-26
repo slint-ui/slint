@@ -533,9 +533,18 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
             return true;
         }
         if binding.animation.is_some() {
-            // If there is an animation, we currently inline so that if this property
-            // is set with a binding, it is merged
-            return true;
+            let lookup_result = root_element.borrow().lookup_property(prop);
+            if !lookup_result.is_valid()
+                || !lookup_result.is_local_to_component
+                || !matches!(
+                    lookup_result.property_visibility,
+                    PropertyVisibility::Private | PropertyVisibility::Output
+                )
+            {
+                // If there is an animation, we currently inline so that if this property
+                // is set with a binding, it is merged
+                return true;
+            }
         }
     }
 
