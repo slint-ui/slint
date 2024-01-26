@@ -764,7 +764,12 @@ fn get_document_and_offset<'a>(
 }
 
 fn element_contains(element: &i_slint_compiler::object_tree::ElementRc, offset: u32) -> bool {
-    element.borrow().node.first().map_or(false, |n| n.text_range().contains(offset.into()))
+    element
+        .borrow()
+        .node
+        .first()
+        .and_then(|n| n.parent())
+        .map_or(false, |n| n.text_range().contains(offset.into()))
 }
 
 pub fn element_at_position(
@@ -1099,6 +1104,7 @@ fn get_document_color(
     }
 }
 
+/// Retrieve the document outline
 fn get_document_symbols(
     document_cache: &mut DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
@@ -1145,7 +1151,7 @@ fn get_document_symbols(
     r.extend(inner_types.iter().filter_map(|c| match c {
         Type::Struct { name: Some(name), node: Some(node), .. } => Some(DocumentSymbol {
             range: map_node(node.parent().as_ref()?)?,
-            selection_range: map_node(node)?,
+            selection_range: map_node(&node.parent()?.child_node(SyntaxKind::DeclaredIdentifier)?)?,
             name: name.clone(),
             kind: lsp_types::SymbolKind::STRUCT,
             ..ds.clone()
@@ -1153,7 +1159,7 @@ fn get_document_symbols(
         Type::Enumeration(enumeration) => enumeration.node.as_ref().and_then(|node| {
             Some(DocumentSymbol {
                 range: map_node(node)?,
-                selection_range: map_node(node)?,
+                selection_range: map_node(&node.DeclaredIdentifier())?,
                 name: enumeration.name.clone(),
                 kind: lsp_types::SymbolKind::ENUM,
                 ..ds.clone()
@@ -1169,9 +1175,12 @@ fn get_document_symbols(
             .iter()
             .filter_map(|child| {
                 let e = child.borrow();
+                let element_node = e.node.first()?;
+                let sub_element_node = element_node.parent()?;
+                debug_assert_eq!(sub_element_node.kind(), SyntaxKind::SubElement);
                 Some(DocumentSymbol {
-                    range: map_node(e.node.first()?)?,
-                    selection_range: map_node(e.node.first()?.QualifiedName().as_ref()?)?,
+                    range: map_node(&sub_element_node)?,
+                    selection_range: map_node(element_node.QualifiedName().as_ref()?)?,
                     name: e.base_type.to_string(),
                     detail: (!e.id.is_empty()).then(|| e.id.clone()),
                     kind: lsp_types::SymbolKind::VARIABLE,
@@ -1573,6 +1582,96 @@ enum {}
         } else {
             unreachable!();
         }
+    }
+
+    #[test]
+    fn test_document_symbols_positions() {
+        let source = r#"import { Button } from "std-widgets.slint";
+
+        enum TheEnum {
+            Abc, Def
+        }/*TheEnum*/
+
+        component FooBar {
+            in property <TheEnum> the-enum;
+            HorizontalLayout {
+                btn := Button {}
+                Rectangle {
+                    ta := TouchArea {}
+                    Image {
+                    }
+                }
+            }/*HorizontalLayout*/
+        }/*FooBar*/
+
+        struct Str { abc: string }
+
+        export global SomeGlobal {
+            in-out property<Str> prop;
+        }/*SomeGlobal*/
+
+        export component TestWindow inherits Window {
+            FooBar {}
+        }/*TestWindow*/
+        "#;
+
+        let (mut dc, uri, _) = test::loaded_document_cache(source.into());
+
+        let result =
+            get_document_symbols(&mut dc, &lsp_types::TextDocumentIdentifier { uri: uri.clone() })
+                .unwrap();
+
+        let mut check_start_with = |pos, str: &str| {
+            let (_, offset) = get_document_and_offset(&mut dc, &uri, &pos).unwrap();
+            assert_eq!(&source[offset as usize..][..str.len()], str);
+        };
+
+        let DocumentSymbolResponse::Nested(result) = result else {
+            panic!("not nested {result:?}")
+        };
+
+        assert_eq!(result.len(), 5);
+        assert_eq!(result[0].name, "TheEnum");
+        check_start_with(result[0].range.start, "enum TheEnum {");
+        check_start_with(result[0].range.end, "/*TheEnum*/");
+        check_start_with(result[0].selection_range.start, "TheEnum {");
+        check_start_with(result[0].selection_range.end, " {");
+        assert_eq!(result[1].name, "FooBar");
+        check_start_with(result[1].range.start, "component FooBar {");
+        check_start_with(result[1].range.end, "/*FooBar*/");
+        check_start_with(result[1].selection_range.start, "FooBar {");
+        check_start_with(result[1].selection_range.end, " {");
+        assert_eq!(result[2].name, "Str");
+        check_start_with(result[2].range.start, "struct Str {");
+        check_start_with(result[2].range.end, "\n");
+        check_start_with(result[2].selection_range.start, "Str {");
+        check_start_with(result[2].selection_range.end, " {");
+        assert_eq!(result[3].name, "SomeGlobal");
+        check_start_with(result[3].range.start, "global SomeGlobal");
+        check_start_with(result[3].range.end, "/*SomeGlobal*/");
+        check_start_with(result[3].selection_range.start, "SomeGlobal {");
+        check_start_with(result[3].selection_range.end, " {");
+        assert_eq!(result[4].name, "TestWindow");
+        check_start_with(result[4].range.start, "component TestWindow inherits Window {");
+        check_start_with(result[4].range.end, "/*TestWindow*/");
+        check_start_with(result[4].selection_range.start, "TestWindow inherits");
+        check_start_with(result[4].selection_range.end, " inherits");
+
+        macro_rules! tree {
+                ($root:literal $($more:literal)*) => {
+                    result[$root] $(.children.as_ref().unwrap()[$more])*
+                };
+            }
+        assert_eq!(tree!(1 0).name, "HorizontalLayout");
+        check_start_with(tree!(1 0).range.start, "HorizontalLayout {");
+        check_start_with(tree!(1 0).range.end, "/*HorizontalLayout*/");
+        assert_eq!(tree!(1 0 0).name, "Button");
+        assert_eq!(tree!(1 0 0).detail, Some("btn".into()));
+        check_start_with(tree!(1 0 0).range.start, "btn := Button");
+
+        assert_eq!(tree!(1 0 1 0).name, "TouchArea");
+        assert_eq!(tree!(1 0 1 0).detail, Some("ta".into()));
+        check_start_with(tree!(1 0 1 0).range.start, "ta := TouchArea");
     }
 
     #[test]

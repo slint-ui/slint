@@ -1346,7 +1346,7 @@ component MainWindow inherits Window {
         HorizontalBox {
             padding-left: 0;
             Text { text: "Elapsed Time:"; }
-            Base2 {
+            base2 := Base2 {
                 foo: 15;
                 min-width: 200px;
                 max-height: 30px;
@@ -1386,7 +1386,12 @@ component MainWindow inherits Window {
 }
             "#.to_string());
         let file_url = url.clone();
-        let (_, result) = properties_at_position_in_cache(28, 15, &mut dc, &url).unwrap();
+
+        let doc = dc.documents.get_document(&crate::language::uri_to_file(&url).unwrap()).unwrap();
+        let source = &doc.node.as_ref().unwrap().source_file;
+        let (l, c) = source.line_column(source.source().unwrap().find("base2 :=").unwrap());
+        let (_, result) =
+            properties_at_position_in_cache(l as u32, c as u32, &mut dc, &url).unwrap();
 
         let foo_property = find_property(&result, "foo").unwrap();
 
