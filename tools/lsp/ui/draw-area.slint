@@ -50,7 +50,7 @@ export component DrawArea {
         viewport-height: i-drawing-rect.height;
 
         i-drawing-rect := Rectangle {
-            background: root.experimental ? Palette.alternate-background.mix(Colors.red, 0.9) : Palette.alternate-background.darker(0.1);
+            background: root.experimental ? Palette.alternate-background.mix(Colors.red, 0.9) : Palette.alternate-background;
 
             width: max(i-scroll-view.visible-width, i-resizer.width + i-scroll-view.border);
             height: max(i-scroll-view.visible-height, i-resizer.height + i-scroll-view.border);
