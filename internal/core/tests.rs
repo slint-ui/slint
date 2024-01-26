@@ -91,7 +91,7 @@ pub extern "C" fn send_keyboard_string_sequence(
 #[doc(hidden)]
 pub fn debug_log_impl(args: core::fmt::Arguments) {
     crate::context::GLOBAL_CONTEXT.with(|p| match p.get() {
-        Some(ctx) => ctx.platform.debug_log(args),
+        Some(ctx) => ctx.0.platform.debug_log(args),
         None => default_debug_log(args),
     });
 }

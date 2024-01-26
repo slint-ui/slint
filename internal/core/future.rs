@@ -6,7 +6,8 @@
 
 //! This module contains the code that runs futures
 
-use crate::api::{invoke_from_event_loop, EventLoopError};
+use crate::api::EventLoopError;
+use crate::SlintContext;
 use alloc::boxed::Box;
 use alloc::task::Wake;
 use alloc::vec::Vec;
@@ -32,7 +33,7 @@ struct FutureRunner<T> {
     #[cfg(feature = "std")]
     inner: std::sync::Mutex<FutureRunnerInner<T>>,
     aborted: atomic::AtomicBool,
-
+    proxy: Box<dyn crate::platform::EventLoopProxy>,
     #[cfg(feature = "std")]
     thread: std::thread::ThreadId,
 }
@@ -58,7 +59,7 @@ unsafe impl<T> Sync for FutureRunner<T> {}
 
 impl<T: 'static> Wake for FutureRunner<T> {
     fn wake(self: alloc::sync::Arc<Self>) {
-        invoke_from_event_loop(move || {
+        self.clone().proxy.invoke_from_event_loop(Box::new(move || {
             #[cfg(feature = "std")]
             assert_eq!(self.thread, std::thread::current().id(), "the future was moved to a thread despite we checked it was created in the event loop thread");
             let waker = self.clone().into();
@@ -79,7 +80,7 @@ impl<T: 'static> Wake for FutureRunner<T> {
                     }
                 }
             }
-        })
+        }))
         .expect("No event loop despite we checked");
     }
 }
@@ -131,7 +132,7 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 /// The event loop must be initialized prior to calling this function.
 ///
 /// For spawning a `Send` future from a different thread, this function should be called from a closure
-/// passed to [`invoke_from_event_loop()`].
+/// passed to [`invoke_from_event_loop()`](crate::api::invoke_from_event_loop).
 ///
 /// This function is typically called from a UI callback.
 ///
@@ -173,16 +174,24 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 /// ```
 pub fn spawn_local<F: Future + 'static>(fut: F) -> Result<JoinHandle<F::Output>, EventLoopError> {
     // ensure we are in the backend's thread
-    if crate::context::GLOBAL_CONTEXT.with(|p| p.get().is_none()) {
-        return Err(EventLoopError::NoEventLoopProvider);
-    }
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let ctx = ctx.get().ok_or(EventLoopError::NoEventLoopProvider)?;
+        spawn_local_with_ctx(ctx, fut)
+    })
+}
 
+/// Implementation for [SlintContext::spawn_locale]
+pub(crate) fn spawn_local_with_ctx<F: Future + 'static>(
+    ctx: &SlintContext,
+    fut: F,
+) -> Result<JoinHandle<F::Output>, EventLoopError> {
     let arc = alloc::sync::Arc::new(FutureRunner {
         #[cfg(feature = "std")]
         thread: std::thread::current().id(),
         inner: FutureRunnerInner { fut: FutureState::Running(Box::pin(fut)), wakers: Vec::new() }
             .into(),
         aborted: Default::default(),
+        proxy: ctx.event_loop_proxy().ok_or(EventLoopError::NoEventLoopProvider)?,
     });
     arc.wake_by_ref();
     Ok(JoinHandle(arc))

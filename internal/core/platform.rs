@@ -70,7 +70,7 @@ pub trait Platform {
     fn set_event_loop_quit_on_last_window_closed(&self, quit_on_last_window_closed: bool) {
         assert!(!quit_on_last_window_closed);
         crate::context::GLOBAL_CONTEXT
-            .with(|ctx| (*ctx.get().unwrap().window_count.borrow_mut()) += 1);
+            .with(|ctx| (*ctx.get().unwrap().0.window_count.borrow_mut()) += 1);
     }
 
     /// Return an [`EventLoopProxy`] that can be used to send event to the event loop
@@ -202,7 +202,7 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
             EVENTLOOP_PROXY.set(proxy).map_err(|_| SetPlatformError::AlreadySet)?
         }
         instance
-            .set(crate::SlintContext { platform, window_count: 0.into() })
+            .set(crate::SlintContext::new(platform))
             .map_err(|_| SetPlatformError::AlreadySet)
             .unwrap();
         // Ensure a sane starting point for the animation tick.
@@ -233,7 +233,7 @@ pub fn update_timers_and_animations() {
 pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
     crate::timers::TimerList::next_timeout().map(|timeout| {
         let duration_since_start = crate::context::GLOBAL_CONTEXT
-            .with(|p| p.get().map(|p| p.platform.duration_since_start()))
+            .with(|p| p.get().map(|p| p.0.platform.duration_since_start()))
             .unwrap_or_default();
         core::time::Duration::from_millis(
             timeout.0.saturating_sub(duration_since_start.as_millis() as u64),

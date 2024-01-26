@@ -500,7 +500,7 @@ impl ClickState {
                 if let Some(click_count_time_stamp) = self.click_count_time_stamp.get() {
                     if instant_now - click_count_time_stamp
                         < crate::context::GLOBAL_CONTEXT
-                            .with(|p| p.get().map(|p| p.platform.click_interval()))
+                            .with(|p| p.get().map(|p| p.0.platform.click_interval()))
                             .unwrap_or_default()
                         && button == self.click_button.get()
                         && (position - self.click_position.get()).square_length() < 100 as _

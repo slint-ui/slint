@@ -17,10 +17,22 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Mutex;
 
-#[derive(Default)]
 pub struct TestingBackend {
     clipboard: Mutex<Option<String>>,
     queue: Option<Queue>,
+}
+
+impl TestingBackend {
+    pub fn new() -> Self {
+        Self {
+            queue: Some(Queue(Default::default(), std::thread::current())),
+            ..Self::new_no_thread()
+        }
+    }
+
+    pub fn new_no_thread() -> Self {
+        Self { clipboard: Mutex::default(), queue: None }
+    }
 }
 
 impl i_slint_core::platform::Platform for TestingBackend {
@@ -223,7 +235,7 @@ impl i_slint_core::platform::EventLoopProxy for Queue {
 /// Must be called before any call that would otherwise initialize the rendering backend.
 /// Calling it when the rendering backend is already initialized will have no effects
 pub fn init() {
-    i_slint_core::platform::set_platform(Box::<TestingBackend>::default())
+    i_slint_core::platform::set_platform(Box::new(TestingBackend::new_no_thread()))
         .expect("platform already initialized");
 }
 
@@ -231,9 +243,8 @@ pub fn init() {
 /// This function can only be called once per process, so make sure to use integration
 /// tests with one `#[test]` function.
 pub fn init_with_event_loop() {
-    let mut backend = TestingBackend::default();
-    backend.queue = Some(Queue(Default::default(), std::thread::current()));
-    i_slint_core::platform::set_platform(Box::new(backend)).expect("platform already initialized");
+    i_slint_core::platform::set_platform(Box::new(TestingBackend::new()))
+        .expect("platform already initialized");
 }
 
 /// This module contains functions useful for unit tests

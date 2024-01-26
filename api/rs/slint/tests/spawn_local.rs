@@ -54,3 +54,19 @@ fn main() {
     .unwrap();
     slint::run_event_loop().unwrap();
 }
+
+#[test]
+fn with_context() {
+    use i_slint_core::SlintContext;
+    let ctx = SlintContext::new(Box::new(i_slint_backend_testing::TestingBackend::new()));
+    let handle = ctx.spawn_local(async { String::from("Hello") }).unwrap();
+    ctx.spawn_local(async move { panic!("Aborted task") }).unwrap().abort();
+    let handle2 = ctx.spawn_local(async move { handle.await + ", World" }).unwrap();
+    let proxy = ctx.event_loop_proxy().unwrap();
+    std::thread::spawn(move || {
+        let x = executor::block_on(handle2);
+        assert_eq!(x, "Hello, World");
+        proxy.quit_event_loop().unwrap();
+    });
+    ctx.run_event_loop().unwrap()
+}
