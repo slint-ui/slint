@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-01-13 03:03+0000\n"
+"POT-Creation-Date: 2024-01-26 03:03+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: French (https://app.transifex.com/slint/teams/170022/fr/)\n"
@@ -56,88 +56,6 @@ msgctxt "Menu"
 msgid "About"
 msgstr "À Propos"
 
-#: ui/pages/about_page.slint:9
-#, fuzzy
-msgctxt "AboutPage"
-msgid "About"
-msgstr "À Propos"
-
-#: ui/pages/about_page.slint:11
-msgctxt "AboutPage"
-msgid ""
-"Are you curious now? Check out the docs and getting starteds from the Github "
-"repository and the website https://slint.dev and try it yourself."
-msgstr ""
-
-#: ui/pages/easings_page.slint:55
-msgctxt "EasingsPage"
-msgid "Easings"
-msgstr ""
-
-#: ui/pages/easings_page.slint:56
-msgctxt "EasingsPage"
-msgid "Easing demos"
-msgstr ""
-
-#: ui/pages/easings_page.slint:66
-msgctxt "EasingsPage"
-msgid "Animate All"
-msgstr ""
-
-#: ui/pages/easings_page.slint:102
-msgctxt "EasingsPage"
-msgid "Duration:"
-msgstr ""
-
-#: ui/pages/page.slint:26
-msgctxt "Page"
-msgid "Widgets enabled"
-msgstr "Widgets activés"
-
-#: ui/pages/text_edit_page.slint:9
-msgctxt "TextEditPage"
-msgid "TextEdit"
-msgstr "TextEdit"
-
-#: ui/pages/text_edit_page.slint:10
-msgctxt "TextEditPage"
-msgid ""
-"Similar to LineEdit, but can be used to enter several lines of text. The "
-"widget can be imported from \"std-widgets.slint\"."
-msgstr "Silimaire à LineEdit mais utilisé pour entrer plusieurs ligne de texte"
-
-#: ui/pages/text_edit_page.slint:15
-msgctxt "TextEditPage"
-msgid "Word-Wrap"
-msgstr "Retour à la ligne"
-
-#. min-width: 200px;
-#: ui/pages/text_edit_page.slint:19
-msgctxt "TextEditPage"
-msgid ""
-"This is our TextEdit widget, which allows for editing text that spans over "
-"multiple paragraphs.\n"
-"For example this line starts in a new paragraph.\n"
-"\n"
-"When the amount of lines - due to wrapping and number of paragraphs - "
-"exceeds the available vertical height, a vertical scrollbar is shown that "
-"allows scrolling.\n"
-"You may want to enter a bit of text here then in order to make them visible."
-msgstr ""
-"Ceci est le widget TextEdit qui permet d'éditer du text qui va sur plusieurs "
-"paragaps\n"
-"Par example, cette ligne est un nouveau paragraph\n"
-"\n"
-"Quand le nombre de ligne dépasse la taille, il y a une bare de défilement "
-"qui apparaît\n"
-"\n"
-"Vous pouver entrer du texte ici et voir ce qui se passe"
-
-#: ui/pages/text_edit_page.slint:26
-msgctxt "TextEditPage"
-msgid "No-Wrap"
-msgstr "Pas de retour à la ligne"
-
 #: ui/pages/table_view_page.slint:23
 msgctxt "TableViewPage"
 msgid "TableView"
@@ -176,6 +94,44 @@ msgstr "En-tête 3"
 msgctxt "TableViewPage"
 msgid "Header 4"
 msgstr "En-tête 4"
+
+#: ui/pages/page.slint:26
+msgctxt "Page"
+msgid "Widgets enabled"
+msgstr "Widgets activés"
+
+#: ui/pages/easings_page.slint:55
+msgctxt "EasingsPage"
+msgid "Easings"
+msgstr ""
+
+#: ui/pages/easings_page.slint:56
+msgctxt "EasingsPage"
+msgid "Easing demos"
+msgstr ""
+
+#: ui/pages/easings_page.slint:66
+msgctxt "EasingsPage"
+msgid "Animate All"
+msgstr ""
+
+#: ui/pages/easings_page.slint:102
+msgctxt "EasingsPage"
+msgid "Duration:"
+msgstr ""
+
+#: ui/pages/about_page.slint:9
+#, fuzzy
+msgctxt "AboutPage"
+msgid "About"
+msgstr "À Propos"
+
+#: ui/pages/about_page.slint:11
+msgctxt "AboutPage"
+msgid ""
+"Are you curious now? Check out the docs and getting starteds from the Github "
+"repository and the website https://slint.dev and try it yourself."
+msgstr ""
 
 #: ui/pages/controls_page.slint:10
 msgctxt "ControlsPage"
@@ -331,6 +287,50 @@ msgstr "3ᵉ Onglet"
 msgctxt "ControlsPage"
 msgid "Content of tab 3"
 msgstr "Contenu du 3ᵉ conglet"
+
+#: ui/pages/text_edit_page.slint:9
+msgctxt "TextEditPage"
+msgid "TextEdit"
+msgstr "TextEdit"
+
+#: ui/pages/text_edit_page.slint:10
+msgctxt "TextEditPage"
+msgid ""
+"Similar to LineEdit, but can be used to enter several lines of text. The "
+"widget can be imported from \"std-widgets.slint\"."
+msgstr "Silimaire à LineEdit mais utilisé pour entrer plusieurs ligne de texte"
+
+#: ui/pages/text_edit_page.slint:15
+msgctxt "TextEditPage"
+msgid "Word-Wrap"
+msgstr "Retour à la ligne"
+
+#. min-width: 200px;
+#: ui/pages/text_edit_page.slint:19
+msgctxt "TextEditPage"
+msgid ""
+"This is our TextEdit widget, which allows for editing text that spans over "
+"multiple paragraphs.\n"
+"For example this line starts in a new paragraph.\n"
+"\n"
+"When the amount of lines - due to wrapping and number of paragraphs - "
+"exceeds the available vertical height, a vertical scrollbar is shown that "
+"allows scrolling.\n"
+"You may want to enter a bit of text here then in order to make them visible."
+msgstr ""
+"Ceci est le widget TextEdit qui permet d'éditer du text qui va sur plusieurs "
+"paragaps\n"
+"Par example, cette ligne est un nouveau paragraph\n"
+"\n"
+"Quand le nombre de ligne dépasse la taille, il y a une bare de défilement "
+"qui apparaît\n"
+"\n"
+"Vous pouver entrer du texte ici et voir ce qui se passe"
+
+#: ui/pages/text_edit_page.slint:26
+msgctxt "TextEditPage"
+msgid "No-Wrap"
+msgstr "Pas de retour à la ligne"
 
 #: ui/pages/list_view_page.slint:9 ui/pages/list_view_page.slint:16
 msgctxt "ListViewPage"
