@@ -46,7 +46,7 @@ TestCase := Rectangle {
       (value
         (int_value)))
     (callback
-      (function_identifier)))
+      (var_identifier)))
   (component_definition
     (user_type_identifier)
     (user_type_identifier)
@@ -82,14 +82,14 @@ TestCase := Rectangle {
     (user_type_identifier)
     (block
       (callback
-        (function_identifier))
+        (var_identifier))
       (callback_event
-        (function_identifier)
+        (var_identifier)
         (block
           (var_identifier
             (post_identifier
               (function_call
-                (function_identifier)
+                (var_identifier)
                 (call_signature))))))
       (component
         (user_type_identifier)

@@ -11,14 +11,16 @@ module.exports = grammar({
         [$._assignment_value_block],
         [$._binding],
         [$._expression_body, $.value],
+        [$._expression_body, $.function_call],
         [$._var_identifier_start, $.var_identifier],
+        [$._var_identifier_start, $.var_identifier, $.post_identifier],
         [$.anon_struct, $.assignment_prec_operator, $.binding],
         [$.assignment_block],
         [$.binding_block, $._binding_block_statement],
         [$._binding_block_statement, $.block],
         [$._export_modifier, $.export_statement],
-        [$.function_identifier, $.post_identifier],
         [$.var_identifier],
+        [$.function_call],
     ],
 
     rules: {
@@ -211,9 +213,7 @@ module.exports = grammar({
                 "enum",
                 field("name", $._type_identifier),
                 "{",
-                commaSep(
-                    field("name", $.var_identifier),
-                ),
+                commaSep(field("name", $.var_identifier)),
                 optional(","),
                 "}",
             ),
@@ -382,6 +382,8 @@ module.exports = grammar({
                 seq($._tr, optional($._accessor_postfix)),
                 seq($.value, optional($._accessor_postfix)),
                 seq($.function_call, optional($._accessor_postfix)),
+                $.gradient_call,
+                $.image_call,
                 $.var_identifier,
                 $.unary_expression,
                 $._binary_expression,
@@ -442,7 +444,7 @@ module.exports = grammar({
             seq(
                 optional(field("purity", "pure")),
                 "callback",
-                field("name", $.function_identifier),
+                field("name", $.var_identifier),
                 optional($.call_signature),
                 optional(seq("->", field("return_type", $._type_identifier))),
                 ";",
@@ -465,7 +467,7 @@ module.exports = grammar({
                     ),
                 ),
                 "function",
-                field("name", $.function_identifier),
+                field("name", $.var_identifier),
                 optional($.function_signature),
                 optional(seq("->", field("return_type", $.type))),
                 $.block,
@@ -475,7 +477,7 @@ module.exports = grammar({
             seq(
                 optional(field("purity", "pure")),
                 "callback",
-                field("name", $.function_identifier),
+                field("name", $.var_identifier),
                 "<=>",
                 field("alias", $.var_identifier),
                 ";",
@@ -483,17 +485,55 @@ module.exports = grammar({
 
         callback_event: ($) =>
             seq(
-                field("name", $.function_identifier),
+                field("name", $.var_identifier),
                 optional($.call_signature),
                 "=>",
                 field("action", $.block),
             ),
 
         function_call: ($) =>
+            seq(field("name", $.var_identifier), optional($.call_signature)),
+
+        gradient_call: ($) =>
+            choice(
+                seq(
+                    field("name", $.linear_gradient_identifier),
+                    "(",
+                    field(
+                        "parameters",
+                        seq(
+                            field("angle", $.angle_value),
+                            ",",
+                            field("colors", commaSep2($.gradient_color)),
+                            optional(","),
+                        ),
+                    ),
+                    ")",
+                ),
+                seq(
+                    field("name", $.radial_gradient_identifier),
+                    "(",
+                    field(
+                        "parameters",
+                        seq(
+                            field("type", $.radial_gradient_kind),
+                            ",",
+                            field("colors", commaSep2($.gradient_color)),
+                            optional(","),
+                        ),
+                    ),
+                    ")",
+                ),
+            ),
+
+        gradient_color: ($) => seq($.parameter, optional($.percent_value)),
+
+        image_call: ($) =>
             seq(
-                field("name", $.var_identifier),
-                optional($.call_signature),
-                ";",
+                field("name", "@image-url"),
+                "(",
+                field("image", $.string_value),
+                ")",
             ),
 
         typed_identifier: ($) =>
@@ -574,7 +614,6 @@ module.exports = grammar({
 
         _identifier: (_) => /[a-zA-Z_][a-zA-Z0-9_-]*/,
         simple_identifier: ($) => $._identifier,
-        // prefix_identifier: ($) => $._identifier,
         post_identifier: ($) => choice($._identifier, $.function_call),
 
         builtin_type_identifier: (_) =>
@@ -605,7 +644,6 @@ module.exports = grammar({
         value: ($) =>
             choice(
                 seq("(", $.value, ")"),
-                seq($.color_value, $.percent_value), // gradient values
                 $.anon_struct,
                 $.value_list,
                 $._basic_value,
@@ -627,9 +665,11 @@ module.exports = grammar({
 
         index_operator: ($) => seq("[", $._expression, "]"),
 
-        function_identifier: ($) => seq(optional("@"), $._identifier),
-
-        function_call: ($) => seq($.function_identifier, $.call_signature),
+        linear_gradient_identifier: ($) =>
+            choice("@linear-gradient", "@linear_gradient"),
+        radial_gradient_identifier: ($) =>
+            choice("@radial-gradient", "@radial_gradient"),
+        radial_gradient_kind: ($) => choice("circle"),
 
         reference_identifier: (_) => choice("parent", "root", "self"),
 
@@ -674,8 +714,11 @@ module.exports = grammar({
                 optional(field("context", seq($.string_value, "=>"))),
                 $.string_value,
                 optional(seq("|", $.string_value, "%", $._expression)),
-                field("parameters", optional(seq(",", commaSep1($.parameter), optional(",")))),
-                ")"
+                field(
+                    "parameters",
+                    optional(seq(",", commaSep1($.parameter), optional(","))),
+                ),
+                ")",
             ),
 
         _basic_value: ($) =>
@@ -703,10 +746,14 @@ module.exports = grammar({
     },
 });
 
+function commaSep(rule) {
+    return optional(commaSep1(rule));
+}
+
 function commaSep1(rule) {
     return seq(rule, repeat(seq(",", rule)));
 }
 
-function commaSep(rule) {
-    return optional(commaSep1(rule));
+function commaSep2(rule) {
+    return seq(rule, ",", rule, repeat(seq(",", rule)));
 }
