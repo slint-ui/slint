@@ -59,18 +59,23 @@ jobs:
           - os: ubuntu-20.04
             rust-target: x86_64-unknown-linux-gnu
             napi-rs-target: linux-x64-gnu
+            defaults-tag: binaries-linux
           - os: macos-latest
             rust-target: x86_64-apple-darwin
             napi-rs-target:  darwin-x64
+            defaults-tag: binaries
           - os: macos-latest
             rust-target: aarch64-apple-darwin
             napi-rs-target:  darwin-arm64
+            defaults-tag: binaries
           - os: windows-2022
             rust-target: x86_64-pc-windows-msvc
             napi-rs-target:  win32-x64-msvc
+            defaults-tag: binaries
           - os: windows-2022
             rust-target: i686-pc-windows-msvc
             napi-rs-target:  win32-ia32-msvc
+            defaults-tag: binaries
     needs: determine_version            
     runs-on: ${{ matrix.os }}
     steps:
@@ -92,7 +97,15 @@ jobs:
         run: |
           if [ "$RELEASE_INPUT" != "true" ]; then
               npm version $PKG_VERSION
-          fi    
+          fi
+      - name: Prepare feature config for binaries
+        working-directory: api/node
+        shell: bash
+        run: |
+            perl -pi -e 's,^default =.*,,' Cargo.toml
+            perl -pi -e 's,# ${{ matrix.defaults-tag }}:,,' Cargo.toml
+            echo "New defaults:"
+            grep "^\s*default =" Cargo.toml
       - name: Build binary
         shell: bash
         working-directory: api/node      
