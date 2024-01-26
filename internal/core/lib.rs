@@ -23,6 +23,7 @@ pub mod animations;
 pub mod api;
 pub mod callbacks;
 pub mod component_factory;
+pub mod context;
 pub mod future;
 pub mod graphics;
 pub mod input;
@@ -36,6 +37,8 @@ pub mod model;
 pub mod platform;
 pub mod properties;
 pub mod renderer;
+#[cfg(feature = "rtti")]
+pub mod rtti;
 pub mod sharedvector;
 pub mod slice;
 #[cfg(feature = "software-renderer")]
@@ -46,9 +49,6 @@ pub mod textlayout;
 pub mod timers;
 pub mod translations;
 pub mod window;
-
-#[cfg(feature = "rtti")]
-pub mod rtti;
 
 #[doc(inline)]
 pub use string::SharedString;
@@ -78,8 +78,7 @@ pub use graphics::RgbaColor;
 #[doc(inline)]
 pub use graphics::PathData;
 
-use api::PlatformError;
-use platform::Platform;
+pub use context::{with_platform, SlintContext};
 
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;
@@ -89,32 +88,3 @@ pub type Coord = i32;
 /// This type is not exported from the public API crate, so function having this
 /// parameter cannot be called from the public API without naming it
 pub struct InternalToken;
-
-thread_local! {
-    pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
-        = once_cell::unsync::OnceCell::new()
-}
-
-/// This context is meant to hold the state and the backend.
-/// Currently it is not possible to have several platform at the same time in one process, but in the future it might be.
-/// See issue #4294
-pub struct SlintContext {
-    pub(crate) platform: alloc::boxed::Box<dyn Platform>,
-    pub window_count: core::cell::RefCell<isize>,
-}
-
-/// Internal function to access the platform abstraction.
-/// The factory function is called if the platform abstraction is not yet
-/// initialized, and should be given by the platform_selector
-pub fn with_platform<R>(
-    factory: impl FnOnce() -> Result<alloc::boxed::Box<dyn Platform + 'static>, PlatformError>,
-    f: impl FnOnce(&dyn Platform) -> Result<R, PlatformError>,
-) -> Result<R, PlatformError> {
-    GLOBAL_CONTEXT.with(|p| match p.get() {
-        Some(ctx) => f(&*ctx.platform),
-        None => {
-            platform::set_platform(factory()?).map_err(PlatformError::SetPlatformError)?;
-            f(&*p.get().unwrap().platform)
-        }
-    })
-}

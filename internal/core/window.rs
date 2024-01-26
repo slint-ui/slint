@@ -21,7 +21,7 @@ use crate::items::{InputType, ItemRef, MouseCursor};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, Coord, SharedString, GLOBAL_CONTEXT};
+use crate::{Callback, Coord, SharedString};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use core::cell::{Cell, RefCell};
@@ -828,7 +828,7 @@ impl WindowInner {
         if let Some(component) = self.try_component() {
             let was_visible = self.strong_component_ref.replace(Some(component)).is_some();
             if !was_visible {
-                GLOBAL_CONTEXT.with(|ctx| {
+                crate::context::GLOBAL_CONTEXT.with(|ctx| {
                     if let Some(ctx) = ctx.get() {
                         *(ctx.window_count.borrow_mut()) += 1;
                     }
@@ -851,7 +851,7 @@ impl WindowInner {
         let result = self.window_adapter().set_visible(false);
         let was_visible = self.strong_component_ref.borrow_mut().take().is_some();
         if was_visible {
-            GLOBAL_CONTEXT.with(|ctx| {
+            crate::context::GLOBAL_CONTEXT.with(|ctx| {
                 if let Some(ctx) = ctx.get() {
                     let mut count = ctx.window_count.borrow_mut();
                     *count -= 1;

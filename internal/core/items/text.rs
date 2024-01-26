@@ -1121,7 +1121,7 @@ impl TextInput {
             return;
         }
         let text = self.text();
-        crate::GLOBAL_CONTEXT.with(|p| {
+        crate::context::GLOBAL_CONTEXT.with(|p| {
             if let Some(ctx) = p.get() {
                 ctx.platform.set_clipboard_text(&text[anchor..cursor], clipboard);
             }
@@ -1138,7 +1138,7 @@ impl TextInput {
         self_rc: &ItemRc,
         clipboard: Clipboard,
     ) {
-        if let Some(text) = crate::GLOBAL_CONTEXT
+        if let Some(text) = crate::context::GLOBAL_CONTEXT
             .with(|p| p.get().and_then(|p| p.platform.clipboard_text(clipboard)))
         {
             self.preedit_text.set(Default::default());
