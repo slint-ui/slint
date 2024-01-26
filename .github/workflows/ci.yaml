@@ -407,7 +407,7 @@ jobs:
     - uses: robinraju/release-downloader@v1.7
       with:
         repository: "tree-sitter/tree-sitter"
-        tag: "v0.20.8"
+        latest: true
         fileName: "tree-sitter-linux-x64.gz"
         out-file-path: ${{ runner.workspace }}
     - name: Extract tree-sitter-cli
@@ -582,7 +582,7 @@ jobs:
           sed -i "s/#wasm# //" Cargo.toml
           cargo apk build -p todo --target aarch64-linux-android --lib
         working-directory: examples/todo/rust
-      
+
       - name: Build printerdemo example
         run: |
           sed -i "s/#wasm# //" Cargo.toml
