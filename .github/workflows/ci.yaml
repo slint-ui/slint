@@ -407,7 +407,7 @@ jobs:
     - uses: robinraju/release-downloader@v1.7
       with:
         repository: "tree-sitter/tree-sitter"
-        latest: true
+        tag: "v0.20.8"
         fileName: "tree-sitter-linux-x64.gz"
         out-file-path: ${{ runner.workspace }}
     - name: Extract tree-sitter-cli
