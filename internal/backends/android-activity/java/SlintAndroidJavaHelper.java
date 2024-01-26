@@ -5,6 +5,7 @@ import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.view.inputmethod.InputMethodManager;
 import android.app.Activity;
 import android.widget.FrameLayout;
@@ -17,7 +18,6 @@ class SlintInputView extends View {
     private int mAnchorPosition = 0;
     private String mPreedit = "";
     private int mPreeditOffset;
-
 
     public SlintInputView(Context context) {
         super(context);
@@ -115,6 +115,20 @@ class SlintInputView extends View {
         imm.updateExtractedText(this, 0, extractedText);
         imm.updateSelection(this, cursorPosition, anchorPosition, cursorPosition, anchorPosition);
     }
+
+    @Override
+    protected void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        int currentNightMode = newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        switch (currentNightMode) {
+            case Configuration.UI_MODE_NIGHT_NO:
+                SlintAndroidJavaHelper.setDarkMode(false);
+                break;
+            case Configuration.UI_MODE_NIGHT_YES:
+                SlintAndroidJavaHelper.setDarkMode(true);
+                break;
+        }
+    }
 }
 
 public class SlintAndroidJavaHelper {
@@ -158,6 +172,8 @@ public class SlintAndroidJavaHelper {
     static public native void updateText(String text, int cursorPosition, int anchorPosition, String preedit,
             int preeditOffset);
 
+    static public native void setDarkMode(boolean dark);
+
     public void set_imm_data(String text, int cursor_position, int anchor_position, String preedit, int preedit_offset,
             int rect_x, int rect_y, int rect_w, int rect_h, int input_type) {
 
@@ -172,5 +188,10 @@ public class SlintAndroidJavaHelper {
                 mInputView.setText(text, selStart, selEnd, preedit, preedit_offset);
             }
         });
+    }
+
+    public boolean dark_color_scheme() {
+        int nightModeFlags = mActivity.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
     }
 }
