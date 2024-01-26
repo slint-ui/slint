@@ -15,7 +15,7 @@ on:
       features:
         type: string
         description: features to enable for build
-        # Keep in sync with features in nightly_snapshot.yaml and cpp_package.yaml
+        # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, and api/node/Cargo.toml
         default: "backend-winit,renderer-femtovg,renderer-skia,renderer-software"
       codesign:
         type: boolean
@@ -30,7 +30,7 @@ on:
       features:
         type: string
         description: features to enable for build
-        # Keep in sync with features in nightly_snapshot.yaml and cpp_package.yaml
+        # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, and api/node/Cargo.toml
         default: "backend-winit,renderer-femtovg,renderer-skia,renderer-software"
       codesign:
         type: boolean

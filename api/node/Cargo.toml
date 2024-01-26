@@ -19,13 +19,32 @@ build = "build.rs"
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+default = ["backend-winit", "renderer-femtovg", "backend-qt", "accessibility"]
+# Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, and slint_tool_binary.yaml
+# binaries: default = ["backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
+# binaries-linux: default = ["backend-linuxkms-noseat", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
+
+backend-qt = ["slint-interpreter/backend-qt"]
+backend-winit = ["slint-interpreter/backend-winit"]
+backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
+backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
+backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
+backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
+renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
+renderer-skia = ["slint-interpreter/renderer-skia"]
+renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl"]
+renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan"]
+renderer-software = ["slint-interpreter/renderer-software"]
+accessibility = ["slint-interpreter/accessibility"]
+
 [dependencies]
 napi = { version = "2.14.0", default-features = false, features = ["napi8"] }
 napi-derive = "2.14.0"
 i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default"] }
 i-slint-backend-selector = { workspace = true }
-slint-interpreter = { workspace = true, features = ["default", "display-diagnostics", "internal"] }
+slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-2"] }
 spin_on = "0.1"
 css-color-parser2 = { workspace = true }
 itertools = { workspace = true }
