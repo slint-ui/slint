@@ -615,6 +615,16 @@ impl Item for TextInput {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult {
+        crate::properties::evaluate_no_tracking(|| {
+            if self.has_focus() && self.text() != *backend.window().last_ime_text.borrow() {
+                let window_adapter = &backend.window().window_adapter();
+                if let Some(w) = window_adapter.internal(crate::InternalToken) {
+                    w.input_method_request(InputMethodRequest::Update(
+                        self.ime_properties(window_adapter, self_rc),
+                    ));
+                }
+            }
+        });
         (*backend).draw_text_input(self, self_rc, size);
         RenderingResult::ContinueRenderingChildren
     }
@@ -969,6 +979,7 @@ impl TextInput {
         self_rc: &ItemRc,
     ) -> InputMethodProperties {
         let text = self.text();
+        WindowInner::from_pub(window_adapter.window()).last_ime_text.replace(text.clone());
         let cursor_position = self.cursor_position(&text);
         let anchor_position = self.anchor_position(&text);
         let cursor_relative = self.cursor_rect_for_byte_offset(cursor_position, window_adapter);

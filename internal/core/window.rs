@@ -357,6 +357,8 @@ pub struct WindowInner {
 
     /// itemRC will retrieve on wasms
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
+    /// The last text that was sent to the input method
+    pub(crate) last_ime_text: RefCell<SharedString>,
     /// Don't let ComponentContainers's instantiation change the focus.
     /// This is a workaround for a recursion when instantiating ComponentContainer because the
     /// init code for the component might have code that sets the focus, but we don't want that
@@ -422,6 +424,7 @@ impl WindowInner {
             #[cfg(not(feature = "std"))]
             fullscreen: Cell::new(false),
             focus_item: Default::default(),
+            last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
             active_popup: Default::default(),
             had_popup_on_press: Default::default(),
