@@ -29,7 +29,7 @@ fn create_winit_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> 
     Ok(Box::new(i_slint_backend_winit::Backend::new()?))
 }
 
-#[cfg(all(feature = "i-slint-backend-linuxkms", not(target_os = "android")))]
+#[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
 fn create_linuxkms_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
     Ok(Box::new(i_slint_backend_linuxkms::Backend::new()?))
 }
@@ -40,7 +40,7 @@ cfg_if::cfg_if! {
         use i_slint_backend_qt as default_backend;
     } else if #[cfg(feature = "i-slint-backend-winit")] {
         use i_slint_backend_winit as default_backend;
-    } else if #[cfg(feature = "i-slint-backend-linuxkms")] {
+    } else if #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))] {
         use i_slint_backend_linuxkms as default_backend;
     } else {
 
@@ -51,7 +51,7 @@ cfg_if::cfg_if! {
     if #[cfg(all(not(target_os = "android"), any(
             all(feature = "i-slint-backend-qt", not(no_qt)),
             feature = "i-slint-backend-winit",
-            feature = "i-slint-backend-linuxkms"
+            all(feature = "i-slint-backend-linuxkms", target_os = "linux")
         )))] {
         fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
             use alloc::borrow::Cow;
@@ -61,7 +61,7 @@ cfg_if::cfg_if! {
                 ("Qt", create_qt_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
                 #[cfg(feature = "i-slint-backend-winit")]
                 ("Winit", create_winit_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
-                #[cfg(feature = "i-slint-backend-linuxkms")]
+                #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
                 ("LinuxKMS", create_linuxkms_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
                 ("", || Err(PlatformError::NoPlatform)),
             ];
@@ -104,7 +104,7 @@ cfg_if::cfg_if! {
                 "qt" => return Ok(Box::new(i_slint_backend_qt::Backend::new())),
                 #[cfg(feature = "i-slint-backend-winit")]
                 "winit" => return i_slint_backend_winit::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then_some(_renderer)).map(|b| Box::new(b) as Box<dyn Platform + 'static>),
-                #[cfg(feature = "i-slint-backend-linuxkms")]
+                #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
                 "linuxkms" => return i_slint_backend_linuxkms::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then(|| _renderer)).map(|b| Box::new(b) as Box<dyn Platform + 'static>),
                 _ => {},
             }
