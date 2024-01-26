@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+
+// Just use some of the internal names used in Slint to make sure it still compiles
+
+import { Button, ComboBox } from "std-widgets.slint";
+
+export struct Some {}
+export struct None { s: Some }
+export struct Option { n: None }
+export struct Component {o: Option }
+export struct Model { c: Component }
+export struct Result { m: Model }
+export struct Ok { r: Result }
+export struct Property { value: string }
+export struct PropertyAnimation { property: Property }
+export struct Callback {}
+export struct Rc {}
+export struct Weak {}
+export enum WindowAdaptor { Window }
+export struct WindowItem {}
+export struct Slint { slint: string }
+export struct LayoutInfo { layout: int }
+export struct BoxLayoutData { layout: length }
+
+
+
+export enum Slice { xxx }
+export enum Coord { xxx }
+//export enum vtable { a, b, c }
+export struct AccessibleRole { value: Coord }
+export enum Default { a, b, c }
+
+
+export global ComponentInstance {
+    out property <Ok> ok;
+}
+
+export global GridLayoutCellData {
+    callback begin;
+}
+
+export component SharedString {
+    out property <Property> slint: { value: "foobar" };
+    property ok <=> ComponentInstance.ok;
+}
+
+export global ItemVTable {}
+
+export component TestCase  {
+
+    in property <Default> def: Default.b;
+    out property <BoxLayoutData> blt: { layout: 45phx };
+
+    slint := SharedString {}
+    Button { text: "hello" + 42; }
+    ComboBox {}
+
+    in-out property <int> Err;
+    animate Err { duration: 45s; }
+
+    out property <bool> test: slint.slint.value == "foobar";
+
+
+
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_test(), true);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_test(), true);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.test, true);
+```
+*/
