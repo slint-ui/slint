@@ -12,10 +12,12 @@ use android_activity::{InputStatus, MainEvent, PollEvent};
 use core::ops::ControlFlow;
 use i_slint_core::api::{EventLoopError, PhysicalPosition, PhysicalSize, PlatformError, Window};
 use i_slint_core::platform::{Key, PointerEventButton, WindowAdapter, WindowEvent};
-use i_slint_core::SharedString;
-use jni::sys::jint;
+use i_slint_core::{Property, SharedString};
+use jni::objects::{JClass, JString};
+use jni::sys::{jboolean, jint};
+use jni::JNIEnv;
 use raw_window_handle::HasRawWindowHandle;
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, OnceCell, RefCell};
 use std::rc::{Rc, Weak};
 use std::sync::{Arc, Mutex};
 
@@ -49,12 +51,16 @@ impl AndroidPlatform {
     pub fn new(app: AndroidApp) -> Self {
         let slint_java_helper =
             SlintJavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
+        let dark_color_scheme = Box::pin(Property::new(
+            slint_java_helper.dark_color_scheme(&app).unwrap_or_else(|e| print_jni_error(&app, e)),
+        ));
         let window = Rc::<AndroidWindowAdapter>::new_cyclic(|w| AndroidWindowAdapter {
             app: app.clone(),
             window: Window::new(w.clone()),
             renderer: i_slint_renderer_skia::SkiaRenderer::default(),
             event_queue: Default::default(),
             pending_redraw: Default::default(),
+            dark_color_scheme,
             slint_java_helper,
         });
         CURRENT_WINDOW.set(Rc::downgrade(&window));
@@ -171,6 +177,7 @@ struct AndroidWindowAdapter {
     event_queue: EventQueue,
     pending_redraw: Cell<bool>,
     slint_java_helper: SlintJavaHelper,
+    dark_color_scheme: core::pin::Pin<Box<Property<bool>>>,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -252,6 +259,10 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
                 end: props.preedit_offset + props.preedit_text.len(),
             }),
         });
+    }
+
+    fn dark_color_scheme(&self) -> bool {
+        self.dark_color_scheme.as_ref().get()
     }
 }
 
@@ -755,18 +766,14 @@ fn print_jni_error(app: &AndroidApp, e: jni::errors::Error) -> ! {
     panic!("JNI error: {e:?}")
 }
 
-struct SlintJavaHelper(#[cfg(feature = "native-activity")] jni::objects::GlobalRef);
+struct SlintJavaHelper(jni::objects::GlobalRef);
 
 impl SlintJavaHelper {
     fn new(_app: &AndroidApp) -> Result<Self, jni::errors::Error> {
-        Ok(Self(
-            #[cfg(feature = "native-activity")]
-            load_java_helper(_app)?,
-        ))
+        Ok(Self(load_java_helper(_app)?))
     }
 }
 
-#[cfg(feature = "native-activity")]
 fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::errors::Error> {
     use jni::objects::{JObject, JValue};
     // Safety: as documented in android-activity to obtain a jni::JavaVM
@@ -796,13 +803,20 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
             &[JValue::Object(&class_name)],
         )?
         .l()?;
-    let helper_class: jni::objects::JClass = helper_class.into();
+    let helper_class: JClass = helper_class.into();
 
-    let methods = [jni::NativeMethod {
-        name: "updateText".into(),
-        sig: "(Ljava/lang/String;IILjava/lang/String;I)V".into(),
-        fn_ptr: Java_SlintAndroidJavaHelper_updateText as *mut _,
-    }];
+    let methods = [
+        jni::NativeMethod {
+            name: "updateText".into(),
+            sig: "(Ljava/lang/String;IILjava/lang/String;I)V".into(),
+            fn_ptr: Java_SlintAndroidJavaHelper_updateText as *mut _,
+        },
+        jni::NativeMethod {
+            name: "setDarkMode".into(),
+            sig: "(Z)V".into(),
+            fn_ptr: Java_SlintAndroidJavaHelper_setDarkMode as *mut _,
+        },
+    ];
     env.register_native_methods(&helper_class, &methods)?;
 
     let helper_instance = env.new_object(
@@ -868,20 +882,27 @@ fn set_imm_data(
     Ok(())
 }
 
+impl SlintJavaHelper {
+    fn dark_color_scheme(&self, app: &AndroidApp) -> Result<bool, jni::errors::Error> {
+        // Safety: as documented in android-activity to obtain a jni::JavaVM
+        let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
+        let mut env = vm.attach_current_thread()?;
+        let helper = self.0.as_obj();
+        Ok(env.call_method(helper, "dark_color_scheme", "()Z", &[])?.z()?)
+    }
+}
+
 #[no_mangle]
 extern "system" fn Java_SlintAndroidJavaHelper_updateText(
-    mut env: jni::JNIEnv,
-    _class: jni::objects::JClass,
-    text: jni::objects::JString,
+    mut env: JNIEnv,
+    _class: JClass,
+    text: JString,
     cursor_position: jint,
     anchor_position: jint,
-    preedit: jni::objects::JString,
+    preedit: JString,
     preedit_offset: jint,
 ) {
-    fn make_shared_string(
-        env: &mut jni::JNIEnv,
-        string: &jni::objects::JString,
-    ) -> Option<SharedString> {
+    fn make_shared_string(env: &mut JNIEnv, string: &JString) -> Option<SharedString> {
         let java_str = env.get_string(&string).ok()?;
         let decoded: std::borrow::Cow<str> = (&java_str).into();
         Some(SharedString::from(decoded.as_ref()))
@@ -926,4 +947,18 @@ fn convert_utf16_index_to_utf8(in_str: &str, utf16_index: usize) -> usize {
 
 fn convert_utf8_index_to_utf16(in_str: &str, utf8_index: usize) -> usize {
     in_str[..utf8_index].encode_utf16().count()
+}
+
+#[no_mangle]
+extern "system" fn Java_SlintAndroidJavaHelper_setDarkMode(
+    env: JNIEnv,
+    _class: JClass,
+    dark: jboolean,
+) {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            w.dark_color_scheme.as_ref().set(dark == jni::sys::JNI_TRUE);
+        }
+    })
+    .unwrap()
 }
