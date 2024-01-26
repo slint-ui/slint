@@ -15,7 +15,7 @@ All notable changes to this project are documented in this file.
 - Fixed ListView not updating when model changes (#3125)
 - Fixed TextInput on Plasma/Wayland receiveng many empty events causing selection to be cleared (#4148)
 - Added API to programmatically show a window in fullscreen mode (C++/Rust: `Window::set_fullscreen(bool)`, Node.js: `window.fullscreen`)
-- Added API to keep the event loop alive when the last window is closed (#1499). (Rust: `slint::run_event_loop_until_quit()`; C++: argument to `slint::run_event_loop()`)
+- Added API to keep the event loop alive when the last window is closed (#1499). (Rust: `slint::run_event_loop_until_quit()`; C++: argument to `slint::run_event_loop()`; Node: argument to `runEventLoopUntilQuit`)
 
 ### Slint Language
 
