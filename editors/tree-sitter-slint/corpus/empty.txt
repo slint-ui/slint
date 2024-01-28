@@ -25,7 +25,8 @@ Line comment with line continuation
 (sourcefile
   (comment)
   (import_statement
-    (user_type_identifier)
+    (import_type
+      (user_type_identifier))
     (string_value)))
 
 ================================================================================
