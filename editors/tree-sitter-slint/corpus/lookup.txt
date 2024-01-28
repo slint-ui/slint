@@ -1,6 +1,6 @@
-================================================================================
+==================
 global_lookup
-================================================================================
+==================
 
 global MyGlobal := {
     property<int> bar: 5;
@@ -28,25 +28,26 @@ TestCase := Rectangle {
     property<int> p2: foo.foo_prop;
 
 }
---------------------------------------------------------------------------------
+---
 
 (sourcefile
   (global_definition
     (user_type_identifier)
-    (property
-      (type
-        (builtin_type_identifier))
-      (var_identifier)
-      (value
-        (int_value)))
-    (property
-      (type
-        (builtin_type_identifier))
-      (var_identifier)
-      (value
-        (int_value)))
-    (callback
-      (var_identifier)))
+    (global_block
+      (property
+        (type
+          (builtin_type_identifier))
+        (simple_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (builtin_type_identifier))
+        (simple_identifier)
+        (value
+          (int_value)))
+      (callback
+        (simple_identifier))))
   (component_definition
     (user_type_identifier)
     (user_type_identifier)
@@ -54,26 +55,29 @@ TestCase := Rectangle {
       (property
         (type
           (builtin_type_identifier))
-        (var_identifier)
-        (var_identifier
-          (post_identifier)))
+        (simple_identifier)
+        (member_access
+          (simple_identifier)
+          (simple_identifier)))
       (for_loop
-        (var_identifier)
+        (simple_indexed_identifier
+          (simple_identifier))
         (for_range
           (value
             (int_value)))
         (component
           (user_type_identifier)
           (block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (mult_binary_expression
-                (add_binary_expression
-                  (var_identifier)
-                  (add_prec_operator)
-                  (var_identifier
-                    (post_identifier)))
+            (property_assignment
+              (simple_identifier)
+              (binary_expression
+                (parens_op
+                  (binary_expression
+                    (simple_identifier)
+                    (add_prec_operator)
+                    (member_access
+                      (simple_identifier)
+                      (simple_identifier))))
                 (mult_prec_operator)
                 (value
                   (length_value)))))))))
@@ -82,20 +86,20 @@ TestCase := Rectangle {
     (user_type_identifier)
     (block
       (callback
-        (var_identifier))
+        (simple_identifier))
       (callback_event
-        (var_identifier)
-        (block
-          (var_identifier
-            (post_identifier
-              (function_call
-                (var_identifier)
-                (call_signature))))))
+        (simple_identifier)
+        (imperative_block
+          (member_access
+            (simple_identifier)
+            (function_call
+              (simple_identifier)
+              (arguments)))))
       (component
         (user_type_identifier)
         (block))
       (component
-        (var_identifier)
+        (simple_identifier)
         (user_type_identifier)
         (block))
       (component
@@ -104,27 +108,29 @@ TestCase := Rectangle {
       (property
         (type
           (builtin_type_identifier))
-        (var_identifier)
-        (add_binary_expression
-          (mult_binary_expression
+        (simple_identifier)
+        (binary_expression
+          (binary_expression
             (value
               (int_value))
             (mult_prec_operator)
-            (var_identifier
-              (post_identifier)))
+            (member_access
+              (simple_identifier)
+              (simple_identifier)))
           (add_prec_operator)
           (value
             (int_value))))
       (property
         (type
           (builtin_type_identifier))
-        (var_identifier)
-        (var_identifier
-          (post_identifier))))))
+        (simple_identifier)
+        (member_access
+          (simple_identifier)
+          (simple_identifier))))))
 
-================================================================================
+==================
 id_lookup
-================================================================================
+==================
 
  TestCase := Rectangle {
 
@@ -139,7 +145,7 @@ id_lookup
     property<int> p1: foo.inner;
     property<int> p2: self.foo *10 + foo.foo * 100 + bar *1000;
 }
---------------------------------------------------------------------------------
+---
 
 (sourcefile
   (component_definition
@@ -149,87 +155,398 @@ id_lookup
       (property
         (type
           (builtin_type_identifier))
-        (var_identifier)
+        (simple_identifier)
         (value
           (int_value)))
       (property
         (type
           (builtin_type_identifier))
-        (var_identifier)
+        (simple_identifier)
         (value
           (int_value)))
       (component
-        (var_identifier)
+        (simple_identifier)
         (user_type_identifier)
         (block
           (property
             (type
               (builtin_type_identifier))
-            (var_identifier)
+            (simple_identifier)
             (value
               (int_value)))
           (property
             (type
               (builtin_type_identifier))
-            (var_identifier)
+            (simple_identifier)
             (value
               (int_value)))
           (property
             (type
               (builtin_type_identifier))
-            (var_identifier)
-            (add_binary_expression
-              (add_binary_expression
-                (mult_binary_expression
-                  (var_identifier)
+            (simple_identifier)
+            (binary_expression
+              (binary_expression
+                (binary_expression
+                  (simple_identifier)
                   (mult_prec_operator)
                   (value
                     (int_value)))
                 (add_prec_operator)
-                (mult_binary_expression
-                  (var_identifier
+                (binary_expression
+                  (member_access
                     (reference_identifier)
-                    (post_identifier))
+                    (simple_identifier))
                   (mult_prec_operator)
                   (value
                     (int_value))))
               (add_prec_operator)
-              (mult_binary_expression
-                (var_identifier
+              (binary_expression
+                (member_access
                   (reference_identifier)
-                  (post_identifier))
+                  (simple_identifier))
                 (mult_prec_operator)
                 (value
                   (int_value)))))))
       (property
         (type
           (builtin_type_identifier))
-        (var_identifier)
-        (var_identifier
-          (post_identifier)))
+        (simple_identifier)
+        (member_access
+          (simple_identifier)
+          (simple_identifier)))
       (property
         (type
           (builtin_type_identifier))
-        (var_identifier)
-        (add_binary_expression
-          (add_binary_expression
-            (mult_binary_expression
-              (var_identifier
+        (simple_identifier)
+        (binary_expression
+          (binary_expression
+            (binary_expression
+              (member_access
                 (reference_identifier)
-                (post_identifier))
+                (simple_identifier))
               (mult_prec_operator)
               (value
                 (int_value)))
             (add_prec_operator)
-            (mult_binary_expression
-              (var_identifier
-                (post_identifier))
+            (binary_expression
+              (member_access
+                (simple_identifier)
+                (simple_identifier))
               (mult_prec_operator)
               (value
                 (int_value))))
           (add_prec_operator)
-          (mult_binary_expression
-            (var_identifier)
+          (binary_expression
+            (simple_identifier)
             (mult_prec_operator)
             (value
               (int_value))))))))
+
+==================
+rust_names
+==================
+
+// Just use some of the internal names used in Slint to make sure it still compiles
+
+import { Button, ComboBox } from "std-widgets.slint";
+
+export struct Some {}
+export struct None { s: Some }
+export struct Option { n: None }
+export struct Component {o: Option }
+export struct Model { c: Component }
+export struct Result { m: Model }
+export struct Ok { r: Result }
+export struct Property { value: string }
+export struct PropertyAnimation { property: Property }
+export struct Callback {}
+export struct Rc {}
+export struct Weak {}
+export enum WindowAdaptor { Window }
+export struct WindowItem {}
+export struct Slint { slint: string }
+export struct LayoutInfo { layout: int }
+export struct BoxLayoutData { layout: length }
+
+
+
+export enum Slice { xxx }
+export enum Coord { xxx }
+//export enum vtable { a, b, c }
+export struct AccessibleRole { value: Coord }
+export enum Default { a, b, c }
+
+
+export global ComponentInstance {
+    out property <Ok> ok;
+}
+
+export global GridLayoutCellData {
+    callback begin;
+}
+
+export component SharedString {
+    out property <Property> slint: { value: "foobar" };
+    property ok <=> ComponentInstance.ok;
+}
+
+export global ItemVTable {}
+
+export component TestCase  {
+
+    in property <Default> def: Default.b;
+    out property <BoxLayoutData> blt: { layout: 45phx };
+
+    slint := SharedString {}
+    Button { text: "hello" + 42; }
+    ComboBox {}
+
+    in-out property <int> Err;
+    animate Err { duration: 45s; }
+
+    out property <bool> test: slint.slint.value == "foobar";
+
+
+
+}
+---
+
+(sourcefile
+  (comment)
+  (import_statement
+    (import_type
+      (user_type_identifier))
+    (import_type
+      (user_type_identifier))
+    (string_value))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (simple_identifier)
+      (type
+        (user_type_identifier))))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (simple_identifier)
+      (type
+        (user_type_identifier))))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (simple_identifier)
+      (type
+        (user_type_identifier))))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (simple_identifier)
+      (type
+        (user_type_identifier))))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (simple_identifier)
+      (type
+        (user_type_identifier))))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (simple_identifier)
+      (type
+        (user_type_identifier))))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (simple_identifier)
+      (type
+        (builtin_type_identifier))))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (simple_identifier)
+      (type
+        (user_type_identifier))))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block))
+  (export)
+  (enum_definition
+    (user_type_identifier)
+    (enum_block
+      (simple_identifier)))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (simple_identifier)
+      (type
+        (builtin_type_identifier))))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (simple_identifier)
+      (type
+        (builtin_type_identifier))))
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (simple_identifier)
+      (type
+        (builtin_type_identifier))))
+  (export)
+  (enum_definition
+    (user_type_identifier)
+    (enum_block
+      (simple_identifier)))
+  (export)
+  (enum_definition
+    (user_type_identifier)
+    (enum_block
+      (simple_identifier)))
+  (comment)
+  (export)
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (simple_identifier)
+      (type
+        (user_type_identifier))))
+  (export)
+  (enum_definition
+    (user_type_identifier)
+    (enum_block
+      (simple_identifier)
+      (simple_identifier)
+      (simple_identifier)))
+  (export)
+  (global_definition
+    (user_type_identifier)
+    (global_block
+      (property
+        (visibility_modifier)
+        (type
+          (user_type_identifier))
+        (simple_identifier))))
+  (export)
+  (global_definition
+    (user_type_identifier)
+    (global_block
+      (callback
+        (simple_identifier))))
+  (export)
+  (component_definition
+    (user_type_identifier)
+    (block
+      (property
+        (visibility_modifier)
+        (type
+          (user_type_identifier))
+        (simple_identifier)
+        (value
+          (anon_struct_block
+            (simple_identifier)
+            (value
+              (string_value)))))
+      (binding_alias
+        (simple_identifier)
+        (member_access
+          (simple_identifier)
+          (simple_identifier)))))
+  (export)
+  (global_definition
+    (user_type_identifier)
+    (global_block))
+  (export)
+  (component_definition
+    (user_type_identifier)
+    (block
+      (property
+        (visibility_modifier)
+        (type
+          (user_type_identifier))
+        (simple_identifier)
+        (member_access
+          (simple_identifier)
+          (simple_identifier)))
+      (property
+        (visibility_modifier)
+        (type
+          (user_type_identifier))
+        (simple_identifier)
+        (value
+          (anon_struct_block
+            (simple_identifier)
+            (value
+              (physical_length_value)))))
+      (component
+        (simple_identifier)
+        (user_type_identifier)
+        (block))
+      (component
+        (user_type_identifier)
+        (block
+          (property_assignment
+            (simple_identifier)
+            (binary_expression
+              (value
+                (string_value))
+              (add_prec_operator)
+              (value
+                (int_value))))))
+      (component
+        (user_type_identifier)
+        (block))
+      (property
+        (visibility_modifier)
+        (type
+          (builtin_type_identifier))
+        (simple_identifier))
+      (animate_statement
+        (simple_identifier)
+        (animate_body
+          (animate_option
+            (animate_option_identifier)
+            (value
+              (duration_value)))))
+      (property
+        (visibility_modifier)
+        (type
+          (builtin_type_identifier))
+        (simple_identifier)
+        (binary_expression
+          (member_access
+            (member_access
+              (simple_identifier)
+              (simple_identifier))
+            (simple_identifier))
+          (comparison_operator)
+          (value
+            (string_value)))))))
