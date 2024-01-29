@@ -215,7 +215,11 @@ impl WinitWindowAdapter {
                         canvas_id
                     )
                 })?;
-            window_builder = window_builder.with_canvas(Some(html_canvas))
+            window_builder = window_builder
+                .with_canvas(Some(html_canvas))
+                // Don't activate the window by default, as that will cause the page to scroll,
+                // ignoring any existing anchors.
+                .with_active(false)
         };
 
         Ok(window_builder)
