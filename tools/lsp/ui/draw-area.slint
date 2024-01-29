@@ -61,6 +61,15 @@ export component DrawArea {
                 enabled <=> root.design-mode;
             }
 
+            i-content-border := Rectangle {
+                x: i-resizer.x + (i-resizer.width - self.width) / 2;
+                y: i-resizer.y + (i-resizer.height - self.height) / 2;
+                width: i-resizer.width + 2 * self.border-width;
+                height: i-resizer.height + 2 * self.border-width;
+                border-width: 1px;
+                border-color: Palette.border;
+            }
+
             i-resizer := Resizer {
                 is-resizable <=> i-preview-area-container.is-resizable;
 
