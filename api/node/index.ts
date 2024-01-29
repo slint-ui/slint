@@ -894,6 +894,8 @@ class EventLoop {
         });
         this.#quit_loop = false;
 
+        napi.setQuitOnLastWindowClosed(quitOnLastWindowClosed);
+
         if (running_callback != undefined) {
             napi.invokeFromEventLoop(() => {
                 running_callback();
@@ -905,7 +907,7 @@ class EventLoop {
         // can do right now.
         const nodejsPollInterval = 16;
         let id = setInterval(() => {
-            if ((napi.processEvents() == napi.ProcessEventsResult.Exited && quitOnLastWindowClosed) || this.#quit_loop) {
+            if (napi.processEvents() == napi.ProcessEventsResult.Exited || this.#quit_loop) {
                 clearInterval(id);
                 this.#terminateResolveFn!(undefined);
                 this.#terminateResolveFn = null;
