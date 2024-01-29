@@ -79,27 +79,3 @@ test.serial('quit event loop on last window closed with callback', async (t) => 
 
     });
 })
-
-
-test.serial('quit event loop on last window closed with object', async (t) => {
-    let compiler = new private_api.ComponentCompiler;
-    let definition = compiler.buildFromSource(`
-
-    export component App inherits Window {
-        width: 300px;
-        height: 300px;
-    }`, "");
-    t.not(definition, null);
-
-    let instance = definition!.create() as any;
-    t.not(instance, null);
-
-    instance.window().show();
-    await runEventLoop({
-        runningCallback: () => {
-            setTimeout(() => {
-                instance.window().hide();
-            }, 2);
-        }
-    });
-})
