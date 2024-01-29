@@ -946,11 +946,11 @@ var globalEventLoop: EventLoop = new EventLoop;
  */
 export function runEventLoop(args?: Function | { runningCallback?: Function; quitOnLastWindowClosed?: boolean }): Promise<unknown>{
     if (args === undefined) {
-        return globalEventLoop.start();
+        return globalEventLoop.start(undefined, true);
     }
 
     if (args instanceof Function) {
-        return globalEventLoop.start(args);
+        return globalEventLoop.start(args, true);
     }
 
     return globalEventLoop.start(args.runningCallback, args.quitOnLastWindowClosed);
