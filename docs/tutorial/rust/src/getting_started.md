@@ -1,30 +1,31 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Getting Started
 
-We assume that you are a somewhat familiar with Rust, and that you know how to create a Rust application with
-`cargo new`. The [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started) can help you get set up.
+This tutorial assumes that you are somewhat familiar with Rust. We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our editor integrations for `.slint` files](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
 
-We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our editor integrations for `.slint` files](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
+Slint has an application template you can use to create a project with dependencies already set up that follows recommended best practices.
 
-First, we create a new cargo project:
+Before using the template, install `[cargo-generate](https://github.com/cargo-generate/cargo-generate)`:
 
 ```sh
-cargo new memory
+cargo install cargo-generate
+```
+
+Use the template to create a new project with the following command:
+
+
+```sh
+cargo generate --git https://github.com/slint-ui/slint-rust-template --name memory
 cd memory
 ```
 
-Then we edit `Cargo.toml` to add the slint dependency using `cargo add`:
-
-```sh
-cargo add slint@1.4.0
-```
-
-Finally we copy the hello world program from the [Slint documentation](https://slint.dev/docs/rust/slint/) into our `src/main.rs`:
+Replace the contents of `src/main.rs` with the hello world program from the [Slint documentation](https://slint.dev/docs/rust/slint/):
 
 ```rust,noplayground
 {{#include main_initial.rs:main}}
 ```
 
-We run this example with `cargo run` and a window will appear with the green "Hello World" greeting.
+Run the example with `cargo run` and a window appears with the green "Hello World" greeting.
 
-![Screenshot of initial tutorial app showing Hello World](https://slint.dev/blog/memory-game-tutorial/getting-started.png "Hello World")
+![Screenshot of an initial tutorial app showing Hello World](https://slint.dev/blog/memory-game-tutorial/getting-started.png "Hello World")

@@ -1,22 +1,26 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Polishing the Tile
 
-Next, let's add a curtain like cover that opens up when clicking. We achieve this by declaring two rectangles
-below the <span class="hljs-built_in">Image</span>, so that they are drawn afterwards and thus on top of the image.
+In this step, you add a curtain-like cover that opens when clicked. You do this by declaring two rectangles
+below the <span class="hljs-built_in">Image</span>, so that Slint draws them after the Image and thus on top of the image.
+
 The <span class="hljs-built_in">TouchArea</span> element declares a transparent rectangular region that allows
-reacting to user input such as a mouse click or tap. We use that to forward a callback to the <em>MainWindow</em>
-that the tile was clicked on. In the <em>MainWindow</em> we react by flipping a custom <em>open_curtain</em> property.
-That in turn is used in property bindings for the animated width and x properties. Let's look at the two states a bit
-more in detail:
+reacting to user input such as a mouse click or tap. The element forwards a callback to the <em>MainWindow</em> indicating that a user clicked the tile.
 
-| *open_curtain* value: | false | true |
-| --- | --- | --- |
-| Left curtain rectangle | Fill the left half by setting the width *width* to half the parent's width   | Width of zero makes the rectangle invisible                                                                       |
-| Right curtain rectangle | Fill the right half by setting *x* and *width* to half of the parent's width | *width* of zero makes the rectangle invisible. *x* is moved to the right, to slide the curtain open when animated |
+The <em>MainWindow</em> reacts by flipping a custom <em>open_curtain</em> property.
+Property bindings for the animated width and x properties also use the custom <em>open_curtain</em> property. 
 
-In order to make our tile extensible, the hard-coded icon name is replaced with an *icon*
+The following shows more detail on the two states:
+
+| _open_curtain_ value:   | false                                                                        | true                                                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Left curtain rectangle  | Fill the left half by setting the width _width_ to half the parent's width   | Width of zero makes the rectangle invisible                                                                       |
+| Right curtain rectangle | Fill the right half by setting _x_ and _width_ to half of the parent's width | _width_ of zero makes the rectangle invisible. _x_ is moved to the right, to slide the curtain open when animated |
+
+In order to make our tile extensible, the hard-coded icon name is replaced with an _icon_
 property that can be set from the outside when instantiating the element. For the final polish, we add a
-*solved* property that we use to animate the color to a shade of green when we've found a pair, later. We
+_solved_ property that we use to animate the color to a shade of green when we've found a pair, later. We
 replace the code inside the `slint!` macro with the following:
 
 ```slint
