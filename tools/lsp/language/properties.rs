@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use super::DocumentCache;
-use crate::common::{Error, Result};
+use crate::common::{create_workspace_edit, Error, Result};
 use crate::util::{
     map_node, map_node_and_url, map_position, map_range, to_lsp_diag, with_property_lookup_ctx,
     ExpressionContextInfo,
@@ -466,18 +466,7 @@ fn create_workspace_edit_for_set_binding_on_existing_property(
     property.defined_at.as_ref().map(|defined_at| {
         let edit =
             lsp_types::TextEdit { range: defined_at.expression_range, new_text: new_expression };
-        let edits = vec![lsp_types::OneOf::Left(edit)];
-        let text_document_edits = vec![lsp_types::TextDocumentEdit {
-            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
-                uri.clone(),
-                version.unwrap_or(i32::MIN),
-            ),
-            edits,
-        }];
-        lsp_types::WorkspaceEdit {
-            document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
-            ..Default::default()
-        }
+        create_workspace_edit(uri.clone(), version, vec![edit])
     })
 }
 
@@ -580,18 +569,7 @@ fn create_workspace_edit_for_set_binding_on_known_property(
                     }
                 },
             };
-            let edits = vec![lsp_types::OneOf::Left(edit)];
-            let text_document_edits = vec![lsp_types::TextDocumentEdit {
-                text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
-                    uri.clone(),
-                    version.unwrap_or(i32::MIN),
-                ),
-                edits,
-            }];
-            lsp_types::WorkspaceEdit {
-                document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
-                ..Default::default()
-            }
+            create_workspace_edit(uri.clone(), version, vec![edit])
         },
     )
 }
@@ -605,18 +583,18 @@ fn set_binding_on_known_property(
     new_expression: &str,
     diag: &mut BuildDiagnostics,
 ) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
-    let workspace_edit = (!diag.has_error())
-        .then(|| {
-            create_workspace_edit_for_set_binding_on_known_property(
-                uri,
-                document_cache.document_version(uri),
-                element,
-                properties,
-                property_name,
-                new_expression,
-            )
-        })
-        .flatten();
+    let workspace_edit = if diag.has_error() {
+        None
+    } else {
+        create_workspace_edit_for_set_binding_on_known_property(
+            uri,
+            document_cache.document_version(uri),
+            element,
+            properties,
+            property_name,
+            new_expression,
+        )
+    };
 
     Ok((
         SetBindingResponse { diagnostics: diag.iter().map(to_lsp_diag).collect::<Vec<_>>() },
@@ -719,18 +697,7 @@ fn create_workspace_edit_for_remove_binding(
     range: lsp_types::Range,
 ) -> lsp_types::WorkspaceEdit {
     let edit = lsp_types::TextEdit { range, new_text: String::new() };
-    let edits = vec![lsp_types::OneOf::Left(edit)];
-    let text_document_edits = vec![lsp_types::TextDocumentEdit {
-        text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
-            uri.clone(),
-            version.unwrap_or(i32::MIN),
-        ),
-        edits,
-    }];
-    lsp_types::WorkspaceEdit {
-        document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
-        ..Default::default()
-    }
+    create_workspace_edit(uri.clone(), version, vec![edit])
 }
 
 pub(crate) fn remove_binding(

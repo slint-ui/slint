@@ -4,16 +4,20 @@
 //! Data structures common between LSP and previewer
 
 use i_slint_compiler::{
+    diagnostics::{SourceFile, SourceFileVersion},
     object_tree::Element,
     parser::{syntax_nodes, SyntaxKind},
 };
-use lsp_types::Url;
+use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
 use std::{collections::HashMap, path::PathBuf};
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
 pub type UrlVersion = Option<i32>;
+
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
 
 /// Use this in nodes you want the language server and preview to
 /// ignore a node for code analysis purposes.
@@ -28,6 +32,34 @@ pub fn filter_ignore_nodes_in_element(
             n.kind() == SyntaxKind::Comment && format!("{}", n.text()).contains(NODE_IGNORE_COMMENT)
         })
     })
+}
+
+pub fn create_workspace_edit(
+    uri: Url,
+    version: SourceFileVersion,
+    edits: Vec<TextEdit>,
+) -> WorkspaceEdit {
+    let edits = edits
+        .into_iter()
+        .map(|te| lsp_types::OneOf::Left::<TextEdit, lsp_types::AnnotatedTextEdit>(te))
+        .collect();
+    let edit = lsp_types::TextDocumentEdit {
+        text_document: lsp_types::OptionalVersionedTextDocumentIdentifier { uri, version },
+        edits,
+    };
+    let changes = lsp_types::DocumentChanges::Edits(vec![edit]);
+    WorkspaceEdit { document_changes: Some(changes), ..Default::default() }
+}
+
+pub fn create_workspace_edit_from_source_file(
+    source_file: &SourceFile,
+    edits: Vec<TextEdit>,
+) -> Option<WorkspaceEdit> {
+    Some(create_workspace_edit(
+        Url::from_file_path(source_file.path()).ok()?,
+        source_file.version(),
+        edits,
+    ))
 }
 
 /// A versioned file
