@@ -930,8 +930,13 @@ var globalEventLoop: EventLoop = new EventLoop;
  * If the event loop is already running, then this function returns the same promise as from
  * the earlier invocation.
  *
- * @param runningCallback Optional callback that's invoked once when the event loop is running.
+ * @param args Optional additional arguments.
+ * @param args.runningCallback Optional callback that's invoked once when the event loop is running.
  *                         The function's return value is ignored.
+ * @param args.quitOnLastWindowClosed if set to `true` event loop is quit after last window is closed otherwise
+ *                          it is closed after {@link quitEventLoop} is called.
+ *                          This is useful for system tray applications where the application needs to stay alive even if no windows are visible.
+ *                          (default true).
  *
  * Note that the event loop integration with Node.js is slightly imperfect. Due to conflicting
  * implementation details between Slint's and Node.js' event loop, the two loops are merged
@@ -939,21 +944,8 @@ var globalEventLoop: EventLoop = new EventLoop;
  * application is idle, it continues to consume a low amount of CPU cycles, checking if either
  * event loop has any pending events.
  */
-export function runEventLoop(runningCallback?: Function): Promise<unknown> {
-    return globalEventLoop.start(runningCallback)
-}
-
-/**
- * Similar to {@link runEventLoop}, but this function enters the main event loop and continues to run even when the last window is closed, 
- * until {@link quitEventLoop} is called.
- *
- * @param runningCallback Optional callback that's invoked once when the event loop is running.
- *                         The function's return value is ignored.
- *
- * This is useful for system tray applications where the application needs to stay alive even if no windows are visible.
- */
-export function runEventLoopUntilQuit(runningCallback?: Function): Promise<unkown> {
-    return globalEventLoop.start(runningCallback, false)
+export function runEventLoop(args?: { runningCallback?: Function, quitOnLastWindowClosed?: boolean } ): Promise<unknown> {
+    return globalEventLoop.start(args.runningCallback, args.quitOnLastWindowClosed);
 }
 
 /**

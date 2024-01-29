@@ -71,10 +71,11 @@ test.serial('quit event loop on last window closed', async (t) => {
     t.not(instance, null);
 
     instance.window().show();
-    await runEventLoop(() => {
-        setTimeout(() => {
-            instance.window().hide();
-        }, 2);
+    await runEventLoop({
+        runningCallback: () => {
+            setTimeout(() => {
+                instance.window().hide();
+            }, 2);
+        }
     });
-
 })
