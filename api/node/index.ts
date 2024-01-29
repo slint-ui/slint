@@ -884,7 +884,7 @@ class EventLoop {
     constructor() {
     }
 
-    start(running_callback?: Function, quitOnLastWindowClosed?: boolean): Promise<unknown> {
+    start(running_callback?: Function, quitOnLastWindowClosed: boolean = true): Promise<unknown> {
         if (this.#terminationPromise != null) {
             return this.#terminationPromise;
         }
@@ -944,13 +944,13 @@ var globalEventLoop: EventLoop = new EventLoop;
  * application is idle, it continues to consume a low amount of CPU cycles, checking if either
  * event loop has any pending events.
  */
-export function runEventLoop(args?: Function | { runningCallback?: Function; quitOnLastWindowClosed?: boolean }): Promise<unknown>{
+export function runEventLoop(args?: Function | { runningCallback?: Function; quitOnLastWindowClosed? : boolean }): Promise<unknown>{
     if (args === undefined) {
-        return globalEventLoop.start(undefined, true);
+        return globalEventLoop.start(undefined);
     }
 
     if (args instanceof Function) {
-        return globalEventLoop.start(args, true);
+        return globalEventLoop.start(args);
     }
 
     return globalEventLoop.start(args.runningCallback, args.quitOnLastWindowClosed);
