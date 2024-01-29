@@ -884,7 +884,7 @@ class EventLoop {
     constructor() {
     }
 
-    start(running_callback?: Function, quitOnLastWindowClosed: boolean = true): Promise<unknown> {
+    start(running_callback?: Function, quitOnLastWindowClosed?: boolean): Promise<unknown> {
         if (this.#terminationPromise != null) {
             return this.#terminationPromise;
         }
@@ -930,7 +930,7 @@ var globalEventLoop: EventLoop = new EventLoop;
  * If the event loop is already running, then this function returns the same promise as from
  * the earlier invocation.
  *
- * @param args Optional additional arguments.
+ * @param args As Function it defines a callback that's invoked once when the event loop is running.
  * @param args.runningCallback Optional callback that's invoked once when the event loop is running.
  *                         The function's return value is ignored.
  * @param args.quitOnLastWindowClosed if set to `true` event loop is quit after last window is closed otherwise
@@ -944,7 +944,15 @@ var globalEventLoop: EventLoop = new EventLoop;
  * application is idle, it continues to consume a low amount of CPU cycles, checking if either
  * event loop has any pending events.
  */
-export function runEventLoop(args?: { runningCallback?: Function, quitOnLastWindowClosed?: boolean } ): Promise<unknown> {
+export function runEventLoop(args?: Function | { runningCallback?: Function; quitOnLastWindowClosed?: boolean }): Promise<unknown>{
+    if (args === undefined) {
+        return globalEventLoop.start();
+    }
+
+    if (args instanceof Function) {
+        return globalEventLoop.start(args);
+    }
+
     return globalEventLoop.start(args.runningCallback, args.quitOnLastWindowClosed);
 }
 
