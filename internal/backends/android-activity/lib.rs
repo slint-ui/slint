@@ -17,7 +17,7 @@ use jni::objects::{JClass, JString};
 use jni::sys::{jboolean, jint};
 use jni::JNIEnv;
 use raw_window_handle::HasRawWindowHandle;
-use std::cell::{Cell, OnceCell, RefCell};
+use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 use std::sync::{Arc, Mutex};
 
@@ -951,7 +951,7 @@ fn convert_utf8_index_to_utf16(in_str: &str, utf8_index: usize) -> usize {
 
 #[no_mangle]
 extern "system" fn Java_SlintAndroidJavaHelper_setDarkMode(
-    env: JNIEnv,
+    _env: JNIEnv,
     _class: JClass,
     dark: jboolean,
 ) {

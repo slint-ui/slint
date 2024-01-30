@@ -40,11 +40,9 @@ fn main() {
     // Compile the Java file into a .class file
     let o = Command::new(&javac_path)
         .arg(format!("java/{java_class}"))
-        .arg("-d")
-        .arg(&out_class)
+        .args(&["-d", out_class.as_str()])
         .arg("-classpath").arg(&classpath)
-        .arg("--release")
-        .arg("8")
+        .args(&["--release", "8"])
         .output()
         .unwrap_or_else(|err| {
             if err.kind() == std::io::ErrorKind::NotFound {
@@ -76,8 +74,7 @@ fn main() {
     let o = Command::new(&d8_path)
         .args(&["--classpath", &out_class])
         .args(&classes)
-        .arg("--output")
-        .arg(&out_dir)
+        .args(&["--output", out_dir.as_str()])
         .output()
         .unwrap_or_else(|err| panic!("Error running {d8_path:?}: {err}"));
 
