@@ -28,8 +28,10 @@ pub fn filter_ignore_nodes_in_element(
     element: &Element,
 ) -> impl Iterator<Item = &syntax_nodes::Element> {
     element.node.iter().filter(move |e| {
-        !e.children().any(|n| {
-            n.kind() == SyntaxKind::Comment && format!("{}", n.text()).contains(NODE_IGNORE_COMMENT)
+        !e.children_with_tokens().any(|nt| {
+            nt.as_token()
+                .map(|t| t.kind() == SyntaxKind::Comment && t.text().contains(NODE_IGNORE_COMMENT))
+                .unwrap_or(false)
         })
     })
 }
