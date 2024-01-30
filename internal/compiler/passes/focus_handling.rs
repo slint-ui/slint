@@ -92,7 +92,7 @@ impl<'a> LocalFocusForwards<'a> {
 
             let Expression::ElementReference(focus_target) = &forward_focus_binding.expression
             else {
-                assert!(matches!(forward_focus_binding.expression, Expression::Invalid), "internal error: forward-focus property is of type ElementReference but received non-element-reference binding");
+                // resolve expressions pass will produce type error
                 return;
             };
 
