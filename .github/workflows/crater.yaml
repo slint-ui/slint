@@ -118,7 +118,7 @@ jobs:
             sub_path: "."
           - git_url: "https://github.com/Martoni/QRNote"
             sub_path: "qr-note"
-          - git_utl: "https://github.com/planet0104/satellite_wallpaper"
+          - git_url: "https://github.com/planet0104/satellite_wallpaper"
             os: windows-latest
     runs-on: ubuntu-latest
     steps:
