@@ -92,7 +92,8 @@ impl<'a> LocalFocusForwards<'a> {
 
             let Expression::ElementReference(focus_target) = &forward_focus_binding.expression
             else {
-                // resolve expressions pass will produce type error
+                // resolve expressions pass has produced type errors
+                debug_assert!(diag.has_error());
                 return;
             };
 
