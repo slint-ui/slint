@@ -884,7 +884,7 @@ class EventLoop {
     constructor() {
     }
 
-    start(running_callback?: Function): Promise<unknown> {
+    start(running_callback?: Function, quitOnLastWindowClosed: boolean = true): Promise<unknown> {
         if (this.#terminationPromise != null) {
             return this.#terminationPromise;
         }
@@ -893,6 +893,8 @@ class EventLoop {
             this.#terminateResolveFn = resolve;
         });
         this.#quit_loop = false;
+
+        napi.setQuitOnLastWindowClosed(quitOnLastWindowClosed);
 
         if (running_callback != undefined) {
             napi.invokeFromEventLoop(() => {
@@ -930,8 +932,13 @@ var globalEventLoop: EventLoop = new EventLoop;
  * If the event loop is already running, then this function returns the same promise as from
  * the earlier invocation.
  *
- * @param runningCallback Optional callback that's invoked once when the event loop is running.
+ * @param args As Function it defines a callback that's invoked once when the event loop is running.
+ * @param args.runningCallback Optional callback that's invoked once when the event loop is running.
  *                         The function's return value is ignored.
+ * @param args.quitOnLastWindowClosed if set to `true` event loop is quit after last window is closed otherwise
+ *                          it is closed after {@link quitEventLoop} is called.
+ *                          This is useful for system tray applications where the application needs to stay alive even if no windows are visible.
+ *                          (default true).
  *
  * Note that the event loop integration with Node.js is slightly imperfect. Due to conflicting
  * implementation details between Slint's and Node.js' event loop, the two loops are merged
@@ -939,8 +946,16 @@ var globalEventLoop: EventLoop = new EventLoop;
  * application is idle, it continues to consume a low amount of CPU cycles, checking if either
  * event loop has any pending events.
  */
-export function runEventLoop(runningCallback?: Function): Promise<unknown> {
-    return globalEventLoop.start(runningCallback)
+export function runEventLoop(args?: Function | { runningCallback?: Function; quitOnLastWindowClosed? : boolean }): Promise<unknown>{
+    if (args === undefined) {
+        return globalEventLoop.start(undefined);
+    }
+
+    if (args instanceof Function) {
+        return globalEventLoop.start(args);
+    }
+
+    return globalEventLoop.start(args.runningCallback, args.quitOnLastWindowClosed);
 }
 
 /**

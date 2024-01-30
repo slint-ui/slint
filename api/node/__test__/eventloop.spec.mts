@@ -57,7 +57,7 @@ test.serial('merged event loops with networking', async (t) => {
     t.is(received_response, "Hello World");
 })
 
-test.serial('quit event loop on last window closed', async (t) => {
+test.serial('quit event loop on last window closed with callback', async (t) => {
     let compiler = new private_api.ComponentCompiler;
     let definition = compiler.buildFromSource(`
 
@@ -71,10 +71,11 @@ test.serial('quit event loop on last window closed', async (t) => {
     t.not(instance, null);
 
     instance.window().show();
-    await runEventLoop(() => {
-        setTimeout(() => {
-            instance.window().hide();
-        }, 2);
-    });
+    await runEventLoop(
+         () => {
+            setTimeout(() => {
+                instance.window().hide();
+            }, 2);
 
+    });
 })
