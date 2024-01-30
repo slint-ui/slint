@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [1.4.0] - 2024-01-31
+
 ### General
 
  - LinuxKMS backend: Added support rendering output rotation via the `SLINT_KMS_ROTATION` environment variable.
@@ -1169,3 +1171,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.3.0]: https://github.com/slint-ui/slint/releases/tag/v1.3.0
 [1.3.1]: https://github.com/slint-ui/slint/releases/tag/v1.3.1
 [1.3.2]: https://github.com/slint-ui/slint/releases/tag/v1.3.2
+[1.4.0]: https://github.com/slint-ui/slint/releases/tag/v1.4.0
