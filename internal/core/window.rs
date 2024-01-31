@@ -462,6 +462,9 @@ impl WindowInner {
                 default_font_size_prop.set(window_adapter.renderer().default_font_size());
             }
         }
+        self.set_window_item_geometry(
+            window_adapter.size().to_logical(self.scale_factor()).to_euclid(),
+        );
         window_adapter.request_redraw();
         let weak = Rc::downgrade(&window_adapter);
         crate::timers::Timer::single_shot(Default::default(), move || {

@@ -178,7 +178,6 @@ Hello := Rectangle {
 auto handle = Hello::create();
 const Hello &instance = *handle;
 assert(!instance.window().is_visible());
-assert_eq(instance.get_width2(), 0); //Before it is shown, no size is set
 instance.window().show();
 assert(instance.window().is_visible());
 assert(instance.get_width2() > 0); // default size from the backend
@@ -192,7 +191,6 @@ assert(!instance.window().is_visible());
 ```rust
 let instance = Hello::new().unwrap();
 assert!(!instance.window().is_visible());
-assert_eq!(instance.get_width2(), 0.);
 instance.window().show().unwrap();
 assert!(instance.window().is_visible());
 assert!(instance.get_width2() > 0.); // default size from the backend
