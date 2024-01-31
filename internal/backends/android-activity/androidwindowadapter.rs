@@ -39,10 +39,7 @@ impl WindowAdapter for AndroidWindowAdapter {
                 height: w.height() as u32,
             })
         } else {
-            self.java_helper
-                .get_view_rect(&self.app)
-                .unwrap_or_else(|e| print_jni_error(&self.app, e))
-                .1
+            self.java_helper.get_view_rect().unwrap_or_else(|e| print_jni_error(&self.app, e)).1
         }
     }
     fn renderer(&self) -> &dyn i_slint_core::platform::Renderer {
@@ -74,20 +71,20 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         match request {
             i_slint_core::window::InputMethodRequest::Enable(props) => {
                 self.java_helper
-                    .set_imm_data(&self.app, &props)
+                    .set_imm_data(&props)
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 self.java_helper
-                    .show_or_hide_soft_input(&self.app, true)
+                    .show_or_hide_soft_input(true)
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
             }
             i_slint_core::window::InputMethodRequest::Update(props) => {
                 self.java_helper
-                    .set_imm_data(&self.app, &props)
+                    .set_imm_data(&props)
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
             }
             i_slint_core::window::InputMethodRequest::Disable => {
                 self.java_helper
-                    .show_or_hide_soft_input(&self.app, false)
+                    .show_or_hide_soft_input(false)
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
             }
             _ => (),
@@ -136,7 +133,7 @@ impl AndroidWindowAdapter {
     pub fn new(app: AndroidApp) -> Rc<Self> {
         let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
         let dark_color_scheme = Box::pin(Property::new(
-            java_helper.dark_color_scheme(&app).unwrap_or_else(|e| print_jni_error(&app, e)),
+            java_helper.dark_color_scheme().unwrap_or_else(|e| print_jni_error(&app, e)),
         ));
         Rc::<Self>::new_cyclic(|w| Self {
             app,
@@ -329,9 +326,7 @@ impl AndroidWindowAdapter {
                 PhysicalSize { width: win.width() as u32, height: win.height() as u32 },
             )
         } else {
-            self.java_helper
-                .get_view_rect(&self.app)
-                .unwrap_or_else(|e| print_jni_error(&self.app, e))
+            self.java_helper.get_view_rect().unwrap_or_else(|e| print_jni_error(&self.app, e))
         };
 
         self.window.dispatch_event(WindowEvent::Resized {
