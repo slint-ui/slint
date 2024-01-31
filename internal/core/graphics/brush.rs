@@ -239,7 +239,11 @@ pub fn line_for_angle(angle: f32, size: Size2D<f32>) -> (Point2D<f32>, Point2D<f
 
     let (a, b) = if s.abs() < f32::EPSILON {
         let y = size.height / 2.;
-        (Point2D::new(0., y), Point2D::new(size.width, y))
+        return if c < 0. {
+            (Point2D::new(0., y), Point2D::new(size.width, y))
+        } else {
+            (Point2D::new(size.width, y), Point2D::new(0., y))
+        };
     } else if c * s < 0. {
         // Intersection between the gradient line, and an orthogonal line that goes through (height, 0)
         let x = (s * size.width + c * size.height) * s / 2.;
