@@ -93,18 +93,22 @@
     styleSelection.onchange = loadGallery;
 
     window.addEventListener('load', () => {
-      let url = document.location.href;
-      if (url.indexOf('?') > -1) {
-        let params = url.split('?')[1].split('&'),
-          data = {}, tmp, val;
-        for (let i = 0, l = params.length; i < l; i++) {
-          tmp = params[i].split('=');
-          data[tmp[0]] = tmp[1];
+      const urlParams = new URLSearchParams(window.location.search);
+      const style = urlParams.get('style');
+      if (style) {
+        document.getElementById('style-selection').value = style.split(',')[0];
+      } else {
+        const userAgent = window.navigator.userAgent.toLowerCase();
+        let defaultStyle = '';
+        if (userAgent.indexOf('mac') !== -1 || userAgent.indexOf('iphone') !== -1 || userAgent.indexOf('ipad') !== -1) {
+          defaultStyle = 'cupertino';
+        } else if (userAgent.indexOf('windows') !== -1) {
+          defaultStyle = 'fluent';
+        } else if (userAgent.indexOf('android') !== -1) {
+          defaultStyle = 'material';
         }
-        val = data.style.split(',');
-        for (let i = 0, l = val.length; i < l; i++) {
-          document.getElementById('style-selection').value = val[i];
-          break;
+        if (defaultStyle) {
+          document.getElementById('style-selection').value = defaultStyle;
         }
       }
       loadGallery();
