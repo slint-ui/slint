@@ -36,7 +36,7 @@ unzip icons.zip
 
 This unpacks an `icons` directory containing several icons.
 
-Running the program with `cargo run` now opens a window that shows the icon of a bus on a
+Running the program with `cargo run` now opens a window  that shows the icon of a bus on a
 blue background.
 
 ![Screenshot of the first tile](https://slint.dev/blog/memory-game-tutorial/memory-tile.png "Memory Tile Screenshot")
