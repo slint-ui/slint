@@ -9,7 +9,6 @@ All notable changes to this project are documented in this file.
 
 ### General
 
- - LinuxKMS backend: Added support rendering output rotation via the `SLINT_KMS_ROTATION` environment variable.
  - Winit backend: Fixed `key-released` in `FocusScope` not being invoked when releasing the space bar key.
  - Fix `PopupWindow` close behavior: Close on release when the mouse is on the popup, and close on press when
    it's outside - to match standard behavior.
@@ -19,6 +18,10 @@ All notable changes to this project are documented in this file.
  - Added API to programmatically show a window in fullscreen mode (C++/Rust: `Window::set_fullscreen(bool)`, Node.js: `window.fullscreen`).
  - Added API to keep the event loop alive when the last window is closed (#1499). (Rust: `slint::run_event_loop_until_quit()`; C++: argument to `slint::run_event_loop()`; Node: argument to `runEventLoop`).
  - Fixed linear gradiant rendering in non square rectangles (#3730).
+ - LinuxKMS backend: Added support rendering output rotation via the `SLINT_KMS_ROTATION` environment variable.
+ - LinuxKMS backend: Added support for `backend-linuxkms-noseat` feature to compile without libseat.
+ - LinuxKMS backend: Added support for software rendering with Skia.
+ - LinuxKMS backend: Added frame throttling.
 
 ### Slint Language
 
