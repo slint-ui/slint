@@ -4,7 +4,7 @@
 use super::*;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::SharedString;
-use jni::objects::{JClass, JString};
+use jni::objects::{JClass, JObject, JString, JValue};
 use jni::sys::{jboolean, jint};
 use jni::JNIEnv;
 
@@ -16,10 +16,9 @@ pub fn print_jni_error(app: &AndroidApp, e: jni::errors::Error) -> ! {
     panic!("JNI error: {e:?}")
 }
 
-pub struct JavaHelper(jni::objects::GlobalRef);
+pub struct JavaHelper(jni::objects::GlobalRef, AndroidApp);
 
 fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::errors::Error> {
-    use jni::objects::{JObject, JValue};
     // Safety: as documented in android-activity to obtain a jni::JavaVM
     let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
     let native_activity = unsafe { JObject::from_raw(app.activity_as_ptr() as *mut _) };
@@ -72,86 +71,82 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
 }
 
 impl JavaHelper {
-    pub fn new(_app: &AndroidApp) -> Result<Self, jni::errors::Error> {
-        Ok(Self(load_java_helper(_app)?))
+    pub fn new(app: &AndroidApp) -> Result<Self, jni::errors::Error> {
+        Ok(Self(load_java_helper(app)?, app.clone()))
+    }
+
+    fn with_jni_env<R>(
+        &self,
+        f: impl FnOnce(&mut JNIEnv, &JObject<'static>) -> Result<R, jni::errors::Error>,
+    ) -> Result<R, jni::errors::Error> {
+        // Safety: as documented in android-activity to obtain a jni::JavaVM
+        let vm = unsafe { jni::JavaVM::from_raw(self.1.vm_as_ptr() as *mut _) }?;
+        let mut env = vm.attach_current_thread()?;
+        let helper = self.0.as_obj();
+        f(&mut env, helper)
     }
 
     /// Unfortunately, the way that the android-activity crate uses to show or hide the virtual keyboard doesn't
     /// work with native-activity. So do it manually with JNI
-    pub fn show_or_hide_soft_input(
-        &self,
-        app: &AndroidApp,
-        show: bool,
-    ) -> Result<(), jni::errors::Error> {
-        // Safety: as documented in android-activity to obtain a jni::JavaVM
-        let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
-        let mut env = vm.attach_current_thread()?;
-        let helper = self.0.as_obj();
-        if show {
-            env.call_method(helper, "show_keyboard", "()V", &[])?;
-        } else {
-            env.call_method(helper, "hide_keyboard", "()V", &[])?;
-        };
-        Ok(())
+    pub fn show_or_hide_soft_input(&self, show: bool) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            if show {
+                env.call_method(helper, "show_keyboard", "()V", &[])?;
+            } else {
+                env.call_method(helper, "hide_keyboard", "()V", &[])?;
+            };
+            Ok(())
+        })
     }
 
     pub fn set_imm_data(
         &self,
-        app: &AndroidApp,
         data: &i_slint_core::window::InputMethodProperties,
     ) -> Result<(), jni::errors::Error> {
-        use jni::objects::JValue;
+        self.with_jni_env(|env, helper| {
+            let text = &env.new_string(data.text.as_str())?;
+            let preedit_text = env.new_string(data.preedit_text.as_str())?;
+            let to_utf16 = |x| convert_utf8_index_to_utf16(&data.text, x as usize);
+            env.call_method(
+                helper,
+                "set_imm_data",
+                "(Ljava/lang/String;IILjava/lang/String;IIIIII)V",
+                &[
+                    JValue::Object(&text),
+                    JValue::from(to_utf16(data.cursor_position) as jint),
+                    JValue::from(
+                        to_utf16(data.anchor_position.unwrap_or(data.cursor_position)) as jint
+                    ),
+                    JValue::Object(&preedit_text),
+                    JValue::from(to_utf16(data.preedit_offset) as jint),
+                    JValue::from(data.cursor_rect_origin.x as jint),
+                    JValue::from(data.cursor_rect_origin.y as jint),
+                    JValue::from(data.cursor_rect_size.width as jint),
+                    JValue::from(data.cursor_rect_size.height as jint),
+                    JValue::from(data.input_type as jint),
+                ],
+            )?;
 
-        // Safety: as documented in android-activity to obtain a jni::JavaVM
-        let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
-        let mut env = vm.attach_current_thread()?;
-        let text = &env.new_string(data.text.as_str())?;
-        let preedit_text = env.new_string(data.preedit_text.as_str())?;
-        let to_utf16 = |x| convert_utf8_index_to_utf16(&data.text, x as usize);
-        env.call_method(
-            self.0.as_obj(),
-            "set_imm_data",
-            "(Ljava/lang/String;IILjava/lang/String;IIIIII)V",
-            &[
-                JValue::Object(&text),
-                JValue::from(to_utf16(data.cursor_position) as jint),
-                JValue::from(to_utf16(data.anchor_position.unwrap_or(data.cursor_position)) as jint),
-                JValue::Object(&preedit_text),
-                JValue::from(to_utf16(data.preedit_offset) as jint),
-                JValue::from(data.cursor_rect_origin.x as jint),
-                JValue::from(data.cursor_rect_origin.y as jint),
-                JValue::from(data.cursor_rect_size.width as jint),
-                JValue::from(data.cursor_rect_size.height as jint),
-                JValue::from(data.input_type as jint),
-            ],
-        )?;
-
-        Ok(())
+            Ok(())
+        })
     }
 
-    pub fn dark_color_scheme(&self, app: &AndroidApp) -> Result<bool, jni::errors::Error> {
-        // Safety: as documented in android-activity to obtain a jni::JavaVM
-        let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
-        let mut env = vm.attach_current_thread()?;
-        let helper = self.0.as_obj();
-        Ok(env.call_method(helper, "dark_color_scheme", "()Z", &[])?.z()?)
+    pub fn dark_color_scheme(&self) -> Result<bool, jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            Ok(env.call_method(helper, "dark_color_scheme", "()Z", &[])?.z()?)
+        })
     }
 
-    pub fn get_view_rect(
-        &self,
-        app: &AndroidApp,
-    ) -> Result<(PhysicalPosition, PhysicalSize), jni::errors::Error> {
-        // Safety: as documented in android-activity to obtain a jni::JavaVM
-        let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
-        let mut env = vm.attach_current_thread()?;
-        let helper = self.0.as_obj();
-        let rect =
-            env.call_method(helper, "get_view_rect", "()Landroid/graphics/Rect;", &[])?.l()?;
-        let x = env.get_field(&rect, "left", "I")?.i()?;
-        let y = env.get_field(&rect, "top", "I")?.i()?;
-        let width = env.get_field(&rect, "right", "I")?.i()? - x;
-        let height = env.get_field(&rect, "bottom", "I")?.i()? - y;
-        Ok((PhysicalPosition::new(x as _, y as _), PhysicalSize::new(width as _, height as _)))
+    pub fn get_view_rect(&self) -> Result<(PhysicalPosition, PhysicalSize), jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            let rect =
+                env.call_method(helper, "get_view_rect", "()Landroid/graphics/Rect;", &[])?.l()?;
+            let x = env.get_field(&rect, "left", "I")?.i()?;
+            let y = env.get_field(&rect, "top", "I")?.i()?;
+            let width = env.get_field(&rect, "right", "I")?.i()? - x;
+            let height = env.get_field(&rect, "bottom", "I")?.i()? - y;
+            Ok((PhysicalPosition::new(x as _, y as _), PhysicalSize::new(width as _, height as _)))
+        })
     }
 }
 
