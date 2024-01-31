@@ -14,6 +14,11 @@ def test_property_access():
             callback globallogic();
         }
 
+        export struct MyStruct {
+            title: string,
+            finished: bool,
+        }
+
         export component Test {
             in property <string> strprop: "Hello";
             in property <int> intprop: 42;
@@ -23,6 +28,10 @@ def test_property_access():
             in property <brush> brushprop;
             in property <color> colprop;
             in property <[string]> modelprop;
+            in property <MyStruct> structprop: {
+                title: "builtin",
+                finished: true,
+            };
 
             callback test-callback();
         }
@@ -58,6 +67,15 @@ def test_property_access():
     assert instance.get_property("boolprop") == False
     with pytest.raises(ValueError, match="wrong type"):
         instance.set_property("boolprop", 0)
+
+    structval = instance.get_property("structprop")
+    assert isinstance(structval, dict)
+    assert structval == {'title': 'builtin', 'finished': True}
+    instance.set_property("structprop", {'title': 'new', 'finished': False})
+    assert instance.get_property("structprop") == {'title': 'new', 'finished': False}
+
+    with pytest.raises(TypeError, match="'int' object cannot be converted to 'PyString'"):
+        instance.set_property("structprop", {42: 'wrong'})
 
     with pytest.raises(ValueError, match="no such property"):
         instance.set_global_property("nonexistent", "theglobalprop", 42)
