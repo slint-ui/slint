@@ -6,6 +6,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.Rect;
 import android.view.inputmethod.InputMethodManager;
 import android.app.Activity;
 import android.widget.FrameLayout;
@@ -193,5 +194,12 @@ public class SlintAndroidJavaHelper {
     public boolean dark_color_scheme() {
         int nightModeFlags = mActivity.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    // Get the geometry of the view minus the system bars and the keyboard
+    public Rect get_view_rect() {
+        Rect rect = new Rect();
+        mActivity.getWindow().getDecorView().getWindowVisibleDisplayFrame(rect);
+        return rect;
     }
 }

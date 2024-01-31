@@ -11,8 +11,11 @@ pub use android_activity::{self, AndroidApp};
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use core::ops::ControlFlow;
 use i_slint_core::api::{EventLoopError, PhysicalPosition, PhysicalSize, PlatformError, Window};
-use i_slint_core::platform::{Key, PointerEventButton, WindowAdapter, WindowEvent};
+use i_slint_core::platform::{
+    Key, PointerEventButton, WindowAdapter, WindowEvent, WindowProperties,
+};
 use i_slint_core::{Property, SharedString};
+use i_slint_renderer_skia::{SkiaRenderer, SkiaRendererExt};
 use jni::objects::{JClass, JString};
 use jni::sys::{jboolean, jint};
 use jni::JNIEnv;
@@ -57,11 +60,13 @@ impl AndroidPlatform {
         let window = Rc::<AndroidWindowAdapter>::new_cyclic(|w| AndroidWindowAdapter {
             app: app.clone(),
             window: Window::new(w.clone()),
-            renderer: i_slint_renderer_skia::SkiaRenderer::default(),
+            renderer: SkiaRenderer::default(),
             event_queue: Default::default(),
             pending_redraw: Default::default(),
             dark_color_scheme,
             slint_java_helper,
+            fullscreen: Cell::new(false),
+            offset: Default::default(),
         });
         CURRENT_WINDOW.set(Rc::downgrade(&window));
         Self { app, window, event_listener: None }
@@ -127,8 +132,16 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
             {
                 return Ok(());
             }
-            if self.window.pending_redraw.take() && self.app.native_window().is_some() {
-                self.window.renderer.render()?;
+            if self.window.pending_redraw.take() {
+                if let Some(win) = self.app.native_window() {
+                    let o = self.window.offset.get();
+                    self.window.renderer.render_transformed_with_post_callback(
+                        0.,
+                        (o.x as f32, o.y as f32),
+                        PhysicalSize { width: win.width() as _, height: win.height() as _ },
+                        None,
+                    )?;
+                }
             }
         }
     }
@@ -178,6 +191,9 @@ struct AndroidWindowAdapter {
     pending_redraw: Cell<bool>,
     slint_java_helper: SlintJavaHelper,
     dark_color_scheme: core::pin::Pin<Box<Property<bool>>>,
+    fullscreen: Cell<bool>,
+    /// The offset at which the Slint view is drawn in the native window (account for status bar)
+    offset: Cell<PhysicalPosition>,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -185,10 +201,17 @@ impl WindowAdapter for AndroidWindowAdapter {
         &self.window
     }
     fn size(&self) -> PhysicalSize {
-        self.app.native_window().map_or_else(Default::default, |w| PhysicalSize {
-            width: w.width() as u32,
-            height: w.height() as u32,
-        })
+        if self.fullscreen.get() {
+            self.app.native_window().map_or_else(Default::default, |w| PhysicalSize {
+                width: w.width() as u32,
+                height: w.height() as u32,
+            })
+        } else {
+            self.slint_java_helper
+                .get_view_rect(&self.app)
+                .unwrap_or_else(|e| print_jni_error(&self.app, e))
+                .1
+        }
     }
     fn renderer(&self) -> &dyn i_slint_core::platform::Renderer {
         &self.renderer
@@ -196,6 +219,13 @@ impl WindowAdapter for AndroidWindowAdapter {
 
     fn request_redraw(&self) {
         self.pending_redraw.set(true);
+    }
+
+    fn update_window_properties(&self, properties: WindowProperties<'_>) {
+        let f = properties.fullscreen();
+        if self.fullscreen.replace(f) != f {
+            self.resize();
+        }
     }
 
     fn internal(
@@ -291,9 +321,6 @@ impl AndroidWindowAdapter {
                     if (scale_factor - self.window.scale_factor()).abs() > f32::EPSILON {
                         self.window
                             .dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
-                        self.window.dispatch_event(WindowEvent::Resized {
-                            size: size.to_logical(scale_factor),
-                        });
                     }
 
                     // Safety: This is safe because the handle remains valid; the next rwh release provides `new()` without unsafe.
@@ -312,14 +339,12 @@ impl AndroidWindowAdapter {
                         )
                     };
                     self.renderer.set_window_handle(window_handle, display_handle, size)?;
+                    self.resize();
                 }
             }
             PollEvent::Main(
                 MainEvent::WindowResized { .. } | MainEvent::ContentRectChanged { .. },
-            ) => {
-                let size = self.size().to_logical(self.window.scale_factor());
-                self.window.dispatch_event(WindowEvent::Resized { size })
-            }
+            ) => self.resize(),
             PollEvent::Main(MainEvent::RedrawNeeded { .. }) => {
                 self.pending_redraw.set(false);
                 self.renderer.render()?;
@@ -361,7 +386,7 @@ impl AndroidWindowAdapter {
                 InputEvent::MotionEvent(motion_event) => match motion_event.action() {
                     MotionAction::Down | MotionAction::ButtonPress | MotionAction::PointerDown => {
                         self.window.dispatch_event(WindowEvent::PointerPressed {
-                            position: position_for_event(motion_event)
+                            position: position_for_event(motion_event, self.offset.get())
                                 .to_logical(self.window.scale_factor()),
                             button: PointerEventButton::Left,
                         });
@@ -369,7 +394,7 @@ impl AndroidWindowAdapter {
                     }
                     MotionAction::ButtonRelease | MotionAction::PointerUp => {
                         self.window.dispatch_event(WindowEvent::PointerReleased {
-                            position: position_for_event(motion_event)
+                            position: position_for_event(motion_event, self.offset.get())
                                 .to_logical(self.window.scale_factor()),
                             button: PointerEventButton::Left,
                         });
@@ -377,7 +402,7 @@ impl AndroidWindowAdapter {
                     }
                     MotionAction::Up => {
                         self.window.dispatch_event(WindowEvent::PointerReleased {
-                            position: position_for_event(motion_event)
+                            position: position_for_event(motion_event, self.offset.get())
                                 .to_logical(self.window.scale_factor()),
                             button: PointerEventButton::Left,
                         });
@@ -387,7 +412,7 @@ impl AndroidWindowAdapter {
                     }
                     MotionAction::Move | MotionAction::HoverMove => {
                         self.window.dispatch_event(WindowEvent::PointerMoved {
-                            position: position_for_event(motion_event)
+                            position: position_for_event(motion_event, self.offset.get())
                                 .to_logical(self.window.scale_factor()),
                         });
                         InputStatus::Handled
@@ -441,13 +466,32 @@ impl AndroidWindowAdapter {
             }
         }
     }
+
+    fn resize(&self) {
+        let Some(win) = self.app.native_window() else { return };
+        let (offset, size) = if self.fullscreen.get() {
+            (
+                Default::default(),
+                PhysicalSize { width: win.width() as u32, height: win.height() as u32 },
+            )
+        } else {
+            self.slint_java_helper
+                .get_view_rect(&self.app)
+                .unwrap_or_else(|e| print_jni_error(&self.app, e))
+        };
+
+        self.window.dispatch_event(WindowEvent::Resized {
+            size: size.to_logical(self.window.scale_factor()),
+        });
+        self.offset.set(offset);
+    }
 }
 
-fn position_for_event(motion_event: &MotionEvent) -> PhysicalPosition {
-    motion_event
-        .pointers()
-        .next()
-        .map_or_else(Default::default, |p| PhysicalPosition { x: p.x() as i32, y: p.y() as i32 })
+fn position_for_event(motion_event: &MotionEvent, offset: PhysicalPosition) -> PhysicalPosition {
+    motion_event.pointers().next().map_or_else(Default::default, |p| PhysicalPosition {
+        x: p.x() as i32 - offset.x,
+        y: p.y() as i32 - offset.y,
+    })
 }
 
 fn map_key_event(key_event: &android_activity::input::KeyEvent) -> Option<WindowEvent> {
@@ -889,6 +933,23 @@ impl SlintJavaHelper {
         let mut env = vm.attach_current_thread()?;
         let helper = self.0.as_obj();
         Ok(env.call_method(helper, "dark_color_scheme", "()Z", &[])?.z()?)
+    }
+
+    fn get_view_rect(
+        &self,
+        app: &AndroidApp,
+    ) -> Result<(PhysicalPosition, PhysicalSize), jni::errors::Error> {
+        // Safety: as documented in android-activity to obtain a jni::JavaVM
+        let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _) }?;
+        let mut env = vm.attach_current_thread()?;
+        let helper = self.0.as_obj();
+        let rect =
+            env.call_method(helper, "get_view_rect", "()Landroid/graphics/Rect;", &[])?.l()?;
+        let x = env.get_field(&rect, "left", "I")?.i()?;
+        let y = env.get_field(&rect, "top", "I")?.i()?;
+        let width = env.get_field(&rect, "right", "I")?.i()? - x;
+        let height = env.get_field(&rect, "bottom", "I")?.i()? - y;
+        Ok((PhysicalPosition::new(x as _, y as _), PhysicalSize::new(width as _, height as _)))
     }
 }
 
