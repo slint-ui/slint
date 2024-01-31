@@ -538,7 +538,7 @@ public:
     }
 
     /// Replaces the underlying VectorModel's vector with \a array.
-    void set_vector(std::vector<ModelData> &&array)
+    void set_vector(std::vector<ModelData> array)
     {
         data = std::move(array);
         this->reset();
