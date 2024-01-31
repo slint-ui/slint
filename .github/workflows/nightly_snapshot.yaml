@@ -376,7 +376,7 @@ jobs:
       - name: Adjust redirections
         if: github.event.inputs.release == 'true'
         run: |
-            sed -i "/1.0.2/! s,releases/[^/]*/\(.*\),releases/${{ steps.version.outputs.VERSION }}/\1," www/data/_redirects
+            sed -i "/1.0.2/! s,releases/[^/]*/\([0-9].*\),releases/${{ steps.version.outputs.VERSION }}/\1," www/data/_redirects
 
       - name: Adjust slintpad default tag
         if: github.event.inputs.release == 'true'
