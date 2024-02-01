@@ -95,6 +95,14 @@ export component ControlsPage inherits Page {
             padding: 0px;
 
             LineEdit {
+                placeholder-text: @tr("LineEdit with icon");
+                enabled: GallerySettings.widgets-enabled;
+                icon: @image-url("../../thumbsup.png");
+                colorize-icon: true;
+            }
+
+            
+            LineEdit {
                 placeholder-text: @tr("Enter some text");
                 enabled: GallerySettings.widgets-enabled;
             }

@@ -11,6 +11,8 @@ export component LineEdit {
     in property horizontal-alignment <=> inner.horizontal-alignment;
     in property read-only <=> inner.read-only;
     in property <bool> enabled: true;
+    in property <image> icon <=> inner.icon;
+    in property <bool> colorize-icon <=> inner.colorize-icon;
     out property <bool> has-focus <=> inner.has-focus;
     in-out property <string> text <=> inner.text;
 
@@ -44,8 +46,8 @@ export component LineEdit {
     forward-focus: inner;
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    min-width: max(160px, layout.min-height);
-    min-height: max(32px, layout.min-height);
+    min-width: max(160px, inner.min-height);
+    min-height: max(32px, inner.min-height);
 
     native := NativeLineEdit {
         has-focus <=> root.has-focus;
@@ -54,17 +56,15 @@ export component LineEdit {
         height: 100%;
     }
 
-    layout := HorizontalLayout {
+    inner := LineEditBase {
+        placeholder-color: self.enabled ? StyleMetrics.placeholder-color : StyleMetrics.placeholder-color-disabled;
+        text-color: self.enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
+        enabled: root.enabled;
         padding-left: native.native-padding-left;
         padding-right: native.native-padding-right;
         padding-top: native.native-padding-top;
         padding-bottom: native.native-padding-bottom;
-
-        inner := LineEditBase {
-            placeholder-color: self.enabled ? StyleMetrics.placeholder-color : StyleMetrics.placeholder-color-disabled;
-            text-color: self.enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
-            enabled: root.enabled;
-            margin: layout.padding-left + layout.padding-right;
-        }
+        spacing: native.native-padding-left;
+        icon-width: root.font-size;
     }
 }

@@ -11,6 +11,8 @@ export component LineEdit {
     in property <bool> read-only <=> i-base.read-only;
     in property <length> font-size <=> i-base.font-size;
     in property <string> placeholder-text <=> i-base.placeholder-text;
+    in property <image> icon <=> i-base.icon;
+    in property <bool> colorize-icon <=> i-base.colorize-icon;
     out property <bool> has-focus <=> i-base.has-focus;
     in-out property <string> text <=> i-base.text;
 
@@ -43,8 +45,8 @@ export component LineEdit {
 
     vertical-stretch: 0;
     horizontal-stretch: 1;
-    min-width: max(160px, i-layout.min-width);
-    min-height: max(32px, i-layout.min-height);
+    min-width: max(160px, i-base.min-width);
+    min-height: max(32px, i-base.min-height);
     forward-focus: i-base;
 
     states [
@@ -69,19 +71,18 @@ export component LineEdit {
         border-width: 1px;
         border-color: FluentPalette.text-control-border;
 
-        i-layout := HorizontalLayout {
+        i-base := LineEditBase {
+            font-size: FluentFontSettings.body.font-size;
+            font-weight: FluentFontSettings.body.font-weight;
+            selection-background-color: FluentPalette.selection-background;
+            selection-foreground-color: FluentPalette.accent-foreground;
+            text-color: FluentPalette.foreground;
+            placeholder-color: FluentPalette.text-secondary;
             padding-left: 12px;
-            padding-right: 12px;
-
-            i-base := LineEditBase {
-                font-size: FluentFontSettings.body.font-size;
-                font-weight: FluentFontSettings.body.font-weight;
-                selection-background-color: FluentPalette.selection-background;
-                selection-foreground-color: FluentPalette.accent-foreground;
-                text-color: FluentPalette.foreground;
-                placeholder-color: FluentPalette.text-secondary;
-                margin: i-layout.padding-left + i-layout.padding-right;
-            }
+            padding-right: 12px;     
+            spacing: 8px;   
+            icon-right: true;
+            icon-width: 16px;
         }
 
         i-focus-border := Rectangle {

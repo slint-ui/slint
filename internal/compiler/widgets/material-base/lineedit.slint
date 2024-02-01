@@ -12,6 +12,8 @@ export component LineEdit {
     in property input-type <=> i-base.input-type;
     in property horizontal-alignment <=> i-base.horizontal-alignment;
     in property read-only <=> i-base.read-only;
+    in property <image> icon <=> i-base.icon;
+    in property <bool> colorize-icon <=> i-base.colorize-icon;
     out property <bool> has-focus: i-base.has-focus;
     in-out property <string> text <=> i-base.text;
 
@@ -38,8 +40,8 @@ export component LineEdit {
         i-base.paste();
     }
 
-    min-width: max(120px, i-layout.min-width);
-    min-height: max(56px, i-layout.min-height);
+    min-width: max(210px, i-base.min-width);
+    min-height: max(56px, i-base.min-height);
     forward-focus: i-base;
 
     states [
@@ -63,18 +65,17 @@ export component LineEdit {
         border-color: MaterialPalette.border;
     }
 
-    i-layout := HorizontalLayout {
+
+    i-base := LineEditBase {
+        text-color: MaterialPalette.foreground;
+        font-size: MaterialFontSettings.body-large.font-size;
+        font-weight: MaterialFontSettings.body-large.font-weight;
+        selection-foreground-color: MaterialPalette.selection-foreground;
+        placeholder-color: MaterialPalette.border-variant;
+        selection-background-color: MaterialPalette.selection-background;
         padding-left: 16px;
         padding-right: 16px;
-
-        i-base := LineEditBase {
-            text-color: MaterialPalette.foreground;
-            font-size: MaterialFontSettings.body-large.font-size;
-            font-weight: MaterialFontSettings.body-large.font-weight;
-            selection-foreground-color: MaterialPalette.selection-foreground;
-            margin: i-layout.padding-left + i-layout.padding-right;
-            placeholder-color: MaterialPalette.border-variant;
-            selection-background-color: MaterialPalette.selection-background;
-        }
+        spacing: 16px;
+        icon-width: 18px;
     }
 }

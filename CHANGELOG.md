@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+
+### Slint Language
+
+ - Added `icon` and `colorize-icon` properties to `LineEdit`
+
 ## [1.4.0] - 2024-01-31
 
 ### General

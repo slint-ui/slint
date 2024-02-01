@@ -14,6 +14,8 @@ a widget able to handle several lines of text.
 -   **`placeholder-text`**: (_in_ _string_): A placeholder text being shown when there is no text in the edit field
 -   **`read-only`** (_in_ _bool_): When set to true, text editing via keyboard and mouse is disabled but
 -   **`text`** (_in-out_ _string_): The text being edited
+-   **`icon`** (_in_ _image_): The image to show in the line edit. Note that not all styles support drawing icons.
+-   **`colorize-icon`** (_in_ _bool_): If set to true, the icon will be colorized to the same color as the LineEdit's text color. (default: false)
 
 ### Functions
 

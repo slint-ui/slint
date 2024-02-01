@@ -11,6 +11,8 @@ export component LineEdit {
     in property <bool> read-only <=> base.read-only;
     in property <length> font-size <=> base.font-size;
     in property <string> placeholder-text <=> base.placeholder-text;
+    in property <image> icon <=> base.icon;
+    in property <bool> colorize-icon <=> base.colorize-icon;
     out property <bool> has-focus <=> base.has-focus;
     in-out property <string> text <=> base.text;
 
@@ -43,8 +45,8 @@ export component LineEdit {
 
     vertical-stretch: 0;
     horizontal-stretch: 1;
-    min-width: max(160px, layout.min-width);
-    min-height: max(32px, layout.min-height);
+    min-width: max(160px, base.min-width);
+    min-height: max(32px, base.min-height);
     forward-focus: base;
 
     states [
@@ -59,19 +61,18 @@ export component LineEdit {
         border-width: 1px;
         border-color: CosmicPalette.control-divider;
 
-        layout := HorizontalLayout {
-            padding-left: 16px;
-            padding-right: 16px;
 
-            base := LineEditBase {
-                font-size: CosmicFontSettings.body.font-size;
-                font-weight: CosmicFontSettings.body.font-weight;
-                selection-background-color: CosmicPalette.selection-background;
-                selection-foreground-color: CosmicPalette.accent-foreground;
-                text-color: CosmicPalette.foreground;
-                placeholder-color: CosmicPalette.placeholder-foreground;
-                margin: layout.padding-left + layout.padding-right;
-            }
+        base := LineEditBase {
+            font-size: CosmicFontSettings.body.font-size;
+            font-weight: CosmicFontSettings.body.font-weight;
+            selection-background-color: CosmicPalette.selection-background;
+            selection-foreground-color: CosmicPalette.accent-foreground;
+            text-color: CosmicPalette.foreground;
+            placeholder-color: CosmicPalette.placeholder-foreground;
+            padding-left: 12px;
+            padding-right: 12px;
+            spacing: 8px;
+            icon-width: 16px;
         }
 
          if (root.has-focus && root.enabled) : Rectangle {

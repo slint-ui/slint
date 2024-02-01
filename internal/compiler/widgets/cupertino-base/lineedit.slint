@@ -12,6 +12,8 @@ export component LineEdit {
     in property <bool> read-only <=> i-base.read-only;
     in property <length> font-size <=> i-base.font-size;
     in property <string> placeholder-text <=> i-base.placeholder-text;
+    in property <image> icon <=> i-base.icon;
+    in property <bool> colorize-icon <=> i-base.colorize-icon;
     out property <bool> has-focus <=> i-base.has-focus;
     in-out property <string> text <=> i-base.text;
 
@@ -44,8 +46,8 @@ export component LineEdit {
 
     vertical-stretch: 0;
     horizontal-stretch: 1;
-    min-width: max(160px, i-layout.min-width);
-    min-height: max(22px, i-layout.min-height);
+    min-width: max(160px, i-base.min-width);
+    min-height: max(22px, i-base.min-height);
     forward-focus: i-base;
 
     states [
@@ -73,18 +75,17 @@ export component LineEdit {
         border-width: 1px;
     }
 
-    i-layout := HorizontalLayout {
+    
+    i-base := LineEditBase {
+        font-size: CupertinoFontSettings.body.font-size;
+        font-weight: CupertinoFontSettings.body.font-weight;
+        selection-background-color: CupertinoPalette.selection-background;
+        selection-foreground-color: CupertinoPalette.selection-foreground;
+        text-color: CupertinoPalette.foreground;
+        placeholder-color: CupertinoPalette.foreground-secondary;
+        icon-width: 12px;
         padding-left: 7px;
         padding-right: 7px;
-
-        i-base := LineEditBase {
-            font-size: CupertinoFontSettings.body.font-size;
-            font-weight: CupertinoFontSettings.body.font-weight;
-            selection-background-color: CupertinoPalette.selection-background;
-            selection-foreground-color: CupertinoPalette.selection-foreground;
-            text-color: CupertinoPalette.foreground;
-            margin: i-layout.padding-left + i-layout.padding-right;
-            placeholder-color: CupertinoPalette.foreground-secondary;
-        }
+        spacing: 7px;
     }
 }
