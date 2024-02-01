@@ -45,7 +45,7 @@ fn main() {
     source.link(&appsink).expect("Elements could not be linked.");
 
     appsink.set_callbacks(gst_app::AppSinkCallbacks::builder()
-        .new_sample((move |appsink|{
+        .new_sample(move |appsink|{
             let sample = appsink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
             let buffer = sample.buffer_owned().unwrap(); // Probably copies!
             let video_info = gst_video::VideoInfo::builder(gst_video::VideoFormat::Rgb, width, height).build().expect("couldn't build video info!");
@@ -59,7 +59,7 @@ fn main() {
                 .unwrap();
 
             Ok(gst::FlowSuccess::Ok)
-            })).build());
+            }).build());
 
     pipeline
         .set_state(gst::State::Playing)
