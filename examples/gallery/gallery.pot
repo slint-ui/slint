@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2024-01-26 03:03+0000\n"
+"POT-Creation-Date: 2024-02-01 03:03+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -49,48 +49,6 @@ msgctxt "Menu"
 msgid "About"
 msgstr ""
 
-#: ui/pages/table_view_page.slint:23
-msgctxt "TableViewPage"
-msgid "TableView"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:25
-msgctxt "TableViewPage"
-msgid ""
-"StandardTableView can be used to display a list of text elements in columns "
-"and rows. It can be imported from \"std-widgets.slint\""
-msgstr ""
-
-#: ui/pages/table_view_page.slint:31
-msgctxt "TableViewPage"
-msgid "StandardTableView"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:44
-msgctxt "TableViewPage"
-msgid "Header 1"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:45
-msgctxt "TableViewPage"
-msgid "Header 2"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:46
-msgctxt "TableViewPage"
-msgid "Header 3"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:47
-msgctxt "TableViewPage"
-msgid "Header 4"
-msgstr ""
-
-#: ui/pages/page.slint:26
-msgctxt "Page"
-msgid "Widgets enabled"
-msgstr ""
-
 #: ui/pages/easings_page.slint:55
 msgctxt "EasingsPage"
 msgid "Easings"
@@ -109,18 +67,6 @@ msgstr ""
 #: ui/pages/easings_page.slint:102
 msgctxt "EasingsPage"
 msgid "Duration:"
-msgstr ""
-
-#: ui/pages/about_page.slint:9
-msgctxt "AboutPage"
-msgid "About"
-msgstr ""
-
-#: ui/pages/about_page.slint:11
-msgctxt "AboutPage"
-msgid ""
-"Are you curious now? Check out the docs and getting starteds from the Github "
-"repository and the website https://slint.dev and try it yourself."
 msgstr ""
 
 #: ui/pages/controls_page.slint:10
@@ -306,6 +252,60 @@ msgstr ""
 #: ui/pages/text_edit_page.slint:26
 msgctxt "TextEditPage"
 msgid "No-Wrap"
+msgstr ""
+
+#: ui/pages/page.slint:26
+msgctxt "Page"
+msgid "Widgets enabled"
+msgstr ""
+
+#: ui/pages/about_page.slint:9
+msgctxt "AboutPage"
+msgid "About"
+msgstr ""
+
+#: ui/pages/about_page.slint:11
+msgctxt "AboutPage"
+msgid ""
+"Are you curious now? Check out the docs and getting starteds from the Github "
+"repository and the website https://slint.dev and try it yourself."
+msgstr ""
+
+#: ui/pages/table_view_page.slint:23
+msgctxt "TableViewPage"
+msgid "TableView"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:25
+msgctxt "TableViewPage"
+msgid ""
+"StandardTableView can be used to display a list of text elements in columns "
+"and rows. It can be imported from \"std-widgets.slint\""
+msgstr ""
+
+#: ui/pages/table_view_page.slint:31
+msgctxt "TableViewPage"
+msgid "StandardTableView"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:44
+msgctxt "TableViewPage"
+msgid "Header 1"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:45
+msgctxt "TableViewPage"
+msgid "Header 2"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:46
+msgctxt "TableViewPage"
+msgid "Header 3"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:47
+msgctxt "TableViewPage"
+msgid "Header 4"
 msgstr ""
 
 #: ui/pages/list_view_page.slint:9 ui/pages/list_view_page.slint:16
