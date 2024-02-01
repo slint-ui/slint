@@ -11,14 +11,15 @@ To try it out locally type this in this directory:
 ```sh
 ## only need to run this once
 npm install
-npm run build:wasm_lsp       # Build the wasm LSP used by the text editor
+npm run build:wasm_interpreter  # Build the wasm interpreter used in `preview.html`
+npm run build:wasm_lsp          # Build the wasm LSP used by the text editor
 
 ## Run this to refresh slintpad (dev mode!)
-npm run start                # Run in development mode
+npm run start                   # Run in development mode
 
 ## Run this to refresh slintpad (build mode!)
-npm run build                # Build the web UI code
-npx vite preview             # Start a server serving the slintpad UI
+npm run build                   # Build the web UI code
+npx vite preview                # Start a server serving the slintpad UI
 ```
 
 ## Documentation
