@@ -135,6 +135,7 @@ itertools = { version = "0.12" }
 resvg = { version= "0.38.0", default-features = false, features = ["text"] }
 send_wrapper = { version = "0.6.0" }
 softbuffer = { version = "0.3.3", default-features = false }
+strum = { version = "0.26.1", default-features = false, features = ["derive"] }
 toml_edit = { version = "0.21" }
 cfg_aliases = { version = "0.2.0" }
 

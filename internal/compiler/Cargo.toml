@@ -36,7 +36,7 @@ default = []
 i-slint-common = { workspace = true, features = ["default"] }
 
 num_enum = "0.7"
-strum = { version = "0.25.0", default-features = false, features = ["derive"] }
+strum = { workspace = true }
 rowan = "0.15.5"
 smol_str = "0.2.0"
 derive_more = "0.99.5"
