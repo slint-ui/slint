@@ -5,3 +5,4 @@
 dependencies:
   idf: ">=5.1"
   espressif/esp-box: "^2.3"
+  espressif/esp_lvgl_port: "=1.4.0"
