@@ -88,7 +88,7 @@ jobs:
             artifact_name: slint-lsp-x86_64-pc-windows-msvc.exe
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/setup-rust
       with:
         target: ${{ matrix.toolchain }}
@@ -102,7 +102,7 @@ jobs:
           mkdir bin
           cp target/${{ matrix.toolchain }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
     - name: "Upload LSP Artifact"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
           name: vscode-lsp-binary-${{ matrix.toolchain }}
           path: |
@@ -113,7 +113,7 @@ jobs:
       SLINT_NO_QT: 1
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/setup-rust
       with:
         target: x86_64-apple-darwin
@@ -127,7 +127,7 @@ jobs:
           mkdir bin
           cp -a target/release/bundle/osx/Slint\ Live\ Preview.app bin
     - name: "Upload LSP Artifact"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
           name: vscode-lsp-binary-x86_64-apple-darwin
           path: |
@@ -138,7 +138,7 @@ jobs:
       SLINT_NO_QT: 1
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/setup-rust
       with:
         target: aarch64-apple-darwin
@@ -149,7 +149,7 @@ jobs:
           mkdir bin
           cp -a target/aarch64-apple-darwin/release/slint-lsp bin/slint-lsp-aarch64-apple-darwin
     - name: "Upload LSP Artifact"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
           name: vscode-lsp-binary-aarch64-apple-darwin
           path: |
@@ -159,13 +159,13 @@ jobs:
     needs: [build_vscode_lsp_macos_x86_64, build_vscode_lsp_macos_aarch64]
     runs-on: macos-11
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         path: "src"
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: vscode-lsp-binary-x86_64-apple-darwin
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: vscode-lsp-binary-aarch64-apple-darwin
         path: bin
@@ -184,7 +184,7 @@ jobs:
     - name: "Remove temporary source checkout"
       run: rm -rf src
     - name: "Upload LSP macOS bundle Artifact"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
           name: vscode-lsp-binary-darwin
           path: .
@@ -199,11 +199,11 @@ jobs:
           - aarch64-unknown-linux-gnu
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/setup-rust
       with:
         target: ${{ matrix.target }}
-    - uses: baptiste0928/cargo-install@v2
+    - uses: baptiste0928/cargo-install@v3
       with:
         crate: cross
     - name: Build LSP
@@ -213,7 +213,7 @@ jobs:
           mkdir bin
           cp target/${{ matrix.target }}/release/slint-lsp bin/slint-lsp-${{ matrix.target }}
     - name: "Upload LSP Artifact"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
           name: vscode-lsp-binary-${{ matrix.target }}
           path: |
@@ -224,24 +224,24 @@ jobs:
     runs-on: macos-11
     if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/download-artifact@v3
+    - uses: actions/checkout@v4
+    - uses: actions/download-artifact@v4
       with:
         name: vscode-lsp-binary-x86_64-unknown-linux-gnu
         path: editors/vscode/bin
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: vscode-lsp-binary-x86_64-pc-windows-msvc
         path: editors/vscode/bin
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: vscode-lsp-binary-darwin
         path: editors/vscode/bin
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: vscode-lsp-binary-armv7-unknown-linux-gnueabihf
         path: editors/vscode/bin
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: vscode-lsp-binary-aarch64-unknown-linux-gnu
         path: editors/vscode/bin
@@ -278,7 +278,7 @@ jobs:
         extensionFile: ${{ steps.publishToVSCM.outputs.vsixPath }}
         packagePath: ''
     - name: "Upload extension artifact"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
           name: slint-vscode.zip
           path: |
@@ -288,9 +288,9 @@ jobs:
 #    if: github.event.inputs.private != 'true'
 #    runs-on: ubuntu-20.04
 #    steps:
-#      - uses: actions/checkout@v3
+#      - uses: actions/checkout@v4
 #      - name: Upload artifact
-#        uses: actions/upload-artifact@v3
+#        uses: actions/upload-artifact@v4
 #        with:
 #            name: tree-sitter-slint
 #            path: editors/tree-sitter-slint
@@ -300,17 +300,17 @@ jobs:
     needs: [docs, wasm_demo, wasm, check-for-secrets]
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: docs
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: slintpad
           path: slintpad
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: wasm
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: wasm_demo
       - name: Extract Version
@@ -402,25 +402,25 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: cpp_bin
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: slint-viewer-linux
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: slint-viewer-windows
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: slint-viewer-macos
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: slint-lsp-linux
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: slint-lsp-windows
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: slint-lsp-macos
       - name: Extract files

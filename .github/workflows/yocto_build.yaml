@@ -22,7 +22,7 @@ jobs:
             target: armv7-unknown-linux-gnueabihf
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Fetch Yocto SDK
       run: |
           # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml

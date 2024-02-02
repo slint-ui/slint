@@ -28,11 +28,11 @@ runs:
   using: composite
   steps:
     - name: Download the WASM binaries
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: ${{ inputs.wasm-binaries }}
     - name: Download the slintpad artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: ${{ inputs.slintpad-artifact }}
         path: tools/slintpad/dist
@@ -70,7 +70,7 @@ runs:
       env:
         DEBUG: "cypress:server:args"
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: cypress-screenshots-chrome
