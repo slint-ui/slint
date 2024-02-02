@@ -10,12 +10,14 @@ fn main() {
         return;
     }
 
-    let out_dir = env::var("OUT_DIR").unwrap();
+    let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
 
-    let slint_path = "dev/slint/android-activity";
+    let slint_path: PathBuf = ["dev", "slint", "android-activity"].iter().collect();
     let java_class = "SlintAndroidJavaHelper.java";
 
-    let out_class = format!("{out_dir}/java/{slint_path}");
+    let mut out_class = out_dir.clone();
+    out_class.push("java");
+    out_class.push(slint_path);
 
     let android_home =
         PathBuf::from(env_var("ANDROID_HOME").or_else(|_| env_var("ANDROID_SDK_ROOT")).expect(
@@ -40,7 +42,8 @@ fn main() {
     // Compile the Java file into a .class file
     let o = Command::new(&javac_path)
         .arg(format!("java/{java_class}"))
-        .args(&["-d", out_class.as_str()])
+        .arg("-d")
+        .arg(out_class.as_os_str())
         .arg("-classpath").arg(&classpath)
         .args(&["--release", "8"])
         .output()
@@ -59,7 +62,7 @@ fn main() {
     // Convert the .class file into a .dex file
     let d8_path = find_latest_version(
         android_home.join("build-tools"),
-        if cfg!(windows) { "d8.exe" } else { "d8" },
+        if cfg!(windows) { "d8.bat" } else { "d8" },
     )
     .expect("d8 tool not found");
 
@@ -72,9 +75,11 @@ fn main() {
         .collect::<Vec<_>>();
 
     let o = Command::new(&d8_path)
-        .args(&["--classpath", &out_class])
+        .arg("--classpath")
+        .arg(&out_class)
         .args(&classes)
-        .args(&["--output", out_dir.as_str()])
+        .arg("--output")
+        .arg(out_dir.as_os_str())
         .output()
         .unwrap_or_else(|err| panic!("Error running {d8_path:?}: {err}"));
 
