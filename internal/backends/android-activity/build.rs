@@ -10,7 +10,7 @@ fn main() {
         return;
     }
 
-    let out_dir : PathBuf = env::var_os("OUT_DIR").unwrap().into();
+    let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
 
     let slint_path: PathBuf = ["dev", "slint", "android-activity"].iter().collect();
     let java_class = "SlintAndroidJavaHelper.java";
@@ -43,7 +43,7 @@ fn main() {
     let o = Command::new(&javac_path)
         .arg(format!("java/{java_class}"))
         .arg("-d")
-        .arg(out_class.as_os_str())        
+        .arg(out_class.as_os_str())
         .arg("-classpath").arg(&classpath)
         .args(&["--release", "8"])
         .output()
