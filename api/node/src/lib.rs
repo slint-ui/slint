@@ -60,3 +60,19 @@ pub fn invoke_from_event_loop(env: Env, callback: JsFunction) -> napi::Result<na
     .map_err(|e| napi::Error::from_reason(e.to_string()))
     .and_then(|_| env.get_undefined())
 }
+
+#[napi]
+pub fn set_quit_on_last_window_closed(
+    env: Env,
+    quit_on_last_window_closed: bool,
+) -> napi::Result<napi::JsUndefined> {
+    if !quit_on_last_window_closed {
+        i_slint_backend_selector::with_platform(|b| {
+            #[allow(deprecated)]
+            b.set_event_loop_quit_on_last_window_closed(false);
+            Ok(())
+        })
+        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
+    }
+    env.get_undefined()
+}

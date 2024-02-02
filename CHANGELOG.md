@@ -5,45 +5,78 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [1.4.1] - 2024-02-02
+
+ - Skia: Update skia binding dependency.
+ - Slintpad: Fixed initial rendering of the live-preview.
+ - Qt backend: fix crash when closing popup on Wayland. (#4500)
+ - Fixed rendering of linear gradient of 90deg. (#4495)
+ - C++: Permit passing a value to VectorModel::set_vector by value (#4491)
+ - slint-viewer: re-render after reloading when using software renderer.
+ - Fixed panic in the software renderer when using the Qt style.
+ - Rust: fix slint-build's formater when source contains `\"` in a string. (#4520)
+
+## [1.4.0] - 2024-01-31
+
 ### General
 
-- LinuxKMS backend: Added support rendering output rotation via the `SLINT_KMS_ROTATION` environment variable.
-- Winit backend: Fixed `key-released` in `FocusScope` not being invoked when releasing the space bar key.
-- Fix `PopupWindow` close behavior: Close on release when the mouse is on the popup, and close on press when
-  it's outside - to match standard behavior.
-- Fixed focus behavior on click in a TextInput
-- Fixed ListView not updating when model changes (#3125)
-- Fixed TextInput on Plasma/Wayland receiveng many empty events causing selection to be cleared (#4148)
-- Added API to programmatically show a window in fullscreen mode (C++/Rust: `Window::set_fullscreen(bool)`, Node.js: `window.fullscreen`)
-- Added API to keep the event loop alive when the last window is closed (#1499). (Rust: `slint::run_event_loop_until_quit()`; C++: argument to `slint::run_event_loop()`)
+ - Winit backend: Fixed `key-released` in `FocusScope` not being invoked when releasing the space bar key.
+ - Fix `PopupWindow` close behavior: Close on release when the mouse is on the popup, and close on press when
+   it's outside - to match standard behavior.
+ - Fixed focus behavior on click in a TextInput
+ - Fixed ListView not updating when model changes (#3125).
+ - Fixed TextInput on Plasma/Wayland receiving many empty events causing selection to be cleared (#4148)
+ - Added API to programmatically show a window in fullscreen mode (C++/Rust: `Window::set_fullscreen(bool)`, Node.js: `window.fullscreen`).
+ - Added API to keep the event loop alive when the last window is closed (#1499). (Rust: `slint::run_event_loop_until_quit()`; C++: argument to `slint::run_event_loop()`; Node: argument to `runEventLoop`).
+ - Fixed linear gradiant rendering in non square rectangles (#3730).
+ - LinuxKMS backend: Added support rendering output rotation via the `SLINT_KMS_ROTATION` environment variable.
+ - LinuxKMS backend: Added support for `backend-linuxkms-noseat` feature to compile without libseat.
+ - LinuxKMS backend: Added support for software rendering with Skia.
+ - LinuxKMS backend: Added frame throttling.
 
 ### Slint Language
 
- - Fixed wrong text input in cupertino SpinBox
- - Fixed SpinBox not being enabled by default
- - Added focus state to `StandardListView`
+ - `if` statements no longer require parentheses.
  - Added a `double-clicked` callback in `TouchArea`, which is triggered when a `TouchArea`
    is clicked twice in rapid succession.
  - The `pointer-event` callback in `TouchArea` is now triggered on mouse move
    as well.
  - Errors are thrown when trying to modify properties that must be known at compile time.
+ - Fixed property wrongly considered as const if it is modified through an alias (#4241).
+ - Fixed missing invocation of init callbacks due to inlining (#4317).
+ - Added `Key.Space`` to `Key` namespace.
+
+### Widgets
+
+ - Fixed SpinBox not being enabled by default.
+ - Fixed wrong text input in cupertino SpinBox.
+ - Added focus state to `StandardListView`.
  - Added `colorize-icon` property to `Button`.
  - Added `set-selection-offsets(int, int)` to `TextInput`, `LineEdit`, and `TextEdit`.
- - Fixed property wrongly considered as const if it is modified through an alias (#4241)
- - Added `Palette` global singleton
+ - Added `Palette` global singleton.
  - Added `Cosmic` style.
- - Improved Slider drag and click behaviour
+ - Improved `Slider` drag and click behaviour.
 
 ### C++
 
  - Added `ComponentInstance::definition()` getter to retrieve the `ComponentDefinition` for an instance.
  - Added `slint::VectorModel::clear()` and `slint::VectorModel::set_vector()` to conveniently clear or replace the underlying data.
 
+### Rust
+
+ - Compile-time improvements.
+ - Fixed compilation when component has the same name as internal name (#4419).
+
+### JavaScript
+
+ - Pre-built binaries in the npm package.
+
 ### LSP
 
- - Added selection mode to select elements in the preview
- - Implement code action to add missing import
- - Fix error when going to the definition of builtin items (#4126)
+ - Added selection mode to select elements in the preview.
+ - Implement code action to add missing import.
+ - Fix error when going to the definition of builtin items (#4126).
+ - Preserve underscores in property auto-completion.
 
 ## [1.3.2] - 2023-12-01
 
@@ -1152,3 +1185,5 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.3.0]: https://github.com/slint-ui/slint/releases/tag/v1.3.0
 [1.3.1]: https://github.com/slint-ui/slint/releases/tag/v1.3.1
 [1.3.2]: https://github.com/slint-ui/slint/releases/tag/v1.3.2
+[1.4.0]: https://github.com/slint-ui/slint/releases/tag/v1.4.0
+[1.4.1]: https://github.com/slint-ui/slint/releases/tag/v1.4.1

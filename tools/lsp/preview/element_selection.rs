@@ -84,9 +84,7 @@ fn element_offset(element: &ElementRc) -> Option<(PathBuf, u32)> {
 }
 
 fn element_source_range(element: &ElementRc) -> Option<(SourceFile, TextRange)> {
-    let Some(node) = element.borrow().node.first().cloned() else {
-        return None;
-    };
+    let node = element.borrow().node.first().cloned()?;
     let source_file = node.source_file.clone();
     let range = node.text_range();
     Some((source_file, range))
@@ -95,26 +93,11 @@ fn element_source_range(element: &ElementRc) -> Option<(SourceFile, TextRange)> 
 // Return the real root element, skipping any WindowElement that got added
 fn root_element(component_instance: &ComponentInstance) -> ElementRc {
     let root_element = component_instance.definition().root_component().root_element.clone();
-
-    if root_element.borrow().children.len() != 1 {
+    if !root_element.borrow().node.is_empty() {
         return root_element;
     }
-
-    let Some(child) = root_element.borrow().children.first().cloned() else {
-        return root_element;
-    };
-    let Some((rsf, rr)) = element_source_range(&root_element) else {
-        return root_element;
-    };
-    let Some((csf, cr)) = element_source_range(&child) else {
-        return root_element;
-    };
-
-    if Rc::ptr_eq(&rsf, &csf) && rr == cr {
-        child
-    } else {
-        root_element
-    }
+    let child = root_element.borrow().children.first().cloned();
+    child.unwrap_or(root_element)
 }
 
 #[derive(Clone)]

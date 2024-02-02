@@ -524,4 +524,8 @@ TEST_CASE("VectorModel clear and replace")
     REQUIRE(observer->changed_rows.empty());
     REQUIRE(observer->removed_rows.empty());
     REQUIRE(observer->model_reset);
+
+    // Test that taking a vector by value compiles
+    std::vector<int> new_data { 5, 6, 7, 8 };
+    model->set_vector(new_data);
 }

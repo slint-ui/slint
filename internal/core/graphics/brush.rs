@@ -234,13 +234,33 @@ pub struct GradientStop {
 
 /// Returns the start / end points of a gradient within a rectangle of the given size, based on the angle (in degree).
 pub fn line_for_angle(angle: f32, size: Size2D<f32>) -> (Point2D<f32>, Point2D<f32>) {
-    let angle = angle.to_radians();
-    let r = (size.height * angle.sin().abs() + size.width * angle.cos().abs()) / 2.;
-    let (y, x) = (angle - core::f32::consts::PI / 2.).sin_cos();
-    let (y, x) = (y * r, x * r);
-    let start = Point2D::new(size.width / 2.0 - x, size.height / 2.0 - y);
-    let end = Point2D::new(size.width / 2.0 + x, size.height / 2.0 + y);
-    (start, end)
+    let angle = (angle + 90.).to_radians();
+    let (s, c) = angle.sin_cos();
+
+    let (a, b) = if s.abs() < f32::EPSILON {
+        let y = size.height / 2.;
+        return if c < 0. {
+            (Point2D::new(0., y), Point2D::new(size.width, y))
+        } else {
+            (Point2D::new(size.width, y), Point2D::new(0., y))
+        };
+    } else if c * s < 0. {
+        // Intersection between the gradient line, and an orthogonal line that goes through (height, 0)
+        let x = (s * size.width + c * size.height) * s / 2.;
+        let y = -c * x / s + size.height;
+        (Point2D::new(x, y), Point2D::new(size.width - x, size.height - y))
+    } else {
+        // Intersection between the gradient line, and an orthogonal line that goes through (0, 0)
+        let x = (s * size.width - c * size.height) * s / 2.;
+        let y = -c * x / s;
+        (Point2D::new(size.width - x, size.height - y), Point2D::new(x, y))
+    };
+
+    if s > 0. {
+        (a, b)
+    } else {
+        (b, a)
+    }
 }
 
 impl InterpolatedPropertyValue for Brush {

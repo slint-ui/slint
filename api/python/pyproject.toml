@@ -7,7 +7,7 @@ build-backend = "maturin"
 
 [project]
 name = "slint"
-version = "1.4.0"
+version = "1.4.1"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

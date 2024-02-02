@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: "install gettext tools"
         run: sudo apt install gettext
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
 
       - name: "gallery: Run slint-tr-extractor"

@@ -1,8 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-
 export X := Rectangle {
     forward-focus: nothingness;
     //             ^error{Unknown unqualified identifier}
+}
+
+export Y := Rectangle {
+    forward-focus: true;
+//                 ^error{Cannot convert bool to element ref}
 }

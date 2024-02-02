@@ -16,7 +16,7 @@ If you want to just play with this, you can try running one of our test cases in
 
 ```bash
 cd api/python
-python -m env .env
+python -m venv .env
 source .env/bin/activate
 pip install maturin
 maturin develop

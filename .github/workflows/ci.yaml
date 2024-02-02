@@ -41,7 +41,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/install-linux-dependencies
     - name: Install Qt
       if: runner.os != 'Windows'
@@ -68,17 +68,13 @@ jobs:
       with:
         toolchain: ${{ matrix.rust_version }}
         key: x-v2
-    # - name: Pin dependencies to make it build with our MSRV
-    #   if: matrix.rust_version == '1.66'
-    #   shell: bash
-    #   run: |
-    #     if [ ! -f ./Cargo.lock ]; then
-    #       cargo update -p half --precise 2.2.1
-    #       cargo update -p codemap-diagnostic --precise 0.1.1
-    #       cargo update -p clap --precise 4.3.24
-    #       cargo update -p clap_builder --precise 4.3.24
-    #       cargo update -p clap_lex --precise 0.5.0
-    #     fi
+#    - name: Pin dependencies to make it build with our MSRV
+#      if: matrix.rust_version == '1.70'
+#      shell: bash
+#      run: |
+#        if [ ! -f ./Cargo.lock ]; then
+#          cargo update -p ureq --precise 2.9.1
+#        fi
     - name: Run tests
       run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp
       env:
@@ -86,7 +82,7 @@ jobs:
       shell: bash
     - name: Archive screenshots after failed tests
       if: ${{ failure() }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
           name: screenshots-${{matrix.os}}
           path: |
@@ -107,7 +103,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/install-linux-dependencies
     - name: Install Qt
       if: runner.os != 'Windows'
@@ -159,7 +155,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/install-linux-dependencies
     - name: Install Qt
       if: runner.os != 'Windows'
@@ -204,7 +200,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/install-linux-dependencies
       with:
         force-gcc-10: true
@@ -240,7 +236,7 @@ jobs:
         os: [ubuntu-22.04, macos-12, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/install-linux-dependencies
       with:
         force-gcc-10: true
@@ -282,7 +278,7 @@ jobs:
       working-directory: ${{ runner.workspace }}/cppbuild
       run: cmake --build . --config Debug --target package
     - name: "Create C++ packages artifact"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
           name: cpp_bin-${{ matrix.os }}
           path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
@@ -296,7 +292,7 @@ jobs:
       CARGO_INCREMENTAL: false
       CARGO_PROFILE_DEV_DEBUG: 0
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/install-linux-dependencies
       with:
         force-gcc-10: true
@@ -305,7 +301,7 @@ jobs:
       with:
         version: 5.15.2
         cache: true
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4
       with:
         name: cpp_bin-ubuntu-22.04
         path: cpp-package
@@ -340,7 +336,7 @@ jobs:
           - feature: stm32h735g
             target: thumbv7em-none-eabihf
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/setup-rust
       with:
         target: ${{matrix.target}}
@@ -350,7 +346,7 @@ jobs:
   mcu_esp:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
     - uses: esp-rs/xtensa-toolchain@v1.5
       with:
@@ -366,11 +362,11 @@ jobs:
   ffi_32bit_build:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/setup-rust
       with:
         target: armv7-unknown-linux-gnueabihf
-    - uses: baptiste0928/cargo-install@v2
+    - uses: baptiste0928/cargo-install@v3
       with:
         crate: cross
     - name: Check
@@ -381,7 +377,7 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: 0
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/setup-rust
       with:
         toolchain: stable
@@ -401,7 +397,7 @@ jobs:
   tree-sitter:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - uses: robinraju/release-downloader@v1.7
@@ -442,7 +438,7 @@ jobs:
         from_version: ['0.3.0']
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - uses: ./.github/actions/install-linux-dependencies
@@ -505,7 +501,7 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: 0
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/install-linux-dependencies
     - uses: ./.github/actions/setup-rust
     - name: run the formatter
@@ -522,7 +518,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: espressif/idf:release-v5.2
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: esp-rs/xtensa-toolchain@v1.5
         with:
@@ -557,7 +553,7 @@ jobs:
   android:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install Android API level 30
         run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
       - name: Cache cargo-apk
