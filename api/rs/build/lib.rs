@@ -185,12 +185,14 @@ struct CodeFormatter<Sink> {
     in_string: bool,
     /// number of bytes after the last `'`, 0 if there was none
     in_char: usize,
+    /// In string or char, and the previous character was `\\`
+    escaped: bool,
     sink: Sink,
 }
 
 impl<Sink> CodeFormatter<Sink> {
     pub fn new(sink: Sink) -> Self {
-        Self { indentation: 0, in_string: false, in_char: 0, sink }
+        Self { indentation: 0, in_string: false, in_char: 0, escaped: false, sink }
     }
 }
 
@@ -209,31 +211,41 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
             b';' if !self.in_string && self.in_char == 0 => true,
             b'"' if !self.in_string && self.in_char == 0 => {
                 self.in_string = true;
+                self.escaped = false;
                 false
             }
-            b'"' if self.in_string => {
-                // FIXME! escape character
+            b'"' if self.in_string && !self.escaped => {
                 self.in_string = false;
                 false
             }
             b'\'' if !self.in_string && self.in_char == 0 => {
                 self.in_char = 1;
+                self.escaped = false;
                 false
             }
-            b'\'' if !self.in_string && self.in_char > 0 => {
+            b'\'' if !self.in_string && self.in_char > 0 && !self.escaped => {
                 self.in_char = 0;
                 false
             }
-            b' ' | b'>' if self.in_char > 2 => {
+            b' ' | b'>' if self.in_char > 2 && !self.escaped => {
                 // probably a lifetime
                 self.in_char = 0;
                 false
             }
-            _ if self.in_char > 0 => {
-                self.in_char += 1;
+            b'\\' if (self.in_string || self.in_char > 0) && !self.escaped => {
+                self.escaped = true;
+                // no need to increment in_char since \ isn't a single character
                 false
             }
-            _ => false,
+            _ if self.in_char > 0 => {
+                self.in_char += 1;
+                self.escaped = false;
+                false
+            }
+            _ => {
+                self.escaped = false;
+                false
+            }
         }) {
             let idx = idx + 1;
             self.sink.write_all(&s[..idx])?;
@@ -277,6 +289,31 @@ fn formatter_test() {
         r#"fn xx<'lt>(foo: &'lt str) {
      println!("{}", '\u{f700}');
      return Ok(());
+     }
+"#
+    );
+
+    assert_eq!(
+        format_code(r#"fn main() { ""; "'"; "\""; "{}"; "\\"; "\\\""; }"#),
+        r#"fn main() {
+     "";
+     "'";
+     "\"";
+     "{}";
+     "\\";
+     "\\\"";
+     }
+"#
+    );
+
+    assert_eq!(
+        format_code(r#"fn main() { '"'; '\''; '{'; '}'; '\\'; }"#),
+        r#"fn main() {
+     '"';
+     '\'';
+     '{';
+     '}';
+     '\\';
      }
 "#
     );
