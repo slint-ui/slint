@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
  - C++: Permit passing a value to VectorModel::set_vector by value (#4491)
  - slint-viewer: re-render after reloading when using software renderer.
  - Fixed panic in the software renderer when using the Qt style.
+ - Rust: fix slint-build's formater when source contains `\"` in a string. (#4520)
 
 ## [1.4.0] - 2024-01-31
 
