@@ -50,9 +50,8 @@ fn main() {
             }
         }
     });
-
-    main_window.run().unwrap();
     // ANCHOR_END: game_logic
+    main_window.run().unwrap();
 }
 
 slint::slint! {
