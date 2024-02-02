@@ -10,7 +10,7 @@ jobs:
   upload_components:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Upload component
       uses: espressif/upload-components-ci-action@v1
       with:
