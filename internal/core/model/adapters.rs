@@ -315,20 +315,16 @@ where
             .filter_map(|(i, e)| (self.filter_function)(&e).then_some(i))
             .collect();
 
+        let mut mapping = self.mapping.borrow_mut();
+        let insertion_point = mapping.binary_search(&index).unwrap_or_else(|ip| ip);
+        mapping[insertion_point..].iter_mut().for_each(|i| *i += count);
+
         if !insertion.is_empty() {
-            let mut mapping = self.mapping.borrow_mut();
-            let insertion_point = mapping.binary_search(&index).unwrap_or_else(|ip| ip);
-
-            let old_mapping_len = mapping.len();
-            mapping.resize(old_mapping_len + insertion.len(), 0);
-            mapping
-                .copy_within(insertion_point..old_mapping_len, insertion_point + insertion.len());
-            mapping[insertion_point..insertion_point + insertion.len()].copy_from_slice(&insertion);
-
-            mapping.iter_mut().skip(insertion_point + insertion.len()).for_each(|i| *i += count);
+            let insertion_len = insertion.len();
+            mapping.splice(insertion_point..insertion_point, insertion.into_iter());
 
             drop(mapping);
-            self.notify.row_added(insertion_point, insertion.len());
+            self.notify.row_added(insertion_point, insertion_len);
         }
     }
 
@@ -342,13 +338,10 @@ where
         let end = mapping.binary_search(&(index + count)).unwrap_or_else(|e| e);
         let range = start..end;
 
+        mapping[end..].iter_mut().for_each(|i| *i -= count);
+
         if !range.is_empty() {
-            mapping.copy_within(end.., start);
-            let new_size = mapping.len() - range.len();
-            mapping.truncate(new_size);
-
-            mapping.iter_mut().skip(start).for_each(|i| *i -= count);
-
+            mapping.drain(range.clone());
             drop(mapping);
             self.notify.row_removed(start, range.len());
         }
@@ -1167,9 +1160,7 @@ where
 
     fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
         let row_count = self.wrapped_model.row_count();
-        let old_row_count = row_count + count;
-        let index = old_row_count - index - 1;
-        self.notify.row_removed(index, count);
+        self.notify.row_removed(row_count - index, count);
     }
 
     fn reset(self: Pin<&Self>) {
@@ -1338,4 +1329,92 @@ mod reversed_tests {
 
         check_content(&model, &[5, 4, 3, 2, 1]);
     }
+}
+
+#[test]
+fn test_long_chain_integrity() {
+    let origin_model = Rc::new(VecModel::from((0..100).collect::<Vec<_>>()));
+    let checker1 = ModelChecker::new(origin_model.clone());
+    let fizzbuzz = Rc::new(MapModel::new(origin_model.clone(), |number| {
+        if (number % 3) == 0 && (number % 5) == 0 {
+            "FizzBuzz".to_owned()
+        } else if (number % 3) == 0 {
+            "Fizz".to_owned()
+        } else if (number % 5) == 0 {
+            "Buzz".to_owned()
+        } else {
+            number.to_string()
+        }
+    }));
+    let checker2 = ModelChecker::new(fizzbuzz.clone());
+    let filter = Rc::new(FilterModel::new(fizzbuzz, |s| s != "FizzBuzz"));
+    let checker3 = ModelChecker::new(filter.clone());
+    let reverse = Rc::new(ReverseModel::new(filter));
+    let checker4 = ModelChecker::new(reverse.clone());
+    let sorted = Rc::new(SortModel::new_ascending(reverse));
+    let checker5 = ModelChecker::new(sorted.clone());
+    let filter2 = Rc::new(FilterModel::new(sorted, |s| s != "Fizz"));
+    let checker6 = ModelChecker::new(filter2.clone());
+
+    let check_all = || {
+        checker1.check();
+        checker2.check();
+        checker3.check();
+        checker4.check();
+        checker5.check();
+        checker6.check();
+    };
+
+    origin_model.extend(50..150);
+    check_all();
+    origin_model.insert(8, 1000);
+    check_all();
+    origin_model.remove(9);
+    check_all();
+    origin_model.remove(10);
+    origin_model.remove(11);
+    origin_model.set_row_data(55, 10001);
+    check_all();
+    origin_model.set_row_data(58, 10002);
+    origin_model.set_row_data(59, 10003);
+    origin_model.remove(28);
+    origin_model.remove(29);
+    origin_model.insert(100, 8888);
+    origin_model.remove(30);
+    origin_model.set_row_data(60, 10004);
+    origin_model.remove(130);
+    origin_model.set_row_data(61, 10005);
+    origin_model.remove(131);
+    check_all();
+    origin_model.remove(12);
+    origin_model.remove(13);
+    origin_model.remove(14);
+    origin_model.set_row_data(62, 10006);
+    origin_model.set_row_data(63, 10007);
+    origin_model.set_row_data(64, 10008);
+    origin_model.set_row_data(65, 10009);
+    check_all();
+
+    // Since VecModel don't have this as public API, just add some function that use row_removed on a wider range.
+    impl<T> VecModel<T> {
+        fn remove_range(&self, range: core::ops::Range<usize>) {
+            self.array.borrow_mut().drain(range.clone());
+            self.notify.row_removed(range.start, range.len())
+        }
+    }
+
+    origin_model.remove_range(25..110);
+    check_all();
+
+    origin_model.extend(900..910);
+    origin_model.set_row_data(45, 44444);
+    origin_model.remove_range(10..30);
+    origin_model.insert(45, 3000);
+    origin_model.insert(45, 3001);
+    origin_model.insert(45, 3002);
+    origin_model.insert(45, 3003);
+    origin_model.insert(45, 3004);
+    origin_model.insert(45, 3006);
+    origin_model.insert(45, 3007);
+    check_all();
 }
