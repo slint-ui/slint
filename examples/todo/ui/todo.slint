@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView, ListView,
-    HorizontalBox, VerticalBox, GridBox, StandardButton } from "std-widgets.slint";
+    HorizontalBox, VerticalBox, GridBox, StandardButton, Palette } from "std-widgets.slint";
 
 @rust-attr(derive(serde::Serialize, serde::Deserialize))
 export struct TodoItem  {
@@ -43,8 +43,8 @@ component MainWindow inherits Window {
         width: min(confirm_popup_layout.preferred-width, root.width - 80px);
 
         Rectangle {
-            background: root.background;
-            border-color: confirm_popup_text.color;
+            background: Palette.background;
+            border-color: Palette.border;
             border-width: 1px;
         }
 
