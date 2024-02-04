@@ -984,11 +984,7 @@ struct ReverseModelInner : private_api::ModelChangeListener
 
     void row_removed(size_t first_removed_row, size_t count) override
     {
-        auto row_count = source_model->row_count();
-        auto old_row_count = row_count + count;
-        auto row = old_row_count - first_removed_row - 1;
-
-        target_model.row_removed(row, count);
+        target_model.row_removed(source_model->row_count() - first_removed_row, count);
     }
 
     void reset() override { source_model.reset(); }
