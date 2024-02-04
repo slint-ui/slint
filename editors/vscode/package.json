@@ -16,6 +16,7 @@
     "categories": [
         "Programming Languages"
     ],
+    "qna": "https://github.com/slint-ui/slint/discussions/categories/q-a",
     "activationEvents": [
         "onCommand:slint.showPreview",
         "onCommand:slint.reload",
