@@ -154,7 +154,7 @@ fn generate_source(
     compiler_config.enable_component_containers = true;
     compiler_config.style = Some("fluent".to_string());
     let (root_component, diag) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config.clone()));
 
     if diag.has_error() {
         diag.print_warnings_and_exit_on_error();
@@ -166,6 +166,6 @@ fn generate_source(
         diag.print();
     }
 
-    generator::generate(generator::OutputFormat::Rust, output, &root_component)?;
+    generator::generate(generator::OutputFormat::Rust, output, &root_component, &compiler_config)?;
     Ok(())
 }

@@ -17,7 +17,7 @@ fn current_time() -> slint::SharedString {
     return "".into();
 }
 
-struct PrinterQueueData {
+pub struct PrinterQueueData {
     data: Rc<slint::VecModel<PrinterQueueItem>>,
     print_progress_timer: slint::Timer,
 }
@@ -43,7 +43,11 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let main_window = MainWindow::new().unwrap();
+    let printer_queue = PrinterQueueData {
+        data: Rc::new(slint::VecModel::default()),
+        print_progress_timer: Default::default(),
+    };
+    let main_window = MainWindow::new(printer_queue).unwrap();
     main_window.set_ink_levels(
         [
             InkLevel { color: slint::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
@@ -56,45 +60,44 @@ pub fn main() {
 
     let default_queue: Vec<PrinterQueueItem> =
         main_window.global::<PrinterQueue>().get_printer_queue().iter().collect();
-    let printer_queue = Rc::new(PrinterQueueData {
-        data: Rc::new(slint::VecModel::from(default_queue)),
-        print_progress_timer: Default::default(),
-    });
-    main_window.global::<PrinterQueue>().set_printer_queue(printer_queue.data.clone().into());
+    main_window.user_data().data.set_vec(default_queue);
+    main_window
+        .global::<PrinterQueue>()
+        .set_printer_queue(main_window.user_data().data.clone().into());
 
     main_window.on_quit(move || {
         #[cfg(not(target_arch = "wasm32"))]
         std::process::exit(0);
     });
 
-    let printer_queue_copy = printer_queue.clone();
+    let weak = main_window.as_weak();
     main_window.global::<PrinterQueue>().on_start_job(move |title| {
-        printer_queue_copy.push_job(title);
+        weak.unwrap().user_data().push_job(title);
     });
 
-    let printer_queue_copy = printer_queue.clone();
+    let weak = main_window.as_weak();
     main_window.global::<PrinterQueue>().on_cancel_job(move |idx| {
-        printer_queue_copy.data.remove(idx as usize);
+        weak.unwrap().user_data().data.remove(idx as usize);
     });
 
-    let printer_queue_weak = Rc::downgrade(&printer_queue);
-    printer_queue.print_progress_timer.start(
+    let weak = main_window.as_weak();
+    main_window.user_data().print_progress_timer.start(
         slint::TimerMode::Repeated,
         std::time::Duration::from_secs(1),
         move || {
-            if let Some(printer_queue) = printer_queue_weak.upgrade() {
-                if printer_queue.data.row_count() > 0 {
-                    let mut top_item = printer_queue.data.row_data(0).unwrap();
+            if let Some(main_window) = weak.upgrade() {
+                if main_window.user_data().data.row_count() > 0 {
+                    let mut top_item = main_window.user_data().data.row_data(0).unwrap();
                     top_item.progress += 1;
                     top_item.status = JobStatus::Waiting;
                     if top_item.progress > 100 {
-                        printer_queue.data.remove(0);
-                        if printer_queue.data.row_count() == 0 {
+                        main_window.user_data().data.remove(0);
+                        if main_window.user_data().data.row_count() == 0 {
                             return;
                         }
-                        top_item = printer_queue.data.row_data(0).unwrap();
+                        top_item = main_window.user_data().data.row_data(0).unwrap();
                     }
-                    printer_queue.data.set_row_data(0, top_item);
+                    main_window.user_data().data.set_row_data(0, top_item);
                 } else {
                     // FIXME: stop this timer?
                 }

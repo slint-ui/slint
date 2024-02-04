@@ -20,6 +20,7 @@ use crate::llr::{
     TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
+use crate::CompilerConfiguration;
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
@@ -138,7 +139,7 @@ fn set_primitive_property_value(ty: &Type, value_expression: TokenStream) -> Tok
 }
 
 /// Generate the rust code for the given component.
-pub fn generate(doc: &Document) -> TokenStream {
+pub fn generate(doc: &Document, config: &CompilerConfiguration) -> TokenStream {
     let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = doc
         .root_component
         .used_types
@@ -170,7 +171,16 @@ pub fn generate(doc: &Document) -> TokenStream {
         .map(|sub_compo| generate_sub_component(sub_compo, &llr, None, quote!(), None, false))
         .collect::<Vec<_>>();
 
-    let compo = generate_public_component(&llr);
+    let user_data_type = config.user_data_type.as_ref().map(|t| {
+        TokenStream::from_str(t).unwrap_or_else(|e| {
+            // FIXME: ideally the conpiler config already contains the TokenStream for rust, so that error can be reported before,
+            // or can have a span (in the case of the slint! macro)
+            let error = format!("Could not parse user_type from compiler config: '{t}': {e}");
+            quote!(compile_error!(#error))
+        })
+    });
+
+    let compo = generate_public_component(&llr, user_data_type.as_ref());
     let compo_id = public_component_id(&llr.item_tree.root);
     let compo_module = format_ident!("slint_generated{}", compo_id);
     let version_check = format_ident!(
@@ -221,7 +231,10 @@ pub fn generate(doc: &Document) -> TokenStream {
     }
 }
 
-fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
+fn generate_public_component(
+    llr: &llr::PublicComponent,
+    user_data_type: Option<&TokenStream>,
+) -> TokenStream {
     let public_component_id = public_component_id(&llr.item_tree.root);
     let inner_component_id = inner_component_id(&llr.item_tree.root);
     let global_container_id = format_ident!("Globals_{}", public_component_id);
@@ -235,6 +248,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
             window_adapter_: sp::OnceCell<sp::WindowAdapterRc>,
         ),
         None,
+        user_data_type,
     );
 
     let ctx = EvaluationContext {
@@ -257,17 +271,23 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
         llr.globals.iter().map(|g| format_ident!("global_{}", ident(&g.name))).collect::<Vec<_>>();
     let global_types = llr.globals.iter().map(global_inner_name).collect::<Vec<_>>();
 
+    // FIXME: use Option::as_slice whtn MSRV is Rust 1.75
+    let user_data_type = user_data_type.into_iter().collect::<Vec<_>>();
+
     quote!(
         #component
         pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
 
         impl #public_component_id {
-            pub fn new() -> core::result::Result<Self, slint::PlatformError> {
-                let inner = #inner_component_id::new()?;
+            pub fn new(#(user_data: #user_data_type)*) -> core::result::Result<Self, slint::PlatformError> {
+                let inner = #inner_component_id::new(#(user_data as #user_data_type)*)?;
                 #(inner.globals.#global_names.clone().init(&inner);)*
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 core::result::Result::Ok(Self(inner))
             }
+
+            #(pub fn user_data(&self) -> &#user_data_type { self.0.user_data.as_ref().unwrap() })*
+
 
             #property_and_callback_accessors
         }
@@ -606,7 +626,9 @@ fn generate_sub_component(
     let mut extra_components = component
         .popup_windows
         .iter()
-        .map(|c| generate_item_tree(c, root, Some(ParentCtx::new(&ctx, None)), quote!(), None))
+        .map(|c| {
+            generate_item_tree(c, root, Some(ParentCtx::new(&ctx, None)), quote!(), None, None)
+        })
         .collect::<Vec<_>>();
 
     let mut declared_property_vars = vec![];
@@ -1245,9 +1267,17 @@ fn generate_item_tree(
     sub_tree: &llr::ItemTree,
     root: &llr::PublicComponent,
     parent_ctx: Option<ParentCtx>,
-    extra_fields: TokenStream,
+    mut extra_fields: TokenStream,
     index_property: Option<llr::PropertyIndex>,
+    user_data_type: Option<&TokenStream>,
 ) -> TokenStream {
+    if let Some(user_data_type) = user_data_type {
+        extra_fields = quote!(
+            user_data: Option<#user_data_type>,
+            #extra_fields
+        );
+    }
+
     let sub_comp = generate_sub_component(
         &sub_tree.root,
         root,
@@ -1395,14 +1425,19 @@ fn generate_item_tree(
     let item_tree_array_len = item_tree_array.len();
     let item_array_len = item_array.len();
 
+    // FIXME: use Option::as_slice when MSRV is Rust 1.75
+    let user_data_type = user_data_type.into_iter().collect::<Vec<_>>();
+
     quote!(
         #sub_comp
 
         impl #inner_component_id {
-            pub fn new(#(parent: #parent_component_type)*) -> core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
+            pub fn new(#(user_data: #user_data_type,)* #(parent: #parent_component_type,)*) -> core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 #![allow(unused)]
                 slint::private_unstable_api::ensure_backend()?;
                 let mut _self = Self::default();
+                // Ideally, user_data shouldn't be an Option, but otherwise, Self wouldn't implement default and the whole thing would be complicated
+                #(_self.user_data = Some(user_data as #user_data_type);)*
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = sp::VRc::new(_self);
                 let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
@@ -1540,6 +1575,7 @@ fn generate_repeated_component(
         Some(parent_ctx),
         quote!(),
         repeated.index_prop,
+        None,
     );
 
     let ctx = EvaluationContext {

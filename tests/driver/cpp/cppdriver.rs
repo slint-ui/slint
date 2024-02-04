@@ -22,7 +22,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
     let (root_component, diag) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config.clone()));
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -31,7 +31,12 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let mut generated_cpp: Vec<u8> = Vec::new();
 
-    generator::generate(generator::OutputFormat::Cpp, &mut generated_cpp, &root_component)?;
+    generator::generate(
+        generator::OutputFormat::Cpp,
+        &mut generated_cpp,
+        &root_component,
+        &compiler_config,
+    )?;
 
     if diag.has_error() {
         let vec = diag.to_string_vec();

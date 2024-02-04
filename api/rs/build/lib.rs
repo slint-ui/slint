@@ -162,6 +162,14 @@ impl CompilerConfiguration {
         };
         Self { config }
     }
+
+    /// The generated component will take an argument of the type in its new() function.
+    /// The component will aldo have a have a `user_data()` function that returns a reference to it
+    #[must_use]
+    pub fn with_user_data_type(mut self, type_name: &str) -> CompilerConfiguration {
+        self.config.user_data_type = Some(type_name.to_string());
+        self
+    }
 }
 
 /// Error returned by the `compile` function
@@ -374,8 +382,11 @@ pub fn compile_with_config(
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
-    let (doc, diag) =
-        spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
+    let (doc, diag) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
+        syntax_node,
+        diag,
+        compiler_config.clone(),
+    ));
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -393,7 +404,7 @@ pub fn compile_with_config(
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let mut code_formatter = CodeFormatter::new(BufWriter::new(file));
-    let generated = i_slint_compiler::generator::rust::generate(&doc);
+    let generated = i_slint_compiler::generator::rust::generate(&doc, &compiler_config);
 
     for x in &diag.all_loaded_files {
         if x.is_absolute() {

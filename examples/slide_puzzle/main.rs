@@ -37,9 +37,9 @@ fn shuffle() -> Vec<i8> {
     vec
 }
 
-struct AppState {
+// This is pub because otherwise  there is a warning: "type `AppState` is more private than the item `MainWindow::new`"
+pub struct AppState {
     pieces: Rc<slint::VecModel<Piece>>,
-    main_window: slint::Weak<MainWindow>,
     /// An array of 16 values which represent a 4x4 matrix containing the piece number in that
     /// position. -1 is no piece.
     positions: Vec<i8>,
@@ -60,22 +60,22 @@ impl AppState {
         }
     }
 
-    fn randomize(&mut self) {
+    fn randomize(&mut self, main_window: &MainWindow) {
         self.positions = shuffle();
         for (i, p) in self.positions.iter().enumerate() {
             self.set_pieces_pos(*p, i as _);
         }
-        self.main_window.unwrap().set_moves(0);
-        self.apply_tiles_left();
+        main_window.set_moves(0);
+        self.apply_tiles_left(main_window);
     }
 
-    fn apply_tiles_left(&mut self) {
+    fn apply_tiles_left(&mut self, main_window: &MainWindow) {
         let left = 15 - self.positions.iter().enumerate().filter(|(i, x)| *i as i8 == **x).count();
-        self.main_window.unwrap().set_tiles_left(left as _);
+        main_window.set_tiles_left(left as _);
         self.finished = left == 0;
     }
 
-    fn piece_clicked(&mut self, p: i8) -> bool {
+    fn piece_clicked(&mut self, p: i8, main_window: &MainWindow) -> bool {
         let piece = self.pieces.row_data(p as usize).unwrap_or_default();
         assert_eq!(self.positions[(piece.pos_x * 4 + piece.pos_y) as usize], p);
 
@@ -94,10 +94,8 @@ impl AppState {
             );
             return false;
         };
-        self.apply_tiles_left();
-        if let Some(x) = self.main_window.upgrade() {
-            x.set_moves(x.get_moves() + 1);
-        }
+        self.apply_tiles_left(main_window);
+        main_window.set_moves(main_window.get_moves() + 1);
         true
     }
 
@@ -110,7 +108,7 @@ impl AppState {
         }
     }
 
-    fn random_move(&mut self) {
+    fn random_move(&mut self, main_window: &MainWindow) {
         let mut rng = rand::thread_rng();
         let hole = self.positions.iter().position(|x| *x == -1).unwrap() as i8;
         let mut p;
@@ -123,7 +121,7 @@ impl AppState {
             }
         }
         let p = self.positions[p as usize];
-        self.piece_clicked(p);
+        self.piece_clicked(p, main_window);
     }
 
     /// Advance the kick animation
@@ -171,63 +169,64 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let main_window = MainWindow::new().unwrap();
-
-    let state = Rc::new(RefCell::new(AppState {
+    let state = RefCell::new(AppState {
         pieces: Rc::new(slint::VecModel::<Piece>::from(vec![Piece::default(); 15])),
-        main_window: main_window.as_weak(),
         positions: vec![],
         auto_play_timer: Default::default(),
         kick_animation_timer: Default::default(),
         speed_for_kick_animation: Default::default(),
         finished: false,
-    }));
-    state.borrow_mut().randomize();
-    main_window.set_pieces(state.borrow().pieces.clone().into());
+    });
+    let main_window = MainWindow::new(state).unwrap();
+    main_window.user_data().borrow_mut().randomize(&main_window);
+    main_window.set_pieces(main_window.user_data().borrow().pieces.clone().into());
 
-    let state_copy = state.clone();
+    let weak = main_window.as_weak();
     main_window.on_piece_clicked(move |p| {
-        state_copy.borrow().auto_play_timer.stop();
-        state_copy.borrow().main_window.unwrap().set_auto_play(false);
-        if state_copy.borrow().finished {
+        let main_window = weak.unwrap();
+        main_window.user_data().borrow().auto_play_timer.stop();
+        main_window.set_auto_play(false);
+        if main_window.user_data().borrow().finished {
             return;
         }
-        if !state_copy.borrow_mut().piece_clicked(p as i8) {
-            let state_weak = Rc::downgrade(&state_copy);
-            state_copy.borrow().kick_animation_timer.start(
+        if !main_window.user_data().borrow_mut().piece_clicked(p as i8, &main_window) {
+            let weak = weak.clone();
+            main_window.user_data().borrow().kick_animation_timer.start(
                 slint::TimerMode::Repeated,
                 std::time::Duration::from_millis(16),
                 move || {
-                    if let Some(state) = state_weak.upgrade() {
-                        state.borrow_mut().kick_animation();
+                    if let Some(main_window) = weak.upgrade() {
+                        main_window.user_data().borrow_mut().kick_animation();
                     }
                 },
             );
         }
     });
 
-    let state_copy = state.clone();
+    let weak = main_window.as_weak();
     main_window.on_reset(move || {
-        state_copy.borrow().auto_play_timer.stop();
-        state_copy.borrow().main_window.unwrap().set_auto_play(false);
-        state_copy.borrow_mut().randomize();
+        let main_window = weak.unwrap();
+        main_window.user_data().borrow().auto_play_timer.stop();
+        main_window.set_auto_play(false);
+        main_window.user_data().borrow_mut().randomize(&main_window);
     });
 
-    let state_copy = state;
+    let weak = main_window.as_weak();
     main_window.on_enable_auto_mode(move |enabled| {
+        let main_window = weak.unwrap();
         if enabled {
-            let state_weak = Rc::downgrade(&state_copy);
-            state_copy.borrow().auto_play_timer.start(
+            let weak = weak.clone();
+            main_window.user_data().borrow().auto_play_timer.start(
                 slint::TimerMode::Repeated,
                 std::time::Duration::from_millis(200),
                 move || {
-                    if let Some(state) = state_weak.upgrade() {
-                        state.borrow_mut().random_move();
+                    if let Some(main_window) = weak.upgrade() {
+                        main_window.user_data().borrow_mut().random_move(&main_window);
                     }
                 },
             );
         } else {
-            state_copy.borrow().auto_play_timer.stop();
+            main_window.user_data().borrow().auto_play_timer.stop();
         }
     });
     main_window.run().unwrap();
