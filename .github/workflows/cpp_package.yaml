@@ -21,6 +21,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, macOS-11, windows-2022]
+        include:
+          - os: ubuntu-20-04
+            package_suffix: linux
+          - os: macOS-11
+            package_suffix: macos
+          - os: windows-2022
+            package_suffix: windows
+        
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
@@ -60,5 +68,5 @@ jobs:
     - name: "Upload C++ packages"
       uses: actions/upload-artifact@v4
       with:
-          name: cpp_bin
+          name: cpp_bin-${{ matrix.package_suffix }}
           path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*

@@ -404,7 +404,13 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: cpp_bin
+          name: cpp_bin-linux
+      - uses: actions/download-artifact@v4
+        with:
+          name: cpp_bin-macos
+      - uses: actions/download-artifact@v4
+        with:
+          name: cpp_bin-windows
       - uses: actions/download-artifact@v4
         with:
           name: slint-viewer-linux
