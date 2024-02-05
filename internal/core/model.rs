@@ -932,6 +932,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     ) {
         // Query is_dirty to track model changes
         self.data().project_ref().is_dirty.get();
+        self.data().project_ref().is_dirty.set(false);
 
         viewport_width.set(listview_width);
         let model = self.model();
