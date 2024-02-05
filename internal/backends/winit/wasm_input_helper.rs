@@ -139,7 +139,11 @@ impl WasmInputHelper {
                             if let Some(data) = e.clipboard_data() {
                                 data.set_data("text", &text[anchor..cursor]).ok();
                             }
-                            text_input.as_pin_ref().delete_selection(&window_adapter, &focus_item);
+                            text_input.as_pin_ref().delete_selection(
+                                &window_adapter,
+                                &focus_item,
+                                i_slint_core::items::TextChangeNotify::TriggerCallbacks,
+                            );
                         }
                     }
                 }
