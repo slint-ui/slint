@@ -690,7 +690,7 @@ impl From<KeyboardModifiers> for AnchorMode {
 /// Argument to [`TextInput::delete_selection`] that determines whether to trigger the
 /// `edited` and cursor position callbacks and issue an input method request update.
 #[derive(Copy, Clone, PartialEq, Eq)]
-enum TextChangeNotify {
+pub enum TextChangeNotify {
     /// Trigger the callbacks.
     TriggerCallbacks,
     /// Skip triggering the callbacks, as a subsequent operation will trigger them.
@@ -953,7 +953,7 @@ impl TextInput {
         self.delete_selection(window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
     }
 
-    fn delete_selection(
+    pub fn delete_selection(
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
