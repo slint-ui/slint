@@ -5,7 +5,7 @@ use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, SoftwareRenderer, TargetPixel,
 };
 use slint::platform::{PlatformError, WindowAdapter};
-use slint::{PhysicalPosition, PhysicalSize};
+use slint::{Model, PhysicalPosition, PhysicalSize};
 use std::rc::Rc;
 
 thread_local! {
@@ -187,6 +187,75 @@ fn if_condition() {
     ui.set_c(true);
     assert!(window.draw_if_needed(|renderer| {
         do_test_render_region(renderer, 45, 45, 45 + 32, 45 + 3);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+}
+
+#[test]
+fn list_view() {
+    slint::slint! {
+        // We can't rely on the style as they are all different so implement our own in very basic terms
+        component ListView inherits Flickable {
+            out property <length> visible-width <=> self.width;
+            out property <length> visible-height <=> self.height;
+            @children
+        }
+        export component Ui inherits Window {
+            width: 300px;
+            height: 300px;
+            in property <[int]> model;
+            ListView {
+                x: 20px; y: 10px; width: 100px; height: 90px;
+                for x in model: Rectangle {
+                    background: x == 1 ? red : blue;
+                    height: 10px;
+                    width: 25px;
+                }
+
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(300, 300));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 300, 300);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    let model = std::rc::Rc::new(slint::VecModel::from(vec![0]));
+    ui.set_model(model.clone().into());
+
+    const LV_X: i32 = 20;
+    const LV_Y: i32 = 10;
+
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, LV_X, LV_Y, LV_X + 25, LV_Y + 10);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    model.insert(0, 1);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, LV_X, LV_Y, LV_X + 25, LV_Y + 20);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    model.set_row_data(1, 1);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, LV_X, LV_Y + 10, LV_X + 25, LV_Y + 20);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    model.set_vec(vec![0, 0]);
+    assert!(window.draw_if_needed(|renderer| {
+        // Currently, when ItemTree are removed, we redraw the whole window.
+        do_test_render_region(renderer, 0, 0, 300, 300);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+    model.remove(1);
+    assert!(window.draw_if_needed(|renderer| {
+        // Currently, when ItemTree are removed, we redraw the whole window.
+        do_test_render_region(renderer, 0, 0, 300, 300);
     }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
 }
