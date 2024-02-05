@@ -5,6 +5,7 @@
 
 mod completion;
 mod component_catalog;
+mod formatting;
 mod goto;
 mod properties;
 mod semantic_tokens;
@@ -29,8 +30,8 @@ use i_slint_compiler::{
 use i_slint_compiler::{typeloader::TypeLoader, typeregister::TypeRegister};
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
-    DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, GotoDefinition, HoverRequest,
-    PrepareRenameRequest, Rename, SemanticTokensFullRequest,
+    DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting, GotoDefinition,
+    HoverRequest, PrepareRenameRequest, Rename, SemanticTokensFullRequest,
 };
 use lsp_types::{
     ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
@@ -228,6 +229,7 @@ pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeRe
                     OneOf::Left(true)
                 },
             ),
+            document_formatting_provider: Some(OneOf::Left(true)),
             ..ServerCapabilities::default()
         },
         server_info: Some(ServerInfo {
@@ -422,6 +424,10 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             }
         };
         Ok(None)
+    });
+    rh.register::<Formatting, _>(|params, ctx| async move {
+        let document_cache = ctx.document_cache.borrow_mut();
+        Ok(formatting::format_document(params, &document_cache))
     });
 }
 

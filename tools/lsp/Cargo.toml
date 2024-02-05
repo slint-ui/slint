@@ -87,6 +87,7 @@ lsp-types = { version = "0.95.0", features = ["proposed"] }
 rowan = "0.15.5"
 serde = "1.0.118"
 serde_json = "1.0.60"
+dissimilar = "1.0.7"
 
 # for the preview-engine feature
 i-slint-backend-selector = { workspace = true, features = ["default"], optional = true }
@@ -94,6 +95,9 @@ i-slint-common = { workspace = true, features = ["default"], optional = true }
 i-slint-core = { workspace = true, features = ["std"], optional = true }
 slint = { workspace = true, features = ["compat-1-2"], optional = true }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "highlight", "internal"], optional = true  }
+
+# for formatting support in lsp
+slint-fmt = { path = "../fmt" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
