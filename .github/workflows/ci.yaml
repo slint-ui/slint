@@ -55,8 +55,7 @@ jobs:
       run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
     - name: Install gstreamer (Linux)
       if: runner.os == 'Linux'
-      run: sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-        gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+      run: sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
 #        gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
 #        gstreamer1.0-libav libgstrtspserver-1.0-dev libges-1.0-dev
     - name: Setup headless display
