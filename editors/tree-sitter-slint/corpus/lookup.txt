@@ -1,6 +1,6 @@
-==================
+================================================================================
 global_lookup
-==================
+================================================================================
 
 global MyGlobal := {
     property<int> bar: 5;
@@ -28,7 +28,7 @@ TestCase := Rectangle {
     property<int> p2: foo.foo_prop;
 
 }
----
+--------------------------------------------------------------------------------
 
 (sourcefile
   (global_definition
@@ -128,9 +128,9 @@ TestCase := Rectangle {
           (simple_identifier)
           (simple_identifier))))))
 
-==================
+================================================================================
 id_lookup
-==================
+================================================================================
 
  TestCase := Rectangle {
 
@@ -145,7 +145,7 @@ id_lookup
     property<int> p1: foo.inner;
     property<int> p2: self.foo *10 + foo.foo * 100 + bar *1000;
 }
----
+--------------------------------------------------------------------------------
 
 (sourcefile
   (component_definition
@@ -242,9 +242,9 @@ id_lookup
             (value
               (int_value))))))))
 
-==================
+================================================================================
 rust_names
-==================
+================================================================================
 
 // Just use some of the internal names used in Slint to make sure it still compiles
 
@@ -309,7 +309,7 @@ export component TestCase  {
 
 
 }
----
+--------------------------------------------------------------------------------
 
 (sourcefile
   (comment)
@@ -451,7 +451,7 @@ export component TestCase  {
     (user_type_identifier)
     (global_block
       (property
-        (visibility_modifier)
+        (property_visibility)
         (type
           (user_type_identifier))
         (simple_identifier))))
@@ -466,7 +466,7 @@ export component TestCase  {
     (user_type_identifier)
     (block
       (property
-        (visibility_modifier)
+        (property_visibility)
         (type
           (user_type_identifier))
         (simple_identifier)
@@ -489,7 +489,7 @@ export component TestCase  {
     (user_type_identifier)
     (block
       (property
-        (visibility_modifier)
+        (property_visibility)
         (type
           (user_type_identifier))
         (simple_identifier)
@@ -497,7 +497,7 @@ export component TestCase  {
           (simple_identifier)
           (simple_identifier)))
       (property
-        (visibility_modifier)
+        (property_visibility)
         (type
           (user_type_identifier))
         (simple_identifier)
@@ -525,7 +525,7 @@ export component TestCase  {
         (user_type_identifier)
         (block))
       (property
-        (visibility_modifier)
+        (property_visibility)
         (type
           (builtin_type_identifier))
         (simple_identifier))
@@ -537,7 +537,7 @@ export component TestCase  {
             (value
               (duration_value)))))
       (property
-        (visibility_modifier)
+        (property_visibility)
         (type
           (builtin_type_identifier))
         (simple_identifier)
