@@ -97,9 +97,13 @@ pub fn create_layout(
     }
 
     style.set_text_align(match h_align {
-        items::TextHorizontalAlignment::Left => skia_safe::textlayout::TextAlign::Left,
+        TextHorizontalAlignment::Start | items::TextHorizontalAlignment::Left => {
+            skia_safe::textlayout::TextAlign::Left
+        }
         items::TextHorizontalAlignment::Center => skia_safe::textlayout::TextAlign::Center,
-        items::TextHorizontalAlignment::Right => skia_safe::textlayout::TextAlign::Right,
+        TextHorizontalAlignment::End | items::TextHorizontalAlignment::Right => {
+            skia_safe::textlayout::TextAlign::Right
+        }
     });
 
     style.set_text_style(&text_style);
@@ -210,9 +214,13 @@ pub fn cursor_rect(
 ) -> PhysicalRect {
     if string.is_empty() {
         let x = match h_align {
-            TextHorizontalAlignment::Left => PhysicalLength::default(),
+            TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                PhysicalLength::default()
+            }
             TextHorizontalAlignment::Center => PhysicalLength::new(layout.max_width() / 2.),
-            TextHorizontalAlignment::Right => PhysicalLength::new(layout.max_width()),
+            TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
+                PhysicalLength::new(layout.max_width())
+            }
         };
         return PhysicalRect::new(
             PhysicalPoint::from_lengths(x, PhysicalLength::default()),

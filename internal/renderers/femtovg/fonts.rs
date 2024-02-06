@@ -596,11 +596,13 @@ pub(crate) fn layout_text_lines(
     let mut process_line =
         |text: &str, y: PhysicalLength, start: usize, line_metrics: &femtovg::TextMetrics| {
             let x = match horizontal_alignment {
-                TextHorizontalAlignment::Left => PhysicalLength::default(),
+                TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                    PhysicalLength::default()
+                }
                 TextHorizontalAlignment::Center => {
                     max_width / 2. - max_width.min(PhysicalLength::new(line_metrics.width())) / 2.
                 }
-                TextHorizontalAlignment::Right => {
+                TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
                     max_width - max_width.min(PhysicalLength::new(line_metrics.width()))
                 }
             };
