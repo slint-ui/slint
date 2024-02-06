@@ -116,7 +116,7 @@ module.exports = grammar({
 
         property: ($) =>
             seq(
-                field("visibility", optional($.visibility_modifier)),
+                field("visibility", optional($.property_visibility)),
                 "property",
                 seq(
                     $._property_type,
@@ -131,7 +131,7 @@ module.exports = grammar({
 
         binding_alias: ($) =>
             seq(
-                field("visibility", optional($.visibility_modifier)),
+                field("visibility", optional($.property_visibility)),
                 optional("property"),
                 field("name", $.simple_identifier),
                 "<=>",
@@ -298,13 +298,7 @@ module.exports = grammar({
             ),
 
         if_statement: ($) =>
-            seq(
-                "if",
-                field("condition", $._expression),
-                ":",
-                $.component,
-                optional(seq("else", choice($.if_statement, $.component))),
-            ),
+            seq("if", field("condition", $._expression), ":", $.component),
 
         for_loop: ($) =>
             seq(
@@ -501,11 +495,11 @@ module.exports = grammar({
 
         purity: (_) => field("value", "pure"),
 
-        visibility: (_) => field("value", choice("public", "private")),
+        function_visibility: (_) => field("value", choice("public", "private")),
 
         function_definition: ($) =>
             seq(
-                repeat(choice($.purity, $.visibility)),
+                repeat(choice($.purity, $.function_visibility)),
                 "function",
                 field("name", $.simple_identifier),
                 optional($._function_signature),
@@ -655,7 +649,7 @@ module.exports = grammar({
             ),
         /////////////////////////////////////////////////////////////////////
 
-        visibility_modifier: (_) => choice("private", "in", "out", "in-out"),
+        property_visibility: (_) => choice("private", "in", "out", "in-out"),
 
         _identifier: (_) => /[a-zA-Z_][a-zA-Z0-9_-]*/,
         simple_identifier: ($) => $._identifier,
