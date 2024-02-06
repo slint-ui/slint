@@ -18,7 +18,7 @@ members = [
     'examples/opengl_underlay',
     'examples/opengl_texture',
     'examples/ffmpeg',
-    'examples/gstreamer_slint_demo',
+    'examples/gstreamer_player',
     'examples/plotter',
     'examples/printerdemo_old/rust',
     'examples/printerdemo/rust',
