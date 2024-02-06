@@ -34,7 +34,9 @@ impl<'a> ToPyObject for PyValueRef<'a> {
             slint_interpreter::Value::Number(num) => num.into_py(py),
             slint_interpreter::Value::String(str) => str.into_py(py),
             slint_interpreter::Value::Bool(b) => b.into_py(py),
-            slint_interpreter::Value::Image(_) => todo!(),
+            slint_interpreter::Value::Image(image) => {
+                crate::image::PyImage::from(image).into_py(py)
+            }
             slint_interpreter::Value::Model(_) => todo!(),
             slint_interpreter::Value::Struct(structval) => structval
                 .iter()
@@ -60,6 +62,10 @@ impl FromPyObject<'_> for PyValue {
                 ob.extract::<&'_ str>().map(|s| slint_interpreter::Value::String(s.into()))
             })
             .or_else(|_| ob.extract::<f64>().map(|num| slint_interpreter::Value::Number(num)))
+            .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::image::PyImage>>()
+                    .map(|pyimg| slint_interpreter::Value::Image(pyimg.image.clone()))
+            })
             .or_else(|_| {
                 ob.extract::<&PyDict>().and_then(|dict| {
                     let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict

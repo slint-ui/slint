@@ -86,3 +86,17 @@ impl From<slint_interpreter::SetCallbackError> for PySetCallbackError {
         Self(err)
     }
 }
+
+pub struct PyLoadImageError(pub slint_interpreter::LoadImageError);
+
+impl From<PyLoadImageError> for PyErr {
+    fn from(err: PyLoadImageError) -> Self {
+        pyo3::exceptions::PyRuntimeError::new_err(err.0.to_string())
+    }
+}
+
+impl From<slint_interpreter::LoadImageError> for PyLoadImageError {
+    fn from(err: slint_interpreter::LoadImageError) -> Self {
+        Self(err)
+    }
+}
