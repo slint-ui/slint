@@ -527,7 +527,7 @@ impl Item for TextInput {
                 if self.read_only() || event.modifiers.control {
                     return KeyEventResult::EventIgnored;
                 }
-                self.delete_selection(window_adapter, self_rc);
+                self.delete_selection(window_adapter, self_rc, TextChangeNotify::SkipCallbacks);
 
                 let mut text: String = self.text().into();
 
@@ -685,6 +685,16 @@ impl From<KeyboardModifiers> for AnchorMode {
             Self::MoveAnchor
         }
     }
+}
+
+/// Argument to [`TextInput::delete_selection`] that determines whether to trigger the
+/// `edited` and cursor position callbacks and issue an input method request update.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum TextChangeNotify {
+    /// Trigger the callbacks.
+    TriggerCallbacks,
+    /// Skip triggering the callbacks, as a subsequent operation will trigger them.
+    SkipCallbacks,
 }
 
 fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
@@ -940,13 +950,14 @@ impl TextInput {
         if !self.has_selection() {
             self.move_cursor(step, AnchorMode::KeepAnchor, window_adapter, self_rc);
         }
-        self.delete_selection(window_adapter, self_rc);
+        self.delete_selection(window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
     }
 
     pub fn delete_selection(
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
+        trigger_callbacks: TextChangeNotify,
     ) {
         let text: String = self.text().into();
         if text.is_empty() {
@@ -961,8 +972,12 @@ impl TextInput {
         let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
         self.text.set(text.into());
         self.anchor_position_byte_offset.set(anchor as i32);
-        self.set_cursor_position(anchor as i32, true, window_adapter, self_rc);
-        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+        if trigger_callbacks == TextChangeNotify::TriggerCallbacks {
+            self.set_cursor_position(anchor as i32, true, window_adapter, self_rc);
+            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+        } else {
+            self.cursor_position_byte_offset.set(anchor as i32);
+        }
     }
 
     pub fn anchor_position(self: Pin<&Self>, text: &str) -> usize {
@@ -1027,7 +1042,7 @@ impl TextInput {
         if text_to_insert.is_empty() {
             return;
         }
-        self.delete_selection(window_adapter, self_rc);
+        self.delete_selection(window_adapter, self_rc, TextChangeNotify::SkipCallbacks);
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
         if text_to_insert.contains('\n') && self.single_line() {
@@ -1044,7 +1059,7 @@ impl TextInput {
 
     pub fn cut(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         self.copy(window_adapter, self_rc);
-        self.delete_selection(window_adapter, self_rc);
+        self.delete_selection(window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
     }
 
     pub fn set_selection_offsets(

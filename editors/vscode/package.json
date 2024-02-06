@@ -2,7 +2,7 @@
     "name": "slint",
     "displayName": "Slint",
     "description": "Slint Language extension",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "publisher": "Slint",
     "icon": "extension-logo.png",
     "license": "GPL-3.0",
@@ -16,6 +16,7 @@
     "categories": [
         "Programming Languages"
     ],
+    "qna": "https://github.com/slint-ui/slint/discussions/categories/q-a",
     "activationEvents": [
         "onCommand:slint.showPreview",
         "onCommand:slint.reload",

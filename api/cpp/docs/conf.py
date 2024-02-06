@@ -22,7 +22,7 @@ import textwrap
 # -- Project information -----------------------------------------------------
 
 # The full version, including alpha/beta/rc tags
-version = "1.4.0"
+version = "1.4.1"
 
 project = f'Slint {version} C++ API'
 copyright = "SixtyFPS GmbH"
@@ -121,7 +121,7 @@ myst_url_schemes = {
 
 rst_epilog = """
 .. |ListView| replace:: :code:`ListView`
-.. _ListView: ../../slint/src/builtins/widgets.html#listview
+.. _ListView: ../../slint/src/language/widgets/listview
 .. |Repetition| replace:: :code:`for` - :code:`in`
 .. _Repetition: ../../slint/src/reference/repetitions.html
 """

@@ -23,7 +23,7 @@ jobs:
       SLINT_NO_QT: 1
       SLINT_STYLE: fluent
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
     - name: Login to GitHub Container Registry
@@ -59,7 +59,7 @@ jobs:
           - aarch64-unknown-linux-gnu
           - x86_64-unknown-linux-gnu
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/setup-rust
       with:
         target: ${{ matrix.target }}
@@ -67,13 +67,13 @@ jobs:
       if: matrix.target != 'riscv64gc-unknown-linux-gnu'
       run: |
           echo "EXTRA_ARGS=--features slint/renderer-skia" >> $GITHUB_ENV
-    - uses: baptiste0928/cargo-install@v2
+    - uses: baptiste0928/cargo-install@v3
       with:
         crate: cross
     - name: Build
       run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat -p energy-monitor -p printerdemo -p todo -p slint-viewer -p gallery
     - name: "Upload printerdemo artifact"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
           name: printerdemo-${{ matrix.target }}
           path: |

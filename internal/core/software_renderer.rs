@@ -2152,7 +2152,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
             if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
                 let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
-                let geometry = clipped_src.translate(offset).round();
+                let geometry = clipped_src.translate(offset).round_in();
                 let origin = (geometry.origin - offset.round()).cast::<usize>();
                 let actual_x = origin.x - src_rect.origin.x as usize;
                 let actual_y = origin.y - src_rect.origin.y as usize;

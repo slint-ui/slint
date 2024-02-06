@@ -1194,6 +1194,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
 
         let aliases = global.aliases.iter().map(|name| ident(name));
         quote!(
+            #[allow(unused)]
             pub struct #public_component_id<'a>(&'a ::core::pin::Pin<sp::Rc<#inner_component_id>>);
 
             impl<'a> #public_component_id<'a> {

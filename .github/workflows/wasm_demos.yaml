@@ -19,7 +19,7 @@ jobs:
       RUSTFLAGS: ${{ github.event.inputs.rustflags || inputs.rustflags }}
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: ./.github/actions/setup-rust
       with:
         target: wasm32-unknown-unknown
@@ -84,7 +84,7 @@ jobs:
         wasm-pack build --release --target web --no-default-features --features slint/default,chrono
       working-directory: examples/energy-monitor
     - name: "Upload Demo Artifacts"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
           name: wasm_demo
           path: |

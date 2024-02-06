@@ -60,7 +60,7 @@ export component HelloWorld inherits Window {
 }
 ```
 
-then you can use the following code in you `main` function to show the [`Window`](../slint/src/builtins/elements.html#window)
+then you can use the following code in you `main` function to show the [`Window`](../slint/src/language/builtins/elements#window)
 and change the text:
 
 ```cpp
