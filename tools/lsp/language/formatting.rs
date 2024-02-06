@@ -1,4 +1,7 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 use super::DocumentCache;
+use crate::fmt::{fmt, writer};
 use crate::util::map_range;
 use dissimilar::Chunk;
 use i_slint_compiler::parser::SyntaxToken;
@@ -9,7 +12,7 @@ struct StringWriter {
     text: String,
 }
 
-impl slint_fmt::writer::TokenWriter for StringWriter {
+impl writer::TokenWriter for StringWriter {
     fn no_change(&mut self, token: SyntaxToken) -> std::io::Result<()> {
         self.text += &token.text();
         Ok(())
@@ -36,7 +39,7 @@ pub fn format_document(
     let doc = doc.node.as_ref()?;
 
     let mut writer = StringWriter { text: String::new() };
-    slint_fmt::fmt::format_document(doc.clone(), &mut writer).ok()?;
+    fmt::format_document(doc.clone(), &mut writer).ok()?;
 
     let original: String = doc.text().into();
     let diff = dissimilar::diff(&original, &writer.text);

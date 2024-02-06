@@ -7,6 +7,7 @@
 compile_error!("Feature preview-engine and preview-builtin need to be enabled together when building native LSP");
 
 mod common;
+mod fmt;
 mod language;
 pub mod lsp_ext;
 #[cfg(feature = "preview-engine")]
@@ -22,7 +23,7 @@ use lsp_types::notification::{
 };
 use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, Url};
 
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -58,6 +59,25 @@ pub struct Cli {
     /// Hide the preview toolbar
     #[arg(long, action)]
     no_toolbar: bool,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand, Clone)]
+enum Commands {
+    /// Format slint files
+    Format(Format),
+}
+
+#[derive(Args, Clone)]
+struct Format {
+    #[arg(name = "path to .slint file(s)", action)]
+    paths: Vec<std::path::PathBuf>,
+
+    /// modify the file inline instead of printing to stdout
+    #[arg(short, long, action)]
+    inline: bool,
 }
 
 enum OutgoingRequest {
@@ -156,6 +176,14 @@ fn main() {
         std::env::set_var("SLINT_BACKEND", &args.backend);
     }
 
+    if let Some(Commands::Format(args)) = args.command {
+        let _ = fmt::tool::run(args.paths, args.inline).map_err(|e| {
+            eprintln!("{e}");
+            std::process::exit(1);
+        });
+        std::process::exit(0);
+    }
+
     #[cfg(feature = "preview-engine")]
     {
         let cli_args = args.clone();
@@ -187,6 +215,7 @@ fn main() {
         preview::start_ui_event_loop(cli_args);
         lsp_thread.join().unwrap();
     }
+
     #[cfg(not(feature = "preview-engine"))]
     match run_lsp_server(args) {
         Ok(threads) => threads.join().unwrap(),

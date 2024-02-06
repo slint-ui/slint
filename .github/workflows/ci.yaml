@@ -506,9 +506,9 @@ jobs:
     - uses: ./.github/actions/setup-rust
     - name: run the formatter
       run: |
-        cargo run -p slint-fmt -- -i tests/cases/*/*.slint
-        cargo run -p slint-fmt -- -i examples/*/*.slint
-        cargo run -p slint-fmt -- -i examples/*/*/*.slint
+        cargo run -p slint-lsp -- format -i tests/cases/*/*.slint
+        cargo run -p slint-lsp -- format -i examples/*/*.slint
+        cargo run -p slint-lsp -- format -i examples/*/*/*.slint
     - name: Show the diff
       run: git diff
     - name: Run the intepreter test to make sure that the test are passing after format

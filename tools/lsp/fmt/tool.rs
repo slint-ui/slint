@@ -5,7 +5,7 @@
     Work in progress for a formatter.
     Use like this to format a file:
     ```sh
-        cargo run --bin slint-fmt -- -i some_file.slint
+        cargo run --bin slint-lsp -- format -i some_file.slint
     ```
 
     Some code in this main.rs file is duplicated with the slint-updater, i guess it could
@@ -20,29 +20,13 @@ use i_slint_compiler::parser::{syntax_nodes, SyntaxNode};
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use clap::Parser;
+use super::{fmt, writer};
 
-mod fmt;
-mod writer;
-
-#[derive(clap::Parser)]
-#[command(author, version, about, long_about = None)]
-struct Cli {
-    #[arg(name = "path to .slint file(s)", action)]
-    paths: Vec<std::path::PathBuf>,
-
-    /// modify the file inline instead of printing to stdout
-    #[arg(short, long, action)]
-    inline: bool,
-}
-
-fn main() -> std::io::Result<()> {
-    let args = Cli::parse();
-
-    for path in args.paths {
+pub fn run(files: Vec<std::path::PathBuf>, inplace: bool) -> std::io::Result<()> {
+    for path in files {
         let source = std::fs::read_to_string(&path)?;
 
-        if args.inline {
+        if inplace {
             let file = BufWriter::new(std::fs::File::create(&path)?);
             process_file(source, path, file)?
         } else {
@@ -129,7 +113,7 @@ fn process_file(
         // Formatting .60 files because of backwards compatibility (project was recently renamed)
         Some(ext) if ext == "slint" || ext == ".60" => process_slint_file(source, path, file),
         _ => {
-            // This allows usage like `cat x.slint | slint-fmt /dev/stdin`
+            // This allows usage like `cat x.slint | slint-lsp format /dev/stdin`
             if path.as_path() == Path::new("/dev/stdin") {
                 return process_slint_file(source, path, file);
             }
