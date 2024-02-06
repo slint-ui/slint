@@ -282,6 +282,16 @@ impl<'a> WindowProperties<'a> {
     pub fn fullscreen(&self) -> bool {
         self.0.fullscreen.get()
     }
+
+    /// true if the window is in a maximized state, otherwise false
+    pub fn maximized(&self) -> bool {
+        self.0.maximized.get()
+    }
+
+    /// true if the window is in a minimized state, otherwise false
+    pub fn minimized(&self) -> bool {
+        self.0.minimized.get()
+    }
 }
 
 struct WindowPropertiesTracker {
@@ -368,6 +378,9 @@ pub struct WindowInner {
 
     pinned_fields: Pin<Box<WindowPinnedFields>>,
     fullscreen: Cell<bool>,
+    maximized: Cell<bool>,
+    minimized: Cell<bool>,
+
     active_popup: RefCell<Option<PopupWindow>>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
@@ -424,6 +437,8 @@ impl WindowInner {
             fullscreen: Cell::new(std::env::var("SLINT_FULLSCREEN").is_ok()),
             #[cfg(not(feature = "std"))]
             fullscreen: Cell::new(false),
+            maximized: Cell::new(false),
+            minimized: Cell::new(false),
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
@@ -1030,9 +1045,36 @@ impl WindowInner {
         }
     }
 
+    /// Returns if the window is currently maximized
+    pub fn fullscreen(&self) -> bool {
+        self.fullscreen.get()
+    }
+
     /// Set or unset the window to display fullscreen.
     pub fn set_fullscreen(&self, enabled: bool) {
         self.fullscreen.set(enabled);
+        self.update_window_properties()
+    }
+
+    /// Returns if the window is currently maximized
+    pub fn maximized(&self) -> bool {
+        self.maximized.get()
+    }
+
+    /// Set the window as maximized or unmaximized
+    pub fn set_maximized(&self, maximized: bool) {
+        self.maximized.set(maximized);
+        self.update_window_properties()
+    }
+
+    /// Returns if the window is currently minimized
+    pub fn minimized(&self) -> bool {
+        self.minimized.get()
+    }
+
+    /// Set the window as minimized or unminimized
+    pub fn set_minimized(&self, minimized: bool) {
+        self.minimized.set(minimized);
         self.update_window_properties()
     }
 

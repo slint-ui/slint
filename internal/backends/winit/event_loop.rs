@@ -251,7 +251,14 @@ impl EventLoopState {
     fn process_window_event(&mut self, window: Rc<WinitWindowAdapter>, event: WindowEvent) {
         let runtime_window = WindowInner::from_pub(window.window());
         match event {
-            WindowEvent::RedrawRequested => self.loop_error = window.draw().err(),
+            WindowEvent::RedrawRequested => {
+                self.loop_error = window.draw().err();
+
+                // Entering fullscreen, maximizing or minimizing the window will
+                // trigger a redraw event. We need to update the internal window
+                // state to match the actual window state.
+                window.sync_window_state();
+            }
             WindowEvent::Resized(size) => {
                 self.loop_error = window.resize_event(size).err();
             }

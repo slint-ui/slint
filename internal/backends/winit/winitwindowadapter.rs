@@ -305,6 +305,24 @@ impl WinitWindowAdapter {
             .as_ref()
             .set(dark_mode)
     }
+
+    pub fn sync_window_state(&self) {
+        if let Some(minimized) = self.winit_window.is_minimized() {
+            if minimized != self.window().minimized() {
+                self.window().set_minimized(minimized);
+            }
+        }
+        if let Some(maximized) = self.winit_window.is_minimized() {
+            if maximized != self.window().maximized() {
+                self.window().set_minimized(maximized);
+            }
+        }
+
+        let fullscreen = self.winit_window.fullscreen().is_some();
+        if fullscreen != self.window().fullscreen() {
+            self.window().set_fullscreen(fullscreen);
+        }
+    }
 }
 
 impl WindowAdapter for WinitWindowAdapter {
@@ -460,6 +478,13 @@ impl WindowAdapter for WinitWindowAdapter {
             winit_window.set_window_level(new_window_level);
         }
 
+        // Only set the window as maximized if the window is not already fullscreen
+        if winit_window.fullscreen().is_none() {
+            winit_window.set_maximized(properties.maximized());
+        }
+
+        winit_window.set_minimized(properties.minimized());
+
         if width <= 0. || height <= 0. {
             must_resize = true;
 
@@ -509,9 +534,10 @@ impl WindowAdapter for WinitWindowAdapter {
                 }
             }
 
-            // If we're in fullscreen state, don't try to resize the window but maintain the surface
-            // size we've been assigned to from the windowing system. Weston/Wayland don't like it
-            // when we create a surface that's bigger than the screen due to constraints (#532).
+            // If we're in fullscreen, don't try to resize the window but
+            // maintain the surface size we've been assigned to from the
+            // windowing system. Weston/Wayland don't like it when we create a
+            // surface that's bigger than the screen due to constraints (#532).
             if winit_window.fullscreen().is_some() {
                 return;
             }

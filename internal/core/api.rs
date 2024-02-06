@@ -446,9 +446,34 @@ impl Window {
         crate::window::WindowAdapter::set_size(&*self.0.window_adapter(), size);
     }
 
+    /// Returns if the window is currently fullscreen
+    pub fn fullscreen(&self) -> bool {
+        self.0.fullscreen()
+    }
+
     /// Set or unset the window to display fullscreen.
     pub fn set_fullscreen(&self, fullscreen: bool) {
         self.0.set_fullscreen(fullscreen);
+    }
+
+    /// Returns if the window is currently maximized
+    pub fn maximized(&self) -> bool {
+        self.0.maximized()
+    }
+
+    /// Maximize or unmaximize the window.
+    pub fn set_maximized(&self, maximized: bool) {
+        self.0.set_maximized(maximized);
+    }
+
+    /// Returns if the window is currently minimized
+    pub fn minimized(&self) -> bool {
+        self.0.minimized()
+    }
+
+    /// Minimize or unminimze the window.
+    pub fn set_minimized(&self, minimized: bool) {
+        self.0.set_minimized(minimized);
     }
 
     /// Dispatch a window event to the scene.

@@ -124,9 +124,37 @@ impl JsWindow {
         self.inner.request_redraw();
     }
 
+    /// Returns if the window is currently fullscreen
+    #[napi(setter)]
+    pub fn fullscreen(&self) -> bool {
+        self.inner.window().fullscreen()
+    }
+
     /// Set or unset the window to display fullscreen.
     #[napi(setter)]
     pub fn set_fullscreen(&self, enable: bool) {
         self.inner.window().set_fullscreen(enable)
+    }
+
+    /// Returns if the window is currently maximized
+    #[napi(setter)]
+    pub fn maximized(&self) -> bool {
+        self.inner.window().maximized()
+    }
+
+    /// Maximize or unmaximize the window.
+    #[napi(setter)]
+    pub fn set_maximized(&self, maximized: bool) {
+        self.inner.window().set_maximized(maximized)
+    }
+
+    /// Returns if the window is currently minimized
+    pub fn minimized(&self) -> bool {
+        self.inner.minimized()
+    }
+    /// Minimize or unminimze the window.
+    #[napi(setter)]
+    pub fn set_minimized(&self, minimized: bool) {
+        self.inner.window().set_minimized(minimized)
     }
 }
