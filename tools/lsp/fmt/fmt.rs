@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use crate::writer::TokenWriter;
+use super::writer::TokenWriter;
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 
 pub fn format_document(
@@ -780,7 +780,7 @@ fn format_state(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::writer::FileWriter;
+    use crate::fmt::writer::FileWriter;
     use i_slint_compiler::diagnostics::BuildDiagnostics;
     use i_slint_compiler::parser::syntax_nodes;
 

@@ -4,6 +4,7 @@
 #![cfg(target_arch = "wasm32")]
 
 mod common;
+mod fmt;
 mod language;
 pub mod lsp_ext;
 #[cfg(feature = "preview-engine")]

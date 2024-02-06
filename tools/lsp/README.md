@@ -34,6 +34,9 @@ Alternatively, you can download one of our pre-built binaries for Linux or Windo
 
 As the next step, configure your editor to use the binary, no arguments are required
 
+## Code formatting
+
+The slint code formatting tool is part of the lsp. To learn how to use it as a standalone tool, see [fmt README](./fmt/README.md)
 
 # Editor configuration
 
