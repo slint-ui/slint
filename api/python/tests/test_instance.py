@@ -3,7 +3,8 @@
 
 import pytest
 from slint import slint as native
-from slint.slint import ValueType;
+from slint.slint import ValueType, PyImage;
+import os
 
 def test_property_access():
     compiler = native.ComponentCompiler()
@@ -32,10 +33,11 @@ def test_property_access():
                 title: "builtin",
                 finished: true,
             };
+            in property <image> imageprop: @image-url("../../../examples/printerdemo/ui/images/cat.jpg");
 
             callback test-callback();
         }
-    """, "")
+    """, os.path.join(os.path.dirname(__file__), "main.slint"))
     assert compdef != None
 
     instance = compdef.create()
@@ -73,6 +75,19 @@ def test_property_access():
     assert structval == {'title': 'builtin', 'finished': True}
     instance.set_property("structprop", {'title': 'new', 'finished': False})
     assert instance.get_property("structprop") == {'title': 'new', 'finished': False}
+
+    imageval = instance.get_property("imageprop")
+    assert imageval.width == 320
+    assert imageval.height == 480
+    assert "cat.jpg" in imageval.path
+
+    with pytest.raises(RuntimeError, match="The image cannot be loaded"):
+        PyImage.load_from_path("non-existent.png")
+
+    instance.set_property("imageprop", PyImage.load_from_path(os.path.join(os.path.dirname(__file__), "../../../examples/iot-dashboard/images/humidity.png")))
+    imageval = instance.get_property("imageprop")
+    assert imageval.size == (36, 36)
+    assert "humidity.png" in imageval.path
 
     with pytest.raises(TypeError, match="'int' object cannot be converted to 'PyString'"):
         instance.set_property("structprop", {42: 'wrong'})

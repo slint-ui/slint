@@ -8,3 +8,5 @@ def load_file(path):
     compdef = compiler.build_from_path(path)
     instance = compdef.create()
     return instance    
+
+Image = native.PyImage
