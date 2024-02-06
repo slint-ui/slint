@@ -21,23 +21,24 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[arg(short = 'I', name = "include path for other .slint files", number_of_values = 1, action)]
+    /// Include path for other .slint files or images
+    #[arg(short = 'I', value_name = "include path", number_of_values = 1, action)]
     include_paths: Vec<std::path::PathBuf>,
 
-    /// The first argument is the library name, and the second argument is the path to the library.
-    #[arg(short = 'L', name = "library path for @library imports", number_of_values = 1, action)]
+    /// Specify Library location of the '@library' in the form 'library=/path/to/library'
+    #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
     library_paths: Vec<String>,
 
     /// The .slint file to load ('-' for stdin)
-    #[arg(name = "path to .slint file", action)]
+    #[arg(name = "path", action)]
     path: std::path::PathBuf,
 
     /// The style name ('native' or 'fluent')
-    #[arg(long, name = "style name", action)]
+    #[arg(long, value_name = "style name", action)]
     style: Option<String>,
 
     /// The rendering backend
-    #[arg(long, name = "backend", action)]
+    #[arg(long, value_name = "backend", action)]
     backend: Option<String>,
 
     /// Automatically watch the file system, and reload when it changes
@@ -45,11 +46,11 @@ struct Cli {
     auto_reload: bool,
 
     /// Load properties from a json file ('-' for stdin)
-    #[arg(long, name = "load data file", action)]
+    #[arg(long, value_name = "json file", action)]
     load_data: Option<std::path::PathBuf>,
 
     /// Store properties values in a json file at exit ('-' for stdout)
-    #[arg(long, name = "save data file", action)]
+    #[arg(long, value_name = "json file", action)]
     save_data: Option<std::path::PathBuf>,
 
     /// Specify callbacks handler.
