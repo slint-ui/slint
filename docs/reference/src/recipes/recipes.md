@@ -495,7 +495,7 @@ int main(int argc, char **argv)
 
 <details  data-snippet-language="javascript">
 <summary>JavaScript code</summary>
-In C++ you can set the callback like this:
+In JavaScript you can set the callback like this:
 
 ```js
 let slint = require("slint-ui");

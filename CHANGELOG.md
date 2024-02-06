@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [1.4.1] - 2024-02-02
+
+ - Skia: Update skia binding dependency.
+ - Slintpad: Fixed initial rendering of the live-preview.
+ - Qt backend: fix crash when closing popup on Wayland. (#4500)
+ - Fixed rendering of linear gradient of 90deg. (#4495)
+ - C++: Permit passing a value to VectorModel::set_vector by value (#4491)
+ - slint-viewer: re-render after reloading when using software renderer.
+ - Fixed panic in the software renderer when using the Qt style.
+ - Rust: fix slint-build's formater when source contains `\"` in a string. (#4520)
+
 ## [1.4.0] - 2024-01-31
 
 ### General
@@ -1175,3 +1186,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.3.1]: https://github.com/slint-ui/slint/releases/tag/v1.3.1
 [1.3.2]: https://github.com/slint-ui/slint/releases/tag/v1.3.2
 [1.4.0]: https://github.com/slint-ui/slint/releases/tag/v1.4.0
+[1.4.1]: https://github.com/slint-ui/slint/releases/tag/v1.4.1

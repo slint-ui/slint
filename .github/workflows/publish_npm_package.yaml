@@ -30,7 +30,7 @@ jobs:
     - uses: ./.github/actions/install-linux-dependencies
     - uses: ./.github/actions/setup-rust
     # Setup .npmrc file to publish to npm
-    - uses: actions/setup-node@v3
+    - uses: actions/setup-node@v4
       with:
         node-version: '20.x'
         registry-url: 'https://registry.npmjs.org'
@@ -82,7 +82,7 @@ jobs:
         with:
           target: ${{ matrix.rust-target }}
       # Setup .npmrc file to publish to npm
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
@@ -119,7 +119,7 @@ jobs:
           fi    
           npm pack
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: binaries-${{ matrix.rust-target }}
           path: "api/node/npm/${{ matrix.napi-rs-target }}/*.tgz"
@@ -135,7 +135,7 @@ jobs:
     - uses: ./.github/actions/install-linux-dependencies
     - uses: ./.github/actions/setup-rust
     # Setup .npmrc file to publish to npm
-    - uses: actions/setup-node@v3
+    - uses: actions/setup-node@v4
       with:
         node-version: '20.x'
         registry-url: 'https://registry.npmjs.org'
@@ -161,27 +161,27 @@ jobs:
       run: |
         npx napi create-npm-dir -t . -c ./binaries.json
     - name: Download artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: binaries-x86_64-unknown-linux-gnu
         path: api/node/
     - name: Download artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: binaries-x86_64-apple-darwin
         path: api/node/
     - name: Download artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: binaries-aarch64-apple-darwin
         path: api/node/  
     - name: Download artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: binaries-x86_64-pc-windows-msvc
         path: api/node/  
     - name: Download artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: binaries-i686-pc-windows-msvc
         path: api/node/      
@@ -196,7 +196,7 @@ jobs:
       run: |
           cargo xtask node_package $PKG_EXTRA_ARGS
     - name: "Upload npm package Artifact"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
           name: slint-ui-node-package
           path: |

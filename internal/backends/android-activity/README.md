@@ -40,8 +40,8 @@ Below is an example of how to set up your `Cargo.toml`:
 crate-type = ["cdylib"]
 
 [dependencies]
-slint = { version = "1.4.0", ... }
-i-slint-backend-android-activity = { version = "=1.4.0", features = ["native-activity"] }
+slint = { version = "1.4.1", ... }
+i-slint-backend-android-activity = { version = "=1.4.1", features = ["native-activity"] }
 ```
 
 As with any application using `android-activity`, you need to implement the `android_init` function as `#[no_mangle]`.

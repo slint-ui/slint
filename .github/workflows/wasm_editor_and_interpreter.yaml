@@ -20,7 +20,7 @@ jobs:
       RUSTFLAGS: ${{ github.event.inputs.rustflags || inputs.rustflags }}
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/install-nodejs
       - uses: ./.github/actions/setup-rust
         with:
@@ -39,7 +39,7 @@ jobs:
         working-directory: tools/slintpad
 
       - name: "Upload wasm Artifacts"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wasm
           path: |
@@ -50,10 +50,10 @@ jobs:
     needs: [wasm]
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/install-nodejs
       - name: Download wasm_lsp Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: wasm
       - uses: actions/cache@v3
@@ -72,7 +72,7 @@ jobs:
         working-directory: tools/slintpad
 
       - name: "Upload slintpad Artifacts"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: slintpad
           path: tools/slintpad/dist/
@@ -81,10 +81,10 @@ jobs:
     needs: [wasm]
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/install-nodejs
       - name: Download wasm_lsp Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: wasm
       - uses: actions/cache@v3
@@ -112,7 +112,7 @@ jobs:
   #     options: --user 1001
   #
   #   steps:
-  #     - uses: actions/checkout@v3
+  #     - uses: actions/checkout@v4
   #     - uses: ./.github/actions/test-slintpad
   #       with:
   #         browser: "firefox"
@@ -127,7 +127,7 @@ jobs:
   #     options: --user 1001
   #
   #   steps:
-  #     - uses: actions/checkout@v3
+  #     - uses: actions/checkout@v4
   #     - uses: ./.github/actions/test-slintpad
   #       with:
   #         browser: "chrome"

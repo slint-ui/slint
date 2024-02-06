@@ -63,7 +63,7 @@ This license is suitable for those who develop desktop or web applications and d
 
 You need to do all of the following:
 
-1. Display the [`AboutSlint`](https://slint.dev/snapshots/master/docs/slint/src/builtins/widgets.html#aboutslint) widget in an "About" screen or dialog that is accessible from the top level menu of your application.
+1. Display the [`AboutSlint`](https://slint.dev/docs/slint/src/language/widgets/aboutslint) widget in an "About" screen or dialog that is accessible from the top level menu of your application.
 2. Display the [Slint attribution badge](https://github.com/slint-ui/slint/tree/master/logo/madewithslint) on a public webpage, where the binaries of your application can be downloaded from, in such a way that it can be easily found by any visitor to that page.
 3. You may not remove or alter any license notices (including copyright notices, disclaimers of warranty, or limitations of liability) contained within the source code form of Slint.
 

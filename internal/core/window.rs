@@ -314,7 +314,7 @@ impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
 /// This enum describes the different ways a popup can be rendered by the back-end.
 enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
-    TopLevel { _adapter: Rc<dyn WindowAdapter> },
+    TopLevel(Rc<dyn WindowAdapter>),
     /// The popup is rendered as an embedded child window at the given position.
     ChildWindow(LogicalPoint),
 }
@@ -808,7 +808,7 @@ impl WindowInner {
 
             let popup_component =
                 self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
-                    PopupWindowLocation::TopLevel { .. } => None,
+                    PopupWindowLocation::TopLevel(..) => None,
                     PopupWindowLocation::ChildWindow(coordinates) => {
                         Some((popup.component.clone(), coordinates))
                     }
@@ -932,7 +932,7 @@ impl WindowInner {
 
             Some(window_adapter) => {
                 WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
-                PopupWindowLocation::TopLevel { _adapter: window_adapter }
+                PopupWindowLocation::TopLevel(window_adapter)
             }
         };
 
@@ -947,18 +947,23 @@ impl WindowInner {
     /// TODO: this function should take a component ref as parameter, to close a specific popup - i.e. when popup menus create a hierarchy of popups.
     pub fn close_popup(&self) {
         if let Some(current_popup) = self.active_popup.replace(None) {
-            if let PopupWindowLocation::ChildWindow(offset) = current_popup.location {
-                // Refresh the area that was previously covered by the popup.
-                let popup_region = crate::properties::evaluate_no_tracking(|| {
-                    let popup_component = ItemTreeRc::borrow_pin(&current_popup.component);
-                    popup_component.as_ref().item_geometry(0)
-                })
-                .translate(offset.to_vector());
+            match current_popup.location {
+                PopupWindowLocation::ChildWindow(offset) => {
+                    // Refresh the area that was previously covered by the popup.
+                    let popup_region = crate::properties::evaluate_no_tracking(|| {
+                        let popup_component = ItemTreeRc::borrow_pin(&current_popup.component);
+                        popup_component.as_ref().item_geometry(0)
+                    })
+                    .translate(offset.to_vector());
 
-                if !popup_region.is_empty() {
-                    let window_adapter = self.window_adapter();
-                    window_adapter.renderer().mark_dirty_region(popup_region.to_box2d());
-                    window_adapter.request_redraw();
+                    if !popup_region.is_empty() {
+                        let window_adapter = self.window_adapter();
+                        window_adapter.renderer().mark_dirty_region(popup_region.to_box2d());
+                        window_adapter.request_redraw();
+                    }
+                }
+                PopupWindowLocation::TopLevel(adapter) => {
+                    let _ = adapter.set_visible(false);
                 }
             }
         }

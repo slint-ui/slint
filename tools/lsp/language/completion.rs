@@ -409,6 +409,7 @@ fn resolve_element_scope(
             } else {
                 CompletionItemKind::PROPERTY
             });
+            c.sort_text = Some(format!("#{}", c.label));
             c
         })
         .chain(element.PropertyDeclaration().filter_map(|pr| {

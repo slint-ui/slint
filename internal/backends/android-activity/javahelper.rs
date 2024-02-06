@@ -3,6 +3,7 @@
 
 use super::*;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
+use i_slint_core::items::InputType;
 use i_slint_core::SharedString;
 use jni::objects::{JClass, JObject, JString, JValue};
 use jni::sys::{jboolean, jint};
@@ -107,6 +108,23 @@ impl JavaHelper {
             let text = &env.new_string(data.text.as_str())?;
             let preedit_text = env.new_string(data.preedit_text.as_str())?;
             let to_utf16 = |x| convert_utf8_index_to_utf16(&data.text, x as usize);
+
+            let class_it = env.find_class("android/text/InputType")?;
+            let input_type = match data.input_type {
+                InputType::Text => env.get_static_field(&class_it, "TYPE_CLASS_TEXT", "I")?.i()?,
+                InputType::Password => {
+                    env.get_static_field(&class_it, "TYPE_TEXT_VARIATION_PASSWORD", "I")?.i()?
+                        | env.get_static_field(&class_it, "TYPE_CLASS_TEXT", "I")?.i()?
+                }
+                InputType::Number => {
+                    env.get_static_field(&class_it, "TYPE_CLASS_NUMBER", "I")?.i()?
+                }
+                InputType::Decimal => {
+                    env.get_static_field(&class_it, "TYPE_CLASS_NUMBER", "I")?.i()?
+                        | env.get_static_field(&class_it, "TYPE_NUMBER_FLAG_DECIMAL", "I")?.i()?
+                }
+                _ => 0 as jint,
+            };
             env.call_method(
                 helper,
                 "set_imm_data",
@@ -123,7 +141,7 @@ impl JavaHelper {
                     JValue::from(data.cursor_rect_origin.y as jint),
                     JValue::from(data.cursor_rect_size.width as jint),
                     JValue::from(data.cursor_rect_size.height as jint),
-                    JValue::from(data.input_type as jint),
+                    JValue::from(input_type),
                 ],
             )?;
 

@@ -8,16 +8,16 @@ fn main() {
 slint::slint! {
 // ANCHOR: tile_data
 
-// Added:
 struct TileData {
     image: image,
     image_visible: bool,
     solved: bool,
 }
 
+// ANCHOR_END: tile_data
+
 component MemoryTile inherits Rectangle {
 
-// ANCHOR_END: tile_data
     callback clicked;
     in property <bool> open_curtain;
     in property <bool> solved;

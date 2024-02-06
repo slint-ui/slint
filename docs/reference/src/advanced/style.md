@@ -30,13 +30,25 @@ When using the `slint_build` API, call the [`slint_build::compile_with_config()`
 
 When using the `slint_interpeter` API, call the [`slint_interpreter::ComponentCompiler::set_style()`](https://docs.rs/slint-interpreter/newest/slint_interpreter/struct.ComponentCompiler.html#method.set_style) function.
 
-## Selecting a Widget Style when using C++
+## Selecting a Widget Style when using C++:
 
 Define a `SLINT_STYLE` CMake cache variable to contain the style name as a string. This can be done, for instance, on the command line:
 
 ```sh
 cmake -DSLINT_STYLE="material" /path/to/source
 ```
+
+## Selecting a Widget Style when using Node.js:
+
+You can select the style by setting the `style` property in [`LoadFileOptions`](slint-node:interfaces/LoadFileOptions) passed to [`loadFile`](slint-node:functions/loadFile):
+
+```js
+import * as slint from "slint-ui";
+let ui = slint.loadFile("main.slint", { style: "fluent" });
+let main = new ui.Main();
+main.greeting = "Hello friends";
+```
+
 
 ## Previewing Designs With `slint-viewer`
 

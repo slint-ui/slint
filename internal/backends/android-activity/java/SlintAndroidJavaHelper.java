@@ -19,6 +19,7 @@ class SlintInputView extends View {
     private int mAnchorPosition = 0;
     private String mPreedit = "";
     private int mPreeditOffset;
+    private int mInputType = EditorInfo.TYPE_CLASS_TEXT;
 
     public SlintInputView(Context context) {
         super(context);
@@ -33,7 +34,7 @@ class SlintInputView extends View {
 
     @Override
     public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
-        outAttrs.inputType = EditorInfo.TYPE_CLASS_TEXT;
+        outAttrs.inputType = mInputType;
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI;
         outAttrs.initialSelStart = mCursorPosition;
         outAttrs.initialSelEnd = mAnchorPosition;
@@ -100,21 +101,29 @@ class SlintInputView extends View {
         };
     }
 
-    public void setText(String text, int cursorPosition, int anchorPosition, String preedit, int preeditOffset) {
+    public void setText(String text, int cursorPosition, int anchorPosition, String preedit, int preeditOffset,
+            int inputType) {
+        boolean restart = mInputType != inputType || !mText.equals(text);
+        boolean update_selection = mCursorPosition != cursorPosition || mAnchorPosition != anchorPosition;
         mText = text;
         mCursorPosition = cursorPosition;
         mAnchorPosition = anchorPosition;
         mPreedit = preedit;
         mPreeditOffset = preeditOffset;
+        mInputType = inputType;
 
         InputMethodManager imm = (InputMethodManager) this.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-        ExtractedText extractedText = new ExtractedText();
-        extractedText.text = mText;
-        extractedText.startOffset = mPreeditOffset;
-        extractedText.selectionStart = mCursorPosition;
-        extractedText.selectionEnd = mAnchorPosition;
-        imm.updateExtractedText(this, 0, extractedText);
-        imm.updateSelection(this, cursorPosition, anchorPosition, cursorPosition, anchorPosition);
+        if (restart) {
+            imm.restartInput(this);
+        } else if (update_selection) {
+            ExtractedText extractedText = new ExtractedText();
+            extractedText.text = mText;
+            extractedText.startOffset = mPreeditOffset;
+            extractedText.selectionStart = mCursorPosition;
+            extractedText.selectionEnd = mAnchorPosition;
+            imm.updateExtractedText(this, 0, extractedText);
+            imm.updateSelection(this, cursorPosition, anchorPosition, cursorPosition, anchorPosition);
+        }
     }
 
     @Override
@@ -186,7 +195,7 @@ public class SlintAndroidJavaHelper {
                 mInputView.setLayoutParams(layoutParams);
                 int selStart = Math.min(cursor_position, anchor_position);
                 int selEnd = Math.max(cursor_position, anchor_position);
-                mInputView.setText(text, selStart, selEnd, preedit, preedit_offset);
+                mInputView.setText(text, selStart, selEnd, preedit, preedit_offset, input_type);
             }
         });
     }

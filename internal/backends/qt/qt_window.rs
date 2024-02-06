@@ -99,6 +99,8 @@ cpp! {{
         }
 
         void paintEvent(QPaintEvent *) override {
+            if (!rust_window)
+                return;
             auto painter = std::unique_ptr<QPainter>(new QPainter(this));
             painter->setClipRect(rect());
             painter->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
@@ -109,6 +111,8 @@ cpp! {{
         }
 
         void resizeEvent(QResizeEvent *event) override {
+            if (!rust_window)
+                return;
             QSize size = event->size();
             rust!(Slint_resizeEvent [rust_window: &QtWindow as "void*", size: qttypes::QSize as "QSize"] {
                 rust_window.resize_event(size)
@@ -116,6 +120,8 @@ cpp! {{
         }
 
         void mousePressEvent(QMouseEvent *event) override {
+            if (!rust_window)
+                return;
             isMouseButtonDown = true;
             QPoint pos = event->pos();
             int button = event->button();
@@ -126,6 +132,8 @@ cpp! {{
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
+            if (!rust_window)
+                return;
             // HACK: Qt on windows is a bit special when clicking on the window
             //       close button and when the resulting close event is ignored.
             //       In that case a release event that was not preceded by
@@ -166,6 +174,8 @@ cpp! {{
             }
         }
         void mouseMoveEvent(QMouseEvent *event) override {
+            if (!rust_window)
+                return;
             QPoint pos = event->pos();
             rust!(Slint_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
@@ -173,6 +183,8 @@ cpp! {{
             });
         }
         void wheelEvent(QWheelEvent *event) override {
+            if (!rust_window)
+                return;
             QPointF pos = event->position();
             QPoint delta = event->pixelDelta();
             if (delta.isNull()) {
@@ -184,12 +196,16 @@ cpp! {{
             });
         }
         void leaveEvent(QEvent *) override {
+            if (!rust_window)
+                return;
             rust!(Slint_mouseLeaveEvent [rust_window: &QtWindow as "void*"] {
                 rust_window.mouse_event(MouseEvent::Exit)
             });
         }
 
         void keyPressEvent(QKeyEvent *event) override {
+            if (!rust_window)
+                return;
             QString text =  event->text();
             int key = event->key();
             bool repeat = event->isAutoRepeat();
@@ -198,6 +214,8 @@ cpp! {{
             });
         }
         void keyReleaseEvent(QKeyEvent *event) override {
+            if (!rust_window)
+                return;
             // Qt sends repeated releases together with presses for auto-repeat events, but Slint only sends presses in that case.
             // This matches the behavior of at least winit, Web and Android.
             if (event->isAutoRepeat())
@@ -211,6 +229,8 @@ cpp! {{
         }
 
         void changeEvent(QEvent *event) override {
+            if (!rust_window)
+                return;
             if (event->type() == QEvent::ActivationChange) {
                 bool active = isActiveWindow();
                 rust!(Slint_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"] {
@@ -228,6 +248,8 @@ cpp! {{
         }
 
         void closeEvent(QCloseEvent *event) override {
+            if (!rust_window)
+                return;
             rust!(Slint_requestClose [rust_window: &QtWindow as "void*"] {
                 rust_window.window.dispatch_event(WindowEvent::CloseRequested);
             });
@@ -235,6 +257,8 @@ cpp! {{
         }
 
         QSize sizeHint() const override {
+            if (!rust_window)
+                return {};
             auto preferred_size = rust!(Slint_sizeHint [rust_window: &QtWindow as "void*"] -> qttypes::QSize as "QSize" {
                 let component_rc = WindowInner::from_pub(&rust_window.window).component();
                 let component = ItemTreeRc::borrow_pin(&component_rc);
@@ -267,6 +291,8 @@ cpp! {{
         }
 
         void inputMethodEvent(QInputMethodEvent *event) override {
+            if (!rust_window)
+                return;
             QString commit_string = event->commitString();
             QString preedit_string = event->preeditString();
             int replacement_start = event->replacementStart();
@@ -1402,6 +1428,16 @@ pub struct QtWindow {
     tree_structure_changed: RefCell<bool>,
 
     dark_color_scheme: OnceCell<Pin<Box<Property<bool>>>>,
+}
+
+impl Drop for QtWindow {
+    fn drop(&mut self) {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "SlintWidget*"]  {
+            // widget_ptr uses deleteLater to destroy the SlintWidget, we must prevent events to still call us
+            widget_ptr->rust_window = nullptr;
+        }};
+    }
 }
 
 impl QtWindow {

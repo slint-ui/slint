@@ -19,7 +19,7 @@ jobs:
       SLINT_NO_QT: 1
       CARGO_INCREMENTAL: false
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up rgb crate rustdoc link
       run: |
         rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
@@ -107,7 +107,7 @@ jobs:
           npm run docs
       working-directory: api/node
     - name: "Upload Docs Artifacts"
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
           name: docs
           path: |
