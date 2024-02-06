@@ -7,11 +7,10 @@ use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
-use i_slint_core::graphics::Image;
 use i_slint_core::model::{Model, ModelRc};
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
-use i_slint_core::{Brush, PathData, SharedVector};
+use i_slint_core::{PathData, SharedVector};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -22,6 +21,10 @@ use std::rc::Rc;
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 
 pub use i_slint_core::api::*;
+// keep in sync with api/rs/slint/lib.rs
+pub use i_slint_core::graphics::{
+    Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
+};
 use i_slint_core::items::*;
 
 use crate::dynamic_item_tree::ErasedItemTreeBox;
@@ -396,16 +399,16 @@ impl TryFrom<Value> for () {
     }
 }
 
-impl From<i_slint_core::Color> for Value {
+impl From<Color> for Value {
     #[inline]
-    fn from(c: i_slint_core::Color) -> Self {
+    fn from(c: Color) -> Self {
         Value::Brush(Brush::SolidColor(c))
     }
 }
-impl TryFrom<Value> for i_slint_core::Color {
+impl TryFrom<Value> for Color {
     type Error = Value;
     #[inline]
-    fn try_from(v: Value) -> Result<i_slint_core::Color, Self::Error> {
+    fn try_from(v: Value) -> Result<Color, Self::Error> {
         match v {
             Value::Brush(Brush::SolidColor(c)) => Ok(c),
             _ => Err(v),
