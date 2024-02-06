@@ -399,16 +399,16 @@ impl TryFrom<Value> for () {
     }
 }
 
-impl From<i_slint_core::Color> for Value {
+impl From<Color> for Value {
     #[inline]
-    fn from(c: i_slint_core::Color) -> Self {
+    fn from(c: Color) -> Self {
         Value::Brush(Brush::SolidColor(c))
     }
 }
-impl TryFrom<Value> for i_slint_core::Color {
+impl TryFrom<Value> for Color {
     type Error = Value;
     #[inline]
-    fn try_from(v: Value) -> Result<i_slint_core::Color, Self::Error> {
+    fn try_from(v: Value) -> Result<Color, Self::Error> {
         match v {
             Value::Brush(Brush::SolidColor(c)) => Ok(c),
             _ => Err(v),
