@@ -7,11 +7,10 @@ use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
-use i_slint_core::graphics::Image;
 use i_slint_core::model::{Model, ModelRc};
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
-use i_slint_core::{Brush, PathData, SharedVector};
+use i_slint_core::{PathData, SharedVector};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -22,6 +21,10 @@ use std::rc::Rc;
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 
 pub use i_slint_core::api::*;
+// keep in sync with api/rs/slint/lib.rs
+pub use i_slint_core::graphics::{
+    Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
+};
 use i_slint_core::items::*;
 
 use crate::dynamic_item_tree::ErasedItemTreeBox;
