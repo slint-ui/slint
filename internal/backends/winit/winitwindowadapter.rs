@@ -306,7 +306,7 @@ impl WinitWindowAdapter {
             .set(dark_mode)
     }
 
-    pub fn sync_window_state(&self) {
+    pub fn window_state_event(&self) {
         if let Some(minimized) = self.winit_window.is_minimized() {
             if minimized != self.window().minimized() {
                 self.window().set_minimized(minimized);
