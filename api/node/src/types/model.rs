@@ -1,141 +1,101 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 use i_slint_compiler::langtype::Type;
-use i_slint_core::model::{Model, ModelNotify};
-use napi::{
-    bindgen_prelude::Object, Env, JsFunction, JsNumber, JsObject, JsUnknown, NapiRaw, Result,
-    ValueType,
-};
-use slint_interpreter::Value;
+use i_slint_core::model::{Model, ModelNotify, ModelRc};
+use napi::bindgen_prelude::*;
+use napi::{Env, JsExternal, JsFunction, JsNumber, JsObject, JsUnknown, Result, ValueType};
 
-use crate::{to_js_unknown, to_value, RefCountedReference};
+use crate::{to_value, RefCountedReference};
 
 #[napi]
-pub struct RustModel {
+#[derive(Clone, Default)]
+pub struct SharedModelNotify(Rc<ModelNotify>);
+
+impl core::ops::Deref for SharedModelNotify {
+    type Target = Rc<ModelNotify>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+pub(crate) fn js_into_rust_model(
+    env: &Env,
+    maybe_js_impl: &JsObject,
+    row_data_type: &Type,
+) -> Result<ModelRc<slint_interpreter::Value>> {
+    let shared_model_notify = maybe_js_impl
+        .get("modelNotify")
+        .and_then(|prop| {
+            prop.ok_or_else(|| {
+                napi::Error::from_reason(
+                    "Could not convert value to slint model: missing modelNotify property",
+                )
+            })
+        })
+        .and_then(|shared_model_notify: JsExternal| {
+            env.get_value_external::<SharedModelNotify>(&shared_model_notify).cloned()
+        })?;
+    Ok(Rc::new(JsModel {
+        shared_model_notify,
+        env: env.clone(),
+        js_impl: RefCountedReference::new(env, maybe_js_impl)?,
+        row_data_type: row_data_type.clone(),
+    })
+    .into())
+}
+
+pub(crate) fn rust_into_js_model(
+    model: &ModelRc<slint_interpreter::Value>,
+) -> Option<Result<JsUnknown>> {
+    model.as_any().downcast_ref::<JsModel>().map(|rust_model| rust_model.js_impl.get())
+}
+
+struct JsModel {
+    shared_model_notify: SharedModelNotify,
     env: Env,
-    model: JsObject,
-    data_type: Option<Type>,
-    notify: ModelNotify,
+    js_impl: RefCountedReference,
+    row_data_type: Type,
 }
 
 #[napi]
-impl RustModel {
-    #[napi(constructor)]
-    pub fn new(env: Env, model: JsObject) -> Result<Self> {
-        let _: JsFunction = model.get("rowCount")?.unwrap();
-        let _: JsFunction = model.get("rowData")?.unwrap();
-        Ok(Self { env, model, data_type: None, notify: Default::default() })
-    }
-
-    #[napi]
-    pub fn notify_row_data_changed(&self, row: u32) {
-        self.notify.row_changed(row as usize);
-    }
-
-    #[napi]
-    pub fn notify_row_added(&self, row: u32, count: u32) {
-        self.notify.row_added(row as usize, count as usize);
-    }
-
-    #[napi]
-    pub fn notify_row_removed(&self, row: u32, count: u32) {
-        self.notify.row_removed(row as usize, count as usize);
-    }
-
-    #[napi]
-    pub fn notify_reset(&self) {
-        self.notify.reset();
-    }
-
-    pub fn set_data_type(&mut self, data_type: Type) {
-        self.data_type = Some(data_type);
-    }
+pub fn js_model_notify_new() -> Result<External<SharedModelNotify>> {
+    Ok(External::new(Default::default()))
 }
 
-impl Model for RustModel {
-    type Data = slint_interpreter::Value;
-
-    fn row_count(&self) -> usize {
-        self.model
-            .get::<&str, JsFunction>("rowCount")
-            .ok()
-            .and_then(|callback| {
-                callback.and_then(|callback| callback.call_without_args(Some(&self.model)).ok())
-            })
-            .and_then(|res| res.coerce_to_number().ok())
-            .map(|num| num.get_uint32().ok().map_or(0, |count| count as usize))
-            .unwrap_or_default()
-    }
-
-    fn row_data(&self, row: usize) -> Option<Self::Data> {
-        self.model
-            .get::<&str, JsFunction>("rowData")
-            .ok()
-            .and_then(|callback| {
-                callback.and_then(|callback| {
-                    callback
-                        .call::<JsNumber>(
-                            Some(&self.model),
-                            &[self.env.create_double(row as f64).unwrap()],
-                        )
-                        .ok()
-                })
-            })
-            .and_then(|res| {
-                if res.get_type().unwrap() == ValueType::Undefined {
-                    None
-                } else {
-                    to_value(&self.env, res, self.data_type.as_ref()?).ok()
-                }
-            })
-    }
-
-    fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
-        &self.notify
-    }
+#[napi]
+pub fn js_model_notify_row_data_changed(notify: External<SharedModelNotify>, row: u32) {
+    notify.row_changed(row as usize);
 }
 
-pub struct JsModel {
-    model: RefCountedReference,
-    env: Env,
-    notify: i_slint_core::model::ModelNotify,
-    data_type: Type,
+#[napi]
+pub fn js_model_notify_row_added(notify: External<SharedModelNotify>, row: u32, count: u32) {
+    notify.row_added(row as usize, count as usize);
 }
 
-impl JsModel {
-    pub fn new<T: NapiRaw>(env: Env, model: T, data_type: Type) -> napi::Result<Rc<Self>> {
-        let js_model = Rc::new(Self {
-            notify: Default::default(),
-            env,
-            model: RefCountedReference::new(&env, model)?,
-            data_type,
-        });
+#[napi]
+pub fn js_model_notify_row_removed(notify: External<SharedModelNotify>, row: u32, count: u32) {
+    notify.row_removed(row as usize, count as usize);
+}
 
-        let notify = JsSlintModelNotify { model: Rc::downgrade(&js_model) };
-
-        js_model.model.get::<Object>()?.set("notify", notify)?;
-
-        Ok(js_model)
-    }
-
-    pub fn model(&self) -> &RefCountedReference {
-        &self.model
-    }
+#[napi]
+pub fn js_model_notify_reset(notify: External<SharedModelNotify>) {
+    notify.reset();
 }
 
 impl Model for JsModel {
     type Data = slint_interpreter::Value;
 
     fn row_count(&self) -> usize {
-        let model: Object = self.model.get().unwrap();
+        let model: Object = self.js_impl.get().unwrap();
         model
             .get::<&str, JsFunction>("rowCount")
             .ok()
             .and_then(|callback| {
-                callback.and_then(|callback| callback.call::<JsUnknown>(Some(&model), &[]).ok())
+                callback.and_then(|callback| callback.call_without_args(Some(&model)).ok())
             })
             .and_then(|res| res.coerce_to_number().ok())
             .map(|num| num.get_uint32().ok().map_or(0, |count| count as usize))
@@ -143,129 +103,27 @@ impl Model for JsModel {
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        let model: Object = self.model.get().unwrap();
-        model
+        let model: Object = self.js_impl.get().unwrap();
+        let row_data_fn = model
             .get::<&str, JsFunction>("rowData")
-            .ok()
-            .and_then(|callback| {
-                callback.and_then(|callback| {
-                    callback
-                        .call::<JsNumber>(
-                            Some(&model),
-                            &[self.env.create_double(row as f64).unwrap()],
-                        )
-                        .ok()
-                })
-            })
-            .and_then(|res| {
-                if res.get_type().unwrap() == ValueType::Undefined {
-                    None
-                } else {
-                    to_value(&self.env, res, &self.data_type).ok()
-                }
-            })
+            .expect("Node.js: JavaScript Model<T> implementation is missing rowData property")
+            .expect("Node.js: Model<T> implementation's rowData property is not a function");
+        let row_data = row_data_fn
+            .call::<JsNumber>(Some(&model), &[self.env.create_double(row as f64).unwrap()])
+            .expect("Node.js: JavaScript Model<T>'s rowData function threw an exception");
+        if row_data.get_type().unwrap() == ValueType::Undefined {
+            debug_assert!(row >= self.row_count());
+            None
+        } else {
+            Some(to_value(&self.env, row_data, &self.row_data_type).expect("Node.js: JavaScript Model<T>'s rowData function returned data type that cannot be represented in Rust"))
+        }
     }
 
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
-        &self.notify
-    }
-
-    fn set_row_data(&self, row: usize, data: Self::Data) {
-        let model: Object = self.model.get().unwrap();
-        model.get::<&str, JsFunction>("setRowData").ok().and_then(|callback| {
-            callback.and_then(|callback| {
-                callback
-                    .call::<JsUnknown>(
-                        Some(&model),
-                        &[
-                            to_js_unknown(&self.env, &Value::Number(row as f64)).unwrap(),
-                            to_js_unknown(&self.env, &data).unwrap(),
-                        ],
-                    )
-                    .ok()
-            })
-        });
+        &**self.shared_model_notify
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
         self
-    }
-}
-
-#[napi(js_name = "SlintModelNotify")]
-pub struct JsSlintModelNotify {
-    model: Weak<JsModel>,
-}
-
-impl JsSlintModelNotify {
-    fn model(&self) -> Result<Rc<JsModel>> {
-        self.model.upgrade().ok_or(napi::Error::from_reason("cannot upgrade model"))
-    }
-}
-
-#[napi]
-impl JsSlintModelNotify {
-    #[napi(constructor)]
-    pub fn new() -> Self {
-        Self { model: Weak::default() }
-    }
-
-    #[napi]
-    pub fn row_data_changed(&self, row: f64) -> Result<()> {
-        let model = self.model()?;
-
-        if row < 0. && row >= model.row_count() as f64 {
-            return Err(napi::Error::from_reason(
-                "row with value {row} out of bounds.".to_string(),
-            ));
-        }
-
-        model.notify.row_changed(row as usize);
-
-        Ok(())
-    }
-
-    #[napi]
-    pub fn row_added(&self, row: f64, count: f64) -> Result<()> {
-        let model = self.model()?;
-
-        if row < 0. && row >= model.row_count() as f64 {
-            return Err(napi::Error::from_reason(
-                "row with value {row} out of bounds.".to_string(),
-            ));
-        }
-
-        if count < 0. {
-            return Err(napi::Error::from_reason("count cannot be negative.".to_string()));
-        }
-
-        model.notify.row_added(row as usize, count as usize);
-
-        Ok(())
-    }
-
-    #[napi]
-    pub fn row_removed(&self, row: f64, count: f64) -> Result<()> {
-        let model = self.model()?;
-
-        if row < 0. && row >= model.row_count() as f64 {
-            return Err(napi::Error::from_reason(
-                "row with value {row} out of bounds.".to_string(),
-            ));
-        }
-
-        if count < 0. {
-            return Err(napi::Error::from_reason("count cannot be negative.".to_string()));
-        }
-
-        model.notify.row_removed(row as usize, count as usize);
-
-        Ok(())
-    }
-
-    #[napi]
-    pub fn reset(&self) -> Result<()> {
-        self.model()?.notify.reset();
-        Ok(())
     }
 }

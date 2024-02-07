@@ -430,6 +430,7 @@ test('ArrayModel', (t) => {
   instance!.setProperty("int-model", new ArrayModel([10, 9, 8]));
 
   let intArrayModel = instance!.getProperty("int-model") as ArrayModel<number>;
+  t.deepEqual(intArrayModel.rowCount(), 3);
   t.deepEqual(intArrayModel.values(), new ArrayModel([10, 9, 8]).values());
 
   instance!.setProperty("string-model", new ArrayModel(["Simon", "Olivier", "Auri", "Tobias", "Florian"]));
