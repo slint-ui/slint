@@ -93,7 +93,11 @@ define_cargo_dependent_feature(renderer-skia-opengl "Enable support for the Skia
 define_cargo_dependent_feature(renderer-skia-vulkan "Enable support for the Skia based rendering engine with its Vulkan backend." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_feature(renderer-software "Enable support for the software renderer" OFF)
 
-define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" ON "NOT SLINT_FEATURE_FREESTANDING")
+set(SLINT_BACKEND_QT_DEFAULT OFF)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+  set(SLINT_BACKEND_QT_DEFAULT ON)
+endif()
+define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" ${SLINT_BACKEND_QT_DEFAULT} "NOT SLINT_FEATURE_FREESTANDING")
 
 define_cargo_dependent_feature(backend-linuxkms "Enable support for the backend that renders a single window fullscreen on Linux. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead. (Experimental)" OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(backend-linuxkms-noseat "Enable support for the backend that renders a single window fullscreen on Linux (Experimental)" OFF "NOT SLINT_FEATURE_FREESTANDING")
