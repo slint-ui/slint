@@ -287,7 +287,7 @@ pub trait RenderBorderRectangle {
     fn border_color(self: Pin<&Self>) -> Brush;
 }
 
-/// Trait for an item that represent an Image of the renderer
+/// Trait for an item that represents an Image towards the renderer
 #[allow(missing_docs)]
 pub trait RenderImage {
     fn target_size(self: Pin<&Self>) -> LogicalSize;
