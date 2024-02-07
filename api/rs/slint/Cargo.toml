@@ -22,10 +22,9 @@ path = "lib.rs"
 
 default = [
   "std",
-  "backend-winit",
+  "backend-default",
   "renderer-femtovg",
   "renderer-software",
-  "backend-qt",
   "accessibility",
   "compat-1-2",
 ]
@@ -108,7 +107,7 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 ## This backend also provides the `native` style.
 ## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
 ## backend will not be operational
-backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
+backend-qt = ["i-slint-backend-selector/backend-qt", "std", "i-slint-backend-qt"]
 
 ## The [winit](https://crates.io/crates/winit) crate is used for the event loop and windowing system integration.
 ## It supports Windows, macOS, web browsers, X11 and Wayland. X11 and wayland are only available when
@@ -123,6 +122,10 @@ backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 ## Simliar to `backend-winit` this enables the winit based event loop but only
 ## with support for the Wayland window system on Unix.
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
+
+## Alias to a backend and renderer that depends on the platform.
+## Will select the Qt backend on linux if present, and the winit otherwise
+backend-default = ["i-slint-backend-selector/default", "i-slint-backend-qt"]
 
 # deprecated aliases
 renderer-winit-femtovg = ["renderer-femtovg"]
@@ -156,8 +159,8 @@ backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "
 
 [dependencies]
 i-slint-core = { workspace = true }
-slint-macros = { workspace = true, features = ["default"] }
-i-slint-backend-selector = { workspace = true, features = ["default"] }
+slint-macros = { workspace = true }
+i-slint-backend-selector = { workspace = true }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }
@@ -179,6 +182,10 @@ slint-build = { path = "../build" }
 i-slint-backend-testing = { path = "../../../internal/backends/testing" }
 serde_json = "1.0.96"
 serde = { version = "1.0.163", features = ["derive"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# this line is there to add the "enable" feature by default, but only on linux
+i-slint-backend-qt = { workspace = true, features = [ "enable" ], optional = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = [
