@@ -1557,18 +1557,25 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
                         if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
                             let geometry = clipped_src.translate(offset).round();
-                            if geometry.is_empty() {
-                                continue;
-                            }
                             let origin = (geometry.origin - offset.round()).round().cast::<usize>();
                             let actual_x = origin.x - src_rect.origin.x as usize;
                             let actual_y = origin.y - src_rect.origin.y as usize;
                             let pixel_stride = glyph.width.get() as u16;
-                            let source_size = geometry.size.cast();
+                            let mut geometry = geometry.cast();
+                            if geometry.size.width > glyph.width.get() - (actual_x as i16) {
+                                geometry.size.width = glyph.width.get() - (actual_x as i16)
+                            }
+                            if geometry.size.height > glyph.height.get() - (actual_y as i16) {
+                                geometry.size.height = glyph.height.get() - (actual_y as i16)
+                            }
+                            let source_size = geometry.size;
+                            if source_size.is_empty() {
+                                continue;
+                            }
                             match &glyph.alpha_map {
                                 fonts::GlyphAlphaMap::Static(data) => {
                                     self.processor.process_texture(
-                                        geometry.cast().transformed(self.rotation),
+                                        geometry.transformed(self.rotation),
                                         SceneTexture {
                                             data: &data
                                                 [actual_x + actual_y * pixel_stride as usize..],
@@ -1584,7 +1591,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 }
                                 fonts::GlyphAlphaMap::Shared(data) => {
                                     self.processor.process_shared_image_buffer(
-                                        geometry.cast().transformed(self.rotation),
+                                        geometry.transformed(self.rotation),
                                         SharedBufferCommand {
                                             buffer: SharedBufferData::AlphaMap {
                                                 data: data.clone(),
