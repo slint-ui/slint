@@ -149,9 +149,11 @@ impl JsWindow {
     }
 
     /// Returns if the window is currently minimized
+    #[napi(setter)]
     pub fn minimized(&self) -> bool {
         self.inner.minimized()
     }
+
     /// Minimize or unminimze the window.
     #[napi(setter)]
     pub fn set_minimized(&self, minimized: bool) {
