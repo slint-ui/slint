@@ -205,6 +205,20 @@ impl<T: Clone> SharedVector<T> {
         }
     }
 
+    /// Removes last element from the array and returns it.
+    /// If the array was shared, this will make a copy of the array.
+    pub fn pop(&mut self) -> Option<T> {
+        if self.is_empty() {
+            None
+        } else {
+            self.detach(self.len());
+            unsafe {
+                self.inner.as_mut().header.size -= 1;
+                Some(core::ptr::read(self.inner.as_mut().data.as_mut_ptr().add(self.len())))
+            }
+        }
+    }
+
     /// Resize the array to the given size.
     /// If the array was smaller new elements will be initialized with the value.
     /// If the array was bigger, extra elements will be discarded
@@ -619,6 +633,18 @@ fn test_vector_clear() {
     assert_eq!(copy.capacity(), orig_cap);
     copy.clear(); // copy is not shared (anymore), retain capacity.
     assert_eq!(copy.capacity(), orig_cap);
+}
+
+#[test]
+fn pop_test() {
+    let mut x: SharedVector<i32> = SharedVector::from([1, 2, 3]);
+    let y = x.clone();
+    assert_eq!(x.pop(), Some(3));
+    assert_eq!(x.pop(), Some(2));
+    assert_eq!(x.pop(), Some(1));
+    assert_eq!(x.pop(), None);
+    assert!(x.is_empty());
+    assert_eq!(y.as_slice(), &[1, 2, 3]);
 }
 
 #[cfg(feature = "ffi")]
