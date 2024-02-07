@@ -198,7 +198,6 @@
         "vscode:prepublish": "npm run build:wasm_lsp-release && npm run compile && shx echo \"GPL-3.0-only OR LicenseRef-Slint-commercial\" > LICENSE.txt",
         "build:lsp": "cargo build -p slint-lsp",
         "build:lsp-release": "cargo build --release -p slint-lsp",
-        "build:wasm_experimental_lsp": "env-var wasm-pack build --dev     --target web ../../tools/lsp --out-dir {{npm_config_local_prefix}}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview,experimental",
         "build:wasm_lsp": "env-var wasm-pack build --dev     --target web ../../tools/lsp --out-dir {{npm_config_local_prefix}}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
         "build:wasm_lsp-release": "env-var wasm-pack build --release --target web ../../tools/lsp --out-dir {{npm_config_local_prefix}}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
         "compile": "node ./esbuild.js",
