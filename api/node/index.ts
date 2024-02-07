@@ -177,16 +177,13 @@ export interface ImageData {
  * ```
  */
 export abstract class Model<T> {
-    private modelInner: napi.RustModel;
-
     /**
      * @hidden
      */
-    notify: NullPeer;
+    modelNotify: napi.ExternalObject<napi.SharedModelNotify>;
 
     constructor() {
-        this.notify = new NullPeer();
-        this.modelInner = new napi.RustModel(this);
+        this.modelNotify = napi.jsModelNotifyNew(this);
     }
 
     // /**
@@ -229,7 +226,7 @@ export abstract class Model<T> {
      * @param row index of the changed row.
      */
     protected notifyRowDataChanged(row: number): void {
-        this.modelInner.notify_row_data_changed(row);
+        napi.jsModelNotifyRowDataChanged(this.modelNotify, row);
     }
 
     /**
@@ -238,7 +235,7 @@ export abstract class Model<T> {
      * @param count the number of added items.
      */
     protected notifyRowAdded(row: number, count: number): void {
-        this.modelInner.notify_row_added(row, count);
+        napi.jsModelNotifyRowAdded(this.modelNotify, row, count);
     }
 
     /**
@@ -247,25 +244,15 @@ export abstract class Model<T> {
      * @param count the number of removed items.
      */
     protected notifyRowRemoved(row: number, count: number): void {
-        this.modelInner.notify_row_removed(row, count);
+        napi.jsModelNotifyRowRemoved(this.modelNotify, row, count);
     }
 
     /**
      * Notifies the view that the complete data must be reload.
      */
     protected notifyReset(): void {
-        this.modelInner.notify_reset();
+        napi.jsModelNotifyReset(this.modelNotify);
     }
-}
-
-/**
- * @hidden
- */
-class NullPeer {
-    rowDataChanged(row: number): void {}
-    rowAdded(row: number, count: number): void {}
-    rowRemoved(row: number, count: number): void {}
-    reset(): void {}
 }
 
 /**
@@ -496,7 +483,6 @@ export class MapModel<T, U> extends Model<U> {
         super();
         this.sourceModel = sourceModel;
         this.#mapFunction = mapFunction;
-        this.notify = this.sourceModel.notify;
     }
 
     /**
