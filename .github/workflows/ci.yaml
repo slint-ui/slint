@@ -28,12 +28,12 @@ jobs:
         rust_version: [stable, "1.70"]
         include:
           - os: windows-2022
-            extra_args: "--exclude ffmpeg --exclude gstreamer_player"
+            extra_args: "--exclude ffmpeg --exclude gstreamer-player"
           - os: macos-11
-            extra_args: "--exclude ffmpeg --exclude gstreamer_player"
+            extra_args: "--exclude ffmpeg --exclude gstreamer-player"
           - os: windows-2022
             rust_version: "beta"
-            extra_args: "--exclude ffmpeg --exclude gstreamer_player"
+            extra_args: "--exclude ffmpeg --exclude gstreamer-player"
         exclude:
           - os: macos-11
             rust_version: "1.70"
