@@ -28,12 +28,12 @@ jobs:
         rust_version: [stable, "1.70"]
         include:
           - os: windows-2022
-            extra_args: "--exclude ffmpeg"
+            extra_args: "--exclude ffmpeg --exclude gstreamer_player"
           - os: macos-11
-            extra_args: "--exclude ffmpeg"
+            extra_args: "--exclude ffmpeg --exclude gstreamer_player"
           - os: windows-2022
             rust_version: "beta"
-            extra_args: "--exclude ffmpeg"
+            extra_args: "--exclude ffmpeg --exclude gstreamer_player"
         exclude:
           - os: macos-11
             rust_version: "1.70"
@@ -53,6 +53,9 @@ jobs:
     - name: Install ffmpeg and alsa (Linux)
       if: runner.os == 'Linux'
       run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
+    - name: Install gstreamer and libunwind (Linux)
+      if: runner.os == 'Linux'
+      run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
     - name: Setup headless display
       uses: pyvista/setup-headless-display-action@v1
     - name: Set default style
