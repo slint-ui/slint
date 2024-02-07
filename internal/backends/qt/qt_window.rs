@@ -1804,19 +1804,12 @@ impl WindowAdapter for QtWindow {
 
         const WIDGET_SIZE_MAX: u32 = 16_777_215;
 
-        let max_size: qttypes::QSize = if maximized {
-            qttypes::QSize { width: WIDGET_SIZE_MAX, height: WIDGET_SIZE_MAX }
-        } else {
-            constraints.max.map_or_else(
-                || qttypes::QSize { width: WIDGET_SIZE_MAX, height: WIDGET_SIZE_MAX },
-                into_qsize,
-            )
-        };
+        let max_size: qttypes::QSize = constraints.max.map_or_else(
+            || qttypes::QSize { width: WIDGET_SIZE_MAX, height: WIDGET_SIZE_MAX },
+            into_qsize,
+        );
 
         cpp! {unsafe [widget_ptr as "QWidget*",  min_size as "QSize", max_size as "QSize"] {
-            // TODO: Setting these causes the following issues:
-            //  - Maximize button is disabled, even if the layout size is "preferred" and not fixed
-            //  - Causes the maximize button to not use the correct width
             widget_ptr->setMinimumSize(min_size);
             widget_ptr->setMaximumSize(max_size);
         }};
