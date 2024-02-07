@@ -312,12 +312,22 @@ impl WinitWindowAdapter {
                 self.window().set_minimized(minimized);
             }
         }
-        if let Some(maximized) = self.winit_window.is_minimized() {
+
+        // The method winit::Window::is_maximized returns false when the window
+        // is minimized, even if it was previously maximized. We have to ensure
+        // that we only update the internal maximized state when the window is
+        // not minimized. Otherwise, the window would be restored in a
+        // non-maximized state even if it was maximized before being minimized.
+        if !self.window().minimized() {
+            let maximized = self.winit_window.is_maximized();
             if maximized != self.window().maximized() {
-                self.window().set_minimized(maximized);
+                self.window().set_maximized(maximized);
             }
         }
 
+        // NOTE: Fullscreen overrides maximized so if both are true then the
+        // window will remain in fullscreen. Fullscreen must be false to switch
+        // to maximized.
         let fullscreen = self.winit_window.fullscreen().is_some();
         if fullscreen != self.window().fullscreen() {
             self.window().set_fullscreen(fullscreen);
