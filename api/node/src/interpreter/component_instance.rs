@@ -57,7 +57,7 @@ impl JsComponentInstance {
             })?;
 
         self.inner
-            .set_property(&prop_name, super::value::to_value(&env, js_value, ty)?)
+            .set_property(&prop_name, super::value::to_value(&env, js_value, &ty)?)
             .map_err(|e| Error::from_reason(format!("{e}")))?;
 
         Ok(())
@@ -105,7 +105,7 @@ impl JsComponentInstance {
             .set_global_property(
                 global_name.as_str(),
                 &prop_name,
-                super::value::to_value(&env, js_value, ty)?,
+                super::value::to_value(&env, js_value, &ty)?,
             )
             .map_err(|e| Error::from_reason(format!("{e}")))?;
 
@@ -151,7 +151,7 @@ impl JsComponentInstance {
                             .unwrap();
 
                         if let Some(return_type) = &return_type {
-                            super::to_value(&env, result, *(*return_type).clone()).unwrap()
+                            super::to_value(&env, result, return_type).unwrap()
                         } else {
                             Value::Void
                         }
@@ -206,7 +206,7 @@ impl JsComponentInstance {
                             .unwrap();
 
                         if let Some(return_type) = &return_type {
-                            super::to_value(&env, result, *(*return_type).clone()).unwrap()
+                            super::to_value(&env, result, return_type).unwrap()
                         } else {
                             Value::Void
                         }
@@ -244,7 +244,7 @@ impl JsComponentInstance {
             let args = arguments
                 .into_iter()
                 .zip(args.into_iter())
-                .map(|(a, ty)| super::value::to_value(&env, a, ty))
+                .map(|(a, ty)| super::value::to_value(&env, a, &ty))
                 .collect::<Result<Vec<_>, _>>()?;
             if args.len() != count {
                 return Err(napi::Error::from_reason(
@@ -301,7 +301,7 @@ impl JsComponentInstance {
             let args = arguments
                 .into_iter()
                 .zip(args.into_iter())
-                .map(|(a, ty)| super::value::to_value(&env, a, ty))
+                .map(|(a, ty)| super::value::to_value(&env, a, &ty))
                 .collect::<Result<Vec<_>, _>>()?;
             if args.len() != count {
                 return Err(napi::Error::from_reason(
