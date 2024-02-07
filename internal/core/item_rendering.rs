@@ -6,7 +6,7 @@
 
 use super::graphics::RenderingCache;
 use super::items::*;
-use crate::graphics::CachedGraphicsData;
+use crate::graphics::{CachedGraphicsData, Image, IntRect};
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{
     ItemRc, ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult,
@@ -278,12 +278,24 @@ pub fn item_children_bounding_rect(
     bounding_rect
 }
 
+/// Trait for an item that represent a Rectangle to the Renderer
 #[allow(missing_docs)]
 pub trait RenderBorderRectangle {
     fn background(self: Pin<&Self>) -> Brush;
     fn border_width(self: Pin<&Self>) -> LogicalLength;
     fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius;
     fn border_color(self: Pin<&Self>) -> Brush;
+}
+
+/// Trait for an item that represent an Image of the renderer
+#[allow(missing_docs)]
+pub trait RenderImage {
+    fn target_size(self: Pin<&Self>) -> LogicalSize;
+    fn source(self: Pin<&Self>) -> Image;
+    fn source_clip(self: Pin<&Self>) -> Option<IntRect>;
+    fn image_fit(self: Pin<&Self>) -> ImageFit;
+    fn rendering(self: Pin<&Self>) -> ImageRendering;
+    fn colorize(self: Pin<&Self>) -> Brush;
 }
 
 /// Trait used to render each items.
@@ -300,12 +312,12 @@ pub trait ItemRenderer {
         _size: LogicalSize,
         _cache: &CachedRenderingData,
     );
-    fn draw_image(&mut self, image: Pin<&ImageItem>, _self_rc: &ItemRc, _size: LogicalSize);
-    fn draw_clipped_image(
+    fn draw_image(
         &mut self,
-        image: Pin<&ClippedImage>,
+        image: Pin<&dyn RenderImage>,
         _self_rc: &ItemRc,
         _size: LogicalSize,
+        _cache: &CachedRenderingData,
     );
     fn draw_text(&mut self, text: Pin<&Text>, _self_rc: &ItemRc, _size: LogicalSize);
     fn draw_text_input(
@@ -658,8 +670,7 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
 
     forward_rendering_call!(fn draw_rectangle(Rectangle));
     forward_rendering_call2!(fn draw_border_rectangle(dyn RenderBorderRectangle));
-    forward_rendering_call!(fn draw_image(ImageItem));
-    forward_rendering_call!(fn draw_clipped_image(ClippedImage));
+    forward_rendering_call2!(fn draw_image(dyn RenderImage));
     forward_rendering_call!(fn draw_text(Text));
     forward_rendering_call!(fn draw_text_input(TextInput));
     #[cfg(feature = "std")]

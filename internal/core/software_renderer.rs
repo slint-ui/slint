@@ -14,7 +14,9 @@ use self::fonts::GlyphRenderer;
 use crate::api::Window;
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use crate::graphics::{BorderRadius, IntRect, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
-use crate::item_rendering::{CachedRenderingData, ItemRenderer, RenderBorderRectangle};
+use crate::item_rendering::{
+    CachedRenderingData, ItemRenderer, RenderBorderRectangle, RenderImage,
+};
 use crate::items::{ImageFit, ItemRc, TextOverflow};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -1886,47 +1888,25 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    fn draw_image(&mut self, image: Pin<&crate::items::ImageItem>, _: &ItemRc, size: LogicalSize) {
-        let geom = LogicalRect::from(size);
-        if self.should_draw(&geom) {
-            let source = image.source();
-            self.draw_image_impl(
-                geom,
-                &source,
-                euclid::Rect::new(Default::default(), source.size().cast()),
-                image.image_fit(),
-                image.colorize().color(),
-            );
-        }
-    }
-
-    fn draw_clipped_image(
+    fn draw_image(
         &mut self,
-        image: Pin<&crate::items::ClippedImage>,
+        image: Pin<&dyn RenderImage>,
         _: &ItemRc,
         size: LogicalSize,
+        _: &CachedRenderingData,
     ) {
         let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
             let source = image.source();
 
-            let source_clip_x = image.source_clip_x();
-            let source_clip_y = image.source_clip_y();
-            let source_size = source.size();
-            let mut source_clip_width = image.source_clip_width();
-            // when the source_clip size is empty, make it full
-            if source_clip_width == 0 {
-                source_clip_width = source_size.width as i32 - source_clip_x;
-            }
-            let mut source_clip_height = image.source_clip_height();
-            if source_clip_height == 0 {
-                source_clip_height = source_size.height as i32 - source_clip_y;
-            }
+            let source_clip = image
+                .source_clip()
+                .unwrap_or_else(|| euclid::Rect::new(Default::default(), source.size().cast()));
 
             self.draw_image_impl(
                 geom,
                 &source,
-                euclid::rect(source_clip_x, source_clip_y, source_clip_width, source_clip_height),
+                source_clip,
                 image.image_fit(),
                 image.colorize().color(),
             );
