@@ -37,6 +37,7 @@ fn undo(instance: &TestCase) {
 
 fn redo(instance: &TestCase) {
     ctrl_key(instance, "z", true);
+    ctrl_key(instance, "y", false); // for windows
 }
 
 let instance = TestCase::new().unwrap();
