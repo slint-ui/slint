@@ -20,7 +20,7 @@ path = "lib.rs"
 
 [features]
 
-default = ["backend-winit", "renderer-femtovg", "backend-qt", "accessibility", "compat-1-2"]
+default = ["backend-default", "renderer-femtovg", "accessibility", "compat-1-2"]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.2
@@ -73,6 +73,11 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 ## windowing system. Requires libseat. (Experimental)
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
+## Alias to a backend and renderer that depends on the platform.
+## Will select the Qt backend on linux if present, and the winit otherwise
+backend-default = ["i-slint-backend-selector/default", "i-slint-backend-qt"]
+
+
 ## Make the winit backend capable of rendering using the [femtovg](https://crates.io/crates/femtovg) crate.
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
 
@@ -124,6 +129,11 @@ spin_on = { version = "0.1", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 i-slint-backend-winit = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# this line is there to add the "enable" feature by default, but only on linux
+i-slint-backend-qt = { workspace = true, features = [ "enable" ], optional = true }
+
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }

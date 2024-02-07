@@ -15,11 +15,13 @@ categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["viewer", "gui", "ui", "toolkit"]
 
 [features]
+backend-default = ["slint-interpreter/backend-default"]
 backend-qt = ["slint-interpreter/backend-qt"]
-
 backend-winit = ["slint-interpreter/backend-winit"]
 backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
+backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
+backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
 
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
 renderer-skia = ["slint-interpreter/renderer-skia"]
@@ -39,10 +41,6 @@ renderer-winit-skia-opengl= ["renderer-skia-opengl"]
 renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
-
-backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
-backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
-
 ## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)
 ##
 ## the `@tr(...)` code from .slint files will be transformed into call to `dgettext`.
@@ -50,13 +48,13 @@ backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
 ## so that the viewer can find the translation
 gettext = ["i-slint-core/gettext-rs"]
 
-default = ["backend-qt", "backend-winit", "renderer-femtovg"]
+default = ["backend-default", "renderer-femtovg"]
 
 [dependencies]
-i-slint-compiler = { workspace = true, features = ["default"] }
-i-slint-core = { workspace = true, features = ["default"] }
+i-slint-compiler = { workspace = true }
+i-slint-core = { workspace = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility"] }
-i-slint-backend-selector = { workspace = true, features = ["default"] }
+i-slint-backend-selector = { workspace = true }
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 

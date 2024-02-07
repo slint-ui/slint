@@ -3,6 +3,7 @@
 
 // cSpell: ignore listviewitem stylemetrics
 
+#[cfg(feature = "enable")]
 fn main() {
     println!("cargo:rerun-if-env-changed=SLINT_NO_QT");
     if std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"))
@@ -58,4 +59,10 @@ fn main() {
     println!("cargo:rerun-if-changed=qt_widgets/tableheadersection.rs");
     println!("cargo:rerun-if-changed=qt_window.rs");
     println!("cargo:SUPPORTS_NATIVE_STYLE=1");
+}
+
+#[cfg(not(feature = "enable"))]
+fn main() {
+    println!("cargo:rustc-cfg=no_qt");
+    return;
 }
