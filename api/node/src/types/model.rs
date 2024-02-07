@@ -75,7 +75,7 @@ impl Model for JsModel {
                 if res.get_type().unwrap() == ValueType::Undefined {
                     None
                 } else {
-                    to_value(&self.env, res, self.data_type.clone()).ok()
+                    to_value(&self.env, res, &self.data_type).ok()
                 }
             })
     }

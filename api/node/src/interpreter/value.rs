@@ -84,7 +84,7 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
     }
 }
 
-pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
+pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
     match typ {
         Type::Float32
         | Type::Int32
@@ -230,7 +230,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                                 js_object.get_property(
                                     env.create_string(&pro_name.replace('-', "_"))?,
                                 )?,
-                                pro_ty.clone(),
+                                pro_ty,
                             )?,
                         ))
                     })
@@ -243,7 +243,7 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
                 let mut vec = vec![];
 
                 for i in 0..array.len() {
-                    vec.push(to_value(env, array.get(i)?.unwrap(), *a.to_owned())?);
+                    vec.push(to_value(env, array.get(i)?.unwrap(), a)?);
                 }
                 Ok(Value::Model(ModelRc::new(SharedVectorModel::from(SharedVector::from_slice(
                     &vec,
