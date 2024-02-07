@@ -38,14 +38,16 @@ TestCase := Rectangle {
         (type
           (builtin_type_identifier))
         (simple_identifier)
-        (value
-          (int_value)))
+        (expression
+          (value
+            (int_value))))
       (property
         (type
           (builtin_type_identifier))
         (simple_identifier)
-        (value
-          (int_value)))
+        (expression
+          (value
+            (int_value))))
       (callback
         (simple_identifier))))
   (component_definition
@@ -56,31 +58,43 @@ TestCase := Rectangle {
         (type
           (builtin_type_identifier))
         (simple_identifier)
-        (member_access
-          (simple_identifier)
-          (simple_identifier)))
+        (expression
+          (member_access
+            (expression
+              (simple_identifier))
+            (expression
+              (simple_identifier)))))
       (for_loop
         (simple_indexed_identifier
           (simple_identifier))
         (for_range
-          (value
-            (int_value)))
+          (expression
+            (value
+              (int_value))))
         (component
           (user_type_identifier)
           (block
             (property_assignment
               (simple_identifier)
-              (binary_expression
-                (parens_op
-                  (binary_expression
-                    (simple_identifier)
-                    (add_prec_operator)
-                    (member_access
-                      (simple_identifier)
-                      (simple_identifier))))
-                (mult_prec_operator)
-                (value
-                  (length_value)))))))))
+              (expression
+                (binary_expression
+                  (expression
+                    (parens_op
+                      (expression
+                        (binary_expression
+                          (expression
+                            (simple_identifier))
+                          (add_prec_operator)
+                          (expression
+                            (member_access
+                              (expression
+                                (simple_identifier))
+                              (expression
+                                (simple_identifier))))))))
+                  (mult_prec_operator)
+                  (expression
+                    (value
+                      (length_value)))))))))))
   (component_definition
     (user_type_identifier)
     (user_type_identifier)
@@ -90,43 +104,56 @@ TestCase := Rectangle {
       (callback_event
         (simple_identifier)
         (imperative_block
-          (member_access
-            (simple_identifier)
-            (function_call
-              (simple_identifier)
-              (arguments)))))
-      (component
-        (user_type_identifier)
-        (block))
-      (component
-        (simple_identifier)
-        (user_type_identifier)
-        (block))
-      (component
-        (user_type_identifier)
-        (block))
-      (property
-        (type
-          (builtin_type_identifier))
-        (simple_identifier)
-        (binary_expression
-          (binary_expression
-            (value
-              (int_value))
-            (mult_prec_operator)
+          (expression
             (member_access
-              (simple_identifier)
-              (simple_identifier)))
-          (add_prec_operator)
-          (value
-            (int_value))))
+              (expression
+                (simple_identifier))
+              (expression
+                (function_call
+                  (simple_identifier)
+                  (arguments)))))))
+      (component
+        (user_type_identifier)
+        (block))
+      (component
+        (simple_identifier)
+        (user_type_identifier)
+        (block))
+      (component
+        (user_type_identifier)
+        (block))
       (property
         (type
           (builtin_type_identifier))
         (simple_identifier)
-        (member_access
-          (simple_identifier)
-          (simple_identifier))))))
+        (expression
+          (binary_expression
+            (expression
+              (binary_expression
+                (expression
+                  (value
+                    (int_value)))
+                (mult_prec_operator)
+                (expression
+                  (member_access
+                    (expression
+                      (simple_identifier))
+                    (expression
+                      (simple_identifier))))))
+            (add_prec_operator)
+            (expression
+              (value
+                (int_value))))))
+      (property
+        (type
+          (builtin_type_identifier))
+        (simple_identifier)
+        (expression
+          (member_access
+            (expression
+              (simple_identifier))
+            (expression
+              (simple_identifier))))))))
 
 ================================================================================
 id_lookup
@@ -156,14 +183,16 @@ id_lookup
         (type
           (builtin_type_identifier))
         (simple_identifier)
-        (value
-          (int_value)))
+        (expression
+          (value
+            (int_value))))
       (property
         (type
           (builtin_type_identifier))
         (simple_identifier)
-        (value
-          (int_value)))
+        (expression
+          (value
+            (int_value))))
       (component
         (simple_identifier)
         (user_type_identifier)
@@ -172,75 +201,110 @@ id_lookup
             (type
               (builtin_type_identifier))
             (simple_identifier)
-            (value
-              (int_value)))
-          (property
-            (type
-              (builtin_type_identifier))
-            (simple_identifier)
-            (value
-              (int_value)))
-          (property
-            (type
-              (builtin_type_identifier))
-            (simple_identifier)
-            (binary_expression
-              (binary_expression
-                (binary_expression
-                  (simple_identifier)
-                  (mult_prec_operator)
-                  (value
-                    (int_value)))
-                (add_prec_operator)
-                (binary_expression
-                  (member_access
-                    (reference_identifier)
-                    (simple_identifier))
-                  (mult_prec_operator)
-                  (value
-                    (int_value))))
-              (add_prec_operator)
-              (binary_expression
-                (member_access
-                  (reference_identifier)
-                  (simple_identifier))
-                (mult_prec_operator)
-                (value
-                  (int_value)))))))
-      (property
-        (type
-          (builtin_type_identifier))
-        (simple_identifier)
-        (member_access
-          (simple_identifier)
-          (simple_identifier)))
-      (property
-        (type
-          (builtin_type_identifier))
-        (simple_identifier)
-        (binary_expression
-          (binary_expression
-            (binary_expression
-              (member_access
-                (reference_identifier)
-                (simple_identifier))
-              (mult_prec_operator)
-              (value
-                (int_value)))
-            (add_prec_operator)
-            (binary_expression
-              (member_access
-                (simple_identifier)
-                (simple_identifier))
-              (mult_prec_operator)
+            (expression
               (value
                 (int_value))))
-          (add_prec_operator)
-          (binary_expression
+          (property
+            (type
+              (builtin_type_identifier))
             (simple_identifier)
-            (mult_prec_operator)
-            (value
-              (int_value))))))))
+            (expression
+              (value
+                (int_value))))
+          (property
+            (type
+              (builtin_type_identifier))
+            (simple_identifier)
+            (expression
+              (binary_expression
+                (expression
+                  (binary_expression
+                    (expression
+                      (binary_expression
+                        (expression
+                          (simple_identifier))
+                        (mult_prec_operator)
+                        (expression
+                          (value
+                            (int_value)))))
+                    (add_prec_operator)
+                    (expression
+                      (binary_expression
+                        (expression
+                          (member_access
+                            (expression
+                              (reference_identifier))
+                            (expression
+                              (simple_identifier))))
+                        (mult_prec_operator)
+                        (expression
+                          (value
+                            (int_value)))))))
+                (add_prec_operator)
+                (expression
+                  (binary_expression
+                    (expression
+                      (member_access
+                        (expression
+                          (reference_identifier))
+                        (expression
+                          (simple_identifier))))
+                    (mult_prec_operator)
+                    (expression
+                      (value
+                        (int_value))))))))))
+      (property
+        (type
+          (builtin_type_identifier))
+        (simple_identifier)
+        (expression
+          (member_access
+            (expression
+              (simple_identifier))
+            (expression
+              (simple_identifier)))))
+      (property
+        (type
+          (builtin_type_identifier))
+        (simple_identifier)
+        (expression
+          (binary_expression
+            (expression
+              (binary_expression
+                (expression
+                  (binary_expression
+                    (expression
+                      (member_access
+                        (expression
+                          (reference_identifier))
+                        (expression
+                          (simple_identifier))))
+                    (mult_prec_operator)
+                    (expression
+                      (value
+                        (int_value)))))
+                (add_prec_operator)
+                (expression
+                  (binary_expression
+                    (expression
+                      (member_access
+                        (expression
+                          (simple_identifier))
+                        (expression
+                          (simple_identifier))))
+                    (mult_prec_operator)
+                    (expression
+                      (value
+                        (int_value)))))))
+            (add_prec_operator)
+            (expression
+              (binary_expression
+                (expression
+                  (simple_identifier))
+                (mult_prec_operator)
+                (expression
+                  (value
+                    (int_value)))))))))))
 
 ================================================================================
 rust_names
@@ -395,7 +459,7 @@ export component TestCase  {
   (enum_definition
     (user_type_identifier)
     (enum_block
-      (simple_identifier)))
+      (user_type_identifier)))
   (export)
   (struct_definition
     (user_type_identifier)
@@ -425,12 +489,12 @@ export component TestCase  {
   (enum_definition
     (user_type_identifier)
     (enum_block
-      (simple_identifier)))
+      (user_type_identifier)))
   (export)
   (enum_definition
     (user_type_identifier)
     (enum_block
-      (simple_identifier)))
+      (user_type_identifier)))
   (comment)
   (export)
   (struct_definition
@@ -443,9 +507,9 @@ export component TestCase  {
   (enum_definition
     (user_type_identifier)
     (enum_block
-      (simple_identifier)
-      (simple_identifier)
-      (simple_identifier)))
+      (user_type_identifier)
+      (user_type_identifier)
+      (user_type_identifier)))
   (export)
   (global_definition
     (user_type_identifier)
@@ -470,16 +534,21 @@ export component TestCase  {
         (type
           (user_type_identifier))
         (simple_identifier)
-        (value
-          (anon_struct_block
-            (simple_identifier)
-            (value
-              (string_value)))))
+        (expression
+          (value
+            (anon_struct_block
+              (simple_identifier)
+              (expression
+                (value
+                  (string_value)))))))
       (binding_alias
         (simple_identifier)
-        (member_access
-          (simple_identifier)
-          (simple_identifier)))))
+        (expression
+          (member_access
+            (expression
+              (simple_identifier))
+            (expression
+              (simple_identifier)))))))
   (export)
   (global_definition
     (user_type_identifier)
@@ -493,19 +562,24 @@ export component TestCase  {
         (type
           (user_type_identifier))
         (simple_identifier)
-        (member_access
-          (simple_identifier)
-          (simple_identifier)))
+        (expression
+          (member_access
+            (expression
+              (simple_identifier))
+            (expression
+              (simple_identifier)))))
       (property
         (property_visibility)
         (type
           (user_type_identifier))
         (simple_identifier)
-        (value
-          (anon_struct_block
-            (simple_identifier)
-            (value
-              (physical_length_value)))))
+        (expression
+          (value
+            (anon_struct_block
+              (simple_identifier)
+              (expression
+                (value
+                  (physical_length_value)))))))
       (component
         (simple_identifier)
         (user_type_identifier)
@@ -515,12 +589,15 @@ export component TestCase  {
         (block
           (property_assignment
             (simple_identifier)
-            (binary_expression
-              (value
-                (string_value))
-              (add_prec_operator)
-              (value
-                (int_value))))))
+            (expression
+              (binary_expression
+                (expression
+                  (value
+                    (string_value)))
+                (add_prec_operator)
+                (expression
+                  (value
+                    (int_value))))))))
       (component
         (user_type_identifier)
         (block))
@@ -530,23 +607,32 @@ export component TestCase  {
           (builtin_type_identifier))
         (simple_identifier))
       (animate_statement
-        (simple_identifier)
+        (expression
+          (simple_identifier))
         (animate_body
           (animate_option
             (animate_option_identifier)
-            (value
-              (duration_value)))))
+            (expression
+              (value
+                (duration_value))))))
       (property
         (property_visibility)
         (type
           (builtin_type_identifier))
         (simple_identifier)
-        (binary_expression
-          (member_access
-            (member_access
-              (simple_identifier)
-              (simple_identifier))
-            (simple_identifier))
-          (comparison_operator)
-          (value
-            (string_value)))))))
+        (expression
+          (binary_expression
+            (expression
+              (member_access
+                (expression
+                  (member_access
+                    (expression
+                      (simple_identifier))
+                    (expression
+                      (simple_identifier))))
+                (expression
+                  (simple_identifier))))
+            (comparison_operator)
+            (expression
+              (value
+                (string_value)))))))))
