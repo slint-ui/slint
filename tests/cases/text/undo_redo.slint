@@ -1,0 +1,76 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+TestCase := TextInput {
+    width: 100phx;
+    height: 100phx;
+    single-line: false;
+    property<string> test_text: self.text;
+    property<int> test_cursor_pos: self.cursor_position_byte_offset;
+    property<int> test_anchor_pos: self.anchor_position_byte_offset;
+    property<bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
+    property<bool> input_focused: self.has_focus;
+}
+
+/*
+```rust
+
+const BACK_CODE: char = '\u{0008}'; // backspace \b
+
+fn ctrl_key(instance: &TestCase, key: &str, shift: bool) {
+    slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
+    if shift {
+        slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
+    }
+    slint_testing::send_keyboard_string_sequence(instance, key);
+
+    // release
+    slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), false);
+    if shift {
+        slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+    }
+}
+
+fn undo(instance: &TestCase) {
+    ctrl_key(instance, "z", false);
+}
+
+fn redo(instance: &TestCase) {
+    ctrl_key(instance, "z", true);
+}
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_input_focused());
+assert_eq!(instance.get_test_text(), "");
+
+slint_testing::send_keyboard_string_sequence(&instance, "First line\nSecond line");
+assert_eq!(instance.get_test_text(), "First line\nSecond line");
+
+// undo
+undo(&instance);
+assert_eq!(instance.get_test_text(), "First line\n");
+undo(&instance);
+assert_eq!(instance.get_test_text(), "First line");
+undo(&instance);
+assert_eq!(instance.get_test_text(), "");
+
+// redo
+redo(&instance);
+assert_eq!(instance.get_test_text(), "First line");
+redo(&instance);
+assert_eq!(instance.get_test_text(), "First line\n");
+redo(&instance);
+assert_eq!(instance.get_test_text(), "First line\nSecond line");
+
+// CASE: select all -> remove -> undo -> should restore original text + selection
+ctrl_key(&instance, "a", /*shift=*/false);
+
+assert!(instance.get_has_selection());
+slint_testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+assert_eq!(instance.get_test_text(), ""); // empty
+assert!(!instance.get_has_selection()); // no selection
+undo(&instance);
+assert_eq!(instance.get_test_text(), "First line\nSecond line"); // restored
+assert!(instance.get_has_selection()); // selection should be there
+```
+*/
