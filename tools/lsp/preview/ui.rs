@@ -33,7 +33,7 @@ pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
     ui.set_known_styles(style_model.into());
     ui.set_current_style(style.clone().into());
     ui.set_experimental(
-        std::env::var_os("SLINT_PREVIEW_ENABLE_EXPERIMENTAL_FEATURES")
+        std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES")
             .map(|s| !s.is_empty() && s != "0")
             .unwrap_or(false),
     );
