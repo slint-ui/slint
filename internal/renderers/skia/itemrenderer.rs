@@ -153,7 +153,7 @@ impl<'a> SkiaItemRenderer<'a> {
         &mut self,
         item_rc: &ItemRc,
         item: Pin<&dyn RenderImage>,
-        mut dest_rect: PhysicalRect,
+        dest_rect: PhysicalRect,
     ) {
         // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
         let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
@@ -182,24 +182,23 @@ impl<'a> SkiaItemRenderer<'a> {
 
         self.canvas.save();
 
-        let mut source_rect = item.source_clip().map_or_else(
-            || skia_safe::Rect::from_wh(skia_image.width() as _, skia_image.height() as _),
-            |r| {
-                skia_safe::Rect::from_xywh(
-                    r.min_x() as _,
-                    r.min_y() as _,
-                    r.width() as _,
-                    r.height() as _,
-                )
-            },
+        let fit = i_slint_core::graphics::fit(
+            item.image_fit(),
+            dest_rect.size,
+            item.source_clip()
+                .unwrap_or_else(|| euclid::rect(0, 0, skia_image.width(), skia_image.height())),
+            self.scale_factor,
         );
-        adjust_to_image_fit(item.image_fit(), &mut source_rect, &mut dest_rect);
 
-        self.canvas.clip_rect(to_skia_rect(&dest_rect), None, None);
-
-        let transform =
-            skia_safe::Matrix::rect_to_rect(source_rect, to_skia_rect(&dest_rect), None)
-                .unwrap_or_default();
+        let dst = to_skia_rect(&PhysicalRect::new(fit.offset, fit.size));
+        self.canvas.clip_rect(dst, None, None);
+        let src = skia_safe::Rect::from_xywh(
+            fit.clip_rect.origin.cast().x,
+            fit.clip_rect.origin.cast().y,
+            fit.clip_rect.size.cast().width,
+            fit.clip_rect.size.cast().height,
+        );
+        let transform = skia_safe::Matrix::rect_to_rect(src, dst, None).unwrap_or_default();
         self.canvas.concat(&transform);
 
         let filter_mode: skia_safe::sampling_options::SamplingOptions = match item.rendering() {
@@ -876,39 +875,4 @@ fn adjust_rect_and_border_for_inner_drawing(
 
     rect.origin += PhysicalSize::from_lengths(*border_width / 2., *border_width / 2.);
     rect.size -= PhysicalSize::from_lengths(*border_width, *border_width);
-}
-
-/// Changes the source or the destination rectangle to respect the image fit
-fn adjust_to_image_fit(
-    image_fit: ImageFit,
-    source_rect: &mut skia_safe::Rect,
-    dest_rect: &mut PhysicalRect,
-) {
-    match image_fit {
-        ImageFit::Fill => (),
-        ImageFit::Cover => {
-            let ratio = (dest_rect.width() / source_rect.width())
-                .max(dest_rect.height() / source_rect.height());
-            if source_rect.width() > dest_rect.width() / ratio {
-                source_rect.left += (source_rect.width() - dest_rect.width() / ratio) / 2.;
-                source_rect.right = source_rect.left + dest_rect.width() / ratio;
-            }
-            if source_rect.height() > dest_rect.height() / ratio {
-                source_rect.top += (source_rect.height() - dest_rect.height() / ratio) / 2.;
-                source_rect.bottom = source_rect.top + dest_rect.height() / ratio;
-            }
-        }
-        ImageFit::Contain => {
-            let ratio = (dest_rect.width() / source_rect.width())
-                .min(dest_rect.height() / source_rect.height());
-            if dest_rect.width() > source_rect.width() * ratio {
-                dest_rect.origin.x += (dest_rect.width() - source_rect.width() * ratio) / 2.;
-                dest_rect.size.width = source_rect.width() * ratio;
-            }
-            if dest_rect.height() > source_rect.height() * ratio {
-                dest_rect.origin.y += (dest_rect.height() - source_rect.height() * ratio) / 2.;
-                dest_rect.size.height = source_rect.height() * ratio;
-            }
-        }
-    };
 }

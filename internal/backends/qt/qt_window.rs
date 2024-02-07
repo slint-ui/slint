@@ -4,11 +4,12 @@
 // cSpell: ignore frameless qbrush qpointf qreal qwidgetsize svgz
 
 use cpp::*;
-use euclid::approxeq::ApproxEq;
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
-use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Point, SharedImageBuffer};
+use i_slint_core::graphics::{
+    euclid, Brush, Color, FontRequest, IntRect, Point, SharedImageBuffer,
+};
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
@@ -26,7 +27,7 @@ use i_slint_core::lengths::{
 use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use i_slint_core::{ImageInner, Property, SharedString};
-use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
+use items::{TextHorizontalAlignment, TextVerticalAlignment};
 
 use std::cell::RefCell;
 use std::pin::Pin;
@@ -636,8 +637,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         size: LogicalSize,
         _: &CachedRenderingData,
     ) {
-        let dest_rect: qttypes::QRectF = check_geometry!(size);
-        self.draw_image_impl(item_rc, dest_rect, image);
+        self.draw_image_impl(item_rc, size, image);
     }
 
     fn draw_text(&mut self, text: std::pin::Pin<&items::Text>, _: &ItemRc, size: LogicalSize) {
@@ -1184,58 +1184,16 @@ pub(crate) fn image_to_pixmap(
     shared_image_buffer_to_pixmap(&image.render_to_buffer(source_size)?)
 }
 
-/// Changes the source or the destination rectangle to respect the image fit
-fn adjust_to_image_fit(
-    image_fit: ImageFit,
-    source_rect: &mut qttypes::QRectF,
-    dest_rect: &mut qttypes::QRectF,
-) {
-    match image_fit {
-        i_slint_core::items::ImageFit::Fill => (),
-        i_slint_core::items::ImageFit::Cover => {
-            let ratio = qttypes::qreal::max(
-                dest_rect.width / source_rect.width,
-                dest_rect.height / source_rect.height,
-            );
-            if source_rect.width > dest_rect.width / ratio {
-                source_rect.x += (source_rect.width - dest_rect.width / ratio) / 2.;
-                source_rect.width = dest_rect.width / ratio;
-            }
-            if source_rect.height > dest_rect.height / ratio {
-                source_rect.y += (source_rect.height - dest_rect.height / ratio) / 2.;
-                source_rect.height = dest_rect.height / ratio;
-            }
-        }
-        i_slint_core::items::ImageFit::Contain => {
-            let ratio = qttypes::qreal::min(
-                dest_rect.width / source_rect.width,
-                dest_rect.height / source_rect.height,
-            );
-            if dest_rect.width > source_rect.width * ratio {
-                dest_rect.x += (dest_rect.width - source_rect.width * ratio) / 2.;
-                dest_rect.width = source_rect.width * ratio;
-            }
-            if dest_rect.height > source_rect.height * ratio {
-                dest_rect.y += (dest_rect.height - source_rect.height * ratio) / 2.;
-                dest_rect.height = source_rect.height * ratio;
-            }
-        }
-    };
-}
-
 impl QtItemRenderer<'_> {
     fn draw_image_impl(
         &mut self,
         item_rc: &ItemRc,
-        dest_rect: qttypes::QRectF,
+        size: LogicalSize,
         image: Pin<&dyn i_slint_core::item_rendering::RenderImage>,
     ) {
-        let source_rect = image.source_clip().map(|r| qttypes::QRectF {
-            x: r.min_x() as _,
-            y: r.min_y() as _,
-            width: r.width() as _,
-            height: r.height() as _,
-        });
+        let dest_rect: qttypes::QRectF = check_geometry!(size);
+
+        let source_rect = image.source_clip();
 
         let pixmap: qttypes::QPixmap = self.cache.get_or_update_cache_entry(item_rc, || {
             let source = image.source();
@@ -1243,23 +1201,29 @@ impl QtItemRenderer<'_> {
             let source: &ImageInner = (&source).into();
 
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-            let t = (image.target_size() * ScaleFactor::new(self.scale_factor())).cast();
+            let scale_factor = ScaleFactor::new(self.scale_factor());
+            let t = (image.target_size() * scale_factor).cast();
 
             let source_size = if source.is_svg() {
                 let has_source_clipping = source_rect.map_or(false, |rect| {
-                    rect.is_valid()
-                        && (rect.x != 0.
-                            || rect.y != 0.
-                            || !rect.width.approx_eq(&t.width)
-                            || !rect.height.approx_eq(&t.height))
+                    rect.origin.x != 0
+                        || rect.origin.y != 0
+                        || !rect.size.width != t.width
+                        || !rect.size.height != t.height
                 });
                 if has_source_clipping {
                     // Source size & clipping is not implemented yet
                     None
                 } else {
                     Some(
-                        i_slint_core::graphics::fit_size(image.image_fit(), t.cast(), origin)
-                            .cast(),
+                        i_slint_core::graphics::fit(
+                            image.image_fit(),
+                            t.cast(),
+                            IntRect::from_size(origin.cast()),
+                            scale_factor,
+                        )
+                        .size
+                        .cast(),
                     )
                 }
             } else {
@@ -1285,14 +1249,29 @@ impl QtItemRenderer<'_> {
         });
 
         let image_size = pixmap.size();
-        let mut source_rect = source_rect.filter(|r| r.is_valid()).unwrap_or(qttypes::QRectF {
-            x: 0.,
-            y: 0.,
-            width: image_size.width as _,
-            height: image_size.height as _,
-        });
-        let mut dest_rect = dest_rect;
-        adjust_to_image_fit(image.image_fit(), &mut source_rect, &mut dest_rect);
+        let source_rect = source_rect
+            .unwrap_or_else(|| euclid::rect(0, 0, image_size.width as _, image_size.height as _));
+        let scale_factor = ScaleFactor::new(self.scale_factor());
+        let fit = i_slint_core::graphics::fit(
+            image.image_fit(),
+            size * scale_factor,
+            source_rect,
+            scale_factor,
+        );
+
+        let dest_rect = qttypes::QRectF {
+            x: fit.offset.x as _,
+            y: fit.offset.y as _,
+            width: fit.size.width as _,
+            height: fit.size.height as _,
+        };
+        let source_rect = qttypes::QRectF {
+            x: fit.clip_rect.origin.x as _,
+            y: fit.clip_rect.origin.y as _,
+            width: fit.clip_rect.size.width as _,
+            height: fit.clip_rect.size.height as _,
+        };
+
         let painter: &mut QPainterPtr = &mut self.painter;
         let smooth: bool = image.rendering() == ImageRendering::Smooth;
         cpp! { unsafe [

@@ -5,7 +5,7 @@
 This module contains image decoding and caching related types for the run-time library.
 */
 
-use crate::lengths::PhysicalPx;
+use crate::lengths::{PhysicalPx, ScaleFactor};
 use crate::slice::Slice;
 use crate::{SharedString, SharedVector};
 
@@ -807,19 +807,68 @@ fn test_image_invalid_svg() {
     assert!(result.is_err());
 }
 
+/// The result of the fit function
+pub struct FitResult {
+    /// The clip rect in the source image (in source image coordinate)
+    pub clip_rect: IntRect,
+    /// The scale to apply to go from the source to the target horizontally
+    pub source_to_target_x: f32,
+    /// The scale to apply to go from the source to the target vertically
+    pub source_to_target_y: f32,
+    /// The size of the target
+    pub size: euclid::Size2D<f32, PhysicalPx>,
+    /// The offset in the target in which we draw the image
+    pub offset: euclid::Point2D<f32, PhysicalPx>,
+}
+
 /// Return an size that can be used to render an image in a buffer that matches a given ImageFit
-pub fn fit_size(
+pub fn fit(
     image_fit: ImageFit,
     target: euclid::Size2D<f32, PhysicalPx>,
-    origin: IntSize,
-) -> euclid::Size2D<f32, PhysicalPx> {
-    let o = origin.cast::<f32>();
+    mut source_rect: IntRect,
+    scale_factor: ScaleFactor,
+) -> FitResult {
+    let o = source_rect.size.cast::<f32>();
+    let mut offset = Default::default();
     let ratio = match image_fit {
-        ImageFit::Fill => return target,
+        ImageFit::Fill => {
+            return FitResult {
+                clip_rect: source_rect,
+                source_to_target_x: target.width / o.width,
+                source_to_target_y: target.height / o.height,
+                size: target,
+                offset,
+            }
+        }
         ImageFit::Contain => f32::min(target.width / o.width, target.height / o.height),
         ImageFit::Cover => f32::max(target.width / o.width, target.height / o.height),
+        ImageFit::Preserve => scale_factor.get(),
     };
-    euclid::Size2D::from_untyped(o * ratio)
+
+    let mut size = euclid::Size2D::from_untyped(o * ratio);
+    if (o.width as f32) > target.width / ratio {
+        let diff = (o.width as f32 - target.width / ratio) as i32;
+        source_rect.origin.x += diff / 2;
+        source_rect.size.width -= diff;
+        size.width = target.width;
+    } else if (o.width as f32) < target.width / ratio {
+        offset.x = (target.width - o.width as f32 * ratio) / 2.;
+    }
+    if (o.height as f32) > target.height / ratio {
+        let diff = (o.height as f32 - target.height / ratio) as i32;
+        source_rect.origin.y += diff / 2;
+        source_rect.size.height -= diff;
+        size.height = target.height;
+    } else if (o.height as f32) < target.height / ratio {
+        offset.y = (target.height - o.height as f32 * ratio) / 2.;
+    }
+    FitResult {
+        clip_rect: source_rect,
+        source_to_target_x: ratio,
+        source_to_target_y: ratio,
+        size,
+        offset,
+    }
 }
 
 #[cfg(feature = "ffi")]
