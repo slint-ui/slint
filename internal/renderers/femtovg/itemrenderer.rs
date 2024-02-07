@@ -10,9 +10,9 @@ use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
-use i_slint_core::graphics::{Image, IntRect, Point, Size};
+use i_slint_core::graphics::{IntRect, Point, Size};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle,
+    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult,
@@ -23,7 +23,7 @@ use i_slint_core::lengths::{
     PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
 use i_slint_core::window::WindowInner;
-use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
+use i_slint_core::{Brush, Color, ImageInner, SharedString};
 
 use super::images::{Texture, TextureCacheKey};
 use super::PhysicalSize;
@@ -284,40 +284,14 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         }
     }
 
-    fn draw_image(&mut self, image: Pin<&items::ImageItem>, item_rc: &ItemRc, _size: LogicalSize) {
-        self.draw_image_impl(
-            item_rc,
-            items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
-            IntRect::default(),
-            items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
-            items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
-            image.image_fit(),
-            items::ImageItem::FIELD_OFFSETS.colorize.apply_pin(image),
-            image.image_rendering(),
-        );
-    }
-
-    fn draw_clipped_image(
+    fn draw_image(
         &mut self,
-        clipped_image: Pin<&items::ClippedImage>,
+        image: Pin<&dyn RenderImage>,
         item_rc: &ItemRc,
-        _size: LogicalSize,
+        size: LogicalSize,
+        _cache: &CachedRenderingData,
     ) {
-        let source_clip_rect = IntRect::new(
-            [clipped_image.source_clip_x(), clipped_image.source_clip_y()].into(),
-            [clipped_image.source_clip_width(), clipped_image.source_clip_height()].into(),
-        );
-
-        self.draw_image_impl(
-            item_rc,
-            items::ClippedImage::FIELD_OFFSETS.source.apply_pin(clipped_image),
-            source_clip_rect,
-            items::ClippedImage::FIELD_OFFSETS.width.apply_pin(clipped_image),
-            items::ClippedImage::FIELD_OFFSETS.height.apply_pin(clipped_image),
-            clipped_image.image_fit(),
-            items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(clipped_image),
-            clipped_image.image_rendering(),
-        );
+        self.draw_image_impl(item_rc, image, size);
     }
 
     fn draw_text(&mut self, text: Pin<&items::Text>, _: &ItemRc, size: LogicalSize) {
@@ -1224,10 +1198,9 @@ impl<'a> GLItemRenderer<'a> {
     fn colorize_image(
         &self,
         original_cache_entry: ItemGraphicsCacheEntry,
-        colorize_property: Pin<&Property<Brush>>,
+        colorize_brush: Brush,
         scaling: ImageRendering,
     ) -> ItemGraphicsCacheEntry {
-        let colorize_brush = colorize_property.get();
         if colorize_brush.is_transparent() {
             return original_cache_entry;
         };
@@ -1303,24 +1276,16 @@ impl<'a> GLItemRenderer<'a> {
     fn draw_image_impl(
         &mut self,
         item_rc: &ItemRc,
-        source_property: Pin<&Property<Image>>,
-        source_clip_rect: IntRect,
-        target_width: Pin<&Property<LogicalLength>>,
-        target_height: Pin<&Property<LogicalLength>>,
-        image_fit: ImageFit,
-        colorize_property: Pin<&Property<Brush>>,
-        image_rendering: ImageRendering,
+        item: Pin<&dyn RenderImage>,
+        size: LogicalSize,
     ) {
-        let target_w = target_width.get() * self.scale_factor;
-        let target_h = target_height.get() * self.scale_factor;
-
-        if target_w.get() <= 0. || target_h.get() <= 0. {
+        if size.width <= 0. || size.height <= 0. {
             return;
         }
 
         let cached_image = loop {
             let image_cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
-                let image = source_property.get();
+                let image = item.source();
                 let image_inner: &ImageInner = (&image).into();
 
                 let target_size_for_scalable_source = if image_inner.is_svg() {
@@ -1328,13 +1293,13 @@ impl<'a> GLItemRenderer<'a> {
                     if image_size.is_empty() {
                         return None;
                     }
-                    let t = LogicalSize::from_lengths(target_width.get(), target_height.get())
-                        * self.scale_factor;
-
-                    Some(i_slint_core::graphics::fit_size(image_fit, t, image_size).cast())
+                    let t = item.target_size() * self.scale_factor;
+                    Some(i_slint_core::graphics::fit_size(item.image_fit(), t, image_size).cast())
                 } else {
                     None
                 };
+
+                let image_rendering = item.rendering();
 
                 TextureCacheKey::new(image_inner, target_size_for_scalable_source, image_rendering)
                     .and_then(|cache_key| {
@@ -1360,7 +1325,7 @@ impl<'a> GLItemRenderer<'a> {
                     })
                     .map(ItemGraphicsCacheEntry::Texture)
                     .map(|cache_entry| {
-                        self.colorize_image(cache_entry, colorize_property, image_rendering)
+                        self.colorize_image(cache_entry, item.colorize(), image_rendering)
                     })
             });
 
@@ -1376,7 +1341,7 @@ impl<'a> GLItemRenderer<'a> {
             // It's possible that our item cache contains an image but it's not colorized yet because it was only
             // placed there via the `image_size` function (which doesn't colorize). So we may have to invalidate our
             // item cache and try again.
-            if !cached_image.is_colorized_image() && !colorize_property.get().is_transparent() {
+            if !cached_image.is_colorized_image() && !item.colorize().is_transparent() {
                 self.graphics_cache.release(item_rc);
                 continue;
             }
@@ -1385,43 +1350,41 @@ impl<'a> GLItemRenderer<'a> {
         };
 
         let image_id = cached_image.id;
-        let image_size = cached_image.size().unwrap_or_default().cast();
+        let image_size = cached_image.size().unwrap_or_default();
+        let source_clip_rect = item.source_clip().unwrap_or(IntRect::from_size(image_size.cast()));
 
-        let (source_width, source_height) = if source_clip_rect.is_empty() {
-            (image_size.width, image_size.height)
-        } else {
-            (source_clip_rect.width() as _, source_clip_rect.height() as _)
-        };
-
+        let (source_width, source_height) =
+            (source_clip_rect.width() as _, source_clip_rect.height() as _);
         let mut source_x = source_clip_rect.min_x() as f32;
         let mut source_y = source_clip_rect.min_y() as f32;
+        let (target_w, target_h) = (size * self.scale_factor).into();
 
         let mut image_fit_offset = Point::default();
 
         // The source_to_target scale is applied to the paint that holds the image as well as path
         // begin rendered.
-        let (source_to_target_scale_x, source_to_target_scale_y) = match image_fit {
-            ImageFit::Fill => (target_w.get() / source_width, target_h.get() / source_height),
+        let (source_to_target_scale_x, source_to_target_scale_y) = match item.image_fit() {
+            ImageFit::Fill => (target_w / source_width, target_h / source_height),
             ImageFit::Cover => {
-                let ratio = f32::max(target_w.get() / source_width, target_h.get() / source_height);
+                let ratio = f32::max(target_w / source_width, target_h / source_height);
 
-                if source_width > target_w.get() / ratio {
-                    source_x += (source_width - target_w.get() / ratio) / 2.;
+                if source_width > target_w / ratio {
+                    source_x += (source_width - target_w / ratio) / 2.;
                 }
-                if source_height > target_h.get() / ratio {
-                    source_y += (source_height - target_h.get() / ratio) / 2.
+                if source_height > target_h / ratio {
+                    source_y += (source_height - target_h / ratio) / 2.
                 }
 
                 (ratio, ratio)
             }
             ImageFit::Contain => {
-                let ratio = f32::min(target_w.get() / source_width, target_h.get() / source_height);
+                let ratio = f32::min(target_w / source_width, target_h / source_height);
 
-                if source_width < target_w.get() / ratio {
-                    image_fit_offset.x = (target_w.get() - source_width * ratio) / 2.;
+                if source_width < target_w / ratio {
+                    image_fit_offset.x = (target_w - source_width * ratio) / 2.;
                 }
-                if source_height < target_h.get() / ratio {
-                    image_fit_offset.y = (target_h.get() - source_height * ratio) / 2.
+                if source_height < target_h / ratio {
+                    image_fit_offset.y = (target_h - source_height * ratio) / 2.
                 }
 
                 (ratio, ratio)
@@ -1432,8 +1395,8 @@ impl<'a> GLItemRenderer<'a> {
             image_id,
             -source_x,
             -source_y,
-            image_size.width,
-            image_size.height,
+            image_size.cast().width,
+            image_size.cast().height,
             0.0,
             1.0,
         )

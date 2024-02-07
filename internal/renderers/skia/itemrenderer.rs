@@ -9,14 +9,14 @@ use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, P
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
-use i_slint_core::item_rendering::{CachedRenderingData, ItemCache, ItemRenderer};
+use i_slint_core::item_rendering::{CachedRenderingData, ItemCache, ItemRenderer, RenderImage};
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
     LogicalVector, PhysicalPx, RectLengths, ScaleFactor, SizeLengths,
 };
 use i_slint_core::window::WindowInner;
-use i_slint_core::{items, Brush, Color, Property};
+use i_slint_core::{Brush, Color};
 
 pub type SkiaBoxShadowCache = BoxShadowCache<skia_safe::Image>;
 
@@ -152,27 +152,21 @@ impl<'a> SkiaItemRenderer<'a> {
     fn draw_image_impl(
         &mut self,
         item_rc: &ItemRc,
-        source_property: Pin<&Property<i_slint_core::graphics::Image>>,
+        item: Pin<&dyn RenderImage>,
         mut dest_rect: PhysicalRect,
-        source_rect: Option<skia_safe::Rect>,
-        target_width: std::pin::Pin<&Property<LogicalLength>>,
-        target_height: std::pin::Pin<&Property<LogicalLength>>,
-        image_fit: ImageFit,
-        rendering: ImageRendering,
-        colorize_property: Pin<&Property<Brush>>,
     ) {
         // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
         let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
-            let image = source_property.get();
+            let image = item.source();
             super::cached_image::as_skia_image(
                 image,
-                &|| (target_width.get(), target_height.get()),
-                image_fit,
+                &|| item.target_size(),
+                item.image_fit(),
                 self.scale_factor,
                 self.canvas,
             )
             .and_then(|skia_image| {
-                let brush = colorize_property.get();
+                let brush = item.colorize();
                 if !brush.is_transparent() {
                     self.colorize_image(skia_image, brush)
                 } else {
@@ -188,10 +182,18 @@ impl<'a> SkiaItemRenderer<'a> {
 
         self.canvas.save();
 
-        let mut source_rect = source_rect.filter(|r| !r.is_empty()).unwrap_or_else(|| {
-            skia_safe::Rect::from_wh(skia_image.width() as _, skia_image.height() as _)
-        });
-        adjust_to_image_fit(image_fit, &mut source_rect, &mut dest_rect);
+        let mut source_rect = item.source_clip().map_or_else(
+            || skia_safe::Rect::from_wh(skia_image.width() as _, skia_image.height() as _),
+            |r| {
+                skia_safe::Rect::from_xywh(
+                    r.min_x() as _,
+                    r.min_y() as _,
+                    r.width() as _,
+                    r.height() as _,
+                )
+            },
+        );
+        adjust_to_image_fit(item.image_fit(), &mut source_rect, &mut dest_rect);
 
         self.canvas.clip_rect(to_skia_rect(&dest_rect), None, None);
 
@@ -200,7 +202,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 .unwrap_or_default();
         self.canvas.concat(&transform);
 
-        let filter_mode: skia_safe::sampling_options::SamplingOptions = match rendering {
+        let filter_mode: skia_safe::sampling_options::SamplingOptions = match item.rendering() {
             ImageRendering::Smooth => skia_safe::sampling_options::FilterMode::Linear,
             ImageRendering::Pixelated => skia_safe::sampling_options::FilterMode::Nearest,
         }
@@ -381,57 +383,16 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
 
     fn draw_image(
         &mut self,
-        image: std::pin::Pin<&i_slint_core::items::ImageItem>,
-        self_rc: &i_slint_core::items::ItemRc,
+        image: Pin<&dyn RenderImage>,
+        self_rc: &ItemRc,
         size: LogicalSize,
+        _cache: &CachedRenderingData,
     ) {
         let geometry = PhysicalRect::from(size * self.scale_factor);
         if geometry.is_empty() {
             return;
         }
-
-        self.draw_image_impl(
-            self_rc,
-            i_slint_core::items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
-            geometry,
-            None,
-            items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
-            items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
-            image.image_fit(),
-            image.image_rendering(),
-            items::ImageItem::FIELD_OFFSETS.colorize.apply_pin(image),
-        );
-    }
-
-    fn draw_clipped_image(
-        &mut self,
-        image: std::pin::Pin<&i_slint_core::items::ClippedImage>,
-        self_rc: &i_slint_core::items::ItemRc,
-        size: LogicalSize,
-    ) {
-        let geometry = PhysicalRect::from(size * self.scale_factor);
-        if geometry.is_empty() {
-            return;
-        }
-
-        let source_rect = skia_safe::Rect::from_xywh(
-            image.source_clip_x() as _,
-            image.source_clip_y() as _,
-            image.source_clip_width() as _,
-            image.source_clip_height() as _,
-        );
-
-        self.draw_image_impl(
-            self_rc,
-            i_slint_core::items::ClippedImage::FIELD_OFFSETS.source.apply_pin(image),
-            geometry,
-            Some(source_rect),
-            items::ClippedImage::FIELD_OFFSETS.width.apply_pin(image),
-            items::ClippedImage::FIELD_OFFSETS.height.apply_pin(image),
-            image.image_fit(),
-            image.image_rendering(),
-            items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(image),
-        );
+        self.draw_image_impl(self_rc, image, geometry);
     }
 
     fn draw_text(
@@ -803,10 +764,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
         let skia_image = super::cached_image::as_skia_image(
             image.clone(),
-            &|| {
-                let size = image.size();
-                (LogicalLength::new(size.width as _), LogicalLength::new(size.height as _))
-            },
+            &|| LogicalSize::from_untyped(image.size().cast()),
             ImageFit::Fill,
             self.scale_factor,
             self.canvas,

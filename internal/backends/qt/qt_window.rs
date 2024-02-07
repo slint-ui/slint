@@ -5,14 +5,13 @@
 
 use cpp::*;
 use euclid::approxeq::ApproxEq;
-use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
-use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Image, Point, SharedImageBuffer};
+use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Point, SharedImageBuffer};
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle,
+    CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
 };
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
@@ -630,45 +629,15 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn draw_image(&mut self, image: Pin<&items::ImageItem>, item_rc: &ItemRc, size: LogicalSize) {
-        let dest_rect: qttypes::QRectF = check_geometry!(size);
-        self.draw_image_impl(
-            item_rc,
-            items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
-            dest_rect,
-            None,
-            items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
-            items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
-            image.image_fit(),
-            image.image_rendering(),
-            items::ImageItem::FIELD_OFFSETS.colorize.apply_pin(image),
-        );
-    }
-
-    fn draw_clipped_image(
+    fn draw_image(
         &mut self,
-        image: Pin<&items::ClippedImage>,
+        image: Pin<&dyn RenderImage>,
         item_rc: &ItemRc,
         size: LogicalSize,
+        _: &CachedRenderingData,
     ) {
         let dest_rect: qttypes::QRectF = check_geometry!(size);
-        let source_rect = qttypes::QRectF {
-            x: image.source_clip_x() as _,
-            y: image.source_clip_y() as _,
-            width: image.source_clip_width() as _,
-            height: image.source_clip_height() as _,
-        };
-        self.draw_image_impl(
-            item_rc,
-            items::ClippedImage::FIELD_OFFSETS.source.apply_pin(image),
-            dest_rect,
-            Some(source_rect),
-            items::ClippedImage::FIELD_OFFSETS.width.apply_pin(image),
-            items::ClippedImage::FIELD_OFFSETS.height.apply_pin(image),
-            image.image_fit(),
-            image.image_rendering(),
-            items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(image),
-        );
+        self.draw_image_impl(item_rc, dest_rect, image);
     }
 
     fn draw_text(&mut self, text: std::pin::Pin<&items::Text>, _: &ItemRc, size: LogicalSize) {
@@ -1258,27 +1227,23 @@ impl QtItemRenderer<'_> {
     fn draw_image_impl(
         &mut self,
         item_rc: &ItemRc,
-        source_property: Pin<&Property<Image>>,
         dest_rect: qttypes::QRectF,
-        source_rect: Option<qttypes::QRectF>,
-        target_width: std::pin::Pin<&Property<LogicalLength>>,
-        target_height: std::pin::Pin<&Property<LogicalLength>>,
-        image_fit: ImageFit,
-        rendering: ImageRendering,
-        colorize_property: Pin<&Property<Brush>>,
+        image: Pin<&dyn i_slint_core::item_rendering::RenderImage>,
     ) {
-        // Caller ensured that zero/negative width/height resulted in an early return via get_geometry!.
-        debug_assert!(target_width.get() > LogicalLength::zero());
-        debug_assert!(target_height.get() > LogicalLength::zero());
+        let source_rect = image.source_clip().map(|r| qttypes::QRectF {
+            x: r.min_x() as _,
+            y: r.min_y() as _,
+            width: r.width() as _,
+            height: r.height() as _,
+        });
 
         let pixmap: qttypes::QPixmap = self.cache.get_or_update_cache_entry(item_rc, || {
-            let source = source_property.get();
+            let source = image.source();
             let origin = source.size();
             let source: &ImageInner = (&source).into();
 
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-            let t =
-                euclid::size2(target_width.get().get(), target_height.get().get()).cast::<f64>();
+            let t = (image.target_size() * ScaleFactor::new(self.scale_factor())).cast();
 
             let source_size = if source.is_svg() {
                 let has_source_clipping = source_rect.map_or(false, |rect| {
@@ -1292,7 +1257,10 @@ impl QtItemRenderer<'_> {
                     // Source size & clipping is not implemented yet
                     None
                 } else {
-                    Some(i_slint_core::graphics::fit_size(image_fit, t.cast(), origin).cast())
+                    Some(
+                        i_slint_core::graphics::fit_size(image.image_fit(), t.cast(), origin)
+                            .cast(),
+                    )
                 }
             } else {
                 None
@@ -1301,7 +1269,7 @@ impl QtItemRenderer<'_> {
             image_to_pixmap(source, source_size).map_or_else(
                 Default::default,
                 |mut pixmap: qttypes::QPixmap| {
-                    let colorize = colorize_property.get();
+                    let colorize = image.colorize();
                     if !colorize.is_transparent() {
                         let brush: qttypes::QBrush =
                             into_qbrush(colorize, dest_rect.width, dest_rect.height);
@@ -1324,9 +1292,9 @@ impl QtItemRenderer<'_> {
             height: image_size.height as _,
         });
         let mut dest_rect = dest_rect;
-        adjust_to_image_fit(image_fit, &mut source_rect, &mut dest_rect);
+        adjust_to_image_fit(image.image_fit(), &mut source_rect, &mut dest_rect);
         let painter: &mut QPainterPtr = &mut self.painter;
-        let smooth: bool = rendering == ImageRendering::Smooth;
+        let smooth: bool = image.rendering() == ImageRendering::Smooth;
         cpp! { unsafe [
                 painter as "QPainterPtr*",
                 pixmap as "QPixmap",

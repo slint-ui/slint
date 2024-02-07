@@ -12,8 +12,8 @@ use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
 };
-use crate::item_rendering::CachedRenderingData;
 use crate::item_rendering::ItemRenderer;
+use crate::item_rendering::{CachedRenderingData, RenderImage};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalSize};
 #[cfg(feature = "rtti")]
@@ -102,8 +102,34 @@ impl Item for ImageItem {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult {
-        (*backend).draw_image(self, self_rc, size);
+        (*backend).draw_image(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
+    }
+}
+
+impl RenderImage for ImageItem {
+    fn target_size(self: Pin<&Self>) -> LogicalSize {
+        LogicalSize::from_lengths(self.width(), self.height())
+    }
+
+    fn source(self: Pin<&Self>) -> crate::graphics::Image {
+        self.source()
+    }
+
+    fn source_clip(self: Pin<&Self>) -> Option<crate::graphics::IntRect> {
+        None
+    }
+
+    fn image_fit(self: Pin<&Self>) -> ImageFit {
+        self.image_fit()
+    }
+
+    fn rendering(self: Pin<&Self>) -> ImageRendering {
+        self.image_rendering()
+    }
+
+    fn colorize(self: Pin<&Self>) -> Brush {
+        self.colorize()
     }
 }
 
@@ -199,8 +225,39 @@ impl Item for ClippedImage {
         self_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult {
-        (*backend).draw_clipped_image(self, self_rc, size);
+        (*backend).draw_image(self, self_rc, size, &self.cached_rendering_data);
         RenderingResult::ContinueRenderingChildren
+    }
+}
+
+impl RenderImage for ClippedImage {
+    fn target_size(self: Pin<&Self>) -> LogicalSize {
+        LogicalSize::from_lengths(self.width(), self.height())
+    }
+
+    fn source(self: Pin<&Self>) -> crate::graphics::Image {
+        self.source()
+    }
+
+    fn source_clip(self: Pin<&Self>) -> Option<crate::graphics::IntRect> {
+        Some(euclid::rect(
+            self.source_clip_x(),
+            self.source_clip_y(),
+            self.source_clip_width(),
+            self.source_clip_height(),
+        ))
+    }
+
+    fn image_fit(self: Pin<&Self>) -> ImageFit {
+        self.image_fit()
+    }
+
+    fn rendering(self: Pin<&Self>) -> ImageRendering {
+        self.image_rendering()
+    }
+
+    fn colorize(self: Pin<&Self>) -> Brush {
+        self.colorize()
     }
 }
 
