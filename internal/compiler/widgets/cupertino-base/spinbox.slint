@@ -86,7 +86,7 @@ export component SpinBox {
     out property <bool> has-focus <=> i-base.has-focus;
     in-out property <int> value <=> i-base.value;
 
-    callback edited(int /* value */);
+    callback edited <=> i-base.edited;
 
     private property <brush> background: CupertinoPalette.control-background;
 
