@@ -482,6 +482,31 @@ test("MapModel", (t) => {
   t.is(checkModel.rowData(2), "Tisch, Roman");
 })
 
+test("MapModel undefined rowData sourcemodel", (t) => {
+  const nameModel: ArrayModel<Number> = new ArrayModel([
+    1, 2, 3
+  ]);
+
+  let mapFunctionCallCount = 0;
+  const mapModel = new private_api.MapModel<Number, String>(
+    nameModel,
+    (data) => {
+      mapFunctionCallCount++;
+      return data.toString();
+    }
+  );
+
+  for (let i = 0; i < mapModel.rowCount(); ++i) {
+    mapModel.rowData(i);
+  }
+  t.deepEqual(mapFunctionCallCount, mapModel.rowCount());
+  mapFunctionCallCount = 0;
+  t.is(nameModel.rowData(nameModel.rowCount()), undefined);
+  t.deepEqual(mapFunctionCallCount, 0);
+  t.is(mapModel.rowData(mapModel.rowCount()), undefined);
+  t.deepEqual(mapFunctionCallCount, 0);
+})
+
 test('ArrayModel rowCount', (t) => {
   let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`

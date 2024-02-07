@@ -502,8 +502,12 @@ export class MapModel<T, U> extends Model<U> {
      * @param row index in range 0..(rowCount() - 1).
      * @returns undefined if row is out of range otherwise the data.
      */
-    rowData(row: number): U {
-        return this.#mapFunction(this.sourceModel.rowData(row));
+    rowData(row: number): U | undefined {
+        let data = this.sourceModel.rowData(row);
+        if (data === undefined) {
+            return undefined;
+        }
+        return this.#mapFunction(data);
     }
 }
 }
