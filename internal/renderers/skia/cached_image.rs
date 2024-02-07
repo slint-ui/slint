@@ -4,8 +4,8 @@
 #[cfg(skia_backend_opengl)]
 use i_slint_core::graphics::BorrowedOpenGLTexture;
 use i_slint_core::graphics::{
-    cache as core_cache, Image, ImageCacheKey, ImageInner, IntSize, OpaqueImage, OpaqueImageVTable,
-    SharedImageBuffer,
+    cache as core_cache, Image, ImageCacheKey, ImageInner, IntRect, IntSize, OpaqueImage,
+    OpaqueImageVTable, SharedImageBuffer,
 };
 use i_slint_core::items::ImageFit;
 use i_slint_core::lengths::{LogicalSize, ScaleFactor};
@@ -53,8 +53,13 @@ pub(crate) fn as_skia_image(
         }
         ImageInner::Svg(svg) => {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-            let target_size = target_size_fn() * scale_factor;
-            let target_size = i_slint_core::graphics::fit_size(image_fit, target_size, svg.size());
+            let target_size = i_slint_core::graphics::fit(
+                image_fit,
+                target_size_fn() * scale_factor,
+                IntRect::from_size(svg.size().cast()),
+                scale_factor,
+            )
+            .size;
             let pixels = match svg.render(Some(target_size.cast())).ok()? {
                 SharedImageBuffer::RGB8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8(_) => unreachable!(),

@@ -15,7 +15,7 @@ use i_slint_core::item_rendering::{
     CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle, RenderImage,
 };
 use i_slint_core::items::{
-    self, Clip, FillRule, ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult,
+    self, Clip, FillRule, ImageRendering, ItemRc, Layer, Opacity, RenderingResult,
     TextHorizontalAlignment,
 };
 use i_slint_core::lengths::{
@@ -1294,7 +1294,16 @@ impl<'a> GLItemRenderer<'a> {
                         return None;
                     }
                     let t = item.target_size() * self.scale_factor;
-                    Some(i_slint_core::graphics::fit_size(item.image_fit(), t, image_size).cast())
+                    Some(
+                        i_slint_core::graphics::fit(
+                            item.image_fit(),
+                            t,
+                            IntRect::from_size(image_size.cast()),
+                            self.scale_factor,
+                        )
+                        .size
+                        .cast(),
+                    )
                 } else {
                     None
                 };
@@ -1353,48 +1362,17 @@ impl<'a> GLItemRenderer<'a> {
         let image_size = cached_image.size().unwrap_or_default();
         let source_clip_rect = item.source_clip().unwrap_or(IntRect::from_size(image_size.cast()));
 
-        let (source_width, source_height) =
-            (source_clip_rect.width() as _, source_clip_rect.height() as _);
-        let mut source_x = source_clip_rect.min_x() as f32;
-        let mut source_y = source_clip_rect.min_y() as f32;
-        let (target_w, target_h) = (size * self.scale_factor).into();
-
-        let mut image_fit_offset = Point::default();
-
-        // The source_to_target scale is applied to the paint that holds the image as well as path
-        // begin rendered.
-        let (source_to_target_scale_x, source_to_target_scale_y) = match item.image_fit() {
-            ImageFit::Fill => (target_w / source_width, target_h / source_height),
-            ImageFit::Cover => {
-                let ratio = f32::max(target_w / source_width, target_h / source_height);
-
-                if source_width > target_w / ratio {
-                    source_x += (source_width - target_w / ratio) / 2.;
-                }
-                if source_height > target_h / ratio {
-                    source_y += (source_height - target_h / ratio) / 2.
-                }
-
-                (ratio, ratio)
-            }
-            ImageFit::Contain => {
-                let ratio = f32::min(target_w / source_width, target_h / source_height);
-
-                if source_width < target_w / ratio {
-                    image_fit_offset.x = (target_w - source_width * ratio) / 2.;
-                }
-                if source_height < target_h / ratio {
-                    image_fit_offset.y = (target_h - source_height * ratio) / 2.
-                }
-
-                (ratio, ratio)
-            }
-        };
+        let fit = i_slint_core::graphics::fit(
+            item.image_fit(),
+            size * self.scale_factor,
+            source_clip_rect,
+            self.scale_factor,
+        );
 
         let fill_paint = femtovg::Paint::image(
             image_id,
-            -source_x,
-            -source_y,
+            -fit.clip_rect.origin.x as _,
+            -fit.clip_rect.origin.y as _,
             image_size.cast().width,
             image_size.cast().height,
             0.0,
@@ -1405,13 +1383,11 @@ impl<'a> GLItemRenderer<'a> {
         .with_anti_alias(false);
 
         let mut path = femtovg::Path::new();
-        path.rect(0., 0., source_width, source_height);
+        path.rect(0., 0., fit.clip_rect.width() as _, fit.clip_rect.height() as _);
 
         self.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(image_fit_offset.x, image_fit_offset.y);
-
-            canvas.scale(source_to_target_scale_x, source_to_target_scale_y);
-
+            canvas.translate(fit.offset.x, fit.offset.y);
+            canvas.scale(fit.source_to_target_x, fit.source_to_target_y);
             canvas.fill_path(&path, &fill_paint);
         })
     }

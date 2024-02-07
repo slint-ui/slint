@@ -1354,51 +1354,29 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         &mut self,
         geom: LogicalRect,
         source: &crate::graphics::Image,
-        mut source_rect: IntRect,
+        source_rect: IntRect,
         image_fit: ImageFit,
         colorize: Color,
     ) {
         let global_alpha_u16 = (self.current_state.alpha * 255.) as u16;
         let image_inner: &ImageInner = source.into();
-        let size: euclid::default::Size2D<u32> = source_rect.size.cast();
         let phys_size = geom.size_length().cast() * self.scale_factor;
-        let source_to_target_x = phys_size.width / (size.width as f32);
-        let source_to_target_y = phys_size.height / (size.height as f32);
-        let mut image_fit_offset = euclid::Vector2D::default();
-        let (source_to_target_x, source_to_target_y) = match image_fit {
-            ImageFit::Fill => (source_to_target_x, source_to_target_y),
-            ImageFit::Cover => {
-                let ratio = f32::max(source_to_target_x, source_to_target_y);
-                if size.width as f32 > phys_size.width / ratio {
-                    let diff = (size.width as f32 - phys_size.width / ratio) as i32;
-                    source_rect.origin.x += diff / 2;
-                    source_rect.size.width -= diff;
-                }
-                if size.height as f32 > phys_size.height / ratio {
-                    let diff = (size.height as f32 - phys_size.height / ratio) as i32;
-                    source_rect.origin.y += diff / 2;
-                    source_rect.size.height -= diff;
-                }
-                (ratio, ratio)
-            }
-            ImageFit::Contain => {
-                let ratio = f32::min(source_to_target_x, source_to_target_y);
-                if (size.width as f32) < phys_size.width / ratio {
-                    image_fit_offset.x = (phys_size.width - size.width as f32 * ratio) / 2.;
-                }
-                if (size.height as f32) < phys_size.height / ratio {
-                    image_fit_offset.y = (phys_size.height - size.height as f32 * ratio) / 2.;
-                }
-                (ratio, ratio)
-            }
-        };
 
-        let offset =
-            self.current_state.offset.to_vector().cast() * self.scale_factor + image_fit_offset;
+        let crate::graphics::FitResult {
+            clip_rect: source_rect,
+            source_to_target_x,
+            source_to_target_y,
+            size: fit_size,
+            offset: image_fit_offset,
+        } = crate::graphics::fit(image_fit, phys_size, source_rect, self.scale_factor);
+
+        let offset = (self.current_state.offset.cast() * self.scale_factor
+            + image_fit_offset.to_vector())
+        .cast();
 
         let renderer_clip_in_source_rect_space = (self.current_state.clip.cast()
             * self.scale_factor)
-            .translate(-image_fit_offset)
+            .translate(-image_fit_offset.to_vector())
             .scale(1. / source_to_target_x, 1. / source_to_target_y);
         match image_inner {
             ImageInner::None => (),
@@ -1417,7 +1395,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     {
                         let target_rect = clipped_relative_source_rect
                             .scale(source_to_target_x, source_to_target_y)
-                            .translate(offset)
+                            .translate(offset.to_vector())
                             .round();
 
                         if target_rect.is_empty() {
@@ -1457,9 +1435,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             }
             _ => {
                 let img_src_size = source.size();
-                if let Some(buffer) = image_inner.render_to_buffer(Some(
-                    crate::graphics::fit_size(image_fit, phys_size, img_src_size).cast(),
-                )) {
+                if let Some(buffer) = image_inner.render_to_buffer(Some(fit_size.cast())) {
                     if let Some(clipped_relative_source_rect) = renderer_clip_in_source_rect_space
                         .intersection(&euclid::rect(
                             0.,
@@ -1470,7 +1446,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     {
                         let target_rect = clipped_relative_source_rect
                             .scale(source_to_target_x, source_to_target_y)
-                            .translate(offset)
+                            .translate(offset.to_vector())
                             .round();
                         let buf_size = buffer.size().cast::<f32>();
 
