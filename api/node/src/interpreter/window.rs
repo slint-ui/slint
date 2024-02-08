@@ -125,7 +125,7 @@ impl JsWindow {
     }
 
     /// Returns if the window is currently fullscreen
-    #[napi(setter)]
+    #[napi(getter)]
     pub fn get_fullscreen(&self) -> bool {
         self.inner.window().fullscreen()
     }
