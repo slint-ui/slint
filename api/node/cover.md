@@ -252,15 +252,16 @@ The types used for properties in .slint design markup each translate to specific
 | `angle` | `Number` | The angle in degrees |
 | `relative-font-size` | `Number` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
 | structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
-| array | `Array` or any implementation of {@link Model} | |
+| array | {@link Model} | |
 
 ### Arrays and Models
 
 [Array properties](../slint/src/language/syntax/types#arrays-and-models) can be set from JavaScript by passing
 either `Array` objects or implementations of the {@link Model} interface.
 
-When passing a JavaScript `Array` object, the contents of the array are copied. Any changes to the JavaScript afterwards will not be visible on the Slint side. Similarly, reading a Slint array property from JavaScript that was
-previously initialised from a JavaScript `Array`, will return a newly allocated JavaScript `Array`.
+When passing a JavaScript `Array` object, the contents of the array are copied. Any changes to the JavaScript afterwards will not be visible on the Slint side. 
+
+Reading a Slint array property from JavaScript will always return a @{link Model}.
 
 ```js
 component.model = [1, 2, 3];
@@ -269,7 +270,7 @@ component.model = [1, 2, 3];
 component.model = component.model.concat(4);
 ```
 
-Another option is to set an object that implements the {@link Model} interface. Rreading a Slint array property from JavaScript that was previously initialised from a {@link Model} object, will return a reference to the model.
+Another option is to set an object that implements the {@link Model} interface.
 
 ### Globals
 
