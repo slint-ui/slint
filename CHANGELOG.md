@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Slint Language
+
+- Fixed edited callback of SpinBox for cupertino and material style
+
 ## [1.4.1] - 2024-02-02
 
  - Skia: Update skia binding dependency.
