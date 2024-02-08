@@ -852,17 +852,15 @@ pub fn fit(
         source_rect.size.width -= diff;
         source_rect.origin.x += match alignment.0 {
             ImageHorizontalAlignment::Center => diff / 2,
-            ImageHorizontalAlignment::Left | ImageHorizontalAlignment::Start => 0,
-            ImageHorizontalAlignment::Right | ImageHorizontalAlignment::End => diff,
+            ImageHorizontalAlignment::Left => 0,
+            ImageHorizontalAlignment::Right => diff,
         };
         size.width = target.width;
     } else if (o.width as f32) < target.width / ratio {
         offset.x = match alignment.0 {
             ImageHorizontalAlignment::Center => (target.width - o.width as f32 * ratio) / 2.,
-            ImageHorizontalAlignment::Left | ImageHorizontalAlignment::Start => 0.,
-            ImageHorizontalAlignment::Right | ImageHorizontalAlignment::End => {
-                target.width - o.width as f32 * ratio
-            }
+            ImageHorizontalAlignment::Left => 0.,
+            ImageHorizontalAlignment::Right => target.width - o.width as f32 * ratio,
         };
     }
     if (o.height as f32) > target.height / ratio {
