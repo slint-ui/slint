@@ -1221,6 +1221,7 @@ impl QtItemRenderer<'_> {
                             t.cast(),
                             IntRect::from_size(origin.cast()),
                             scale_factor,
+                            Default::default(), // We only care about the size, so alignments don't matter
                         )
                         .size
                         .cast(),
@@ -1257,6 +1258,7 @@ impl QtItemRenderer<'_> {
             size * scale_factor,
             source_rect,
             scale_factor,
+            image.alignment(),
         );
 
         let dest_rect = qttypes::QRectF {

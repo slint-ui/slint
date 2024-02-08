@@ -60,6 +60,9 @@ export component ClippedImage inherits ImageItem {
     in property <int> source-clip-width;
     in property <int> source-clip-height;
     //-default_size_binding:implicit_size
+
+    in property <ImageHorizontalAlignment> horizontal-alignment;
+    in property <ImageVerticalAlignment> vertical-alignment;
 }
 
 export { ClippedImage as Image }

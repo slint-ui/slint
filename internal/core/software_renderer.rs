@@ -13,11 +13,11 @@ mod fonts;
 use self::fonts::GlyphRenderer;
 use crate::api::Window;
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
-use crate::graphics::{BorderRadius, IntRect, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
+use crate::graphics::{BorderRadius, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::{
     CachedRenderingData, ItemRenderer, RenderBorderRectangle, RenderImage,
 };
-use crate::items::{ImageFit, ItemRc, TextOverflow};
+use crate::items::{ItemRc, TextOverflow};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths,
@@ -1352,24 +1352,18 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
     fn draw_image_impl(
         &mut self,
-        geom: LogicalRect,
         source: &crate::graphics::Image,
-        source_rect: IntRect,
-        image_fit: ImageFit,
-        colorize: Color,
-    ) {
-        let global_alpha_u16 = (self.current_state.alpha * 255.) as u16;
-        let image_inner: &ImageInner = source.into();
-        let phys_size = geom.size_length().cast() * self.scale_factor;
-
-        let crate::graphics::FitResult {
+        crate::graphics::FitResult {
             clip_rect: source_rect,
             source_to_target_x,
             source_to_target_y,
             size: fit_size,
             offset: image_fit_offset,
-        } = crate::graphics::fit(image_fit, phys_size, source_rect, self.scale_factor);
-
+        }: crate::graphics::FitResult,
+        colorize: Color,
+    ) {
+        let global_alpha_u16 = (self.current_state.alpha * 255.) as u16;
+        let image_inner: &ImageInner = source.into();
         let offset = (self.current_state.offset.cast() * self.scale_factor
             + image_fit_offset.to_vector())
         .cast();
@@ -1886,13 +1880,15 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 .source_clip()
                 .unwrap_or_else(|| euclid::Rect::new(Default::default(), source.size().cast()));
 
-            self.draw_image_impl(
-                geom,
-                &source,
-                source_clip,
+            let phys_size = geom.size_length().cast() * self.scale_factor;
+            let fit = crate::graphics::fit(
                 image.image_fit(),
-                image.colorize().color(),
+                phys_size,
+                source_clip,
+                self.scale_factor,
+                image.alignment(),
             );
+            self.draw_image_impl(&source, fit, image.colorize().color());
         }
     }
 

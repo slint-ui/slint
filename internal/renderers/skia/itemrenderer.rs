@@ -188,6 +188,7 @@ impl<'a> SkiaItemRenderer<'a> {
             item.source_clip()
                 .unwrap_or_else(|| euclid::rect(0, 0, skia_image.width(), skia_image.height())),
             self.scale_factor,
+            item.alignment(),
         );
 
         let dst = to_skia_rect(&PhysicalRect::new(fit.offset, fit.size));
