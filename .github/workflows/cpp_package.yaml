@@ -22,7 +22,7 @@ jobs:
       matrix:
         os: [ubuntu-20.04, macOS-11, windows-2022]
         include:
-          - os: ubuntu-20-04
+          - os: ubuntu-20.04
             package_suffix: linux
           - os: macOS-11
             package_suffix: macos
