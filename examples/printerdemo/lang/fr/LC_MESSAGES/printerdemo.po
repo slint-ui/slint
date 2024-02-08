@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-01 03:03+0000\n"
+"POT-Creation-Date: 2024-02-08 03:03+0000\n"
 "PO-Revision-Date: 2023-06-09 07:56+0200\n"
 "Last-Translator: Olivier Goffart <ogoffart@bepointbe.be>\n"
 "Language-Team: German <kde-i18n-de@kde.org>\n"
@@ -17,40 +17,10 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Lokalize 23.04.1\n"
 
-#: ui/usb_page.slint:20
-msgctxt "UsbPage"
-msgid "USB"
-msgstr "USB"
-
-#: ui/usb_page.slint:44
-msgctxt "UsbPage"
-msgid "Select File:"
-msgstr "Sélectionnez un fichier:"
-
-#: ui/usb_page.slint:67
-msgctxt "UsbPage"
-msgid "Copies"
-msgstr "Nombre de copies"
-
-#: ui/usb_page.slint:75 ui/usb_page.slint:78
-msgctxt "UsbPage"
-msgid "Color"
-msgstr "Couleur"
-
-#: ui/usb_page.slint:77 ui/usb_page.slint:78
-msgctxt "UsbPage"
-msgid "Grayscale"
-msgstr "Niveau de gris"
-
-#: ui/usb_page.slint:93
-msgctxt "UsbPage"
-msgid "Start printing"
-msgstr "Démarrer l'impression"
-
-#: ui/ink_page.slint:15
-msgctxt "InkPage"
-msgid "Ink Level"
-msgstr "Niveau d'encre"
+#: ui/printerdemo.slint:46
+msgctxt "MainWindow"
+msgid "Slint printer demo"
+msgstr "Imprimante de démonstration de Slint"
 
 #: ui/printer_queue.slint:30
 msgctxt "PrinterQueue"
@@ -116,6 +86,71 @@ msgstr "Supprimer"
 msgctxt "PrinterQueueView"
 msgid "Printing Queue"
 msgstr "File d'attente"
+
+#: ui/home_page.slint:51
+msgctxt "HomePage"
+msgid "Slint Printer Demo"
+msgstr "Slint Démo"
+
+#: ui/home_page.slint:54
+msgctxt "HomePage"
+msgid "Print"
+msgstr "Imprimer"
+
+#: ui/home_page.slint:55
+msgctxt "HomePage"
+msgid "Scan"
+msgstr "Scanner"
+
+#: ui/home_page.slint:56
+msgctxt "HomePage"
+msgid "Copy"
+msgstr "Copier"
+
+#: ui/home_page.slint:57
+msgctxt "HomePage"
+msgid "USB"
+msgstr "USB"
+
+#: ui/usb_page.slint:20
+msgctxt "UsbPage"
+msgid "USB"
+msgstr "USB"
+
+#: ui/usb_page.slint:44
+msgctxt "UsbPage"
+msgid "Select File:"
+msgstr "Sélectionnez un fichier:"
+
+#: ui/usb_page.slint:67
+msgctxt "UsbPage"
+msgid "Copies"
+msgstr "Nombre de copies"
+
+#: ui/usb_page.slint:75 ui/usb_page.slint:78
+msgctxt "UsbPage"
+msgid "Color"
+msgstr "Couleur"
+
+#: ui/usb_page.slint:77 ui/usb_page.slint:78
+msgctxt "UsbPage"
+msgid "Grayscale"
+msgstr "Niveau de gris"
+
+#: ui/usb_page.slint:93
+msgctxt "UsbPage"
+msgid "Start printing"
+msgstr "Démarrer l'impression"
+
+#: ui/print_page.slint:10
+msgctxt "PrintPage"
+msgid "Print"
+msgstr "Impression"
+
+#: ui/print_page.slint:18
+msgctxt "PrintPage"
+msgid "Printing-Queue"
+msgstr "File d'attente d'impression"
 
 #: ui/copy_page.slint:10 ui/copy_page.slint:97
 msgctxt "CopyPage"
@@ -367,6 +402,11 @@ msgctxt "SettingsPage"
 msgid "Sort Pages"
 msgstr "Trier"
 
+#: ui/ink_page.slint:15
+msgctxt "InkPage"
+msgid "Ink Level"
+msgstr "Niveau d'encre"
+
 #: ui/scan_page.slint:9 ui/scan_page.slint:84
 msgctxt "ScanPage"
 msgid "Scan"
@@ -471,43 +511,3 @@ msgstr "Ordinateur"
 msgctxt "ScanPage"
 msgid "Start scanning"
 msgstr "Démarrer le scan"
-
-#: ui/print_page.slint:10
-msgctxt "PrintPage"
-msgid "Print"
-msgstr "Impression"
-
-#: ui/print_page.slint:18
-msgctxt "PrintPage"
-msgid "Printing-Queue"
-msgstr "File d'attente d'impression"
-
-#: ui/home_page.slint:51
-msgctxt "HomePage"
-msgid "Slint Printer Demo"
-msgstr "Slint Démo"
-
-#: ui/home_page.slint:54
-msgctxt "HomePage"
-msgid "Print"
-msgstr "Imprimer"
-
-#: ui/home_page.slint:55
-msgctxt "HomePage"
-msgid "Scan"
-msgstr "Scanner"
-
-#: ui/home_page.slint:56
-msgctxt "HomePage"
-msgid "Copy"
-msgstr "Copier"
-
-#: ui/home_page.slint:57
-msgctxt "HomePage"
-msgid "USB"
-msgstr "USB"
-
-#: ui/printerdemo.slint:46
-msgctxt "MainWindow"
-msgid "Slint printer demo"
-msgstr "Imprimante de démonstration de Slint"

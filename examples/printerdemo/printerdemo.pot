@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2024-02-01 03:03+0000\n"
+"POT-Creation-Date: 2024-02-08 03:03+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -14,39 +14,9 @@ msgstr ""
 "Language: \n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: ui/usb_page.slint:20
-msgctxt "UsbPage"
-msgid "USB"
-msgstr ""
-
-#: ui/usb_page.slint:44
-msgctxt "UsbPage"
-msgid "Select File:"
-msgstr ""
-
-#: ui/usb_page.slint:67
-msgctxt "UsbPage"
-msgid "Copies"
-msgstr ""
-
-#: ui/usb_page.slint:75 ui/usb_page.slint:78
-msgctxt "UsbPage"
-msgid "Color"
-msgstr ""
-
-#: ui/usb_page.slint:77 ui/usb_page.slint:78
-msgctxt "UsbPage"
-msgid "Grayscale"
-msgstr ""
-
-#: ui/usb_page.slint:93
-msgctxt "UsbPage"
-msgid "Start printing"
-msgstr ""
-
-#: ui/ink_page.slint:15
-msgctxt "InkPage"
-msgid "Ink Level"
+#: ui/printerdemo.slint:46
+msgctxt "MainWindow"
+msgid "Slint printer demo"
 msgstr ""
 
 #: ui/printer_queue.slint:30
@@ -112,6 +82,71 @@ msgstr ""
 #: ui/printer_queue.slint:396
 msgctxt "PrinterQueueView"
 msgid "Printing Queue"
+msgstr ""
+
+#: ui/home_page.slint:51
+msgctxt "HomePage"
+msgid "Slint Printer Demo"
+msgstr ""
+
+#: ui/home_page.slint:54
+msgctxt "HomePage"
+msgid "Print"
+msgstr ""
+
+#: ui/home_page.slint:55
+msgctxt "HomePage"
+msgid "Scan"
+msgstr ""
+
+#: ui/home_page.slint:56
+msgctxt "HomePage"
+msgid "Copy"
+msgstr ""
+
+#: ui/home_page.slint:57
+msgctxt "HomePage"
+msgid "USB"
+msgstr ""
+
+#: ui/usb_page.slint:20
+msgctxt "UsbPage"
+msgid "USB"
+msgstr ""
+
+#: ui/usb_page.slint:44
+msgctxt "UsbPage"
+msgid "Select File:"
+msgstr ""
+
+#: ui/usb_page.slint:67
+msgctxt "UsbPage"
+msgid "Copies"
+msgstr ""
+
+#: ui/usb_page.slint:75 ui/usb_page.slint:78
+msgctxt "UsbPage"
+msgid "Color"
+msgstr ""
+
+#: ui/usb_page.slint:77 ui/usb_page.slint:78
+msgctxt "UsbPage"
+msgid "Grayscale"
+msgstr ""
+
+#: ui/usb_page.slint:93
+msgctxt "UsbPage"
+msgid "Start printing"
+msgstr ""
+
+#: ui/print_page.slint:10
+msgctxt "PrintPage"
+msgid "Print"
+msgstr ""
+
+#: ui/print_page.slint:18
+msgctxt "PrintPage"
+msgid "Printing-Queue"
 msgstr ""
 
 #: ui/copy_page.slint:10 ui/copy_page.slint:97
@@ -364,6 +399,11 @@ msgctxt "SettingsPage"
 msgid "Sort Pages"
 msgstr ""
 
+#: ui/ink_page.slint:15
+msgctxt "InkPage"
+msgid "Ink Level"
+msgstr ""
+
 #: ui/scan_page.slint:9 ui/scan_page.slint:84
 msgctxt "ScanPage"
 msgid "Scan"
@@ -467,45 +507,5 @@ msgstr ""
 #: ui/scan_page.slint:82
 msgctxt "ScanPage"
 msgid "Start scanning"
-msgstr ""
-
-#: ui/print_page.slint:10
-msgctxt "PrintPage"
-msgid "Print"
-msgstr ""
-
-#: ui/print_page.slint:18
-msgctxt "PrintPage"
-msgid "Printing-Queue"
-msgstr ""
-
-#: ui/home_page.slint:51
-msgctxt "HomePage"
-msgid "Slint Printer Demo"
-msgstr ""
-
-#: ui/home_page.slint:54
-msgctxt "HomePage"
-msgid "Print"
-msgstr ""
-
-#: ui/home_page.slint:55
-msgctxt "HomePage"
-msgid "Scan"
-msgstr ""
-
-#: ui/home_page.slint:56
-msgctxt "HomePage"
-msgid "Copy"
-msgstr ""
-
-#: ui/home_page.slint:57
-msgctxt "HomePage"
-msgid "USB"
-msgstr ""
-
-#: ui/printerdemo.slint:46
-msgctxt "MainWindow"
-msgid "Slint printer demo"
 msgstr ""
 
