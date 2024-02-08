@@ -427,6 +427,8 @@ test('ArrayModel', (t) => {
   let instance = definition!.create();
   t.not(instance, null);
 
+  t.deepEqual(Array.from(new ArrayModel([3, 2, 1])), [3, 2, 1]);
+
   instance!.setProperty("int-model", new ArrayModel([10, 9, 8]));
 
   let intArrayModel = instance!.getProperty("int-model") as ArrayModel<number>;
@@ -608,10 +610,12 @@ test('model from array', (t) => {
 
   instance!.setProperty("int-array", [10, 9, 8]);
   let wrapped_int_model = instance!.getProperty("int-array");
+  t.deepEqual(Array.from(wrapped_int_model), [10, 9, 8]);
   t.deepEqual(wrapped_int_model.rowCount(), 3);
   t.deepEqual(wrapped_int_model.rowData(0), 10);
   t.deepEqual(wrapped_int_model.rowData(1), 9);
   t.deepEqual(wrapped_int_model.rowData(2), 8);
+  t.deepEqual(Array.from(wrapped_int_model), [10, 9, 8]);
 
   instance!.setProperty("string-array", ["Simon", "Olivier", "Auri", "Tobias", "Florian"]);
   let wrapped_string_model = instance!.getProperty("string-array");

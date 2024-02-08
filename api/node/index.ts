@@ -117,6 +117,31 @@ export interface ImageData {
     get height(): number;
 }
 
+class ModelIterator<T> implements Iterator<T> {
+    private row: number;
+    private model: Model<T>;
+
+    constructor(model: Model<T>) {
+        this.model = model;
+        this.row = 0;
+    }
+
+    public next(): IteratorResult<T> {
+        if (this.row < this.model.rowCount()) {
+            let row = this.row;
+            this.row++;
+            return {
+                done: false,
+                value: this.model.rowData(row)
+            }
+        }
+        return {
+            done: true,
+            value: undefined
+        }
+    }
+}
+
 /**
  * Model<T> is the interface for feeding dynamic data into
  * `.slint` views.
@@ -176,7 +201,7 @@ export interface ImageData {
  *}
  * ```
  */
-export abstract class Model<T> {
+export abstract class Model<T> implements Iterable<T> {
     /**
      * @hidden
      */
@@ -219,6 +244,10 @@ export abstract class Model<T> {
         console.log(
             "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model"
         );
+    }
+
+    [Symbol.iterator](): Iterator<T> {
+        return new ModelIterator(this);
     }
 
     /**

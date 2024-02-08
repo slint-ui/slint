@@ -75,7 +75,7 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
                 maybe_js_model
             } else {
                 let model_wrapper: ReadOnlyRustModel = model.clone().into();
-                Ok(model_wrapper.into_instance(*env)?.as_object(*env).into_unknown())
+                model_wrapper.into_js(env)
             }
         }
         _ => env.get_undefined().map(|v| v.into_unknown()),
