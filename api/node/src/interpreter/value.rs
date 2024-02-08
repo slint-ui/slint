@@ -1,10 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use crate::{js_into_rust_model, rust_into_js_model, RgbaColor, SlintBrush, SlintImageData};
+use crate::{
+    js_into_rust_model, rust_into_js_model, ReadOnlyRustModel, RgbaColor, SlintBrush,
+    SlintImageData,
+};
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
-use i_slint_core::model::{Model, ModelRc, SharedVectorModel};
+use i_slint_core::model::{ModelRc, SharedVectorModel};
 use i_slint_core::{Brush, Color, SharedVector};
 use napi::bindgen_prelude::*;
 use napi::{Env, JsBoolean, JsNumber, JsObject, JsString, JsUnknown, Result};
@@ -71,22 +74,8 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
             if let Some(maybe_js_model) = rust_into_js_model(model) {
                 maybe_js_model
             } else {
-                let mut vec = vec![];
-
-                let row_count = model.row_count();
-
-                for i in 0..row_count {
-                    vec.push(to_js_unknown(
-                        env,
-                        &model.row_data(i).ok_or_else(|| {
-                            napi::Error::from_reason(format!(
-                                "Model unexpectedly returned None for index {i} (len {row_count})",
-                            ))
-                        })?,
-                    )?);
-                }
-
-                Ok(Array::from_vec(env, vec)?.coerce_to_object()?.into_unknown())
+                let model_wrapper: ReadOnlyRustModel = model.clone().into();
+                Ok(model_wrapper.into_instance(*env)?.as_object(*env).into_unknown())
             }
         }
         _ => env.get_undefined().map(|v| v.into_unknown()),

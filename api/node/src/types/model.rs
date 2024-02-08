@@ -8,7 +8,7 @@ use i_slint_core::model::{Model, ModelNotify, ModelRc};
 use napi::bindgen_prelude::*;
 use napi::{Env, JsExternal, JsFunction, JsNumber, JsObject, JsUnknown, Result, ValueType};
 
-use crate::{to_value, RefCountedReference};
+use crate::{to_js_unknown, to_value, RefCountedReference};
 
 #[napi]
 #[derive(Clone, Default)]
@@ -125,5 +125,36 @@ impl Model for JsModel {
 
     fn as_any(&self) -> &dyn core::any::Any {
         self
+    }
+}
+
+#[napi]
+pub struct ReadOnlyRustModel(ModelRc<slint_interpreter::Value>);
+
+impl From<ModelRc<slint_interpreter::Value>> for ReadOnlyRustModel {
+    fn from(model: ModelRc<slint_interpreter::Value>) -> Self {
+        Self(model)
+    }
+}
+
+// Implement minimal Model<T> interface
+#[napi]
+impl ReadOnlyRustModel {
+    #[napi]
+    pub fn row_count(&self, env: Env) -> Result<JsNumber> {
+        env.create_uint32(self.0.row_count() as u32)
+    }
+
+    #[napi]
+    pub fn row_data(&self, env: Env, row: u32) -> Result<JsUnknown> {
+        let Some(data) = self.0.row_data(row as usize) else {
+            return env.get_undefined().map(|v| v.into_unknown());
+        };
+        to_js_unknown(&env, &data)
+    }
+
+    #[napi]
+    pub fn set_row_data(&self, _env: Env, _row: u32, _data: JsUnknown) {
+        eprintln!("setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model")
     }
 }
