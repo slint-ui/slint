@@ -1325,6 +1325,7 @@ impl QtItemRenderer<'_> {
         let top_right_radius = border_radius.top_right;
         let bottom_left_radius = border_radius.bottom_left;
         let bottom_right_radius = border_radius.bottom_right;
+        border_width = border_width.min(rect.height.min(rect.width) as f32 / 2.);
         cpp! { unsafe [
                 painter as "QPainterPtr*",
                 brush as "QBrush",
