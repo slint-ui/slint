@@ -1,11 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use std::path::PathBuf;
+
 use regex::Regex;
 
 pub struct TestCase {
     pub absolute_path: std::path::PathBuf,
     pub relative_path: std::path::PathBuf,
+    pub requested_style: Option<&'static str>,
 }
 
 impl TestCase {
@@ -27,6 +30,20 @@ impl TestCase {
 /// Returns a list of all the `.slint` files in the subfolders e.g. `tests/cases` .
 pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
     let mut results = vec![];
+
+    let mut all_styles = vec!["fluent", "material", "cupertino", "cosmic"];
+
+    // It is in the target/xxx/build directory
+    if std::env::var_os("OUT_DIR").map_or(false, |path| {
+        // Same logic as in i-slint-backend-selector's build script to get the path
+        let mut path: PathBuf = path.into();
+        path.pop();
+        path.pop();
+        path.push("SLINT_DEFAULT_STYLE.txt");
+        std::fs::read_to_string(path).map_or(false, |style| style.trim().contains("qt"))
+    }) {
+        all_styles.push("qt");
+    }
 
     let case_root_dir: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "..", "..", sub_folders].iter().collect();
@@ -50,7 +67,13 @@ pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
         }
         if let Some(ext) = absolute_path.extension() {
             if ext == "60" || ext == "slint" {
-                results.push(TestCase { absolute_path, relative_path });
+                let styles_to_test: &[&'static str] =
+                    if relative_path.starts_with("widgets") { &all_styles } else { &[""] };
+                results.extend(styles_to_test.iter().map(|style| TestCase {
+                    absolute_path: absolute_path.clone(),
+                    relative_path: relative_path.clone(),
+                    requested_style: if style.is_empty() { None } else { Some(style) },
+                }));
             }
         }
     }

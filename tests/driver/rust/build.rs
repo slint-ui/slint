@@ -15,6 +15,10 @@ fn main() -> std::io::Result<()> {
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
             module_name.insert(0, '_');
         }
+        if let Some(style) = testcase.requested_style {
+            module_name.push('_');
+            module_name.push_str(style);
+        }
         writeln!(generated_file, "#[path=\"{0}.rs\"] mod r#{0};", module_name)?;
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
         let ignored = testcase.is_ignored("rust");
@@ -100,6 +104,13 @@ fn generate_macro(
 
         println!("cargo:rerun-if-changed={}", abs_path.to_string_lossy());
     }
+
+    if let Some(style) = testcase.requested_style {
+        output.write_all(b"#[style=\"")?;
+        output.write_all(style.as_bytes())?;
+        output.write_all(b"\"#]\n")?;
+    }
+
     let mut abs_path = testcase.absolute_path;
     abs_path.pop();
     output.write_all(b"#[include_path=r#\"")?;
@@ -132,7 +143,7 @@ fn generate_source(
     compiler_config.enable_component_containers = true;
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
-    compiler_config.style = Some("fluent".to_string());
+    compiler_config.style = Some(testcase.requested_style.unwrap_or("fluent").to_string());
     let (root_component, diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 

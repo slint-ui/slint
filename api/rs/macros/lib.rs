@@ -8,8 +8,6 @@
 
 extern crate proc_macro;
 
-use std::collections::HashMap;
-
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::parser::SyntaxKind;
 use i_slint_compiler::*;
@@ -284,13 +282,10 @@ fn extract_path(literal: proc_macro::Literal) -> std::path::PathBuf {
     path_with_quotes_stripped.into()
 }
 
-fn extract_include_and_library_paths(
+fn extract_compiler_config(
     mut stream: proc_macro::token_stream::IntoIter,
-) -> (impl Iterator<Item = TokenTree>, Vec<std::path::PathBuf>, HashMap<String, std::path::PathBuf>)
-{
-    let mut include_paths = Vec::new();
-    let mut library_paths = HashMap::new();
-
+    compiler_config: &mut CompilerConfiguration,
+) -> impl Iterator<Item = TokenTree> {
     let mut remaining_stream;
     loop {
         remaining_stream = stream.clone();
@@ -308,7 +303,7 @@ fn extract_include_and_library_paths(
                                 Some(TokenTree::Punct(equal_punct)),
                                 Some(TokenTree::Literal(path)),
                             ) if equal_punct.as_char() == '=' => {
-                                include_paths.push(extract_path(path));
+                                compiler_config.include_paths.push(extract_path(path));
                             }
                             _ => break,
                         }
@@ -325,7 +320,27 @@ fn extract_include_and_library_paths(
                                 && equal_punct.as_char() == '=' =>
                             {
                                 let library_name = group.stream().into_iter().next().unwrap();
-                                library_paths.insert(library_name.to_string(), extract_path(path));
+                                compiler_config
+                                    .library_paths
+                                    .insert(library_name.to_string(), extract_path(path));
+                            }
+                            _ => break,
+                        }
+                    }
+                    Some(TokenTree::Ident(style_ident)) if style_ident.to_string() == "style" => {
+                        match (attr_stream.next(), attr_stream.next()) {
+                            (
+                                Some(TokenTree::Punct(equal_punct)),
+                                Some(TokenTree::Literal(requested_style)),
+                            ) if equal_punct.as_char() == '=' => {
+                                compiler_config.style = requested_style
+                                    .to_string()
+                                    .strip_prefix('\"')
+                                    .unwrap()
+                                    .strip_suffix('\"')
+                                    .unwrap()
+                                    .to_string()
+                                    .into();
                             }
                             _ => break,
                         }
@@ -336,7 +351,7 @@ fn extract_include_and_library_paths(
             _ => break,
         }
     }
-    (remaining_stream, include_paths, library_paths)
+    remaining_stream
 }
 
 /// This macro allows you to use the Slint design markup language inline in Rust code. Within the braces of the macro
@@ -356,7 +371,10 @@ fn extract_include_and_library_paths(
 pub fn slint(stream: TokenStream) -> TokenStream {
     let token_iter = stream.into_iter();
 
-    let (token_iter, include_paths, library_paths) = extract_include_and_library_paths(token_iter);
+    let mut compiler_config =
+        CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
+
+    let token_iter = extract_compiler_config(token_iter, &mut compiler_config);
 
     let mut tokens = vec![];
     fill_token_vec(token_iter, &mut tokens);
@@ -375,11 +393,7 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     }
 
     //println!("{:#?}", syntax_node);
-    let mut compiler_config =
-        CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
-    compiler_config.include_paths = include_paths;
-    compiler_config.library_paths = library_paths;
     let (root_component, diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     //println!("{:#?}", tree);
