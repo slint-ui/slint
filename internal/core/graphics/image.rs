@@ -10,7 +10,7 @@ use crate::slice::Slice;
 use crate::{SharedString, SharedVector};
 
 use super::{IntRect, IntSize};
-use crate::items::ImageFit;
+use crate::items::{ImageFit, ImageHorizontalAlignment, ImageVerticalAlignment};
 
 #[cfg(feature = "image-decoders")]
 pub mod cache;
@@ -827,6 +827,7 @@ pub fn fit(
     target: euclid::Size2D<f32, PhysicalPx>,
     mut source_rect: IntRect,
     scale_factor: ScaleFactor,
+    alignment: (ImageHorizontalAlignment, ImageVerticalAlignment),
 ) -> FitResult {
     let o = source_rect.size.cast::<f32>();
     let mut offset = Default::default();
@@ -848,19 +849,37 @@ pub fn fit(
     let mut size = euclid::Size2D::from_untyped(o * ratio);
     if (o.width as f32) > target.width / ratio {
         let diff = (o.width as f32 - target.width / ratio) as i32;
-        source_rect.origin.x += diff / 2;
         source_rect.size.width -= diff;
+        source_rect.origin.x += match alignment.0 {
+            ImageHorizontalAlignment::Center => diff / 2,
+            ImageHorizontalAlignment::Left | ImageHorizontalAlignment::Start => 0,
+            ImageHorizontalAlignment::Right | ImageHorizontalAlignment::End => diff,
+        };
         size.width = target.width;
     } else if (o.width as f32) < target.width / ratio {
-        offset.x = (target.width - o.width as f32 * ratio) / 2.;
+        offset.x = match alignment.0 {
+            ImageHorizontalAlignment::Center => (target.width - o.width as f32 * ratio) / 2.,
+            ImageHorizontalAlignment::Left | ImageHorizontalAlignment::Start => 0.,
+            ImageHorizontalAlignment::Right | ImageHorizontalAlignment::End => {
+                target.width - o.width as f32 * ratio
+            }
+        };
     }
     if (o.height as f32) > target.height / ratio {
         let diff = (o.height as f32 - target.height / ratio) as i32;
-        source_rect.origin.y += diff / 2;
         source_rect.size.height -= diff;
+        source_rect.origin.y += match alignment.1 {
+            ImageVerticalAlignment::Center => diff / 2,
+            ImageVerticalAlignment::Top => 0,
+            ImageVerticalAlignment::Bottom => diff,
+        };
         size.height = target.height;
     } else if (o.height as f32) < target.height / ratio {
-        offset.y = (target.height - o.height as f32 * ratio) / 2.;
+        offset.y = match alignment.1 {
+            ImageVerticalAlignment::Center => (target.height - o.height as f32 * ratio) / 2.,
+            ImageVerticalAlignment::Top => 0.,
+            ImageVerticalAlignment::Bottom => target.height - o.height as f32 * ratio,
+        };
     }
     FitResult {
         clip_rect: source_rect,

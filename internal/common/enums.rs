@@ -233,6 +233,30 @@ macro_rules! for_each_enums {
                 Preserve,
             }
 
+            /// This enum specifies the horizontal alignment of the source image.
+            enum ImageHorizontalAlignment {
+                /// Aligns the source image at the center of the [`Image`](elements.md#image) element.
+                Center,
+                /// Aligns the source image at the left of the [`Image`](elements.md#image) element.
+                Left,
+                /// Aligns the source image at the right of the [`Image`](elements.md#image) element.
+                Right,
+                /// Aligns the source image at the start of the [`Image`](elements.md#image) element. This could be left or right depending on the language.
+                Start,
+                /// Aligns the source image at the end of the [`Image`](elements.md#image) element. This could be left or right depending on the language.
+                End,
+            }
+
+            /// This enum specifies the vertical alignment of the source image.
+            enum ImageVerticalAlignment {
+                /// Aligns the source image at the center of the [`Image`](elements.md#image) element.
+                Center,
+                /// Aligns the source image at the top of the [`Image`](elements.md#image) element.
+                Top,
+                /// Aligns the source image at the bottom of the [`Image`](elements.md#image) element.
+                Bottom,
+            }
+
             /// This enum specifies how the source image will be scaled.
             enum ImageRendering {
                 /// The image is scaled with a linear interpolation algorithm.

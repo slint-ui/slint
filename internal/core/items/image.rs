@@ -7,7 +7,10 @@ This module contains the builtin image related items.
 When adding an item or a property, it needs to be kept in sync with different place.
 Lookup the [`crate::items`] module documentation.
 */
-use super::{ImageFit, ImageRendering, Item, ItemConsts, ItemRc, RenderingResult};
+use super::{
+    ImageFit, ImageHorizontalAlignment, ImageRendering, ImageVerticalAlignment, Item, ItemConsts,
+    ItemRc, RenderingResult,
+};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
@@ -131,6 +134,10 @@ impl RenderImage for ImageItem {
     fn colorize(self: Pin<&Self>) -> Brush {
         self.colorize()
     }
+
+    fn alignment(self: Pin<&Self>) -> (ImageHorizontalAlignment, ImageVerticalAlignment) {
+        Default::default()
+    }
 }
 
 impl ItemConsts for ImageItem {
@@ -155,6 +162,10 @@ pub struct ClippedImage {
     pub source_clip_y: Property<i32>,
     pub source_clip_width: Property<i32>,
     pub source_clip_height: Property<i32>,
+
+    pub horizontal_alignment: Property<ImageHorizontalAlignment>,
+    pub vertical_alignment: Property<ImageVerticalAlignment>,
+
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -258,6 +269,10 @@ impl RenderImage for ClippedImage {
 
     fn colorize(self: Pin<&Self>) -> Brush {
         self.colorize()
+    }
+
+    fn alignment(self: Pin<&Self>) -> (ImageHorizontalAlignment, ImageVerticalAlignment) {
+        (self.horizontal_alignment(), self.vertical_alignment())
     }
 }
 

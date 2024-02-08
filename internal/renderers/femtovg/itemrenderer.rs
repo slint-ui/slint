@@ -1300,6 +1300,7 @@ impl<'a> GLItemRenderer<'a> {
                             t,
                             IntRect::from_size(image_size.cast()),
                             self.scale_factor,
+                            Default::default(), // We only care about the size, so alignments don't matter
                         )
                         .size
                         .cast(),
@@ -1367,6 +1368,7 @@ impl<'a> GLItemRenderer<'a> {
             size * self.scale_factor,
             source_clip_rect,
             self.scale_factor,
+            item.alignment(),
         );
 
         let fill_paint = femtovg::Paint::image(
