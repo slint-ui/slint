@@ -241,10 +241,6 @@ macro_rules! for_each_enums {
                 Left,
                 /// Aligns the source image at the right of the [`Image`](elements.md#image) element.
                 Right,
-                /// Aligns the source image at the start of the [`Image`](elements.md#image) element. This could be left or right depending on the language.
-                Start,
-                /// Aligns the source image at the end of the [`Image`](elements.md#image) element. This could be left or right depending on the language.
-                End,
             }
 
             /// This enum specifies the vertical alignment of the source image.
