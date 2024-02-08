@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{Model, ModelNotify, ModelRc};
-use napi::bindgen_prelude::*;
+use napi::{bindgen_prelude::*, JsSymbol};
 use napi::{Env, JsExternal, JsFunction, JsNumber, JsObject, JsUnknown, Result, ValueType};
 
 use crate::{to_js_unknown, to_value, RefCountedReference};
@@ -156,5 +156,56 @@ impl ReadOnlyRustModel {
     #[napi]
     pub fn set_row_data(&self, _env: Env, _row: u32, _data: JsUnknown) {
         eprintln!("setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model")
+    }
+
+    pub fn into_js(self, env: &Env) -> Result<JsUnknown> {
+        let model = self.0.clone();
+        let iterator_env = env.clone();
+
+        let mut obj = self.into_instance(*env)?.as_object(*env);
+
+        // Implement Iterator protocol by hand until it's stable in napi-rs
+        let iterator_symbol = env
+            .get_global()
+            .and_then(|global| global.get_named_property::<JsObject>("Symbol"))
+            .and_then(|symbol_obj| symbol_obj.get::<&str, JsSymbol>("iterator"))?
+            .expect("fatal: Unable to find Symbol.iterator");
+
+        obj.set_property(
+            iterator_symbol,
+            env.create_function_from_closure("rust model iterator", move |_| {
+                Ok(ModelIterator { model: model.clone(), row: 0, env: iterator_env }
+                    .into_instance(iterator_env)?
+                    .as_object(iterator_env))
+            })?,
+        )?;
+
+        Ok(obj.into_unknown())
+    }
+}
+
+#[napi]
+pub struct ModelIterator {
+    model: ModelRc<slint_interpreter::Value>,
+    row: usize,
+    env: Env,
+}
+
+#[napi]
+impl ModelIterator {
+    #[napi]
+    pub fn next(&mut self) -> Result<JsUnknown> {
+        let mut result = self.env.create_object()?;
+        if self.row >= self.model.row_count() {
+            result.set_named_property("done", true)?;
+        } else {
+            let row = self.row;
+            self.row += 1;
+            result.set_named_property(
+                "value",
+                self.model.row_data(row).and_then(|value| to_js_unknown(&self.env, &value).ok()),
+            )?
+        }
+        return Ok(result.into_unknown());
     }
 }
