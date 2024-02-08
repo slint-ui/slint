@@ -42,7 +42,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut tests_file = BufWriter::new(std::fs::File::create(&tests_file_path)?);
 
-    for testcase in test_driver_lib::collect_test_cases("cases")? {
+    for testcase in test_driver_lib::collect_test_cases("cases")?.into_iter().filter(|testcase| {
+        // Style testing not supported yet
+        testcase.requested_style.is_none()
+    }) {
         let test_function_name = testcase.identifier();
         let ignored = testcase.is_ignored("cpp");
 
@@ -55,6 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 cppdriver::test(&test_driver_lib::TestCase{{
                     absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
                     relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
+                    requested_style: None,
                 }}).unwrap();
             }}
 

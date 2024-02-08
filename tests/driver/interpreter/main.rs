@@ -20,7 +20,12 @@ macro_rules! test_example {
                     absolute_path = legacy.into();
                 }
             }
-            interpreter::test(&test_driver_lib::TestCase { absolute_path, relative_path }).unwrap();
+            interpreter::test(&test_driver_lib::TestCase {
+                absolute_path,
+                relative_path,
+                requested_style: None,
+            })
+            .unwrap();
         }
     };
 }

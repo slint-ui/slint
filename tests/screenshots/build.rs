@@ -29,7 +29,11 @@ pub fn collect_test_cases() -> std::io::Result<Vec<test_driver_lib::TestCase>> {
         }
         if let Some(ext) = absolute_path.extension() {
             if ext == "60" || ext == "slint" {
-                results.push(test_driver_lib::TestCase { absolute_path, relative_path });
+                results.push(test_driver_lib::TestCase {
+                    absolute_path,
+                    relative_path,
+                    requested_style: None,
+                });
             }
         }
     }
