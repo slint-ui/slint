@@ -137,7 +137,7 @@ impl JsWindow {
     }
 
     /// Returns if the window is currently maximized
-    #[napi(setter)]
+    #[napi(getter)]
     pub fn get_maximized(&self) -> bool {
         self.inner.window().maximized()
     }
@@ -149,7 +149,7 @@ impl JsWindow {
     }
 
     /// Returns if the window is currently minimized
-    #[napi(setter)]
+    #[napi(getter)]
     pub fn get_minimized(&self) -> bool {
         self.inner.window().minimized()
     }
