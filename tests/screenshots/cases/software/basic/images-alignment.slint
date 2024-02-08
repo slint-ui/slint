@@ -1,0 +1,78 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { Slider } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: pink;
+    GridLayout {
+        Row {
+            Image {
+                source: @image-url("../../../../../examples/memory/icons/bus.png");
+                image-fit: cover;
+                vertical-alignment: top;
+                horizontal-alignment: left;
+                colorize: red;
+            }
+
+            Image {
+                source: @image-url("../../../../../examples/memory/icons/bus.png");
+                image-fit: fill;
+                vertical-alignment: top;
+                horizontal-alignment: left;
+            }
+
+            Image {
+                source: @image-url("../../../../../examples/memory/icons/bus.png");
+                image-fit: contain;
+                vertical-alignment: top;
+                horizontal-alignment: right;
+                opacity: 0.5;
+            }
+
+            Image {
+                source: @image-url("../../../../../examples/memory/icons/bus.png");
+                image-fit: preserve;
+                vertical-alignment: top;
+                horizontal-alignment: right;
+            }
+        }
+
+        Row {
+            Image {
+                source: @image-url("../../../../../examples/memory/icons/bus.png");
+                image-fit: cover;
+                vertical-alignment: bottom;
+                horizontal-alignment: right;
+            }
+
+            Image {
+                source: @image-url("../../../../../examples/memory/icons/bus.png");
+                image-fit: contain;
+                vertical-alignment: bottom;
+                horizontal-alignment: left;
+            }
+
+            Image {
+                source: @image-url("../../../../../examples/memory/icons/bus.png");
+                image-fit: contain;
+                vertical-alignment: center;
+                horizontal-alignment: left;
+            }
+
+            Image {
+                source: @image-url("../../../../../examples/memory/icons/bus.png");
+                image-fit: preserve;
+                vertical-alignment: bottom;
+                horizontal-alignment: left;
+                // That's just the front light
+                source-clip-x: 15;
+                source-clip-y: 78;
+                source-clip-height: 25;
+                source-clip-width: 25;
+            }
+        }
+    }
+}
