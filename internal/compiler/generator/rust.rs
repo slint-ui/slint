@@ -2113,25 +2113,33 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
             quote!( #op #sub )
         }
-        Expression::ImageReference { resource_ref, .. } => match resource_ref {
-            crate::expression_tree::ImageReference::None => {
-                quote!(sp::Image::default())
+        Expression::ImageReference { resource_ref, nine_slice } => {
+            let image = match resource_ref {
+                crate::expression_tree::ImageReference::None => {
+                    quote!(sp::Image::default())
+                }
+                crate::expression_tree::ImageReference::AbsolutePath(path) => {
+                    quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap())
+                }
+                crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
+                    let format = proc_macro2::Literal::byte_string(extension.as_bytes());
+                    quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
+                }
+                crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
+                    let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
+                    quote!(
+                        sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
+                    )
+                }
+            };
+            match &nine_slice {
+                Some([a, b, c, d]) => {
+                    quote! {{ let mut image = #image; image.set_nine_slice_edges(#a, #b, #c, #d); image }}
+                }
+                None => image,
             }
-            crate::expression_tree::ImageReference::AbsolutePath(path) => {
-                quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap())
-            }
-            crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                let format = proc_macro2::Literal::byte_string(extension.as_bytes());
-                quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
-            }
-            crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
-                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                quote!(
-                    sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
-                )
-            }
-        },
+        }
         Expression::Condition { condition, true_expr, false_expr } => {
             let condition_code = compile_expression(condition, ctx);
             let true_code = compile_expression(true_expr, ctx);

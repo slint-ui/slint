@@ -154,8 +154,11 @@ pub fn lower_expression(
         tree_Expression::UnaryOp { sub, op } => {
             llr_Expression::UnaryOp { sub: Box::new(lower_expression(sub, ctx)), op: *op }
         }
-        tree_Expression::ImageReference { resource_ref, .. } => {
-            llr_Expression::ImageReference { resource_ref: resource_ref.clone() }
+        tree_Expression::ImageReference { resource_ref, nine_slice, .. } => {
+            llr_Expression::ImageReference {
+                resource_ref: resource_ref.clone(),
+                nine_slice: *nine_slice,
+            }
         }
         tree_Expression::Condition { condition, true_expr, false_expr } => {
             llr_Expression::Condition {

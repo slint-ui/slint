@@ -11,7 +11,7 @@ use crate::{slice::Slice, SharedString};
 struct ImageWeightInBytes;
 
 impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
-    fn weight(&self, _: &ImageCacheKey, value: &ImageInner) -> usize {
+    fn weight(&self, key: &ImageCacheKey, value: &ImageInner) -> usize {
         match value {
             ImageInner::None => 0,
             ImageInner::EmbeddedImage { buffer, .. } => match buffer {
@@ -27,6 +27,7 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size().area() as usize,
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => 0, // Assume storage in GPU memory
+            ImageInner::NineSlice(nine) => self.weight(key, &nine.0),
         }
     }
 }

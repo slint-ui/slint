@@ -34,7 +34,7 @@ pub(crate) fn as_skia_image(
     target_size_fn: &dyn Fn() -> LogicalSize,
     image_fit: ImageFit,
     scale_factor: ScaleFactor,
-    _canvas: &skia_safe::Canvas,
+    canvas: &skia_safe::Canvas,
 ) -> Option<skia_safe::Image> {
     let image_inner: &ImageInner = (&image).into();
     match image_inner {
@@ -103,7 +103,7 @@ pub(crate) fn as_skia_image(
                 "Borrowed GL texture",
             );
             skia_safe::image::Image::from_texture(
-                _canvas.recording_context().as_mut().unwrap(),
+                canvas.recording_context().as_mut().unwrap(),
                 &backend_texture,
                 match origin {
                     i_slint_core::graphics::BorrowedOpenGLTextureOrigin::TopLeft => {
@@ -123,6 +123,9 @@ pub(crate) fn as_skia_image(
         },
         #[cfg(not(skia_backend_opengl))]
         ImageInner::BorrowedOpenGLTexture(..) => None,
+        ImageInner::NineSlice(n) => {
+            as_skia_image(n.image(), target_size_fn, ImageFit::Preserve, scale_factor, canvas)
+        }
     }
 }
 

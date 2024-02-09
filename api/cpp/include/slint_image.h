@@ -210,6 +210,17 @@ public:
         }
     }
 
+    /// Sets the nine-slice edges of the image.
+    ///
+    /// [Nine-slice scaling](https://en.wikipedia.org/wiki/9-slice_scaling) is a method for scaling
+    /// images in such a way that the corners are not distorted.
+    /// The arguments define the pixel sizes of the edges that cut the image into 9 slices.
+    void set_nine_slice_edges(unsigned short top, unsigned short right, unsigned short bottom,
+                              unsigned short left)
+    {
+        cbindgen_private::types::slint_image_set_nine_slice_edges(&data, top, right, bottom, left);
+    }
+
     /// Returns true if \a a refers to the same image as \a b; false otherwise.
     friend bool operator==(const Image &a, const Image &b)
     {

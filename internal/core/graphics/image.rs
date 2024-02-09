@@ -43,6 +43,11 @@ OpaqueImageVTable_static! {
     pub static HTML_IMAGE_VT for htmlimage::HTMLImage
 }
 
+OpaqueImageVTable_static! {
+    /// VTable for RC wrapped SVG helper struct.
+    pub static NINE_SLICE_VT for NineSliceImage
+}
+
 /// SharedPixelBuffer is a container for storing image data as pixels. It is
 /// internally reference counted and cheap to clone.
 ///
@@ -306,6 +311,7 @@ impl ImageCacheKey {
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).cache_key(),
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => return None,
+            ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).cache_key(),
         };
         if matches!(key, ImageCacheKey::Invalid) {
             None
@@ -317,6 +323,25 @@ impl ImageCacheKey {
     /// Returns a cache key for static embedded image data.
     pub fn from_embedded_image_data(data: &'static [u8]) -> Self {
         Self::EmbeddedData(data.as_ptr() as usize)
+    }
+}
+
+/// Represent a 9slice image with the base image and the 4 borders
+pub struct NineSliceImage(pub ImageInner, pub [u16; 4]);
+
+impl NineSliceImage {
+    /// return the backing Image
+    pub fn image(&self) -> Image {
+        Image(self.0.clone())
+    }
+}
+
+impl OpaqueImage for NineSliceImage {
+    fn size(&self) -> IntSize {
+        self.image().size()
+    }
+    fn cache_key(&self) -> ImageCacheKey {
+        ImageCacheKey::new(&self.0).unwrap_or(ImageCacheKey::Invalid)
     }
 }
 
@@ -343,6 +368,7 @@ pub enum ImageInner {
     BackendStorage(vtable::VRc<OpaqueImageVTable>) = 5,
     #[cfg(not(target_arch = "wasm32"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
+    NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
 }
 
 impl ImageInner {
@@ -458,6 +484,7 @@ impl PartialEq for ImageInner {
             (Self::BackendStorage(l0), Self::BackendStorage(r0)) => vtable::VRc::ptr_eq(l0, r0),
             #[cfg(not(target_arch = "wasm32"))]
             (Self::BorrowedOpenGLTexture(l0), Self::BorrowedOpenGLTexture(r0)) => l0 == r0,
+            (Self::NineSlice(l), Self::NineSlice(r)) => l.0 == r.0 && l.1 == r.1,
             _ => false,
         }
     }
@@ -660,6 +687,27 @@ impl Image {
         ))))
     }
 
+    /// Sets the nine-slice edges of the image.
+    ///
+    /// [Nine-slice scaling](https://en.wikipedia.org/wiki/9-slice_scaling) is a method for scaling
+    /// images in such a way that the corners are not distorted.
+    /// The arguments define the pixel sizes of the edges that cut the image into 9 slices.
+    pub fn set_nine_slice_edges(&mut self, top: u16, right: u16, bottom: u16, left: u16) {
+        if top == 0 && left == 0 && right == 0 && bottom == 0 {
+            if let ImageInner::NineSlice(n) = &self.0 {
+                self.0 = n.0.clone();
+            }
+        } else {
+            let array = [top, right, bottom, left];
+            let inner = if let ImageInner::NineSlice(n) = &mut self.0 {
+                n.0.clone()
+            } else {
+                self.0.clone()
+            };
+            self.0 = ImageInner::NineSlice(vtable::VRc::new(NineSliceImage(inner, array)));
+        }
+    }
+
     /// Returns the size of the Image in pixels.
     pub fn size(&self) -> IntSize {
         match &self.0 {
@@ -673,6 +721,7 @@ impl Image {
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size(),
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
+            ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).size(),
         }
     }
 
@@ -894,6 +943,18 @@ pub(crate) mod ffi {
 
     use super::super::IntSize;
     use super::*;
+
+    /// Call slint_image_set_nine_slice_edges
+    #[no_mangle]
+    pub extern "C" fn slint_image_set_nine_slice_edges(
+        image: &mut Image,
+        top: u16,
+        right: u16,
+        bottom: u16,
+        left: u16,
+    ) {
+        image.set_nine_slice_edges(top, right, bottom, left);
+    }
 
     // Expand Rgb8Pixel so that cbindgen can see it. (is in fact rgb::RGB<u8>)
     /// Represents an RGB pixel.

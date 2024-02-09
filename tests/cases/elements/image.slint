@@ -13,6 +13,8 @@ TestCase := Rectangle {
         source-clip-x: 20;
     }
 
+    out property <image> with-border: @image-url("dog.jpg", 9slice(12 13 14 15));
+
     property <length> img_width: img.width;
     property <length> img_height: img.height;
     property <bool> test: img2.source-clip-height * 1px == img2.height && img2.source-clip-width * 1px == img2.width &&
