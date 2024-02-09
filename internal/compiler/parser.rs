@@ -549,11 +549,24 @@ mod parser_trait {
 
         /// consume everything until reaching a token of this kind
         fn until(&mut self, kind: SyntaxKind) {
-            // FIXME! match {} () []
-            while {
-                let k = self.nth(0).kind();
-                k != kind && k != SyntaxKind::Eof
-            } {
+            let mut parens = 0;
+            let mut braces = 0;
+            let mut brackets = 0;
+            loop {
+                match self.nth(0).kind() {
+                    k @ _ if k == kind && parens == 0 && braces == 0 && brackets == 0 => break,
+                    SyntaxKind::Eof => break,
+                    SyntaxKind::LParent => parens += 1,
+                    SyntaxKind::LBrace => braces += 1,
+                    SyntaxKind::LBracket => brackets += 1,
+                    SyntaxKind::RParent if parens == 0 => break,
+                    SyntaxKind::RParent => parens -= 1,
+                    SyntaxKind::RBrace if braces == 0 => break,
+                    SyntaxKind::RBrace => braces -= 1,
+                    SyntaxKind::RBracket if brackets == 0 => break,
+                    SyntaxKind::RBracket => brackets -= 1,
+                    _ => {}
+                };
                 self.consume();
             }
             self.expect(kind);
