@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export component SuperSimple {
+    property <image> i17: @image-url("foo", 9slice(1px));
+    //                                             ^error{Border widths of a 9slice can't have units}
+    property <image> i18: @image-url("foo", 9slice(1%));
+    //                                             ^error{Border widths of a 9slice can't have units}
+    property <image> i22: @image-url("foo", 9slice(123456789));
+    //                                             ^error{Number too big}
+    property <image> j01: @image-url("foo", 9slice(1 52deg 456456456 12abc));
+    //                                               ^error{Border widths of a 9slice can't have units}
+    //                                                               ^^error{Border widths of a 9slice can't have units}
+    //                                                     ^^^error{Number too big}
+}

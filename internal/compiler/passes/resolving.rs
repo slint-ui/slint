@@ -15,6 +15,7 @@ use crate::lookup::{LookupCtx, LookupObject, LookupResult};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
+use core::num::IntErrorKind;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -336,6 +337,7 @@ impl Expression {
             return Expression::ImageReference {
                 resource_ref: ImageReference::None,
                 source_location: Some(node.to_source_location()),
+                nine_slice: None,
             };
         }
 
@@ -360,9 +362,42 @@ impl Expression {
             }
         };
 
+        let nine_slice = node
+            .children_with_tokens()
+            .filter_map(|n| n.into_token())
+            .filter(|t| t.kind() == SyntaxKind::NumberLiteral)
+            .skip(1) // slip "9slice"
+            .map(|arg| {
+                arg.text().parse().unwrap_or_else(|err: std::num::ParseIntError| {
+                    match err.kind() {
+                        IntErrorKind::PosOverflow | IntErrorKind::NegOverflow => {
+                            ctx.diag.push_error("Number too big".into(), &arg)
+                        }
+                        IntErrorKind::InvalidDigit => ctx
+                            .diag
+                            .push_error("Border widths of a 9slice can't have units".into(), &arg),
+                        _ => ctx.diag.push_error("Cannot parse number literal".into(), &arg),
+                    };
+                    0u16
+                })
+            })
+            .collect::<Vec<u16>>();
+
+        let nine_slice = match nine_slice.as_slice() {
+            [x] => Some([*x, *x, *x, *x]),
+            [x, y] => Some([*x, *y, *x, *y]),
+            [x, y, z, w] => Some([*x, *y, *z, *w]),
+            [] => None,
+            _ => {
+                assert!(ctx.diag.has_error());
+                None
+            }
+        };
+
         Expression::ImageReference {
             resource_ref: ImageReference::AbsolutePath(absolute_source_path),
             source_location: Some(node.to_source_location()),
+            nine_slice,
         }
     }
 

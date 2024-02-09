@@ -86,7 +86,7 @@ fn embed_images_from_expression(
     scale_factor: f64,
     diag: &mut BuildDiagnostics,
 ) {
-    if let Expression::ImageReference { ref mut resource_ref, source_location } = e {
+    if let Expression::ImageReference { ref mut resource_ref, source_location, nine_slice: _ } = e {
         match resource_ref {
             ImageReference::AbsolutePath(path) => {
                 // used mapped path:
