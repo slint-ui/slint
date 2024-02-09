@@ -580,6 +580,7 @@ pub enum Expression {
     ImageReference {
         resource_ref: ImageReference,
         source_location: Option<SourceLocation>,
+        nine_slice: Option<[u16; 4]>,
     },
 
     Condition {
@@ -1250,6 +1251,7 @@ impl Expression {
             Type::Image => Expression::ImageReference {
                 resource_ref: ImageReference::None,
                 source_location: None,
+                nine_slice: None,
             },
             Type::Bool => Expression::BoolLiteral(false),
             Type::Model => Expression::Invalid,
