@@ -42,7 +42,7 @@ use lsp_types::{
     DocumentSymbol, DocumentSymbolResponse, Hover, InitializeParams, InitializeResult, OneOf,
     Position, PrepareRenameResponse, PublishDiagnosticsParams, RenameOptions,
     SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities,
-    ServerInfo, TextDocumentSyncCapability, TextEdit, Url, WorkDoneProgressOptions, WorkspaceEdit,
+    ServerInfo, TextDocumentSyncCapability, TextEdit, Url, WorkDoneProgressOptions,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
