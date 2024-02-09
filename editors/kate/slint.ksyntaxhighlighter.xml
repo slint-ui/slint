@@ -42,6 +42,7 @@
       <item>if</item>
       <item>for</item>
       <item>return</item>
+      <item>@tr</item>
     </list>
   <contexts>
     <context attribute="Normal Text" lineEndContext="#stay" name="Normal Text">
