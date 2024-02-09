@@ -64,9 +64,9 @@ assert!(!instance.get_hover());
 
 ```js
 var instance = new slint.TestCase({
-    clicked: function() { var x = instance.model; x.pop(); instance.model = x; }
+    clicked: function() { var x = instance.model; x.remove(x.length - 1, 1); instance.model = x; }
 });
-instance.model = [1, 2];
+instance.model = new slintlib.ArrayModel([1, 2]);
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.model.length, 1);
 assert(instance.hover);
