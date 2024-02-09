@@ -1352,7 +1352,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
     fn draw_image_impl(
         &mut self,
-        source: &crate::graphics::Image,
+        image_inner: &ImageInner,
         crate::graphics::FitResult {
             clip_rect: source_rect,
             source_to_target_x,
@@ -1363,7 +1363,6 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         colorize: Color,
     ) {
         let global_alpha_u16 = (self.current_state.alpha * 255.) as u16;
-        let image_inner: &ImageInner = source.into();
         let offset = (self.current_state.offset.cast() * self.scale_factor
             + image_fit_offset.to_vector())
         .cast();
@@ -1427,9 +1426,10 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                     }
                 }
             }
+            ImageInner::NineSlice(..) => unreachable!(),
             _ => {
-                let img_src_size = source.size();
                 if let Some(buffer) = image_inner.render_to_buffer(Some(fit_size.cast())) {
+                    let buf_size = buffer.size().cast::<f32>();
                     if let Some(clipped_relative_source_rect) = renderer_clip_in_source_rect_space
                         .intersection(&euclid::rect(
                             0.,
@@ -1442,13 +1442,18 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             .scale(source_to_target_x, source_to_target_y)
                             .translate(offset.to_vector())
                             .round();
-                        let buf_size = buffer.size().cast::<f32>();
+
+                        if target_rect.is_empty() {
+                            return;
+                        }
 
                         let alpha = if colorize.alpha() > 0 {
                             colorize.alpha() as u16 * global_alpha_u16 / 255
                         } else {
                             global_alpha_u16
                         } as u8;
+
+                        let img_src_size = image_inner.size().cast::<f32>();
 
                         self.processor.process_shared_image_buffer(
                             target_rect.cast().transformed(self.rotation),
@@ -1460,8 +1465,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                             .to_vector(),
                                     )
                                     .scale(
-                                        buf_size.width / img_src_size.width as f32,
-                                        buf_size.height / img_src_size.height as f32,
+                                        buf_size.width / img_src_size.width,
+                                        buf_size.height / img_src_size.height,
                                     )
                                     .cast(),
                                 colorize,
@@ -1876,6 +1881,21 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         if self.should_draw(&geom) {
             let source = image.source();
 
+            let image_inner: &ImageInner = (&source).into();
+            if let ImageInner::NineSlice(nine) = image_inner {
+                let colorize = image.colorize().color();
+                let source_size = source.size();
+                for fit in crate::graphics::fit9slice(
+                    source_size,
+                    nine.1,
+                    size.cast() * self.scale_factor,
+                    self.scale_factor,
+                ) {
+                    self.draw_image_impl(&nine.0, fit, colorize);
+                }
+                return;
+            }
+
             let source_clip = image
                 .source_clip()
                 .unwrap_or_else(|| euclid::Rect::new(Default::default(), source.size().cast()));
@@ -1888,7 +1908,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 self.scale_factor,
                 image.alignment(),
             );
-            self.draw_image_impl(&source, fit, image.colorize().color());
+            self.draw_image_impl(&image_inner, fit, image.colorize().color());
         }
     }
 

@@ -338,7 +338,7 @@ impl NineSliceImage {
 
 impl OpaqueImage for NineSliceImage {
     fn size(&self) -> IntSize {
-        self.image().size()
+        self.0.size()
     }
     fn cache_key(&self) -> ImageCacheKey {
         ImageCacheKey::new(&self.0).unwrap_or(ImageCacheKey::Invalid)
@@ -453,6 +453,7 @@ impl ImageInner {
                 }
                 Some(SharedImageBuffer::RGBA8Premultiplied(buffer))
             }
+            ImageInner::NineSlice(nine) => nine.0.render_to_buffer(None),
             _ => None,
         }
     }
@@ -465,6 +466,23 @@ impl ImageInner {
             #[cfg(target_arch = "wasm32")]
             Self::HTMLImage(html_image) => html_image.is_svg(),
             _ => false,
+        }
+    }
+
+    /// Return the image size
+    pub fn size(&self) -> IntSize {
+        match self {
+            ImageInner::None => Default::default(),
+            ImageInner::EmbeddedImage { buffer, .. } => buffer.size(),
+            ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
+            #[cfg(feature = "svg")]
+            ImageInner::Svg(svg) => svg.size(),
+            #[cfg(target_arch = "wasm32")]
+            ImageInner::HTMLImage(htmlimage) => htmlimage.size().unwrap_or_default(),
+            ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size(),
+            #[cfg(not(target_arch = "wasm32"))]
+            ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
+            ImageInner::NineSlice(nine) => nine.0.size(),
         }
     }
 }
@@ -710,19 +728,7 @@ impl Image {
 
     /// Returns the size of the Image in pixels.
     pub fn size(&self) -> IntSize {
-        match &self.0 {
-            ImageInner::None => Default::default(),
-            ImageInner::EmbeddedImage { buffer, .. } => buffer.size(),
-            ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
-            #[cfg(feature = "svg")]
-            ImageInner::Svg(svg) => svg.size(),
-            #[cfg(target_arch = "wasm32")]
-            ImageInner::HTMLImage(htmlimage) => htmlimage.size().unwrap_or_default(),
-            ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size(),
-            #[cfg(not(target_arch = "wasm32"))]
-            ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
-            ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).size(),
-        }
+        self.0.size()
     }
 
     #[cfg(feature = "std")]
@@ -742,6 +748,12 @@ impl Image {
             ImageInner::EmbeddedImage { cache_key: ImageCacheKey::Path(path), .. } => {
                 Some(std::path::Path::new(path.as_str()))
             }
+            ImageInner::NineSlice(nine) => match &nine.0 {
+                ImageInner::EmbeddedImage { cache_key: ImageCacheKey::Path(path), .. } => {
+                    Some(std::path::Path::new(path.as_str()))
+                }
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -857,6 +869,7 @@ fn test_image_invalid_svg() {
 }
 
 /// The result of the fit function
+#[derive(Debug)]
 pub struct FitResult {
     /// The clip rect in the source image (in source image coordinate)
     pub clip_rect: IntRect,
@@ -937,24 +950,65 @@ pub fn fit(
     }
 }
 
+/// Generate an iterator of  [`FitResult`] for each slice of a 9slice border image
+pub fn fit9slice(
+    source_rect: IntSize,
+    [t, r, b, l]: [u16; 4],
+    target: euclid::Size2D<f32, PhysicalPx>,
+    scale_factor: ScaleFactor,
+) -> impl Iterator<Item = FitResult> {
+    let fit_to = |clip_rect: euclid::default::Rect<u16>, target: euclid::Rect<f32, PhysicalPx>| {
+        (!clip_rect.is_empty() && !target.is_empty()).then(|| FitResult {
+            clip_rect: clip_rect.cast(),
+            source_to_target_x: target.width() / clip_rect.width() as f32,
+            source_to_target_y: target.height() / clip_rect.height() as f32,
+            size: target.size,
+            offset: target.origin,
+        })
+    };
+    use euclid::rect;
+    let sf = |x| scale_factor.get() * x as f32;
+    let source = source_rect.cast::<u16>();
+
+    [
+        fit_to(rect(0, 0, l, t), rect(0., 0., sf(l), sf(t))),
+        fit_to(
+            rect(l, 0, source.width - l - r, t),
+            rect(sf(l), 0., target.width - sf(l) - sf(r), sf(t)),
+        ),
+        fit_to(rect(source.width - r, 0, r, t), rect(target.width - sf(r), 0., sf(r), sf(t))),
+        fit_to(
+            rect(0, t, l, source.height - t - b),
+            rect(0., sf(t), sf(l), target.height - sf(t) - sf(b)),
+        ),
+        fit_to(
+            rect(l, t, source.width - l - r, source.height - t - b),
+            rect(sf(l), sf(t), target.width - sf(l) - sf(r), target.height - sf(t) - sf(b)),
+        ),
+        fit_to(
+            rect(source.width - r, t, r, source.height - t - b),
+            rect(target.width - sf(r), sf(t), sf(r), target.height - sf(t) - sf(b)),
+        ),
+        fit_to(rect(0, source.width - b, l, b), rect(0., target.height - sf(b), sf(l), sf(b))),
+        fit_to(
+            rect(l, source.width - b, source.width - l - r, b),
+            rect(sf(l), target.height - sf(b), target.width - sf(l) - sf(r), sf(b)),
+        ),
+        fit_to(
+            rect(source.width - r, source.width - b, r, b),
+            rect(target.width - sf(r), target.height - sf(b), sf(r), sf(b)),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|x| x)
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
     use super::super::IntSize;
     use super::*;
-
-    /// Call slint_image_set_nine_slice_edges
-    #[no_mangle]
-    pub extern "C" fn slint_image_set_nine_slice_edges(
-        image: &mut Image,
-        top: u16,
-        right: u16,
-        bottom: u16,
-        left: u16,
-    ) {
-        image.set_nine_slice_edges(top, right, bottom, left);
-    }
 
     // Expand Rgb8Pixel so that cbindgen can see it. (is in fact rgb::RGB<u8>)
     /// Represents an RGB pixel.
@@ -1009,10 +1063,17 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
+    pub extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
         match &image.0 {
             ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
                 ImageCacheKey::Path(path) => Some(path),
+                _ => None,
+            },
+            ImageInner::NineSlice(nine) => match &nine.0 {
+                ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
+                    ImageCacheKey::Path(path) => Some(path),
+                    _ => None,
+                },
                 _ => None,
             },
             _ => None,
@@ -1030,6 +1091,18 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_image_compare_equal(image1: &Image, image2: &Image) -> bool {
         return image1.eq(image2);
+    }
+
+    /// Call [`Image::set_nine_slice_edges`]
+    #[no_mangle]
+    pub extern "C" fn slint_image_set_nine_slice_edges(
+        image: &mut Image,
+        top: u16,
+        right: u16,
+        bottom: u16,
+        left: u16,
+    ) {
+        image.set_nine_slice_edges(top, right, bottom, left);
     }
 }
 
