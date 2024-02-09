@@ -298,12 +298,13 @@ An `Image` can be used to represent an image loaded from a file.
 
 -   **`colorize`** (_in_ _brush_): When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
 -   **`horizontal-alignment`** (_in_ _enum [`ImageHorizontalAlignment`](enums.md#imagehorizontalalignment)_): The horizontal alignment of the image within the element.
--   **`image-fit`** (_in_ _enum [`ImageFit`](enums.md#imagefit)_): Specifies how the source image shall be fit into the image element. (default value: `contain` when the `Image` element is part of a layout, `fill` otherwise)
+-   **`image-fit`** (_in_ _enum [`ImageFit`](enums.md#imagefit)_): Specifies how the source image shall be fit into the image element. Does not have any effect when used with 9 slice scaling images.
+    (default value: `contain` when the `Image` element is part of a layout, `fill` otherwise)
 -   **`image-rendering`** (_in_ _enum [`ImageRendering`](enums.md#imagerendering)_): Specifies how the source image will be scaled. (default value: `smooth`)
 -   **`rotation-angle`** (_in_ _angle_), **`rotation-origin-x`** (_in_ _length_), **`rotation-origin-y`** (_in_ _length_):
     Rotates the image by the given angle around the specified origin point. The default origin point is the center of the element.
     When these properties are set, the `Image` can't have children.
--   **`source`** (_in_ _image_): The image to load. Use the `@image-url("...")` macro to specify the location of the image.
+-   **`source`** (_in_ _image_): The image to load. Use the [`@image-url("...")` macro](../syntax/types#images) to specify the location of the image.
 -   **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (_in_ _int_): Properties in source
     image coordinates that define the region of the source image that is rendered. By default the entire source image is visible:
     | Property | Default Binding |
@@ -348,6 +349,20 @@ export component Example inherits Window {
             width: 100px;
             // implicit default, preserving aspect ratio:
             // height: self.width * natural_height / natural_width;
+        }
+    }
+}
+```
+
+Example using 9slice:
+
+```slint
+export component Example inherits Window {
+    width: 100px;
+    height: 150px;
+    VerticalLayout {
+        Image {
+            source: @image-url("https://interactive-examples.mdn.mozilla.net/media/examples/border-diamonds.png", 9slice(30));
         }
     }
 }
