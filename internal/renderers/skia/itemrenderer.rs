@@ -175,47 +175,57 @@ impl<'a> SkiaItemRenderer<'a> {
             })
         });
 
-        let skia_image = match skia_image {
-            Some(img) => img,
-            None => return,
+        let skia_image = if let Some(img) = skia_image { img } else { return };
+
+        let fits = if let &i_slint_core::ImageInner::NineSlice(ref nine) = (&item.source()).into() {
+            i_slint_core::graphics::fit9slice(
+                euclid::size2(skia_image.width(), skia_image.height()).cast(),
+                nine.1,
+                dest_rect.size,
+                self.scale_factor,
+            )
+            .collect::<Vec<_>>()
+        } else {
+            vec![i_slint_core::graphics::fit(
+                item.image_fit(),
+                dest_rect.size,
+                item.source_clip()
+                    .unwrap_or_else(|| euclid::rect(0, 0, skia_image.width(), skia_image.height())),
+                self.scale_factor,
+                item.alignment(),
+            )]
         };
 
-        self.canvas.save();
+        for fit in fits {
+            self.canvas.save();
 
-        let fit = i_slint_core::graphics::fit(
-            item.image_fit(),
-            dest_rect.size,
-            item.source_clip()
-                .unwrap_or_else(|| euclid::rect(0, 0, skia_image.width(), skia_image.height())),
-            self.scale_factor,
-            item.alignment(),
-        );
+            let dst = to_skia_rect(&PhysicalRect::new(fit.offset, fit.size));
+            self.canvas.clip_rect(dst, None, None);
+            let src = skia_safe::Rect::from_xywh(
+                fit.clip_rect.origin.cast().x,
+                fit.clip_rect.origin.cast().y,
+                fit.clip_rect.size.cast().width,
+                fit.clip_rect.size.cast().height,
+            );
+            let transform = skia_safe::Matrix::rect_to_rect(src, dst, None).unwrap_or_default();
+            self.canvas.concat(&transform);
 
-        let dst = to_skia_rect(&PhysicalRect::new(fit.offset, fit.size));
-        self.canvas.clip_rect(dst, None, None);
-        let src = skia_safe::Rect::from_xywh(
-            fit.clip_rect.origin.cast().x,
-            fit.clip_rect.origin.cast().y,
-            fit.clip_rect.size.cast().width,
-            fit.clip_rect.size.cast().height,
-        );
-        let transform = skia_safe::Matrix::rect_to_rect(src, dst, None).unwrap_or_default();
-        self.canvas.concat(&transform);
+            let filter_mode: skia_safe::sampling_options::SamplingOptions =
+                match item.rendering() {
+                    ImageRendering::Smooth => skia_safe::sampling_options::FilterMode::Linear,
+                    ImageRendering::Pixelated => skia_safe::sampling_options::FilterMode::Nearest,
+                }
+                .into();
 
-        let filter_mode: skia_safe::sampling_options::SamplingOptions = match item.rendering() {
-            ImageRendering::Smooth => skia_safe::sampling_options::FilterMode::Linear,
-            ImageRendering::Pixelated => skia_safe::sampling_options::FilterMode::Nearest,
+            self.canvas.draw_image_with_sampling_options(
+                skia_image.clone(),
+                skia_safe::Point::default(),
+                filter_mode,
+                None,
+            );
+
+            self.canvas.restore();
         }
-        .into();
-
-        self.canvas.draw_image_with_sampling_options(
-            skia_image,
-            skia_safe::Point::default(),
-            filter_mode,
-            None,
-        );
-
-        self.canvas.restore();
     }
 
     fn render_and_blend_layer(&mut self, item_rc: &ItemRc) -> RenderingResult {

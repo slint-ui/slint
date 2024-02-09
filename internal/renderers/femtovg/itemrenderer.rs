@@ -1363,35 +1363,49 @@ impl<'a> GLItemRenderer<'a> {
         let image_size = cached_image.size().unwrap_or_default();
         let source_clip_rect = item.source_clip().unwrap_or(IntRect::from_size(image_size.cast()));
 
-        let fit = i_slint_core::graphics::fit(
-            item.image_fit(),
-            size * self.scale_factor,
-            source_clip_rect,
-            self.scale_factor,
-            item.alignment(),
-        );
+        let image = item.source();
+        let image_inner: &ImageInner = (&image).into();
+        let fits = if let ImageInner::NineSlice(nine) = image_inner {
+            i_slint_core::graphics::fit9slice(
+                image.size(),
+                nine.1,
+                size * self.scale_factor,
+                self.scale_factor,
+            )
+            .collect::<Vec<_>>()
+        } else {
+            vec![i_slint_core::graphics::fit(
+                item.image_fit(),
+                size * self.scale_factor,
+                source_clip_rect,
+                self.scale_factor,
+                item.alignment(),
+            )]
+        };
 
-        let fill_paint = femtovg::Paint::image(
-            image_id,
-            -fit.clip_rect.origin.x as _,
-            -fit.clip_rect.origin.y as _,
-            image_size.cast().width,
-            image_size.cast().height,
-            0.0,
-            1.0,
-        )
-        // We preserve the rectangular shape of the image, so there's no need to apply anti-aliasing
-        // at the edges
-        .with_anti_alias(false);
+        for fit in fits {
+            let fill_paint = femtovg::Paint::image(
+                image_id,
+                -fit.clip_rect.origin.x as _,
+                -fit.clip_rect.origin.y as _,
+                image_size.cast().width,
+                image_size.cast().height,
+                0.0,
+                1.0,
+            )
+            // We preserve the rectangular shape of the image, so there's no need to apply anti-aliasing
+            // at the edges
+            .with_anti_alias(false);
 
-        let mut path = femtovg::Path::new();
-        path.rect(0., 0., fit.clip_rect.width() as _, fit.clip_rect.height() as _);
+            let mut path = femtovg::Path::new();
+            path.rect(0., 0., fit.clip_rect.width() as _, fit.clip_rect.height() as _);
 
-        self.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(fit.offset.x, fit.offset.y);
-            canvas.scale(fit.source_to_target_x, fit.source_to_target_y);
-            canvas.fill_path(&path, &fill_paint);
-        })
+            self.canvas.borrow_mut().save_with(|canvas| {
+                canvas.translate(fit.offset.x, fit.offset.y);
+                canvas.scale(fit.source_to_target_x, fit.source_to_target_y);
+                canvas.fill_path(&path, &fill_paint);
+            })
+        }
     }
 
     fn brush_to_paint(&self, brush: Brush, path: &femtovg::Path) -> Option<femtovg::Paint> {

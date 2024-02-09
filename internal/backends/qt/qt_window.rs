@@ -1253,40 +1253,53 @@ impl QtItemRenderer<'_> {
         let source_rect = source_rect
             .unwrap_or_else(|| euclid::rect(0, 0, image_size.width as _, image_size.height as _));
         let scale_factor = ScaleFactor::new(self.scale_factor());
-        let fit = i_slint_core::graphics::fit(
-            image.image_fit(),
-            size * scale_factor,
-            source_rect,
-            scale_factor,
-            image.alignment(),
-        );
 
-        let dest_rect = qttypes::QRectF {
-            x: fit.offset.x as _,
-            y: fit.offset.y as _,
-            width: fit.size.width as _,
-            height: fit.size.height as _,
-        };
-        let source_rect = qttypes::QRectF {
-            x: fit.clip_rect.origin.x as _,
-            y: fit.clip_rect.origin.y as _,
-            width: fit.clip_rect.size.width as _,
-            height: fit.clip_rect.size.height as _,
+        let fit = if let &i_slint_core::ImageInner::NineSlice(ref nine) = (&image.source()).into() {
+            i_slint_core::graphics::fit9slice(
+                nine.0.size(),
+                nine.1,
+                size * scale_factor,
+                scale_factor,
+            )
+            .collect::<Vec<_>>()
+        } else {
+            vec![i_slint_core::graphics::fit(
+                image.image_fit(),
+                size * scale_factor,
+                source_rect,
+                scale_factor,
+                image.alignment(),
+            )]
         };
 
-        let painter: &mut QPainterPtr = &mut self.painter;
-        let smooth: bool = image.rendering() == ImageRendering::Smooth;
-        cpp! { unsafe [
-                painter as "QPainterPtr*",
-                pixmap as "QPixmap",
-                source_rect as "QRectF",
-                dest_rect as "QRectF",
-                smooth as "bool"] {
-            (*painter)->save();
-            (*painter)->setRenderHint(QPainter::SmoothPixmapTransform, smooth);
-            (*painter)->drawPixmap(dest_rect, pixmap, source_rect);
-            (*painter)->restore();
-        }};
+        for fit in fit {
+            let dest_rect = qttypes::QRectF {
+                x: fit.offset.x as _,
+                y: fit.offset.y as _,
+                width: fit.size.width as _,
+                height: fit.size.height as _,
+            };
+            let source_rect = qttypes::QRectF {
+                x: fit.clip_rect.origin.x as _,
+                y: fit.clip_rect.origin.y as _,
+                width: fit.clip_rect.size.width as _,
+                height: fit.clip_rect.size.height as _,
+            };
+
+            let painter: &mut QPainterPtr = &mut self.painter;
+            let smooth: bool = image.rendering() == ImageRendering::Smooth;
+            cpp! { unsafe [
+                    painter as "QPainterPtr*",
+                    pixmap as "QPixmap",
+                    source_rect as "QRectF",
+                    dest_rect as "QRectF",
+                    smooth as "bool"] {
+                (*painter)->save();
+                (*painter)->setRenderHint(QPainter::SmoothPixmapTransform, smooth);
+                (*painter)->drawPixmap(dest_rect, pixmap, source_rect);
+                (*painter)->restore();
+            }};
+        }
     }
 
     fn draw_rectangle_impl(
