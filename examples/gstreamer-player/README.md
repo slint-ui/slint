@@ -24,4 +24,11 @@ $ apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
       gstreamer1.0-libav libgstrtspserver-1.0-dev libges-1.0-dev
 ```
 
+On Opensuse you can use:
+
+```bash
+$ zypper in zypper in gstreamer-plugins-bad-devel gstreamer-devel gstreamer-plugins-base-devel \
+      gstreamer-plugins-good
+```
+
 Once you have a working gstreamer-rs and slint install, `cargo run` should work.
