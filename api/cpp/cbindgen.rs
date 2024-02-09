@@ -354,6 +354,7 @@ fn gen_corelib(
         "slint_image_load_from_embedded_data",
         "slint_image_from_embedded_textures",
         "slint_image_compare_equal",
+        "slint_image_set_nine_slice_edges",
         "slint_timer_start",
         "slint_timer_singleshot",
         "slint_timer_destroy",
@@ -463,6 +464,7 @@ fn gen_corelib(
                 "slint_image_load_from_embedded_data",
                 "slint_image_from_embedded_textures",
                 "slint_image_compare_equal",
+                "slint_image_set_nine_slice_edges",
                 "SharedPixelBuffer",
                 "SharedImageBuffer",
                 "StaticTextures",
@@ -470,7 +472,7 @@ fn gen_corelib(
             ],
             vec!["Color"],
             "slint_image_internal.h",
-            "namespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; using namespace vtable; }",
+            "namespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -537,6 +539,7 @@ fn gen_corelib(
             "slint_image_path",
             "slint_image_load_from_path",
             "slint_image_load_from_embedded_data",
+            "slint_image_set_nine_slice_edges",
             "slint_image_from_embedded_textures",
             "slint_image_compare_equal",
         ]

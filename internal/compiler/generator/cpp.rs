@@ -2749,8 +2749,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(sub, ctx), op = op,)
         }
-        Expression::ImageReference { resource_ref, .. }  => {
-            match resource_ref {
+        Expression::ImageReference { resource_ref, nine_slice }  => {
+            let image = match resource_ref {
                 crate::expression_tree::ImageReference::None => r#"slint::Image()"#.to_string(),
                 crate::expression_tree::ImageReference::AbsolutePath(path) => format!(r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#, escape_string(path.as_str())),
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
@@ -2760,6 +2760,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 crate::expression_tree::ImageReference::EmbeddedTexture{resource_id} => {
                     format!("slint::private_api::image_from_embedded_textures(&slint_embedded_resource_{resource_id})")
                 },
+            };
+            match &nine_slice {
+                Some([a, b, c, d]) => {
+                    format!("([&] {{ auto image = {image}; image.set_nine_slice_edges({a}, {b}, {c}, {d}); return image; }})()")
+                }
+                None => image,
             }
         }
         Expression::Condition { condition, true_expr, false_expr } => {

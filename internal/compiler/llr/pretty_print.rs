@@ -216,7 +216,13 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 write!(f, "({} {} {})", e(lhs), op, e(rhs))
             }
             Expression::UnaryOp { sub, op } => write!(f, "{}{}", op, e(sub)),
-            Expression::ImageReference { resource_ref } => write!(f, "{:?}", resource_ref),
+            Expression::ImageReference { resource_ref, nine_slice } => {
+                write!(f, "{:?}", resource_ref)?;
+                if let Some(nine_slice) = &nine_slice {
+                    write!(f, "9slice({:?})", nine_slice)?;
+                }
+                Ok(())
+            }
             Expression::Condition { condition, true_expr, false_expr } => {
                 write!(f, "({} ? {} : {})", e(condition), e(true_expr), e(false_expr))
             }

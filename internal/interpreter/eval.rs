@@ -271,8 +271,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 (sub, op) => panic!("unsupported {} {:?}", op, sub),
             }
         }
-        Expression::ImageReference{ resource_ref, .. } => {
-            Value::Image(match resource_ref {
+        Expression::ImageReference{ resource_ref, nine_slice, .. } => {
+            let mut image = match resource_ref {
                 i_slint_compiler::expression_tree::ImageReference::None => {
                     Ok(Default::default())
                 }
@@ -309,7 +309,11 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }.unwrap_or_else(|_| {
                 eprintln!("Could not load image {:?}",resource_ref );
                 Default::default()
-            }))
+            });
+            if let Some(n) = nine_slice {
+                image.set_nine_slice_edges(n[0], n[1], n[2], n[3]);
+            }
+            Value::Image(image)
         }
         Expression::Condition { condition, true_expr, false_expr } => {
             match eval_expression(condition, local_context).try_into()

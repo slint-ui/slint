@@ -117,6 +117,7 @@ pub enum Expression {
 
     ImageReference {
         resource_ref: crate::expression_tree::ImageReference,
+        nine_slice: Option<[u16; 4]>,
     },
 
     Condition {
@@ -214,6 +215,7 @@ impl Expression {
             }
             Type::Image => Expression::ImageReference {
                 resource_ref: crate::expression_tree::ImageReference::None,
+                nine_slice: None,
             },
             Type::Bool => Expression::BoolLiteral(false),
             Type::Model => return None,
