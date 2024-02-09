@@ -170,3 +170,69 @@ impl ComponentInformation {
         }
     }
 }
+
+pub mod lsp_to_editor {
+    use lsp_types::notification::Notification;
+
+    pub fn send_status_notification(
+        sender: &crate::ServerNotifier,
+        message: &str,
+        health: crate::lsp_ext::Health,
+    ) {
+        sender
+            .send_notification(
+                crate::lsp_ext::ServerStatusNotification::METHOD.into(),
+                crate::lsp_ext::ServerStatusParams {
+                    health,
+                    quiescent: false,
+                    message: Some(message.into()),
+                },
+            )
+            .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
+    }
+
+    pub fn notify_lsp_diagnostics(
+        sender: &crate::ServerNotifier,
+        uri: lsp_types::Url,
+        diagnostics: Vec<lsp_types::Diagnostic>,
+    ) -> Option<()> {
+        sender
+            .send_notification(
+                "textDocument/publishDiagnostics".into(),
+                lsp_types::PublishDiagnosticsParams { uri, diagnostics, version: None },
+            )
+            .ok()
+    }
+
+    fn show_document_request_from_element_callback(
+        uri: lsp_types::Url,
+        range: lsp_types::Range,
+    ) -> Option<lsp_types::ShowDocumentParams> {
+        if range.start.character == 0 || range.end.character == 0 {
+            return None;
+        }
+
+        Some(lsp_types::ShowDocumentParams {
+            uri,
+            external: Some(false),
+            take_focus: Some(true),
+            selection: Some(range),
+        })
+    }
+
+    #[cfg(feature = "preview-engine")]
+    pub async fn send_show_document_to_editor(
+        sender: crate::ServerNotifier,
+        file: lsp_types::Url,
+        range: lsp_types::Range,
+    ) {
+        let Some(params) = show_document_request_from_element_callback(file, range) else {
+            return;
+        };
+        let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
+            return;
+        };
+
+        let _ = fut.await;
+    }
+}

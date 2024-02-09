@@ -42,7 +42,7 @@ use lsp_types::{
     DocumentSymbol, DocumentSymbolResponse, Hover, InitializeParams, InitializeResult, OneOf,
     Position, PrepareRenameResponse, PublishDiagnosticsParams, RenameOptions,
     SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities,
-    ServerInfo, TextDocumentSyncCapability, TextEdit, Url, WorkDoneProgressOptions, WorkspaceEdit,
+    ServerInfo, TextDocumentSyncCapability, TextEdit, Url, WorkDoneProgressOptions,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -104,17 +104,17 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
 
                 continue;
             };
-            ctx.server_notifier.send_preview_message(LspToPreviewMessage::SetContents {
+            ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
                 url: VersionedUrl { url, version: node.source_file().and_then(|sf| sf.version()) },
                 contents: node.text().to_string(),
             })
         }
     }
-    ctx.server_notifier.send_preview_message(LspToPreviewMessage::SetConfiguration {
+    ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::SetConfiguration {
         config: cache.preview_config.clone(),
     });
     if let Some(c) = ctx.to_show.borrow().clone() {
-        ctx.server_notifier.send_preview_message(LspToPreviewMessage::ShowPreview(c))
+        ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::ShowPreview(c))
     }
 }
 
@@ -367,7 +367,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
             {
                 if let Some(range) = map_node(&p) {
-                    ctx.server_notifier.send_preview_message(
+                    ctx.server_notifier.send_message_to_preview(
                         LspToPreviewMessage::HighlightFromEditor { url: Some(uri), offset },
                     );
                     return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
@@ -375,7 +375,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             }
 
             if let Some(value) = find_element_id_for_highlight(&tk, &p) {
-                ctx.server_notifier.send_preview_message(
+                ctx.server_notifier.send_message_to_preview(
                     LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
                 );
                 return Ok(Some(
@@ -389,7 +389,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 ));
             }
         }
-        ctx.server_notifier.send_preview_message(LspToPreviewMessage::HighlightFromEditor {
+        ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::HighlightFromEditor {
             url: None,
             offset: 0,
         });
@@ -449,7 +449,7 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
 
     let c = PreviewComponent { url, component, style: config.style.clone().unwrap_or_default() };
     ctx.to_show.replace(Some(c.clone()));
-    ctx.server_notifier.send_preview_message(LspToPreviewMessage::ShowPreview(c));
+    ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::ShowPreview(c));
 
     // Update known Components
     report_known_components(document_cache, ctx);
@@ -681,7 +681,7 @@ pub(crate) async fn reload_document_impl(
     }
 
     if let Some(ctx) = ctx {
-        ctx.server_notifier.send_preview_message(LspToPreviewMessage::SetContents {
+        ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
             url: VersionedUrl { url, version },
             contents: content.clone(),
         });
@@ -732,7 +732,7 @@ fn report_known_components(document_cache: &mut DocumentCache, ctx: &Rc<Context>
     });
 
     ctx.server_notifier
-        .send_preview_message(LspToPreviewMessage::KnownComponents { url, components });
+        .send_message_to_preview(LspToPreviewMessage::KnownComponents { url, components });
 }
 
 pub async fn reload_document(
@@ -1347,13 +1347,15 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
         library_paths: cc.library_paths.clone(),
     };
     document_cache.preview_config = config.clone();
-    ctx.server_notifier.send_preview_message(LspToPreviewMessage::SetConfiguration { config });
+    ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::SetConfiguration { config });
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use lsp_types::WorkspaceEdit;
 
     use test::{complex_document_cache, loaded_document_cache};
 

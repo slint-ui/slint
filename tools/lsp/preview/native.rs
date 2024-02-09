@@ -209,7 +209,7 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
     let lsp_diags = crate::preview::convert_diagnostics(diagnostics);
 
     for (url, diagnostics) in lsp_diags {
-        crate::preview::notify_lsp_diagnostics(&sender, url, diagnostics)?;
+        crate::common::lsp_to_editor::notify_lsp_diagnostics(&sender, url, diagnostics)?;
     }
     Some(())
 }
@@ -219,7 +219,7 @@ pub fn send_status(message: &str, health: Health) {
         return;
     };
 
-    crate::preview::send_status_notification(&sender, message, health)
+    crate::common::lsp_to_editor::send_status_notification(&sender, message, health)
 }
 
 pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range) {
@@ -227,6 +227,6 @@ pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range) {
         return;
     };
     let Ok(url) = lsp_types::Url::from_file_path(file) else { return };
-    let fut = crate::send_show_document_to_editor(sender, url, selection);
+    let fut = crate::common::lsp_to_editor::send_show_document_to_editor(sender, url, selection);
     slint_interpreter::spawn_local(fut).unwrap(); // Fire and forget.
 }

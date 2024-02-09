@@ -76,7 +76,7 @@ impl ServerNotifier {
         })
     }
 
-    pub fn send_preview_message(&self, message: LspToPreviewMessage) {
+    pub fn send_message_to_preview(&self, message: LspToPreviewMessage) {
         let _ = self.send_notification("slint/lsp_to_preview".to_string(), message);
     }
 }
@@ -200,7 +200,7 @@ pub fn create(
                 return Some(contents);
             };
             if let Ok(contents) = &contents {
-                server_notifier.send_preview_message(LspToPreviewMessage::SetContents {
+                server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
                     url: VersionedUrl { url, version: None },
                     contents: contents.clone(),
                 })
@@ -245,17 +245,25 @@ impl SlintServer {
 
         match message {
             M::Status { message, health } => {
-                crate::preview::send_status_notification(
+                crate::common::lsp_to_editor::send_status_notification(
                     &self.ctx.server_notifier,
                     &message,
                     health,
                 );
             }
             M::Diagnostics { diagnostics, uri } => {
-                crate::preview::notify_lsp_diagnostics(&self.ctx.server_notifier, uri, diagnostics);
+                crate::common::lsp_to_editor::notify_lsp_diagnostics(
+                    &self.ctx.server_notifier,
+                    uri,
+                    diagnostics,
+                );
             }
             M::ShowDocument { file, selection } => {
-                send_show_document_to_editor(self.ctx.server_notifier.clone(), file, selection)
+                let sn = self.ctx.server_notifier.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    crate::common::lsp_to_editor::send_show_document_to_editor(sn, file, selection)
+                        .await
+                });
             }
             M::PreviewTypeChanged { is_external: _ } => {
                 // Nothing to do!
@@ -327,22 +335,4 @@ fn to_value<T: serde::Serialize + ?Sized>(
     value: &T,
 ) -> std::result::Result<wasm_bindgen::JsValue, serde_wasm_bindgen::Error> {
     value.serialize(&serde_wasm_bindgen::Serializer::json_compatible())
-}
-
-pub fn send_show_document_to_editor(
-    sender: ServerNotifier,
-    file: Url,
-    selection: lsp_types::Range,
-) {
-    wasm_bindgen_futures::spawn_local(async move {
-        let Some(params) =
-            crate::preview::show_document_request_from_element_callback(file, selection)
-        else {
-            return;
-        };
-        let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
-            return;
-        };
-        fut.await.unwrap();
-    });
 }
