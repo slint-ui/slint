@@ -138,9 +138,9 @@ var instance = new slint.TestCase({});
 slintlib.private_api.send_mouse_click(instance, 15., 5.);
 assert.equal(instance.clicked_score, 792);
 
-assert.equal(instance.model[1].score, 792.);
+assert.equal(instance.model.rowData(1).score, 792.);
 instance.manual_score_update(1, 100);
-assert.equal(instance.model[1].score, 892.);
+assert.equal(instance.model.rowData(1).score, 892.);
 
 let another_model = new slintlib.ArrayModel([
     {account: "a1", name: "hello", score: 111.},
