@@ -135,7 +135,7 @@ impl ServerNotifier {
         }))
     }
 
-    pub fn send_preview_message(&self, message: LspToPreviewMessage) {
+    pub fn send_message_to_preview(&self, message: LspToPreviewMessage) {
         if self.use_external_preview.get() {
             let _ = self.send_notification("slint/lsp_to_preview".to_string(), message);
         } else {
@@ -263,7 +263,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
             let contents = std::fs::read_to_string(&path);
             if let Ok(contents) = &contents {
                 if let Ok(url) = Url::from_file_path(&path) {
-                    server_notifier.send_preview_message(LspToPreviewMessage::SetContents {
+                    server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
                         url: VersionedUrl { url, version: None },
                         contents: contents.clone(),
                     })
@@ -390,18 +390,26 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
             let params: M = serde_json::from_value(req.params)?;
             match params {
                 M::Status { message, health } => {
-                    crate::preview::send_status_notification(
+                    crate::common::lsp_to_editor::send_status_notification(
                         &ctx.server_notifier,
                         &message,
                         health,
                     );
                 }
                 M::Diagnostics { uri, diagnostics } => {
-                    crate::preview::notify_lsp_diagnostics(&ctx.server_notifier, uri, diagnostics);
+                    crate::common::lsp_to_editor::notify_lsp_diagnostics(
+                        &ctx.server_notifier,
+                        uri,
+                        diagnostics,
+                    );
                 }
                 M::ShowDocument { file, selection } => {
-                    send_show_document_to_editor(ctx.server_notifier.clone(), file, selection)
-                        .await;
+                    crate::common::lsp_to_editor::send_show_document_to_editor(
+                        ctx.server_notifier.clone(),
+                        file,
+                        selection,
+                    )
+                    .await;
                 }
                 M::PreviewTypeChanged { is_external } => {
                     ctx.server_notifier.use_external_preview.set(is_external);
@@ -414,21 +422,4 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         _ => (),
     }
     Ok(())
-}
-
-#[cfg(feature = "preview-engine")]
-pub async fn send_show_document_to_editor(
-    sender: ServerNotifier,
-    file: Url,
-    range: lsp_types::Range,
-) {
-    let Some(params) = crate::preview::show_document_request_from_element_callback(file, range)
-    else {
-        return;
-    };
-    let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else {
-        return;
-    };
-
-    let _ = fut.await;
 }

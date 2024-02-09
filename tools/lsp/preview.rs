@@ -8,7 +8,7 @@ use crate::lsp_ext::Health;
 use i_slint_compiler::object_tree::{ElementRc, ElementWeak};
 use i_slint_core::model::VecModel;
 use i_slint_core::{component_factory::FactoryContext, lengths::LogicalRect};
-use lsp_types::{notification::Notification, Url};
+use lsp_types::Url;
 use slint_interpreter::highlight::{ComponentKind, ComponentPositions};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::cell::RefCell;
@@ -352,22 +352,6 @@ pub fn known_components(_url: &Option<VersionedUrl>, components: Vec<ComponentIn
     });
 }
 
-pub fn show_document_request_from_element_callback(
-    uri: Url,
-    range: lsp_types::Range,
-) -> Option<lsp_types::ShowDocumentParams> {
-    if range.start.character == 0 || range.end.character == 0 {
-        return None;
-    }
-
-    Some(lsp_types::ShowDocumentParams {
-        uri,
-        external: Some(false),
-        take_focus: Some(true),
-        selection: Some(range),
-    })
-}
-
 fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
 ) -> HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> {
@@ -382,32 +366,6 @@ fn convert_diagnostics(
         result.entry(uri).or_default().push(crate::util::to_lsp_diag(d));
     }
     result
-}
-
-pub fn notify_lsp_diagnostics(
-    sender: &crate::ServerNotifier,
-    uri: lsp_types::Url,
-    diagnostics: Vec<lsp_types::Diagnostic>,
-) -> Option<()> {
-    sender
-        .send_notification(
-            "textDocument/publishDiagnostics".into(),
-            lsp_types::PublishDiagnosticsParams { uri, diagnostics, version: None },
-        )
-        .ok()
-}
-
-pub fn send_status_notification(sender: &crate::ServerNotifier, message: &str, health: Health) {
-    sender
-        .send_notification(
-            crate::lsp_ext::ServerStatusNotification::METHOD.into(),
-            crate::lsp_ext::ServerStatusParams {
-                health,
-                quiescent: false,
-                message: Some(message.into()),
-            },
-        )
-        .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
 }
 
 fn reset_selections(ui: &ui::PreviewUi) {
