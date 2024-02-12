@@ -714,7 +714,7 @@ pub fn build_import_statements_edits(
     };
 
     for ci in &exports {
-        let Some(file) = ci.import_file_name(&current_uri) else {
+        let Some(file) = ci.import_file_name(&Some(current_uri.clone())) else {
             continue;
         };
 
