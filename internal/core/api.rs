@@ -447,8 +447,8 @@ impl Window {
     }
 
     /// Returns if the window is currently fullscreen
-    pub fn fullscreen(&self) -> bool {
-        self.0.fullscreen()
+    pub fn is_fullscreen(&self) -> bool {
+        self.0.is_fullscreen()
     }
 
     /// Set or unset the window to display fullscreen.
@@ -457,8 +457,8 @@ impl Window {
     }
 
     /// Returns if the window is currently maximized
-    pub fn maximized(&self) -> bool {
-        self.0.maximized()
+    pub fn is_maximized(&self) -> bool {
+        self.0.is_maximized()
     }
 
     /// Maximize or unmaximize the window.
@@ -467,8 +467,8 @@ impl Window {
     }
 
     /// Returns if the window is currently minimized
-    pub fn minimized(&self) -> bool {
-        self.0.minimized()
+    pub fn is_minimized(&self) -> bool {
+        self.0.is_minimized()
     }
 
     /// Minimize or unminimze the window.

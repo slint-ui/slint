@@ -308,7 +308,7 @@ impl WinitWindowAdapter {
 
     pub fn window_state_event(&self) {
         if let Some(minimized) = self.winit_window.is_minimized() {
-            if minimized != self.window().minimized() {
+            if minimized != self.window().is_minimized() {
                 self.window().set_minimized(minimized);
             }
         }
@@ -318,9 +318,9 @@ impl WinitWindowAdapter {
         // that we only update the internal maximized state when the window is
         // not minimized. Otherwise, the window would be restored in a
         // non-maximized state even if it was maximized before being minimized.
-        if !self.window().minimized() {
+        if !self.window().is_minimized() {
             let maximized = self.winit_window.is_maximized();
-            if maximized != self.window().maximized() {
+            if maximized != self.window().is_maximized() {
                 self.window().set_maximized(maximized);
             }
         }
@@ -329,7 +329,7 @@ impl WinitWindowAdapter {
         // window will remain in fullscreen. Fullscreen must be false to switch
         // to maximized.
         let fullscreen = self.winit_window.fullscreen().is_some();
-        if fullscreen != self.window().fullscreen() {
+        if fullscreen != self.window().is_fullscreen() {
             self.window().set_fullscreen(fullscreen);
         }
     }
@@ -490,10 +490,10 @@ impl WindowAdapter for WinitWindowAdapter {
 
         // Only set the window as maximized if the window is not already fullscreen
         if winit_window.fullscreen().is_none() {
-            winit_window.set_maximized(properties.maximized());
+            winit_window.set_maximized(properties.is_maximized());
         }
 
-        winit_window.set_minimized(properties.minimized());
+        winit_window.set_minimized(properties.is_minimized());
 
         if width <= 0. || height <= 0. {
             must_resize = true;
@@ -534,7 +534,7 @@ impl WindowAdapter for WinitWindowAdapter {
         }
 
         self.with_window_handle(&mut |winit_window| {
-            if properties.fullscreen() {
+            if properties.is_fullscreen() {
                 if winit_window.fullscreen().is_none() {
                     winit_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
                 }

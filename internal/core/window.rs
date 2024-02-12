@@ -279,17 +279,17 @@ impl<'a> WindowProperties<'a> {
     }
 
     /// Returns true if the window should be shown fullscreen; false otherwise.
-    pub fn fullscreen(&self) -> bool {
+    pub fn is_fullscreen(&self) -> bool {
         self.0.fullscreen.get()
     }
 
     /// true if the window is in a maximized state, otherwise false
-    pub fn maximized(&self) -> bool {
+    pub fn is_maximized(&self) -> bool {
         self.0.maximized.get()
     }
 
     /// true if the window is in a minimized state, otherwise false
-    pub fn minimized(&self) -> bool {
+    pub fn is_minimized(&self) -> bool {
         self.0.minimized.get()
     }
 }
@@ -1046,7 +1046,7 @@ impl WindowInner {
     }
 
     /// Returns if the window is currently maximized
-    pub fn fullscreen(&self) -> bool {
+    pub fn is_fullscreen(&self) -> bool {
         self.fullscreen.get()
     }
 
@@ -1057,7 +1057,7 @@ impl WindowInner {
     }
 
     /// Returns if the window is currently maximized
-    pub fn maximized(&self) -> bool {
+    pub fn is_maximized(&self) -> bool {
         self.maximized.get()
     }
 
@@ -1068,7 +1068,7 @@ impl WindowInner {
     }
 
     /// Returns if the window is currently minimized
-    pub fn minimized(&self) -> bool {
+    pub fn is_minimized(&self) -> bool {
         self.minimized.get()
     }
 

@@ -127,7 +127,7 @@ impl JsWindow {
     /// Returns if the window is currently fullscreen
     #[napi(getter)]
     pub fn get_fullscreen(&self) -> bool {
-        self.inner.window().fullscreen()
+        self.inner.window().is_fullscreen()
     }
 
     /// Set or unset the window to display fullscreen.
@@ -139,7 +139,7 @@ impl JsWindow {
     /// Returns if the window is currently maximized
     #[napi(getter)]
     pub fn get_maximized(&self) -> bool {
-        self.inner.window().maximized()
+        self.inner.window().is_maximized()
     }
 
     /// Maximize or unmaximize the window.
@@ -151,7 +151,7 @@ impl JsWindow {
     /// Returns if the window is currently minimized
     #[napi(getter)]
     pub fn get_minimized(&self) -> bool {
-        self.inner.window().minimized()
+        self.inner.window().is_minimized()
     }
 
     /// Minimize or unminimze the window.
