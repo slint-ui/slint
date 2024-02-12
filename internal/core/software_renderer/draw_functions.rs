@@ -30,10 +30,12 @@ pub(super) fn draw_texture_line(
 
     let y = if rotation.mirror_width() { span_size.height - y.get() - 1 } else { y.get() };
 
+    const SHIFT: usize = 16;
+
     if !rotation.is_transpose() {
         let y_pos = (y * source_size.height / span_size.height) * pixel_stride as usize;
-        let mut delta = ((source_size.width << 8) / span_size.width) as isize;
-        let mut pos = (y_pos << 8) as isize;
+        let mut delta = ((source_size.width << SHIFT) / span_size.width) as isize;
+        let mut pos = (y_pos << SHIFT) as isize;
         if rotation.mirror_height() {
             pos += (span_size.width as isize - 1) * delta;
             delta = -delta;
@@ -46,7 +48,7 @@ pub(super) fn draw_texture_line(
             color,
             #[inline(always)]
             |bpp| {
-                let p = (pos as usize >> 8) * bpp;
+                let p = (pos as usize >> SHIFT) * bpp;
                 pos += delta;
                 p
             },
@@ -56,7 +58,7 @@ pub(super) fn draw_texture_line(
         let col = y * source_size.width / span_size.height;
         let col = col * bpp;
         let stride = pixel_stride as usize * bpp;
-        let row_delta = ((source_size.height << 8) / span_size.width) as isize;
+        let row_delta = ((source_size.height << SHIFT) / span_size.width) as isize;
         let (mut row, row_delta) = if rotation.mirror_height() {
             ((span_size.width as isize - 1) * row_delta, -row_delta)
         } else {
@@ -70,7 +72,7 @@ pub(super) fn draw_texture_line(
             color,
             #[inline(always)]
             |_| {
-                let pos = (row as usize >> 8) * stride + col;
+                let pos = (row as usize >> SHIFT) * stride + col;
                 row += row_delta;
                 pos
             },
