@@ -96,6 +96,7 @@ fn main() -> std::io::Result<()> {
                     panic!("Cannot parse {needle} for {}", testcase.relative_path.display())
                 })
         });
+        let skip_clipping = source.contains("SKIP_CLIPPING");
 
         let mut output = BufWriter::new(std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
@@ -113,7 +114,7 @@ fn main() -> std::io::Result<()> {
     {scale_factor}
     window.set_size(slint::PhysicalSize::new(64, 64));
     let screenshot = {reference_path};
-    let options = testing::TestCaseOptions {{ rotation_threshold: {rotation_threshold}f32 }};
+    let options = testing::TestCaseOptions {{ rotation_threshold: {rotation_threshold}f32, skip_clipping: {skip_clipping} }};
 
     let instance = TestCase::new().unwrap();
     instance.show().unwrap();

@@ -68,7 +68,7 @@ Files: editors/vscode/static/assets/img/nodejs_logo.svg
 Copyright: node.js authors
 License: CC0-1.0
 
-Files: tests/screenshots/references/software/*/*.png
+Files: tests/screenshots/**/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
