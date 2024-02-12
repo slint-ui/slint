@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use crate::common::{
-    ComponentInformation, LspToPreviewMessage, PreviewComponent, PreviewConfig, VersionedUrl,
+    ComponentInformation, LspToPreviewMessage, PreviewComponent, PreviewConfig, UrlVersion,
+    VersionedUrl,
 };
 use crate::lsp_ext::Health;
 use i_slint_compiler::object_tree::{ElementRc, ElementWeak};
@@ -47,7 +48,7 @@ enum PreviewFutureState {
 
 #[derive(Default)]
 struct ContentCache {
-    source_code: HashMap<Url, String>,
+    source_code: HashMap<Url, (UrlVersion, String)>,
     dependency: HashSet<Url>,
     current: Option<PreviewComponent>,
     config: PreviewConfig,
@@ -68,10 +69,10 @@ thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default:
 
 pub fn set_contents(url: &VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let old = cache.source_code.insert(url.url().clone(), content.clone());
-    if cache.dependency.contains(&url.url()) {
-        if let Some(old) = old {
-            if content == old {
+    let old = cache.source_code.insert(url.url().clone(), (url.version().clone(), content.clone()));
+    if cache.dependency.contains(url.url()) {
+        if let Some((old_version, old)) = old {
+            if content == old && old_version == *url.version() {
                 return;
             }
         }
@@ -152,14 +153,14 @@ pub fn config_changed(config: PreviewConfig) {
 
 /// If the file is in the cache, returns it.
 /// In any way, register it as a dependency
-fn get_url_from_cache(url: &Url) -> Option<String> {
+fn get_url_from_cache(url: &Url) -> Option<(UrlVersion, String)> {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let r = cache.source_code.get(url).cloned();
     cache.dependency.insert(url.to_owned());
     r
 }
 
-fn get_path_from_cache(path: &Path) -> Option<String> {
+fn get_path_from_cache(path: &Path) -> Option<(UrlVersion, String)> {
     let url = Url::from_file_path(path).ok()?;
     get_url_from_cache(&url)
 }
@@ -252,13 +253,13 @@ async fn reload_preview_impl(
 
     builder.set_file_loader(|path| {
         let path = path.to_owned();
-        Box::pin(async move { get_path_from_cache(&path).map(Result::Ok) })
+        Box::pin(async move { get_path_from_cache(&path).map(|(_, c)| Result::Ok(c)) })
     });
 
     // to_file_path on a WASM Url just returns the URL as the path!
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
 
-    let compiled = if let Some(mut from_cache) = get_url_from_cache(&component.url) {
+    let compiled = if let Some((_, mut from_cache)) = get_url_from_cache(&component.url) {
         if let Some(component_name) = &component.component {
             from_cache = format!(
                 "{from_cache}\nexport component _SLINT_LivePreview inherits {component_name} {{ /* {} */ }}\n",
