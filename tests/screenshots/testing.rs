@@ -122,6 +122,9 @@ fn color_difference(lhs: &Rgb8Pixel, rhs: &Rgb8Pixel) -> f32 {
 pub struct TestCaseOptions {
     /// How much we allow the maximum pixel difference to be when operating a screen rotation
     pub rotation_threshold: f32,
+
+    /// When true, we don't compare screenshots rendered with clipping
+    pub skip_clipping: bool,
 }
 
 fn compare_images(
@@ -286,8 +289,12 @@ pub fn assert_with_render_by_line(
         ));
     }
     screenshot_render_by_line(window, Some(region.cast()), &mut rendering);
-    if let Err(reason) = compare_images(path, &rendering, RenderingRotation::NoRotation, options) {
-        panic!("Partial rendering image comparison failure for line-by-line rendering for {path}: {reason}");
+    if !options.skip_clipping {
+        if let Err(reason) =
+            compare_images(path, &rendering, RenderingRotation::NoRotation, options)
+        {
+            panic!("Partial rendering image comparison failure for line-by-line rendering for {path}: {reason}");
+        }
     }
 }
 
