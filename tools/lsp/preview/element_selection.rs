@@ -101,25 +101,25 @@ fn root_element(component_instance: &ComponentInstance) -> ElementRc {
 }
 
 #[derive(Clone)]
-struct SelectionCandidate {
-    component_stack: Vec<Rc<Component>>,
-    element: ElementRc,
-    text_range: Option<(SourceFile, TextRange)>,
+pub struct SelectionCandidate {
+    pub component_stack: Vec<Rc<Component>>,
+    pub element: ElementRc,
+    pub text_range: Option<(SourceFile, TextRange)>,
 }
 
 impl SelectionCandidate {
-    fn is_element(&self, element: &ElementRc) -> bool {
+    pub fn is_element(&self, element: &ElementRc) -> bool {
         Rc::ptr_eq(&self.element, element)
     }
 
-    fn is_component_root_element(&self) -> bool {
+    pub fn is_component_root_element(&self) -> bool {
         let Some(c) = self.component_stack.last() else {
             return false;
         };
         Rc::ptr_eq(&self.element, &c.root_element)
     }
 
-    fn is_builtin(&self) -> bool {
+    pub fn is_builtin(&self) -> bool {
         let elem = self.element.borrow();
         let Some(node) = elem.node.first() else {
             return true;
@@ -130,7 +130,7 @@ impl SelectionCandidate {
         sf.path().starts_with("builtin:/")
     }
 
-    fn same_file(&self, element: &ElementRc) -> bool {
+    pub fn same_file(&self, element: &ElementRc) -> bool {
         let Some((s, _)) = &self.text_range else {
             return false;
         };
@@ -198,12 +198,12 @@ fn collect_all_elements_covering_impl(
     }
 }
 
-fn collect_all_elements_covering(
+pub fn collect_all_elements_covering(
     x: f32,
     y: f32,
     component_instance: &ComponentInstance,
-    root_element: &ElementRc,
 ) -> Vec<SelectionCandidate> {
+    let root_element = root_element(&component_instance);
     let mut elements = Vec::new();
     collect_all_elements_covering_impl(
         x,
@@ -230,13 +230,12 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
         }
     }
 
-    let elements = collect_all_elements_covering(x, y, &component_instance, &root_element);
+    let elements = collect_all_elements_covering(x, y, &component_instance);
 
     if let Some(element) = elements
         .iter()
         .filter(|sc| enter_component || sc.same_file(&root_element))
         .filter(|sc| !(sc.is_builtin() && !sc.is_component_root_element()))
-        .filter(|sc| !sc.is_element(&root_element))
         .next()
     {
         select_element(&component_instance, &element.element);
@@ -256,7 +255,7 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
         return;
     };
 
-    let elements = collect_all_elements_covering(x, y, &component_instance, &root_element);
+    let elements = collect_all_elements_covering(x, y, &component_instance);
 
     let to_select = {
         let it = elements
@@ -268,10 +267,7 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
             .filter(|sc| {
                 enter_component || sc.same_file(&root_element) || sc.is_element(&selected_element)
             })
-            .filter(|sc| {
-                !Rc::ptr_eq(&sc.element, &selected_component.root_element)
-                    && !Rc::ptr_eq(&sc.element, &root_element)
-            }); // Filter out the component root itself and the root, we want to select inside of that
+            .filter(|sc| !Rc::ptr_eq(&sc.element, &selected_component.root_element)); // Filter out the component root itself and the root, we want to select inside of that
 
         if reverse {
             it.take_while(|sc| !sc.is_element(&selected_element)).last()
