@@ -264,7 +264,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
             if let Ok(contents) = &contents {
                 if let Ok(url) = Url::from_file_path(&path) {
                     server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
-                        url: VersionedUrl { url, version: None },
+                        url: VersionedUrl::new(url, None),
                         contents: contents.clone(),
                     })
                 } else {
