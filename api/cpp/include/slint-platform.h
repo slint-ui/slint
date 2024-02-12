@@ -249,6 +249,18 @@ public:
             return cbindgen_private::slint_window_properties_get_fullscreen(inner());
         }
 
+        /// Returns true if the window should be minimized; false otherwise
+        bool minimized() const
+        {
+            return cbindgen_private::slint_window_properties_get_minimized(inner());
+        }
+
+        /// Returns true if the window should be maximized; false otherwise
+        bool maximized() const
+        {
+            return cbindgen_private::slint_window_properties_get_maximized(inner());
+        }
+
         /// This struct describes the layout constraints of a window.
         ///
         /// It is the return value of WindowProperties::layout_constraints().
@@ -372,10 +384,7 @@ public:
     /// Returns a copy of text stored in the system clipboard, if any.
     ///
     /// If the platform doesn't support the specified clipboard, the function should return nullopt
-    virtual std::optional<SharedString> clipboard_text(Clipboard)
-    {
-        return {};
-    }
+    virtual std::optional<SharedString> clipboard_text(Clipboard) { return {}; }
 
     /// Spins an event loop and renders the visible windows.
     virtual void run_event_loop() { }
