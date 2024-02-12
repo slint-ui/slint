@@ -201,7 +201,7 @@ pub fn create(
             };
             if let Ok(contents) = &contents {
                 server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
-                    url: VersionedUrl { url, version: None },
+                    url: VersionedUrl::new(url, None),
                     contents: contents.clone(),
                 })
             }

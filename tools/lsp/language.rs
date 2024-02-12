@@ -105,7 +105,7 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
                 continue;
             };
             ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
-                url: VersionedUrl { url, version: node.source_file().and_then(|sf| sf.version()) },
+                url: VersionedUrl::new(url, node.source_file().and_then(|sf| sf.version())),
                 contents: node.text().to_string(),
             })
         }
@@ -682,7 +682,7 @@ pub(crate) async fn reload_document_impl(
 
     if let Some(ctx) = ctx {
         ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
-            url: VersionedUrl { url, version },
+            url: VersionedUrl::new(url, version),
             contents: content.clone(),
         });
     }
@@ -728,7 +728,7 @@ fn report_known_components(document_cache: &mut DocumentCache, ctx: &Rc<Context>
 
         component_catalog::file_local_components(document_cache, &file, &mut components);
 
-        VersionedUrl { url, version }
+        VersionedUrl::new(url, version)
     });
 
     ctx.server_notifier

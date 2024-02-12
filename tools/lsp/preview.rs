@@ -68,8 +68,8 @@ thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default:
 
 pub fn set_contents(url: &VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let old = cache.source_code.insert(url.url.clone(), content.clone());
-    if cache.dependency.contains(&url.url) {
+    let old = cache.source_code.insert(url.url().clone(), content.clone());
+    if cache.dependency.contains(&url.url()) {
         if let Some(old) = old {
             if content == old {
                 return;

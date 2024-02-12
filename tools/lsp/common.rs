@@ -65,12 +65,26 @@ pub fn create_workspace_edit_from_source_file(
 }
 
 /// A versioned file
-#[derive(Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct VersionedUrl {
     /// The file url
-    pub url: Url,
+    url: Url,
     // The file version
-    pub version: UrlVersion,
+    version: UrlVersion,
+}
+
+impl VersionedUrl {
+    pub fn new(url: Url, version: UrlVersion) -> Self {
+        VersionedUrl { url, version }
+    }
+
+    pub fn url(&self) -> &Url {
+        &self.url
+    }
+
+    pub fn version(&self) -> &UrlVersion {
+        &self.version
+    }
 }
 
 impl std::fmt::Debug for VersionedUrl {
