@@ -175,12 +175,16 @@ pub struct ComponentInformation {
 }
 
 impl ComponentInformation {
-    pub fn import_file_name(&self, current_uri: &lsp_types::Url) -> Option<String> {
+    pub fn import_file_name(&self, current_uri: &Option<lsp_types::Url>) -> Option<String> {
         if self.is_std_widget {
             Some("std-widgets.slint".to_string())
         } else {
             let url = self.defined_at.as_ref().map(|p| &p.url)?;
-            lsp_types::Url::make_relative(current_uri, url)
+            if let Some(current_uri) = current_uri {
+                lsp_types::Url::make_relative(current_uri, url)
+            } else {
+                url.to_file_path().ok().map(|p| p.to_string_lossy().to_string())
+            }
         }
     }
 }
