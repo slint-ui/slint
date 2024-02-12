@@ -55,8 +55,11 @@ impl PreviewConnector {
         lsp_notifier: SignalLspFunction,
         resource_url_mapper: ResourceUrlMapperFunction,
         style: String,
+        experimental: bool,
     ) -> Result<PreviewConnectorPromise, JsValue> {
         console_error_panic_hook::set_once();
+
+        i_slint_core::debug_log!("PreviewConnector: Enable experimental? {experimental}");
 
         WASM_CALLBACKS.set(Some(WasmCallbacks { lsp_notifier, resource_url_mapper }));
 
@@ -70,7 +73,7 @@ impl PreviewConnector {
                         reject_c.take().call1(&JsValue::UNDEFINED,
                             &JsValue::from("PreviewConnector already set up.")).unwrap_throw();
                     } else {
-                        match super::ui::create_ui(style) {
+                        match super::ui::create_ui(style, experimental) {
                             Ok(ui) => {
                                 preview_state.borrow_mut().ui = Some(ui);
                                 resolve.take().call1(&JsValue::UNDEFINED,

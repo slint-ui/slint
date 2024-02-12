@@ -8,7 +8,7 @@ use slint_interpreter::{DiagnosticLevel, PlatformError};
 
 slint::include_modules!();
 
-pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
+pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, PlatformError> {
     let ui = PreviewUi::new()?;
 
     // styles:
@@ -32,11 +32,7 @@ pub fn create_ui(style: String) -> Result<PreviewUi, PlatformError> {
 
     ui.set_known_styles(style_model.into());
     ui.set_current_style(style.clone().into());
-    ui.set_experimental(
-        std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES")
-            .map(|s| !s.is_empty() && s != "0")
-            .unwrap_or(false),
-    );
+    ui.set_experimental(experimental);
 
     ui.on_style_changed(super::change_style);
     ui.on_show_document(|file, line, column| {
