@@ -22,6 +22,7 @@ use std::sync::Mutex;
 use crate::wasm_prelude::*;
 
 mod debug;
+mod drop_location;
 mod element_selection;
 mod ui;
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
@@ -91,8 +92,7 @@ pub fn set_contents(url: &VersionedUrl, content: String) {
 
 // triggered from the UI, running in UI thread
 fn can_drop_component(_component_name: slint::SharedString, x: f32, y: f32) -> bool {
-    i_slint_core::debug_log!("can drop? {x}x{y}");
-    ((x.round() as i32) / 10) % 2 == 0 && ((y.round() as i32) / 10) % 2 == 0
+    drop_location::can_drop_at(x, y)
 }
 
 // triggered from the UI, running in UI thread
@@ -102,11 +102,11 @@ fn drop_component(
     x: f32,
     y: f32,
 ) {
-    i_slint_core::debug_log!(
-        "drop! {}@{} at {x}x{y}",
-        component_name.as_str(),
-        import_path.as_str()
-    );
+    if let Some(component) =
+        drop_location::drop_at(x, y, component_name.to_string(), import_path.to_string())
+    {
+        ask_lsp_to_add_component(Some(format!("Dropped {}", component_name.as_str())), component);
+    };
 }
 
 fn change_style() {
