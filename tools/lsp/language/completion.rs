@@ -631,24 +631,17 @@ fn add_components_to_import(
     );
 }
 
-/// Try to generate `import { XXX } from "foo.slint";` for every component
+/// Find the insert location for new imports in the `document`
 ///
-/// This is used for auto-completion and also for fixup diagnostics
-///
-/// Call `add_edit` with the component name and file name and TextEdit for every component for which the `filter` callback returns true
-pub fn build_import_statements_edits(
-    token: &SyntaxToken,
-    document_cache: &mut DocumentCache,
-    filter: &mut dyn FnMut(&str) -> bool,
-    add_edit: &mut dyn FnMut(&str, &str, TextEdit),
-) -> Option<()> {
-    // Find out types that can be imported
-    let current_file = token.source_file.path().to_owned();
-    let current_uri = lsp_types::Url::from_file_path(&current_file).ok()?;
-    let current_doc = document_cache.documents.get_document(&current_file)?.node.as_ref()?;
+/// The result is a tuple with the first element pointing to the place new import statements should
+/// get added. The second element in the tuple is a HashMap mapping import file names to the
+/// correct location to enter more components into the existing import statement.
+pub fn find_import_locations(
+    document: &syntax_nodes::Document,
+) -> (Position, HashMap<String, Position>) {
     let mut import_locations = HashMap::new();
     let mut last = 0u32;
-    for import in current_doc.ImportSpecifier() {
+    for import in document.ImportSpecifier() {
         if let Some((loc, file)) = import.ImportIdentifierList().and_then(|list| {
             let node = list.ImportIdentifier().last()?;
             let id = crate::util::last_non_ws_token(&node).or_else(|| node.first_token())?;
@@ -674,7 +667,7 @@ pub fn build_import_statements_edits(
         // component Foo {
         // ```
         let mut offset = None;
-        for it in current_doc.children_with_tokens() {
+        for it in document.children_with_tokens() {
             match it.kind() {
                 SyntaxKind::Comment => {
                     if offset.is_none() {
@@ -696,10 +689,30 @@ pub fn build_import_statements_edits(
                 }
             }
         }
-        map_position(&token.source_file, offset.unwrap_or_default())
+        map_position(&document.source_file, offset.unwrap_or_default())
     } else {
-        Position::new(map_position(&token.source_file, last.into()).line + 1, 0)
+        Position::new(map_position(&document.source_file, last.into()).line + 1, 0)
     };
+
+    (new_import_position, import_locations)
+}
+
+/// Try to generate `import { XXX } from "foo.slint";` for every component
+///
+/// This is used for auto-completion and also for fixup diagnostics
+///
+/// Call `add_edit` with the component name and file name and TextEdit for every component for which the `filter` callback returns true
+pub fn build_import_statements_edits(
+    token: &SyntaxToken,
+    document_cache: &mut DocumentCache,
+    filter: &mut dyn FnMut(&str) -> bool,
+    add_edit: &mut dyn FnMut(&str, &str, TextEdit),
+) -> Option<()> {
+    // Find out types that can be imported
+    let current_file = token.source_file.path().to_owned();
+    let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
+    let current_doc = document_cache.documents.get_document(&current_file)?.node.as_ref()?;
+    let (new_import_position, import_locations) = find_import_locations(current_doc);
 
     let exports = {
         let mut tmp = Vec::new();
@@ -714,7 +727,7 @@ pub fn build_import_statements_edits(
     };
 
     for ci in &exports {
-        let Some(file) = ci.import_file_name(&Some(current_uri.clone())) else {
+        let Some(file) = ci.import_file_name(&current_uri) else {
             continue;
         };
 
