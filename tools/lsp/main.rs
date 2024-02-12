@@ -14,7 +14,7 @@ pub mod lsp_ext;
 mod preview;
 pub mod util;
 
-use common::{LspToPreviewMessage, Result, VersionedUrl};
+use common::{LspToPreviewMessage, PreviewToLspMessage, Result, VersionedUrl};
 use language::*;
 
 use i_slint_compiler::CompilerConfiguration;
@@ -96,6 +96,7 @@ pub struct ServerNotifier {
     sender: crossbeam_channel::Sender<Message>,
     queue: OutgoingRequestQueue,
     use_external_preview: std::cell::Cell<bool>,
+    injector: crossbeam_channel::Sender<Message>,
 }
 impl ServerNotifier {
     pub fn send_notification(&self, method: String, params: impl serde::Serialize) -> Result<()> {
@@ -142,6 +143,13 @@ impl ServerNotifier {
             #[cfg(feature = "preview-builtin")]
             preview::lsp_to_preview_message(message, self);
         }
+    }
+
+    pub fn send_message_to_lsp(&self, message: PreviewToLspMessage) {
+        let _ = self.injector.send(Message::Notification(lsp_server::Notification::new(
+            "slint/preview_to_lsp".to_string(),
+            message,
+        )));
     }
 }
 
@@ -244,10 +252,13 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     register_request_handlers(&mut rh);
 
     let request_queue = OutgoingRequestQueue::default();
+    let (injector_sender, injector_receiver) = crossbeam_channel::bounded::<Message>(0);
+
     let server_notifier = ServerNotifier {
         sender: connection.sender.clone(),
         queue: request_queue.clone(),
         use_external_preview: Default::default(),
+        injector: injector_sender,
     };
 
     let mut compiler_config =
@@ -302,8 +313,19 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         Poll::Pending => futures.push(first_future),
     };
 
-    for msg in &connection.receiver {
-        match msg {
+    let connections = [connection.receiver.clone(), injector_receiver.clone()];
+    let mut selector = {
+        let mut tmp = crossbeam_channel::Select::new();
+        for c in &connections {
+            tmp.recv(c);
+        }
+        tmp
+    };
+
+    loop {
+        let operation = selector.select();
+        let index = operation.index();
+        match operation.recv(&connections[index])? {
             Message::Request(req) => {
                 // ignore errors when shutdown
                 if connection.handle_shutdown(&req).unwrap_or(false) {
@@ -345,7 +367,6 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         });
         result?;
     }
-    Ok(())
 }
 
 async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -> Result<()> {
