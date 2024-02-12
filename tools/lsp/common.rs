@@ -5,8 +5,7 @@
 
 use i_slint_compiler::{
     diagnostics::{SourceFile, SourceFileVersion},
-    object_tree::Element,
-    parser::{syntax_nodes, SyntaxKind},
+    parser::{syntax_nodes::Element, SyntaxKind},
 };
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
@@ -23,16 +22,13 @@ use crate::wasm_prelude::*;
 /// ignore a node for code analysis purposes.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
 
-/// Filter nodes that are marked up to be ignored from the list of nodes.
-pub fn filter_ignore_nodes_in_element(
-    element: &Element,
-) -> impl Iterator<Item = &syntax_nodes::Element> {
-    element.node.iter().filter(move |e| {
-        !e.children_with_tokens().any(|nt| {
-            nt.as_token()
-                .map(|t| t.kind() == SyntaxKind::Comment && t.text().contains(NODE_IGNORE_COMMENT))
-                .unwrap_or(false)
-        })
+/// Check whether a node is marked to be ignored in the LSP/live preview
+/// using a comment containing `@lsp:ignore-node`
+pub fn is_element_node_ignored(node: &Element) -> bool {
+    node.children_with_tokens().any(|nt| {
+        nt.as_token()
+            .map(|t| t.kind() == SyntaxKind::Comment && t.text().contains(NODE_IGNORE_COMMENT))
+            .unwrap_or(false)
     })
 }
 
