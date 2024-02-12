@@ -25,14 +25,19 @@ fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
 
 fn lsp_element_position(element: &ElementRc) -> Option<(String, lsp_types::Range)> {
     let e = element.borrow();
-    let location = crate::common::filter_ignore_nodes_in_element(&e).next().and_then(|n| {
-        n.parent()
-            .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
-            .map_or_else(
-                || Some(n.source_file.text_size_to_file_line_column(n.text_range().start())),
-                |p| Some(p.source_file.text_size_to_file_line_column(p.text_range().start())),
-            )
-    });
+    let location = e
+        .node
+        .iter()
+        .filter(|e| !crate::common::is_element_node_ignored(*e))
+        .next()
+        .and_then(|n| {
+            n.parent()
+                .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
+                .map_or_else(
+                    || Some(n.source_file.text_size_to_file_line_column(n.text_range().start())),
+                    |p| Some(p.source_file.text_size_to_file_line_column(p.text_range().start())),
+                )
+        });
     location.map(|(f, sl, sc, el, ec)| {
         use lsp_types::{Position, Range};
         let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
