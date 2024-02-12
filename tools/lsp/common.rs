@@ -99,6 +99,33 @@ pub struct Position {
     pub offset: u32,
 }
 
+/// A versioned file
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+pub struct VersionedPosition {
+    /// The file url
+    url: VersionedUrl,
+    /// The offset in the file pointed to by the `url`
+    offset: u32,
+}
+
+impl VersionedPosition {
+    pub fn new(url: VersionedUrl, offset: u32) -> Self {
+        VersionedPosition { url, offset }
+    }
+
+    pub fn url(&self) -> &Url {
+        self.url.url()
+    }
+
+    pub fn version(&self) -> &UrlVersion {
+        self.url.version()
+    }
+
+    pub fn offset(&self) -> u32 {
+        self.offset
+    }
+}
+
 #[derive(Default, Clone, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
 pub struct PreviewConfig {
     pub hide_ui: Option<bool>,
@@ -143,12 +170,22 @@ pub struct Diagnostic {
 
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct ComponentAddition {
+    pub component_type: String,
+    pub import_path: Option<String>, // Url fails to convert reliably:-/
+    pub insert_position: VersionedPosition,
+    pub properties: Vec<(String, String)>,
+}
+
+#[allow(unused)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToLspMessage {
     Status { message: String, health: crate::lsp_ext::Health },
     Diagnostics { uri: Url, diagnostics: Vec<lsp_types::Diagnostic> },
     ShowDocument { file: Url, selection: lsp_types::Range },
     PreviewTypeChanged { is_external: bool },
     RequestState { unused: bool }, // send all documents!
+    AddComponent { label: Option<String>, component: ComponentAddition },
 }
 
 /// Information on the Element types available

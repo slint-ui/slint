@@ -438,6 +438,21 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
                 M::RequestState { .. } => {
                     crate::language::request_state(ctx);
                 }
+                M::AddComponent { label, component } => {
+                    let edit = crate::language::add_component(ctx, component)?;
+                    let response = ctx
+                        .server_notifier
+                        .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+                            lsp_types::ApplyWorkspaceEditParams { label, edit },
+                        )?
+                        .await?;
+                    if !response.applied {
+                        return Err(response
+                            .failure_reason
+                            .unwrap_or("Operation failed, no specific reason given".into())
+                            .into());
+                    }
+                }
             }
         }
         _ => (),

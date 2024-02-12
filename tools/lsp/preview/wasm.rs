@@ -224,5 +224,12 @@ pub fn notify_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Opti
 
 pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range) {
     let Ok(file) = lsp_types::Url::from_file_path(file) else { return };
-    send_message_to_lsp(crate::common::PreviewToLspMessage::ShowDocument { file, selection })
+    send_message_to_lsp(crate::common::PreviewToLspMessage::ShowDocument { file, selection });
+}
+
+pub fn ask_lsp_to_add_component(
+    label: Option<String>,
+    component: crate::common::ComponentAddition,
+) {
+    send_message_to_lsp(crate::common::PreviewToLspMessage::AddComponent { label, component });
 }
