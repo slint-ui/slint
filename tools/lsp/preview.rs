@@ -90,14 +90,23 @@ pub fn set_contents(url: &VersionedUrl, content: String) {
 }
 
 // triggered from the UI, running in UI thread
-fn can_drop_component(component_name: slint::SharedString, x: f32, y: f32) -> bool {
-    i_slint_core::debug_log!("can drop? {} at {x}x{y}", component_name.as_str());
+fn can_drop_component(_component_name: slint::SharedString, x: f32, y: f32) -> bool {
+    i_slint_core::debug_log!("can drop? {x}x{y}");
     ((x.round() as i32) / 10) % 2 == 0 && ((y.round() as i32) / 10) % 2 == 0
 }
 
 // triggered from the UI, running in UI thread
-fn drop_component(component_name: slint::SharedString, x: f32, y: f32) {
-    i_slint_core::debug_log!("drop! {} at {x}x{y}", component_name.as_str());
+fn drop_component(
+    component_name: slint::SharedString,
+    import_path: slint::SharedString,
+    x: f32,
+    y: f32,
+) {
+    i_slint_core::debug_log!(
+        "drop! {}@{} at {x}x{y}",
+        component_name.as_str(),
+        import_path.as_str()
+    );
 }
 
 fn change_style() {
@@ -343,11 +352,14 @@ pub fn highlight(url: Option<Url>, offset: u32) {
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
 pub fn known_components(_url: &Option<VersionedUrl>, components: Vec<ComponentInformation>) {
+    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    let current_url = cache.current.as_ref().map(|pc| pc.url.clone());
+
     run_in_ui_thread(move || async move {
         PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow();
             if let Some(ui) = &preview_state.ui {
-                ui::ui_set_known_components(ui, &components)
+                ui::ui_set_known_components(ui, &current_url, &components)
             }
         })
     });
