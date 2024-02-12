@@ -157,7 +157,13 @@ pub(super) fn open_ui_impl(preview_state: &mut PreviewState) {
     };
 
     // TODO: Handle Error!
-    let ui = preview_state.ui.get_or_insert_with(|| super::ui::create_ui(default_style).unwrap());
+    let experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES")
+        .map(|s| !s.is_empty() && s != "0")
+        .unwrap_or(false);
+
+    let ui = preview_state
+        .ui
+        .get_or_insert_with(|| super::ui::create_ui(default_style, experimental).unwrap());
     ui.set_show_preview_ui(show_preview_ui);
     ui.window().set_fullscreen(fullscreen);
     ui.window().on_close_requested(|| {
