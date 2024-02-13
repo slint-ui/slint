@@ -384,7 +384,9 @@ public:
     /// Returns a copy of text stored in the system clipboard, if any.
     ///
     /// If the platform doesn't support the specified clipboard, the function should return nullopt
-    virtual std::optional<SharedString> clipboard_text(Clipboard) { return {}; }
+    virtual std::optional<SharedString> clipboard_text(Clipboard) {
+        return {};
+    }
 
     /// Spins an event loop and renders the visible windows.
     virtual void run_event_loop() { }
