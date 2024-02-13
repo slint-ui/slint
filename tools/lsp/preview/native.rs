@@ -5,7 +5,7 @@
 
 use super::PreviewState;
 use crate::lsp_ext::Health;
-use crate::{common, ServerNotifier};
+use crate::ServerNotifier;
 use once_cell::sync::Lazy;
 use slint_interpreter::ComponentHandle;
 use std::future::Future;
@@ -237,9 +237,9 @@ pub fn ask_editor_to_show_document(file: &str, selection: lsp_types::Range) {
     slint_interpreter::spawn_local(fut).unwrap(); // Fire and forget.
 }
 
-pub fn ask_lsp_to_add_component(label: Option<String>, component: common::ComponentAddition) {
+pub fn send_message_to_lsp(message: crate::common::PreviewToLspMessage) {
     let Some(sender) = SERVER_NOTIFIER.get_or_init(Default::default).lock().unwrap().clone() else {
         return;
     };
-    sender.send_message_to_lsp(common::PreviewToLspMessage::AddComponent { label, component });
+    sender.send_message_to_lsp(message);
 }
