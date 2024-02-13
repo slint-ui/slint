@@ -193,7 +193,7 @@ fn compare_images(
         }
         let percentage_different = failed_pixel_count * 100 / reference.as_slice().len();
         if rotated != RenderingRotation::NoRotation
-            && (percentage_different <= 1 || max_color_difference < options.rotation_threshold)
+            && (percentage_different < 1 || max_color_difference < options.rotation_threshold)
         {
             return Ok(());
         }

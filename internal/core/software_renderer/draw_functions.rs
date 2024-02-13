@@ -9,6 +9,7 @@
 use super::{PhysicalLength, PhysicalRect};
 use crate::graphics::{PixelFormat, Rgb8Pixel};
 use crate::lengths::{PointLengths, RectLengths, SizeLengths};
+use crate::software_renderer::fixed::Fixed;
 use crate::Color;
 use derive_more::{Add, Mul, Sub};
 use integer_sqrt::IntegerSquareRoot;
@@ -20,24 +21,27 @@ pub(super) fn draw_texture_line(
     texture: &super::SceneTexture,
     line_buffer: &mut [impl TargetPixel],
 ) {
-    let super::SceneTexture { data, format, pixel_stride, source_size, color, alpha, rotation } =
-        *texture;
-    let source_size = source_size.cast::<usize>();
+    let super::SceneTexture {
+        data,
+        format,
+        pixel_stride,
+        extra: super::SceneTextureExtra { colorize, alpha, rotation, dx, dy, off_x, off_y },
+    } = *texture;
     let span_size = span.size.cast::<usize>();
     let y = (line - span.origin.y_length()).cast::<usize>();
 
     let line_buffer = &mut line_buffer[span.origin.x as usize..][..span.size.width as usize];
 
-    let y = if rotation.mirror_width() { span_size.height - y.get() - 1 } else { y.get() };
-
-    const SHIFT: usize = 16;
+    let y = if rotation.mirror_width() { span_size.height - y.get() - 1 } else { y.get() } as i32;
 
     if !rotation.is_transpose() {
-        let y_pos = (y * source_size.height / span_size.height) * pixel_stride as usize;
-        let mut delta = ((source_size.width << SHIFT) / span_size.width) as isize;
-        let mut pos = (y_pos << SHIFT) as isize;
+        let mut delta = Fixed::<i32, 8>::from_fixed(dx);
+        let mut pos = Fixed::from_integer(
+            (Fixed::<i32, 8>::from_fixed(off_y) + Fixed::<i32, 8>::from_fixed(dy) * y).truncate(),
+        ) * pixel_stride as i32
+            + Fixed::<i32, 8>::from_fixed(off_x);
         if rotation.mirror_height() {
-            pos += (span_size.width as isize - 1) * delta;
+            pos += delta * (span_size.width as i32 - 1);
             delta = -delta;
         };
         fetch_blend_pixel(
@@ -45,34 +49,34 @@ pub(super) fn draw_texture_line(
             format,
             data,
             alpha,
-            color,
+            colorize,
             #[inline(always)]
             |bpp| {
-                let p = (pos as usize >> SHIFT) * bpp;
+                let p = pos.truncate() as usize * bpp;
                 pos += delta;
                 p
             },
         );
     } else {
         let bpp = format.bpp();
-        let col = y * source_size.width / span_size.height;
-        let col = col * bpp;
+        let col = Fixed::<i32, 8>::from_fixed(off_x) + Fixed::<i32, 8>::from_fixed(dx) * y;
+        let col = col.truncate() as usize * bpp;
         let stride = pixel_stride as usize * bpp;
-        let row_delta = ((source_size.height << SHIFT) / span_size.width) as isize;
+        let row_delta = Fixed::<i32, 8>::from_fixed(dy);
         let (mut row, row_delta) = if rotation.mirror_height() {
-            ((span_size.width as isize - 1) * row_delta, -row_delta)
+            (Fixed::from_fixed(off_y) + row_delta * (span_size.width as i32 - 1), -row_delta)
         } else {
-            (0, row_delta)
+            (Fixed::from_fixed(off_y), row_delta)
         };
         fetch_blend_pixel(
             line_buffer,
             format,
             data,
             alpha,
-            color,
+            colorize,
             #[inline(always)]
             |_| {
-                let pos = (row as usize >> SHIFT) * stride + col;
+                let pos = row.truncate() as usize * stride + col;
                 row += row_delta;
                 pos
             },
