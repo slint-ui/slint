@@ -4,81 +4,81 @@
 name: Embedded Build
 
 on:
-  workflow_dispatch:
+    workflow_dispatch:
 
-  schedule:
-    - cron: '0 1 * * *'
+    schedule:
+        - cron: "0 1 * * *"
 
 jobs:
-  build_containers:
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        target:
-          - armv7-unknown-linux-gnueabihf
-          - aarch64-unknown-linux-gnu
-          - riscv64gc-unknown-linux-gnu
-          - x86_64-unknown-linux-gnu
-    env:
-      SLINT_NO_QT: 1
-      SLINT_STYLE: fluent
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v1
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.CR_PAT }}
-    - name: Build and push
-      uses: docker/build-push-action@v3
-      with:
-        context: .
-        file: ./docker/Dockerfile.${{ matrix.target }}
-        push: true
-        tags: ghcr.io/slint-ui/slint/${{matrix.target}}:latest
-    - name: Build and push C++ image
-      uses: docker/build-push-action@v3
-      with:
-        context: .
-        file: ./docker/Dockerfile.cpp-image
-        push: true
-        tags: ghcr.io/slint-ui/slint/${{matrix.target}}-cpp:latest
-        build-args: |
-          arch=${{matrix.target}}
+    build_containers:
+        runs-on: ubuntu-22.04
+        strategy:
+            matrix:
+                target:
+                    - armv7-unknown-linux-gnueabihf
+                    - aarch64-unknown-linux-gnu
+                    - riscv64gc-unknown-linux-gnu
+                    - x86_64-unknown-linux-gnu
+        env:
+            SLINT_NO_QT: 1
+            SLINT_STYLE: fluent
+        steps:
+            - uses: actions/checkout@v4
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v1
+            - name: Login to GitHub Container Registry
+              uses: docker/login-action@v1
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.CR_PAT }}
+            - name: Build and push
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  file: ./docker/Dockerfile.${{ matrix.target }}
+                  push: true
+                  tags: ghcr.io/slint-ui/slint/${{matrix.target}}:latest
+            - name: Build and push C++ image
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  file: ./docker/Dockerfile.cpp-image
+                  push: true
+                  tags: ghcr.io/slint-ui/slint/${{matrix.target}}-cpp:latest
+                  build-args: |
+                      arch=${{matrix.target}}
 
-  build_demos:
-    needs: [build_containers]
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        target:
-          - armv7-unknown-linux-gnueabihf
-          - aarch64-unknown-linux-gnu
-          - x86_64-unknown-linux-gnu
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/setup-rust
-      with:
-        target: ${{ matrix.target }}
-    - name: Enable Skia build
-      if: matrix.target != 'riscv64gc-unknown-linux-gnu'
-      run: |
-          echo "EXTRA_ARGS=--features slint/renderer-skia" >> $GITHUB_ENV
-    - uses: baptiste0928/cargo-install@v3
-      with:
-        crate: cross
-    - name: Build
-      run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat -p energy-monitor -p printerdemo -p todo -p slint-viewer -p gallery
-    - name: "Upload printerdemo artifact"
-      uses: actions/upload-artifact@v4
-      with:
-          name: printerdemo-${{ matrix.target }}
-          path: |
-              target/${{ matrix.target }}/release/printerdemo
-              target/${{ matrix.target }}/release/todo
-              target/${{ matrix.target }}/release/gallery
-              target/${{ matrix.target }}/release/viewer
-              target/${{ matrix.target }}/release/energy-monitor
+    build_demos:
+        needs: [build_containers]
+        runs-on: ubuntu-22.04
+        strategy:
+            matrix:
+                target:
+                    - armv7-unknown-linux-gnueabihf
+                    - aarch64-unknown-linux-gnu
+                    - x86_64-unknown-linux-gnu
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ matrix.target }}
+            - name: Enable Skia build
+              if: matrix.target != 'riscv64gc-unknown-linux-gnu'
+              run: |
+                  echo "EXTRA_ARGS=--features slint/renderer-skia" >> $GITHUB_ENV
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cross
+            - name: Build
+              run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat -p energy-monitor -p printerdemo -p todo -p slint-viewer -p gallery
+            - name: "Upload printerdemo artifact"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: printerdemo-${{ matrix.target }}
+                  path: |
+                      target/${{ matrix.target }}/release/printerdemo
+                      target/${{ matrix.target }}/release/todo
+                      target/${{ matrix.target }}/release/gallery
+                      target/${{ matrix.target }}/release/viewer
+                      target/${{ matrix.target }}/release/energy-monitor

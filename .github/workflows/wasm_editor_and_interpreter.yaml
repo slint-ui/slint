@@ -5,131 +5,131 @@
 name: Build and test the slintpad and required WASM binaries
 
 on:
-  workflow_dispatch:
-  workflow_call:
-    inputs:
-      rustflags:
-        type: string
-        description: extra rustflags
+    workflow_dispatch:
+    workflow_call:
+        inputs:
+            rustflags:
+                type: string
+                description: extra rustflags
 
 jobs:
-  wasm:
-    env:
-      CARGO_PROFILE_RELEASE_OPT_LEVEL: s
-      CARGO_INCREMENTAL: false
-      RUSTFLAGS: ${{ github.event.inputs.rustflags || inputs.rustflags }}
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/install-nodejs
-      - uses: ./.github/actions/setup-rust
-        with:
-          target: wasm32-unknown-unknown
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-      - name: Compile slint-wasm-interpreter
-        run: wasm-pack build --release --target web -- --features console_error_panic_hook
-        working-directory: api/wasm-interpreter
-
-      - name: Build slint-wasm-lsp
+    wasm:
         env:
-          SLINT_STYLE: fluent-light
-        run: npm run build:wasm_lsp-release
-        working-directory: tools/slintpad
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            CARGO_INCREMENTAL: false
+            RUSTFLAGS: ${{ github.event.inputs.rustflags || inputs.rustflags }}
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-nodejs
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: wasm32-unknown-unknown
+            - name: Install wasm-pack
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-      - name: "Upload wasm Artifacts"
-        uses: actions/upload-artifact@v4
-        with:
-          name: wasm
-          path: |
-            api/wasm-interpreter/pkg/
-            tools/lsp/pkg/
+            - name: Compile slint-wasm-interpreter
+              run: wasm-pack build --release --target web -- --features console_error_panic_hook
+              working-directory: api/wasm-interpreter
 
-  build-slintpad:
-    needs: [wasm]
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/install-nodejs
-      - name: Download wasm_lsp Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: wasm
-      - uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('tools/lsp/pkg/package.json', 'tools/slintpad/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ github.job }}-node-
+            - name: Build slint-wasm-lsp
+              env:
+                  SLINT_STYLE: fluent-light
+              run: npm run build:wasm_lsp-release
+              working-directory: tools/slintpad
 
-      - name: Install NPM dependencies
-        run: npm install
-        working-directory: tools/slintpad
+            - name: "Upload wasm Artifacts"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: wasm
+                  path: |
+                      api/wasm-interpreter/pkg/
+                      tools/lsp/pkg/
 
-      - name: Compile slintpad
-        run: npm run build
-        working-directory: tools/slintpad
+    build-slintpad:
+        needs: [wasm]
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-nodejs
+            - name: Download wasm_lsp Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  name: wasm
+            - uses: actions/cache@v3
+              with:
+                  path: ~/.npm
+                  key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('tools/lsp/pkg/package.json', 'tools/slintpad/package.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-${{ github.job }}-node-
 
-      - name: "Upload slintpad Artifacts"
-        uses: actions/upload-artifact@v4
-        with:
-          name: slintpad
-          path: tools/slintpad/dist/
+            - name: Install NPM dependencies
+              run: npm install
+              working-directory: tools/slintpad
 
-  lint-slintpad:
-    needs: [wasm]
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/install-nodejs
-      - name: Download wasm_lsp Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: wasm
-      - uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('tools/lsp/pkg/package.json', 'tools/slintpad/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ github.job }}-node-
+            - name: Compile slintpad
+              run: npm run build
+              working-directory: tools/slintpad
 
-      - name: Install NPM dependencies
-        run: npm install
-        working-directory: tools/slintpad
+            - name: "Upload slintpad Artifacts"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: slintpad
+                  path: tools/slintpad/dist/
 
-      - name: Lint slintpad # This needs the WASM!
-        run: |
-          npm run syntax_check
-          npm run lint
-        working-directory: tools/slintpad
+    lint-slintpad:
+        needs: [wasm]
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-nodejs
+            - name: Download wasm_lsp Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  name: wasm
+            - uses: actions/cache@v3
+              with:
+                  path: ~/.npm
+                  key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('tools/lsp/pkg/package.json', 'tools/slintpad/package.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-${{ github.job }}-node-
 
-  # test-slintpad-ff:
-  #   needs: [wasm, build-slintpad]
-  #   runs-on: ubuntu-latest
-  #   container:
-  #     image: cypress/browsers:node16.13.0-chrome95-ff94
-  #     options: --user 1001
-  #
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: ./.github/actions/test-slintpad
-  #       with:
-  #         browser: "firefox"
-  #         wasm-binaries: wasm
-  #         slintpad-artifact: slintpad
-  #
-  # test-slintpad-chrome:
-  #   needs: [wasm, build-slintpad]
-  #   runs-on: ubuntu-latest
-  #   container:
-  #     image: cypress/browsers:node16.13.0-chrome95-ff94
-  #     options: --user 1001
-  #
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: ./.github/actions/test-slintpad
-  #       with:
-  #         browser: "chrome"
-  #         wasm-binaries: wasm
-  #         slintpad-artifact: slintpad
+            - name: Install NPM dependencies
+              run: npm install
+              working-directory: tools/slintpad
+
+            - name: Lint slintpad # This needs the WASM!
+              run: |
+                  npm run syntax_check
+                  npm run lint
+              working-directory: tools/slintpad
+
+    # test-slintpad-ff:
+    #   needs: [wasm, build-slintpad]
+    #   runs-on: ubuntu-latest
+    #   container:
+    #     image: cypress/browsers:node16.13.0-chrome95-ff94
+    #     options: --user 1001
+    #
+    #   steps:
+    #     - uses: actions/checkout@v4
+    #     - uses: ./.github/actions/test-slintpad
+    #       with:
+    #         browser: "firefox"
+    #         wasm-binaries: wasm
+    #         slintpad-artifact: slintpad
+    #
+    # test-slintpad-chrome:
+    #   needs: [wasm, build-slintpad]
+    #   runs-on: ubuntu-latest
+    #   container:
+    #     image: cypress/browsers:node16.13.0-chrome95-ff94
+    #     options: --user 1001
+    #
+    #   steps:
+    #     - uses: actions/checkout@v4
+    #     - uses: ./.github/actions/test-slintpad
+    #       with:
+    #         browser: "chrome"
+    #         wasm-binaries: wasm
+    #         slintpad-artifact: slintpad

@@ -4,105 +4,105 @@
 name: Build wasm demos
 
 on:
-  workflow_dispatch:
-  workflow_call:
-    inputs:
-      rustflags:
-        type: string
-        description: extra rustflags
+    workflow_dispatch:
+    workflow_call:
+        inputs:
+            rustflags:
+                type: string
+                description: extra rustflags
 
 jobs:
-  wasm_demo:
-    env:
-      CARGO_PROFILE_RELEASE_OPT_LEVEL: s
-      CARGO_INCREMENTAL: false
-      RUSTFLAGS: ${{ github.event.inputs.rustflags || inputs.rustflags }}
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/setup-rust
-      with:
-        target: wasm32-unknown-unknown
-    - name: Install wasm-pack
-      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-    - name: Gallery WASM build
-      run: |
-        sed -i "s/#wasm# //" Cargo.toml
-        export SLINT_STYLE=fluent && wasm-pack build --release  --out-dir pkg/fluent --target web
-        export SLINT_STYLE=material && wasm-pack build --release --out-dir pkg/material --target web
-        export SLINT_STYLE=cupertino && wasm-pack build --release --out-dir pkg/cupertino --target web
-        export SLINT_STYLE=cosmic && wasm-pack build --release --out-dir pkg/cosmic --target web
-      working-directory: examples/gallery
-    - name: Printer demo WASM build
-      run: |
-        sed -i "s/#wasm# //" Cargo.toml
-        wasm-pack build --release --target web
-      working-directory: examples/printerdemo/rust
-    - name: Printer demo old WASM build
-      run: |
-        sed -i "s/#wasm# //" Cargo.toml
-        wasm-pack build --release --target web
-      working-directory: examples/printerdemo_old/rust
-    - name: Todo demo WASM build
-      run: |
-        sed -i "s/#wasm# //" Cargo.toml
-        wasm-pack build --release --target web
-      working-directory: examples/todo/rust
-    - name: Carousel demo WASM build
-      run: |
-        sed -i "s/#wasm# //" Cargo.toml
-        wasm-pack build --release --target web
-      working-directory: examples/carousel/rust
-    - name: Sliding Puzzle demo WASM build
-      run: |
-        sed -i "s/#wasm# //" Cargo.toml
-        wasm-pack build --release --target web
-      working-directory: examples/slide_puzzle
-    - name: Memory example WASM build
-      run: |
-        sed -i "s/#wasm# //" Cargo.toml
-        wasm-pack build --release --target web
-      working-directory: examples/memory
-    - name: Imagefilter example WASM build
-      run: |
-        sed -i "s/#wasm# //" Cargo.toml
-        wasm-pack build --release --target web
-      working-directory: examples/imagefilter/rust
-    - name: Plotter example WASM build
-      run: |
-        sed -i "s/#wasm# //" Cargo.toml
-        wasm-pack build --release --target web
-      working-directory: examples/plotter
-    - name: OpenGL underlay example WASM build
-      run: |
-        sed -i "s/#wasm# //" Cargo.toml
-        wasm-pack build --release --target web
-      working-directory: examples/opengl_underlay
-    - name: Energy Monitor example WASM build
-      run: |
-        sed -i "s/#wasm# //" Cargo.toml
-        wasm-pack build --release --target web --no-default-features --features slint/default,chrono
-      working-directory: examples/energy-monitor
-    - name: "Upload Demo Artifacts"
-      uses: actions/upload-artifact@v4
-      with:
-          name: wasm_demo
-          path: |
-              examples/gallery/
-              examples/printerdemo/rust/
-              examples/printerdemo_old/rust/
-              examples/todo/
-              examples/carousel/rust/
-              examples/memory/
-              examples/slide_puzzle/
-              examples/imagefilter/rust
-              examples/plotter/
-              examples/opengl_underlay/
-              examples/energy-monitor/
-              !/**/.gitignore
-    - name: Clean cache # Otherwise the cache is much too big
-      run: |
-          du -hs target
-          rm -rf target/*/incremental
-          rm -rf target/*/*/*slint*
-          du -hs target
+    wasm_demo:
+        env:
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            CARGO_INCREMENTAL: false
+            RUSTFLAGS: ${{ github.event.inputs.rustflags || inputs.rustflags }}
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: wasm32-unknown-unknown
+            - name: Install wasm-pack
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+            - name: Gallery WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  export SLINT_STYLE=fluent && wasm-pack build --release  --out-dir pkg/fluent --target web
+                  export SLINT_STYLE=material && wasm-pack build --release --out-dir pkg/material --target web
+                  export SLINT_STYLE=cupertino && wasm-pack build --release --out-dir pkg/cupertino --target web
+                  export SLINT_STYLE=cosmic && wasm-pack build --release --out-dir pkg/cosmic --target web
+              working-directory: examples/gallery
+            - name: Printer demo WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  wasm-pack build --release --target web
+              working-directory: examples/printerdemo/rust
+            - name: Printer demo old WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  wasm-pack build --release --target web
+              working-directory: examples/printerdemo_old/rust
+            - name: Todo demo WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  wasm-pack build --release --target web
+              working-directory: examples/todo/rust
+            - name: Carousel demo WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  wasm-pack build --release --target web
+              working-directory: examples/carousel/rust
+            - name: Sliding Puzzle demo WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  wasm-pack build --release --target web
+              working-directory: examples/slide_puzzle
+            - name: Memory example WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  wasm-pack build --release --target web
+              working-directory: examples/memory
+            - name: Imagefilter example WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  wasm-pack build --release --target web
+              working-directory: examples/imagefilter/rust
+            - name: Plotter example WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  wasm-pack build --release --target web
+              working-directory: examples/plotter
+            - name: OpenGL underlay example WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  wasm-pack build --release --target web
+              working-directory: examples/opengl_underlay
+            - name: Energy Monitor example WASM build
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  wasm-pack build --release --target web --no-default-features --features slint/default,chrono
+              working-directory: examples/energy-monitor
+            - name: "Upload Demo Artifacts"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: wasm_demo
+                  path: |
+                      examples/gallery/
+                      examples/printerdemo/rust/
+                      examples/printerdemo_old/rust/
+                      examples/todo/
+                      examples/carousel/rust/
+                      examples/memory/
+                      examples/slide_puzzle/
+                      examples/imagefilter/rust
+                      examples/plotter/
+                      examples/opengl_underlay/
+                      examples/energy-monitor/
+                      !/**/.gitignore
+            - name: Clean cache # Otherwise the cache is much too big
+              run: |
+                  du -hs target
+                  rm -rf target/*/incremental
+                  rm -rf target/*/*/*slint*
+                  du -hs target

@@ -7,38 +7,38 @@ name: Install Linux dependencies
 description: Set up Linux dependencies for Slint
 
 inputs:
-  extra-packages:
-    description: 'Extra packages to install'
-    required: false
-    default: ""
-  force-gcc-10:
-    description: 'Force GCC version 10 (default: "no")'
-    required: false
-    default: "no"
-  old-ubuntu:
-    description: "This is running on an older version of Ubuntu"
-    required: false
-    default: "no"
+    extra-packages:
+        description: "Extra packages to install"
+        required: false
+        default: ""
+    force-gcc-10:
+        description: 'Force GCC version 10 (default: "no")'
+        required: false
+        default: "no"
+    old-ubuntu:
+        description: "This is running on an older version of Ubuntu"
+        required: false
+        default: "no"
 
 runs:
-  using: composite
-  steps:
-    - name: Install Linux dependencies
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libudev-dev libinput-dev ${{ inputs.extra-packages }}
-      shell: bash
-    - name: Install Linux dependencies
-      if: ${{ runner.os == 'Linux' && (inputs.old-ubuntu != 'true')}}
-      run: |
-        sudo apt-get update
-        sudo apt-get install libseat-dev libsystemd-dev
-      shell: bash
-    - name: Install C++ compiler
-      if: ${{ (runner.os == 'Linux') && (inputs.force-gcc-10 == 'true') }}
-      run: |
-        sudo apt-get install gcc-10 g++-10
-        echo "CC=gcc-10" >> $GITHUB_ENV
-        echo "CXX=g++-10" >> $GITHUB_ENV
-      shell: bash
+    using: composite
+    steps:
+        - name: Install Linux dependencies
+          if: runner.os == 'Linux'
+          run: |
+              sudo apt-get update
+              sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libudev-dev libinput-dev ${{ inputs.extra-packages }}
+          shell: bash
+        - name: Install Linux dependencies
+          if: ${{ runner.os == 'Linux' && (inputs.old-ubuntu != 'true')}}
+          run: |
+              sudo apt-get update
+              sudo apt-get install libseat-dev libsystemd-dev
+          shell: bash
+        - name: Install C++ compiler
+          if: ${{ (runner.os == 'Linux') && (inputs.force-gcc-10 == 'true') }}
+          run: |
+              sudo apt-get install gcc-10 g++-10
+              echo "CC=gcc-10" >> $GITHUB_ENV
+              echo "CXX=g++-10" >> $GITHUB_ENV
+          shell: bash

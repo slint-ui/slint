@@ -6,35 +6,35 @@ name: Install NodeJS
 description: Set up NodeJS
 
 outputs:
-  node-version:
-    description: "The node JS version that was installed"
-    value: ${{ steps.node-query.outputs.node-version }}
+    node-version:
+        description: "The node JS version that was installed"
+        value: ${{ steps.node-query.outputs.node-version }}
 
 runs:
-  using: composite
-  steps:
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: "16"
-    - id: node-version
-      if: runner.os == 'Windows'
-      run: |
-        echo "node-version=$(node --version)"  >> $GITHUB_OUTPUT
-      shell: powershell
-    - id: node-query
-      if: runner.os != 'Windows'
-      run: |
-        echo "node-version=$(node --version)"  >> $GITHUB_OUTPUT
-      shell: bash
-    - name: Cache native node libraries
-      uses: actions/cache@v3
-      if: runner.os == 'Windows'
-      with:
-        path: ~/node-gyp/cache
-        key: ${{ runner.os }}-${{ github.job }}-${{ steps.node-version.outputs.node-version }}
-    - name: Ensure node-gyp cache is populated
-      if: runner.os == 'Windows'
-      run: |
-        npm install -g node-gyp
-      shell: powershell
+    using: composite
+    steps:
+        - name: Setup Node.js
+          uses: actions/setup-node@v4
+          with:
+              node-version: "16"
+        - id: node-version
+          if: runner.os == 'Windows'
+          run: |
+              echo "node-version=$(node --version)"  >> $GITHUB_OUTPUT
+          shell: powershell
+        - id: node-query
+          if: runner.os != 'Windows'
+          run: |
+              echo "node-version=$(node --version)"  >> $GITHUB_OUTPUT
+          shell: bash
+        - name: Cache native node libraries
+          uses: actions/cache@v3
+          if: runner.os == 'Windows'
+          with:
+              path: ~/node-gyp/cache
+              key: ${{ runner.os }}-${{ github.job }}-${{ steps.node-version.outputs.node-version }}
+        - name: Ensure node-gyp cache is populated
+          if: runner.os == 'Windows'
+          run: |
+              npm install -g node-gyp
+          shell: powershell

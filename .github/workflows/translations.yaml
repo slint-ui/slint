@@ -5,66 +5,66 @@
 name: Update Translations
 
 on:
-  workflow_dispatch:
+    workflow_dispatch:
 
-  schedule:
-    - cron: "0 3 * * *"
+    schedule:
+        - cron: "0 3 * * *"
 
 jobs:
-  update-translations:
-    runs-on: ubuntu-latest
-    env:
-      CARGO_PROFILE_DEV_DEBUG: 0
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-    steps:
-      - name: "install gettext tools"
-        run: sudo apt install gettext
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-rust
+    update-translations:
+        runs-on: ubuntu-latest
+        env:
+            CARGO_PROFILE_DEV_DEBUG: 0
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+        steps:
+            - name: "install gettext tools"
+              run: sudo apt install gettext
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
 
-      - name: "gallery: Run slint-tr-extractor"
-        run: find -name \*.slint | xargs cargo run -p slint-tr-extractor -- -d gallery -o gallery.pot
-        working-directory: examples/gallery
-      - name: "gallery: msgmerge and msgfmt"
-        working-directory: examples/gallery
-        run: |
-          for po in lang/*/LC_MESSAGES
-          do msgmerge $po/gallery.po gallery.pot -o $po/gallery.po
-          msgfmt $po/gallery.po -o $po/gallery.mo
-          done
+            - name: "gallery: Run slint-tr-extractor"
+              run: find -name \*.slint | xargs cargo run -p slint-tr-extractor -- -d gallery -o gallery.pot
+              working-directory: examples/gallery
+            - name: "gallery: msgmerge and msgfmt"
+              working-directory: examples/gallery
+              run: |
+                  for po in lang/*/LC_MESSAGES
+                  do msgmerge $po/gallery.po gallery.pot -o $po/gallery.po
+                  msgfmt $po/gallery.po -o $po/gallery.mo
+                  done
 
-      - name: "printerdemo: Run slint-tr-extractor"
-        run: find -name \*.slint | xargs cargo run -p slint-tr-extractor -- -d printerdemo -o printerdemo.pot
-        working-directory: examples/printerdemo
-      - name: "printerdemo: msgmerge and msgfmt"
-        working-directory: examples/printerdemo
-        run: |
-          for po in lang/*/LC_MESSAGES
-          do msgmerge $po/printerdemo.po printerdemo.pot -o $po/printerdemo.po
-          msgfmt $po/printerdemo.po -o $po/printerdemo.mo
-          done
+            - name: "printerdemo: Run slint-tr-extractor"
+              run: find -name \*.slint | xargs cargo run -p slint-tr-extractor -- -d printerdemo -o printerdemo.pot
+              working-directory: examples/printerdemo
+            - name: "printerdemo: msgmerge and msgfmt"
+              working-directory: examples/printerdemo
+              run: |
+                  for po in lang/*/LC_MESSAGES
+                  do msgmerge $po/printerdemo.po printerdemo.pot -o $po/printerdemo.po
+                  msgfmt $po/printerdemo.po -o $po/printerdemo.mo
+                  done
 
-      - name: "Fix license headers"
-        run: cargo xtask check_license_headers --fix-it
+            - name: "Fix license headers"
+              run: cargo xtask check_license_headers --fix-it
 
-      - name: Check for interesting changes
-        id: git_diff
-        run: git diff --ignore-matching-lines="POT-Creation-Date:.*" --exit-code --quiet HEAD
-        continue-on-error: true
+            - name: Check for interesting changes
+              id: git_diff
+              run: git diff --ignore-matching-lines="POT-Creation-Date:.*" --exit-code --quiet HEAD
+              continue-on-error: true
 
-      - name: commit
-        # Only run this if there was a diff!
-        if: steps.git_diff.outcome == 'failure'
-        run: |
-          git config --global user.email "noreply@slint.dev"
-          git config --global user.name "Update Translations Bot"
-          git add examples
-          git commit -a -m 'Update Translations: extract strings'
-      - name: Result
-        # Only run this if there was a diff!
-        run: if [ '${{ steps.git_diff.outcome }}' = 'failure' ]; then echo "I commited this change to git:"; git show ; else echo "This change was ignored:" ; git diff HEAD ; fi
-      - name: Push changes
-        uses: ad-m/github-push-action@master
-        with:
-          branch: ${{ github.ref }}
+            - name: commit
+              # Only run this if there was a diff!
+              if: steps.git_diff.outcome == 'failure'
+              run: |
+                  git config --global user.email "noreply@slint.dev"
+                  git config --global user.name "Update Translations Bot"
+                  git add examples
+                  git commit -a -m 'Update Translations: extract strings'
+            - name: Result
+              # Only run this if there was a diff!
+              run: if [ '${{ steps.git_diff.outcome }}' = 'failure' ]; then echo "I commited this change to git:"; git show ; else echo "This change was ignored:" ; git diff HEAD ; fi
+            - name: Push changes
+              uses: ad-m/github-push-action@master
+              with:
+                  branch: ${{ github.ref }}
