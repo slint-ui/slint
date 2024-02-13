@@ -1357,12 +1357,12 @@ pub fn add_component(
     ctx: &Context,
     component: crate::common::ComponentAddition,
 ) -> Result<lsp_types::WorkspaceEdit> {
-    let url = component.insert_position.url();
+    let document_url = component.insert_position.url();
     let dc = ctx.document_cache.borrow();
-    let file = lsp_types::Url::to_file_path(url)
+    let file = lsp_types::Url::to_file_path(document_url)
         .map_err(|_| "Failed to convert URL to file path".to_string())?;
 
-    if &dc.document_version(url) != component.insert_position.version() {
+    if &dc.document_version(document_url) != component.insert_position.version() {
         return Err("Document version mismatch.".into());
     }
 
@@ -1370,30 +1370,11 @@ pub fn add_component(
         .documents
         .get_document(&file)
         .ok_or_else(|| "Document URL not found in cache".to_string())?;
-    let doc_node = doc.node.as_ref().unwrap();
-    let source_file = &doc_node.source_file;
-
     let mut edits = Vec::with_capacity(2);
-    if let Some(import_path) = &component.import_path {
-        // We might need to import our component!
-        if !doc.local_registry.lookup_element(&component.component_type).is_ok() {
-            // No import!
-            let (new_location, known_locations) = completion::find_import_locations(doc_node);
-            if let Some(loc) = known_locations.get(import_path) {
-                edits.push(lsp_types::TextEdit {
-                    range: lsp_types::Range::new(loc.clone(), *loc),
-                    new_text: format!(", {}", component.component_type),
-                });
-            } else {
-                edits.push(lsp_types::TextEdit {
-                    range: lsp_types::Range::new(new_location.clone(), new_location),
-                    new_text: format!(
-                        "import {{ {} }} from \"{}\"",
-                        component.component_type, import_path
-                    ),
-                })
-            }
-        }
+    if let Some(edit) =
+        completion::create_import_edit(doc, &component.component_type, &component.import_path)
+    {
+        edits.push(edit);
     }
 
     let new_text = if component.properties.is_empty() {
@@ -1407,10 +1388,12 @@ pub fn add_component(
         to_insert
     };
 
-    let ip = map_position(source_file, component.insert_position.offset().into());
+    let source_file = doc.node.as_ref().unwrap().source_file.clone();
+
+    let ip = map_position(&source_file, component.insert_position.offset().into());
     edits.push(TextEdit { range: lsp_types::Range::new(ip.clone(), ip), new_text });
 
-    create_workspace_edit_from_source_file(source_file, edits)
+    create_workspace_edit_from_source_file(&source_file, edits)
         .ok_or("Could not create workspace edit".into())
 }
 
