@@ -105,7 +105,10 @@ fn drop_component(
     if let Some(component) =
         drop_location::drop_at(x, y, component_name.to_string(), import_path.to_string())
     {
-        ask_lsp_to_add_component(Some(format!("Dropped {}", component_name.as_str())), component);
+        send_message_to_lsp(crate::common::PreviewToLspMessage::AddComponent {
+            label: Some(format!("Dropped {}", component_name.as_str())),
+            component,
+        });
     };
 }
 
