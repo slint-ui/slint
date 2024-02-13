@@ -470,7 +470,7 @@ fn de_normalize_property_name<'a>(element_type: &ElementType, prop: &'a str) -> 
     }
 }
 
-// Same as de_normalize_property_name, but use a elementrc
+// Same as de_normalize_property_name, but use a `ElementRc`
 fn de_normalize_property_name_with_element<'a>(element: &ElementRc, prop: &'a str) -> Cow<'a, str> {
     if let Some(d) = element.borrow().property_declarations.get(prop) {
         d.node
@@ -636,7 +636,7 @@ fn add_components_to_import(
 /// The result is a tuple with the first element pointing to the place new import statements should
 /// get added. The second element in the tuple is a HashMap mapping import file names to the
 /// correct location to enter more components into the existing import statement.
-pub fn find_import_locations(
+fn find_import_locations(
     document: &syntax_nodes::Document,
 ) -> (Position, HashMap<String, Position>) {
     let mut import_locations = HashMap::new();
@@ -697,6 +697,46 @@ pub fn find_import_locations(
     (new_import_position, import_locations)
 }
 
+fn create_import_edit_impl(
+    component: &str,
+    import_path: &str,
+    missing_import_location: &Position,
+    known_import_locations: &HashMap<String, Position>,
+) -> TextEdit {
+    known_import_locations.get(import_path).map_or_else(
+        || {
+            TextEdit::new(
+                Range::new(*missing_import_location, *missing_import_location),
+                format!("import {{ {} }} from \"{}\";\n", component, import_path),
+            )
+        },
+        |pos| TextEdit::new(Range::new(*pos, *pos), format!(", {}", component)),
+    )
+}
+
+/// Creates a text edit
+pub fn create_import_edit(
+    document: &i_slint_compiler::object_tree::Document,
+    component: &str,
+    import_path: &Option<String>,
+) -> Option<TextEdit> {
+    let import_path = import_path.as_ref()?;
+    let doc_node = document.node.as_ref().unwrap();
+
+    if document.local_registry.lookup_element(component).is_ok() {
+        None // already known, no import needed
+    } else {
+        let (missing_import_location, known_import_locations) = find_import_locations(doc_node);
+
+        Some(create_import_edit_impl(
+            component,
+            import_path,
+            &missing_import_location,
+            &known_import_locations,
+        ))
+    }
+}
+
 /// Try to generate `import { XXX } from "foo.slint";` for every component
 ///
 /// This is used for auto-completion and also for fixup diagnostics
@@ -712,7 +752,7 @@ pub fn build_import_statements_edits(
     let current_file = token.source_file.path().to_owned();
     let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
     let current_doc = document_cache.documents.get_document(&current_file)?.node.as_ref()?;
-    let (new_import_position, import_locations) = find_import_locations(current_doc);
+    let (missing_import_location, known_import_locations) = find_import_locations(current_doc);
 
     let exports = {
         let mut tmp = Vec::new();
@@ -731,14 +771,11 @@ pub fn build_import_statements_edits(
             continue;
         };
 
-        let the_import = import_locations.get(&file).map_or_else(
-            || {
-                TextEdit::new(
-                    Range::new(new_import_position, new_import_position),
-                    format!("import {{ {} }} from \"{}\";\n", ci.name, file),
-                )
-            },
-            |pos| TextEdit::new(Range::new(*pos, *pos), format!(", {}", ci.name)),
+        let the_import = create_import_edit_impl(
+            &ci.name,
+            &file,
+            &missing_import_location,
+            &known_import_locations,
         );
         add_edit(&ci.name, &file, the_import);
     }
