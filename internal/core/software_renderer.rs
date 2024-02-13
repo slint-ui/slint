@@ -8,6 +8,7 @@
 #![warn(missing_docs)]
 
 mod draw_functions;
+mod fixed;
 mod fonts;
 
 use self::fonts::GlyphRenderer;
@@ -1000,14 +1001,26 @@ enum SceneCommand {
 }
 
 struct SceneTexture<'a> {
+    /// This should have a size so that the entire slice is ((height - 1) * pixel_stride + width) * bpp
     data: &'a [u8],
     format: PixelFormat,
     /// number of pixels between two lines in the source
     pixel_stride: u16,
-    source_size: PhysicalSize,
+
+    extra: SceneTextureExtra,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct SceneTextureExtra {
+    /// Delta x: the amount of "image pixel" that we need to skip for each physical pixel in the target buffer
+    dx: fixed::Fixed<u16, 8>,
+    dy: fixed::Fixed<u16, 8>,
+    /// Offset which is the coordinate of the "image pixel" which going to be drawn at location SceneItem::pos
+    off_x: fixed::Fixed<u16, 4>,
+    off_y: fixed::Fixed<u16, 4>,
     /// Color to colorize. When not transparent, consider that the image is an alpha map and always use that color.
     /// The alpha of this color is ignored. (it is supposed to be mixed in `Self::alpha`)
-    color: Color,
+    colorize: Color,
     alpha: u8,
     rotation: RenderingRotation,
 }
@@ -1030,57 +1043,53 @@ struct SharedBufferCommand {
     buffer: SharedBufferData,
     /// The source rectangle that is mapped into this command span
     source_rect: PhysicalRect,
-    colorize: Color,
-    alpha: u8,
-    rotation: RenderingRotation,
+    extra: SceneTextureExtra,
 }
 
 impl SharedBufferCommand {
     fn as_texture(&self) -> SceneTexture<'_> {
-        let begin = self.buffer.width() * self.source_rect.min_y() as usize
-            + self.source_rect.min_x() as usize;
+        let stride = self.buffer.width();
+        let core::ops::Range { start, end } = compute_range_in_buffer(&self.source_rect, stride);
 
         match &self.buffer {
             SharedBufferData::SharedImage(SharedImageBuffer::RGB8(b)) => SceneTexture {
-                data: &b.as_bytes()[begin * 3..],
-                pixel_stride: b.width() as u16,
+                data: &b.as_bytes()[start * 3..end * 3],
+                pixel_stride: stride as u16,
                 format: PixelFormat::Rgb,
-                source_size: self.source_rect.size,
-                color: self.colorize,
-                alpha: self.alpha,
-                rotation: self.rotation,
+                extra: self.extra,
             },
             SharedBufferData::SharedImage(SharedImageBuffer::RGBA8(b)) => SceneTexture {
-                data: &b.as_bytes()[begin * 4..],
-                pixel_stride: b.width() as u16,
+                data: &b.as_bytes()[start * 4..end * 4],
+                pixel_stride: stride as u16,
                 format: PixelFormat::Rgba,
-                source_size: self.source_rect.size,
-                color: self.colorize,
-                alpha: self.alpha,
-                rotation: self.rotation,
+                extra: self.extra,
             },
             SharedBufferData::SharedImage(SharedImageBuffer::RGBA8Premultiplied(b)) => {
                 SceneTexture {
-                    data: &b.as_bytes()[begin * 4..],
-                    pixel_stride: b.width() as u16,
+                    data: &b.as_bytes()[start * 4..end * 4],
+                    pixel_stride: stride as u16,
                     format: PixelFormat::RgbaPremultiplied,
-                    source_size: self.source_rect.size,
-                    color: self.colorize,
-                    alpha: self.alpha,
-                    rotation: self.rotation,
+                    extra: self.extra,
                 }
             }
             SharedBufferData::AlphaMap { data, width } => SceneTexture {
-                data: &data[begin..],
+                data: &data[start..end],
                 pixel_stride: *width,
                 format: PixelFormat::AlphaMap,
-                source_size: self.source_rect.size,
-                color: self.colorize,
-                alpha: self.alpha,
-                rotation: self.rotation,
+                extra: self.extra,
             },
         }
     }
+}
+
+// Given a rectangle of coordinate in a buffer and a stride, compute the range, in pixel
+fn compute_range_in_buffer(
+    source_rect: &PhysicalRect,
+    pixel_stride: usize,
+) -> core::ops::Range<usize> {
+    let start = pixel_stride * source_rect.min_y() as usize + source_rect.min_x() as usize;
+    let end = pixel_stride * (source_rect.max_y() - 1) as usize + source_rect.max_x() as usize;
+    start..end
 }
 
 #[derive(Debug)]
@@ -1363,118 +1372,133 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         colorize: Color,
     ) {
         let global_alpha_u16 = (self.current_state.alpha * 255.) as u16;
-        let offset = (self.current_state.offset.cast() * self.scale_factor
-            + image_fit_offset.to_vector())
-        .cast();
+        let offset =
+            self.current_state.offset.cast() * self.scale_factor + image_fit_offset.to_vector();
 
-        let renderer_clip_in_source_rect_space = (self.current_state.clip.cast()
-            * self.scale_factor)
-            .translate(-image_fit_offset.to_vector())
-            .scale(1. / source_to_target_x, 1. / source_to_target_y);
+        let physical_clip =
+            (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .round()
+                .cast();
+
         match image_inner {
             ImageInner::None => (),
             ImageInner::StaticTextures(StaticTextures { data, textures, .. }) => {
+                let dx = fixed::Fixed::from_f32(1. / source_to_target_x).unwrap();
+                let dy = fixed::Fixed::from_f32(1. / source_to_target_y).unwrap();
+
                 for t in textures.as_slice() {
-                    if let Some(clipped_relative_source_rect) =
-                        t.rect.intersection(&source_rect).and_then(|clipped_source_rect| {
-                            let relative_clipped_source_rect = clipped_source_rect
-                                .translate(-source_rect.origin.to_vector())
-                                .cast();
-                            euclid::Rect::<_, PhysicalPx>::from_untyped(
-                                &relative_clipped_source_rect,
-                            )
-                            .intersection(&renderer_clip_in_source_rect_space)
-                        })
-                    {
-                        let target_rect = clipped_relative_source_rect
-                            .scale(source_to_target_x, source_to_target_y)
-                            .translate(offset.to_vector())
-                            .round();
+                    // That's the source rect in the whole image coordinate
+                    let Some(src_rect) = t.rect.intersection(&source_rect) else { continue };
 
-                        if target_rect.is_empty() {
-                            return;
-                        }
+                    // map t.rect to to the target
+                    let target_rect = euclid::Rect::<f32, PhysicalPx>::from_untyped(
+                        &src_rect.translate(-source_rect.origin.to_vector()).cast(),
+                    )
+                    .scale(source_to_target_x, source_to_target_y)
+                    .translate(offset.to_vector())
+                    .round()
+                    .cast::<i32>();
 
-                        let actual_x = clipped_relative_source_rect.origin.x as usize
-                            + source_rect.origin.x as usize
-                            - t.rect.origin.x as usize;
-                        let actual_y = clipped_relative_source_rect.origin.y as usize
-                            + source_rect.origin.y as usize
-                            - t.rect.origin.y as usize;
-                        let pixel_stride = t.rect.width() as u16;
-                        let color = if colorize.alpha() > 0 { colorize } else { t.color };
-                        let alpha = if colorize.alpha() > 0 || t.format == PixelFormat::AlphaMap {
-                            color.alpha() as u16 * global_alpha_u16 / 255
-                        } else {
-                            global_alpha_u16
-                        } as u8;
+                    let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
+                        continue;
+                    };
 
-                        self.processor.process_texture(
-                            target_rect.cast().transformed(self.rotation),
-                            SceneTexture {
-                                data: &data.as_slice()[t.index
-                                    + ((pixel_stride as usize) * actual_y + actual_x)
-                                        * t.format.bpp()..],
-                                pixel_stride,
-                                source_size: clipped_relative_source_rect.size.ceil().cast(),
-                                format: t.format,
-                                color,
+                    let off_x = (fixed::Fixed::<i32, 8>::from_fixed(dx))
+                        * (clipped_target.origin.x - target_rect.origin.x) as i32;
+                    let off_y = (fixed::Fixed::<i32, 8>::from_fixed(dy))
+                        * (clipped_target.origin.y - target_rect.origin.y) as i32;
+
+                    let pixel_stride = t.rect.width() as u16;
+                    let core::ops::Range { start, end } = compute_range_in_buffer(
+                        &PhysicalRect::from_untyped(
+                            &src_rect.translate(-t.rect.origin.to_vector()).cast(),
+                        ),
+                        pixel_stride as usize,
+                    );
+                    let bpp = t.format.bpp();
+
+                    let color = if colorize.alpha() > 0 { colorize } else { t.color };
+                    let alpha = if colorize.alpha() > 0 || t.format == PixelFormat::AlphaMap {
+                        color.alpha() as u16 * global_alpha_u16 / 255
+                    } else {
+                        global_alpha_u16
+                    } as u8;
+
+                    self.processor.process_texture(
+                        clipped_target.cast().transformed(self.rotation),
+                        SceneTexture {
+                            data: &data.as_slice()[t.index..][start * bpp..end * bpp],
+                            pixel_stride,
+                            format: t.format,
+                            extra: SceneTextureExtra {
+                                colorize: color,
                                 alpha,
                                 rotation: self.rotation.orientation,
+                                dx,
+                                dy,
+                                off_x: fixed::Fixed::try_from_fixed(off_x).unwrap(),
+                                off_y: fixed::Fixed::try_from_fixed(off_y).unwrap(),
                             },
-                        );
-                    }
+                        },
+                    );
                 }
             }
+
             ImageInner::NineSlice(..) => unreachable!(),
             _ => {
-                if let Some(buffer) = image_inner.render_to_buffer(Some(fit_size.cast())) {
+                let target_rect = euclid::Rect::new(offset, fit_size).round_in().cast();
+                let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
+                    return;
+                };
+                if let Some(buffer) = image_inner.render_to_buffer(Some(target_rect.size.cast())) {
                     let buf_size = buffer.size().cast::<f32>();
-                    if let Some(clipped_relative_source_rect) = renderer_clip_in_source_rect_space
-                        .intersection(&euclid::rect(
-                            0.,
-                            0.,
-                            source_rect.width() as f32,
-                            source_rect.height() as f32,
-                        ))
-                    {
-                        let target_rect = clipped_relative_source_rect
-                            .scale(source_to_target_x, source_to_target_y)
-                            .translate(offset.to_vector())
-                            .round();
+                    let img_src_size = image_inner.size().cast::<f32>();
+                    let dx = fixed::Fixed::from_f32(
+                        buf_size.width / img_src_size.width / source_to_target_x,
+                    )
+                    .unwrap();
+                    let dy = fixed::Fixed::from_f32(
+                        buf_size.height / img_src_size.height / source_to_target_y,
+                    )
+                    .unwrap();
+                    let off_x = (fixed::Fixed::<i32, 8>::from_fixed(dx))
+                        * (clipped_target.origin.x - target_rect.origin.x) as i32;
+                    let off_y = (fixed::Fixed::<i32, 8>::from_fixed(dy))
+                        * (clipped_target.origin.y - target_rect.origin.y) as i32;
 
-                        if target_rect.is_empty() {
-                            return;
-                        }
+                    let alpha = if colorize.alpha() > 0 {
+                        colorize.alpha() as u16 * global_alpha_u16 / 255
+                    } else {
+                        global_alpha_u16
+                    } as u8;
 
-                        let alpha = if colorize.alpha() > 0 {
-                            colorize.alpha() as u16 * global_alpha_u16 / 255
-                        } else {
-                            global_alpha_u16
-                        } as u8;
-
-                        let img_src_size = image_inner.size().cast::<f32>();
-
-                        self.processor.process_shared_image_buffer(
-                            target_rect.cast().transformed(self.rotation),
-                            SharedBufferCommand {
-                                buffer: SharedBufferData::SharedImage(buffer),
-                                source_rect: clipped_relative_source_rect
-                                    .translate(
-                                        euclid::Point2D::from_untyped(source_rect.origin.cast())
-                                            .to_vector(),
-                                    )
+                    self.processor.process_shared_image_buffer(
+                        clipped_target.cast().transformed(self.rotation),
+                        SharedBufferCommand {
+                            buffer: SharedBufferData::SharedImage(buffer),
+                            source_rect: PhysicalRect::from_untyped(
+                                &source_rect
+                                    .cast::<f32>()
                                     .scale(
                                         buf_size.width / img_src_size.width,
                                         buf_size.height / img_src_size.height,
                                     )
+                                    .round()
                                     .cast(),
+                            ),
+
+                            extra: SceneTextureExtra {
                                 colorize,
                                 alpha,
                                 rotation: self.rotation.orientation,
+                                dx,
+                                dy,
+                                off_x: fixed::Fixed::try_from_fixed(off_x).unwrap(),
+                                off_y: fixed::Fixed::try_from_fixed(off_y).unwrap(),
                             },
-                        );
-                    }
+                        },
+                    );
                 } else {
                     unimplemented!("The image cannot be rendered")
                 }
@@ -1555,12 +1579,17 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                             data: &data
                                                 [actual_x + actual_y * pixel_stride as usize..],
                                             pixel_stride,
-                                            source_size,
                                             format: PixelFormat::AlphaMap,
-                                            color,
-                                            // color already is mixed with global alpha
-                                            alpha: color.alpha(),
-                                            rotation: self.rotation.orientation,
+                                            extra: SceneTextureExtra {
+                                                colorize: color,
+                                                // color already is mixed with global alpha
+                                                alpha: color.alpha(),
+                                                rotation: self.rotation.orientation,
+                                                dx: fixed::Fixed::from_integer(1),
+                                                dy: fixed::Fixed::from_integer(1),
+                                                off_x: fixed::Fixed::from_integer(0),
+                                                off_y: fixed::Fixed::from_integer(0),
+                                            },
                                         },
                                     );
                                 }
@@ -1576,10 +1605,16 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                                 PhysicalPoint::new(actual_x as _, actual_y as _),
                                                 source_size,
                                             ),
-                                            colorize: color,
-                                            // color already is mixed with global alpha
-                                            alpha: color.alpha(),
-                                            rotation: self.rotation.orientation,
+                                            extra: SceneTextureExtra {
+                                                colorize: color,
+                                                // color already is mixed with global alpha
+                                                alpha: color.alpha(),
+                                                rotation: self.rotation.orientation,
+                                                dx: fixed::Fixed::from_integer(1),
+                                                dy: fixed::Fixed::from_integer(1),
+                                                off_x: fixed::Fixed::from_integer(0),
+                                                off_y: fixed::Fixed::from_integer(0),
+                                            },
                                         },
                                     );
                                 }
@@ -2148,27 +2183,30 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 data, width, height,
             ));
 
-            let physical_clip = self.current_state.clip.cast() * self.scale_factor;
-            let src_rect = euclid::rect(0., 0., width as f32, height as f32);
+            let physical_clip = (self.current_state.clip.cast() * self.scale_factor).cast();
+            let source_rect = euclid::rect(0, 0, width as _, height as _);
 
-            if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
-                let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
-                let geometry = clipped_src.translate(offset).round_in();
-                let origin = (geometry.origin - offset.round()).cast::<usize>();
-                let actual_x = origin.x - src_rect.origin.x as usize;
-                let actual_y = origin.y - src_rect.origin.y as usize;
+            if let Some(clipped_src) = source_rect.intersection(&physical_clip) {
+                let geometry = clipped_src
+                    .translate(
+                        (self.current_state.offset.cast() * self.scale_factor).to_vector().cast(),
+                    )
+                    .round_in();
 
                 self.processor.process_shared_image_buffer(
                     geometry.cast().transformed(self.rotation),
                     SharedBufferCommand {
                         buffer: SharedBufferData::SharedImage(img),
-                        source_rect: PhysicalRect::new(
-                            PhysicalPoint::new(actual_x as _, actual_y as _),
-                            geometry.size.cast(),
-                        ),
-                        colorize: Default::default(),
-                        alpha: (self.current_state.alpha * 255.) as u8,
-                        rotation: self.rotation.orientation,
+                        source_rect,
+                        extra: SceneTextureExtra {
+                            colorize: Default::default(),
+                            alpha: (self.current_state.alpha * 255.) as u8,
+                            rotation: self.rotation.orientation,
+                            dx: fixed::Fixed::from_integer(1),
+                            dy: fixed::Fixed::from_integer(1),
+                            off_x: fixed::Fixed::from_integer(clipped_src.min_x() as _),
+                            off_y: fixed::Fixed::from_integer(clipped_src.min_y() as _),
+                        },
                     },
                 );
             }
