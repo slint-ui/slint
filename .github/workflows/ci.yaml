@@ -527,7 +527,7 @@ jobs:
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
             - name: Cache cargo-apk
               id: cargo-apk-cache
-              uses: actions/cache@v3
+              uses: actions/cache@v4
               with:
                   path: ~/.cargo/bin/cargo-apk
                   key: cargo-apk-cache
