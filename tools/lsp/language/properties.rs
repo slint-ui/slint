@@ -4,8 +4,8 @@
 use super::DocumentCache;
 use crate::common::{create_workspace_edit, Error, Result};
 use crate::util::{
-    map_node, map_node_and_url, map_position, map_range, to_lsp_diag, with_property_lookup_ctx,
-    ExpressionContextInfo,
+    find_element_indent, map_node, map_node_and_url, map_position, map_range, to_lsp_diag,
+    with_property_lookup_ctx, ExpressionContextInfo,
 };
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFileVersion, Spanned};
@@ -602,20 +602,6 @@ fn set_binding_on_known_property(
     ))
 }
 
-// Find the indentation of the element itself as well as the indentation of properties inside the
-// element. Returns the element indent followed by the block indent
-pub fn find_element_indent(element: &ElementRc) -> Option<String> {
-    let mut token =
-        element.borrow().node.first().and_then(|n| n.first_token()).and_then(|t| t.prev_token());
-    while let Some(t) = token {
-        if t.kind() == SyntaxKind::Whitespace && t.text().contains('\n') {
-            return t.text().split('\n').last().map(|s| s.to_owned());
-        }
-        token = t.prev_token();
-    }
-    None
-}
-
 pub(crate) fn set_binding(
     document_cache: &mut DocumentCache,
     uri: &lsp_types::Url,
@@ -851,27 +837,6 @@ mod tests {
         assert_eq!(r.start.character, 12);
         assert_eq!(r.end.line, 35);
         assert_eq!(r.end.character, 13);
-    }
-
-    #[test]
-    fn test_find_element_indent() {
-        let (mut dc, url, _) = loaded_document_cache(
-            r#"component MainWindow inherits Window {
-    VerticalBox {
-        label := Text { text: "text"; }
-    }
-}"#
-            .to_string(),
-        );
-
-        let window = language::element_at_position(&mut dc, &url, &lsp_types::Position::new(0, 30));
-        assert_eq!(find_element_indent(&window.unwrap()), None);
-
-        let vbox = language::element_at_position(&mut dc, &url, &lsp_types::Position::new(1, 4));
-        assert_eq!(find_element_indent(&vbox.unwrap()), Some("    ".to_string()));
-
-        let label = language::element_at_position(&mut dc, &url, &lsp_types::Position::new(2, 17));
-        assert_eq!(find_element_indent(&label.unwrap()), Some("        ".to_string()));
     }
 
     fn delete_range_test(
