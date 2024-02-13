@@ -5,122 +5,122 @@
 name: Build docs
 
 on:
-  workflow_call:
+    workflow_call:
 
 jobs:
-  docs:
-    runs-on: ubuntu-22.04
-    env:
-      # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
-      # for which the stable alternative is not yet available.
-      # Allow suspicious-auto-trait-impls to work around https://github.com/Diggsey/scoped-tls-hkt/issues/2
-      # RUSTFLAGS: -D warnings -W deprecated
-      RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/resources/slint-docs-highlight.html -D warnings -W deprecated -W suspicious-auto-trait-impls
-      SLINT_NO_QT: 1
-      CARGO_INCREMENTAL: false
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up rgb crate rustdoc link
-      run: |
-        rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
-        echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ -Z unstable-options" >> $GITHUB_ENV
-    - uses: ./.github/actions/install-nodejs
-    - name: Cache mdbook and mdbook-linkcheck
-      uses: actions/cache@v3
-      with:
-        path: |
-           ~/.cargo/bin/mdbook
-           ~/.cargo/bin/mdbook-linkcheck
-        key: ${{ runner.os }}-${{ github.job }}-mdbook
-    - uses: ./.github/actions/install-linux-dependencies
-    - uses: ./.github/actions/setup-rust
-      with:
-        toolchain: nightly
-        components: rustfmt
-        target: aarch64-linux-android
-    - name: Install mdbook
-      run: cargo install mdbook || true
-    - name: Install mdbook-linkcheck
-      run: cargo install mdbook-linkcheck || true
-    - name: Install apt dependencies
-      run: sudo apt-get install doxygen clang-format
-    - name: Upgrade pip and install pipenv
-      run: |
-        python -m pip install --upgrade pip
-        pip install --user pipenv
-    - name: Cache Pipenv virtualenv
-      uses: actions/cache@v3
-      id: pipenv-cache
-      with:
-        path: ~/.local/share/virtualenvs
-        key: ${{ runner.os }}-pipenv-v1-${{ hashFiles('**/Pipfile') }}
-        restore-keys: |
-          ${{ runner.os }}-pipenv-v1
-    - name: Remove docs from cache  # Avoid stale docs
-      run: |
-          rm -rf target/doc target/cppdocs api/node/docs
+    docs:
+        runs-on: ubuntu-22.04
+        env:
+            # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
+            # for which the stable alternative is not yet available.
+            # Allow suspicious-auto-trait-impls to work around https://github.com/Diggsey/scoped-tls-hkt/issues/2
+            # RUSTFLAGS: -D warnings -W deprecated
+            RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/resources/slint-docs-highlight.html -D warnings -W deprecated -W suspicious-auto-trait-impls
+            SLINT_NO_QT: 1
+            CARGO_INCREMENTAL: false
+        steps:
+            - uses: actions/checkout@v4
+            - name: Set up rgb crate rustdoc link
+              run: |
+                  rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
+                  echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ -Z unstable-options" >> $GITHUB_ENV
+            - uses: ./.github/actions/install-nodejs
+            - name: Cache mdbook and mdbook-linkcheck
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cargo/bin/mdbook
+                      ~/.cargo/bin/mdbook-linkcheck
+                  key: ${{ runner.os }}-${{ github.job }}-mdbook
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: nightly
+                  components: rustfmt
+                  target: aarch64-linux-android
+            - name: Install mdbook
+              run: cargo install mdbook || true
+            - name: Install mdbook-linkcheck
+              run: cargo install mdbook-linkcheck || true
+            - name: Install apt dependencies
+              run: sudo apt-get install doxygen clang-format
+            - name: Upgrade pip and install pipenv
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install --user pipenv
+            - name: Cache Pipenv virtualenv
+              uses: actions/cache@v3
+              id: pipenv-cache
+              with:
+                  path: ~/.local/share/virtualenvs
+                  key: ${{ runner.os }}-pipenv-v1-${{ hashFiles('**/Pipfile') }}
+                  restore-keys: |
+                      ${{ runner.os }}-pipenv-v1
+            - name: Remove docs from cache # Avoid stale docs
+              run: |
+                  rm -rf target/doc target/cppdocs api/node/docs
 
-    - name: Rust format
-      run: cargo fmt --
-    - name: C++ format
-      run: find -iname \*.h -o -iname \*.cpp | xargs clang-format -i
-    - name: Suggest format changes
-      uses: reviewdog/action-suggester@v1
-      with:
-        tool_name: formatters
-        level: error
-        fail_on_error: true
-    - name: Check license headers
-      run: cargo xtask check_license_headers --fix-it
-    - name: Suggest license header changes
-      uses: reviewdog/action-suggester@v1
-      with:
-        tool_name: xtask license_header
-        level: error
-        fail_on_error: true
-    - name: Check reuse compliance
-      run: cargo xtask check_reuse_compliance
+            - name: Rust format
+              run: cargo fmt --
+            - name: C++ format
+              run: find -iname \*.h -o -iname \*.cpp | xargs clang-format -i
+            - name: Suggest format changes
+              uses: reviewdog/action-suggester@v1
+              with:
+                  tool_name: formatters
+                  level: error
+                  fail_on_error: true
+            - name: Check license headers
+              run: cargo xtask check_license_headers --fix-it
+            - name: Suggest license header changes
+              uses: reviewdog/action-suggester@v1
+              with:
+                  tool_name: xtask license_header
+                  level: error
+                  fail_on_error: true
+            - name: Check reuse compliance
+              run: cargo xtask check_reuse_compliance
 
-    - name: Build Cpp docs
-      run: cargo xtask cppdocs --show-warnings
-    - name: "Rust docs"
-      run: cargo doc -p slint -p slint-build -p slint-interpreter --no-deps --all-features
-    - name: "Rust android-activity and i-slint-backend-winit"
-      run: |
-        cargo doc -p i-slint-backend-android-activity -p i-slint-backend-winit --no-deps --target aarch64-linux-android --features=i-slint-backend-android-activity/native-activity,i-slint-backend-winit/renderer-femtovg
-        cp -r target/aarch64-linux-android/doc/i_slint_backend_android_activity/ target/doc/
-        cp -r target/aarch64-linux-android/doc/i_slint_backend_winit/ target/doc/
-    - name: "Rust Tutorial Docs"
-      run: mdbook build
-      working-directory: docs/tutorial/rust
-    - name: "C++ Tutorial Docs"
-      run: mdbook build
-      working-directory: docs/tutorial/cpp
-    - name: "NodeJS Tutorial Docs"
-      run: mdbook build
-      working-directory: docs/tutorial/node
-    - name: "Slint Language Documentation"
-      run: cargo xtask slintdocs --show-warnings
-    - name: "Node docs"
-      run: |
-          npm install --ignore-scripts
-          npm run docs
-      working-directory: api/node
-    - name: "Upload Docs Artifacts"
-      uses: actions/upload-artifact@v4
-      with:
-          name: docs
-          path: |
-              target/doc
-              target/cppdocs/html
-              target/slintdocs/html
-              api/node/docs
-              docs/site
-              docs/tutorial/rust/book/html
-              docs/tutorial/cpp/book/html
-              docs/tutorial/node/book/html
-    - name: "Check for docs warnings in internal crates"
-      run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp
-    - name: Clean cache # Don't cache docs to avoid them including removed classes being published
-      run: |
-          rm -rf target/doc target/cppdocs target/slintdocs api/node/docs docs/tutorial/rust/book docs/tutorial/cpp/book docs/tutorial/node/book
+            - name: Build Cpp docs
+              run: cargo xtask cppdocs --show-warnings
+            - name: "Rust docs"
+              run: cargo doc -p slint -p slint-build -p slint-interpreter --no-deps --all-features
+            - name: "Rust android-activity and i-slint-backend-winit"
+              run: |
+                  cargo doc -p i-slint-backend-android-activity -p i-slint-backend-winit --no-deps --target aarch64-linux-android --features=i-slint-backend-android-activity/native-activity,i-slint-backend-winit/renderer-femtovg
+                  cp -r target/aarch64-linux-android/doc/i_slint_backend_android_activity/ target/doc/
+                  cp -r target/aarch64-linux-android/doc/i_slint_backend_winit/ target/doc/
+            - name: "Rust Tutorial Docs"
+              run: mdbook build
+              working-directory: docs/tutorial/rust
+            - name: "C++ Tutorial Docs"
+              run: mdbook build
+              working-directory: docs/tutorial/cpp
+            - name: "NodeJS Tutorial Docs"
+              run: mdbook build
+              working-directory: docs/tutorial/node
+            - name: "Slint Language Documentation"
+              run: cargo xtask slintdocs --show-warnings
+            - name: "Node docs"
+              run: |
+                  npm install --ignore-scripts
+                  npm run docs
+              working-directory: api/node
+            - name: "Upload Docs Artifacts"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: docs
+                  path: |
+                      target/doc
+                      target/cppdocs/html
+                      target/slintdocs/html
+                      api/node/docs
+                      docs/site
+                      docs/tutorial/rust/book/html
+                      docs/tutorial/cpp/book/html
+                      docs/tutorial/node/book/html
+            - name: "Check for docs warnings in internal crates"
+              run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp
+            - name: Clean cache # Don't cache docs to avoid them including removed classes being published
+              run: |
+                  rm -rf target/doc target/cppdocs target/slintdocs api/node/docs docs/tutorial/rust/book docs/tutorial/cpp/book docs/tutorial/node/book

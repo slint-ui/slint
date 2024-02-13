@@ -4,17 +4,17 @@
 name: Upload component to ESP-IDF component registry
 
 on:
-  workflow_dispatch:
+    workflow_dispatch:
 
 jobs:
-  upload_components:
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v4
-    - name: Upload component
-      uses: espressif/upload-components-ci-action@v1
-      with:
-        name: "slint"
-        namespace: "slint"
-        api_token: ${{ secrets.ESP_IDF_COMPONENTS_TOKEN }}
-        directories: "api/cpp/esp-idf/slint"
+    upload_components:
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - name: Upload component
+              uses: espressif/upload-components-ci-action@v1
+              with:
+                  name: "slint"
+                  namespace: "slint"
+                  api_token: ${{ secrets.ESP_IDF_COMPONENTS_TOKEN }}
+                  directories: "api/cpp/esp-idf/slint"

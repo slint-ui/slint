@@ -4,69 +4,69 @@
 name: Build the C++ binary package
 
 on:
-  workflow_dispatch:
-  workflow_call:
+    workflow_dispatch:
+    workflow_call:
 
 env:
-  MACOSX_DEPLOYMENT_TARGET: "11.0"
-  # Keep in sync with features in nightly_snapshot.yaml, slint_tool_binary.yaml, and api/node/Cargo.toml
-  SLINT_BINARY_FEATURES: "-DSLINT_FEATURE_BACKEND_LINUXKMS_NOSEAT=ON -DSLINT_FEATURE_BACKEND_WINIT=ON -DSLINT_FEATURE_RENDERER_FEMTOVG=ON -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_RENDERER_SOFTWARE=ON"
+    MACOSX_DEPLOYMENT_TARGET: "11.0"
+    # Keep in sync with features in nightly_snapshot.yaml, slint_tool_binary.yaml, and api/node/Cargo.toml
+    SLINT_BINARY_FEATURES: "-DSLINT_FEATURE_BACKEND_LINUXKMS_NOSEAT=ON -DSLINT_FEATURE_BACKEND_WINIT=ON -DSLINT_FEATURE_RENDERER_FEMTOVG=ON -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_RENDERER_SOFTWARE=ON"
 
 jobs:
-  cmake_package:
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      CARGO_INCREMENTAL: false
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2022]
-        include:
-          - os: ubuntu-20.04
-            package_suffix: linux
-          - os: macOS-11
-            package_suffix: macos
-          - os: windows-2022
-            package_suffix: windows
-        
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/install-linux-dependencies
-      with:
-        old-ubuntu: true
-    - name: Install Qt (cached)
-      if: matrix.os != 'ubuntu-20.04'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: 6.5.1
-        cache: true
-    - uses: ./.github/actions/setup-rust
-    - uses: baptiste0928/cargo-install@v3
-      with:
-        crate: cargo-about
-    - name: Prepare licenses
-      run: bash -x ../../scripts/prepare_binary_package.sh ../..
-      working-directory: api/cpp/
-    - uses: ilammy/msvc-dev-cmd@v1
-    - name: Select MSVC (windows)
-      run: |
-        echo "CC=cl.exe" >> $GITHUB_ENV
-        echo "CXX=cl.exe" >> $GITHUB_ENV
-      if: matrix.os == 'windows-2022'
-    - name: C++ Build
-      uses: lukka/run-cmake@v3.4
-      with:
-        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-        cmakeListsTxtPath: CMakeLists.txt
-        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=RelWithDebInfo ${{ env.SLINT_BINARY_FEATURES }}'
-        buildDirectory: ${{ runner.workspace }}/cppbuild
-        buildWithCMakeArgs: '--config Release'
-    - name: cpack
-      working-directory: ${{ runner.workspace }}/cppbuild
-      run: cmake --build . --config Release --target package
-    - name: "Upload C++ packages"
-      uses: actions/upload-artifact@v4
-      with:
-          name: cpp_bin-${{ matrix.package_suffix }}
-          path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
+    cmake_package:
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            CARGO_INCREMENTAL: false
+        strategy:
+            matrix:
+                os: [ubuntu-20.04, macOS-11, windows-2022]
+                include:
+                    - os: ubuntu-20.04
+                      package_suffix: linux
+                    - os: macOS-11
+                      package_suffix: macos
+                    - os: windows-2022
+                      package_suffix: windows
+
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  old-ubuntu: true
+            - name: Install Qt (cached)
+              if: matrix.os != 'ubuntu-20.04'
+              uses: jurplel/install-qt-action@v3
+              with:
+                  version: 6.5.1
+                  cache: true
+            - uses: ./.github/actions/setup-rust
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cargo-about
+            - name: Prepare licenses
+              run: bash -x ../../scripts/prepare_binary_package.sh ../..
+              working-directory: api/cpp/
+            - uses: ilammy/msvc-dev-cmd@v1
+            - name: Select MSVC (windows)
+              run: |
+                  echo "CC=cl.exe" >> $GITHUB_ENV
+                  echo "CXX=cl.exe" >> $GITHUB_ENV
+              if: matrix.os == 'windows-2022'
+            - name: C++ Build
+              uses: lukka/run-cmake@v3.4
+              with:
+                  cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                  cmakeListsTxtPath: CMakeLists.txt
+                  cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=RelWithDebInfo ${{ env.SLINT_BINARY_FEATURES }}"
+                  buildDirectory: ${{ runner.workspace }}/cppbuild
+                  buildWithCMakeArgs: "--config Release"
+            - name: cpack
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: cmake --build . --config Release --target package
+            - name: "Upload C++ packages"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: cpp_bin-${{ matrix.package_suffix }}
+                  path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*

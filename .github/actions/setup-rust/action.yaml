@@ -8,49 +8,49 @@ name: Setup Rust support
 description: Set up Slint development environment
 
 inputs:
-  toolchain:
-    description: "Rust toolchain to use (default: stable)"
-    required: false
-    default: stable
-  target:
-    description: "Rust target to use"
-    required: false
-    default: ""
-  components:
-    description: "Rust components to install"
-    required: false
-    default: ""
-  key:
-    description: "Extra cache keying information"
-    required: false
-    default: ""
+    toolchain:
+        description: "Rust toolchain to use (default: stable)"
+        required: false
+        default: stable
+    target:
+        description: "Rust target to use"
+        required: false
+        default: ""
+    components:
+        description: "Rust components to install"
+        required: false
+        default: ""
+    key:
+        description: "Extra cache keying information"
+        required: false
+        default: ""
 
 runs:
-  using: composite
-  steps:
-    - name: Disable debug info to avoid running out of disk space on Windows
-      if: runner.os == 'Windows'
-      run: |
-        echo "RUSTFLAGS=-C debuginfo=0" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      shell: powershell
-    # Skia source builds end up with long paths, exceeding the 260 character limit. Enable this git for windows
-    # option to use newer Windows API (https://github.com/git-for-windows/git/blob/bc3743def76f487b6dbc18b1b2645ab081c14980/Documentation/config/core.txt#L679)
-    - name: Enable long path support for git checkouts
-      if: runner.os == 'Windows'
-      run: |
-        git config --system core.longpaths true
-      shell: powershell
-    - name: Move cargo home to the same drive as the build, so that relative paths from build to cargo source are without drive letter
-      if: runner.os == 'Windows'
-      run: |
-        echo "CARGO_HOME=\cargo" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      shell: powershell
-    - name: Install Rust ${{ inputs.toolchain }}
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: ${{ inputs.toolchain }}
-        components: ${{ inputs.components }}
-        target: ${{ inputs.target }}
-    - uses: Swatinem/rust-cache@v2
-      with:
-        key: ${{ inputs.key }}-1
+    using: composite
+    steps:
+        - name: Disable debug info to avoid running out of disk space on Windows
+          if: runner.os == 'Windows'
+          run: |
+              echo "RUSTFLAGS=-C debuginfo=0" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          shell: powershell
+        # Skia source builds end up with long paths, exceeding the 260 character limit. Enable this git for windows
+        # option to use newer Windows API (https://github.com/git-for-windows/git/blob/bc3743def76f487b6dbc18b1b2645ab081c14980/Documentation/config/core.txt#L679)
+        - name: Enable long path support for git checkouts
+          if: runner.os == 'Windows'
+          run: |
+              git config --system core.longpaths true
+          shell: powershell
+        - name: Move cargo home to the same drive as the build, so that relative paths from build to cargo source are without drive letter
+          if: runner.os == 'Windows'
+          run: |
+              echo "CARGO_HOME=\cargo" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          shell: powershell
+        - name: Install Rust ${{ inputs.toolchain }}
+          uses: dtolnay/rust-toolchain@stable
+          with:
+              toolchain: ${{ inputs.toolchain }}
+              components: ${{ inputs.components }}
+              target: ${{ inputs.target }}
+        - uses: Swatinem/rust-cache@v2
+          with:
+              key: ${{ inputs.key }}-1

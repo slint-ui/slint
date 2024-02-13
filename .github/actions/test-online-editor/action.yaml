@@ -11,67 +11,67 @@ name: Test Slintpad (cypress)
 description: Test Slintpad using cypress
 
 inputs:
-  browser:
-    description: "The browser to test with"
-    required: false
-    default: "chrome"
-  wasm-binaries:
-    description: "The WASM binaries to download and use"
-    required: true
-    default: wasm
-  slintpad-artifact:
-    description: "The Slintpad artifacts"
-    required: true
-    default: slintpad
+    browser:
+        description: "The browser to test with"
+        required: false
+        default: "chrome"
+    wasm-binaries:
+        description: "The WASM binaries to download and use"
+        required: true
+        default: wasm
+    slintpad-artifact:
+        description: "The Slintpad artifacts"
+        required: true
+        default: slintpad
 
 runs:
-  using: composite
-  steps:
-    - name: Download the WASM binaries
-      uses: actions/download-artifact@v4
-      with:
-        name: ${{ inputs.wasm-binaries }}
-    - name: Download the slintpad artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: ${{ inputs.slintpad-artifact }}
-        path: tools/slintpad/dist
-    - name: slintpad setup actions
-      run: mv ../../../api/wasm-interpreter/pkg wasm-interpreter
-      shell: bash
-      working-directory: tools/slintpad/dist
-    - name: work around assets problem
-      run: ln -s . assets
-      shell: bash
-      working-directory: tools/slintpad/dist/assets
+    using: composite
+    steps:
+        - name: Download the WASM binaries
+          uses: actions/download-artifact@v4
+          with:
+              name: ${{ inputs.wasm-binaries }}
+        - name: Download the slintpad artifacts
+          uses: actions/download-artifact@v4
+          with:
+              name: ${{ inputs.slintpad-artifact }}
+              path: tools/slintpad/dist
+        - name: slintpad setup actions
+          run: mv ../../../api/wasm-interpreter/pkg wasm-interpreter
+          shell: bash
+          working-directory: tools/slintpad/dist
+        - name: work around assets problem
+          run: ln -s . assets
+          shell: bash
+          working-directory: tools/slintpad/dist/assets
 
-    # Debug filesystem layout
-    - name: work around assets problem
-      run: |
-        ls -alF tools/slintpad/dist
-        ls -alF tools/slintpad/dist/assets
-        ls -alF tools/slintpad/dist/wasm-interpreter
-      shell: bash
+        # Debug filesystem layout
+        - name: work around assets problem
+          run: |
+              ls -alF tools/slintpad/dist
+              ls -alF tools/slintpad/dist/assets
+              ls -alF tools/slintpad/dist/wasm-interpreter
+          shell: bash
 
-    - name: Install NPM dependencies
-      run: npm install
-      shell: bash
-      working-directory: tools/slintpad
+        - name: Install NPM dependencies
+          run: npm install
+          shell: bash
+          working-directory: tools/slintpad
 
-    - name: "UI Tests - Chrome"
-      uses: cypress-io/github-action@v4
-      with:
-        browser: ${{ inputs.browser }}
-        working-directory: tools/slintpad
-        start: npm run start:vite_cypress-preview
-        wait-on: 'http://localhost:3001'
-        wait-on-timeout: 20
-        config-file: cypress.config.ts
-      env:
-        DEBUG: "cypress:server:args"
+        - name: "UI Tests - Chrome"
+          uses: cypress-io/github-action@v4
+          with:
+              browser: ${{ inputs.browser }}
+              working-directory: tools/slintpad
+              start: npm run start:vite_cypress-preview
+              wait-on: "http://localhost:3001"
+              wait-on-timeout: 20
+              config-file: cypress.config.ts
+          env:
+              DEBUG: "cypress:server:args"
 
-    - uses: actions/upload-artifact@v4
-      if: failure()
-      with:
-        name: cypress-screenshots-chrome
-        path: tools/slintpad/cypress/screenshots
+        - uses: actions/upload-artifact@v4
+          if: failure()
+          with:
+              name: cypress-screenshots-chrome
+              path: tools/slintpad/cypress/screenshots

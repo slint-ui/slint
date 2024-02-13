@@ -4,552 +4,552 @@
 name: CI
 
 on:
-  push:
-    branches: [master, "feature/*"]
-  pull_request:
-    branches: [master, "feature/*"]
-  workflow_dispatch:
+    push:
+        branches: [master, "feature/*"]
+    pull_request:
+        branches: [master, "feature/*"]
+    workflow_dispatch:
 
 env:
-  MACOSX_DEPLOYMENT_TARGET: "11.0"
+    MACOSX_DEPLOYMENT_TARGET: "11.0"
 
 jobs:
-  build_and_test:
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      RUSTFLAGS: -D warnings
-      CARGO_PROFILE_DEV_DEBUG: 0
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, macos-11, windows-2022]
-        rust_version: [stable, "1.70"]
-        include:
-          - os: windows-2022
-            extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-          - os: macos-11
-            extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-          - os: windows-2022
-            rust_version: "beta"
-            extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-        exclude:
-          - os: macos-11
-            rust_version: "1.70"
+    build_and_test:
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            RUSTFLAGS: -D warnings
+            CARGO_PROFILE_DEV_DEBUG: 0
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-11, windows-2022]
+                rust_version: [stable, "1.70"]
+                include:
+                    - os: windows-2022
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                    - os: macos-11
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                    - os: windows-2022
+                      rust_version: "beta"
+                      extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                exclude:
+                    - os: macos-11
+                      rust_version: "1.70"
 
-    runs-on: ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
 
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/install-linux-dependencies
-    - name: Install Qt
-      if: runner.os != 'Windows'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '5.15.2'
-        setup-python: false
-        cache: true
-    - name: Install ffmpeg and alsa (Linux)
-      if: runner.os == 'Linux'
-      run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
-    - name: Install gstreamer and libunwind (Linux)
-      if: runner.os == 'Linux'
-      run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
-    - name: Setup headless display
-      uses: pyvista/setup-headless-display-action@v1
-    - uses: ./.github/actions/setup-rust
-      with:
-        toolchain: ${{ matrix.rust_version }}
-        key: x-v2
-    - name: Pin dependencies to make it build with our MSRV
-      if: matrix.rust_version == '1.70'
-      shell: bash
-      run: |
-        if [ ! -f ./Cargo.lock ]; then
-          cargo update -p clap --precise 4.4.18
-          cargo update -p ahash --precise 0.8.7
-        fi
-    - name: Run tests
-      run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp
-      env:
-          SLINT_CREATE_SCREENSHOTS: 1
-      shell: bash
-    - name: Archive screenshots after failed tests
-      if: ${{ failure() }}
-      uses: actions/upload-artifact@v4
-      with:
-          name: screenshots-${{matrix.os}}
-          path: |
-              tests/screenshots/references
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install Qt
+              if: runner.os != 'Windows'
+              uses: jurplel/install-qt-action@v3
+              with:
+                  version: "5.15.2"
+                  setup-python: false
+                  cache: true
+            - name: Install ffmpeg and alsa (Linux)
+              if: runner.os == 'Linux'
+              run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
+            - name: Install gstreamer and libunwind (Linux)
+              if: runner.os == 'Linux'
+              run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+            - name: Setup headless display
+              uses: pyvista/setup-headless-display-action@v1
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: ${{ matrix.rust_version }}
+                  key: x-v2
+            - name: Pin dependencies to make it build with our MSRV
+              if: matrix.rust_version == '1.70'
+              shell: bash
+              run: |
+                  if [ ! -f ./Cargo.lock ]; then
+                    cargo update -p clap --precise 4.4.18
+                    cargo update -p ahash --precise 0.8.7
+                  fi
+            - name: Run tests
+              run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp
+              env:
+                  SLINT_CREATE_SCREENSHOTS: 1
+              shell: bash
+            - name: Archive screenshots after failed tests
+              if: ${{ failure() }}
+              uses: actions/upload-artifact@v4
+              with:
+                  name: screenshots-${{matrix.os}}
+                  path: |
+                      tests/screenshots/references
 
-  node_test:
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      RUSTFLAGS: -D warnings
-      CARGO_PROFILE_DEV_DEBUG: 0
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, macos-11, windows-2022]
+    node_test:
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            RUSTFLAGS: -D warnings
+            CARGO_PROFILE_DEV_DEBUG: 0
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-11, windows-2022]
 
-    runs-on: ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
 
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/install-linux-dependencies
-    - name: Install Qt
-      if: runner.os != 'Windows'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '5.15.2'
-        setup-python: false
-        cache: true
-    - name: Setup headless display
-      uses: pyvista/setup-headless-display-action@v1
-    - uses: ./.github/actions/install-nodejs
-      id: node-install
-    - uses: ./.github/actions/setup-rust
-      with:
-        key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
-    - name: Run npm install
-      working-directory: ./api/node
-      run: npm install --ignore-scripts
-    - name: Build node plugin in debug
-      run: npm run build:debug
-      working-directory: ./api/node
-    - name: Run node tests
-      working-directory: ./api/node
-      run: npm test
-    - name: Run test-driver-nodejs
-      run: cargo test --verbose --all-features -p test-driver-nodejs -p slint-node
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install Qt
+              if: runner.os != 'Windows'
+              uses: jurplel/install-qt-action@v3
+              with:
+                  version: "5.15.2"
+                  setup-python: false
+                  cache: true
+            - name: Setup headless display
+              uses: pyvista/setup-headless-display-action@v1
+            - uses: ./.github/actions/install-nodejs
+              id: node-install
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
+            - name: Run npm install
+              working-directory: ./api/node
+              run: npm install --ignore-scripts
+            - name: Build node plugin in debug
+              run: npm run build:debug
+              working-directory: ./api/node
+            - name: Run node tests
+              working-directory: ./api/node
+              run: npm test
+            - name: Run test-driver-nodejs
+              run: cargo test --verbose --all-features -p test-driver-nodejs -p slint-node
 
-  python_test:
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      RUSTFLAGS: -D warnings
-      CARGO_PROFILE_DEV_DEBUG: 0
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: full
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, macos-11, windows-2022]
+    python_test:
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            RUSTFLAGS: -D warnings
+            CARGO_PROFILE_DEV_DEBUG: 0
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: full
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-11, windows-2022]
 
-    runs-on: ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
 
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/install-linux-dependencies
-    - name: Install Qt
-      if: runner.os == 'Linux'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '5.15.2'
-        setup-python: false
-        cache: true
-    - name: Setup headless display
-      uses: pyvista/setup-headless-display-action@v1
-    - uses: ./.github/actions/setup-rust
-      with:
-        key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-    - uses: fjwillemsen/setup-nox2@v3.0.0
-    - name: Run python tests
-      working-directory: ./api/python
-      run: nox
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install Qt
+              if: runner.os == 'Linux'
+              uses: jurplel/install-qt-action@v3
+              with:
+                  version: "5.15.2"
+                  setup-python: false
+                  cache: true
+            - name: Setup headless display
+              uses: pyvista/setup-headless-display-action@v1
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
+            - uses: actions/setup-python@v4
+              with:
+                  python-version: "3.10"
+            - uses: fjwillemsen/setup-nox2@v3.0.0
+            - name: Run python tests
+              working-directory: ./api/python
+              run: nox
 
-  cpp_test_driver:
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      RUSTFLAGS: -D warnings
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-      CARGO_PROFILE_DEV_DEBUG: 0
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, macos-12, windows-2022]
-    runs-on: ${{ matrix.os }}
+    cpp_test_driver:
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            RUSTFLAGS: -D warnings
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+            CARGO_PROFILE_DEV_DEBUG: 0
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-12, windows-2022]
+        runs-on: ${{ matrix.os }}
 
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/install-linux-dependencies
-      with:
-        force-gcc-10: true
-    - name: Install Qt
-      if: runner.os != 'Windows'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '5.15.2'
-        cache: true
-    - name: Set default style
-      if: runner.os != 'Windows'
-      run: echo "SLINT_STYLE=native" >> $GITHUB_ENV
-    - name: Set default style
-      if: runner.os == 'Windows'
-      run: |
-          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-    - uses: ./.github/actions/setup-rust
-    - name: Build
-      run: cargo build --lib -p slint-cpp --features testing,backend-qt
-    - name: Run tests
-      run: cargo test --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  force-gcc-10: true
+            - name: Install Qt
+              if: runner.os != 'Windows'
+              uses: jurplel/install-qt-action@v3
+              with:
+                  version: "5.15.2"
+                  cache: true
+            - name: Set default style
+              if: runner.os != 'Windows'
+              run: echo "SLINT_STYLE=native" >> $GITHUB_ENV
+            - name: Set default style
+              if: runner.os == 'Windows'
+              run: |
+                  echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+                  echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            - uses: ./.github/actions/setup-rust
+            - name: Build
+              run: cargo build --lib -p slint-cpp --features testing,backend-qt
+            - name: Run tests
+              run: cargo test --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
 
-  cpp_cmake:
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-      CARGO_PROFILE_DEV_DEBUG: 0
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, macos-12, windows-2022]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/install-linux-dependencies
-      with:
-        force-gcc-10: true
-    - name: Install Qt
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: 6.5.1
-        cache: true
-    - uses: ./.github/actions/setup-rust
-    - uses: ilammy/msvc-dev-cmd@v1
-    - name: Select MSVC (windows)
-      if: matrix.os == 'windows-2022'
-      run: |
-        echo "CC=cl.exe" >> $GITHUB_ENV
-        echo "CXX=cl.exe" >> $GITHUB_ENV
-    - name: Enable test coverage for resource embedding in C++ when building examples
-      if: matrix.os == 'ubuntu-22.04'
-      run: |
-          echo "SLINT_EMBED_RESOURCES=true" >> $GITHUB_ENV
-    - name: C++ Build
-      uses: lukka/run-cmake@v3.4
-      with:
-        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-        cmakeListsTxtPath: CMakeLists.txt
-        cmakeAppendedArgs: '-DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=ON'
-        buildDirectory: ${{ runner.workspace }}/cppbuild
-        buildWithCMakeArgs: '--config Debug'
-    - name: ctest
-      working-directory: ${{ runner.workspace }}/cppbuild
-      run: ctest --verbose -C Debug
-    - name: cpack
-      working-directory: ${{ runner.workspace }}/cppbuild
-      run: cmake --build . --config Debug --target package
-    - name: "Create C++ packages artifact"
-      uses: actions/upload-artifact@v4
-      with:
-          name: cpp_bin-${{ matrix.os }}
-          path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
+    cpp_cmake:
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+            CARGO_PROFILE_DEV_DEBUG: 0
+        strategy:
+            matrix:
+                os: [ubuntu-22.04, macos-12, windows-2022]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  force-gcc-10: true
+            - name: Install Qt
+              uses: jurplel/install-qt-action@v3
+              with:
+                  version: 6.5.1
+                  cache: true
+            - uses: ./.github/actions/setup-rust
+            - uses: ilammy/msvc-dev-cmd@v1
+            - name: Select MSVC (windows)
+              if: matrix.os == 'windows-2022'
+              run: |
+                  echo "CC=cl.exe" >> $GITHUB_ENV
+                  echo "CXX=cl.exe" >> $GITHUB_ENV
+            - name: Enable test coverage for resource embedding in C++ when building examples
+              if: matrix.os == 'ubuntu-22.04'
+              run: |
+                  echo "SLINT_EMBED_RESOURCES=true" >> $GITHUB_ENV
+            - name: C++ Build
+              uses: lukka/run-cmake@v3.4
+              with:
+                  cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                  cmakeListsTxtPath: CMakeLists.txt
+                  cmakeAppendedArgs: "-DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=ON"
+                  buildDirectory: ${{ runner.workspace }}/cppbuild
+                  buildWithCMakeArgs: "--config Debug"
+            - name: ctest
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: ctest --verbose -C Debug
+            - name: cpack
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: cmake --build . --config Debug --target package
+            - name: "Create C++ packages artifact"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: cpp_bin-${{ matrix.os }}
+                  path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
 
-  cpp_package_test:
-    needs: [cpp_cmake]
-    runs-on: ubuntu-22.04
-    env:
-      QT_QPA_PLATFORM: offscreen
-      CARGO_INCREMENTAL: false
-      CARGO_PROFILE_DEV_DEBUG: 0
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/install-linux-dependencies
-      with:
-        force-gcc-10: true
-    - name: Install Qt (Ubuntu)
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: 6.5.1
-        cache: true
-    - uses: actions/download-artifact@v4
-      with:
-        name: cpp_bin-ubuntu-22.04
-        path: cpp-package
-    - name: unpack package
-      run: |
-          mkdir package
-          tar xvf cpp-package/Slint-cpp-*.tar.gz -C package --strip-components=1
-          echo "CMAKE_PREFIX_PATH=`pwd`/package" >> $GITHUB_ENV
-    # Build the examples with a config different than the package (which is debug)
-    - name: Build examples
-      uses: lukka/run-cmake@v3.4
-      with:
-        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-        cmakeListsTxtPath: examples/CMakeLists.txt
-        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=Release -DSLINT_FEATURE_INTERPRETER=1 -DSLINT_FEATURE_BACKEND_QT=1'
-        buildDirectory: ${{ runner.workspace }}/examples/build
-        buildWithCMakeArgs: '--config Release'
+    cpp_package_test:
+        needs: [cpp_cmake]
+        runs-on: ubuntu-22.04
+        env:
+            QT_QPA_PLATFORM: offscreen
+            CARGO_INCREMENTAL: false
+            CARGO_PROFILE_DEV_DEBUG: 0
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  force-gcc-10: true
+            - name: Install Qt (Ubuntu)
+              uses: jurplel/install-qt-action@v3
+              with:
+                  version: 6.5.1
+                  cache: true
+            - uses: actions/download-artifact@v4
+              with:
+                  name: cpp_bin-ubuntu-22.04
+                  path: cpp-package
+            - name: unpack package
+              run: |
+                  mkdir package
+                  tar xvf cpp-package/Slint-cpp-*.tar.gz -C package --strip-components=1
+                  echo "CMAKE_PREFIX_PATH=`pwd`/package" >> $GITHUB_ENV
+            # Build the examples with a config different than the package (which is debug)
+            - name: Build examples
+              uses: lukka/run-cmake@v3.4
+              with:
+                  cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                  cmakeListsTxtPath: examples/CMakeLists.txt
+                  cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=Release -DSLINT_FEATURE_INTERPRETER=1 -DSLINT_FEATURE_BACKEND_QT=1"
+                  buildDirectory: ${{ runner.workspace }}/examples/build
+                  buildWithCMakeArgs: "--config Release"
 
-  # test to compile the mcu backend for the arm target (no_std)
-  mcu:
-    env:
-      SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
-      RUSTFLAGS: --cfg slint_int_coord
-      CARGO_PROFILE_DEV_DEBUG: 0
-      CARGO_PROFILE_RELEASE_OPT_LEVEL: s
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        include:
-          - feature: pico-st7789
-            target: thumbv6m-none-eabi
-          - feature: stm32h735g
-            target: thumbv7em-none-eabihf
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/setup-rust
-      with:
-        target: ${{matrix.target}}
-    - name: Check
-      run: cargo check --target=${{matrix.target}} -p printerdemo_mcu --no-default-features --features=mcu-board-support/${{matrix.feature}} --release
+    # test to compile the mcu backend for the arm target (no_std)
+    mcu:
+        env:
+            SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
+            RUSTFLAGS: --cfg slint_int_coord
+            CARGO_PROFILE_DEV_DEBUG: 0
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+        runs-on: ubuntu-22.04
+        strategy:
+            matrix:
+                include:
+                    - feature: pico-st7789
+                      target: thumbv6m-none-eabi
+                    - feature: stm32h735g
+                      target: thumbv7em-none-eabihf
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{matrix.target}}
+            - name: Check
+              run: cargo check --target=${{matrix.target}} -p printerdemo_mcu --no-default-features --features=mcu-board-support/${{matrix.feature}} --release
 
-  mcu_esp:
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@stable
-    - uses: esp-rs/xtensa-toolchain@v1.5
-      with:
-        default: true
-        buildtargets: esp32
-        ldproxy: false
-    - uses: Swatinem/rust-cache@v2
-    - name: Kaluga
-      run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s2-none-elf --no-default-features --features=mcu-board-support/esp32-s2-kaluga-1  --config examples/mcu-board-support/esp32_s2_kaluga_1/cargo-config.toml --release
-    - name: S3Box
-      run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box  --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml --release
+    mcu_esp:
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - uses: dtolnay/rust-toolchain@stable
+            - uses: esp-rs/xtensa-toolchain@v1.5
+              with:
+                  default: true
+                  buildtargets: esp32
+                  ldproxy: false
+            - uses: Swatinem/rust-cache@v2
+            - name: Kaluga
+              run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s2-none-elf --no-default-features --features=mcu-board-support/esp32-s2-kaluga-1  --config examples/mcu-board-support/esp32_s2_kaluga_1/cargo-config.toml --release
+            - name: S3Box
+              run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box  --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml --release
 
-  ffi_32bit_build:
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/setup-rust
-      with:
-        target: armv7-unknown-linux-gnueabihf
-    - uses: baptiste0928/cargo-install@v3
-      with:
-        crate: cross
-    - name: Check
-      run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter,std
+    ffi_32bit_build:
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: armv7-unknown-linux-gnueabihf
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cross
+            - name: Check
+              run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter,std
 
-  uefi-demo:
-    env:
-      CARGO_PROFILE_DEV_DEBUG: 0
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/setup-rust
-      with:
-        toolchain: stable
-        target: x86_64-unknown-uefi
-    - name: Check
-      run: cargo check --target=x86_64-unknown-uefi -p uefi-demo
+    uefi-demo:
+        env:
+            CARGO_PROFILE_DEV_DEBUG: 0
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: stable
+                  target: x86_64-unknown-uefi
+            - name: Check
+              run: cargo check --target=x86_64-unknown-uefi -p uefi-demo
 
-  docs:
-    uses: ./.github/workflows/build_docs.yaml
+    docs:
+        uses: ./.github/workflows/build_docs.yaml
 
-  wasm:
-    uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
+    wasm:
+        uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
 
-  wasm_demo:
-    uses: ./.github/workflows/wasm_demos.yaml
+    wasm_demo:
+        uses: ./.github/workflows/wasm_demos.yaml
 
-  tree-sitter:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    - uses: robinraju/release-downloader@v1.7
-      with:
-        repository: "tree-sitter/tree-sitter"
-        latest: true
-        fileName: "tree-sitter-linux-x64.gz"
-        out-file-path: ${{ runner.workspace }}
-    - name: Extract tree-sitter-cli
-      run: |
-        gunzip tree-sitter-linux-x64.gz
-        chmod 755 tree-sitter-linux-x64
-        mv tree-sitter-linux-x64 tree-sitter
-      working-directory: ${{ runner.workspace }}
-    - name: Generate tree-sitter corpus
-      run: find ../../tests/cases -type d -exec ./test-to-corpus.py --tests-directory {} \;
-      working-directory: editors/tree-sitter-slint
-    - name: Generate tree-sitter parser
-      run: ${{ runner.workspace }}/tree-sitter generate
-      working-directory: editors/tree-sitter-slint
-    - name: Run tree-sitter tests
-      run: ${{ runner.workspace }}/tree-sitter test -u
-      working-directory: editors/tree-sitter-slint
-    - name: Check for parse ERRORs from tree-sitter
-      run: sh -c "! grep -q ERROR corpus/*.txt"
-      working-directory: editors/tree-sitter-slint
+    tree-sitter:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - uses: robinraju/release-downloader@v1.7
+              with:
+                  repository: "tree-sitter/tree-sitter"
+                  latest: true
+                  fileName: "tree-sitter-linux-x64.gz"
+                  out-file-path: ${{ runner.workspace }}
+            - name: Extract tree-sitter-cli
+              run: |
+                  gunzip tree-sitter-linux-x64.gz
+                  chmod 755 tree-sitter-linux-x64
+                  mv tree-sitter-linux-x64 tree-sitter
+              working-directory: ${{ runner.workspace }}
+            - name: Generate tree-sitter corpus
+              run: find ../../tests/cases -type d -exec ./test-to-corpus.py --tests-directory {} \;
+              working-directory: editors/tree-sitter-slint
+            - name: Generate tree-sitter parser
+              run: ${{ runner.workspace }}/tree-sitter generate
+              working-directory: editors/tree-sitter-slint
+            - name: Run tree-sitter tests
+              run: ${{ runner.workspace }}/tree-sitter test -u
+              working-directory: editors/tree-sitter-slint
+            - name: Check for parse ERRORs from tree-sitter
+              run: sh -c "! grep -q ERROR corpus/*.txt"
+              working-directory: editors/tree-sitter-slint
 
-  # Checkout a old version of the tests and example, then run the slint-updater on them
-  # and check that it worked with the interpreter test.
-  updater_test:
-    env:
-      SLINT_NO_QT: 1
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-      CARGO_PROFILE_DEV_DEBUG: 0
-    strategy:
-      matrix:
-        from_version: ['0.3.0']
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    - uses: ./.github/actions/install-linux-dependencies
-    - uses: ./.github/actions/setup-rust
-    - name: Checkout old version
-      run: |
-          git checkout v${{ matrix.from_version }} --no-overlay -- examples
-          git checkout v${{ matrix.from_version }} --no-overlay -- tests/cases
-          git checkout v${{ matrix.from_version }} --no-overlay -- tests/helper_components
-          # Remove examples from the workspace because they may no longer exist or their Cargo.toml might prevent the build of the updater
-          sed -i "/examples/d" Cargo.toml
-    - name: "Commit old checkout"
-      run: |
-        git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-        git config --global user.name "${GITHUB_ACTOR}"
-        git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
-    - name: run the updater
-      run: |
-        cargo run -p slint-updater -- -i examples/*/*.slint
-        cargo run -p slint-updater -- -i examples/*/*/*.slint
-        cargo run -p slint-updater -- -i tests/cases/*.slint
-        cargo run -p slint-updater -- -i tests/cases/*/*.slint
-    - name: Show the diff
-      run: git diff
-    - name: test
-      # Skip a few tests that rely on private renamed properties.
-      # Skip the tests which makes two way binding to output property (these are warning in previous version)
-      # Skip the test that use impure functions in property bindings (this is also warning in previous version)
-      # Skip the example that did not exist or that are broken
-      # Skip the path layout related tests as the element has been removed
-      # Skip the booker as it use api from the LineEdit that wasn"t meant to be used
-      run: |
-        cargo test -p test-driver-interpreter -- \
-                  --skip test_interpreter_text_cursor_move \
-                  --skip test_interpreter_text_cursor_move_grapheme \
-                  --skip test_interpreter_text_cut \
-                  --skip test_interpreter_text_select_all \
-                  --skip test_interpreter_text_surrogate_cursor \
-                  --skip test_interpreter_text_text_change \
-                  --skip test_interpreter_crashes_layout_deleted_item \
-                  --skip test_interpreter_focus_focus_change_subcompo \
-                  --skip test_interpreter_focus_focus_change_through_signal \
-                  --skip test_interpreter_globals_alias_to_global \
-                  --skip test_interpreter_text_default_color \
-                  --skip test_interpreter_crashes_issue1271_set_in_if \
-                  --skip test_interpreter_models_assign_equal_model \
-                  --skip example_carousel \
-                  --skip example_fancy_demo \
-                  --skip example_printerdemo_old \
-                  --skip test_interpreter_elements_path_fit \
-                  --skip test_interpreter_layout_path \
-                  --skip test_interpreter_7guis_booker \
+    # Checkout a old version of the tests and example, then run the slint-updater on them
+    # and check that it worked with the interpreter test.
+    updater_test:
+        env:
+            SLINT_NO_QT: 1
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+            CARGO_PROFILE_DEV_DEBUG: 0
+        strategy:
+            matrix:
+                from_version: ["0.3.0"]
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+            - name: Checkout old version
+              run: |
+                  git checkout v${{ matrix.from_version }} --no-overlay -- examples
+                  git checkout v${{ matrix.from_version }} --no-overlay -- tests/cases
+                  git checkout v${{ matrix.from_version }} --no-overlay -- tests/helper_components
+                  # Remove examples from the workspace because they may no longer exist or their Cargo.toml might prevent the build of the updater
+                  sed -i "/examples/d" Cargo.toml
+            - name: "Commit old checkout"
+              run: |
+                  git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+                  git config --global user.name "${GITHUB_ACTOR}"
+                  git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
+            - name: run the updater
+              run: |
+                  cargo run -p slint-updater -- -i examples/*/*.slint
+                  cargo run -p slint-updater -- -i examples/*/*/*.slint
+                  cargo run -p slint-updater -- -i tests/cases/*.slint
+                  cargo run -p slint-updater -- -i tests/cases/*/*.slint
+            - name: Show the diff
+              run: git diff
+            - name: test
+              # Skip a few tests that rely on private renamed properties.
+              # Skip the tests which makes two way binding to output property (these are warning in previous version)
+              # Skip the test that use impure functions in property bindings (this is also warning in previous version)
+              # Skip the example that did not exist or that are broken
+              # Skip the path layout related tests as the element has been removed
+              # Skip the booker as it use api from the LineEdit that wasn"t meant to be used
+              run: |
+                  cargo test -p test-driver-interpreter -- \
+                            --skip test_interpreter_text_cursor_move \
+                            --skip test_interpreter_text_cursor_move_grapheme \
+                            --skip test_interpreter_text_cut \
+                            --skip test_interpreter_text_select_all \
+                            --skip test_interpreter_text_surrogate_cursor \
+                            --skip test_interpreter_text_text_change \
+                            --skip test_interpreter_crashes_layout_deleted_item \
+                            --skip test_interpreter_focus_focus_change_subcompo \
+                            --skip test_interpreter_focus_focus_change_through_signal \
+                            --skip test_interpreter_globals_alias_to_global \
+                            --skip test_interpreter_text_default_color \
+                            --skip test_interpreter_crashes_issue1271_set_in_if \
+                            --skip test_interpreter_models_assign_equal_model \
+                            --skip example_carousel \
+                            --skip example_fancy_demo \
+                            --skip example_printerdemo_old \
+                            --skip test_interpreter_elements_path_fit \
+                            --skip test_interpreter_layout_path \
+                            --skip test_interpreter_7guis_booker \
 
-  # Test that the formater don't introduce slint compilation error
-  fmt_test:
-    env:
-      SLINT_NO_QT: 1
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-      CARGO_PROFILE_DEV_DEBUG: 0
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - uses: ./.github/actions/install-linux-dependencies
-    - uses: ./.github/actions/setup-rust
-    - name: run the formatter
-      run: |
-        cargo run -p slint-lsp -- format -i tests/cases/*/*.slint
-        cargo run -p slint-lsp -- format -i examples/*/*.slint
-        cargo run -p slint-lsp -- format -i examples/*/*/*.slint
-    - name: Show the diff
-      run: git diff
-    - name: Run the intepreter test to make sure that the test are passing after format
-      run: cargo test -p test-driver-interpreter
+    # Test that the formater don't introduce slint compilation error
+    fmt_test:
+        env:
+            SLINT_NO_QT: 1
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+            CARGO_PROFILE_DEV_DEBUG: 0
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+            - name: run the formatter
+              run: |
+                  cargo run -p slint-lsp -- format -i tests/cases/*/*.slint
+                  cargo run -p slint-lsp -- format -i examples/*/*.slint
+                  cargo run -p slint-lsp -- format -i examples/*/*/*.slint
+            - name: Show the diff
+              run: git diff
+            - name: Run the intepreter test to make sure that the test are passing after format
+              run: cargo test -p test-driver-interpreter
 
-  esp-idf:
-    runs-on: ubuntu-22.04
-    container: espressif/idf:release-v5.2
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: esp-rs/xtensa-toolchain@v1.5
-        with:
-          default: true
-          buildtargets: esp32
-          ldproxy: false
-      - uses: Swatinem/rust-cache@v2
-      - name: Build and Test Printer demo
-        shell: bash
-        working-directory: examples/printerdemo_mcu/esp-idf
-        run: |
-          . ${IDF_PATH}/export.sh
-          idf.py build
-      - name: Build and Test Carousel example s3 box
-        shell: bash
-        working-directory: examples/carousel/esp-idf/s3-box
-        run: |
-          . ${IDF_PATH}/export.sh
-          idf.py build
-      - name: Build and Test Carousel example s3 usb otg
-        shell: bash
-        working-directory: examples/carousel/esp-idf/s3-usb-otg
-        run: |
-          . ${IDF_PATH}/export.sh
-          idf.py build
-      - name: Build and Test Carousel example s2 kaluga kit
-        shell: bash
-        working-directory: examples/carousel/esp-idf/s2-kaluga-kit
-        run: |
-          . ${IDF_PATH}/export.sh
-          idf.py build
-  android:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Android API level 30
-        run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
-      - name: Cache cargo-apk
-        id: cargo-apk-cache
-        uses: actions/cache@v3
-        with:
-          path: ~/.cargo/bin/cargo-apk
-          key: cargo-apk-cache
-      # Only build cargo-apk if not cached
-      - uses: dtolnay/rust-toolchain@stable
-        if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-      - name: Install cargo-apk
-        if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-        run: cargo install cargo-apk
+    esp-idf:
+        runs-on: ubuntu-22.04
+        container: espressif/idf:release-v5.2
+        steps:
+            - uses: actions/checkout@v4
+            - uses: dtolnay/rust-toolchain@stable
+            - uses: esp-rs/xtensa-toolchain@v1.5
+              with:
+                  default: true
+                  buildtargets: esp32
+                  ldproxy: false
+            - uses: Swatinem/rust-cache@v2
+            - name: Build and Test Printer demo
+              shell: bash
+              working-directory: examples/printerdemo_mcu/esp-idf
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py build
+            - name: Build and Test Carousel example s3 box
+              shell: bash
+              working-directory: examples/carousel/esp-idf/s3-box
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py build
+            - name: Build and Test Carousel example s3 usb otg
+              shell: bash
+              working-directory: examples/carousel/esp-idf/s3-usb-otg
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py build
+            - name: Build and Test Carousel example s2 kaluga kit
+              shell: bash
+              working-directory: examples/carousel/esp-idf/s2-kaluga-kit
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  idf.py build
+    android:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Install Android API level 30
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - name: Cache cargo-apk
+              id: cargo-apk-cache
+              uses: actions/cache@v3
+              with:
+                  path: ~/.cargo/bin/cargo-apk
+                  key: cargo-apk-cache
+            # Only build cargo-apk if not cached
+            - uses: dtolnay/rust-toolchain@stable
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+              run: cargo install cargo-apk
 
-      - uses: ./.github/actions/setup-rust
-        with:
-          target: aarch64-linux-android
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
 
-      - name: Build todo demo
-        run: |
-          sed -i "s/#wasm# //" Cargo.toml
-          cargo apk build -p todo --target aarch64-linux-android --lib
-        working-directory: examples/todo/rust
+            - name: Build todo demo
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  cargo apk build -p todo --target aarch64-linux-android --lib
+              working-directory: examples/todo/rust
 
-      - name: Build printerdemo example
-        run: |
-          sed -i "s/#wasm# //" Cargo.toml
-          cargo apk build -p printerdemo --target aarch64-linux-android --lib
-        working-directory: examples/printerdemo/rust
+            - name: Build printerdemo example
+              run: |
+                  sed -i "s/#wasm# //" Cargo.toml
+                  cargo apk build -p printerdemo --target aarch64-linux-android --lib
+              working-directory: examples/printerdemo/rust
