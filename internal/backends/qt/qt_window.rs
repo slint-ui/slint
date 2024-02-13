@@ -1585,7 +1585,7 @@ impl QtWindow {
             return widget_ptr->isMinimized();
         }};
 
-        if minimized != self.window().minimized() {
+        if minimized != self.window().is_minimized() {
             self.window().set_minimized(minimized);
         }
 
@@ -1593,7 +1593,7 @@ impl QtWindow {
             return widget_ptr->isMaximized();
         }};
 
-        if maximized != self.window().maximized() {
+        if maximized != self.window().is_maximized() {
             self.window().set_maximized(maximized);
         }
 
@@ -1601,7 +1601,7 @@ impl QtWindow {
             return widget_ptr->isFullScreen();
         }};
 
-        if fullscreen != self.window().fullscreen() {
+        if fullscreen != self.window().is_fullscreen() {
             self.window().set_fullscreen(fullscreen);
         }
     }
@@ -1745,9 +1745,9 @@ impl WindowAdapter for QtWindow {
             }
         };
 
-        let fullscreen: bool = properties.fullscreen();
-        let minimized: bool = properties.minimized();
-        let maximized: bool = properties.maximized();
+        let fullscreen: bool = properties.is_fullscreen();
+        let minimized: bool = properties.is_minimized();
+        let maximized: bool = properties.is_maximized();
 
         cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QBrush", no_frame as "bool", always_on_top as "bool",
                       fullscreen as "bool", minimized as "bool", maximized as "bool"] {
