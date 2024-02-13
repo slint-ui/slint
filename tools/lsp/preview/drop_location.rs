@@ -90,10 +90,26 @@ pub fn drop_at(
         }
     };
 
+    let indentation = format!(
+        "{}    ",
+        crate::util::find_element_indent(&drop_info.target_element).unwrap_or_default()
+    );
+
+    let component_text = if properties.is_empty() {
+        format!("{}{} {{ }}\n", indentation, component_type)
+    } else {
+        let mut to_insert = format!("{}{} {{\n", indentation, component_type);
+        for (k, v) in &properties {
+            to_insert += &format!("{}    {k}: {v};\n", indentation);
+        }
+        to_insert += &format!("{}}}\n", indentation);
+        to_insert
+    };
+
     Some(crate::common::ComponentAddition {
         component_type,
+        component_text,
         import_path: if import_path.is_empty() { None } else { Some(import_path) },
         insert_position: drop_info.insertion_position,
-        properties,
     })
 }

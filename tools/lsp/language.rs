@@ -10,15 +10,15 @@ mod goto;
 mod properties;
 mod semantic_tokens;
 #[cfg(test)]
-mod test;
+pub mod test;
 
 use crate::common::{
     create_workspace_edit, create_workspace_edit_from_source_file, LspToPreviewMessage,
     PreviewComponent, PreviewConfig, Result, VersionedUrl,
 };
-use crate::language::properties::find_element_indent;
 use crate::util::{
-    lookup_current_element_type, map_node, map_position, map_range, map_token, to_lsp_diag,
+    find_element_indent, lookup_current_element_type, map_node, map_position, map_range, map_token,
+    to_lsp_diag,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -1377,28 +1377,20 @@ pub fn add_component(
         edits.push(edit);
     }
 
-    let new_text = if component.properties.is_empty() {
-        format!("{} {{ }}\n", component.component_type)
-    } else {
-        let mut to_insert = format!("{} {{\n", component.component_type);
-        for (k, v) in &component.properties {
-            to_insert += &format!("    {k}: {v};\n");
-        }
-        to_insert += "}\n";
-        to_insert
-    };
-
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
 
     let ip = map_position(&source_file, component.insert_position.offset().into());
-    edits.push(TextEdit { range: lsp_types::Range::new(ip.clone(), ip), new_text });
+    edits.push(TextEdit {
+        range: lsp_types::Range::new(ip.clone(), ip),
+        new_text: component.component_text,
+    });
 
     create_workspace_edit_from_source_file(&source_file, edits)
         .ok_or("Could not create workspace edit".into())
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
 
     use lsp_types::WorkspaceEdit;

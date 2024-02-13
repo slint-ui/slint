@@ -174,7 +174,7 @@ pub struct ComponentAddition {
     pub component_type: String,
     pub import_path: Option<String>, // Url fails to convert reliably:-/
     pub insert_position: VersionedPosition,
-    pub properties: Vec<(String, String)>,
+    pub component_text: String,
 }
 
 #[allow(unused)]

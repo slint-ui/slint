@@ -6,7 +6,7 @@ use super::DocumentCache;
 use i_slint_compiler::diagnostics::{DiagnosticLevel, SourceFile, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::LookupCtx;
-use i_slint_compiler::object_tree;
+use i_slint_compiler::object_tree::{self, ElementRc};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::parser::{TextRange, TextSize};
 use i_slint_compiler::typeregister::TypeRegister;
@@ -55,6 +55,20 @@ pub fn last_non_ws_token(node: &SyntaxNode) -> Option<SyntaxToken> {
         token = t.next_token();
     }
     last_non_ws
+}
+
+// Find the indentation of the element itself as well as the indentation of properties inside the
+// element. Returns the element indent followed by the block indent
+pub fn find_element_indent(element: &ElementRc) -> Option<String> {
+    let mut token =
+        element.borrow().node.first().and_then(|n| n.first_token()).and_then(|t| t.prev_token());
+    while let Some(t) = token {
+        if t.kind() == SyntaxKind::Whitespace && t.text().contains('\n') {
+            return t.text().split('\n').last().map(|s| s.to_owned());
+        }
+        token = t.prev_token();
+    }
+    None
 }
 
 /// Given a node within an element, return the Type for the Element under that node.
@@ -274,5 +288,34 @@ fn to_lsp_diag_level(level: DiagnosticLevel) -> lsp_types::DiagnosticSeverity {
         DiagnosticLevel::Error => lsp_types::DiagnosticSeverity::ERROR,
         DiagnosticLevel::Warning => lsp_types::DiagnosticSeverity::WARNING,
         _ => lsp_types::DiagnosticSeverity::INFORMATION,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::language;
+    use crate::language::test::loaded_document_cache;
+
+    #[test]
+    fn test_find_element_indent() {
+        let (mut dc, url, _) = loaded_document_cache(
+            r#"component MainWindow inherits Window {
+    VerticalBox {
+        label := Text { text: "text"; }
+    }
+}"#
+            .to_string(),
+        );
+
+        let window = language::element_at_position(&mut dc, &url, &lsp_types::Position::new(0, 30));
+        assert_eq!(find_element_indent(&window.unwrap()), None);
+
+        let vbox = language::element_at_position(&mut dc, &url, &lsp_types::Position::new(1, 4));
+        assert_eq!(find_element_indent(&vbox.unwrap()), Some("    ".to_string()));
+
+        let label = language::element_at_position(&mut dc, &url, &lsp_types::Position::new(2, 17));
+        assert_eq!(find_element_indent(&label.unwrap()), Some("        ".to_string()));
     }
 }
