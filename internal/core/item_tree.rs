@@ -987,7 +987,7 @@ pub(crate) mod ffi {
 
     use super::*;
     use crate::slice::Slice;
-    use std::os::raw::c_void;
+    use core::ffi::c_void;
 
     /// Call init() on the ItemVTable of each item in the item array.
     #[no_mangle]
