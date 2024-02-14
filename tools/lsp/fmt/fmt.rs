@@ -613,13 +613,23 @@ fn format_codeblock(
     state.indentation_level += 1;
     state.new_line();
     for n in sub {
+        state.skip_all_whitespace = true;
         if n.kind() == SyntaxKind::RBrace {
             state.indentation_level -= 1;
             state.whitespace_to_add = None;
             state.new_line();
         }
+
+        let is_semicolon = n.kind() == SyntaxKind::Semicolon;
+
         fold(n, writer, state)?;
+
+        if is_semicolon {
+            state.whitespace_to_add = None;
+            state.new_line();
+        }
     }
+    state.skip_all_whitespace = true;
     Ok(())
 }
 
@@ -1157,6 +1167,39 @@ A := B {
             if 0 == 8 {
             }
         } else {
+        }
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn code_block() {
+        assert_formatting(
+            r#"
+component ABC {
+    in-out property <bool> logged_in: false;
+    function clicked() -> bool {
+        if (logged_in) {
+            logged_in = false;
+        return true;
+        } else {
+            logged_in = false; return false;
+        }
+    }
+}
+"#,
+            r#"
+component ABC {
+    in-out property <bool> logged_in: false;
+    function clicked() -> bool{
+        if (logged_in) {
+            logged_in = false;
+            return true;
+        } else {
+            logged_in = false;
+            return false;
         }
     }
 }
