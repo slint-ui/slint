@@ -315,18 +315,11 @@ impl<T: Clone> From<&[T]> for SharedVector<T> {
     }
 }
 
-macro_rules! from_array {
-    ($($n:literal)*) => { $(
-        // FIXME: remove the Clone bound
-        impl<T: Clone> From<[T; $n]> for SharedVector<T> {
-            fn from(array: [T; $n]) -> Self {
-                array.iter().cloned().collect()
-            }
-        }
-    )+ };
+impl<T: Clone, const N: usize> From<[T; N]> for SharedVector<T> {
+    fn from(array: [T; N]) -> Self {
+        array.into_iter().collect()
+    }
 }
-
-from_array! {0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31}
 
 impl<T> FromIterator<T> for SharedVector<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
