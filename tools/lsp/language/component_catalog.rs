@@ -15,13 +15,13 @@ use std::{path::Path, rc::Rc};
 use crate::wasm_prelude::UrlWasm;
 
 fn builtin_component_info(name: &str) -> ComponentInformation {
-    let category = {
+    let (category, is_layout) = {
         match name {
-            "GridLayout" | "HorizontalLayout" | "VerticalLayout" => "Layout",
-            "Dialog" | "Window" | "PopupWindow" => "Window Management",
-            "FocusScope" | "TouchArea" => "Event Handling",
-            "Text" => "Text Handling",
-            _ => "Primitives",
+            "GridLayout" | "HorizontalLayout" | "VerticalLayout" => ("Layout", true),
+            "Dialog" | "Window" | "PopupWindow" => ("Window Management", false),
+            "FocusScope" | "TouchArea" => ("Event Handling", false),
+            "Text" => ("Text Handling", false),
+            _ => ("Primitives", false),
         }
     };
 
@@ -31,20 +31,23 @@ fn builtin_component_info(name: &str) -> ComponentInformation {
         is_global: false,
         is_builtin: true,
         is_std_widget: false,
+        is_layout,
         is_exported: true,
         defined_at: None,
     }
 }
 
 fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
-    let category = {
+    let (category, is_layout) = {
         match name {
-            "GridBox" | "HorizontalBox" | "VerticalBox" => "Layout",
-            "LineEdit" | "TextEdit" => "Text Handling",
-            "Button" | "CheckBox" | "ComboBox" | "Slider" | "SpinBox" | "Switch" => "Input",
-            "ProgressIndicator" | "Spinner" => "Status",
-            "ListView" | "StandardListView" | "StandardTableView" => "Views",
-            _ => "Widgets",
+            "GridBox" | "HorizontalBox" | "VerticalBox" => ("Layout", true),
+            "LineEdit" | "TextEdit" => ("Text Handling", false),
+            "Button" | "CheckBox" | "ComboBox" | "Slider" | "SpinBox" | "Switch" => {
+                ("Input", false)
+            }
+            "ProgressIndicator" | "Spinner" => ("Status", false),
+            "ListView" | "StandardListView" | "StandardTableView" => ("Views", false),
+            _ => ("Widgets", false),
         }
     };
 
@@ -54,6 +57,7 @@ fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
         is_global,
         is_builtin: false,
         is_std_widget: true,
+        is_layout,
         is_exported: true,
         defined_at: None,
     }
@@ -70,6 +74,7 @@ fn exported_project_component_info(
         is_global,
         is_builtin: false,
         is_std_widget: false,
+        is_layout: false,
         is_exported: true,
         defined_at: Some(position),
     }
@@ -82,6 +87,7 @@ fn file_local_component_info(name: &str, position: Position) -> ComponentInforma
         is_global: false,
         is_builtin: false,
         is_std_widget: false,
+        is_layout: false,
         is_exported: false,
         defined_at: Some(position),
     }

@@ -63,12 +63,16 @@ pub fn can_drop_at(x: f32, y: f32) -> bool {
 }
 
 /// Find a location in a file that would be a good place to insert the new component at
+///
+/// Return a tuple containing the ComponentAddition info for the LSP and extra info for
+/// the live preview. Currently that extra info is just the offset at which the new element
+/// will be in the source code (!= the insertion position in the ComponentAddition struct).
 pub fn drop_at(
     x: f32,
     y: f32,
     component_type: String,
     import_path: String,
-) -> Option<crate::common::ComponentAddition> {
+) -> Option<(crate::common::ComponentAddition, u32)> {
     let component_instance = super::component_instance()?;
     let drop_info = find_drop_location(&component_instance, x, y)?;
 
@@ -106,10 +110,20 @@ pub fn drop_at(
         to_insert
     };
 
-    Some(crate::common::ComponentAddition {
-        component_type,
-        component_text,
-        import_path: if import_path.is_empty() { None } else { Some(import_path) },
-        insert_position: drop_info.insertion_position,
-    })
+    let selection_offset = drop_info.insertion_position.offset()
+        + component_text
+            .chars()
+            .take_while(|c| c.is_whitespace())
+            .map(|c| c.len_utf8())
+            .sum::<usize>() as u32;
+
+    Some((
+        crate::common::ComponentAddition {
+            component_type,
+            component_text,
+            import_path: if import_path.is_empty() { None } else { Some(import_path) },
+            insert_position: drop_info.insertion_position,
+        },
+        selection_offset,
+    ))
 }

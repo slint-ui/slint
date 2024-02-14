@@ -1191,7 +1191,7 @@ impl ComponentInstance {
     #[cfg(feature = "highlight")]
     pub fn component_positions(
         &self,
-        path: PathBuf,
+        path: &Path,
         offset: u32,
     ) -> crate::highlight::ComponentPositions {
         crate::highlight::component_positions(&self.inner, path, offset)
@@ -1206,6 +1206,18 @@ impl ComponentInstance {
         element: &i_slint_compiler::object_tree::ElementRc,
     ) -> Vec<i_slint_core::lengths::LogicalRect> {
         crate::highlight::element_position(&self.inner, element)
+    }
+
+    /// Find the the `element` that was defined at the text position.
+    ///
+    /// WARNING: this is not part of the public API
+    #[cfg(feature = "highlight")]
+    pub fn element_at_source_code_position(
+        &self,
+        path: &Path,
+        offset: u32,
+    ) -> Vec<i_slint_compiler::object_tree::ElementRc> {
+        crate::highlight::element_at_source_code_position(&self.inner, path, offset)
     }
 }
 

@@ -203,6 +203,8 @@ pub struct ComponentInformation {
     pub is_std_widget: bool,
     /// This type was exported
     pub is_exported: bool,
+    /// This is a layout
+    pub is_layout: bool,
     /// The URL to the file containing this type
     pub defined_at: Option<Position>,
 }

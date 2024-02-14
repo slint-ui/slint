@@ -8,7 +8,7 @@ use i_slint_compiler::object_tree::{Component, Element, ElementRc};
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::LogicalRect;
 use std::cell::RefCell;
-use std::path::PathBuf;
+use std::path::Path;
 use std::rc::Rc;
 use vtable::VRc;
 
@@ -48,7 +48,7 @@ fn collect_highlight_data(
 
 pub(crate) fn component_positions(
     component_instance: &DynamicComponentVRc,
-    path: PathBuf,
+    path: &Path,
     offset: u32,
 ) -> ComponentPositions {
     generativity::make_guard!(guard);
@@ -73,6 +73,17 @@ pub(crate) fn element_position(
         fill_highlight_data(&repeater_path, &element, &c, &c, &mut values);
     }
     values.geometries
+}
+
+pub(crate) fn element_at_source_code_position(
+    component_instance: &DynamicComponentVRc,
+    path: &Path,
+    offset: u32,
+) -> Vec<ElementRc> {
+    generativity::make_guard!(guard);
+    let c = component_instance.unerase(guard);
+
+    find_element_at_offset(&c.description().original, path, offset.into())
 }
 
 fn fill_highlight_data(
@@ -127,7 +138,7 @@ fn fill_highlight_data(
 }
 
 // Go over all elements in original to find the one that is highlighted
-fn find_element_at_offset(component: &Rc<Component>, path: PathBuf, offset: u32) -> Vec<ElementRc> {
+fn find_element_at_offset(component: &Rc<Component>, path: &Path, offset: u32) -> Vec<ElementRc> {
     let mut result = Vec::<ElementRc>::new();
     i_slint_compiler::object_tree::recurse_elem_including_sub_components(
         component,

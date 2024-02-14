@@ -86,6 +86,7 @@ pub fn ui_set_known_components(
             import_file: import_file.into(),
             is_builtin: ci.is_builtin,
             is_std_widget: ci.is_std_widget,
+            is_layout: ci.is_layout,
             is_exported: ci.is_exported,
         });
     }
