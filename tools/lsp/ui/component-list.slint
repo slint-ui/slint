@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { ScrollView, VerticalBox } from "std-widgets.slint";
+import { Palette, ScrollView, VerticalBox } from "std-widgets.slint";
 
 export struct ComponentListSubItem {
     name: string,
@@ -39,7 +39,7 @@ export component ComponentList {
                 Rectangle {
                     height: title.preferred-height + 10px;
 
-                    background: #ffffff40; // Darken default background
+                    background: Palette.alternate-background;
 
                     title := Text {
                         font-size: 1.2rem;

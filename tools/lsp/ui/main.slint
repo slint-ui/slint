@@ -32,6 +32,7 @@ export component PreviewUi inherits Window {
     callback unselect();
 
     property <length> border: 20px;
+    property <length> side-bar-width: 200px;
 
     title: "Slint Live-Preview";
     icon: @image-url("assets/slint-logo-small-light.png");
@@ -59,7 +60,7 @@ export component PreviewUi inherits Window {
                 height: self.preferred-height;
 
                 i-pick-button := Button {
-                    text: @tr("Pick Mode");
+                    text: root.experimental ? @tr("Design Mode") : @tr("Pick Mode");
                     checkable: true;
                     checked <=> root.design-mode;
                 }
@@ -84,9 +85,6 @@ export component PreviewUi inherits Window {
 
             HorizontalLayout {
                 if (root.experimental): left-sidebar := Rectangle {
-                    width: 200px;
-                    background: Colors.red;
-
                     VerticalBox {
                         ComponentList {
                             known-components <=> root.known-components;
@@ -99,12 +97,20 @@ export component PreviewUi inherits Window {
                             drop(ct, ip, x, y) => { root.drop(ct, ip, x, y); }
                         }
                     }
+
+                    states [
+                        visible when !i-pick-button.checked: {
+                            width: 0px;
+                        }
+                        hidden when i-pick-button.checked: {
+                            width: root.side-bar-width;
+                        }
+                    ]
                 }
 
                 draw-area := DrawArea {
                     design-mode <=> root.design-mode;
                     diagnostics <=> root.diagnostics;
-                    experimental <=> root.experimental;
                     preview-area <=> root.preview-area;
                     selections <=> root.selections;
 
@@ -113,6 +119,8 @@ export component PreviewUi inherits Window {
                     show-document(url, line, column) => { root.show-document(url, line, column); }
                     unselect() => { root.unselect(); }
                 }
+
+                preferred-width: draw-area.preferred-width + root.side-bar-width /* for left-side-bar */;
             }
         }
     }

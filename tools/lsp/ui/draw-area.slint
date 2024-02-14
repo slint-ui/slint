@@ -24,7 +24,6 @@ export struct Selection {
 export component DrawArea {
     in property <[Diagnostics]> diagnostics;
     in property <[Selection]> selections;
-    in property <bool> experimental: false;
     in property <component-factory> preview-area;
     in property <bool> design-mode;
 
@@ -50,7 +49,7 @@ export component DrawArea {
         viewport-height: i-drawing-rect.height;
 
         i-drawing-rect := Rectangle {
-            background: root.experimental ? Palette.alternate-background.mix(Colors.red, 0.9) : Palette.alternate-background;
+            background: Palette.alternate-background;
 
             width: max(i-scroll-view.visible-width, i-resizer.width + i-scroll-view.border);
             height: max(i-scroll-view.visible-height, i-resizer.height + i-scroll-view.border);
