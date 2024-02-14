@@ -987,6 +987,7 @@ pub(crate) mod ffi {
 
     use super::*;
     use crate::slice::Slice;
+    use std::os::raw::c_void;
 
     /// Call init() on the ItemVTable of each item in the item array.
     #[no_mangle]
@@ -1019,26 +1020,26 @@ pub(crate) mod ffi {
     /// Safety: Assume a correct implementation of the item_tree array
     #[no_mangle]
     pub unsafe extern "C" fn slint_visit_item_tree(
-        component: &ItemTreeRc,
-        item_tree: Slice<ItemTreeNode>,
+        item_tree: &ItemTreeRc,
+        item_tree_array: Slice<ItemTreeNode>,
         index: isize,
         order: TraversalOrder,
         visitor: VRefMut<ItemVisitorVTable>,
         visit_dynamic: extern "C" fn(
-            base: &u8,
+            base: *const c_void,
             order: TraversalOrder,
             visitor: vtable::VRefMut<ItemVisitorVTable>,
             dyn_index: u32,
         ) -> VisitChildrenResult,
     ) -> VisitChildrenResult {
         crate::item_tree::visit_item_tree(
-            Pin::new_unchecked(&*(&**component as *const Dyn as *const u8)),
-            component,
-            item_tree.as_slice(),
+            VRc::as_pin_ref(item_tree),
+            item_tree,
+            item_tree_array.as_slice(),
             index,
             order,
             visitor,
-            |a, b, c, d| visit_dynamic(a.get_ref(), b, c, d),
+            |a, b, c, d| visit_dynamic(a.get_ref() as *const vtable::Dyn as *const c_void, b, c, d),
         )
     }
 }
