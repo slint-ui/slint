@@ -24,7 +24,7 @@ export component PreviewUi inherits Window {
     out property <bool> design-mode;
 
     pure callback can-drop(/* component_type */ string, /* x */ length, /* y */ length) -> bool;
-    callback drop(/* component_type */ string, /* import_path */ string, /* x */ length, /* y */ length);
+    callback drop(/* component_type */ string, /* import_path */ string, /* is_layout */ bool, /* x */ length, /* y */ length);
     callback select-at(/* x */ length, /* y */ length, /* enter_component? */ bool);
     callback select-behind(/* x */ length, /* y */ length, /* enter_component* */ bool, /* reverse */ bool);
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
@@ -94,7 +94,7 @@ export component PreviewUi inherits Window {
                             preview-area-height: draw-area.preview-area-height;
 
                             can-drop(ct, x, y) => { return root.can-drop(ct, x, y); }
-                            drop(ct, ip, x, y) => { root.drop(ct, ip, x, y); }
+                            drop(ct, ip, il, x, y) => { root.drop(ct, ip, il, x, y); }
                         }
                     }
 

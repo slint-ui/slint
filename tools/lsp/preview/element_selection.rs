@@ -11,6 +11,22 @@ use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use rowan::TextRange;
 use slint_interpreter::{highlight::ComponentPositions, ComponentInstance};
 
+pub struct ElementSelection {
+    pub path: PathBuf,
+    pub offset: u32,
+    pub instance_index: usize,
+    pub is_layout: bool,
+}
+
+impl ElementSelection {
+    pub fn as_element(&self) -> Option<ElementRc> {
+        let component_instance = super::component_instance()?;
+
+        let elements = component_instance.element_at_source_code_position(&self.path, self.offset);
+        elements.get(self.instance_index).or_else(|| elements.first()).cloned()
+    }
+}
+
 // Look at an element and if it is a sub component, jump to its root_element()
 fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
     let elem = element.borrow();
@@ -62,21 +78,65 @@ pub fn unselect_element() {
     super::set_selected_element(None, ComponentPositions::default());
 }
 
-fn select_element(component_instance: &ComponentInstance, selected_element: &ElementRc) {
-    let secondary_positions = if let Some((path, offset)) = element_offset(selected_element) {
-        component_instance.component_positions(path, offset)
-    } else {
-        ComponentPositions::default()
-    };
-
-    let Some(position) = secondary_positions.geometries.get(0).cloned() else {
+pub fn select_element_at_source_code_position(
+    path: PathBuf,
+    offset: u32,
+    is_layout: bool,
+    position: Option<LogicalPoint>,
+) {
+    let Some(component_instance) = super::component_instance() else {
         return;
     };
+    select_element_at_source_code_position_impl(
+        &component_instance,
+        path,
+        offset,
+        is_layout,
+        position,
+    )
+}
 
-    super::set_selected_element(Some((&selected_element, position)), secondary_positions);
-    if let Some(document_position) = lsp_element_position(&selected_element) {
-        super::ask_editor_to_show_document(&document_position.0, document_position.1);
-    }
+fn select_element_at_source_code_position_impl(
+    component_instance: &ComponentInstance,
+    path: PathBuf,
+    offset: u32,
+    is_layout: bool,
+    position: Option<LogicalPoint>,
+) {
+    let positions = component_instance.component_positions(&path, offset);
+
+    let instance_index = position
+        .and_then(|p| {
+            positions.geometries.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i))
+        })
+        .unwrap_or_default();
+
+    super::set_selected_element(
+        Some(ElementSelection { path, offset, instance_index, is_layout }),
+        positions,
+    );
+}
+
+fn select_element(
+    component_instance: &ComponentInstance,
+    selected_element: &ElementRc,
+    position: Option<LogicalPoint>,
+) {
+    if let Some((path, offset)) = element_offset(selected_element) {
+        select_element_at_source_code_position_impl(
+            component_instance,
+            path,
+            offset,
+            selected_element.borrow().layout.is_some(),
+            position,
+        );
+
+        if let Some(document_position) = lsp_element_position(selected_element) {
+            super::ask_editor_to_show_document(&document_position.0, document_position.1);
+        }
+    } else {
+        unselect_element();
+    };
 }
 
 fn element_offset(element: &ElementRc) -> Option<(PathBuf, u32)> {
@@ -243,7 +303,7 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
         .filter(|sc| !(sc.is_builtin() && !sc.is_component_root_element()))
         .next()
     {
-        select_element(&component_instance, &element.element);
+        select_element(&component_instance, &element.element, Some(LogicalPoint::new(x, y)));
     }
 }
 
@@ -282,6 +342,6 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
     };
 
     if let Some(ts) = to_select {
-        select_element(&component_instance, &ts.element);
+        select_element(&component_instance, &ts.element, Some(LogicalPoint::new(x, y)));
     }
 }

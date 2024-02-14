@@ -8,6 +8,7 @@ export struct ComponentListSubItem {
     import_file: string,
     is_builtin: bool,
     is_std_widget: bool,
+    is_layout: bool,
     is_exported: bool,
 }
 export struct ComponentListItem {
@@ -24,7 +25,7 @@ export component ComponentList {
     in property <length> preview-area-height;
 
     pure callback can-drop(string /* component type */, length /* x */, length /* y */) -> bool;
-    callback drop(string /* component type */, string /* import_path */, length /* x */, length /* y */);
+    callback drop(string /* component type */, string /* import_path */, bool /* is_layout */, length /* x */, length /* y */);
 
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
 
@@ -66,7 +67,7 @@ export component ComponentList {
 
                     pointer-event(event) => {
                         if (self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
-                            root.drop(ci.name, ci.import_file, drop-x, drop-y);
+                            root.drop(ci.name, ci.import_file, ci.is_layout, drop-x, drop-y);
                         }
                     }
 

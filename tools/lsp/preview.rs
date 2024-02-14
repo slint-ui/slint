@@ -6,11 +6,11 @@ use crate::common::{
     VersionedUrl,
 };
 use crate::lsp_ext::Health;
-use i_slint_compiler::object_tree::{ElementRc, ElementWeak};
+use i_slint_compiler::object_tree::ElementRc;
+use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::model::VecModel;
-use i_slint_core::{component_factory::FactoryContext, lengths::LogicalRect};
 use lsp_types::Url;
-use slint_interpreter::highlight::{ComponentKind, ComponentPositions};
+use slint_interpreter::highlight::ComponentPositions;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -64,7 +64,7 @@ static CONTENT_CACHE: std::sync::OnceLock<Mutex<ContentCache>> = std::sync::Once
 struct PreviewState {
     ui: Option<ui::PreviewUi>,
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
-    selected_element: Option<ElementWeak>,
+    selected: Option<element_selection::ElementSelection>,
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -99,12 +99,21 @@ fn can_drop_component(_component_name: slint::SharedString, x: f32, y: f32) -> b
 fn drop_component(
     component_name: slint::SharedString,
     import_path: slint::SharedString,
+    is_layout: bool,
     x: f32,
     y: f32,
 ) {
-    if let Some(component) =
+    if let Some((component, selection_offset)) =
         drop_location::drop_at(x, y, component_name.to_string(), import_path.to_string())
     {
+        let path = Url::to_file_path(component.insert_position.url()).ok().unwrap_or_default();
+        element_selection::select_element_at_source_code_position(
+            path,
+            selection_offset,
+            is_layout,
+            None,
+        );
+
         send_message_to_lsp(crate::common::PreviewToLspMessage::AddComponent {
             label: Some(format!("Dropped {}", component_name.as_str())),
             component,
@@ -197,6 +206,11 @@ pub fn load_preview(preview_component: PreviewComponent) {
     };
 
     run_in_ui_thread(move || async move {
+        let selected = PREVIEW_STATE.with(|preview_state| {
+            let mut preview_state = preview_state.borrow_mut();
+            preview_state.selected.take()
+        });
+
         loop {
             let (preview_component, config) = {
                 let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
@@ -226,7 +240,7 @@ pub fn load_preview(preview_component: PreviewComponent) {
             match cache.loading_state {
                 PreviewFutureState::Loading => {
                     cache.loading_state = PreviewFutureState::Pending;
-                    return;
+                    break;
                 }
                 PreviewFutureState::Pending => unreachable!(),
                 PreviewFutureState::PreLoading => unreachable!(),
@@ -235,6 +249,15 @@ pub fn load_preview(preview_component: PreviewComponent) {
                     continue;
                 }
             };
+        }
+
+        if let Some(se) = selected {
+            element_selection::select_element_at_source_code_position(
+                se.path,
+                se.offset,
+                se.is_layout,
+                None,
+            );
         }
     });
 }
@@ -322,7 +345,7 @@ fn set_preview_factory(
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
 pub fn highlight(url: Option<Url>, offset: u32) {
-    let highlight = url.clone().map(|x| (x, offset));
+    let highlight = url.clone().map(|u| (u, offset));
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
 
     if cache.highlight == highlight {
@@ -332,21 +355,20 @@ pub fn highlight(url: Option<Url>, offset: u32) {
 
     if cache.highlight.as_ref().map_or(true, |(url, _)| cache.dependency.contains(url)) {
         run_in_ui_thread(move || async move {
-            let handle = PREVIEW_STATE.with(|preview_state| {
-                let preview_state = preview_state.borrow();
-                let result = preview_state.handle.borrow().as_ref().map(|h| h.clone_strong());
-                result
-            });
-
-            if let Some(handle) = handle {
-                let element_positions =
-                    if let Some(path) = url.as_ref().and_then(|u| u.to_file_path().ok()) {
-                        handle.component_positions(path, offset)
-                    } else {
-                        ComponentPositions::default()
-                    };
-
-                set_selected_element(None, element_positions);
+            let Some(component_instance) = component_instance() else {
+                return;
+            };
+            let Some(path) = url.and_then(|u| Url::to_file_path(&u).ok()) else {
+                return;
+            };
+            let elements = component_instance.element_at_source_code_position(&path, offset);
+            if let Some(e) = elements.first() {
+                let is_layout = e.borrow().layout.is_some();
+                element_selection::select_element_at_source_code_position(
+                    path, offset, is_layout, None,
+                );
+            } else {
+                element_selection::unselect_element();
             }
         })
     }
@@ -391,74 +413,63 @@ fn reset_selections(ui: &ui::PreviewUi) {
 
 fn set_selections(
     ui: Option<&ui::PreviewUi>,
-    element_position: Option<(&ElementRc, LogicalRect)>,
+    main_index: usize,
+    is_layout: bool,
     positions: ComponentPositions,
 ) {
     let Some(ui) = ui else {
         return;
     };
 
-    let values = {
-        let mut tmp = Vec::with_capacity(
-            positions.geometries.len() + if element_position.is_some() { 1 } else { 0 },
-        );
-
-        if let Some((e, primary_position)) = element_position.as_ref() {
-            let border_color = if e.borrow().layout.is_some() {
-                i_slint_core::Color::from_argb_encoded(0xffff0000)
-            } else {
-                i_slint_core::Color::from_argb_encoded(0xff0000ff)
-            };
-
-            tmp.push(ui::Selection {
-                width: primary_position.size.width,
-                height: primary_position.size.height,
-                x: primary_position.origin.x,
-                y: primary_position.origin.y,
-                border_color,
-            });
-        }
-        let secondary_border_color = match positions.kind {
-            Some(ComponentKind::Layout) => i_slint_core::Color::from_argb_encoded(0x80ff0000),
-            _ => i_slint_core::Color::from_argb_encoded(0x800000ff),
-        };
-
-        tmp.extend(positions.geometries.iter().map(|geometry| ui::Selection {
-            width: geometry.size.width,
-            height: geometry.size.height,
-            x: geometry.origin.x,
-            y: geometry.origin.y,
-            border_color: secondary_border_color,
-        }));
-        tmp
+    let border_color = if is_layout {
+        i_slint_core::Color::from_argb_encoded(0xffff0000)
+    } else {
+        i_slint_core::Color::from_argb_encoded(0xff0000ff)
     };
+    let secondary_border_color = if is_layout {
+        i_slint_core::Color::from_argb_encoded(0x80ff0000)
+    } else {
+        i_slint_core::Color::from_argb_encoded(0x800000ff)
+    };
+
+    let values = positions
+        .geometries
+        .iter()
+        .enumerate()
+        .map(|(i, g)| ui::Selection {
+            width: g.size.width,
+            height: g.size.height,
+            x: g.origin.x,
+            y: g.origin.y,
+            border_color: if i == main_index { border_color } else { secondary_border_color },
+        })
+        .collect::<Vec<_>>();
     let model = Rc::new(slint::VecModel::from(values));
     ui.set_selections(slint::ModelRc::from(model));
 }
 
 fn set_selected_element(
-    element_position: Option<(&ElementRc, LogicalRect)>,
-    secondary: slint_interpreter::highlight::ComponentPositions,
+    selection: Option<element_selection::ElementSelection>,
+    positions: slint_interpreter::highlight::ComponentPositions,
 ) {
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
-        if let Some((e, _)) = element_position {
-            preview_state.selected_element = Some(Rc::downgrade(e));
-        } else {
-            preview_state.selected_element = None;
-        }
 
-        set_selections(preview_state.ui.as_ref(), element_position, secondary);
+        set_selections(
+            preview_state.ui.as_ref(),
+            selection.as_ref().map(|s| s.instance_index).unwrap_or_default(),
+            selection.as_ref().map(|s| s.is_layout).unwrap_or_default(),
+            positions,
+        );
+
+        preview_state.selected = selection;
     })
 }
 
 fn selected_element() -> Option<ElementRc> {
     PREVIEW_STATE.with(move |preview_state| {
         let preview_state = preview_state.borrow();
-        let Some(weak) = &preview_state.selected_element else {
-            return None;
-        };
-        weak.upgrade()
+        preview_state.selected.as_ref().and_then(|es| es.as_element())
     })
 }
 
