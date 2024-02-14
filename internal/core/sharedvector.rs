@@ -315,7 +315,7 @@ impl<T: Clone> From<&[T]> for SharedVector<T> {
     }
 }
 
-impl<T: Clone, const N: usize> From<[T; N]> for SharedVector<T> {
+impl<T, const N: usize> From<[T; N]> for SharedVector<T> {
     fn from(array: [T; N]) -> Self {
         array.into_iter().collect()
     }
