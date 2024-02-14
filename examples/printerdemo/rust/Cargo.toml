@@ -15,17 +15,19 @@ path = "main.rs"
 name = "printerdemo"
 
 [dependencies]
-slint = { path = "../../../api/rs/slint" }
+slint = { path = "../../../api/rs/slint", features = ["backend-android-native-activity"] }
 
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}
-
-[target.'cfg(target_os = "android")'.dependencies]
-i-slint-backend-android-activity = { workspace = true, features = ["native-activity"] }
 
 [build-dependencies]
 slint-build = { path = "../../../api/rs/build" }
 
-# Remove the `#wasm#` to uncomment the wasm build.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { version = "0.2" }
+web-sys = { version = "0.3", features=["console"] }
+console_error_panic_hook = "0.1.5"
+
+# Remove the `#wasm#` to uncomment the wasm or android build.
 # This is commented out by default because we don't want to build it as a library by default
 # The CI has a script that does sed "s/#wasm# //" to generate the wasm build.
 
@@ -33,7 +35,7 @@ slint-build = { path = "../../../api/rs/build" }
 #wasm# path = "main.rs"
 #wasm# crate-type = ["cdylib"]
 
-#wasm# [target.'cfg(target_arch = "wasm32")'.dependencies]
-#wasm# wasm-bindgen = { version = "0.2" }
-#wasm# web-sys = { version = "0.3", features=["console"] }
-#wasm# console_error_panic_hook = "0.1.5"
+
+
+
+

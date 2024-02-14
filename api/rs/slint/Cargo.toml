@@ -157,6 +157,9 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 ## windowing system. (Experimental)
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
+## Use the backend based on the [android-activity](https://docs.rs/android-activity) crate. (Using it's native activity feature)
+backend-android-native-activity = ["i-slint-backend-android-activity/native-activity"]
+
 [dependencies]
 i-slint-core = { workspace = true }
 slint-macros = { workspace = true }
@@ -176,6 +179,9 @@ log = { version = "0.4.17", optional = true }
 # FemtoVG is disabled on android because it doesn't compile without setting RUST_FONTCONFIG_DLOPEN=on
 # end even then wouldn't work because it can't load fonts
 i-slint-renderer-femtovg = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+i-slint-backend-android-activity = { workspace = true, optional = true }
 
 [dev-dependencies]
 slint-build = { path = "../build" }
