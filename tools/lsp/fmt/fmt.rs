@@ -605,8 +605,13 @@ fn format_codeblock(
         // empty CodeBlock happens when there is no `else` for example
         return Ok(());
     }
+
+    let prev_is_return_type =
+        node.prev_sibling().map(|s| s.kind() == SyntaxKind::ReturnType).unwrap_or(false);
+
     let mut sub = node.children_with_tokens();
-    if !whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, "")? {
+    let prefix_whitespace = if prev_is_return_type { " " } else { "" };
+    if !whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, prefix_whitespace)? {
         finish_node(sub, writer, state)?;
         return Ok(());
     }
@@ -1193,7 +1198,7 @@ component ABC {
             r#"
 component ABC {
     in-out property <bool> logged_in: false;
-    function clicked() -> bool{
+    function clicked() -> bool {
         if (logged_in) {
             logged_in = false;
             return true;
