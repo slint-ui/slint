@@ -9,7 +9,7 @@ Complete the following steps to translate your application:
 2. Extract annotated strings using the `slint-tr-extractor` tool and generate `.pot` files.
 3. Use a third-party tool to translate the strings into a target language, as `.po` files.
 4. Use gettext's `msgfmt` tool to convert `.po` files into run-time loadable `.mo` files.
-5. Use Slint's API select and load `.mo` files at run-time, based on the user's locale settings.
+5. Use Slint's API to select and load `.mo` files at run-time, based on the user's locale settings.
    At this point, all strings marked for translation will automatically be rendered in the target language.
 
 ## Annotating Translatable Strings
