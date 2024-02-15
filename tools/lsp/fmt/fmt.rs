@@ -129,6 +129,9 @@ fn format_node(
         SyntaxKind::PropertyAnimation => {
             return format_property_animation(node, writer, state);
         }
+        SyntaxKind::ObjectLiteral => {
+            return format_object_literal(node, writer, state);
+        }
         _ => (),
     }
 
@@ -939,6 +942,84 @@ fn format_property_animation(
     Ok(())
 }
 
+fn format_object_literal(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let len: usize = node.text_range().len().into();
+    let has_trailing_comma = node
+        .last_token()
+        .and_then(|last| last.prev_token())
+        .map(|second_last| {
+            if second_last.kind() == SyntaxKind::Whitespace {
+                second_last.prev_token().map(|n| n.kind() == SyntaxKind::Comma).unwrap_or(false)
+            } else {
+                second_last.kind() == SyntaxKind::Comma
+            }
+        })
+        .unwrap_or(false);
+    let is_large_literal = len >= 80;
+
+    let mut sub = node.children_with_tokens().peekable();
+    whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, "")?;
+    let indent_with_new_line = is_large_literal || has_trailing_comma;
+
+    if indent_with_new_line {
+        state.indentation_level += 1;
+        state.new_line();
+    } else {
+        state.insert_whitespace(" ");
+    }
+
+    loop {
+        let el = whitespace_to_one_of(
+            &mut sub,
+            &[SyntaxKind::ObjectMember, SyntaxKind::RBrace],
+            writer,
+            state,
+            "",
+        )?;
+
+        if let SyntaxMatch::Found(SyntaxKind::ObjectMember) = el {
+            if indent_with_new_line {
+                state.new_line();
+            } else {
+                state.insert_whitespace(" ");
+            }
+
+            // are we at the end of literal?
+            let at_end = sub
+                .peek()
+                .map(|next| {
+                    if next.kind() == SyntaxKind::Whitespace {
+                        next.as_token()
+                            .and_then(|ws| ws.next_token())
+                            .map(|n| n.kind() == SyntaxKind::RBrace)
+                            .unwrap_or(false)
+                    } else {
+                        next.kind() == SyntaxKind::RBrace
+                    }
+                })
+                .unwrap_or(false);
+
+            if at_end && indent_with_new_line {
+                state.indentation_level -= 1;
+                state.whitespace_to_add = None;
+                state.new_line();
+            }
+
+            continue;
+        } else if let SyntaxMatch::Found(SyntaxKind::RBrace) = el {
+            break;
+        } else {
+            eprintln!("Inconsistency: unexpected syntax in object literal.");
+            break;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1457,6 +1538,52 @@ export component MainWindow inherits Window {
     }
 
     Rectangle { }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn object_literal() {
+        assert_formatting(
+            r#"
+export component MainWindow inherits Window {
+    in property <[TileData]> memory-tiles : [
+        { image: @image-url("icons/at.png"), image-visible: false, solved: false, },
+        { image: @image-url("icons/at.png"), image-visible: false, solved: false,},
+        { image: @image-url("icons/at.png"), image-visible: false, solved: false, some_other_property: 12345 },
+        { image: @image-url("icons/at.png"), image-visible: false, solved: false, some_other_property: 12345},
+        { image: @image-url("icons/balance-scale.png") },
+    ];
+}
+"#,
+            r#"
+export component MainWindow inherits Window {
+    in property <[TileData]> memory-tiles: [
+        {
+            image: @image-url("icons/at.png"),
+            image-visible: false,
+            solved: false,
+        },
+        {
+            image: @image-url("icons/at.png"),
+            image-visible: false,
+            solved: false,
+        },
+        {
+            image: @image-url("icons/at.png"),
+            image-visible: false,
+            solved: false,
+            some_other_property: 12345
+        },
+        {
+            image: @image-url("icons/at.png"),
+            image-visible: false,
+            solved: false,
+            some_other_property: 12345
+        },
+        { image: @image-url("icons/balance-scale.png") },
+    ];
 }
 "#,
         );
