@@ -8,8 +8,8 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{
-    ImageFit, ImageHorizontalAlignment, ImageRendering, ImageVerticalAlignment, Item, ItemConsts,
-    ItemRc, RenderingResult,
+    ImageFit, ImageHorizontalAlignment, ImageRendering, ImageTiling, ImageVerticalAlignment, Item,
+    ItemConsts, ItemRc, RenderingResult,
 };
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -138,6 +138,10 @@ impl RenderImage for ImageItem {
     fn alignment(self: Pin<&Self>) -> (ImageHorizontalAlignment, ImageVerticalAlignment) {
         Default::default()
     }
+
+    fn tiling(self: Pin<&Self>) -> (ImageTiling, ImageTiling) {
+        Default::default()
+    }
 }
 
 impl ItemConsts for ImageItem {
@@ -165,6 +169,8 @@ pub struct ClippedImage {
 
     pub horizontal_alignment: Property<ImageHorizontalAlignment>,
     pub vertical_alignment: Property<ImageVerticalAlignment>,
+    pub horizontal_tiling: Property<ImageTiling>,
+    pub vertical_tiling: Property<ImageTiling>,
 
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -273,6 +279,10 @@ impl RenderImage for ClippedImage {
 
     fn alignment(self: Pin<&Self>) -> (ImageHorizontalAlignment, ImageVerticalAlignment) {
         (self.horizontal_alignment(), self.vertical_alignment())
+    }
+
+    fn tiling(self: Pin<&Self>) -> (ImageTiling, ImageTiling) {
+        (self.horizontal_tiling(), self.vertical_tiling())
     }
 }
 

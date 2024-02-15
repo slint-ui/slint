@@ -296,6 +296,7 @@ pub trait RenderImage {
     fn rendering(self: Pin<&Self>) -> ImageRendering;
     fn colorize(self: Pin<&Self>) -> Brush;
     fn alignment(self: Pin<&Self>) -> (ImageHorizontalAlignment, ImageVerticalAlignment);
+    fn tiling(self: Pin<&Self>) -> (ImageTiling, ImageTiling);
 }
 
 /// Trait used to render each items.

@@ -261,6 +261,16 @@ macro_rules! for_each_enums {
                 Pixelated,
             }
 
+            /// This enum specifies how the source image will be tiled.
+            enum ImageTiling {
+                /// The source image will not be tiled.
+                None,
+                /// The source image will be repeated to fill the [`Image`](elements.md#image) element.
+                Repeat,
+                /// The source image will be repeated and scaled to fill the [`Image`](elements.md#image) element, ensuring an integer number of repetitions.
+                Round,
+            }
+
             /// This enum is used to define the type of the input field.
             #[non_exhaustive]
             enum InputType {

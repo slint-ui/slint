@@ -95,6 +95,9 @@ impl Texture {
             ImageRendering::Pixelated => femtovg::ImageFlags::NEAREST,
         };
 
+        let image_flags =
+            image_flags | femtovg::ImageFlags::REPEAT_X | femtovg::ImageFlags::REPEAT_Y;
+
         let image_id = match image {
             #[cfg(target_arch = "wasm32")]
             ImageInner::HTMLImage(html_image) => {

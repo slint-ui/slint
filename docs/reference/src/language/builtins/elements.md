@@ -298,7 +298,9 @@ An `Image` can be used to represent an image loaded from a file.
 
 -   **`colorize`** (_in_ _brush_): When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
 -   **`horizontal-alignment`** (_in_ _enum [`ImageHorizontalAlignment`](enums.md#imagehorizontalalignment)_): The horizontal alignment of the image within the element.
--   **`image-fit`** (_in_ _enum [`ImageFit`](enums.md#imagefit)_): Specifies how the source image shall be fit into the image element. Does not have any effect when used with 9 slice scaling images.
+-   **`horizontal-tiling`** (_in_ _enum [`ImageTiling`](enums.md#imagetiling)_): Whether the image should be tiled on the horizontal axis.
+-   **`image-fit`** (_in_ _enum [`ImageFit`](enums.md#imagefit)_): Specifies how the source image shall be fit into the image element.
+    Does not have any effect when used with 9 slice scaled or tiled images.
     (default value: `contain` when the `Image` element is part of a layout, `fill` otherwise)
 -   **`image-rendering`** (_in_ _enum [`ImageRendering`](enums.md#imagerendering)_): Specifies how the source image will be scaled. (default value: `smooth`)
 -   **`rotation-angle`** (_in_ _angle_), **`rotation-origin-x`** (_in_ _length_), **`rotation-origin-y`** (_in_ _length_):
@@ -314,6 +316,7 @@ An `Image` can be used to represent an image loaded from a file.
     | `source-clip-width` | `source.width - source-clip-x` |
     | `source-clip-height` | `source.height - source-clip-y` |
 -   **`vertical-alignment`** (_in_ _enum [`ImageVerticalAlignment`](enums.md#imageverticalalignment)_): The vertical alignment of the image within the element.
+-   **`vertical-tiling`** (_in_ _enum [`ImageTiling`](enums.md#imagetiling)_): Whether the image should be tiled on the vertical axis.
 -   **`width`**, **`height`** (_in_ _length_): The width and height of the image as it appears on the screen.The default values are
     the sizes provided by the **`source`** image. If the `Image` is **not** in a layout and only **one** of the two sizes are
     specified, then the other defaults to the specified value scaled according to the aspect ratio of the **`source`** image.

@@ -63,6 +63,11 @@ export component ClippedImage inherits ImageItem {
 
     in property <ImageHorizontalAlignment> horizontal-alignment;
     in property <ImageVerticalAlignment> vertical-alignment;
+    in property <ImageTiling> horizontal-tiling;
+    in property <ImageTiling> vertical-tiling;
+    // TODO: sets both horizontal-tiling and vertical-tiling at the same time.
+    // in property <ImageTiling> tiling;
+
 }
 
 export { ClippedImage as Image }
