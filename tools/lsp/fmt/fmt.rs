@@ -725,8 +725,20 @@ fn format_array(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
+    let len: usize = node.text_range().len().into();
+    let has_trailing_comma = node
+        .last_token()
+        .and_then(|last| last.prev_token())
+        .map(|second_last| second_last.kind() == SyntaxKind::Comma)
+        .unwrap_or(false);
+    let is_large = len > 80;
     let mut sub = node.children_with_tokens().peekable();
     whitespace_to(&mut sub, SyntaxKind::LBracket, writer, state, "")?;
+
+    if is_large || has_trailing_comma {
+        state.indentation_level += 1;
+        state.new_line();
+    }
 
     loop {
         whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?;
@@ -744,10 +756,16 @@ fn format_array(
                 let is_trailing_comma =
                     sub.peek().map(|next| next.kind() == SyntaxKind::RBracket).unwrap_or(false);
                 if is_trailing_comma {
+                    state.indentation_level -= 1;
+                    state.new_line();
                     whitespace_to(&mut sub, SyntaxKind::RBracket, writer, state, "")?;
                     break;
                 }
-                state.insert_whitespace(" ");
+                if is_large || has_trailing_comma {
+                    state.new_line();
+                } else {
+                    state.insert_whitespace(" ");
+                }
             }
             SyntaxMatch::NotFound | SyntaxMatch::Found(_) => {
                 eprintln!("Inconsistency: unexpected syntax in array.");
@@ -1324,12 +1342,20 @@ component ABC {
         assert_formatting(
             r#"
 component ABC {
-    in-out property <[int]> ar: [1,2,3,4,5,];
+    in-out property <[int]> ar: [1, 2, 3, 4, 5,];
+    in-out property <[int]> ar2: [1, 2, 3, 4, 5];
 }
 "#,
             r#"
 component ABC {
-    in-out property <[int]> ar: [1, 2, 3, 4, 5,];
+    in-out property <[int]> ar: [
+        1,
+        2,
+        3,
+        4,
+        5,
+    ];
+    in-out property <[int]> ar2: [1, 2, 3, 4, 5];
 }
 "#,
         );
