@@ -120,6 +120,9 @@ fn format_node(
         SyntaxKind::State => {
             return format_state(node, writer, state);
         }
+        SyntaxKind::States => {
+            return format_states(node, writer, state);
+        }
         _ => (),
     }
 
@@ -770,18 +773,30 @@ fn format_state(
         return Ok(());
     }
 
-    state.indentation_level += 1;
+    let prev_is_state = node.prev_sibling().map(|p| p.kind() == SyntaxKind::State).unwrap_or(false);
+    if !prev_is_state {
+        state.indentation_level += 1;
+    }
+
     state.new_line();
     let ins_ctn = state.insertion_count;
+    let mut first = true;
 
     for n in sub {
-        if n.kind() == SyntaxKind::RBrace {
+        if n.kind() == SyntaxKind::StatePropertyChange {
+            if first {
+                // add new line after brace + increase indent
+                state.indentation_level += 1;
+                state.whitespace_to_add = None;
+                state.new_line();
+            }
+            first = false;
+            fold(n, writer, state)?;
+        } else if n.kind() == SyntaxKind::RBrace {
             state.indentation_level -= 1;
             state.whitespace_to_add = None;
             if ins_ctn == state.insertion_count {
                 state.insert_whitespace("");
-            } else {
-                state.new_line();
             }
             fold(n, writer, state)?;
             state.new_line();
@@ -789,6 +804,37 @@ fn format_state(
             fold(n, writer, state)?;
         }
     }
+
+    Ok(())
+}
+
+fn format_states(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let start_indent = state.indentation_level;
+    let mut sub = node.children_with_tokens();
+    let ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::LBracket, writer, state, " ")?;
+
+    if !ok {
+        eprintln!("Inconsistency: Expect states and ']'");
+        return Ok(());
+    }
+
+    for n in sub {
+        if n.kind() == SyntaxKind::RBracket {
+            state.whitespace_to_add = None;
+            // indent level may not have changed
+            while start_indent < state.indentation_level {
+                state.indentation_level -= 1;
+            }
+            state.new_line();
+        }
+        fold(n, writer, state)?;
+    }
+    state.skip_all_whitespace = true;
     Ok(())
 }
 
@@ -1129,7 +1175,39 @@ component FooBar {
     states [
         dummy1 when a == true: {}
     ]
+}
+"#,
+        );
 
+        assert_formatting(
+            r#"
+component ABC {
+    in-out property <bool> b: false;
+    in-out property <int> a: 1;
+    states[
+        is-selected when root.b == root.b: {
+            b: false;
+        root.a: 1;
+        }
+        is-not-selected when root.b!=root.b: {
+            root.a: 1;
+        }
+    ]
+}
+"#,
+            r#"
+component ABC {
+    in-out property <bool> b: false;
+    in-out property <int> a: 1;
+    states [
+        is-selected when root.b == root.b: {
+            b: false;
+        root.a: 1;
+        }
+        is-not-selected when root.b != root.b: {
+            root.a: 1;
+        }
+    ]
 }
 "#,
         );
