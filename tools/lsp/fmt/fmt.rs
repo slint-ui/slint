@@ -731,17 +731,23 @@ fn format_array(
         .and_then(|last| last.prev_token())
         .map(|second_last| second_last.kind() == SyntaxKind::Comma)
         .unwrap_or(false);
-    let is_large = len > 80;
+    let is_large_array = len >= 80;
     let mut sub = node.children_with_tokens().peekable();
     whitespace_to(&mut sub, SyntaxKind::LBracket, writer, state, "")?;
 
-    if is_large || has_trailing_comma {
+    if is_large_array || has_trailing_comma {
         state.indentation_level += 1;
         state.new_line();
     }
 
     loop {
         whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?;
+        let at_end = sub.peek().map(|next| next.kind() == SyntaxKind::RBracket).unwrap_or(false);
+        if at_end && is_large_array {
+            state.indentation_level -= 1;
+            state.new_line();
+        }
+
         let el = whitespace_to_one_of(
             &mut sub,
             &[SyntaxKind::RBracket, SyntaxKind::Comma],
@@ -761,7 +767,7 @@ fn format_array(
                     whitespace_to(&mut sub, SyntaxKind::RBracket, writer, state, "")?;
                     break;
                 }
-                if is_large || has_trailing_comma {
+                if is_large_array || has_trailing_comma {
                     state.new_line();
                 } else {
                     state.insert_whitespace(" ");
@@ -1356,6 +1362,28 @@ component ABC {
         5,
     ];
     in-out property <[int]> ar2: [1, 2, 3, 4, 5];
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn large_array() {
+        assert_formatting(
+            r#"
+component ABC {
+    in-out property <[string]> large: ["first string", "second string", "third string", "fourth string", "fifth string"];
+}
+"#,
+            r#"
+component ABC {
+    in-out property <[string]> large: [
+        "first string",
+        "second string",
+        "third string",
+        "fourth string",
+        "fifth string"
+    ];
 }
 "#,
         );
