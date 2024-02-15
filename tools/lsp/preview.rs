@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use crate::common::{
-    ComponentInformation, LspToPreviewMessage, PreviewComponent, PreviewConfig, UrlVersion,
-    VersionedUrl,
+    ComponentInformation, PreviewComponent, PreviewConfig, UrlVersion, VersionedUrl,
 };
 use crate::lsp_ext::Health;
+use crate::preview::element_selection::ElementSelection;
+use crate::util::map_position;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::model::VecModel;
@@ -65,6 +66,7 @@ struct PreviewState {
     ui: Option<ui::PreviewUi>,
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
     selected: Option<element_selection::ElementSelection>,
+    notify_editor_about_selection_after_update: bool,
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -112,6 +114,7 @@ fn drop_component(
             selection_offset,
             is_layout,
             None,
+            true,
         );
 
         send_message_to_lsp(crate::common::PreviewToLspMessage::AddComponent {
@@ -172,6 +175,49 @@ pub fn config_changed(config: PreviewConfig) {
     };
 }
 
+pub fn adjust_selection(url: VersionedUrl, start_offset: u32, end_offset: u32, new_length: u32) {
+    let Some((version, _)) = get_url_from_cache(url.url()) else {
+        return;
+    };
+
+    run_in_ui_thread(move || async move {
+        if &version != url.version() {
+            // We are outdated anyway, no use updating now.
+            return;
+        };
+
+        let Ok(path) = Url::to_file_path(url.url()) else {
+            return;
+        };
+
+        let Some(selected) = PREVIEW_STATE.with(move |preview_state| {
+            let preview_state = preview_state.borrow();
+
+            preview_state.selected.clone()
+        }) else {
+            return;
+        };
+
+        if selected.path != path {
+            // Not relevant for the current selection
+            return;
+        }
+        if selected.offset < start_offset {
+            // Nothing to do!
+        } else if selected.offset >= start_offset {
+            // Worst case if we get the offset wrong:
+            // Some other newarby element ends up getting marked as selected.
+            // So ignore special cases :-)
+            let old_length = end_offset - start_offset;
+            let offset = selected.offset + new_length - old_length;
+            PREVIEW_STATE.with(move |preview_state| {
+                let mut preview_state = preview_state.borrow_mut();
+                preview_state.selected = Some(ElementSelection { offset, ..selected });
+            });
+        }
+    })
+}
+
 /// If the file is in the cache, returns it.
 /// In any way, register it as a dependency
 fn get_url_from_cache(url: &Url) -> Option<(UrlVersion, String)> {
@@ -206,9 +252,11 @@ pub fn load_preview(preview_component: PreviewComponent) {
     };
 
     run_in_ui_thread(move || async move {
-        let selected = PREVIEW_STATE.with(|preview_state| {
+        let (selected, notify_editor) = PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
-            preview_state.selected.take()
+            let notify_editor = preview_state.notify_editor_about_selection_after_update;
+            preview_state.notify_editor_about_selection_after_update = false;
+            (preview_state.selected.take(), notify_editor)
         });
 
         loop {
@@ -253,11 +301,36 @@ pub fn load_preview(preview_component: PreviewComponent) {
 
         if let Some(se) = selected {
             element_selection::select_element_at_source_code_position(
-                se.path,
+                se.path.clone(),
                 se.offset,
                 se.is_layout,
                 None,
+                false,
             );
+
+            if notify_editor {
+                if let Some(component_instance) = component_instance() {
+                    if let Some(element) = component_instance
+                        .element_at_source_code_position(&se.path, se.offset)
+                        .first()
+                    {
+                        if let Some(node) = element
+                            .borrow()
+                            .node
+                            .iter()
+                            .filter(|n| !crate::common::is_element_node_ignored(n))
+                            .next()
+                        {
+                            let sf = &node.source_file;
+                            let pos = map_position(sf, se.offset.into());
+                            ask_editor_to_show_document(
+                                &se.path.to_string_lossy(),
+                                lsp_types::Range::new(pos.clone(), pos),
+                            );
+                        }
+                    }
+                }
+            }
         }
     });
 }
@@ -365,7 +438,7 @@ pub fn highlight(url: Option<Url>, offset: u32) {
             if let Some(e) = elements.first() {
                 let is_layout = e.borrow().layout.is_some();
                 element_selection::select_element_at_source_code_position(
-                    path, offset, is_layout, None,
+                    path, offset, is_layout, None, false,
                 );
             } else {
                 element_selection::unselect_element();
@@ -451,6 +524,7 @@ fn set_selections(
 fn set_selected_element(
     selection: Option<element_selection::ElementSelection>,
     positions: slint_interpreter::highlight::ComponentPositions,
+    notify_editor_about_selection_after_update: bool,
 ) {
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
@@ -463,6 +537,8 @@ fn set_selected_element(
         );
 
         preview_state.selected = selection;
+        preview_state.notify_editor_about_selection_after_update =
+            notify_editor_about_selection_after_update;
     })
 }
 
@@ -567,25 +643,29 @@ fn update_preview_area(compiled: Option<ComponentDefinition>) {
 }
 
 pub fn lsp_to_preview_message(
-    message: LspToPreviewMessage,
+    message: crate::common::LspToPreviewMessage,
     #[cfg(not(target_arch = "wasm32"))] sender: &crate::ServerNotifier,
 ) {
+    use crate::common::LspToPreviewMessage as M;
     match message {
-        LspToPreviewMessage::SetContents { url, contents } => {
+        M::SetContents { url, contents } => {
             set_contents(&url, contents);
         }
-        LspToPreviewMessage::SetConfiguration { config } => {
+        M::SetConfiguration { config } => {
             config_changed(config);
         }
-        LspToPreviewMessage::ShowPreview(pc) => {
+        M::AdjustSelection { url, start_offset, end_offset, new_length } => {
+            adjust_selection(url, start_offset, end_offset, new_length);
+        }
+        M::ShowPreview(pc) => {
             #[cfg(not(target_arch = "wasm32"))]
             native::open_ui(sender);
             load_preview(pc);
         }
-        LspToPreviewMessage::HighlightFromEditor { url, offset } => {
+        M::HighlightFromEditor { url, offset } => {
             highlight(url, offset);
         }
-        LspToPreviewMessage::KnownComponents { url, components } => {
+        M::KnownComponents { url, components } => {
             known_components(&url, components);
         }
     }

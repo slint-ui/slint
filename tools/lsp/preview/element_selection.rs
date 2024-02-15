@@ -11,6 +11,7 @@ use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use rowan::TextRange;
 use slint_interpreter::{highlight::ComponentPositions, ComponentInstance};
 
+#[derive(Clone, Debug)]
 pub struct ElementSelection {
     pub path: PathBuf,
     pub offset: u32,
@@ -75,7 +76,7 @@ fn element_covers_point(
 }
 
 pub fn unselect_element() {
-    super::set_selected_element(None, ComponentPositions::default());
+    super::set_selected_element(None, ComponentPositions::default(), false);
 }
 
 pub fn select_element_at_source_code_position(
@@ -83,6 +84,7 @@ pub fn select_element_at_source_code_position(
     offset: u32,
     is_layout: bool,
     position: Option<LogicalPoint>,
+    notify_editor_about_selection_after_update: bool,
 ) {
     let Some(component_instance) = super::component_instance() else {
         return;
@@ -93,6 +95,7 @@ pub fn select_element_at_source_code_position(
         offset,
         is_layout,
         position,
+        notify_editor_about_selection_after_update,
     )
 }
 
@@ -102,6 +105,7 @@ fn select_element_at_source_code_position_impl(
     offset: u32,
     is_layout: bool,
     position: Option<LogicalPoint>,
+    notify_editor_about_selection_after_update: bool,
 ) {
     let positions = component_instance.component_positions(&path, offset);
 
@@ -114,6 +118,7 @@ fn select_element_at_source_code_position_impl(
     super::set_selected_element(
         Some(ElementSelection { path, offset, instance_index, is_layout }),
         positions,
+        notify_editor_about_selection_after_update,
     );
 }
 
@@ -129,6 +134,7 @@ fn select_element(
             offset,
             selected_element.borrow().layout.is_some(),
             position,
+            false, // We update directly;-)
         );
 
         if let Some(document_position) = lsp_element_position(selected_element) {

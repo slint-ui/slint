@@ -23,7 +23,9 @@ use crate::util::{
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
+use crate::ServerNotifier;
 
+use i_slint_compiler::diagnostics::SourceFile;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::pathutils::clean_path;
@@ -85,6 +87,31 @@ fn create_show_preview_command(
         SHOW_PREVIEW_COMMAND.into(),
         Some(vec![file.as_str().into(), component_name.into()]),
     )
+}
+
+pub fn notify_preview_about_text_edit(
+    server_notifier: &ServerNotifier,
+    edit: &TextEdit,
+    source_file: &SourceFile,
+) {
+    let new_length = edit.new_text.len() as u32;
+    let (start_offset, end_offset) = {
+        let so =
+            source_file.offset(edit.range.start.line as usize, edit.range.start.character as usize);
+        let eo =
+            source_file.offset(edit.range.end.line as usize, edit.range.end.character as usize);
+        (std::cmp::min(so, eo) as u32, std::cmp::max(so, eo) as u32)
+    };
+
+    let Ok(url) = Url::from_file_path(source_file.path()) else {
+        return;
+    };
+    server_notifier.send_message_to_preview(LspToPreviewMessage::AdjustSelection {
+        url: VersionedUrl::new(url, source_file.version()),
+        start_offset,
+        end_offset,
+        new_length,
+    });
 }
 
 #[cfg(feature = "preview-external")]
@@ -406,7 +433,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             let p = tk.parent();
             let version = p.source_file.version();
             if let Some(value) = find_element_id_for_highlight(&tk, &tk.parent()) {
-                let edits = value
+                let edits: Vec<_> = value
                     .into_iter()
                     .map(|r| TextEdit {
                         range: map_range(&p.source_file, r),
@@ -1374,6 +1401,9 @@ pub fn add_component(
     if let Some(edit) =
         completion::create_import_edit(doc, &component.component_type, &component.import_path)
     {
+        if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
+            notify_preview_about_text_edit(&ctx.server_notifier, &edit, sf);
+        }
         edits.push(edit);
     }
 
