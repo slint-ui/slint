@@ -7,6 +7,7 @@
 
 use super::{
     Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
+    VoidArg,
 };
 use crate::animations::{EasingCurve, Instant};
 use crate::input::{
@@ -22,6 +23,7 @@ use crate::lengths::{
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
+use crate::Callback;
 use crate::Property;
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
@@ -49,6 +51,9 @@ pub struct Flickable {
     pub viewport_height: Property<LogicalLength>,
 
     pub interactive: Property<bool>,
+
+    pub flicked: Callback<VoidArg>,
+
     data: FlickableDataBox,
 
     /// FIXME: remove this
@@ -303,8 +308,14 @@ impl FlickableData {
 
                     if inner.capture_events || should_capture() {
                         let new_pos = ensure_in_bound(flick, new_pos, flick_rc);
+
+                        let old_pos = (x.get(), y.get());
                         x.set(new_pos.x_length());
                         y.set(new_pos.y_length());
+                        if old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length() {
+                            (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
+                        }
+
                         inner.capture_events = true;
                         InputEventResult::GrabMouse
                     } else {
@@ -329,8 +340,15 @@ impl FlickableData {
                     LogicalVector::new(delta_x, delta_y)
                 };
                 let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
-                (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(new_pos.x_length());
-                (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(new_pos.y_length());
+
+                let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                let old_pos = (viewport_x.get(), viewport_y.get());
+                viewport_x.set(new_pos.x_length());
+                viewport_y.set(new_pos.y_length());
+                if old_pos.0 != new_pos.x_length() || old_pos.1 != new_pos.y_length() {
+                    (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
+                }
                 InputEventResult::EventAccepted
             }
         }
@@ -363,12 +381,15 @@ impl FlickableData {
                     easing: EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]),
                     ..PropertyAnimation::default()
                 };
-                (Flickable::FIELD_OFFSETS.viewport_x)
-                    .apply_pin(flick)
-                    .set_animated_value(final_pos.x_length(), anim.clone());
-                (Flickable::FIELD_OFFSETS.viewport_y)
-                    .apply_pin(flick)
-                    .set_animated_value(final_pos.y_length(), anim);
+
+                let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
+                let old_pos = (viewport_x.get(), viewport_y.get());
+                viewport_x.set_animated_value(final_pos.x_length(), anim.clone());
+                viewport_y.set_animated_value(final_pos.y_length(), anim);
+                if old_pos.0 != final_pos.x_length() || old_pos.1 != final_pos.y_length() {
+                    (Flickable::FIELD_OFFSETS.flicked).apply_pin(flick).call(&());
+                }
             }
         }
         inner.capture_events = false; // FIXME: should only be set to false once the flick animation is over

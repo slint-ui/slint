@@ -166,6 +166,10 @@ interacting with `TouchArea` elements:
 -   **`viewport-height`**, **`viewport-width`** (_in_ _length_): The total size of the scrollable element.
 -   **`viewport-x`**, **`viewport-y`** (_in_ _length_): The position of the scrollable element relative to the `Flickable`. This is usually a negative value.
 
+### Callbacks
+
+-   **`flicked()`**: Invoked when `viewport-x` or `viewport-y` is changed by a user action (dragging, scrolling).
+
 ### Example
 
 ```slint
