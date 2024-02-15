@@ -151,11 +151,29 @@ pub struct PreviewComponent {
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum LspToPreviewMessage {
-    SetContents { url: VersionedUrl, contents: String },
-    SetConfiguration { config: PreviewConfig },
+    SetContents {
+        url: VersionedUrl,
+        contents: String,
+    },
+    /// Adjust any selection in the document with `url` that is at or behind `offset` by `delta`
+    AdjustSelection {
+        url: VersionedUrl,
+        start_offset: u32,
+        end_offset: u32,
+        new_length: u32,
+    },
+    SetConfiguration {
+        config: PreviewConfig,
+    },
     ShowPreview(PreviewComponent),
-    HighlightFromEditor { url: Option<Url>, offset: u32 },
-    KnownComponents { url: Option<VersionedUrl>, components: Vec<ComponentInformation> },
+    HighlightFromEditor {
+        url: Option<Url>,
+        offset: u32,
+    },
+    KnownComponents {
+        url: Option<VersionedUrl>,
+        components: Vec<ComponentInformation>,
+    },
 }
 
 #[allow(unused)]
