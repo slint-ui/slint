@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use napi::Result;
 use slint_interpreter::ComponentDefinition;
 
 use super::{JsComponentInstance, JsProperty};
@@ -57,12 +58,8 @@ impl JsComponentDefinition {
     }
 
     #[napi]
-    pub fn create(&self) -> Option<JsComponentInstance> {
-        if let Ok(instance) = self.internal.create() {
-            return Some(instance.into());
-        }
-
-        None
+    pub fn create(&self) -> Result<JsComponentInstance> {
+        Ok(self.internal.create().map_err(|e| napi::Error::from_reason(e.to_string()))?.into())
     }
 
     #[napi(getter)]
