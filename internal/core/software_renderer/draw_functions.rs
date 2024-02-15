@@ -28,59 +28,151 @@ pub(super) fn draw_texture_line(
         extra: super::SceneTextureExtra { colorize, alpha, rotation, dx, dy, off_x, off_y },
     } = *texture;
     let span_size = span.size.cast::<usize>();
+
+    let source_size = texture.source_size().cast::<i32>();
+
+    let line_buffer = &mut line_buffer[span.origin.x as usize..];
+
     let y = (line - span.origin.y_length()).cast::<usize>();
-
-    let line_buffer = &mut line_buffer[span.origin.x as usize..][..span.size.width as usize];
-
     let y = if rotation.mirror_width() { span_size.height - y.get() - 1 } else { y.get() } as i32;
 
+    let off_x = Fixed::<i32, 8>::from_fixed(off_x);
+    let off_y = Fixed::<i32, 8>::from_fixed(off_y);
+    let dx = Fixed::<i32, 8>::from_fixed(dx);
+    let dy = Fixed::<i32, 8>::from_fixed(dy);
+
     if !rotation.is_transpose() {
-        let mut delta = Fixed::<i32, 8>::from_fixed(dx);
-        let mut pos = Fixed::from_integer(
-            (Fixed::<i32, 8>::from_fixed(off_y) + Fixed::<i32, 8>::from_fixed(dy) * y).truncate(),
-        ) * pixel_stride as i32
-            + Fixed::<i32, 8>::from_fixed(off_x);
+        let mut delta = dx;
+        // The position where to start in the image array for a this row
+        let mut init = Fixed::from_integer((off_y + dy * y).truncate() % source_size.height)
+            * pixel_stride as i32;
+
+        // the size of the tile in physical pixels in the target
+        let tile_len = (Fixed::from_integer(source_size.width) / delta) as usize;
+        // the amount of missing image pixel on one tile
+        let mut remainder = Fixed::from_integer(source_size.width) % delta;
+        // The position in image pixel where to get the image
+        let mut pos;
+        // the end index in the target buffer
+        let mut end;
+        // the accumulated error in image pixels
+        let mut acc_err;
         if rotation.mirror_height() {
-            pos += delta * (span_size.width as i32 - 1);
+            let o = (off_x + (delta * (span_size.width as i32 - 1)))
+                % Fixed::from_integer(source_size.width);
+            pos = init + o;
+            init += Fixed::from_integer(source_size.width);
+            end = (o / delta) as usize + 1;
+            acc_err = -delta + o % delta;
             delta = -delta;
-        };
-        fetch_blend_pixel(
-            line_buffer,
-            format,
-            data,
-            alpha,
-            colorize,
-            #[inline(always)]
-            |bpp| {
-                let p = pos.truncate() as usize * bpp;
-                pos += delta;
-                p
-            },
-        );
+            remainder = -remainder;
+        } else {
+            let o = off_x % Fixed::from_integer(source_size.width);
+            pos = init + o;
+            end = ((Fixed::from_integer(source_size.width) - o) / delta) as usize;
+            acc_err = (Fixed::from_integer(source_size.width) - o) % delta;
+            if acc_err != Fixed::default() {
+                acc_err = delta - acc_err;
+                end += 1;
+            }
+        }
+        end = end.min(span_size.width);
+        let mut begin = 0;
+        while begin < span_size.width {
+            fetch_blend_pixel(
+                &mut line_buffer[begin..end],
+                format,
+                data,
+                alpha,
+                colorize,
+                #[inline(always)]
+                |bpp| {
+                    let p = pos.truncate() as usize * bpp;
+                    pos += delta;
+                    p
+                },
+            );
+            begin = end;
+            end = end + tile_len;
+            pos = init;
+            pos += acc_err;
+            if remainder != Fixed::from_integer(0) {
+                acc_err -= remainder;
+                let wrap = if rotation.mirror_height() {
+                    acc_err >= Fixed::from_integer(0)
+                } else {
+                    acc_err < Fixed::from_integer(0)
+                };
+                if wrap {
+                    acc_err += delta;
+                    end += 1;
+                }
+            };
+            end = end.min(span_size.width);
+        }
     } else {
         let bpp = format.bpp();
-        let col = Fixed::<i32, 8>::from_fixed(off_x) + Fixed::<i32, 8>::from_fixed(dx) * y;
-        let col = col.truncate() as usize * bpp;
+        let col = off_x + dx * y;
+        let col = (col.truncate() % source_size.width) as usize * bpp;
         let stride = pixel_stride as usize * bpp;
-        let row_delta = Fixed::<i32, 8>::from_fixed(dy);
-        let (mut row, row_delta) = if rotation.mirror_height() {
-            (Fixed::from_fixed(off_y) + row_delta * (span_size.width as i32 - 1), -row_delta)
+        let mut row_delta = dy;
+        let tile_len = (Fixed::from_integer(source_size.height) / row_delta) as usize;
+        let mut remainder = Fixed::from_integer(source_size.height) % row_delta;
+        let mut end;
+        let mut row_init = Fixed::default();
+        let mut row;
+        let mut acc_err;
+        if rotation.mirror_height() {
+            row_init = Fixed::from_integer(source_size.height);
+            row = (off_y + (row_delta * (span_size.width as i32 - 1)))
+                % Fixed::from_integer(source_size.height);
+            end = (row / row_delta) as usize + 1;
+            acc_err = -row_delta + row % row_delta;
+            row_delta = -row_delta;
+            remainder = -remainder;
         } else {
-            (Fixed::from_fixed(off_y), row_delta)
+            row = off_y % Fixed::from_integer(source_size.height);
+            end = ((Fixed::from_integer(source_size.height) - row) / row_delta) as usize;
+            acc_err = (Fixed::from_integer(source_size.height) - row) % row_delta;
+            if acc_err != Fixed::default() {
+                acc_err = row_delta - acc_err;
+                end += 1;
+            }
         };
-        fetch_blend_pixel(
-            line_buffer,
-            format,
-            data,
-            alpha,
-            colorize,
-            #[inline(always)]
-            |_| {
-                let pos = row.truncate() as usize * stride + col;
-                row += row_delta;
-                pos
-            },
-        );
+        end = end.min(span_size.width);
+        let mut begin = 0;
+        while begin < span_size.width {
+            fetch_blend_pixel(
+                &mut line_buffer[begin..end],
+                format,
+                data,
+                alpha,
+                colorize,
+                #[inline(always)]
+                |_| {
+                    let pos = row.truncate() as usize * stride + col;
+                    row += row_delta;
+                    pos
+                },
+            );
+            begin = end;
+            end = end + tile_len;
+            row = row_init;
+            row += acc_err;
+            if remainder != Fixed::from_integer(0) {
+                acc_err -= remainder;
+                let wrap = if rotation.mirror_height() {
+                    acc_err >= Fixed::from_integer(0)
+                } else {
+                    acc_err < Fixed::from_integer(0)
+                };
+                if wrap {
+                    acc_err += row_delta;
+                    end += 1;
+                }
+            };
+            end = end.min(span_size.width);
+        }
     };
 
     fn fetch_blend_pixel(

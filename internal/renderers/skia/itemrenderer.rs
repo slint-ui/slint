@@ -17,6 +17,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color};
+use skia_safe::{Matrix, TileMode};
 
 pub type SkiaBoxShadowCache = BoxShadowCache<skia_safe::Image>;
 
@@ -91,7 +92,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     (skia_safe::Point::new(start.x, start.y), skia_safe::Point::new(end.x, end.y)),
                     skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
                     Some(&*pos),
-                    skia_safe::TileMode::Clamp,
+                    TileMode::Clamp,
                     skia_safe::gradient_shader::Flags::INTERPOLATE_COLORS_IN_PREMUL,
                     &skia_safe::Matrix::new_identity(),
                 )
@@ -105,7 +106,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     1.,
                     skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
                     Some(&*pos),
-                    skia_safe::TileMode::Clamp,
+                    TileMode::Clamp,
                     skia_safe::gradient_shader::Flags::INTERPOLATE_COLORS_IN_PREMUL,
                     skia_safe::Matrix::scale((circle_scale.get(), circle_scale.get()))
                         .post_translate((width.get() / 2., height.get() / 2.))
@@ -155,13 +156,15 @@ impl<'a> SkiaItemRenderer<'a> {
         item: Pin<&dyn RenderImage>,
         dest_rect: PhysicalRect,
     ) {
+        let tiling = item.tiling();
+
         // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
         let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
             let image = item.source();
             super::cached_image::as_skia_image(
                 image,
                 &|| item.target_size(),
-                item.image_fit(),
+                if tiling != Default::default() { ImageFit::Preserve } else { item.image_fit() },
                 self.scale_factor,
                 self.canvas,
             )
@@ -193,6 +196,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     .unwrap_or_else(|| euclid::rect(0, 0, skia_image.width(), skia_image.height())),
                 self.scale_factor,
                 item.alignment(),
+                tiling,
             )]
         };
 
@@ -201,14 +205,12 @@ impl<'a> SkiaItemRenderer<'a> {
 
             let dst = to_skia_rect(&PhysicalRect::new(fit.offset, fit.size));
             self.canvas.clip_rect(dst, None, None);
-            let src = skia_safe::Rect::from_xywh(
-                fit.clip_rect.origin.cast().x,
-                fit.clip_rect.origin.cast().y,
-                fit.clip_rect.size.cast().width,
-                fit.clip_rect.size.cast().height,
+            let src = skia_safe::IRect::from_xywh(
+                fit.clip_rect.origin.x,
+                fit.clip_rect.origin.y,
+                fit.clip_rect.size.width,
+                fit.clip_rect.size.height,
             );
-            let transform = skia_safe::Matrix::rect_to_rect(src, dst, None).unwrap_or_default();
-            self.canvas.concat(&transform);
 
             let filter_mode: skia_safe::sampling_options::SamplingOptions =
                 match item.rendering() {
@@ -217,12 +219,29 @@ impl<'a> SkiaItemRenderer<'a> {
                 }
                 .into();
 
-            self.canvas.draw_image_with_sampling_options(
-                skia_image.clone(),
-                skia_safe::Point::default(),
-                filter_mode,
-                None,
-            );
+            if let Some(tiled_offset) = fit.tiled {
+                let matrix = Matrix::translate(((fit.offset.x as i32), (fit.offset.y as i32)))
+                    * Matrix::scale((fit.source_to_target_x, fit.source_to_target_y))
+                    * Matrix::translate((-(tiled_offset.x as i32), -(tiled_offset.y as i32)));
+                if let Some(shader) = skia_image.make_subset(None, &src).and_then(|i| {
+                    i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)
+                }) {
+                    let mut paint = skia_safe::Paint::default();
+                    paint.set_shader(shader);
+                    self.canvas.draw_paint(&paint);
+                }
+            } else {
+                let transform =
+                    skia_safe::Matrix::rect_to_rect(skia_safe::Rect::from(src), dst, None)
+                        .unwrap_or_default();
+                self.canvas.concat(&transform);
+                self.canvas.draw_image_with_sampling_options(
+                    skia_image.clone(),
+                    skia_safe::Point::default(),
+                    filter_mode,
+                    None,
+                );
+            }
 
             self.canvas.restore();
         }

@@ -1301,6 +1301,7 @@ impl<'a> GLItemRenderer<'a> {
                             IntRect::from_size(image_size.cast()),
                             self.scale_factor,
                             Default::default(), // We only care about the size, so alignments don't matter
+                            item.tiling(),
                         )
                         .size
                         .cast(),
@@ -1380,6 +1381,7 @@ impl<'a> GLItemRenderer<'a> {
                 source_clip_rect,
                 self.scale_factor,
                 item.alignment(),
+                item.tiling(),
             )]
         };
 
@@ -1398,9 +1400,15 @@ impl<'a> GLItemRenderer<'a> {
             .with_anti_alias(false);
 
             let mut path = femtovg::Path::new();
-            path.rect(0., 0., fit.clip_rect.width() as _, fit.clip_rect.height() as _);
+            path.rect(
+                0.,
+                0.,
+                fit.size.width / fit.source_to_target_x,
+                fit.size.height / fit.source_to_target_y,
+            );
 
             self.canvas.borrow_mut().save_with(|canvas| {
+                // FIXME: what to do with the offset in fit.tiled ?
                 canvas.translate(fit.offset.x, fit.offset.y);
                 canvas.scale(fit.source_to_target_x, fit.source_to_target_y);
                 canvas.fill_path(&path, &fill_paint);

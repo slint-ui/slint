@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 /// A Fixed point, represented with the T underlying type, and shifted by so many bits
-#[derive(Default, Clone, Copy, Debug)]
-pub struct Fixed<T, const SHIFT: usize>(T);
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Fixed<T, const SHIFT: usize>(pub T);
 
 impl<
         T: Copy
@@ -97,5 +97,19 @@ impl<T: core::ops::Neg<Output = T>, const SHIFT: usize> core::ops::Neg for Fixed
     type Output = Self;
     fn neg(self) -> Self::Output {
         Self(-self.0)
+    }
+}
+
+impl<T: core::ops::Div<Output = T>, const SHIFT: usize> core::ops::Div for Fixed<T, SHIFT> {
+    type Output = T;
+    fn div(self, rhs: Self) -> Self::Output {
+        self.0 / rhs.0
+    }
+}
+
+impl<T: core::ops::Rem<Output = T>, const SHIFT: usize> core::ops::Rem for Fixed<T, SHIFT> {
+    type Output = Self;
+    fn rem(self, rhs: Self) -> Self::Output {
+        Self(self.0 % rhs.0)
     }
 }

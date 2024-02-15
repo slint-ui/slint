@@ -59,6 +59,7 @@ pub(crate) fn as_skia_image(
                 IntRect::from_size(svg.size().cast()),
                 scale_factor,
                 Default::default(), // We only care about the size, so alignments don't matter
+                Default::default(),
             )
             .size;
             let pixels = match svg.render(Some(target_size.cast())).ok()? {

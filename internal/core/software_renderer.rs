@@ -34,6 +34,7 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::num::Zero;
 use euclid::Length;
+use fixed::Fixed;
 #[allow(unused)]
 use num_traits::Float;
 use num_traits::NumCast;
@@ -1011,14 +1012,28 @@ struct SceneTexture<'a> {
     extra: SceneTextureExtra,
 }
 
+impl<'a> SceneTexture<'a> {
+    fn source_size(&self) -> PhysicalSize {
+        let len = self.data.len() / self.format.bpp();
+        let stride = self.pixel_stride as usize;
+        let h = len / stride;
+        let w = len % stride;
+        if w == 0 {
+            PhysicalSize::new(stride as _, h as _)
+        } else {
+            PhysicalSize::new(w as _, (h + 1) as _)
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 struct SceneTextureExtra {
     /// Delta x: the amount of "image pixel" that we need to skip for each physical pixel in the target buffer
-    dx: fixed::Fixed<u16, 8>,
-    dy: fixed::Fixed<u16, 8>,
+    dx: Fixed<u16, 8>,
+    dy: Fixed<u16, 8>,
     /// Offset which is the coordinate of the "image pixel" which going to be drawn at location SceneItem::pos
-    off_x: fixed::Fixed<u16, 4>,
-    off_y: fixed::Fixed<u16, 4>,
+    off_x: Fixed<u16, 4>,
+    off_y: Fixed<u16, 4>,
     /// Color to colorize. When not transparent, consider that the image is an alpha map and always use that color.
     /// The alpha of this color is ignored. (it is supposed to be mixed in `Self::alpha`)
     colorize: Color,
@@ -1369,6 +1384,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             source_to_target_y,
             size: fit_size,
             offset: image_fit_offset,
+            tiled,
         }: crate::graphics::FitResult,
         colorize: Color,
     ) {
@@ -1382,33 +1398,42 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 .round()
                 .cast();
 
+        let tiled_off = tiled.unwrap_or_default();
+
         match image_inner {
             ImageInner::None => (),
             ImageInner::StaticTextures(StaticTextures { data, textures, .. }) => {
-                let dx = fixed::Fixed::from_f32(1. / source_to_target_x).unwrap();
-                let dy = fixed::Fixed::from_f32(1. / source_to_target_y).unwrap();
+                let dx = Fixed::from_f32(1. / source_to_target_x).unwrap();
+                let dy = Fixed::from_f32(1. / source_to_target_y).unwrap();
 
                 for t in textures.as_slice() {
                     // That's the source rect in the whole image coordinate
                     let Some(src_rect) = t.rect.intersection(&source_rect) else { continue };
 
-                    // map t.rect to to the target
-                    let target_rect = euclid::Rect::<f32, PhysicalPx>::from_untyped(
-                        &src_rect.translate(-source_rect.origin.to_vector()).cast(),
-                    )
-                    .scale(source_to_target_x, source_to_target_y)
-                    .translate(offset.to_vector())
-                    .round()
-                    .cast::<i32>();
+                    let target_rect = if tiled.is_some() {
+                        // FIXME! there could be gaps between the tiles
+                        euclid::Rect::new(offset, fit_size).round().cast::<i32>()
+                    } else {
+                        // map t.rect to to the target
+                        euclid::Rect::<f32, PhysicalPx>::from_untyped(
+                            &src_rect.translate(-source_rect.origin.to_vector()).cast(),
+                        )
+                        .scale(source_to_target_x, source_to_target_y)
+                        .translate(offset.to_vector())
+                        .round()
+                        .cast::<i32>()
+                    };
 
                     let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
                         continue;
                     };
 
-                    let off_x = (fixed::Fixed::<i32, 8>::from_fixed(dx))
-                        * (clipped_target.origin.x - target_rect.origin.x) as i32;
-                    let off_y = (fixed::Fixed::<i32, 8>::from_fixed(dy))
-                        * (clipped_target.origin.y - target_rect.origin.y) as i32;
+                    let off_x = Fixed::from_integer(tiled_off.x as i32)
+                        + (Fixed::<i32, 8>::from_fixed(dx))
+                            * (clipped_target.origin.x - target_rect.origin.x) as i32;
+                    let off_y = Fixed::from_integer(tiled_off.y as i32)
+                        + (Fixed::<i32, 8>::from_fixed(dy))
+                            * (clipped_target.origin.y - target_rect.origin.y) as i32;
 
                     let pixel_stride = t.rect.width() as u16;
                     let core::ops::Range { start, end } = compute_range_in_buffer(
@@ -1438,8 +1463,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 rotation: self.rotation.orientation,
                                 dx,
                                 dy,
-                                off_x: fixed::Fixed::try_from_fixed(off_x).unwrap(),
-                                off_y: fixed::Fixed::try_from_fixed(off_y).unwrap(),
+                                off_x: Fixed::try_from_fixed(off_x).unwrap(),
+                                off_y: Fixed::try_from_fixed(off_y).unwrap(),
                             },
                         },
                     );
@@ -1448,25 +1473,26 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
             ImageInner::NineSlice(..) => unreachable!(),
             _ => {
-                let target_rect = euclid::Rect::new(offset, fit_size).round_in().cast();
+                let target_rect = euclid::Rect::new(offset, fit_size).round().cast();
                 let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
                     return;
                 };
                 if let Some(buffer) = image_inner.render_to_buffer(Some(target_rect.size.cast())) {
                     let buf_size = buffer.size().cast::<f32>();
-                    let img_src_size = image_inner.size().cast::<f32>();
-                    let dx = fixed::Fixed::from_f32(
-                        buf_size.width / img_src_size.width / source_to_target_x,
-                    )
-                    .unwrap();
-                    let dy = fixed::Fixed::from_f32(
-                        buf_size.height / img_src_size.height / source_to_target_y,
-                    )
-                    .unwrap();
-                    let off_x = (fixed::Fixed::<i32, 8>::from_fixed(dx))
-                        * (clipped_target.origin.x - target_rect.origin.x) as i32;
-                    let off_y = (fixed::Fixed::<i32, 8>::from_fixed(dy))
-                        * (clipped_target.origin.y - target_rect.origin.y) as i32;
+                    let orig = image_inner.size().cast::<f32>();
+                    let dx =
+                        Fixed::from_f32(buf_size.width / orig.width / source_to_target_x).unwrap();
+                    let dy = Fixed::from_f32(buf_size.height / orig.height / source_to_target_y)
+                        .unwrap();
+
+                    let off_x = (Fixed::<i32, 8>::from_fixed(dx))
+                        * (clipped_target.origin.x - target_rect.origin.x) as i32
+                        + Fixed::from_f32(tiled_off.x as f32 * buf_size.width / orig.width)
+                            .unwrap();
+                    let off_y = (Fixed::<i32, 8>::from_fixed(dy))
+                        * (clipped_target.origin.y - target_rect.origin.y) as i32
+                        + Fixed::from_f32(tiled_off.y as f32 * buf_size.height / orig.height)
+                            .unwrap();
 
                     let alpha = if colorize.alpha() > 0 {
                         colorize.alpha() as u16 * global_alpha_u16 / 255
@@ -1482,8 +1508,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 &source_rect
                                     .cast::<f32>()
                                     .scale(
-                                        buf_size.width / img_src_size.width,
-                                        buf_size.height / img_src_size.height,
+                                        buf_size.width / orig.width,
+                                        buf_size.height / orig.height,
                                     )
                                     .round()
                                     .cast(),
@@ -1495,8 +1521,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 rotation: self.rotation.orientation,
                                 dx,
                                 dy,
-                                off_x: fixed::Fixed::try_from_fixed(off_x).unwrap(),
-                                off_y: fixed::Fixed::try_from_fixed(off_y).unwrap(),
+                                off_x: Fixed::try_from_fixed(off_x).unwrap(),
+                                off_y: Fixed::try_from_fixed(off_y).unwrap(),
                             },
                         },
                     );
@@ -1586,10 +1612,10 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                                 // color already is mixed with global alpha
                                                 alpha: color.alpha(),
                                                 rotation: self.rotation.orientation,
-                                                dx: fixed::Fixed::from_integer(1),
-                                                dy: fixed::Fixed::from_integer(1),
-                                                off_x: fixed::Fixed::from_integer(0),
-                                                off_y: fixed::Fixed::from_integer(0),
+                                                dx: Fixed::from_integer(1),
+                                                dy: Fixed::from_integer(1),
+                                                off_x: Fixed::from_integer(0),
+                                                off_y: Fixed::from_integer(0),
                                             },
                                         },
                                     );
@@ -1611,10 +1637,10 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                                 // color already is mixed with global alpha
                                                 alpha: color.alpha(),
                                                 rotation: self.rotation.orientation,
-                                                dx: fixed::Fixed::from_integer(1),
-                                                dy: fixed::Fixed::from_integer(1),
-                                                off_x: fixed::Fixed::from_integer(0),
-                                                off_y: fixed::Fixed::from_integer(0),
+                                                dx: Fixed::from_integer(1),
+                                                dy: Fixed::from_integer(1),
+                                                off_x: Fixed::from_integer(0),
+                                                off_y: Fixed::from_integer(0),
                                             },
                                         },
                                     );
@@ -1932,9 +1958,13 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 return;
             }
 
-            let source_clip = image
-                .source_clip()
-                .unwrap_or_else(|| euclid::Rect::new(Default::default(), source.size().cast()));
+            let source_clip = image.source_clip().map_or_else(
+                || euclid::Rect::new(Default::default(), source.size().cast()),
+                |clip| {
+                    clip.intersection(&euclid::Rect::from_size(source.size().cast()))
+                        .unwrap_or_default()
+                },
+            );
 
             let phys_size = geom.size_length().cast() * self.scale_factor;
             let fit = crate::graphics::fit(
@@ -1943,6 +1973,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 source_clip,
                 self.scale_factor,
                 image.alignment(),
+                image.tiling(),
             );
             self.draw_image_impl(&image_inner, fit, image.colorize().color());
         }
@@ -2203,10 +2234,10 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                             colorize: Default::default(),
                             alpha: (self.current_state.alpha * 255.) as u8,
                             rotation: self.rotation.orientation,
-                            dx: fixed::Fixed::from_integer(1),
-                            dy: fixed::Fixed::from_integer(1),
-                            off_x: fixed::Fixed::from_integer(clipped_src.min_x() as _),
-                            off_y: fixed::Fixed::from_integer(clipped_src.min_y() as _),
+                            dx: Fixed::from_integer(1),
+                            dy: Fixed::from_integer(1),
+                            off_x: Fixed::from_integer(clipped_src.min_x() as _),
+                            off_y: Fixed::from_integer(clipped_src.min_y() as _),
                         },
                     },
                 );
