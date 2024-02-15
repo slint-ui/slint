@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 TestCase := Window {
+
+
     width: 500phx;
     height: 500phx;
     no-frame: false;
@@ -13,6 +15,11 @@ TestCase := Window {
         height: parent.height - 20phx;
         viewport_width: 2100phx;
         viewport_height: 2100phx;
+
+        flicked => {
+            root.flicked += viewport_x/1phx * 100000 + viewport_y/1phx;
+        }
+
         inner_ta := TouchArea {
             x: 150phx;
             y: 150phx;
@@ -33,6 +40,7 @@ TestCase := Window {
     property<bool> inner_ta_pressed: inner_ta.pressed;
     property<bool> inner_ta_has_hover: inner_ta.has_hover;
     property<int> clicked;
+    property <int> flicked;
 }
 
 /*
@@ -195,4 +203,29 @@ if !cfg!(target_os = "macos") {
 }
 ```
 
+```rust
+// Test flicked-Callback behaviour
+use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton} };
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_flicked(), 0);
+
+// test scrolling behaviour
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
+dbg!(instance.get_flicked());
+assert_eq!(instance.get_flicked(), -3000050); //flicked got called after scrolling
+instance.set_flicked(0);
+
+// test dragging bevaviour
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(175.0, 175.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(300);
+assert_eq!(instance.get_flicked(), 0); //flicked didn't get called by just pressing
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) });
+slint_testing::mock_elapsed_time(10000);
+assert_eq!(instance.get_flicked(), -10500105); //flicked got called during drag
+instance.set_flicked(0);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 120.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_flicked(), -10500105); //flicked got called after drag
+instance.set_flicked(0);
+
+```
 */
