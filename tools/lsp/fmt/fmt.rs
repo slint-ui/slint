@@ -729,7 +729,13 @@ fn format_array(
     let has_trailing_comma = node
         .last_token()
         .and_then(|last| last.prev_token())
-        .map(|second_last| second_last.kind() == SyntaxKind::Comma)
+        .map(|second_last| {
+            if second_last.kind() == SyntaxKind::Whitespace {
+                second_last.prev_token().map(|n| n.kind() == SyntaxKind::Comma).unwrap_or(false)
+            } else {
+                second_last.kind() == SyntaxKind::Comma
+            }
+        })
         .unwrap_or(false);
     let is_large_array = len >= 80;
     let mut sub = node.children_with_tokens().peekable();
@@ -759,8 +765,20 @@ fn format_array(
         match el {
             SyntaxMatch::Found(SyntaxKind::RBracket) => break,
             SyntaxMatch::Found(SyntaxKind::Comma) => {
-                let is_trailing_comma =
-                    sub.peek().map(|next| next.kind() == SyntaxKind::RBracket).unwrap_or(false);
+                let is_trailing_comma = sub
+                    .peek()
+                    .map(|next| {
+                        if next.kind() == SyntaxKind::Whitespace {
+                            next.as_token()
+                                .and_then(|ws| ws.next_token())
+                                .map(|n| n.kind() == SyntaxKind::RBracket)
+                                .unwrap_or(false)
+                        } else {
+                            next.kind() == SyntaxKind::RBracket
+                        }
+                    })
+                    .unwrap_or(false);
+
                 if is_trailing_comma {
                     state.indentation_level -= 1;
                     state.new_line();
@@ -1348,12 +1366,16 @@ component ABC {
         assert_formatting(
             r#"
 component ABC {
+    in-out property <[int]> ar: [1, ];
     in-out property <[int]> ar: [1, 2, 3, 4, 5,];
     in-out property <[int]> ar2: [1, 2, 3, 4, 5];
 }
 "#,
             r#"
 component ABC {
+    in-out property <[int]> ar: [
+        1,
+    ];
     in-out property <[int]> ar: [
         1,
         2,
