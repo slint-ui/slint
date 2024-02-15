@@ -725,7 +725,7 @@ fn format_array(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    let mut sub = node.children_with_tokens();
+    let mut sub = node.children_with_tokens().peekable();
     whitespace_to(&mut sub, SyntaxKind::LBracket, writer, state, "")?;
 
     loop {
@@ -741,6 +741,12 @@ fn format_array(
         match el {
             SyntaxMatch::Found(SyntaxKind::RBracket) => break,
             SyntaxMatch::Found(SyntaxKind::Comma) => {
+                let is_trailing_comma =
+                    sub.peek().map(|next| next.kind() == SyntaxKind::RBracket).unwrap_or(false);
+                if is_trailing_comma {
+                    whitespace_to(&mut sub, SyntaxKind::RBracket, writer, state, "")?;
+                    break;
+                }
                 state.insert_whitespace(" ");
             }
             SyntaxMatch::NotFound | SyntaxMatch::Found(_) => {
@@ -1308,6 +1314,22 @@ component ABC {
             return false;
         }
     }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn trailing_comma_array() {
+        assert_formatting(
+            r#"
+component ABC {
+    in-out property <[int]> ar: [1,2,3,4,5,];
+}
+"#,
+            r#"
+component ABC {
+    in-out property <[int]> ar: [1, 2, 3, 4, 5,];
 }
 "#,
         );
