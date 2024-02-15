@@ -687,14 +687,13 @@ fn format_repeated_element(
     let mut sub = node.children_with_tokens();
     whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
     whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
-    // FIXME: [index] should not have a whitespace in front
-    let el = whitespace_to_one_of(
-        &mut sub,
-        &[SyntaxKind::Identifier, SyntaxKind::RepeatedIndex],
-        writer,
-        state,
-        " ",
-    )?;
+
+    let (kind, prefix_whitespace) = if node.child_node(SyntaxKind::RepeatedIndex).is_some() {
+        (SyntaxKind::RepeatedIndex, "")
+    } else {
+        (SyntaxKind::Identifier, " ")
+    };
+    let el = whitespace_to_one_of(&mut sub, &[kind], writer, state, prefix_whitespace)?;
 
     if let SyntaxMatch::Found(SyntaxKind::RepeatedIndex) = el {
         whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
@@ -717,9 +716,9 @@ fn format_repeated_index(
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
-    whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::LBracket, writer, state, "")?;
     whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
-    whitespace_to(&mut sub, SyntaxKind::RBrace, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::RBracket, writer, state, "")?;
     Ok(())
 }
 
@@ -1188,7 +1187,7 @@ A := B {
         "#,
             r#"
 A := B {
-    for number [index] in [1, 2, 3]: C {
+    for number[index] in [1, 2, 3]: C {
         d: number * index;
     }
 }
