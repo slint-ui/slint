@@ -126,6 +126,9 @@ fn format_node(
         SyntaxKind::StatePropertyChange => {
             return format_state_prop_change(node, writer, state);
         }
+        SyntaxKind::PropertyAnimation => {
+            return format_property_animation(node, writer, state);
+        }
         _ => (),
     }
 
@@ -909,6 +912,34 @@ fn format_state_prop_change(
     Ok(())
 }
 
+fn format_property_animation(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
+
+    state.indentation_level += 1;
+    state.new_line();
+
+    for n in sub {
+        if n.kind() == SyntaxKind::RBrace {
+            state.indentation_level -= 1;
+            state.whitespace_to_add = None;
+            state.new_line();
+            fold(n, writer, state)?;
+            state.new_line();
+        } else {
+            fold(n, writer, state)?;
+        }
+    }
+    state.new_line();
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1406,6 +1437,27 @@ component ABC {
         "fourth string",
         "fifth string"
     ];
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn property_animation() {
+        assert_formatting(
+            r#"
+export component MainWindow inherits Window {
+    animate background { duration: 800ms;}
+    Rectangle {}
+}
+"#,
+            r#"
+export component MainWindow inherits Window {
+    animate background {
+        duration: 800ms;
+    }
+
+    Rectangle { }
 }
 "#,
         );
