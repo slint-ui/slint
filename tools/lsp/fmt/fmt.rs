@@ -294,8 +294,17 @@ fn format_element(
     state.indentation_level += 1;
     state.new_line();
     let ins_ctn = state.insertion_count;
+    let mut inserted_newline = false;
 
     for n in sub {
+        if n.kind() == SyntaxKind::Whitespace {
+            let is_empty_line = n.as_token().map(|n| n.text().contains("\n\n")).unwrap_or(false);
+            if is_empty_line && !inserted_newline {
+                state.new_line();
+            }
+        }
+        inserted_newline = false;
+
         if n.kind() == SyntaxKind::RBrace {
             state.indentation_level -= 1;
             state.whitespace_to_add = None;
@@ -307,7 +316,14 @@ fn format_element(
             fold(n, writer, state)?;
             state.new_line();
         } else {
+            let put_newline_after = n.kind() == SyntaxKind::SubElement;
+
             fold(n, writer, state)?;
+
+            if put_newline_after {
+                state.new_line();
+                inserted_newline = true;
+            }
         }
     }
     Ok(())
@@ -340,7 +356,6 @@ fn format_sub_element(
             for s in sub {
                 fold(s, writer, state)?;
             }
-            state.new_line();
             Ok(())
         }
         // No children found -> we ignore this node
@@ -953,7 +968,6 @@ fn format_property_animation(
             fold(n, writer, state)?;
         }
     }
-    state.new_line();
     Ok(())
 }
 
@@ -1550,12 +1564,10 @@ export component MainWindow inherits Window {
             r#"
 export component MainWindow inherits Window {
     animate background { duration: 800ms; }
-
     animate x {
         duration: 100ms;
         easing: ease-out-bounce;
     }
-
     Rectangle { }
 }
 "#,
@@ -1603,6 +1615,50 @@ export component MainWindow inherits Window {
         },
         { image: @image-url("icons/balance-scale.png") },
     ];
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn preserve_empty_lines() {
+        assert_formatting(
+            r#"
+export component MainWindow inherits Rectangle {
+    in property <bool> open-curtain;
+    callback clicked;
+
+    border-radius: 8px;
+
+
+    animate background { duration: 800ms; }
+
+    Image {
+        y: 8px;
+    }
+
+
+    Image {
+        y: 8px;
+    }
+}
+"#,
+            r#"
+export component MainWindow inherits Rectangle {
+    in property <bool> open-curtain;
+    callback clicked;
+
+    border-radius: 8px;
+
+    animate background { duration: 800ms; }
+
+    Image {
+        y: 8px;
+    }
+
+    Image {
+        y: 8px;
+    }
 }
 "#,
         );
