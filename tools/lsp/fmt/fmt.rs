@@ -696,9 +696,9 @@ fn format_repeated_element(
     } else {
         (SyntaxKind::Identifier, " ")
     };
-    let el = whitespace_to_one_of(&mut sub, &[kind], writer, state, prefix_whitespace)?;
+    whitespace_to(&mut sub, kind, writer, state, prefix_whitespace)?;
 
-    if let SyntaxMatch::Found(SyntaxKind::RepeatedIndex) = el {
+    if kind == SyntaxKind::RepeatedIndex {
         whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
     }
 
