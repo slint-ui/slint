@@ -1419,6 +1419,45 @@ pub fn add_component(
         .ok_or("Could not create workspace edit".into())
 }
 
+pub fn update_element(
+    ctx: &Context,
+    position: crate::common::VersionedPosition,
+    properties: Vec<crate::common::PropertyChange>,
+) -> Result<lsp_types::WorkspaceEdit> {
+    let mut document_cache = ctx.document_cache.borrow_mut();
+    let file = lsp_types::Url::to_file_path(position.url())
+        .map_err(|_| "Failed to convert URL to file path".to_string())?;
+
+    if &document_cache.document_version(position.url()) != position.version() {
+        return Err("Document version mismatch.".into());
+    }
+
+    let doc = document_cache
+        .documents
+        .get_document(&file)
+        .ok_or_else(|| "Document not found".to_string())?;
+
+    let source_file = doc
+        .node
+        .as_ref()
+        .map(|n| n.source_file.clone())
+        .ok_or_else(|| "Document had no node".to_string())?;
+    let element_position = map_position(&source_file, position.offset().into());
+
+    let element = element_at_position(&mut document_cache, &position.url(), &element_position)
+        .ok_or_else(|| {
+            format!("No element found at the given start position {:?}", &element_position)
+        })?;
+
+    let (_, e) = crate::language::properties::set_bindings(
+        &mut document_cache,
+        position.url(),
+        &element,
+        &properties,
+    )?;
+    Ok(e.ok_or_else(|| "Failed to create workspace edit".to_string())?)
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;

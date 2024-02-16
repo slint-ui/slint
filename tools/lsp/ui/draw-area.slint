@@ -19,6 +19,56 @@ export struct Selection {
     width: length,
     height: length,
     border-color: color,
+    is-primary: bool,
+}
+
+component SelectionFrame {
+    in property <Selection> selection;
+
+    x: root.selection.x;
+    y: root.selection.y;
+    width: root.selection.width;
+    height: root.selection.height;
+
+    callback update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
+
+    if !selection.is-primary: Rectangle {
+        x: 0;
+        y: 0;
+        border-color: root.selection.border-color;
+        border-width: 1px;
+    }
+
+    if selection.is-primary: Resizer {
+        is-moveable: true;
+        is-resizable: true;
+
+        x-position: root.x;
+        y-position: root.y;
+
+        color: root.selection.border-color;
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+
+        update-geometry(x, y, w, h, done) => {
+            root.x = x;
+            root.y = y;
+            root.width = w;
+            root.height = h;
+
+            if done {
+                root.update-geometry(x, y, w, h);
+            }
+        }
+
+        inner := Rectangle {
+            border-color: root.selection.border-color;
+            border-width: 1px;
+            background: parent.resizing || parent.moving ? root.selection.border-color.with-alpha(0.5) : root.selection.border-color.with-alpha(0.0);
+        }
+    }
 }
 
 export component DrawArea {
@@ -38,6 +88,7 @@ export component DrawArea {
     callback select-behind(/* x */ length, /* y */ length, /* enter_component? */ bool, /* reverse */ bool);
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
     callback unselect();
+    callback selected-element-update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
 
     preferred-height: max(i-preview-area-container.preferred-height, i-preview-area-container.min-height) + 2 * i-scroll-view.border;
     preferred-width: max(i-preview-area-container.preferred-width, i-preview-area-container.min-width) + 2 * i-scroll-view.border;
@@ -51,8 +102,8 @@ export component DrawArea {
         i-drawing-rect := Rectangle {
             background: Palette.alternate-background;
 
-            width: max(i-scroll-view.visible-width, i-resizer.width + i-scroll-view.border);
-            height: max(i-scroll-view.visible-height, i-resizer.height + i-scroll-view.border);
+            width: max(i-scroll-view.visible-width, main-resizer.width + i-scroll-view.border);
+            height: max(i-scroll-view.visible-height, main-resizer.height + i-scroll-view.border);
 
             unselect-area := TouchArea {
                 clicked => { root.unselect(); }
@@ -61,18 +112,22 @@ export component DrawArea {
             }
 
             i-content-border := Rectangle {
-                x: i-resizer.x + (i-resizer.width - self.width) / 2;
-                y: i-resizer.y + (i-resizer.height - self.height) / 2;
-                width: i-resizer.width + 2 * self.border-width;
-                height: i-resizer.height + 2 * self.border-width;
+                x: main-resizer.x + (main-resizer.width - self.width) / 2;
+                y: main-resizer.y + (main-resizer.height - self.height) / 2;
+                width: main-resizer.width + 2 * self.border-width;
+                height: main-resizer.height + 2 * self.border-width;
                 border-width: 1px;
                 border-color: Palette.border;
             }
 
-            i-resizer := Resizer {
+            main-resizer := Resizer {
+                is-moveable: false;
                 is-resizable <=> i-preview-area-container.is-resizable;
 
-                resize(w, h) => {
+                x-position: parent.x;
+                y-position: parent.y;
+
+                update-geometry(_, _, w, h) => {
                     i-preview-area-container.width = clamp(w, i-preview-area-container.min-width, i-preview-area-container.max-width);
                     i-preview-area-container.height = clamp(h, i-preview-area-container.min-height, i-preview-area-container.max-height);
                 }
@@ -93,7 +148,6 @@ export component DrawArea {
                 }
 
                 i-preview-area-container := ComponentContainer {
-
                     property <bool> is-resizable: (self.min-width != self.max-width && self.min-height != self.max-height) && self.has-component;
 
                     component-factory <=> root.preview-area;
@@ -103,6 +157,7 @@ export component DrawArea {
                     // Instead, we use a init function to initialize
                     width: 0px;
                     height: 0px;
+
                     init => {
                         self.width = max(self.preferred-width, self.min-width);
                         self.height = max(self.preferred-height, self.min-height);
@@ -141,13 +196,11 @@ export component DrawArea {
                 }
 
                 i-selection-display-area := Rectangle {
-                    for s in root.selections: Rectangle {
-                        x: s.x;
-                        y: s.y;
-                        width: s.width;
-                        height: s.height;
-                        border-color: s.border-color;
-                        border-width: 1px;
+                    for s in root.selections: SelectionFrame {
+                        selection: s;
+                        update-geometry(x, y, w, h) => {
+                            root.selected-element-update-geometry(x, y, w, h);
+                        }
                     }
                 }
             }

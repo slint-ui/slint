@@ -677,6 +677,47 @@ pub(crate) fn set_binding(
     }
 }
 
+pub(crate) fn set_bindings(
+    document_cache: &mut DocumentCache,
+    uri: &lsp_types::Url,
+    element: &ElementRc,
+    properties: &[crate::common::PropertyChange],
+) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
+    let version = document_cache.document_version(uri);
+    let (responses, edits) = properties
+        .iter()
+        .map(|p| set_binding(document_cache, uri, element, &p.name, p.value.clone()))
+        .fold(
+            Ok((SetBindingResponse { diagnostics: Default::default() }, Vec::new())),
+            |prev_result: Result<(SetBindingResponse, Vec<lsp_types::TextEdit>)>, next_result| {
+                let (mut responses, mut edits) = prev_result?;
+                let (nr, ne) = next_result?;
+
+                responses.diagnostics.extend_from_slice(&nr.diagnostics);
+
+                match ne {
+                    Some(lsp_types::WorkspaceEdit {
+                        document_changes: Some(lsp_types::DocumentChanges::Edits(e)),
+                        ..
+                    }) => {
+                        edits.extend(e.get(0).unwrap().edits.iter().filter_map(|e| match e {
+                            lsp_types::OneOf::Left(edit) => Some(edit.clone()),
+                            _ => None,
+                        }));
+                    }
+                    _ => { /* do nothing */ }
+                };
+
+                Ok((responses, edits))
+            },
+        )?;
+    if edits.is_empty() {
+        Ok((responses, None))
+    } else {
+        Ok((responses, Some(crate::common::create_workspace_edit(uri.clone(), version, edits))))
+    }
+}
+
 fn create_workspace_edit_for_remove_binding(
     uri: &lsp_types::Url,
     version: SourceFileVersion,

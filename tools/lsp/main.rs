@@ -440,11 +440,41 @@ async fn handle_preview_to_lsp_message(
             crate::language::request_state(ctx);
         }
         M::AddComponent { label, component } => {
-            let edit = crate::language::add_component(ctx, component)?;
+            let edit = match crate::language::add_component(ctx, component) {
+                Ok(edit) => edit,
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    return Ok(());
+                }
+            };
             let response = ctx
                 .server_notifier
                 .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
                     lsp_types::ApplyWorkspaceEditParams { label, edit },
+                )?
+                .await?;
+            if !response.applied {
+                return Err(response
+                    .failure_reason
+                    .unwrap_or("Operation failed, no specific reason given".into())
+                    .into());
+            }
+        }
+        M::UpdateElement { position, properties } => {
+            let edit = match crate::language::update_element(ctx, position, properties) {
+                Ok(e) => e,
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    return Ok(());
+                }
+            };
+            let response = ctx
+                .server_notifier
+                .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+                    lsp_types::ApplyWorkspaceEditParams {
+                        label: Some("Element update".to_string()),
+                        edit,
+                    },
                 )?
                 .await?;
             if !response.applied {

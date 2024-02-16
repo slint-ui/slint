@@ -291,6 +291,29 @@ impl SlintServer {
                     });
                 }
             }
+            M::UpdateElement { position, properties } => {
+                let edit = crate::language::update_element(&self.ctx, position, properties);
+                let sn = self.ctx.server_notifier.clone();
+
+                if let Ok(edit) = edit {
+                    wasm_bindgen_futures::spawn_local(async move {
+                        let fut = sn.send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+                            lsp_types::ApplyWorkspaceEditParams {
+                                label: Some("Element update".to_string()),
+                                edit,
+                            },
+                        );
+                        if let Ok(fut) = fut {
+                            // We ignore errors: If the LSP can not be reached, then all is lost
+                            // anyway. The other thing that might go wrong is that our Workspace Edit
+                            // refers to some outdated text. In that case the update is most likely
+                            // in flight already and will cause the preview to re-render, which also
+                            // invalidates all our state
+                            let _ = fut.await;
+                        }
+                    });
+                }
+            }
         }
         Ok(())
     }
