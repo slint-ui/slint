@@ -924,14 +924,29 @@ fn format_property_animation(
         && whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, " ")?
         && whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
 
-    state.indentation_level += 1;
-    state.new_line();
+    let bindings = node.children().fold(0, |acc, e| {
+        if e.kind() == SyntaxKind::Binding {
+            return acc + 1;
+        }
+        acc
+    });
+
+    if bindings > 1 {
+        state.indentation_level += 1;
+        state.new_line();
+    } else {
+        state.insert_whitespace(" ");
+    }
 
     for n in sub {
         if n.kind() == SyntaxKind::RBrace {
-            state.indentation_level -= 1;
             state.whitespace_to_add = None;
-            state.new_line();
+            if bindings > 1 {
+                state.indentation_level -= 1;
+                state.new_line();
+            } else {
+                state.insert_whitespace(" ");
+            }
             fold(n, writer, state)?;
             state.new_line();
         } else {
@@ -1528,13 +1543,17 @@ component ABC {
             r#"
 export component MainWindow inherits Window {
     animate background { duration: 800ms;}
+    animate x { duration: 100ms; easing: ease-out-bounce; }
     Rectangle {}
 }
 "#,
             r#"
 export component MainWindow inherits Window {
-    animate background {
-        duration: 800ms;
+    animate background { duration: 800ms; }
+
+    animate x {
+        duration: 100ms;
+        easing: ease-out-bounce;
     }
 
     Rectangle { }
