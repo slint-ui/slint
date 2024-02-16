@@ -761,6 +761,12 @@ fn format_array(
     let mut sub = node.children_with_tokens().peekable();
     whitespace_to(&mut sub, SyntaxKind::LBracket, writer, state, "")?;
 
+    let is_empty_array = node.children().count() == 0;
+    if is_empty_array {
+        whitespace_to(&mut sub, SyntaxKind::RBracket, writer, state, "")?;
+        return Ok(());
+    }
+
     if is_large_array || has_trailing_comma {
         state.indentation_level += 1;
         state.new_line();
@@ -1702,6 +1708,22 @@ export component MainWindow inherits Rectangle {
         duration: 170ms;
         easing: cubic-bezier(0.17,0.76,0.4,1.75);
     }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn empty_array() {
+        assert_formatting(
+            r#"
+export component MainWindow2 inherits Rectangle {
+    in property <[string]> model: [ ];
+}
+"#,
+            r#"
+export component MainWindow2 inherits Rectangle {
+    in property <[string]> model: [];
 }
 "#,
         );
