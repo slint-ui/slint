@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use crate::common::{
-    ComponentInformation, PreviewComponent, PreviewConfig, UrlVersion, VersionedUrl,
+    ComponentInformation, PreviewComponent, PreviewConfig, UrlVersion, VersionedPosition,
+    VersionedUrl,
 };
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
@@ -122,6 +123,64 @@ fn drop_component(
             component,
         });
     };
+}
+
+// triggered from the UI, running in UI thread
+fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) {
+    let Some(selected) = PREVIEW_STATE.with(move |preview_state| {
+        let preview_state = preview_state.borrow();
+        preview_state.selected.clone()
+    }) else {
+        return;
+    };
+
+    let Some(selected_element) = selected_element() else {
+        return;
+    };
+    let Some(component_instance) = component_instance() else {
+        return;
+    };
+
+    let Some(geometry) = component_instance
+        .element_position(&selected_element)
+        .get(selected.instance_index)
+        .cloned()
+    else {
+        return;
+    };
+
+    let properties = {
+        let mut p = Vec::with_capacity(4);
+        if geometry.origin.x != x {
+            p.push(crate::common::PropertyChange::new("x", format!("{}px", x.round())));
+        }
+        if geometry.origin.y != y {
+            p.push(crate::common::PropertyChange::new("y", format!("{}px", y.round())));
+        }
+        if geometry.size.width != width {
+            p.push(crate::common::PropertyChange::new("width", format!("{}px", width.round())));
+        }
+        if geometry.size.height != height {
+            p.push(crate::common::PropertyChange::new("height", format!("{}px", height.round())));
+        }
+        p
+    };
+
+    if !properties.is_empty() {
+        let Ok(url) = Url::from_file_path(&selected.path) else {
+            return;
+        };
+
+        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        let Some((version, _)) = cache.source_code.get(&url).cloned() else {
+            return;
+        };
+
+        send_message_to_lsp(crate::common::PreviewToLspMessage::UpdateElement {
+            position: VersionedPosition::new(VersionedUrl::new(url, version), selected.offset),
+            properties,
+        });
+    }
 }
 
 fn change_style() {
@@ -515,6 +574,7 @@ fn set_selections(
             x: g.origin.x,
             y: g.origin.y,
             border_color: if i == main_index { border_color } else { secondary_border_color },
+            is_primary: i == main_index,
         })
         .collect::<Vec<_>>();
     let model = Rc::new(slint::VecModel::from(values));

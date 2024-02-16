@@ -197,6 +197,19 @@ pub struct ComponentAddition {
 
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct PropertyChange {
+    pub name: String,
+    pub value: String,
+}
+
+impl PropertyChange {
+    pub fn new(name: &str, value: String) -> Self {
+        PropertyChange { name: name.to_string(), value }
+    }
+}
+
+#[allow(unused)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToLspMessage {
     Status { message: String, health: crate::lsp_ext::Health },
     Diagnostics { uri: Url, diagnostics: Vec<lsp_types::Diagnostic> },
@@ -204,6 +217,7 @@ pub enum PreviewToLspMessage {
     PreviewTypeChanged { is_external: bool },
     RequestState { unused: bool }, // send all documents!
     AddComponent { label: Option<String>, component: ComponentAddition },
+    UpdateElement { position: VersionedPosition, properties: Vec<PropertyChange> },
 }
 
 /// Information on the Element types available

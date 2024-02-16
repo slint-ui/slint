@@ -6,8 +6,17 @@ global ResizeState {
 }
 
 component ResizeHandle inherits Rectangle {
-    callback resize(/* width */ length, /* height */ length);
     in property <MouseCursor> mouse-cursor;
+    out property <bool> resizing <=> ta.pressed;
+
+    callback resize(/* width */ length, /* height */ length, /* done? */ bool);
+    callback resize-done(/* width */ length, /* height */ length);
+
+    // Internal!
+    in-out property <length> new-width;
+    in-out property <length> new-height;
+    in-out property <length> new-x;
+    in-out property <length> new-y;
 
     width: ResizeState.handle-size;
     height: ResizeState.handle-size;
@@ -16,74 +25,185 @@ component ResizeHandle inherits Rectangle {
     border-color: Colors.white;
     border-width: 1px;
 
-    TouchArea {
-        moved() => {
-            root.resize(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
-        }
+    ta := TouchArea {
+        private property <length> x-offset: self.mouse-x - self.pressed-x;
+        private property <length> y-offset: self.mouse-y - self.pressed-y;
+
         mouse-cursor <=> root.mouse-cursor;
+
+        moved() => {
+            root.resize(x-offset, y-offset, false);
+        }
+
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left &&  event.kind == PointerEventKind.up {
+                root.resize(x-offset, y-offset, true);
+            }
+        }
     }
 }
 
 export component Resizer {
-    in property <bool> is-resizable: true;
-    callback resize(/* width */ length, /* height */ length);
+    in property <length> x-position;
+    in property <length> y-position;
 
-    property <length> handle-size: ResizeState.handle-size;
+    in property <bool> is-resizable: true;
+    in property <bool> is-moveable: false;
+    in property <color> color: Colors.black;
+    out property <bool> resizing: n.resizing || ne.resizing || e.resizing || se.resizing || s.resizing || sw.resizing || w.resizing || nw.resizing;
+    out property <bool> moving: resize-area.moving;
+    out property <length> handle-size: ResizeState.handle-size;
+
+    callback update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length, /* done */ bool);
+
+    // Private!
+    in-out property <length> top: self.y-position;
+    in-out property <length> bottom: self.y-position + self.height;
+    in-out property <length> left: self.x-position;
+    in-out property <length> right: self.x-position + self.width;
 
     resize-area := Rectangle {
-        width <=> parent.width;
-        height <=> parent.height;
+        in-out property <bool> moving: false;
+
+        width <=> root.width;
+        height <=> root.height;
 
         @children
+
+        if root.is-moveable: TouchArea {
+            private property <length> x-offset: self.mouse-x - self.pressed-x;
+            private property <length> y-offset: self.mouse-y - self.pressed-y;
+            private property <bool> has-moved;
+
+            mouse-cursor: MouseCursor.move;
+
+            moved() => {
+                root.update-geometry(root.x-position + x-offset, root.y-position + y-offset, root.width, root.height, false);
+                self.has-moved = true;
+            }
+
+            pointer-event(event) => {
+                resize-area.moving = self.pressed;
+                if self.has-moved && event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                    root.update-geometry(root.x-position + x-offset, root.y-position + y-offset, root.width, root.height, true);
+                    self.has-moved = false;
+                }
+            }
+        }
     }
 
     Rectangle {
         visible: is-resizable;
 
-        ResizeHandle { // N
-            resize(x-offset, y-offset) => { root.resize(root.width, y-offset * -1.0 + root.height); }
+        n := ResizeHandle {
+            background: root.color;
+            resize(x-offset, y-offset, done) => {
+                self.new-width = root.width;
+                self.new-height = Math.max(0px, y-offset * -1.0 + root.height);
+                self.new-x = root.left;
+                self.new-y = root.bottom - self.new-height;
+
+                root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
+            }
+
             mouse-cursor: MouseCursor.n-resize;
             x: (root.width - root.handle-size) / 2.0;
             y: -root.handle-size;
         }
-        ResizeHandle { // NE
-            resize(x-offset, y-offset) => { root.resize(x-offset + root.width, y-offset * -1.0 + root.height); }
+        ne := ResizeHandle {
+            background: root.color;
+            resize(x-offset, y-offset, done) => {
+                self.new-width = Math.max(0px, x-offset + root.width);
+                self.new-height = Math.max(0px, y-offset * -1.0 + root.height);
+                self.new-x = root.left;
+                self.new-y = root.bottom - self.new-height;
+
+                root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
+            }
             mouse-cursor: MouseCursor.ne-resize;
             x: root.width;
             y: -root.handle-size;
         }
-        ResizeHandle { // E
-            resize(x-offset, y-offset) => { root.resize(x-offset + root.width, root.height); }
+        e := ResizeHandle {
+            background: root.color;
+            resize(x-offset, y-offset, done) => {
+                self.new-width = Math.max(0px, x-offset + root.width);
+                self.new-height = root.height;
+                self.new-x = root.left;
+                self.new-y = root.top;
+
+                root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
+            }
             mouse-cursor: MouseCursor.e-resize;
             x: root.width;
             y: (root.height - root.handle-size) / 2.0;
         }
-        ResizeHandle { // SE
-            resize(x-offset, y-offset) => { root.resize(x-offset + root.width, y-offset + root.height); }
+        se := ResizeHandle {
+            background: root.color;
+            resize(x-offset, y-offset, done) => {
+                self.new-width = Math.max(0px, x-offset + root.width);
+                self.new-height = Math.max(0px, y-offset + root.height);
+                self.new-x = root.left;
+                self.new-y = root.top;
+
+                root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
+            }
             mouse-cursor: MouseCursor.se-resize;
             x: root.width;
             y: root.height;
         }
-        ResizeHandle { // S
-            resize(x-offset, y-offset) => { root.resize(root.width, y-offset + root.height); }
+        s := ResizeHandle {
+            background: root.color;
+            resize(x-offset, y-offset, done) => {
+                self.new-width = root.width;
+                self.new-height = Math.max(0px, y-offset + root.height);
+                self.new-x = root.left;
+                self.new-y = root.top;
+
+                root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
+            }
             mouse-cursor: MouseCursor.s-resize;
             x: (root.width - root.handle-size) / 2.0;
             y: root.height;
         }
-        ResizeHandle { // SW
-            resize(x-offset, y-offset) => { root.resize(x-offset * -1.0 + root.width, y-offset + root.height); }
+        sw := ResizeHandle {
+            background: root.color;
+            resize(x-offset, y-offset, done) => {
+                self.new-width = Math.max(0px, x-offset * -1.0 + root.width);
+                self.new-height = Math.max(0px, y-offset + root.height);
+                self.new-x = root.right - self.new-width;
+                self.new-y = root.top;
+
+                root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
+            }
             mouse-cursor: MouseCursor.sw-resize;
             x: -root.handle-size;
             y: root.height;
         }
-        ResizeHandle { // W
-            resize(x-offset, y-offset) => { root.resize(x-offset * -1.0 + root.width, root.height); }
+        w := ResizeHandle {
+            background: root.color;
+            resize(x-offset, y-offset, done) => {
+                self.new-width = Math.max(0px, x-offset * -1.0 + root.width);
+                self.new-height = root.height;
+                self.new-x = root.right - self.new-width;
+                self.new-y = root.top;
+
+                root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
+            }
             mouse-cursor: MouseCursor.w-resize;
             x: -root.handle-size;
             y: (root.height - root.handle-size) / 2.0;
         }
-        ResizeHandle { // NW
-            resize(x-offset, y-offset) => { root.resize(x-offset * -1.0 + root.width, y-offset * -1.0 + root.height); }
+        nw := ResizeHandle {
+            background: root.color;
+            resize(x-offset, y-offset, done) => {
+                self.new-width = Math.max(0px, x-offset * -1.0 + root.width);
+                self.new-height = Math.max(0px, y-offset * -1.0 + root.height);
+                self.new-x = root.right - self.new-width;
+                self.new-y = root.bottom - self.new-height;
+
+                root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
+            }
             mouse-cursor: MouseCursor.nw-resize;
             x: -root.handle-size;
             y: -root.handle-size;
