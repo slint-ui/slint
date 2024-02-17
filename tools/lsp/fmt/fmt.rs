@@ -1719,6 +1719,7 @@ export component MainWindow inherits Rectangle {
             r#"
 export component MainWindow inherits Rectangle {
     animate x , y { duration: 170ms; easing: cubic-bezier(0.17,0.76,0.4,1.75); }
+    animate x , y { duration: 170ms;}
 }
 "#,
             r#"
@@ -1727,6 +1728,7 @@ export component MainWindow inherits Rectangle {
         duration: 170ms;
         easing: cubic-bezier(0.17,0.76,0.4,1.75);
     }
+    animate x, y { duration: 170ms; }
 }
 "#,
         );
