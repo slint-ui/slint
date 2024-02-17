@@ -745,7 +745,6 @@ fn format_array(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    let len: usize = node.text_range().len().into();
     let has_trailing_comma = node
         .last_token()
         .and_then(|last| last.prev_token())
@@ -757,6 +756,16 @@ fn format_array(
             }
         })
         .unwrap_or(false);
+    // len of all childrens
+    let len = node.children().fold(0, |acc, e| {
+        let mut len = 0;
+        e.text().for_each_chunk(|s| len += s.trim().len());
+        acc + len
+    });
+    // add , and 1-space len for each
+    // not really accurate, e.g., [1] should have len 1, but due to this
+    // it will be 3, but it doesn't matter
+    let len = len + (2 * node.children().count());
     let is_large_array = len >= 80;
     let mut sub = node.children_with_tokens().peekable();
     whitespace_to(&mut sub, SyntaxKind::LBracket, writer, state, "")?;
@@ -1006,7 +1015,6 @@ fn format_object_literal(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    let len: usize = node.text_range().len().into();
     let has_trailing_comma = node
         .last_token()
         .and_then(|last| last.prev_token())
@@ -1018,6 +1026,12 @@ fn format_object_literal(
             }
         })
         .unwrap_or(false);
+    // len of all childrens
+    let len = node.children().fold(0, |acc, e| {
+        let mut len = 0;
+        e.text().for_each_chunk(|s| len += s.trim().len());
+        acc + len
+    });
     let is_large_literal = len >= 80;
 
     let mut sub = node.children_with_tokens().peekable();
@@ -1565,6 +1579,10 @@ component ABC {
             r#"
 component ABC {
     in-out property <[string]> large: ["first string", "second string", "third string", "fourth string", "fifth string"];
+    in property <[int]> model: [
+                                    1,
+                                    2
+    ];
 }
 "#,
             r#"
@@ -1576,6 +1594,7 @@ component ABC {
         "fourth string",
         "fifth string"
     ];
+    in property <[int]> model: [1, 2];
 }
 "#,
         );
