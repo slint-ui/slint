@@ -7,7 +7,6 @@
 //! guaranteed
 #![doc(hidden)]
 
-use alloc::rc::Rc;
 use core::pin::Pin;
 use re_exports::*;
 

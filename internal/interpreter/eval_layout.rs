@@ -14,7 +14,6 @@ use i_slint_core::layout::{self as core_layout};
 use i_slint_core::model::RepeatedItemTree;
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
-use std::convert::TryInto;
 use std::rc::Rc;
 use std::str::FromStr;
 

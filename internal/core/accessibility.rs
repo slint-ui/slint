@@ -3,6 +3,7 @@
 
 // cSpell: ignore descendents
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use crate::items::ItemRc;

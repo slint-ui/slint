@@ -4,6 +4,7 @@
 #![warn(missing_docs)]
 //! The animation system
 
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::cell::Cell;
 #[cfg(not(feature = "std"))]

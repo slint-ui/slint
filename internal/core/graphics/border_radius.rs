@@ -5,7 +5,6 @@
 This module contains border radius related types for the run-time library.
 */
 
-use core::cmp::{Eq, PartialEq};
 use core::fmt;
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};

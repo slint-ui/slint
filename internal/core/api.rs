@@ -12,7 +12,9 @@ pub use crate::future::*;
 use crate::input::{KeyEventType, MouseEvent};
 use crate::item_tree::ItemTreeVTable;
 use crate::window::{WindowAdapter, WindowInner};
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
 use alloc::string::String;
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying

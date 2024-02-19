@@ -16,6 +16,7 @@
 /// A singled linked list whose nodes are pinned
 mod single_linked_list_pin {
     #![allow(unsafe_code)]
+    #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
     use core::pin::Pin;
 
@@ -224,6 +225,7 @@ pub(crate) mod dependency_tracker {
 type DependencyListHead = dependency_tracker::DependencyListHead<*const BindingHolder>;
 type DependencyNode = dependency_tracker::DependencyNode<*const BindingHolder>;
 
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::{Cell, RefCell, UnsafeCell};

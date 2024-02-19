@@ -15,6 +15,7 @@ use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Coord, Property, SharedString};
 use alloc::rc::Rc;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;

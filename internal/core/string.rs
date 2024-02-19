@@ -7,8 +7,10 @@
 #![warn(missing_docs)]
 
 use crate::SharedVector;
+#[cfg(not(feature = "std"))]
 use alloc::string::String;
 use core::fmt::{Debug, Display, Write};
+#[cfg(not(feature = "std"))]
 use core::iter::FromIterator;
 use core::ops::Deref;
 

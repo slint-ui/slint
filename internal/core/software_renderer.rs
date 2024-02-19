@@ -28,6 +28,7 @@ use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;

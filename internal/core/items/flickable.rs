@@ -23,6 +23,7 @@ use crate::lengths::{
 use crate::rtti::*;
 use crate::window::WindowAdapter;
 use crate::Property;
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
