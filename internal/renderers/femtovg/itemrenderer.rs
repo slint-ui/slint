@@ -1372,6 +1372,8 @@ impl<'a> GLItemRenderer<'a> {
                 nine.1,
                 size * self.scale_factor,
                 self.scale_factor,
+                item.alignment(),
+                item.tiling(),
             )
             .collect::<Vec<_>>()
         } else {

@@ -186,6 +186,8 @@ impl<'a> SkiaItemRenderer<'a> {
                 nine.1,
                 dest_rect.size,
                 self.scale_factor,
+                item.alignment(),
+                tiling,
             )
             .collect::<Vec<_>>()
         } else {
