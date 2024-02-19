@@ -1952,6 +1952,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     nine.1,
                     size.cast() * self.scale_factor,
                     self.scale_factor,
+                    image.alignment(),
+                    image.tiling(),
                 ) {
                     self.draw_image_impl(&nine.0, fit, colorize);
                 }

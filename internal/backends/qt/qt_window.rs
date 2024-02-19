@@ -1278,6 +1278,8 @@ impl QtItemRenderer<'_> {
                 nine.1,
                 size * scale_factor,
                 scale_factor,
+                image.alignment(),
+                image.tiling(),
             )
             .collect::<Vec<_>>()
         } else {
