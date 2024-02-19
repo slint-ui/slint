@@ -43,6 +43,10 @@
       <item>for</item>
       <item>return</item>
       <item>@tr</item>
+      <item>@children</item>
+      <item>@image-url</item>
+      <item>@linear-gradient</item>
+      <item>@radial-gradient</item>
     </list>
   <contexts>
     <context attribute="Normal Text" lineEndContext="#stay" name="Normal Text">
