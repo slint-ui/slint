@@ -10,6 +10,7 @@ but then it should also be renamed everywhere, including in the language grammar
 
 #![warn(missing_docs)]
 
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::cell::Cell;
 

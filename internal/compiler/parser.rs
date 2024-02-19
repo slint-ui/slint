@@ -14,7 +14,7 @@ This module has different sub modules with the actual parser functions
 
 use crate::diagnostics::{BuildDiagnostics, SourceFile, SourceFileVersion, Spanned};
 pub use smol_str::SmolStr;
-use std::{convert::TryFrom, fmt::Display};
+use std::fmt::Display;
 
 mod document;
 mod element;

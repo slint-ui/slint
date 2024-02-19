@@ -14,6 +14,7 @@ extern crate alloc;
 use crate::lengths::LogicalLength;
 use crate::Coord;
 use crate::SharedString;
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 
 pub use euclid;

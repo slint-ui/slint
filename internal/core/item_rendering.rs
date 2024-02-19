@@ -8,15 +8,14 @@ use super::graphics::RenderingCache;
 use super::items::*;
 use crate::graphics::{CachedGraphicsData, Image, IntRect};
 use crate::item_tree::ItemTreeRc;
-use crate::item_tree::{
-    ItemRc, ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult,
-};
+use crate::item_tree::{ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
     LogicalVector,
 };
 use crate::properties::PropertyTracker;
 use crate::{Brush, Coord};
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;

@@ -26,6 +26,7 @@ use crate::rtti::*;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
 use alloc::rc::Rc;
+#[cfg(not(feature = "std"))]
 use alloc::string::String;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;

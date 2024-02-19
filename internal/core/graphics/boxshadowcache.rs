@@ -7,7 +7,6 @@ This module contains a cache helper for caching box shadow textures.
 
 use std::{cell::RefCell, collections::BTreeMap};
 
-use super::euclid;
 use crate::items::ItemRc;
 use crate::lengths::RectLengths;
 use crate::{

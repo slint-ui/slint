@@ -5,6 +5,7 @@ use crate::api::PlatformError;
 use crate::platform::{EventLoopProxy, Platform};
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::thread_local;
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 

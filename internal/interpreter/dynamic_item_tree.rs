@@ -3,7 +3,6 @@
 
 use crate::{api::Value, dynamic_type, eval};
 
-use core::convert::TryInto;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::diagnostics::SourceFileVersion;

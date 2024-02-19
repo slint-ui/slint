@@ -21,6 +21,7 @@
 //!         Emit current line as new line
 //!
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use euclid::num::{One, Zero};
