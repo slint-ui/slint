@@ -446,11 +446,6 @@ impl Window {
         crate::window::WindowAdapter::set_size(&*self.0.window_adapter(), size);
     }
 
-    #[deprecated(note = "Please use `is_fullscreen` instead")]
-    pub fn fullscreen(&self) -> bool {
-        self.is_fullscreen()
-    }
-
     /// Returns if the window is currently fullscreen
     pub fn is_fullscreen(&self) -> bool {
         self.0.is_fullscreen()
