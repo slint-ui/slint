@@ -2,6 +2,10 @@
 
 # Changelog
 
+## [0.1.4] - 2024-02-20
+
+ - Warning fixes
+
 ## [0.1.3] - 2023-04-03
 
  - Upgraded syn to syn 2
