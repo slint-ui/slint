@@ -278,6 +278,7 @@ impl<'a> WindowProperties<'a> {
         }
     }
 
+    /// Returns true if the window should be shown fullscreen; false otherwise.
     #[deprecated(note = "Please use `is_fullscreen` instead")]
     pub fn fullscreen(&self) -> bool {
         self.is_fullscreen()
