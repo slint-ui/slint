@@ -35,11 +35,11 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   old-ubuntu: true
-            - name: Install Qt (cached)
-              if: matrix.os != 'ubuntu-20.04'
+            - name: Install Qt (Ubuntu)
               uses: jurplel/install-qt-action@v3
+              if: matrix.os == 'ubuntu-20.04'
               with:
-                  version: 6.5.1
+                  version: 5.15.2
                   cache: true
             - uses: ./.github/actions/setup-rust
             - uses: baptiste0928/cargo-install@v3
