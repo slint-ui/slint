@@ -553,3 +553,15 @@ jobs:
                   sed -i "s/#wasm# //" Cargo.toml
                   cargo apk build -p printerdemo --target aarch64-linux-android --lib
               working-directory: examples/printerdemo/rust
+
+    miri:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: nightly
+                  key: miri
+                  components: miri
+            - name: Run Miri
+              run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
