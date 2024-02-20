@@ -162,7 +162,7 @@ fn element_source_range(element: &ElementRc) -> Option<(SourceFile, TextRange)> 
 }
 
 // Return the real root element, skipping any WindowElement that got added
-fn root_element(component_instance: &ComponentInstance) -> ElementRc {
+pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
     let root_element = component_instance.definition().root_component().root_element.clone();
     if !root_element.borrow().node.is_empty() {
         return root_element;

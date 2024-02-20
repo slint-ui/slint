@@ -71,6 +71,20 @@ pub fn find_element_indent(element: &ElementRc) -> Option<String> {
     None
 }
 
+/// Try to find the parent of element `child` below `root`.
+pub fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<ElementRc> {
+    for c in &root.borrow().children {
+        if std::rc::Rc::ptr_eq(c, child) {
+            return Some(root.clone());
+        }
+
+        if let Some(parent) = search_for_parent_element(c, child) {
+            return Some(parent);
+        }
+    }
+    None
+}
+
 /// Given a node within an element, return the Type for the Element under that node.
 /// (If node is an element, return the Type for that element, otherwise the type of the element under it)
 /// Will return `Foo` in the following example where `|` is the cursor.

@@ -10,6 +10,7 @@ use crate::preview::element_selection::ElementSelection;
 use crate::util::map_position;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::component_factory::FactoryContext;
+use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use i_slint_core::model::VecModel;
 use lsp_types::Url;
 use slint_interpreter::highlight::ComponentPositions;
@@ -93,6 +94,20 @@ pub fn set_contents(url: &VersionedUrl, content: String) {
     }
 }
 
+/// Try to find the parent of element `child` below `root`.
+fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<ElementRc> {
+    for c in &root.borrow().children {
+        if std::rc::Rc::ptr_eq(c, child) {
+            return Some(root.clone());
+        }
+
+        if let Some(parent) = search_for_parent_element(c, child) {
+            return Some(parent);
+        }
+    }
+    None
+}
+
 pub fn reselect_element() {
     let Some(selected) = PREVIEW_STATE.with(|preview_state| {
         let mut preview_state = preview_state.borrow_mut();
@@ -164,13 +179,32 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
         return;
     };
 
+    let click_position = LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
+    let root_element = element_selection::root_element(&component_instance);
+
+    let (parent_x, parent_y) = search_for_parent_element(&root_element, &selected_element)
+        .and_then(|parent_element| {
+            component_instance
+                .element_position(&parent_element)
+                .iter()
+                .find(|g| g.contains(click_position))
+                .map(|g| (g.origin.x, g.origin.y))
+        })
+        .unwrap_or_default();
+
     let properties = {
         let mut p = Vec::with_capacity(4);
         if geometry.origin.x != x {
-            p.push(crate::common::PropertyChange::new("x", format!("{}px", x.round())));
+            p.push(crate::common::PropertyChange::new(
+                "x",
+                format!("{}px", (x - parent_x).round()),
+            ));
         }
         if geometry.origin.y != y {
-            p.push(crate::common::PropertyChange::new("y", format!("{}px", y.round())));
+            p.push(crate::common::PropertyChange::new(
+                "y",
+                format!("{}px", (y - parent_y).round()),
+            ));
         }
         if geometry.size.width != width {
             p.push(crate::common::PropertyChange::new("width", format!("{}px", width.round())));
@@ -280,7 +314,7 @@ pub fn adjust_selection(url: VersionedUrl, start_offset: u32, end_offset: u32, n
             // Nothing to do!
         } else if selected.offset >= start_offset {
             // Worst case if we get the offset wrong:
-            // Some other newarby element ends up getting marked as selected.
+            // Some other nearby element ends up getting marked as selected.
             // So ignore special cases :-)
             let old_length = end_offset - start_offset;
             let offset = selected.offset + new_length - old_length;
