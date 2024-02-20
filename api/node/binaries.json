@@ -1,6 +1,6 @@
 {
   "name": "@slint-ui/slint-ui-binary",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "binaryName": "slint-ui",
   "package": "@slint-ui/slint-ui-binary",
   "napi": {
