@@ -87,6 +87,7 @@ export component DrawArea {
     callback select-at(/* x */ length, /* y */ length, /* enter_component? */ bool);
     callback select-behind(/* x */ length, /* y */ length, /* enter_component? */ bool, /* reverse */ bool);
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
+    callback reselect(); // Reselect element e.g. after changing the window size (which may move the element)
     callback unselect();
     callback selected-element-update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
 
@@ -130,6 +131,7 @@ export component DrawArea {
                 update-geometry(_, _, w, h) => {
                     i-preview-area-container.width = clamp(w, i-preview-area-container.min-width, i-preview-area-container.max-width);
                     i-preview-area-container.height = clamp(h, i-preview-area-container.min-height, i-preview-area-container.max-height);
+                    reselect();
                 }
 
                 width: i-preview-area-container.width;
