@@ -106,30 +106,28 @@ pub fn main() {
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-fn android_main(app: i_slint_backend_android_activity::AndroidApp) {
-    use i_slint_backend_android_activity::android_activity::{MainEvent, PollEvent};
-    slint::platform::set_platform(Box::new(
-        i_slint_backend_android_activity::AndroidPlatform::new_with_event_listener(app, |event| {
-            match event {
-                PollEvent::Main(MainEvent::SaveState { saver, .. }) => {
-                    STATE.with(|state| -> Option<()> {
-                        let todo_state = SerializedState::save(state.borrow().as_ref()?);
-                        saver.store(&serde_json::to_vec(&todo_state).ok()?);
-                        Some(())
-                    });
-                }
-                PollEvent::Main(MainEvent::Resume { loader, .. }) => {
-                    STATE.with(|state| -> Option<()> {
-                        let bytes: Vec<u8> = loader.load()?;
-                        let todo_state: SerializedState = serde_json::from_slice(&bytes).ok()?;
-                        todo_state.restore(state.borrow().as_ref()?);
-                        Some(())
-                    });
-                }
-                _ => {}
-            };
-        }),
-    ))
+fn android_main(app: slint::android::AndroidApp) {
+    use slint::android::android_activity::{MainEvent, PollEvent};
+    slint::android::init_with_event_listener(app, |event| {
+        match event {
+            PollEvent::Main(MainEvent::SaveState { saver, .. }) => {
+                STATE.with(|state| -> Option<()> {
+                    let todo_state = SerializedState::save(state.borrow().as_ref()?);
+                    saver.store(&serde_json::to_vec(&todo_state).ok()?);
+                    Some(())
+                });
+            }
+            PollEvent::Main(MainEvent::Resume { loader, .. }) => {
+                STATE.with(|state| -> Option<()> {
+                    let bytes: Vec<u8> = loader.load()?;
+                    let todo_state: SerializedState = serde_json::from_slice(&bytes).ok()?;
+                    todo_state.restore(state.borrow().as_ref()?);
+                    Some(())
+                });
+            }
+            _ => {}
+        };
+    })
     .unwrap();
     main();
 }

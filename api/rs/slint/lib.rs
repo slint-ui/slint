@@ -318,6 +318,9 @@ pub mod platform {
     }
 }
 
+#[cfg(any(doc, all(target_os = "android", feature = "backend-android-activity-05")))]
+pub mod android;
+
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]

@@ -15,12 +15,9 @@ path = "main.rs"
 name = "todo"
 
 [dependencies]
-slint = { path = "../../../api/rs/slint", features = ["serde"] }
+slint = { path = "../../../api/rs/slint", features = ["serde", "backend-android-activity-05"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-
-[target.'cfg(target_os = "android")'.dependencies]
-i-slint-backend-android-activity = { workspace = true, features = ["native-activity"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
