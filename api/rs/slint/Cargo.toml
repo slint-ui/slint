@@ -158,7 +158,7 @@ backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
 ## Use the backend based on the [android-activity](https://docs.rs/android-activity) crate. (Using it's native activity feature)
-backend-android-native-activity = ["i-slint-backend-android-activity/native-activity"]
+backend-android-activity-05 = ["i-slint-backend-android-activity/native-activity"]
 
 [dependencies]
 i-slint-core = { workspace = true }

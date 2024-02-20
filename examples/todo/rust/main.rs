@@ -106,9 +106,9 @@ pub fn main() {
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-fn android_main(app: slint::android_activity::AndroidApp) {
-    use slint::android_activity::{MainEvent, PollEvent};
-    slint::android_init_with_event_listener(app, |event| {
+fn android_main(app: slint::android::AndroidApp) {
+    use slint::android::android_activity::{MainEvent, PollEvent};
+    slint::android::init_with_event_listener(app, |event| {
         match event {
             PollEvent::Main(MainEvent::SaveState { saver, .. }) => {
                 STATE.with(|state| -> Option<()> {
