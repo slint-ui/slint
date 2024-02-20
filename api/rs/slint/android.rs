@@ -7,9 +7,9 @@
 //!
 //! Slint uses the [android-activity crate](https://github.com/rust-mobile/android-activity) as a backend.
 //!
-//! For convenience, Slint re-export the content of the [`android-activity`](https://docs.rs/android-activity)  under `slint::android::android_activity`.
+//! For convenience, Slint re-exports the content of the [`android-activity`](https://docs.rs/android-activity)  under `slint::android::android_activity`.
 //!
-//! As every application using the android-activity crate, the entry point to your app will be the `android_main` function.
+//! As with every application using the android-activity crate, the entry point to your app will be the `android_main` function.
 //! From that function, you can call [`slint::android::init`](init()) or [`slint::android::init_with_event_listener`](init_with_event_listener)
 //!
 //! # Example
