@@ -16,6 +16,7 @@ use crate::expression_tree::{BindingExpression, Expression};
 use crate::langtype::ElementType;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Document, ElementRc};
+use crate::CompilerConfiguration;
 
 #[cfg(feature = "cpp")]
 mod cpp;
@@ -63,6 +64,7 @@ pub fn generate(
     format: OutputFormat,
     destination: &mut impl std::io::Write,
     doc: &Document,
+    config: &CompilerConfiguration,
 ) -> std::io::Result<()> {
     #![allow(unused_variables)]
     #![allow(unreachable_code)]
@@ -80,7 +82,7 @@ pub fn generate(
         }
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
-            let output = rust::generate(doc);
+            let output = rust::generate(doc, config);
             write!(destination, "{}", output)?;
         }
         OutputFormat::Interpreter => {

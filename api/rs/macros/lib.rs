@@ -381,13 +381,13 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
     let (root_component, diag) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config.clone()));
     //println!("{:#?}", tree);
     if diag.has_error() {
         return diag.report_macro_diagnostic(&tokens);
     }
 
-    let mut result = generator::rust::generate(&root_component);
+    let mut result = generator::rust::generate(&root_component, &compiler_config);
 
     // Make sure to recompile if any of the external files changes
     let reload = diag

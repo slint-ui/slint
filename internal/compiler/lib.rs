@@ -92,6 +92,9 @@ pub struct CompilerConfiguration {
 
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
+
+    /// The type of the user data in the rust generated component
+    pub user_data_type: Option<String>,
 }
 
 impl CompilerConfiguration {
@@ -152,6 +155,7 @@ impl CompilerConfiguration {
             accessibility: true,
             enable_component_containers,
             translation_domain: None,
+            user_data_type: None,
         }
     }
 }

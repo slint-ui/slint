@@ -97,17 +97,19 @@ fn main() -> std::io::Result<()> {
         compiler_config.style = Some(style);
     }
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
-    let (doc, diag) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+    let (doc, diag) =
+        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config.clone()));
 
     let diag = diag.check_and_exit_on_error();
 
     if args.output == std::path::Path::new("-") {
-        generator::generate(args.format, &mut std::io::stdout(), &doc)?;
+        generator::generate(args.format, &mut std::io::stdout(), &doc, &compiler_config)?;
     } else {
         generator::generate(
             args.format,
             &mut BufWriter::new(std::fs::File::create(&args.output)?),
             &doc,
+            &compiler_config,
         )?;
     }
 
