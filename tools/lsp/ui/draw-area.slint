@@ -24,6 +24,7 @@ export struct Selection {
 
 component SelectionFrame {
     in property <Selection> selection;
+    in property <bool> experimental: false;
 
     x: root.selection.x;
     y: root.selection.y;
@@ -32,14 +33,14 @@ component SelectionFrame {
 
     callback update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
 
-    if !selection.is-primary: Rectangle {
+    if !selection.is-primary || !experimental: Rectangle {
         x: 0;
         y: 0;
         border-color: root.selection.border-color;
         border-width: 1px;
     }
 
-    if selection.is-primary: Resizer {
+    if selection.is-primary && experimental: Resizer {
         is-moveable: true;
         is-resizable: true;
 
@@ -76,6 +77,7 @@ export component DrawArea {
     in property <[Selection]> selections;
     in property <component-factory> preview-area;
     in property <bool> design-mode;
+    in property <bool> experimental: false;
 
     out property <bool> preview-visible: i-preview-area-container.has-component && !diagnostics.diagnostics-open;
 
@@ -199,6 +201,7 @@ export component DrawArea {
 
                 i-selection-display-area := Rectangle {
                     for s in root.selections: SelectionFrame {
+                        experimental: root.experimental;
                         selection: s;
                         update-geometry(x, y, w, h) => {
                             root.selected-element-update-geometry(x, y, w, h);

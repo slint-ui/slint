@@ -115,6 +115,7 @@ export component PreviewUi inherits Window {
                     diagnostics <=> root.diagnostics;
                     preview-area <=> root.preview-area;
                     selections <=> root.selections;
+                    experimental <=> root.experimental;
 
                     select-at(x, y, enter_component) => { root.select-at(x, y, enter_component); }
                     selected-element-update-geometry(x, y, w, h) => { root.selected-element-update-geometry(x, y, w, h); }
