@@ -29,7 +29,8 @@ pub unsafe trait VTableMetaDropInPlace: VTableMeta {
 
 /// This is a marker type to be used in [`VRc`] and [`VWeak`] to mean that the
 /// actual type is not known.
-pub struct Dyn(());
+// Note the use of PhantomData to make this type not Send, as a VRc<T, Dyn> cannot be send between thread
+pub struct Dyn(PhantomData<*mut ()>);
 
 /// Similar to [`core::alloc::Layout`], but `repr(C)`
 #[repr(C)]
@@ -270,8 +271,14 @@ impl<VTable: VTableMetaDropInPlace, X /*+ HasStaticVTable<VTable>*/> Deref for V
 }
 
 // Safety: we use atomic reference count for the internal things
-unsafe impl<VTable: VTableMetaDropInPlace + 'static, X: Send + Sync> Send for VRc<VTable, X> {}
-unsafe impl<VTable: VTableMetaDropInPlace + 'static, X: Send + Sync> Sync for VRc<VTable, X> {}
+unsafe impl<VTable: VTableMetaDropInPlace + Send + Sync + 'static, X: Send + Sync> Send
+    for VRc<VTable, X>
+{
+}
+unsafe impl<VTable: VTableMetaDropInPlace + Send + Sync + 'static, X: Send + Sync> Sync
+    for VRc<VTable, X>
+{
+}
 
 /// Weak pointer for the [`VRc`] where `VTable` is a VTable struct, and
 /// `X` is the type of the instance, or [`Dyn`] if it is not known
