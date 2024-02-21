@@ -352,3 +352,16 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
         select_element(&component_instance, &ts.element, Some(LogicalPoint::new(x, y)));
     }
 }
+
+// Called from UI thread!
+pub fn reselect_element() {
+    let Some(selected) = super::selected_element() else {
+        return;
+    };
+    let Some(component_instance) = super::component_instance() else {
+        return;
+    };
+    let positions = component_instance.component_positions(&selected.path, selected.offset);
+
+    super::set_selected_element(Some(selected), positions, false);
+}
