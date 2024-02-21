@@ -986,7 +986,6 @@ pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
-    use crate::slice::Slice;
     use core::ffi::c_void;
 
     /// Call init() on the ItemVTable of each item in the item array.
