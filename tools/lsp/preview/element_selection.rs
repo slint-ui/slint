@@ -42,19 +42,16 @@ fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
 
 fn lsp_element_position(element: &ElementRc) -> Option<(String, lsp_types::Range)> {
     let e = element.borrow();
-    let location = e
-        .node
-        .iter()
-        .filter(|e| !crate::common::is_element_node_ignored(*e))
-        .next()
-        .and_then(|n| {
+    let location = e.debug.iter().find(|e| !crate::common::is_element_node_ignored(&e.0)).and_then(
+        |(n, _)| {
             n.parent()
                 .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
                 .map_or_else(
                     || Some(n.source_file.text_size_to_file_line_column(n.text_range().start())),
                     |p| Some(p.source_file.text_size_to_file_line_column(p.text_range().start())),
                 )
-        });
+        },
+    );
     location.map(|(f, sl, sc, el, ec)| {
         use lsp_types::{Position, Range};
         let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
@@ -132,7 +129,8 @@ fn select_element(
             component_instance,
             path,
             offset,
-            selected_element.borrow().layout.is_some(),
+            // FIXME: need to check which one of the node this refer to to know if this is a layout
+            selected_element.borrow().debug.iter().any(|d| d.1.is_some()),
             position,
             false, // We update directly;-)
         );
@@ -146,16 +144,14 @@ fn select_element(
 }
 
 fn element_offset(element: &ElementRc) -> Option<(PathBuf, u32)> {
-    let Some(node) = element.borrow().node.first().cloned() else {
-        return None;
-    };
+    let node = element.borrow().debug.first()?.0.clone();
     let path = node.source_file.path().to_path_buf();
     let offset = node.text_range().start().into();
     Some((path, offset))
 }
 
 fn element_source_range(element: &ElementRc) -> Option<(SourceFile, TextRange)> {
-    let node = element.borrow().node.first().cloned()?;
+    let node = element.borrow().debug.first()?.0.clone();
     let source_file = node.source_file.clone();
     let range = node.text_range();
     Some((source_file, range))
@@ -164,7 +160,7 @@ fn element_source_range(element: &ElementRc) -> Option<(SourceFile, TextRange)> 
 // Return the real root element, skipping any WindowElement that got added
 pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
     let root_element = component_instance.definition().root_component().root_element.clone();
-    if !root_element.borrow().node.is_empty() {
+    if !root_element.borrow().debug.is_empty() {
         return root_element;
     }
     let child = root_element.borrow().children.first().cloned();
@@ -192,10 +188,10 @@ impl SelectionCandidate {
 
     pub fn is_builtin(&self) -> bool {
         let elem = self.element.borrow();
-        let Some(node) = elem.node.first() else {
+        let Some(node) = elem.debug.first() else {
             return true;
         };
-        let Some(sf) = node.source_file() else {
+        let Some(sf) = node.0.source_file() else {
             return true;
         };
         sf.path().starts_with("builtin:/")

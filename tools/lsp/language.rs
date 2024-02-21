@@ -567,11 +567,12 @@ pub async fn set_binding_command(
             })?;
 
         let node_range = map_node(
-            element
+            &element
                 .borrow()
-                .node
+                .debug
                 .first()
-                .ok_or("The element was found, but had no range defined!")?,
+                .ok_or("The element was found, but had no range defined!")?
+                .0,
         )
         .ok_or("Failed to map node")?;
 
@@ -650,11 +651,12 @@ pub async fn remove_binding_command(
             })?;
 
         let node_range = map_node(
-            element
+            &element
                 .borrow()
-                .node
+                .debug
                 .first()
-                .ok_or("The element was found, but had no range defined!")?,
+                .ok_or("The element was found, but had no range defined!")?
+                .0,
         )
         .ok_or("Failed to map node")?;
 
@@ -802,10 +804,9 @@ fn get_document_and_offset<'a>(
 fn element_contains(element: &i_slint_compiler::object_tree::ElementRc, offset: u32) -> bool {
     element
         .borrow()
-        .node
-        .first()
-        .and_then(|n| n.parent())
-        .map_or(false, |n| n.text_range().contains(offset.into()))
+        .debug
+        .iter()
+        .any(|n| n.0.parent().map_or(false, |n| n.text_range().contains(offset.into())))
 }
 
 pub fn element_at_position(
@@ -1146,7 +1147,7 @@ fn get_document_symbols(
         .iter()
         .filter_map(|c| {
             let root_element = c.root_element.borrow();
-            let element_node = root_element.node.first()?;
+            let element_node = &root_element.debug.first()?.0;
             let component_node = syntax_nodes::Component::new(element_node.parent()?)?;
             let selection_range = map_node(&component_node.DeclaredIdentifier())?;
             if c.id.is_empty() {
@@ -1196,7 +1197,7 @@ fn get_document_symbols(
             .iter()
             .filter_map(|child| {
                 let e = child.borrow();
-                let element_node = e.node.first()?;
+                let element_node = &e.debug.first()?.0;
                 let sub_element_node = element_node.parent()?;
                 debug_assert_eq!(sub_element_node.kind(), SyntaxKind::SubElement);
                 Some(DocumentSymbol {
@@ -1233,7 +1234,7 @@ fn get_code_lenses(
         // Handle preview lens
         r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
-                range: map_node(c.root_element.borrow().node.first()?)?,
+                range: map_node(&c.root_element.borrow().debug.first()?.0)?,
                 command: Some(create_show_preview_command(true, &text_document.uri, c.id.as_str())),
                 data: None,
             })

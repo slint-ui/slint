@@ -126,7 +126,11 @@ fn fill_highlight_data(
         let size = geometry.size;
 
         if values.kind.is_none() {
-            values.kind = if element.borrow().layout.is_some() {
+            // FIXME: this visualization is misleading because it will highlight as a layout any
+            // optimized rectangle within a layout or parent of a layout.
+            // Example: `foo := Rectangle { lay := SomeLayout { ... } } ` lay will be optimized into foo
+            // and so both foo and lay will be considered as layout (assuming SomeLayout inherits from a layout)
+            values.kind = if element.borrow().debug.iter().any(|d| d.1.is_some()) {
                 Some(ComponentKind::Layout)
             } else {
                 Some(ComponentKind::Element)
@@ -147,7 +151,7 @@ fn find_element_at_offset(component: &Rc<Component>, path: &Path, offset: u32) -
             if elem.borrow().repeated.is_some() {
                 return;
             }
-            for node in elem.borrow().node.iter().filter_map(|n| n.QualifiedName()) {
+            for node in elem.borrow().debug.iter().filter_map(|n| n.0.QualifiedName()) {
                 if node.source_file.path() == path && node.text_range().contains(offset.into()) {
                     result.push(elem.clone());
                 }

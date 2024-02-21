@@ -168,7 +168,7 @@ fn recurse_into_element(state: &mut State, element: &ElementRc) -> (usize, Vec<S
 
 fn add_element_node(state: &mut State, element: &ElementRc, node_number: usize) {
     let e = element.borrow();
-    let layout = if e.layout.is_some() { ",shape = box" } else { "" };
+    let layout = if e.debug.iter().any(|d| d.1.is_some()) { ",shape = box" } else { "" };
     let repeated = if e.repeated.is_some() { ",color = blue" } else { "" };
     let component = if matches!(e.base_type, i_slint_compiler::langtype::ElementType::Component(_))
     {

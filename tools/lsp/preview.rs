@@ -422,12 +422,11 @@ pub fn load_preview(preview_component: PreviewComponent) {
                         .element_at_source_code_position(&se.path, se.offset)
                         .first()
                     {
-                        if let Some(node) = element
+                        if let Some((node, _)) = element
                             .borrow()
-                            .node
+                            .debug
                             .iter()
-                            .filter(|n| !crate::common::is_element_node_ignored(n))
-                            .next()
+                            .find(|n| !crate::common::is_element_node_ignored(&n.0))
                         {
                             let sf = &node.source_file;
                             let pos = map_position(sf, se.offset.into());
@@ -544,7 +543,14 @@ pub fn highlight(url: Option<Url>, offset: u32) {
             };
             let elements = component_instance.element_at_source_code_position(&path, offset);
             if let Some(e) = elements.first() {
-                let is_layout = e.borrow().layout.is_some();
+                let is_layout = e
+                    .borrow()
+                    .debug
+                    .iter()
+                    .find(|(node, _)| {
+                        node.text_range().contains(offset.into()) && node.source_file.path() == path
+                    })
+                    .map_or(false, |d| d.1.is_some());
                 element_selection::select_element_at_source_code_position(
                     path, offset, is_layout, None, false,
                 );

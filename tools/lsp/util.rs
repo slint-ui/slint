@@ -60,8 +60,7 @@ pub fn last_non_ws_token(node: &SyntaxNode) -> Option<SyntaxToken> {
 // Find the indentation of the element itself as well as the indentation of properties inside the
 // element. Returns the element indent followed by the block indent
 pub fn find_element_indent(element: &ElementRc) -> Option<String> {
-    let mut token =
-        element.borrow().node.first().and_then(|n| n.first_token()).and_then(|t| t.prev_token());
+    let mut token = element.borrow().debug.first()?.0.first_token()?.prev_token();
     while let Some(t) = token {
         if t.kind() == SyntaxKind::Whitespace && t.text().contains('\n') {
             return t.text().split('\n').last().map(|s| s.to_owned());
@@ -180,7 +179,7 @@ pub fn with_property_lookup_ctx<R>(
         loop {
             scope.push(it.clone());
             if let Some(c) = it.clone().borrow().children.iter().find(|c| {
-                c.borrow().node.first().map_or(false, |n| n.text_range().contains(offset))
+                c.borrow().debug.first().map_or(false, |n| n.0.text_range().contains(offset))
             }) {
                 it = c.clone();
             } else {

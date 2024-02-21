@@ -130,7 +130,7 @@ fn inline_element(
     }
 
     elem_mut.children = new_children;
-    elem_mut.node.extend_from_slice(&inlined_component.root_element.borrow().node);
+    elem_mut.debug.extend_from_slice(&inlined_component.root_element.borrow().debug);
 
     if let ElementType::Component(c) = &mut elem_mut.base_type {
         if c.parent_element.upgrade().is_some() {
@@ -264,8 +264,7 @@ fn duplicate_element_with_mapping(
             .collect(),
         repeated: elem.repeated.clone(),
         is_component_placeholder: elem.is_component_placeholder,
-        node: elem.node.clone(),
-        layout: elem.layout.clone(),
+        debug: elem.debug.clone(),
         enclosing_component: Rc::downgrade(root_component),
         states: elem.states.clone(),
         transitions: elem

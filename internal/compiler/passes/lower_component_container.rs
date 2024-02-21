@@ -36,7 +36,7 @@ fn process_component_container(element: &ElementRc, empty_type: &ElementType) {
     let embedded_element = Element::make_rc(Element {
         base_type: empty_type.clone(),
         id: elem.id.clone(),
-        node: elem.node.clone(),
+        debug: elem.debug.clone(),
         enclosing_component: elem.enclosing_component.clone(),
         default_fill_parent: (true, true),
         is_legacy_syntax: elem.is_legacy_syntax,
