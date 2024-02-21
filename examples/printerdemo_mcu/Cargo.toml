@@ -25,3 +25,10 @@ mcu-board-support = { path = "../mcu-board-support" }
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
 
+[dev-dependencies]
+divan = "0.1.14"
+
+[[bench]]
+name = "bench"
+path = "bench.rs"
+harness = false
