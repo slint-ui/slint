@@ -22,7 +22,7 @@ pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
             }
 
             parent.children.extend(std::mem::take(&mut elem.borrow_mut().children));
-            parent.node.extend(std::mem::take(&mut elem.borrow_mut().node));
+            parent.debug.extend(std::mem::take(&mut elem.borrow_mut().debug));
 
             let enclosing = parent.enclosing_component.upgrade().unwrap();
 

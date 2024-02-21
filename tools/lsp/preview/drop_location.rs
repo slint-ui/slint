@@ -25,22 +25,21 @@ fn find_drop_location(
     let (node_index, target_element) = elements.iter().find_map(|sc| {
         sc.element
             .borrow()
-            .node
+            .debug
             .iter()
-            .enumerate()
-            .filter(|(_, n)| !crate::common::is_element_node_ignored(n))
-            .next()
-            .map(|(i, _)| (i, sc.element.clone()))
+            .position(|d| !crate::common::is_element_node_ignored(&d.0))
+            .map(|i| (i, sc.element.clone()))
     })?;
 
     let insertion_position = {
         let elem = target_element.borrow();
 
-        if elem.layout.is_some() {
+        let (node, layout) = elem.debug.get(node_index)?;
+
+        if layout.is_some() {
             return None;
         }
 
-        let node = elem.node.get(node_index)?;
         let last_token = crate::util::last_non_ws_token(node)?;
 
         let url = lsp_types::Url::from_file_path(node.source_file.path()).ok()?;

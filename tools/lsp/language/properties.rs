@@ -234,7 +234,7 @@ fn find_expression_range(
 }
 
 fn find_property_binding_offset(element: &Element, property_name: &str) -> Option<u32> {
-    let element_range = element.node.first()?.text_range();
+    let element_range = element.debug.first()?.0.text_range();
 
     if let Some(v) = element.bindings.get(property_name) {
         if let Some(span) = &v.borrow().span {
@@ -252,7 +252,7 @@ fn find_property_binding_offset(element: &Element, property_name: &str) -> Optio
 }
 
 fn insert_property_definitions(element: &Element, properties: &mut Vec<PropertyInformation>) {
-    if let Some(element_node) = element.node.first() {
+    if let Some((element_node, _)) = element.debug.first() {
         for prop_info in properties {
             if let Some(offset) = find_property_binding_offset(element, prop_info.name.as_str()) {
                 prop_info.defined_at = find_expression_range(element_node, offset);
@@ -390,7 +390,7 @@ fn get_properties(element: &ElementRc) -> Vec<PropertyInformation> {
 
 fn find_block_range(element: &ElementRc) -> Option<lsp_types::Range> {
     let element = element.borrow();
-    let node = element.node.first()?;
+    let node = &element.debug.first()?.0;
 
     let open_brace = node.child_token(SyntaxKind::LBrace)?;
     let close_brace = node.child_token(SyntaxKind::RBrace)?;
@@ -407,7 +407,7 @@ fn get_element_information(element: &ElementRc) -> ElementInformation {
     ElementInformation {
         id: e.id.clone(),
         type_name: e.base_type.to_string(),
-        range: e.node.first().and_then(|n| map_node(n)),
+        range: e.debug.first().and_then(|n| map_node(&n.0)),
     }
 }
 
@@ -622,7 +622,7 @@ pub(crate) fn set_binding(
 
     let new_expression_type = {
         let element = element.borrow();
-        if let Some(node) = element.node.first() {
+        if let Some((node, _)) = &element.debug.first() {
             let expr_context_info =
                 ExpressionContextInfo::new(node.clone(), property_name.to_string(), false);
             with_property_lookup_ctx(document_cache, &expr_context_info, |ctx| {
@@ -734,10 +734,10 @@ pub(crate) fn remove_binding(
     property_name: &str,
 ) -> Result<lsp_types::WorkspaceEdit> {
     let element = element.borrow();
-    let source_file = element.node.first().and_then(|n| n.source_file());
+    let source_file = &element.debug.first().and_then(|n| n.0.source_file());
 
     let range = find_property_binding_offset(&element, property_name)
-        .and_then(|offset| element.node.first()?.token_at_offset(offset.into()).right_biased())
+        .and_then(|offset| element.debug.first()?.0.token_at_offset(offset.into()).right_biased())
         .and_then(|token| {
             for ancestor in token.parent_ancestors() {
                 if (ancestor.kind() == SyntaxKind::Binding)

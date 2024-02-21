@@ -538,7 +538,7 @@ impl Clone for PropertyAnimation {
                 property_analysis: e.property_analysis.clone(),
                 enclosing_component: e.enclosing_component.clone(),
                 repeated: None,
-                node: e.node.clone(),
+                debug: e.debug.clone(),
                 ..Default::default()
             }))
         }
@@ -650,22 +650,23 @@ pub struct Element {
     /// How many times the element was inlined
     pub inline_depth: i32,
 
-    /// The AST nodes, if available.
+    /// Debug information about this element.
+    ///
+    /// Contains the AST node if available, as well as wether this element was a layout that had
+    /// been lowered into a rectangle in the lower_layouts pass.
     /// There can be several in case of inlining or optimization (child merged into their parent).
+    ///
     /// The order in the list is first the parent, and then the removed children.
-    pub node: Vec<syntax_nodes::Element>,
-
-    /// This element was a layout that has been lowered to a Rectangle
-    pub layout: Option<crate::layout::Layout>,
+    pub debug: Vec<(syntax_nodes::Element, Option<crate::layout::Layout>)>,
 }
 
 impl Spanned for Element {
     fn span(&self) -> crate::diagnostics::Span {
-        self.node.first().map(|n| n.span()).unwrap_or_default()
+        self.debug.first().map(|n| n.0.span()).unwrap_or_default()
     }
 
     fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
-        self.node.first().map(|n| &n.source_file)
+        self.debug.first().map(|n| &n.0.source_file)
     }
 }
 
@@ -899,7 +900,7 @@ impl Element {
         let mut r = Element {
             id,
             base_type,
-            node: vec![node.clone()],
+            debug: vec![(node.clone(), None)],
             is_legacy_syntax,
             ..Default::default()
         };
@@ -1633,9 +1634,9 @@ impl Element {
 
     /// Returns the element's name as specified in the markup, not normalized.
     pub fn original_name(&self) -> String {
-        self.node
+        self.debug
             .first()
-            .and_then(|n| n.child_token(parser::SyntaxKind::Identifier))
+            .and_then(|n| n.0.child_token(parser::SyntaxKind::Identifier))
             .map(|n| n.to_string())
             .unwrap_or_else(|| self.id.clone())
     }
@@ -2134,9 +2135,11 @@ pub fn visit_all_named_references_in_element(
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);
     layout_info_prop.as_mut().map(|(h, b)| (vis(h), vis(b)));
     elem.borrow_mut().layout_info_prop = layout_info_prop;
-    let mut layout = std::mem::take(&mut elem.borrow_mut().layout);
-    layout.as_mut().map(|l| l.visit_named_references(&mut vis));
-    elem.borrow_mut().layout = layout;
+    let mut debug = std::mem::take(&mut elem.borrow_mut().debug);
+    for d in debug.iter_mut() {
+        d.1.as_mut().map(|l| l.visit_named_references(&mut vis));
+    }
+    elem.borrow_mut().debug = debug;
 
     let mut accessibility_props = std::mem::take(&mut elem.borrow_mut().accessibility_props);
     accessibility_props.0.iter_mut().for_each(|(_, x)| vis(x));

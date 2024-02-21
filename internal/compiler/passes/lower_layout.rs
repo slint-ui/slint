@@ -246,7 +246,9 @@ fn lower_grid_layout(
     );
     grid_layout_element.borrow_mut().layout_info_prop =
         Some((layout_info_prop_h, layout_info_prop_v));
-    grid_layout_element.borrow_mut().layout = Some(Layout::GridLayout(grid));
+    if let Some(d) = grid_layout_element.borrow_mut().debug.last_mut() {
+        d.1 = Some(Layout::GridLayout(grid));
+    }
 }
 
 impl GridLayout {
@@ -434,7 +436,9 @@ fn lower_box_layout(
         .into(),
     );
     layout_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
-    layout_element.borrow_mut().layout = Some(Layout::BoxLayout(layout));
+    if let Some(d) = layout_element.borrow_mut().debug.last_mut() {
+        d.1 = Some(Layout::BoxLayout(layout));
+    }
 }
 
 fn lower_dialog_layout(
@@ -645,7 +649,9 @@ fn lower_dialog_layout(
         .into(),
     );
     dialog_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
-    dialog_element.borrow_mut().layout = Some(Layout::GridLayout(grid));
+    if let Some(d) = dialog_element.borrow_mut().debug.last_mut() {
+        d.1 = Some(Layout::GridLayout(grid));
+    }
 }
 
 struct CreateLayoutItemResult {
