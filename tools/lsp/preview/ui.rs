@@ -41,7 +41,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         super::ask_editor_to_show_document(&file, Range::new(pos, pos))
     });
     ui.on_unselect(super::element_selection::unselect_element);
-    ui.on_reselect(super::reselect_element);
+    ui.on_reselect(super::element_selection::reselect_element);
     ui.on_select_at(super::element_selection::select_element_at);
     ui.on_select_behind(super::element_selection::select_element_behind);
     ui.on_can_drop(super::can_drop_component);

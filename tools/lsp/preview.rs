@@ -108,21 +108,6 @@ fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<Elem
     None
 }
 
-pub fn reselect_element() {
-    let Some(selected) = PREVIEW_STATE.with(|preview_state| {
-        let mut preview_state = preview_state.borrow_mut();
-        preview_state.selected.take()
-    }) else {
-        return;
-    };
-    let Some(component_instance) = component_instance() else {
-        return;
-    };
-    let positions = component_instance.component_positions(&selected.path, selected.offset);
-
-    set_selected_element(Some(selected), positions, false);
-}
-
 // triggered from the UI, running in UI thread
 fn can_drop_component(_component_name: slint::SharedString, x: f32, y: f32) -> bool {
     drop_location::can_drop_at(x, y)
