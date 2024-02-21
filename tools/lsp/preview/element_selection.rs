@@ -291,9 +291,11 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
     let root_element = root_element(&component_instance);
 
     if let Some(se) = super::selected_element() {
-        if element_covers_point(x, y, &component_instance, &se) {
-            // We clicked on the already selected element: Do nothing!
-            return;
+        if let Some(element) = se.as_element() {
+            if element_covers_point(x, y, &component_instance, &element) {
+                // We clicked on the already selected element: Do nothing!
+                return;
+            }
         }
     }
 
@@ -315,7 +317,10 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
     };
 
     let root_element = root_element(&component_instance);
-    let Some(selected_element) = super::selected_element() else {
+    let Some(selected_element_data) = super::selected_element() else {
+        return;
+    };
+    let Some(selected_element) = selected_element_data.as_element() else {
         return;
     };
     let Some(selected_component) = selected_element.borrow().enclosing_component.upgrade() else {
