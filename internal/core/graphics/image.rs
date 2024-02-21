@@ -1007,7 +1007,6 @@ pub fn fit9slice(
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
-    use super::super::IntSize;
     use super::*;
 
     // Expand Rgb8Pixel so that cbindgen can see it. (is in fact rgb::RGB<u8>)

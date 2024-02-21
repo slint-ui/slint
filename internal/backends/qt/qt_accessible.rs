@@ -16,7 +16,6 @@ use cpp::*;
 use pin_project::pin_project;
 use qttypes::QString;
 
-use alloc::boxed::Box;
 use core::ffi::c_void;
 use std::pin::Pin;
 

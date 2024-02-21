@@ -3,7 +3,6 @@
 
 use anyhow::Context;
 use std::io::{BufWriter, Write};
-use std::iter::Extend;
 use std::path::{Path, PathBuf};
 
 // cSpell: ignore compat constexpr corelib deps sharedvector pathdata

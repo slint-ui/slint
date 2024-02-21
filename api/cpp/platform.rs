@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use alloc::boxed::Box;
 use alloc::rc::Rc;
-use alloc::string::String;
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, string::String};
 use core::ffi::c_void;
 use i_slint_core::api::{
     LogicalSize, PhysicalPosition, PhysicalSize, Window, WindowPosition, WindowSize,

@@ -4,7 +4,6 @@
 use super::*;
 use crate::graphics::{Brush, Color};
 use crate::items::PropertyAnimation;
-use core::pin::Pin;
 
 #[allow(non_camel_case_types)]
 type c_void = ();
