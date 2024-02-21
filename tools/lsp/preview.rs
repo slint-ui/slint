@@ -164,7 +164,10 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
         return;
     };
 
-    let Some(selected_element) = selected_element() else {
+    let Some(selected_element_struct) = selected_element() else {
+        return;
+    };
+    let Some(selected_element) = selected_element_struct.as_element() else {
         return;
     };
     let Some(component_instance) = component_instance() else {
@@ -657,10 +660,10 @@ fn set_selected_element(
     })
 }
 
-fn selected_element() -> Option<ElementRc> {
+fn selected_element() -> Option<ElementSelection> {
     PREVIEW_STATE.with(move |preview_state| {
         let preview_state = preview_state.borrow();
-        preview_state.selected.as_ref().and_then(|es| es.as_element())
+        preview_state.selected.clone()
     })
 }
 
