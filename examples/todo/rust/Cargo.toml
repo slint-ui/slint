@@ -10,6 +10,10 @@ build = "build.rs"
 publish = false
 license = "MIT"
 
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "lib.rs"
+
 [[bin]]
 path = "main.rs"
 name = "todo"
@@ -26,11 +30,4 @@ console_error_panic_hook = "0.1.5"
 [build-dependencies]
 slint-build = { path = "../../../api/rs/build" }
 
-# Remove the `#wasm#` to uncomment the wasm and android build.
-# This is commented out by default because we don't want to build it as a library by default
-# The CI has a script that does sed "s/#wasm# //" to generate the wasm build.
-
-#wasm# [lib]
-#wasm# crate-type = ["cdylib"]
-#wasm# path = "main.rs"
 
