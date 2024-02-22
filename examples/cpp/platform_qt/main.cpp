@@ -297,6 +297,15 @@ public:
         QWindow::setMaximumSize(c.max ? QSize(c.max->width, c.max->height)
                                       : QSize(1 << 15, 1 << 15));
         QWindow::setMinimumSize(c.min ? QSize(c.min->width, c.min->height) : QSize());
+
+        Qt::WindowStates states = windowState() & Qt::WindowActive;
+        if (props.is_fullscreen())
+            states |= Qt::WindowFullScreen;
+        if (props.is_minimized())
+            states |= Qt::WindowMinimized;
+        if (props.is_maximized())
+            states |= Qt::WindowMaximized;
+        setWindowStates(states);
     }
 
     void resizeEvent(QResizeEvent *ev) override
