@@ -980,6 +980,13 @@ public:
         return s;
     }
 
+    /// Sets the domain used for translations.
+    void set_translation_domain(std::string_view domain)
+    {
+        cbindgen_private::slint_interpreter_component_compiler_set_translation_domain(
+                &inner, slint::private_api::string_to_slice(domain));
+    }
+
     /// Returns the include paths the component compiler is currently configured with.
     slint::SharedVector<slint::SharedString> include_paths() const
     {

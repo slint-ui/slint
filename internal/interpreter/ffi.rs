@@ -705,6 +705,16 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_style(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn slint_interpreter_component_compiler_set_translation_domain(
+    compiler: &mut ComponentCompilerOpaque,
+    translation_domain: Slice<u8>,
+) {
+    compiler
+        .as_component_compiler_mut()
+        .set_translation_domain(std::str::from_utf8(&translation_domain).unwrap().to_string())
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_compiler_get_style(
     compiler: &ComponentCompilerOpaque,
     style_out: &mut SharedString,

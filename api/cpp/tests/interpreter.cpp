@@ -284,6 +284,12 @@ SCENARIO("Component Compiler")
         REQUIRE(compiler.style() == "fluent");
     }
 
+    SECTION("configure translation domain")
+    {
+        // Make sure this compiles.
+        compiler.set_translation_domain("cpptests");
+    }
+
     SECTION("Compile failure from source")
     {
         auto result = compiler.build_from_source("Syntax Error!!", "");
