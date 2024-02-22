@@ -810,6 +810,7 @@ fn generate_struct(
     fields: &BTreeMap<String, Type>,
     node: &syntax_nodes::ObjectType,
 ) {
+    let name = ident(name);
     let mut members = node
         .ObjectTypeMember()
         .map(|n| crate::parser::identifier_text(&n).unwrap())
@@ -836,11 +837,7 @@ fn generate_struct(
         }),
     ));
 
-    file.declarations.push(Declaration::Struct(Struct {
-        name: name.into(),
-        members,
-        ..Default::default()
-    }))
+    file.declarations.push(Declaration::Struct(Struct { name, members, ..Default::default() }))
 }
 
 fn generate_enum(file: &mut File, en: &std::rc::Rc<Enumeration>) {
