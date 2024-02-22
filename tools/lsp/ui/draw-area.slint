@@ -32,6 +32,7 @@ component SelectionFrame {
     height: root.selection.height;
 
     callback update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
+    callback select-behind(/* x */ length, /* y */ length, /* enter component? */ bool, /* same file? */ bool);
 
     if !selection.is-primary || !experimental: Rectangle {
         x: 0;
@@ -41,6 +42,10 @@ component SelectionFrame {
     }
 
     if selection.is-primary && experimental: Resizer {
+        double-clicked(x, y, modifiers) => {
+            root.select-behind(self.absolute-position.x + x, self.absolute-position.y + y, modifiers.control, modifiers.shift);
+        }
+
         is-moveable: true;
         is-resizable: true;
 
@@ -188,7 +193,7 @@ export component DrawArea {
                         // This needs to fire AFTER clicked and double-clicked to work :-/
                         if (event.kind == PointerEventKind.up) {
                             if (self.selection-kind == SelectionKind.select_up_or_down) {
-                                root.select_behind(self.selection-x, self.selection-y, event.modifiers.control, event.modifiers.shift);
+                                root.select-behind(self.selection-x, self.selection-y, event.modifiers.control, event.modifiers.shift);
                             } else if (self.selection-kind == SelectionKind.select-at) {
                                 root.select-at(self.selection-x, self.selection-y, event.modifiers.control);
                             }
@@ -206,6 +211,8 @@ export component DrawArea {
                         update-geometry(x, y, w, h) => {
                             root.selected-element-update-geometry(x, y, w, h);
                         }
+
+                        select-behind(x, y, c, f) => { root.select-behind(x, y, c, f); }
                     }
                 }
             }
