@@ -11,6 +11,10 @@ export struct Unused {
     foo: int,
 }
 
+export struct With-Dash_And-underscore {
+    foo-bar: int,
+}
+
 TestCase := Rectangle {
     property<Player> player_1: {name : "Player1", score: 12, energy_level: 80% };
     property<Player> player_2: {name : "Player2", score: 24, energy_level: 40% };
@@ -25,7 +29,10 @@ TestCase := Rectangle {
     property player_2_alias <=> player_2;
     property<int> player_2_score: player_2_alias.score;
 
+    in-out property <With-Dash_And-underscore> underscore;
+
     property <bool> test: player_2_score == 24;
+
 }
 
 /*
@@ -43,6 +50,8 @@ assert_eq!(instance.get_player_2_score(), 99);
 
 
 let _ = Unused { foo: 42 };
+let underscore = With_Dash_And_underscore { foo_bar: 8 };
+instance.set_underscore(underscore);
 ```
 
 ```cpp
@@ -61,6 +70,9 @@ assert_eq(instance.get_player_2_score(), 99);
 
 Unused _unused { .foo = 42 };
 (void)_unused;
+
+With_Dash_And_underscore underscore {.foo_bar = 8 };
+instance.set_underscore(underscore);
 ```
 
 ```js
