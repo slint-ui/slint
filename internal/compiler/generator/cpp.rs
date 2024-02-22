@@ -2861,7 +2861,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let prefix = if value.enumeration.node.is_some() { "" } else {"slint::cbindgen_private::"};
             format!(
                 "{prefix}{}::{}",
-                value.enumeration.name,
+                ident(&value.enumeration.name),
                 ident(&value.to_pascal_case()),
             )
         }
