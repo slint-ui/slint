@@ -119,6 +119,23 @@ impl Model for JsModel {
         }
     }
 
+    fn set_row_data(&self, row: usize, data: Self::Data) {
+        let model: Object = self.js_impl.get().unwrap();
+        let set_row_data_fn = model
+            .get::<&str, JsFunction>("setRowData")
+            .expect("Node.js: JavaScript Model<T> implementation is missing setRowData property")
+            .expect("Node.js: Model<T> implementation's setRowData property is not a function");
+        set_row_data_fn
+            .call::<JsUnknown>(
+                Some(&model),
+                &[
+                    self.env.create_double(row as f64).unwrap().into_unknown(),
+                    to_js_unknown(&self.env, &data).unwrap(),
+                ],
+            )
+            .expect("Node.js: JavaScript Model<T>'s setRowData function threw an exception");
+    }
+
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
         &**self.shared_model_notify
     }
