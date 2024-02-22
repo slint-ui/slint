@@ -67,9 +67,27 @@ pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
         }
         if let Some(ext) = absolute_path.extension() {
             if ext == "60" || ext == "slint" {
-                let styles_to_test: &[&'static str] =
-                    if relative_path.starts_with("widgets") { &all_styles } else { &[""] };
-                results.extend(styles_to_test.iter().map(|style| TestCase {
+                let styles_to_test: Vec<&'static str> = if relative_path.starts_with("widgets") {
+                    let style_ignores =
+                        extract_ignores(&std::fs::read_to_string(&absolute_path).unwrap())
+                            .filter_map(|ignore| {
+                                ignore.strip_prefix("style-").map(ToString::to_string)
+                            })
+                            .collect::<Vec<_>>();
+
+                    all_styles
+                        .iter()
+                        .filter(|available_style| {
+                            !style_ignores
+                                .iter()
+                                .any(|ignored_style| *available_style == ignored_style)
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>()
+                } else {
+                    vec![""]
+                };
+                results.extend(styles_to_test.into_iter().map(|style| TestCase {
                     absolute_path: absolute_path.clone(),
                     relative_path: relative_path.clone(),
                     requested_style: if style.is_empty() { None } else { Some(style) },
