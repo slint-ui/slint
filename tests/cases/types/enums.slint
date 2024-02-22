@@ -6,6 +6,8 @@ export enum Foo { bli, bla, blu }
 // (override the builtin 'InputType')
 export enum InputType { Xxx, Yyy, Zzz }
 
+export enum With-dash { hallo, hello-world,  halloWorld}
+
 export component TestCase  {
     in-out property<Foo> foo: Foo.bla;
     in-out property<Foo> default;
@@ -13,6 +15,8 @@ export component TestCase  {
     in-out property<InputType> input-type: InputType.Xxx;
 
     out property <bool> test: foo == Foo.bla && default == Foo.bli && input-type == InputType.Xxx;
+
+    in property <With-dash> dash: halloWorld;
 }
 
 /*
@@ -24,6 +28,10 @@ assert!(instance.get_test());
 instance.set_foo(Foo::Blu);
 assert!(!instance.get_test());
 
+assert_eq!(instance.get_dash(), With_dash::HalloWorld);
+instance.set_dash(With_dash::Hallo);
+instance.set_dash(With_dash::HelloWorld);
+
 ```
 
 ```cpp
@@ -34,6 +42,10 @@ assert(instance.get_foo() == Foo::Bla);
 assert(instance.get_test());
 instance.set_foo(Foo::Blu);
 assert(!instance.get_test());
+
+assert(instance.get_dash() == With_dash::HalloWorld);
+instance.set_dash(With_dash::Hallo);
+instance.set_dash(With_dash::HelloWorld);
 ```
 
 */
