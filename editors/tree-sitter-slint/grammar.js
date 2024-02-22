@@ -98,7 +98,8 @@ module.exports = grammar({
           $.if_expr,
           $.callback_event,
           $.binding,
-          seq(optional("return"), $.expression, optional(";")),
+          seq($.expression, optional(";")),
+          seq("return", optional($.expression), ";"),
         ),
       ),
 
@@ -222,8 +223,13 @@ module.exports = grammar({
       seq(
         field("property", $.simple_identifier),
         ":",
-        field("value", choice($.imperative_block, $.expression)),
-        ";",
+        field(
+          "value",
+          choice(
+            seq($.imperative_block, optional(";")),
+            seq($.expression, ";"),
+          ),
+        ),
       ),
 
     in_out_transition: ($) =>
@@ -516,7 +522,7 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
-              field("angle", $.angle_value),
+              field("angle", choice($.angle_value, $.int_value, $.float_value)),
               ",",
               field("colors", commaSep2($.gradient_color)),
               optional(","),
