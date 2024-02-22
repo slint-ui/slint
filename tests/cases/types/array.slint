@@ -29,13 +29,15 @@ TestCase := Rectangle {
 /*
 ```js
 var instance = new slint.TestCase({});
-assert.deepEqual(instance.p1, [12, 13]);
-assert.deepEqual(instance.p2, [14, 15.5]);
-assert.deepEqual(instance.p3, []);
-assert.deepEqual(instance.p4, [{a: 1, b: 0}, {a: 42, b: 10}]);
-assert.deepEqual(instance.p5, { prop: [{hello: "hello", world: 0}, { hello: "", world: 42}], xxx: 0 });
+assert.deepEqual(Array.from(instance.p1), [12, 13]);
+assert.deepEqual(Array.from(instance.p2), [14, 15.5]);
+assert.deepEqual(Array.from(instance.p3), []);
+assert.deepEqual(Array.from(instance.p4), [{a: 1, b: 0}, {a: 42, b: 10}]);
+let p5val = instance.p5;
+p5val.prop = Array.from(p5val.prop);
+assert.deepEqual(p5val, { prop: [{hello: "hello", world: 0}, { hello: "", world: 42}], xxx: 0 });
 
 instance.p3 = ["Hello", "World"];
-assert.deepEqual(instance.p3, ["Hello", "World"]);
+assert.deepEqual(Array.from(instance.p3), ["Hello", "World"]);
 ```
 */
