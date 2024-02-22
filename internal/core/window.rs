@@ -1110,6 +1110,7 @@ pub type WindowAdapterRc = Rc<dyn WindowAdapter>;
 pub mod ffi {
     #![allow(unsafe_code)]
     #![allow(clippy::missing_safety_doc)]
+    #![allow(missing_docs)]
 
     use super::*;
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
@@ -1471,6 +1472,57 @@ pub mod ffi {
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter.window().dispatch_event(event.clone());
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_is_fullscreen(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> bool {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().is_fullscreen()
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_is_minimized(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> bool {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().is_minimized()
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_is_maximized(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> bool {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().is_maximized()
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_set_fullscreen(
+        handle: *const WindowAdapterRcOpaque,
+        value: bool,
+    ) {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().set_fullscreen(value)
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_set_minimized(
+        handle: *const WindowAdapterRcOpaque,
+        value: bool,
+    ) {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().set_minimized(value)
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_set_maximized(
+        handle: *const WindowAdapterRcOpaque,
+        value: bool,
+    ) {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().set_maximized(value)
     }
 }
 

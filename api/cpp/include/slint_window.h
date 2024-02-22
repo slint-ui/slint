@@ -320,6 +320,39 @@ public:
     /// physical pixels.
     float scale_factor() const { return inner.scale_factor(); }
 
+    /// Returns if the window is currently fullscreen
+    bool is_fullscreen() const
+    {
+        return cbindgen_private::slint_windowrc_is_fullscreen(&inner.handle());
+    }
+    /// Set or unset the window to display fullscreen.
+    void set_fullscreen(bool fullscreen)
+    {
+        cbindgen_private::slint_windowrc_set_fullscreen(&inner.handle(), fullscreen);
+    }
+
+    /// Returns if the window is currently maximized
+    bool is_maximized() const
+    {
+        return cbindgen_private::slint_windowrc_is_maximized(&inner.handle());
+    }
+    /// Maximize or unmaximize the window.
+    void set_maximized(bool maximized)
+    {
+        cbindgen_private::slint_windowrc_set_maximized(&inner.handle(), maximized);
+    }
+
+    /// Returns if the window is currently minimized
+    bool is_minimized() const
+    {
+        return cbindgen_private::slint_windowrc_is_minimized(&inner.handle());
+    }
+    /// Minimize or unminimze the window.
+    void set_minimized(bool minimized)
+    {
+        cbindgen_private::slint_windowrc_set_minimized(&inner.handle(), minimized);
+    }
+
     /// Dispatch a key press event to the scene.
     ///
     /// Use this when you're implementing your own backend and want to forward user input events.
