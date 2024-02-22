@@ -55,6 +55,7 @@ export component Resizer {
     out property <length> handle-size: ResizeState.handle-size;
 
     callback update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length, /* done */ bool);
+    callback double-clicked(/* x */ length, /* y */ length, /* modifiers */ KeyboardModifiers);
 
     // Private!
     in-out property <length> top: self.y-position;
@@ -73,9 +74,14 @@ export component Resizer {
         if root.is-moveable: TouchArea {
             private property <length> x-offset: self.mouse-x - self.pressed-x;
             private property <length> y-offset: self.mouse-y - self.pressed-y;
+            private property <KeyboardModifiers> modifiers;
             private property <bool> has-moved;
 
             mouse-cursor: MouseCursor.move;
+
+            double-clicked() => {
+                root.double-clicked(self.mouse-x, self.mouse-y, self.modifiers);
+            }
 
             moved() => {
                 root.update-geometry(root.x-position + x-offset, root.y-position + y-offset, root.width, root.height, false);
@@ -84,6 +90,8 @@ export component Resizer {
 
             pointer-event(event) => {
                 resize-area.moving = self.pressed;
+                self.modifiers = event.modifiers;
+
                 if self.has-moved && event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
                     root.update-geometry(root.x-position + x-offset, root.y-position + y-offset, root.width, root.height, true);
                     self.has-moved = false;
