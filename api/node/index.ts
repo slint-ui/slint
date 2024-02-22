@@ -348,6 +348,19 @@ export class ArrayModel<T> extends Model<T> {
         this.notifyRowAdded(size, arguments.length);
     }
 
+    /**
+     * Removes the last element from the array and returns it.
+     * 
+     * @returns The removed element or undefined if the array is empty.
+     */
+    pop(): T | undefined {
+        let last = this.#array.pop();
+        if (last !== undefined) {
+            this.notifyRowRemoved(this.#array.length, 1);
+        }
+        return last;
+    }
+
     // FIXME: should this be named splice and have the splice api?
     /**
      * Removes the specified number of element from the array that's backing
