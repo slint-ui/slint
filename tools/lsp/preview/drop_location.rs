@@ -5,7 +5,7 @@ use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use slint_interpreter::ComponentInstance;
 
-use crate::preview::element_selection::collect_all_elements_covering;
+use crate::preview::element_selection::collect_all_element_nodes_covering;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -21,7 +21,7 @@ fn find_drop_location(
     x: f32,
     y: f32,
 ) -> Option<DropInformation> {
-    let elements = collect_all_elements_covering(x, y, &component_instance);
+    let elements = collect_all_element_nodes_covering(x, y, &component_instance);
     let (node_index, target_element) = elements.iter().find_map(|sc| {
         sc.element
             .borrow()
