@@ -63,10 +63,11 @@ assert!(!instance.get_hover());
 ```
 
 ```js
+let model = new slintlib.ArrayModel([1, 2]);
 var instance = new slint.TestCase({
-    clicked: function() { var x = instance.model; x.remove(x.length - 1, 1); instance.model = x; }
+    clicked: function() { model.pop(); }
 });
-instance.model = new slintlib.ArrayModel([1, 2]);
+instance.model = model;
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.model.length, 1);
 assert(instance.hover);
