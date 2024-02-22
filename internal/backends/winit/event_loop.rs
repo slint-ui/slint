@@ -253,9 +253,18 @@ impl EventLoopState {
     fn process_window_event(&mut self, window: Rc<WinitWindowAdapter>, event: WindowEvent) {
         let runtime_window = WindowInner::from_pub(window.window());
         match event {
-            WindowEvent::RedrawRequested => self.loop_error = window.draw().err(),
+            WindowEvent::RedrawRequested => {
+                self.loop_error = window.draw().err();
+            }
             WindowEvent::Resized(size) => {
                 self.loop_error = window.resize_event(size).err();
+
+                // Entering fullscreen, maximizing or minimizing the window will
+                // trigger a resize event. We need to update the internal window
+                // state to match the actual window state. We simulate a "window
+                // state event" since there is not an official event for it yet.
+                // See: https://github.com/rust-windowing/winit/issues/2334
+                window.window_state_event();
             }
             WindowEvent::CloseRequested => {
                 window.window().dispatch_event(corelib::platform::WindowEvent::CloseRequested);

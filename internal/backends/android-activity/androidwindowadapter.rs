@@ -51,7 +51,7 @@ impl WindowAdapter for AndroidWindowAdapter {
     }
 
     fn update_window_properties(&self, properties: WindowProperties<'_>) {
-        let f = properties.fullscreen();
+        let f = properties.is_fullscreen();
         if self.fullscreen.replace(f) != f {
             self.resize();
         }

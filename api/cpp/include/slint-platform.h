@@ -249,6 +249,18 @@ public:
             return cbindgen_private::slint_window_properties_get_fullscreen(inner());
         }
 
+        /// Returns true if the window should be minimized; false otherwise
+        bool minimized() const
+        {
+            return cbindgen_private::slint_window_properties_get_minimized(inner());
+        }
+
+        /// Returns true if the window should be maximized; false otherwise
+        bool maximized() const
+        {
+            return cbindgen_private::slint_window_properties_get_maximized(inner());
+        }
+
         /// This struct describes the layout constraints of a window.
         ///
         /// It is the return value of WindowProperties::layout_constraints().

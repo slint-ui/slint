@@ -113,7 +113,17 @@ pub extern "C" fn slint_window_properties_get_background(
 
 #[no_mangle]
 pub extern "C" fn slint_window_properties_get_fullscreen(wp: &WindowProperties) -> bool {
-    wp.fullscreen()
+    wp.is_fullscreen()
+}
+
+#[no_mangle]
+pub extern "C" fn slint_window_properties_get_minimized(wp: &WindowProperties) -> bool {
+    wp.is_minimized()
+}
+
+#[no_mangle]
+pub extern "C" fn slint_window_properties_get_maximized(wp: &WindowProperties) -> bool {
+    wp.is_maximized()
 }
 
 #[repr(C)]

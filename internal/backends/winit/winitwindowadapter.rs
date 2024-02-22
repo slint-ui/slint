@@ -305,6 +305,34 @@ impl WinitWindowAdapter {
             .as_ref()
             .set(dark_mode)
     }
+
+    pub fn window_state_event(&self) {
+        if let Some(minimized) = self.winit_window.is_minimized() {
+            if minimized != self.window().is_minimized() {
+                self.window().set_minimized(minimized);
+            }
+        }
+
+        // The method winit::Window::is_maximized returns false when the window
+        // is minimized, even if it was previously maximized. We have to ensure
+        // that we only update the internal maximized state when the window is
+        // not minimized. Otherwise, the window would be restored in a
+        // non-maximized state even if it was maximized before being minimized.
+        if !self.window().is_minimized() {
+            let maximized = self.winit_window.is_maximized();
+            if maximized != self.window().is_maximized() {
+                self.window().set_maximized(maximized);
+            }
+        }
+
+        // NOTE: Fullscreen overrides maximized so if both are true then the
+        // window will remain in fullscreen. Fullscreen must be false to switch
+        // to maximized.
+        let fullscreen = self.winit_window.fullscreen().is_some();
+        if fullscreen != self.window().is_fullscreen() {
+            self.window().set_fullscreen(fullscreen);
+        }
+    }
 }
 
 impl WindowAdapter for WinitWindowAdapter {
@@ -460,6 +488,13 @@ impl WindowAdapter for WinitWindowAdapter {
             winit_window.set_window_level(new_window_level);
         }
 
+        // Only set the window as maximized if the window is not already fullscreen
+        if winit_window.fullscreen().is_none() {
+            winit_window.set_maximized(properties.is_maximized());
+        }
+
+        winit_window.set_minimized(properties.is_minimized());
+
         if width <= 0. || height <= 0. {
             must_resize = true;
 
@@ -499,7 +534,7 @@ impl WindowAdapter for WinitWindowAdapter {
         }
 
         self.with_window_handle(&mut |winit_window| {
-            if properties.fullscreen() {
+            if properties.is_fullscreen() {
                 if winit_window.fullscreen().is_none() {
                     winit_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
                 }
@@ -509,9 +544,10 @@ impl WindowAdapter for WinitWindowAdapter {
                 }
             }
 
-            // If we're in fullscreen state, don't try to resize the window but maintain the surface
-            // size we've been assigned to from the windowing system. Weston/Wayland don't like it
-            // when we create a surface that's bigger than the screen due to constraints (#532).
+            // If we're in fullscreen, don't try to resize the window but
+            // maintain the surface size we've been assigned to from the
+            // windowing system. Weston/Wayland don't like it when we create a
+            // surface that's bigger than the screen due to constraints (#532).
             if winit_window.fullscreen().is_some() {
                 return;
             }

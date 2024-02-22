@@ -61,6 +61,15 @@ export interface Window {
     /** Gets or sets the physical size of the window on the screen, */
     physicalSize: Size;
 
+    /** Gets or sets the window's fullscreen state **/
+    fullscreen: boolean;
+
+    /** Gets or sets the window's maximized state **/
+    maximized: boolean;
+
+    /** Gets or sets teh window's minimized state **/
+    minimized: boolean;
+
     /**
      * Returns the visibility state of the window. This function can return false even if you previously called show()
      * on it, for example if the user minimized the window.
@@ -78,9 +87,6 @@ export interface Window {
 
     /** Issues a request to the windowing system to re-render the contents of the window. */
     requestRedraw(): void;
-
-    /** Set or unset the window to display fullscreen. */
-    set fullscreen(enable: boolean);
 }
 
 /**
