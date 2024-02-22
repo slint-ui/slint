@@ -49,7 +49,7 @@ assert_eq(*the_model->row_data(1) , 2+8);
 var instance = new slint.TestCase({});
 instance.mod = [1, 2, 3];
 slintlib.private_api.send_mouse_click(instance, 50., 50.);
-assert.equal(instance.mod[1], 2+8);
+assert.equal(instance.mod.rowData(1), 2+8);
 ```
 
 
