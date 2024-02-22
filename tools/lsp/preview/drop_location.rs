@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use slint_interpreter::ComponentInstance;
 
@@ -10,9 +9,10 @@ use crate::preview::element_selection::collect_all_element_nodes_covering;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
+use super::element_selection::ElementRcNode;
+
 pub struct DropInformation {
-    pub target_element: ElementRc,
-    pub node_index: usize,
+    pub target_element_node: ElementRcNode,
     pub insertion_position: crate::common::VersionedPosition,
 }
 
@@ -21,24 +21,27 @@ fn find_drop_location(
     x: f32,
     y: f32,
 ) -> Option<DropInformation> {
-    let elements = collect_all_element_nodes_covering(x, y, &component_instance);
-    let (node_index, target_element) = elements.iter().find_map(|sc| {
-        sc.element
-            .borrow()
-            .debug
-            .iter()
-            .position(|d| !super::is_element_node_ignored(&d.0))
-            .map(|i| (i, sc.element.clone()))
-    })?;
+    let target_element_node = {
+        let mut result = None;
+        for sc in &collect_all_element_nodes_covering(x, y, &component_instance) {
+            let Some(en) = sc.as_element_node() else {
+                continue;
+            };
+
+            if en.on_element_node(|n| super::is_element_node_ignored(n)) {
+                continue;
+            }
+
+            result = Some(en);
+            break;
+        }
+        result
+    }?;
 
     let insertion_position = {
-        let elem = target_element.borrow();
+        let elem = target_element_node.element.borrow();
 
-        let (node, layout) = elem.debug.get(node_index)?;
-
-        if layout.is_some() {
-            return None;
-        }
+        let (node, _) = elem.debug.get(target_element_node.debug_index)?;
 
         let last_token = crate::util::last_non_ws_token(node)?;
 
@@ -53,7 +56,7 @@ fn find_drop_location(
         )
     };
 
-    Some(DropInformation { target_element, node_index, insertion_position })
+    Some(DropInformation { target_element_node, insertion_position })
 }
 
 /// Find the Element to insert into. None means we can not insert at this point.
@@ -79,8 +82,10 @@ pub fn drop_at(
         let click_position =
             LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
 
-        if let Some(area) = component_instance
-            .element_position(&drop_info.target_element)
+        if drop_info.target_element_node.is_layout() {
+            vec![]
+        } else if let Some(area) = component_instance
+            .element_position(&drop_info.target_element_node.element)
             .iter()
             .find(|p| p.contains(click_position))
         {
@@ -95,7 +100,11 @@ pub fn drop_at(
 
     let indentation = format!(
         "{}    ",
-        crate::util::find_element_indent(&drop_info.target_element).unwrap_or_default()
+        crate::util::find_element_node_indent(
+            &drop_info.target_element_node.element,
+            drop_info.target_element_node.debug_index
+        )
+        .unwrap_or_default()
     );
 
     let component_text = if properties.is_empty() {

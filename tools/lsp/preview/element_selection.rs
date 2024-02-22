@@ -27,6 +27,18 @@ impl ElementRcNode {
         Some(Self { element, debug_index })
     }
 
+    pub fn on_element_debug<R>(
+        &self,
+        func: impl Fn(
+            &i_slint_compiler::parser::syntax_nodes::Element,
+            &Option<i_slint_compiler::layout::Layout>,
+        ) -> R,
+    ) -> R {
+        let elem = self.element.borrow();
+        let (n, l) = &elem.debug.get(self.debug_index).unwrap();
+        func(n, l)
+    }
+
     pub fn on_element_node<R>(
         &self,
         func: impl Fn(&i_slint_compiler::parser::syntax_nodes::Element) -> R,
@@ -39,6 +51,10 @@ impl ElementRcNode {
         self.on_element_node(|n| {
             (n.source_file.path().to_owned(), u32::from(n.text_range().start()))
         })
+    }
+
+    pub fn is_layout(&self) -> bool {
+        self.on_element_debug(|_, l| l.is_some())
     }
 }
 
