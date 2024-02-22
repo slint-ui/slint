@@ -1,15 +1,46 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::{path::PathBuf, rc::Rc};
-
-use i_slint_compiler::{
-    diagnostics::{SourceFile, Spanned},
-    object_tree::{Component, ElementRc},
+use std::{
+    path::{Path, PathBuf},
+    rc::Rc,
 };
+
+use i_slint_compiler::diagnostics::SourceFile;
+use i_slint_compiler::object_tree::{Component, ElementRc};
 use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use rowan::TextRange;
 use slint_interpreter::{highlight::ComponentPositions, ComponentInstance};
+
+#[derive(Clone, Debug)]
+pub struct ElementRcNode {
+    pub element: ElementRc,
+    pub debug_index: usize,
+}
+
+impl ElementRcNode {
+    pub fn find_in(element: ElementRc, path: &Path, offset: u32) -> Option<Self> {
+        let debug_index = element.borrow().debug.iter().position(|(n, _)| {
+            u32::from(n.text_range().start()) == offset && n.source_file.path() == path
+        })?;
+
+        Some(Self { element, debug_index })
+    }
+
+    pub fn on_element_node<R>(
+        &self,
+        func: impl Fn(&i_slint_compiler::parser::syntax_nodes::Element) -> R,
+    ) -> R {
+        let elem = self.element.borrow();
+        func(&elem.debug.get(self.debug_index).unwrap().0)
+    }
+
+    pub fn path_and_offset(&self) -> (PathBuf, u32) {
+        self.on_element_node(|n| {
+            (n.source_file.path().to_owned(), u32::from(n.text_range().start()))
+        })
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
@@ -40,17 +71,15 @@ fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
     element.clone()
 }
 
-fn lsp_element_position(element: &ElementRc) -> Option<(String, lsp_types::Range)> {
-    let e = element.borrow();
-    let location =
-        e.debug.iter().find(|e| !super::is_element_node_ignored(&e.0)).and_then(|(n, _)| {
-            n.parent()
-                .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
-                .map_or_else(
-                    || Some(n.source_file.text_size_to_file_line_column(n.text_range().start())),
-                    |p| Some(p.source_file.text_size_to_file_line_column(p.text_range().start())),
-                )
-        });
+fn lsp_element_node_position(element: &ElementRcNode) -> Option<(String, lsp_types::Range)> {
+    let location = element.on_element_node(|n| {
+        n.parent()
+            .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
+            .map_or_else(
+                || Some(n.source_file.text_size_to_file_line_column(n.text_range().start())),
+                |p| Some(p.source_file.text_size_to_file_line_column(p.text_range().start())),
+            )
+    });
     location.map(|(f, sl, sc, el, ec)| {
         use lsp_types::{Position, Range};
         let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
@@ -118,39 +147,39 @@ fn select_element_at_source_code_position_impl(
     );
 }
 
-fn select_element(
+fn select_element_node(
     component_instance: &ComponentInstance,
-    selected_element: &ElementRc,
+    selected_element: &ElementRcNode,
     position: Option<LogicalPoint>,
 ) {
-    if let Some((path, offset)) = element_offset(selected_element) {
-        select_element_at_source_code_position_impl(
-            component_instance,
-            path,
-            offset,
-            // FIXME: need to check which one of the node this refer to to know if this is a layout
-            selected_element.borrow().debug.iter().any(|d| d.1.is_some()),
-            position,
-            false, // We update directly;-)
-        );
+    let (path, offset) = selected_element.path_and_offset();
 
-        if let Some(document_position) = lsp_element_position(selected_element) {
-            super::ask_editor_to_show_document(&document_position.0, document_position.1);
-        }
-    } else {
-        unselect_element();
-    };
+    select_element_at_source_code_position_impl(
+        component_instance,
+        path,
+        offset,
+        // FIXME: need to check which one of the node this refer to to know if this is a layout
+        selected_element
+            .element
+            .borrow()
+            .debug
+            .get(selected_element.debug_index)
+            .map(|(_, l)| l.is_some())
+            .unwrap_or(false),
+        position,
+        false, // We update directly;-)
+    );
+
+    if let Some(document_position) = lsp_element_node_position(selected_element) {
+        super::ask_editor_to_show_document(&document_position.0, document_position.1);
+    }
 }
 
-fn element_offset(element: &ElementRc) -> Option<(PathBuf, u32)> {
-    let node = element.borrow().debug.first()?.0.clone();
-    let path = node.source_file.path().to_path_buf();
-    let offset = node.text_range().start().into();
-    Some((path, offset))
-}
-
-fn element_source_range(element: &ElementRc) -> Option<(SourceFile, TextRange)> {
-    let node = element.borrow().debug.first()?.0.clone();
+fn element_node_source_range(
+    element: &ElementRc,
+    debug_index: usize,
+) -> Option<(SourceFile, TextRange)> {
+    let node = element.borrow().debug.get(debug_index)?.0.clone();
     let source_file = node.source_file.clone();
     let range = node.text_range();
     Some((source_file, range))
@@ -170,41 +199,21 @@ pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
 pub struct SelectionCandidate {
     pub component_stack: Vec<Rc<Component>>,
     pub element: ElementRc,
+    pub debug_index: usize,
     pub text_range: Option<(SourceFile, TextRange)>,
 }
 
 impl SelectionCandidate {
-    pub fn is_element(&self, element: &ElementRc) -> bool {
-        Rc::ptr_eq(&self.element, element)
-    }
-
-    pub fn is_component_root_element(&self) -> bool {
-        let Some(c) = self.component_stack.last() else {
+    pub fn is_selected_element_node(&self, selection: &ElementSelection) -> bool {
+        let Some((sf, r)) = self.text_range.as_ref() else {
             return false;
         };
-        Rc::ptr_eq(&self.element, &c.root_element)
+        sf.path() == &selection.path && u32::from(r.start()) == selection.offset
     }
 
-    pub fn is_builtin(&self) -> bool {
-        let elem = self.element.borrow();
-        let Some(node) = elem.debug.first() else {
-            return true;
-        };
-        let Some(sf) = node.0.source_file() else {
-            return true;
-        };
-        sf.path().starts_with("builtin:/")
-    }
-
-    pub fn same_file(&self, element: &ElementRc) -> bool {
-        let Some((s, _)) = &self.text_range else {
-            return false;
-        };
-        let Some((o, _)) = &element_source_range(element) else {
-            return false;
-        };
-
-        s.path() == o.path()
+    pub fn as_element_node(&self) -> Option<ElementRcNode> {
+        let (sf, range) = self.text_range.as_ref()?;
+        ElementRcNode::find_in(self.element.clone(), sf.path(), u32::from(range.start()))
     }
 }
 
@@ -212,13 +221,13 @@ impl std::fmt::Debug for SelectionCandidate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let tmp = self.component_stack.iter().map(|c| c.id.clone()).collect::<Vec<_>>();
         let component = format!("{:?}", tmp);
-        write!(f, "{} in {component}", self.element.borrow().id)
+        write!(f, "{}({}) in {component}", self.element.borrow().id, self.debug_index)
     }
 }
 
 // Traverse the element tree in reverse render order and collect information on
 // all elements that "render" at the given x and y coordinates
-fn collect_all_elements_covering_impl(
+fn collect_all_element_nodes_covering_impl(
     x: f32,
     y: f32,
     component_instance: &ComponentInstance,
@@ -244,7 +253,7 @@ fn collect_all_elements_covering_impl(
     };
 
     for c in ce.borrow().children.iter().rev() {
-        collect_all_elements_covering_impl(
+        collect_all_element_nodes_covering_impl(
             x,
             y,
             component_instance,
@@ -255,23 +264,27 @@ fn collect_all_elements_covering_impl(
     }
 
     if element_covers_point(x, y, component_instance, &ce) {
-        let text_range = element_source_range(&ce);
-        result.push(SelectionCandidate {
-            element: ce,
-            component_stack: component_stack.clone(),
-            text_range,
-        });
+        for (i, _) in ce.borrow().debug.iter().enumerate().rev() {
+            // All nodes have the same geometry
+            let text_range = element_node_source_range(&ce, i);
+            result.push(SelectionCandidate {
+                element: ce.clone(),
+                debug_index: i,
+                component_stack: component_stack.clone(),
+                text_range,
+            });
+        }
     }
 }
 
-pub fn collect_all_elements_covering(
+pub fn collect_all_element_nodes_covering(
     x: f32,
     y: f32,
     component_instance: &ComponentInstance,
 ) -> Vec<SelectionCandidate> {
     let root_element = root_element(&component_instance);
     let mut elements = Vec::new();
-    collect_all_elements_covering_impl(
+    collect_all_element_nodes_covering_impl(
         x,
         y,
         &component_instance,
@@ -288,6 +301,14 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
     };
 
     let root_element = root_element(&component_instance);
+    let Some((root_path, root_offset)) = root_element
+        .borrow()
+        .debug
+        .get(0)
+        .map(|(n, _)| (n.source_file.path().to_owned(), u32::from(n.text_range().start())))
+    else {
+        return;
+    };
 
     if let Some(se) = super::selected_element() {
         if let Some(element) = se.as_element() {
@@ -298,15 +319,24 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
         }
     }
 
-    let elements = collect_all_elements_covering(x, y, &component_instance);
+    for sc in &collect_all_element_nodes_covering(x, y, &component_instance) {
+        let Some(en) = sc.as_element_node() else {
+            continue;
+        };
+        let (path, offset) = en.path_and_offset();
 
-    if let Some(element) = elements
-        .iter()
-        .filter(|sc| enter_component || sc.same_file(&root_element))
-        .filter(|sc| !(sc.is_builtin() && !sc.is_component_root_element()))
-        .next()
-    {
-        select_element(&component_instance, &element.element, Some(LogicalPoint::new(x, y)));
+        if en.on_element_node(|n| super::is_element_node_ignored(n)) {
+            continue;
+        }
+        if !enter_component && path != root_path {
+            continue;
+        }
+        if path == root_path && offset == root_offset {
+            continue;
+        }
+
+        select_element_node(&component_instance, &en, Some(LogicalPoint::new(x, y)));
+        break;
     }
 }
 
@@ -314,41 +344,61 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
     let Some(component_instance) = super::component_instance() else {
         return;
     };
-
     let root_element = root_element(&component_instance);
+    let Some((root_path, root_offset)) = root_element
+        .borrow()
+        .debug
+        .get(0)
+        .map(|(n, _)| (n.source_file.path().to_owned(), u32::from(n.text_range().start())))
+    else {
+        return;
+    };
+
+    let elements = collect_all_element_nodes_covering(x, y, &component_instance);
+
     let Some(selected_element_data) = super::selected_element() else {
         return;
     };
-    let Some(selected_element) = selected_element_data.as_element() else {
+
+    let Some(current_selection_position) =
+        elements.iter().position(|sc| sc.is_selected_element_node(&selected_element_data))
+    else {
         return;
     };
-    let Some(selected_component) = selected_element.borrow().enclosing_component.upgrade() else {
-        return;
-    };
 
-    let elements = collect_all_elements_covering(x, y, &component_instance);
-
-    let to_select = {
-        let it = elements
-            .iter()
-            .filter(|sc| {
-                !(sc.is_builtin() && !sc.is_component_root_element())
-                    || sc.is_element(&selected_element)
-            })
-            .filter(|sc| {
-                enter_component || sc.same_file(&root_element) || sc.is_element(&selected_element)
-            })
-            .filter(|sc| !Rc::ptr_eq(&sc.element, &selected_component.root_element)); // Filter out the component root itself and the root, we want to select inside of that
-
-        if reverse {
-            it.take_while(|sc| !sc.is_element(&selected_element)).last()
-        } else {
-            it.skip_while(|sc| !sc.is_element(&selected_element)).nth(1)
+    let target_range = if reverse {
+        if current_selection_position == 0 {
+            return;
         }
+        (current_selection_position - 1)..=0
+    } else {
+        if current_selection_position == elements.len() - 1 {
+            return;
+        }
+        (current_selection_position + 1)..=elements.len() - 1
     };
 
-    if let Some(ts) = to_select {
-        select_element(&component_instance, &ts.element, Some(LogicalPoint::new(x, y)));
+    for i in target_range {
+        let sc = elements.get(i).unwrap();
+        let Some(en) = sc.as_element_node() else {
+            continue;
+        };
+        let (path, offset) = en.path_and_offset();
+
+        if en.on_element_node(|n| super::is_element_node_ignored(n)) {
+            continue;
+        }
+
+        if !enter_component && !en.on_element_node(|n| n.source_file.path() == &root_path) {
+            continue;
+        }
+
+        if path == root_path && offset == root_offset {
+            continue;
+        }
+
+        select_element_node(&component_instance, &en, Some(LogicalPoint::new(x, y)));
+        break;
     }
 }
 
