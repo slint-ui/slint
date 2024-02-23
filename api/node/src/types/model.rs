@@ -91,49 +91,93 @@ impl Model for JsModel {
 
     fn row_count(&self) -> usize {
         let model: Object = self.js_impl.get().unwrap();
-        model
-            .get::<&str, JsFunction>("rowCount")
-            .ok()
-            .and_then(|callback| {
-                callback.and_then(|callback| callback.call_without_args(Some(&model)).ok())
-            })
-            .and_then(|res| res.coerce_to_number().ok())
-            .map(|num| num.get_uint32().ok().map_or(0, |count| count as usize))
-            .unwrap_or_default()
+
+        let Ok(row_count_property) = model.get::<&str, JsFunction>("rowCount") else {
+            eprintln!("Node.js: JavaScript Model<T> implementation is missing rowCount property");
+            return 0;
+        };
+
+        let Some(row_count_property_fn) = row_count_property else {
+            eprintln!("Node.js: JavaScript Model<T> implementation's rowCount property is not a callable function");
+            return 0;
+        };
+
+        let Ok(row_count_result) = row_count_property_fn.call_without_args(Some(&model)) else {
+            eprintln!("Node.js: JavaScript Model<T>'s rowCount implementation call failed");
+            return 0;
+        };
+
+        let Ok(row_count_number) = row_count_result.coerce_to_number() else {
+            eprintln!("Node.js: JavaScript Model<T>'s rowCount function returned a value that cannot be coerced to a number");
+            return 0;
+        };
+
+        let Ok(row_count) = row_count_number.get_uint32() else {
+            eprintln!("Node.js: JavaScript Model<T>'s rowCount function returned a number that cannot be mapped to a uint32");
+            return 0;
+        };
+
+        row_count as usize
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
         let model: Object = self.js_impl.get().unwrap();
-        let row_data_fn = model
-            .get::<&str, JsFunction>("rowData")
-            .expect("Node.js: JavaScript Model<T> implementation is missing rowData property")
-            .expect("Node.js: Model<T> implementation's rowData property is not a function");
-        let row_data = row_data_fn
+        let Ok(row_data_property) = model.get::<&str, JsFunction>("rowData") else {
+            eprintln!("Node.js: JavaScript Model<T> implementation is missing rowData property");
+            return None;
+        };
+
+        let Some(row_data_fn) = row_data_property else {
+            eprintln!("Node.js: Model<T> implementation's rowData property is not a function");
+            return None;
+        };
+
+        let Ok(row_data) = row_data_fn
             .call::<JsNumber>(Some(&model), &[self.env.create_double(row as f64).unwrap()])
-            .expect("Node.js: JavaScript Model<T>'s rowData function threw an exception");
+        else {
+            eprintln!("Node.js: JavaScript Model<T>'s rowData function threw an exception");
+            return None;
+        };
+
         if row_data.get_type().unwrap() == ValueType::Undefined {
             debug_assert!(row >= self.row_count());
             None
         } else {
-            Some(to_value(&self.env, row_data, &self.row_data_type).expect("Node.js: JavaScript Model<T>'s rowData function returned data type that cannot be represented in Rust"))
+            let Ok(js_value) = to_value(&self.env, row_data, &self.row_data_type) else {
+                eprintln!("Node.js: JavaScript Model<T>'s rowData function returned data type that cannot be represented in Rust");
+                return None;
+            };
+            Some(js_value)
         }
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
         let model: Object = self.js_impl.get().unwrap();
-        let set_row_data_fn = model
-            .get::<&str, JsFunction>("setRowData")
-            .expect("Node.js: JavaScript Model<T> implementation is missing setRowData property")
-            .expect("Node.js: Model<T> implementation's setRowData property is not a function");
-        set_row_data_fn
-            .call::<JsUnknown>(
-                Some(&model),
-                &[
-                    self.env.create_double(row as f64).unwrap().into_unknown(),
-                    to_js_unknown(&self.env, &data).unwrap(),
-                ],
-            )
-            .expect("Node.js: JavaScript Model<T>'s setRowData function threw an exception");
+
+        let Ok(set_row_data_property) = model.get::<&str, JsFunction>("setRowData") else {
+            eprintln!("Node.js: JavaScript Model<T> implementation is missing setRowData property");
+            return;
+        };
+
+        let Some(set_row_data_fn) = set_row_data_property else {
+            eprintln!("Node.js: Model<T> implementation's setRowData property is not a function");
+            return;
+        };
+
+        let Ok(js_data) = to_js_unknown(&self.env, &data) else {
+            eprintln!("Node.js: Model<T>'s set_row_data called by Rust with data type that can't be represented in JavaScript");
+            return;
+        };
+
+        if let Err(exception) = set_row_data_fn.call::<JsUnknown>(
+            Some(&model),
+            &[self.env.create_double(row as f64).unwrap().into_unknown(), js_data],
+        ) {
+            eprintln!(
+                "Node.js: JavaScript Model<T>'s setRowData function threw an exception: {}",
+                exception
+            );
+        }
     }
 
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
