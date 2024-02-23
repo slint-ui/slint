@@ -113,7 +113,7 @@ cpp! {{
             });
         }
 
-        void resizeEvent(QResizeEvent *event) override {
+        void resizeEvent(QResizeEvent *) override {
             if (!rust_window)
                 return;
 
