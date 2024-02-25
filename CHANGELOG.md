@@ -3,11 +3,51 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## Unreleased
+## 1.5.0 - Unreleased
+
+## General
+
+ - Added support for android via the `backend-android-activity-05` feature.
+ - Added API for maximized/minimized window.
+ - TextInput: Added undo/redo support.
+ - ListView: Fixed redraw when model changes. (#4538)
+ - Disabled Qt backend by default on Windows and Mac even when Qt is found.
+ - Qt: Explicitly hide PopupWindow instead of relying of destructor.
 
 ### Slint Language
 
-- Fixed edited callback of SpinBox for cupertino and material style
+ - Rectangle: Added `border-{top,bottom}-{left,right}-radius`
+ - Image: Added `ImageFit.preserve`
+ - Image: Added `horizontal-` and `vertical-alignment`
+ - Image: Added support for 9 slice scaling
+
+### Widgets
+
+ - Fixed edited callback of SpinBox for Cupertino and Material style.
+
+### Rust
+
+ - Fixed ReverseModel and FilterModel model not always forwarding notification correctly.
+ - Re-export more type in the slint-interpreter crate.
+ - Added `SharedVector::pop`.
+ - Use const generics for construction of SharedVector from array.
+
+### C++
+
+ - Fixed binary package that used to require Qt.
+ - Added `Window::set_fullscreen`.
+ - Fixed error in generated code when struct or enum has an underscore. (#4659)
+ - Added `slint::interpreter::ComponentCompiler::set_translation_domain`.
+
+### JavaScript
+
+ - Fixed MapModel rowData() calling map function even if the source model returned undefined.
+ - Better error reporting when the backend cannot be created.
+
+### LSP
+
+ - Added support for code formatting.
+ - Sort properties first in auto-completion.
 
 ## [1.4.1] - 2024-02-02
 
