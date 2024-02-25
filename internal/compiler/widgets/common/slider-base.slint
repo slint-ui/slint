@@ -20,6 +20,7 @@ export component SliderBase {
     in-out property <float> value: 0;
 
     callback changed(/* value */ float);
+    callback released(/* value */ float);
 
     private property <length> ref-size: !root.vertical ? root.handle-width : root.handle-height;
 
@@ -30,6 +31,10 @@ export component SliderBase {
 
         width: 100%;
         height: 100%;
+
+        clicked => {
+            released(root.value);
+        }
 
         pointer-event(event) => {
             if (event.button != PointerEventButton.left) {
