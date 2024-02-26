@@ -17,15 +17,10 @@ use crate::common::{
     PreviewComponent, PreviewConfig, Result, VersionedUrl,
 };
 use crate::util::{
-    find_element_indent, lookup_current_element_type, map_node, map_position, map_range, map_token,
-    to_lsp_diag,
+    find_element_indent, lookup_current_element_type, map_node, map_range, map_token, to_lsp_diag,
 };
-
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
-use crate::ServerNotifier;
-
-use i_slint_compiler::diagnostics::SourceFile;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::pathutils::clean_path;
@@ -89,10 +84,11 @@ fn create_show_preview_command(
     )
 }
 
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn notify_preview_about_text_edit(
-    server_notifier: &ServerNotifier,
+    server_notifier: &crate::ServerNotifier,
     edit: &TextEdit,
-    source_file: &SourceFile,
+    source_file: &i_slint_compiler::diagnostics::SourceFile,
 ) {
     let new_length = edit.new_text.len() as u32;
     let (start_offset, end_offset) = {
@@ -114,7 +110,7 @@ pub fn notify_preview_about_text_edit(
     });
 }
 
-#[cfg(feature = "preview-external")]
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn request_state(ctx: &std::rc::Rc<Context>) {
     use i_slint_compiler::diagnostics::Spanned;
 
@@ -127,10 +123,6 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
                 continue; // The preview knows these, too.
             }
             let Ok(url) = Url::from_file_path(p) else {
-                i_slint_core::debug_log!(
-                    "Could not sent contents of file {p:?}: NOT AN URL (request state!)"
-                );
-
                 continue;
             };
             ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
@@ -1381,6 +1373,7 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
     Ok(())
 }
 
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn add_component(
     ctx: &Context,
     component: crate::common::ComponentAddition,
@@ -1410,7 +1403,7 @@ pub fn add_component(
 
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
 
-    let ip = map_position(&source_file, component.insert_position.offset().into());
+    let ip = crate::util::map_position(&source_file, component.insert_position.offset().into());
     edits.push(TextEdit {
         range: lsp_types::Range::new(ip.clone(), ip),
         new_text: component.component_text,
@@ -1420,6 +1413,7 @@ pub fn add_component(
         .ok_or("Could not create workspace edit".into())
 }
 
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn update_element(
     ctx: &Context,
     position: crate::common::VersionedPosition,
@@ -1443,7 +1437,7 @@ pub fn update_element(
         .as_ref()
         .map(|n| n.source_file.clone())
         .ok_or_else(|| "Document had no node".to_string())?;
-    let element_position = map_position(&source_file, position.offset().into());
+    let element_position = crate::util::map_position(&source_file, position.offset().into());
 
     let element = element_at_position(&mut document_cache, &position.url(), &element_position)
         .ok_or_else(|| {

@@ -677,6 +677,7 @@ pub(crate) fn set_binding(
     }
 }
 
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub(crate) fn set_bindings(
     document_cache: &mut DocumentCache,
     uri: &lsp_types::Url,
