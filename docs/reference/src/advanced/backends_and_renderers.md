@@ -120,3 +120,19 @@ issues we're aware of and how to resolve them.
 
   For example, if you're building against a Yocto SDK, then you can find these flags in the
   `OECORE_TUNE_CCARGS` environment variable.
+
+* Compilation error when linking on Windows
+
+  You may see compiler errors that contain this message:
+
+  ```
+   error: linking with `link.exe` failed: exit code: 1120
+   |
+   ...
+  = note: skunicode.lib(icu.SkLoadICU.obj) : error LNK2019: unresolved external symbol __std_init_once_begin_initialize_clr referenced in function "bool __cdecl SkLoadICU(void)" (?SkLoadICU@@YA_NXZ)
+   ...
+    skia.lib(skia.SkNWayCanvas.obj) : error LNK2001: unresolved external symbol __std_find_trivial_8
+  ```
+
+  The Skia build requires the use of Microsoft Visual Studio 2022 as compiler. Make sure to have the latest patches
+  to the compiler installed.
