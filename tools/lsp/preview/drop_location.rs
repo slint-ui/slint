@@ -4,12 +4,12 @@
 use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use slint_interpreter::ComponentInstance;
 
-use crate::preview::element_selection::collect_all_element_nodes_covering;
-
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
-use super::element_selection::ElementRcNode;
+use super::element_selection::{
+    collect_all_element_nodes_covering, is_root_element_node, ElementRcNode,
+};
 
 pub struct DropInformation {
     pub target_element_node: ElementRcNode,
@@ -29,6 +29,17 @@ fn find_drop_location(
             };
 
             if en.with_element_node(|n| super::is_element_node_ignored(n)) {
+                continue;
+            }
+
+            if !super::element_selection::is_same_file_as_root_node(&component_instance, &en) {
+                continue;
+            }
+
+            if en.with_element_node(|n| {
+                n.child_node(i_slint_compiler::parser::SyntaxKind::ChildrenPlaceholder).is_some()
+            }) && !is_root_element_node(&component_instance, &en)
+            {
                 continue;
             }
 
