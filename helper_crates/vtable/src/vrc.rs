@@ -106,7 +106,7 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> Drop for VRc<VTable, X> {
                 let data =
                     (inner as *mut u8).add(*core::ptr::addr_of!((*inner).data_offset) as usize);
                 let vtable = core::ptr::addr_of!((*inner).vtable);
-                let mut layout = VTable::drop_in_place(&*vtable, data);
+                let mut layout = VTable::drop_in_place(*vtable, data);
                 layout = core::alloc::Layout::new::<VRcInner<VTable, ()>>()
                     .extend(layout.try_into().unwrap())
                     .unwrap()
@@ -121,7 +121,7 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> Drop for VRc<VTable, X> {
                         as *mut Layout) = layout;
                 }
                 if (*core::ptr::addr_of!((*inner).weak_ref)).fetch_sub(1, Ordering::SeqCst) == 1 {
-                    VTable::dealloc(&*vtable, self.inner.cast().as_ptr(), layout);
+                    VTable::dealloc(*vtable, self.inner.cast().as_ptr(), layout);
                 }
             }
         }
