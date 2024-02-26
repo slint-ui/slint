@@ -51,7 +51,7 @@ i-slint-common = { workspace = true, features = ["default"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
-vtable = { version = "0.1.9", path = "../../helper_crates/vtable" }
+vtable = { workspace = true }
 
 portable-atomic = { version = "1", features = ["critical-section"] }
 auto_enums = "0.8.0"
