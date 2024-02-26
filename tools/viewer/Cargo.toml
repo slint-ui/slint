@@ -56,8 +56,6 @@ i-slint-core = { workspace = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility"] }
 i-slint-backend-selector = { workspace = true }
 
-vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
-
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 codemap = "0.1"
 codemap-diagnostic = "0.1.1"

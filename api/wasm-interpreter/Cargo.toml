@@ -20,7 +20,7 @@ crate-type = ["cdylib"]
 slint-interpreter = { workspace = true, features = ["std", "backend-winit", "renderer-femtovg", "compat-1-2", "internal"] }
 send_wrapper = { workspace = true }
 
-vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
+vtable = { workspace = true }
 
 console_error_panic_hook = { version = "0.1.6", optional = true }
 js-sys = "0.3.44"

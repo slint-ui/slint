@@ -3,6 +3,10 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
+## [0.2.0]
+
+ - Make `Dyn` not Send or Sync, thereby fixing a soundness hole
+
 ## [0.1.12] - 2024-02-26
 
  - Fix error reported by miri

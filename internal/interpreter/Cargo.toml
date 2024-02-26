@@ -117,7 +117,7 @@ i-slint-common = { workspace = true }
 i-slint-core = { workspace = true, features = ["default", "rtti"] }
 i-slint-backend-selector = { workspace = true, features = ["rtti"] }
 
-vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
+vtable = { workspace = true }
 
 derive_more = "0.99.5"
 generativity = "1"

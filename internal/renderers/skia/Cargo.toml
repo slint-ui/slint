@@ -32,7 +32,7 @@ i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default"] }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
-vtable = { version = "0.1.6", path = "../../../helper_crates/vtable" }
+vtable = { workspace = true }
 
 cfg-if = "1"
 derive_more = "0.99.5"

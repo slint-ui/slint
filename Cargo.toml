@@ -124,6 +124,8 @@ slint-cpp = { version = "=1.5.0", path = "api/cpp", default-features = false }
 slint-interpreter = { version = "=1.5.0", path = "internal/interpreter", default_features = false }
 slint-macros = { version = "=1.5.0", path = "api/rs/macros", default-features = false }
 
+vtable = { version = "0.2", path = "helper_crates/vtable", default-features = false }
+
 bytemuck = { version = "1.13.1" }
 cbindgen = { version = "0.26", default-features = false }
 css-color-parser2 = { version = "1.0.1" }
