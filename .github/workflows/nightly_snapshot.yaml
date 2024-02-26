@@ -506,3 +506,8 @@ jobs:
               run: |
                   . ${IDF_PATH}/export.sh
                   idf.py build      
+    
+    qa-tree-sitter-latest:
+        uses: ./.github/workflows/tree_sitter.yaml
+        with:
+          latest: true
