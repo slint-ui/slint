@@ -263,6 +263,7 @@ impl EventLoopState {
                 // trigger a resize event. We need to update the internal window
                 // state to match the actual window state. We simulate a "window
                 // state event" since there is not an official event for it yet.
+                // Because we don't always get a Resized event (eg, minimized), also handle Occluded
                 // See: https://github.com/rust-windowing/winit/issues/2334
                 window.window_state_event();
             }
@@ -427,6 +428,9 @@ impl EventLoopState {
             }
             WindowEvent::Occluded(x) => {
                 window.renderer.occluded(x);
+
+                // In addition to the hack done for WindowEvent::Resize, also do it for Occluded so we handle Minimized change
+                window.window_state_event();
             }
             _ => {}
         }
