@@ -25,6 +25,7 @@ pyo3 = { version = "0.20.0", features = ["extension-module", "indexmap", "chrono
 indexmap = { version = "2.1.0" }
 chrono = "0.4"
 spin_on = "0.1"
+css-color-parser2 = { workspace = true }
 
 [package.metadata.maturin]
 python-source = "slint"

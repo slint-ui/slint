@@ -43,7 +43,9 @@ impl<'a> ToPyObject for PyValueRef<'a> {
                 .map(|(name, val)| (name.to_string().into_py(py), PyValueRef(val).into_py(py)))
                 .into_py_dict(py)
                 .into_py(py),
-            slint_interpreter::Value::Brush(_) => todo!(),
+            slint_interpreter::Value::Brush(brush) => {
+                crate::brush::PyBrush::from(brush.clone()).into_py(py)
+            }
             _ => todo!(),
         }
     }
@@ -65,6 +67,10 @@ impl FromPyObject<'_> for PyValue {
             .or_else(|_| {
                 ob.extract::<PyRef<'_, crate::image::PyImage>>()
                     .map(|pyimg| slint_interpreter::Value::Image(pyimg.image.clone()))
+            })
+            .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::brush::PyBrush>>()
+                    .map(|pybrush| slint_interpreter::Value::Brush(pybrush.brush.clone()))
             })
             .or_else(|_| {
                 ob.extract::<&PyDict>().and_then(|dict| {
