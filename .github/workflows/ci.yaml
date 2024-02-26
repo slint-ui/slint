@@ -460,7 +460,7 @@ jobs:
             - name: Run the intepreter test to make sure that the test are passing after format
               run: cargo test -p test-driver-interpreter
 
-    esp-idf:
+    esp-idf-quick:
         runs-on: ubuntu-22.04
         container: espressif/idf:release-v5.2
         steps:
@@ -478,24 +478,7 @@ jobs:
               run: |
                   . ${IDF_PATH}/export.sh
                   idf.py build
-            - name: Build and Test Carousel example s3 box
-              shell: bash
-              working-directory: examples/carousel/esp-idf/s3-box
-              run: |
-                  . ${IDF_PATH}/export.sh
-                  idf.py build
-            - name: Build and Test Carousel example s3 usb otg
-              shell: bash
-              working-directory: examples/carousel/esp-idf/s3-usb-otg
-              run: |
-                  . ${IDF_PATH}/export.sh
-                  idf.py build
-            - name: Build and Test Carousel example s2 kaluga kit
-              shell: bash
-              working-directory: examples/carousel/esp-idf/s2-kaluga-kit
-              run: |
-                  . ${IDF_PATH}/export.sh
-                  idf.py build
+
     android:
         runs-on: ubuntu-latest
         steps:
