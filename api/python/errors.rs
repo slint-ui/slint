@@ -100,3 +100,17 @@ impl From<slint_interpreter::LoadImageError> for PyLoadImageError {
         Self(err)
     }
 }
+
+pub struct PyColorParseError(pub css_color_parser2::ColorParseError);
+
+impl From<PyColorParseError> for PyErr {
+    fn from(err: PyColorParseError) -> Self {
+        pyo3::exceptions::PyRuntimeError::new_err(err.0.to_string())
+    }
+}
+
+impl From<css_color_parser2::ColorParseError> for PyColorParseError {
+    fn from(err: css_color_parser2::ColorParseError) -> Self {
+        Self(err)
+    }
+}

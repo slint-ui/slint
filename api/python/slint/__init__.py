@@ -3,10 +3,14 @@
 
 from . import slint as native
 
+
 def load_file(path):
     compiler = native.ComponentCompiler()
     compdef = compiler.build_from_path(path)
     instance = compdef.create()
-    return instance    
+    return instance
+
 
 Image = native.PyImage
+Color = native.PyColor
+Brush = native.PyBrush
