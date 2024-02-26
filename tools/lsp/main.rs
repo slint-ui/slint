@@ -14,7 +14,7 @@ pub mod lsp_ext;
 mod preview;
 pub mod util;
 
-use common::{LspToPreviewMessage, PreviewToLspMessage, Result, VersionedUrl};
+use common::{LspToPreviewMessage, Result, VersionedUrl};
 use language::*;
 
 use i_slint_compiler::CompilerConfiguration;
@@ -96,6 +96,7 @@ pub struct ServerNotifier {
     sender: crossbeam_channel::Sender<Message>,
     queue: OutgoingRequestQueue,
     use_external_preview: std::cell::Cell<bool>,
+    #[cfg(feature = "preview-engine")]
     preview_to_lsp_sender: crossbeam_channel::Sender<crate::common::PreviewToLspMessage>,
 }
 
@@ -146,7 +147,8 @@ impl ServerNotifier {
         }
     }
 
-    pub fn send_message_to_lsp(&self, message: PreviewToLspMessage) {
+    #[cfg(feature = "preview-engine")]
+    pub fn send_message_to_lsp(&self, message: common::PreviewToLspMessage) {
         let _ = self.preview_to_lsp_sender.send(message);
     }
 }
@@ -250,6 +252,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     register_request_handlers(&mut rh);
 
     let request_queue = OutgoingRequestQueue::default();
+    #[cfg_attr(not(feature = "preview-engine"), allow(unused))]
     let (preview_to_lsp_sender, preview_to_lsp_receiver) =
         crossbeam_channel::unbounded::<crate::common::PreviewToLspMessage>();
 
@@ -257,6 +260,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         sender: connection.sender.clone(),
         queue: request_queue.clone(),
         use_external_preview: Default::default(),
+        #[cfg(feature = "preview-engine")]
         preview_to_lsp_sender,
     };
 
@@ -277,10 +281,6 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
                         url: VersionedUrl::new(url, None),
                         contents: contents.clone(),
                     })
-                } else {
-                    i_slint_core::debug_log!(
-                        "Could not sent contents of file {path:?}: NOT AN URL"
-                    );
                 }
             }
             Some(contents)
@@ -342,9 +342,10 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
                     }
                 }
              },
-             recv(preview_to_lsp_receiver) -> msg => {
-                 // Messages from the native preview come in here:
-                 futures.push(Box::pin(handle_preview_to_lsp_message(msg?, &ctx)))
+             recv(preview_to_lsp_receiver) -> _msg => {
+                // Messages from the native preview come in here:
+                #[cfg(feature = "preview-engine")]
+                futures.push(Box::pin(handle_preview_to_lsp_message(_msg?, &ctx)))
              },
         };
 
@@ -397,7 +398,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
         }
 
         // Messages from the WASM preview come in as notifications sent by the "editor":
-        #[cfg(all(feature = "preview-external", feature = "preview-engine"))]
+        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         "slint/preview_to_lsp" => {
             handle_preview_to_lsp_message(serde_json::from_value(req.params)?, ctx).await
         }
@@ -405,6 +406,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
     }
 }
 
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 async fn handle_preview_to_lsp_message(
     message: crate::common::PreviewToLspMessage,
     ctx: &Rc<Context>,

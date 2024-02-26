@@ -9,6 +9,7 @@ use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util::map_position;
 use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::parser::{syntax_nodes::Element, SyntaxKind};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use i_slint_core::model::VecModel;
@@ -410,11 +411,8 @@ pub fn load_preview(preview_component: PreviewComponent) {
                         .element_at_source_code_position(&se.path, se.offset)
                         .first()
                     {
-                        if let Some((node, _)) = element
-                            .borrow()
-                            .debug
-                            .iter()
-                            .find(|n| !crate::common::is_element_node_ignored(&n.0))
+                        if let Some((node, _)) =
+                            element.borrow().debug.iter().find(|n| !is_element_node_ignored(&n.0))
                         {
                             let sf = &node.source_file;
                             let pos = map_position(sf, se.offset.into());
@@ -465,8 +463,7 @@ async fn reload_preview_impl(
     let compiled = if let Some((_, mut from_cache)) = get_url_from_cache(&component.url) {
         if let Some(component_name) = &component.component {
             from_cache = format!(
-                "{from_cache}\nexport component _SLINT_LivePreview inherits {component_name} {{ /* {} */ }}\n",
-                crate::common::NODE_IGNORE_COMMENT,
+                "{from_cache}\nexport component _SLINT_LivePreview inherits {component_name} {{ /* {NODE_IGNORE_COMMENT} */ }}\n",
             );
         }
         builder.build_from_source(from_cache, path).await
@@ -772,4 +769,18 @@ pub fn lsp_to_preview_message(
             known_components(&url, components);
         }
     }
+}
+
+/// Use this in nodes you want the language server and preview to
+/// ignore a node for code analysis purposes.
+const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
+
+/// Check whether a node is marked to be ignored in the LSP/live preview
+/// using a comment containing `@lsp:ignore-node`
+fn is_element_node_ignored(node: &Element) -> bool {
+    node.children_with_tokens().any(|nt| {
+        nt.as_token()
+            .map(|t| t.kind() == SyntaxKind::Comment && t.text().contains(NODE_IGNORE_COMMENT))
+            .unwrap_or(false)
+    })
 }

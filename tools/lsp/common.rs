@@ -3,10 +3,7 @@
 
 //! Data structures common between LSP and previewer
 
-use i_slint_compiler::{
-    diagnostics::{SourceFile, SourceFileVersion},
-    parser::{syntax_nodes::Element, SyntaxKind},
-};
+use i_slint_compiler::diagnostics::{SourceFile, SourceFileVersion};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
 use std::{collections::HashMap, path::PathBuf};
@@ -17,20 +14,6 @@ pub type UrlVersion = Option<i32>;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
-
-/// Use this in nodes you want the language server and preview to
-/// ignore a node for code analysis purposes.
-pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
-
-/// Check whether a node is marked to be ignored in the LSP/live preview
-/// using a comment containing `@lsp:ignore-node`
-pub fn is_element_node_ignored(node: &Element) -> bool {
-    node.children_with_tokens().any(|nt| {
-        nt.as_token()
-            .map(|t| t.kind() == SyntaxKind::Comment && t.text().contains(NODE_IGNORE_COMMENT))
-            .unwrap_or(false)
-    })
-}
 
 pub fn create_workspace_edit(
     uri: Url,
@@ -108,6 +91,7 @@ pub struct VersionedPosition {
     offset: u32,
 }
 
+#[allow(unused)]
 impl VersionedPosition {
     pub fn new(url: VersionedUrl, offset: u32) -> Self {
         VersionedPosition { url, offset }
@@ -203,6 +187,7 @@ pub struct PropertyChange {
 }
 
 impl PropertyChange {
+    #[allow(unused)]
     pub fn new(name: &str, value: String) -> Self {
         PropertyChange { name: name.to_string(), value }
     }
@@ -256,6 +241,7 @@ impl ComponentInformation {
     }
 }
 
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub mod lsp_to_editor {
     use lsp_types::notification::Notification;
 
@@ -305,7 +291,6 @@ pub mod lsp_to_editor {
         })
     }
 
-    #[cfg(feature = "preview-engine")]
     pub async fn send_show_document_to_editor(
         sender: crate::ServerNotifier,
         file: lsp_types::Url,

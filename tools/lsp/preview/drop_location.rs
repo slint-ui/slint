@@ -27,7 +27,7 @@ fn find_drop_location(
             .borrow()
             .debug
             .iter()
-            .position(|d| !crate::common::is_element_node_ignored(&d.0))
+            .position(|d| !super::is_element_node_ignored(&d.0))
             .map(|i| (i, sc.element.clone()))
     })?;
 

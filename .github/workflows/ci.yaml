@@ -444,6 +444,7 @@ jobs:
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: 1
             CARGO_PROFILE_DEV_DEBUG: 0
+            RUSTFLAGS: -D warnings
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -451,9 +452,9 @@ jobs:
             - uses: ./.github/actions/setup-rust
             - name: run the formatter
               run: |
-                  cargo run -p slint-lsp -- format -i tests/cases/*/*.slint
-                  cargo run -p slint-lsp -- format -i examples/*/*.slint
-                  cargo run -p slint-lsp -- format -i examples/*/*/*.slint
+                  cargo run -p slint-lsp --no-default-features -- format -i tests/cases/*/*.slint
+                  cargo run -p slint-lsp --no-default-features -- format -i examples/*/*.slint
+                  cargo run -p slint-lsp --no-default-features -- format -i examples/*/*/*.slint
             - name: Show the diff
               run: git diff
             - name: Run the intepreter test to make sure that the test are passing after format

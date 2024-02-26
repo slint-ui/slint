@@ -715,6 +715,7 @@ fn create_import_edit_impl(
 }
 
 /// Creates a text edit
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn create_import_edit(
     document: &i_slint_compiler::object_tree::Document,
     component: &str,
