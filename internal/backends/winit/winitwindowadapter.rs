@@ -488,11 +488,7 @@ impl WindowAdapter for WinitWindowAdapter {
             winit_window.set_window_level(new_window_level);
         }
 
-        // Only set the window as maximized if the window is not already fullscreen
-        if winit_window.fullscreen().is_none() {
-            winit_window.set_maximized(properties.is_maximized());
-        }
-
+        winit_window.set_maximized(properties.is_maximized());
         winit_window.set_minimized(properties.is_minimized());
 
         if width <= 0. || height <= 0. {
