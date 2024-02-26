@@ -27,7 +27,7 @@ impl ElementRcNode {
         Some(Self { element, debug_index })
     }
 
-    pub fn on_element_debug<R>(
+    pub fn with_element_debug<R>(
         &self,
         func: impl Fn(
             &i_slint_compiler::parser::syntax_nodes::Element,
@@ -39,7 +39,7 @@ impl ElementRcNode {
         func(n, l)
     }
 
-    pub fn on_element_node<R>(
+    pub fn with_element_node<R>(
         &self,
         func: impl Fn(&i_slint_compiler::parser::syntax_nodes::Element) -> R,
     ) -> R {
@@ -48,13 +48,13 @@ impl ElementRcNode {
     }
 
     pub fn path_and_offset(&self) -> (PathBuf, u32) {
-        self.on_element_node(|n| {
+        self.with_element_node(|n| {
             (n.source_file.path().to_owned(), u32::from(n.text_range().start()))
         })
     }
 
     pub fn is_layout(&self) -> bool {
-        self.on_element_debug(|_, l| l.is_some())
+        self.with_element_debug(|_, l| l.is_some())
     }
 }
 
@@ -88,7 +88,7 @@ fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
 }
 
 fn lsp_element_node_position(element: &ElementRcNode) -> Option<(String, lsp_types::Range)> {
-    let location = element.on_element_node(|n| {
+    let location = element.with_element_node(|n| {
         n.parent()
             .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
             .map_or_else(
@@ -341,7 +341,7 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
         };
         let (path, offset) = en.path_and_offset();
 
-        if en.on_element_node(|n| super::is_element_node_ignored(n)) {
+        if en.with_element_node(|n| super::is_element_node_ignored(n)) {
             continue;
         }
         if !enter_component && path != root_path {
@@ -401,11 +401,11 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
         };
         let (path, offset) = en.path_and_offset();
 
-        if en.on_element_node(|n| super::is_element_node_ignored(n)) {
+        if en.with_element_node(|n| super::is_element_node_ignored(n)) {
             continue;
         }
 
-        if !enter_component && !en.on_element_node(|n| n.source_file.path() == &root_path) {
+        if !enter_component && !en.with_element_node(|n| n.source_file.path() == &root_path) {
             continue;
         }
 
