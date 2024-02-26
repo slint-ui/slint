@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { Palette, ScrollView, VerticalBox } from "std-widgets.slint";
+import { Palette, ScrollView, VerticalBox, GroupBox } from "std-widgets.slint";
 
 export struct ComponentListSubItem {
     name: string,
@@ -29,59 +29,55 @@ export component ComponentList {
 
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
 
-    ScrollView {
-        VerticalBox {
-            Text {
-                font-weight: 800;
-                text: @tr("Assets");
-            }
+    VerticalBox {
+        Text {
+            text: @tr("Library");
+            horizontal-alignment: center;
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
 
-            for cli in root.known-components: VerticalLayout {
-                Rectangle {
-                    height: title.preferred-height + 10px;
-
-                    background: Palette.alternate-background;
-
-                    title := Text {
-                        font-size: 1.2rem;
-                        font-weight: 800;
-
-                        text: cli.category;
-                    }
-                }
-                for ci in cli.components: TouchArea {
-                    private property <length> drop-x: self.absolute-position.x + self.mouse-x - root.preview-area-position-x;
-                    private property <length> drop-y: self.absolute-position.y + self.mouse-y - root.preview-area-position-y;
-
-                    private property <bool> on-drop-area:
-                        drop-x >= 0 && drop-x <= root.preview-area-width &&
-                        drop-y >= 0 && drop-y <= root.preview-area-height;
-                    private property <bool> can-drop-here: on-drop-area && root.can-drop(ci.name, drop-x, drop-y);
-
-                    enabled: root.preview-visible;
-
-                    height: name.preferred-height + 10px;
-                    width: 100%;
-
-                    name := Text { text: ci.name; }
-
-                    pointer-event(event) => {
-                        if (self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
-                            root.drop(ci.name, ci.import_file, ci.is_layout, drop-x, drop-y);
+        ScrollView {
+            VerticalLayout {
+                for cli in root.known-components: VerticalLayout {
+                    Rectangle {
+                        height: title.preferred-height + 10px;
+                        background: Palette.alternate-background;
+                        title := Text {
+                            font-size: 1.2rem;
+                            font-weight: 800;
+                            text: cli.category;
                         }
                     }
 
-                    states [
-                        dragging-no-drop when self.pressed && !self.can-drop-here: {
-                            mouse-cursor: MouseCursor.no-drop;
+                    for ci in cli.components: TouchArea {
+                        private property <length> drop-x: self.absolute-position.x + self.mouse-x - root.preview-area-position-x;
+                        private property <length> drop-y: self.absolute-position.y + self.mouse-y - root.preview-area-position-y;
+                        private property <bool> on-drop-area:
+                            drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
+                        private property <bool> can-drop-here: on-drop-area && root.can-drop(ci.name, drop-x, drop-y);
+                        enabled: root.preview-visible;
+                        height: name.preferred-height + 10px;
+                        width: 100%;
+                        name := Text { text: ci.name; }
+
+                        pointer-event(event) => {
+                            if (self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
+                                root.drop(ci.name, ci.import_file, ci.is_layout, drop-x, drop-y);
+                            }
                         }
-                        dragging-can-drop when self.pressed && self.can-drop-here: {
-                            mouse-cursor: MouseCursor.copy;
-                        }
-                        normal when !self.pressed: {
-                            mouse-cursor: MouseCursor.default;
-                        }
-                    ]
+                        states [
+                            dragging-no-drop when self.pressed && !self.can-drop-here: {
+                                mouse-cursor: MouseCursor.no-drop;
+                            }
+                            dragging-can-drop when self.pressed && self.can-drop-here: {
+                                mouse-cursor: MouseCursor.copy;
+                            }
+                            normal when !self.pressed: {
+                                mouse-cursor: MouseCursor.default;
+                            }
+                        ]
+                    }
                 }
             }
         }
