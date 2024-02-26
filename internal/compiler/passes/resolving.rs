@@ -89,7 +89,10 @@ pub fn resolve_expressions(
             visit_element_expressions(elem, |expr, property_name, property_type| {
                 if is_repeated {
                     // The first expression is always the model and it needs to be resolved with the parent scope
-                    debug_assert!(elem.borrow().repeated.as_ref().is_none()); // should be none because it is taken by the visit_element_expressions function
+                    debug_assert!(matches!(
+                        elem.borrow().repeated.as_ref().unwrap().model,
+                        Expression::Invalid
+                    )); // should be Invalid because it is taken by the visit_element_expressions function
                     resolve_expression(
                         expr,
                         property_name,
