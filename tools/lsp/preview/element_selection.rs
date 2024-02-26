@@ -311,18 +311,42 @@ pub fn collect_all_element_nodes_covering(
     elements
 }
 
-pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
-    let Some(component_instance) = super::component_instance() else {
-        return;
-    };
-
+pub fn is_root_element_node(
+    component_instance: &ComponentInstance,
+    element_node: &ElementRcNode,
+) -> bool {
     let root_element = root_element(&component_instance);
     let Some((root_path, root_offset)) = root_element
         .borrow()
         .debug
-        .get(0)
+        .iter()
+        .find(|(n, _)| !super::is_element_node_ignored(n))
         .map(|(n, _)| (n.source_file.path().to_owned(), u32::from(n.text_range().start())))
     else {
+        return false;
+    };
+
+    let (path, offset) = element_node.path_and_offset();
+    path == root_path && offset == root_offset
+}
+
+pub fn is_same_file_as_root_node(
+    component_instance: &ComponentInstance,
+    element_node: &ElementRcNode,
+) -> bool {
+    let root_element = root_element(&component_instance);
+    let Some(root_path) =
+        root_element.borrow().debug.get(0).map(|(n, _)| n.source_file.path().to_owned())
+    else {
+        return false;
+    };
+
+    let (path, _) = element_node.path_and_offset();
+    path == root_path
+}
+
+pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
+    let Some(component_instance) = super::component_instance() else {
         return;
     };
 
@@ -339,15 +363,14 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
         let Some(en) = sc.as_element_node() else {
             continue;
         };
-        let (path, offset) = en.path_and_offset();
 
         if en.with_element_node(|n| super::is_element_node_ignored(n)) {
             continue;
         }
-        if !enter_component && path != root_path {
+        if !enter_component && !is_same_file_as_root_node(&component_instance, &en) {
             continue;
         }
-        if path == root_path && offset == root_offset {
+        if is_root_element_node(&component_instance, &en) {
             continue;
         }
 
@@ -360,16 +383,6 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
     let Some(component_instance) = super::component_instance() else {
         return;
     };
-    let root_element = root_element(&component_instance);
-    let Some((root_path, root_offset)) = root_element
-        .borrow()
-        .debug
-        .get(0)
-        .map(|(n, _)| (n.source_file.path().to_owned(), u32::from(n.text_range().start())))
-    else {
-        return;
-    };
-
     let elements = collect_all_element_nodes_covering(x, y, &component_instance);
 
     let Some(selected_element_data) = super::selected_element() else {
@@ -399,17 +412,16 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
         let Some(en) = sc.as_element_node() else {
             continue;
         };
-        let (path, offset) = en.path_and_offset();
 
         if en.with_element_node(|n| super::is_element_node_ignored(n)) {
             continue;
         }
 
-        if !enter_component && !en.with_element_node(|n| n.source_file.path() == &root_path) {
+        if !enter_component && !is_same_file_as_root_node(&component_instance, &en) {
             continue;
         }
 
-        if path == root_path && offset == root_offset {
+        if is_root_element_node(&component_instance, &en) {
             continue;
         }
 
