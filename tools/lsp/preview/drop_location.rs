@@ -28,7 +28,7 @@ fn find_drop_location(
                 continue;
             };
 
-            if en.on_element_node(|n| super::is_element_node_ignored(n)) {
+            if en.with_element_node(|n| super::is_element_node_ignored(n)) {
                 continue;
             }
 
