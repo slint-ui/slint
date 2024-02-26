@@ -511,3 +511,38 @@ jobs:
         uses: ./.github/workflows/tree_sitter.yaml
         with:
           latest: true
+
+    qa-yocto-build:
+        strategy:
+            matrix:
+                include:
+                    - sdk_url: https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
+                      env_setup: environment-setup-cortexa57-poky-linux
+                      target: aarch64-unknown-linux-gnu
+                    - sdk_url: https://nextcloud.slint.dev/s/BTL5NtLACjgS7Pf/download/poky-glibc-x86_64-core-image-weston-cortexa15t2hf-neon-qemuarm-toolchain-4.0.9.sh
+                      env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
+                      target: armv7-unknown-linux-gnueabihf
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - name: Fetch Yocto SDK
+              run: |
+                  # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
+                  wget -O sdk.sh ${{ matrix.sdk_url }}
+                  chmod +x sdk.sh
+                  ./sdk.sh -d ${{ runner.workspace }}/yocto-sdk -y
+                  rm -f sdk.sh
+            - name: Install Rust
+              uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: stable
+                  target: ${{ matrix.target }}
+            - name: C++ Build
+              run: |
+                  . ${{ runner.workspace }}/yocto-sdk/${{ matrix.env_setup }}
+                  # Only needed for 32-bit arm builds where soft-fp/hard-fp affects header file lookup, hence the need to drag in these flags. See also commit
+                  # f5c3908b7ec5131b7b19ff642b5975660c7484f8
+                  export BINDGEN_EXTRA_CLANG_ARGS=$OECORE_TUNE_CCARGS
+                  mkdir ${{ runner.workspace }}/cppbuild
+                  cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
+                  cmake --build ${{ runner.workspace }}/cppbuild          
