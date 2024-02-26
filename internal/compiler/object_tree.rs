@@ -2036,11 +2036,14 @@ pub fn visit_element_expressions(
         }
     }
 
-    let repeated = std::mem::take(&mut elem.borrow_mut().repeated);
-    if let Some(mut r) = repeated {
-        let is_conditional_element = r.is_conditional_element;
-        vis(&mut r.model, None, &|| if is_conditional_element { Type::Bool } else { Type::Model });
-        elem.borrow_mut().repeated = Some(r)
+    let repeated = elem
+        .borrow_mut()
+        .repeated
+        .as_mut()
+        .map(|r| (std::mem::take(&mut r.model), r.is_conditional_element));
+    if let Some((mut model, is_cond)) = repeated {
+        vis(&mut model, None, &|| if is_cond { Type::Bool } else { Type::Model });
+        elem.borrow_mut().repeated.as_mut().unwrap().model = model;
     }
     visit_element_expressions_simple(elem, &mut vis);
     let mut states = std::mem::take(&mut elem.borrow_mut().states);
