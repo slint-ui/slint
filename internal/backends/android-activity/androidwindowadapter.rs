@@ -25,7 +25,7 @@ pub struct AndroidWindowAdapter {
     pub(crate) dark_color_scheme: core::pin::Pin<Box<Property<bool>>>,
     pub(crate) fullscreen: Cell<bool>,
     /// The offset at which the Slint view is drawn in the native window (account for status bar)
-    pub(crate) offset: Cell<PhysicalPosition>,
+    pub offset: Cell<PhysicalPosition>,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -198,7 +198,7 @@ impl AndroidWindowAdapter {
             ) => self.resize(),
             PollEvent::Main(MainEvent::RedrawNeeded { .. }) => {
                 self.pending_redraw.set(false);
-                self.renderer.render()?;
+                self.do_render()?;
             }
             PollEvent::Main(MainEvent::GainedFocus) => {
                 self.window.dispatch_event(WindowEvent::WindowActiveChanged(true));
@@ -333,6 +333,19 @@ impl AndroidWindowAdapter {
             size: size.to_logical(self.window.scale_factor()),
         });
         self.offset.set(offset);
+    }
+
+    pub fn do_render(&self) -> Result<(), PlatformError> {
+        if let Some(win) = self.app.native_window() {
+            let o = self.offset.get();
+            self.renderer.render_transformed_with_post_callback(
+                0.,
+                (o.x as f32, o.y as f32),
+                PhysicalSize { width: win.width() as _, height: win.height() as _ },
+                None,
+            )?;
+        }
+        Ok(())
     }
 }
 

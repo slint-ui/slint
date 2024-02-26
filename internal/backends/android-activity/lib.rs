@@ -13,7 +13,7 @@ use android_activity::PollEvent;
 pub use android_activity::{self, AndroidApp};
 use androidwindowadapter::AndroidWindowAdapter;
 use core::ops::ControlFlow;
-use i_slint_core::api::{EventLoopError, PhysicalSize, PlatformError};
+use i_slint_core::api::{EventLoopError, PlatformError};
 use i_slint_core::platform::WindowAdapter;
 use i_slint_renderer_skia::SkiaRendererExt;
 use std::cell::RefCell;
@@ -114,15 +114,7 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
                 return Ok(());
             }
             if self.window.pending_redraw.take() {
-                if let Some(win) = self.app.native_window() {
-                    let o = self.window.offset.get();
-                    self.window.renderer.render_transformed_with_post_callback(
-                        0.,
-                        (o.x as f32, o.y as f32),
-                        PhysicalSize { width: win.width() as _, height: win.height() as _ },
-                        None,
-                    )?;
-                }
+                self.window.do_render()?;
             }
         }
     }
