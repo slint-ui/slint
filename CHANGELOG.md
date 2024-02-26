@@ -43,6 +43,8 @@ All notable changes to this project are documented in this file.
 
  - Fixed MapModel rowData() calling map function even if the source model returned undefined.
  - Better error reporting when the backend cannot be created.
+ - Reading model properties now always returns a `Model<T>`, regardless of whether an array was previously assigned.
+ - `Model<T>` now implements `Iterable<T>`.
 
 ### LSP
 
