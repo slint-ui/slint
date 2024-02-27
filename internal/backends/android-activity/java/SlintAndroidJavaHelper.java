@@ -19,14 +19,14 @@ class SlintInputView extends View {
     private String mText = "";
     private int mCursorPosition = 0;
     private int mAnchorPosition = 0;
-    private String mPreedit = "";
-    private int mPreeditOffset;
+    private int mPreeditStart = 0;
+    private int mPreeditEnd = 0;
     private int mInputType = EditorInfo.TYPE_CLASS_TEXT;
-    private SpannableStringBuilder mEditable;
+    private int mInBatch = 0;
+    private boolean mPending = false;
+    private SlintEditable mEditable;
 
     public class SlintEditable extends SpannableStringBuilder {
-        // private SlintInputView mInputView;
-
         public SlintEditable() {
             super(mText);
         }
@@ -34,18 +34,23 @@ class SlintInputView extends View {
         @Override
         public SpannableStringBuilder replace(int start, int end, CharSequence tb, int tbstart, int tbend) {
             super.replace(start, end, tb, tbstart, tbend);
-            mText = toString();
-            mCursorPosition = Selection.getSelectionStart(this);
-            mAnchorPosition = Selection.getSelectionEnd(this);
-            SlintAndroidJavaHelper.updateText(mText, mCursorPosition, mAnchorPosition, "", mCursorPosition);
+            System.out.println("replace '" + toString() + "' mInBatch=" + mInBatch);
+            if (mInBatch == 0) {
+                update();
+            } else {
+                mPending = true;
+            }
             return this;
         }
 
-        @Override
-        public void setSpan(Object what, int start, int end, int flags) {
-            super.setSpan(what, start, end, flags);
+        public void update() {
+            mPending = false;
+            mText = toString();
             mCursorPosition = Selection.getSelectionStart(this);
             mAnchorPosition = Selection.getSelectionEnd(this);
+            mPreeditStart = BaseInputConnection.getComposingSpanStart(this);
+            mPreeditEnd = BaseInputConnection.getComposingSpanEnd(this);
+            SlintAndroidJavaHelper.updateText(mText, mCursorPosition, mAnchorPosition, mPreeditStart, mPreeditEnd);
         }
     }
 
@@ -72,18 +77,33 @@ class SlintInputView extends View {
             public Editable getEditable() {
                 return mEditable;
             }
+
+            @Override
+            public boolean beginBatchEdit() {
+                mInBatch += 1;
+                return super.beginBatchEdit();
+            }
+
+            @Override
+            public boolean endBatchEdit() {
+                mInBatch -= 1;
+                if (mInBatch == 0 && mPending) {
+                    mEditable.update();
+                }
+                return super.endBatchEdit();
+            }
         };
     }
 
-    public void setText(String text, int cursorPosition, int anchorPosition, String preedit, int preeditOffset,
+    public void setText(String text, int cursorPosition, int anchorPosition, int preeditStart, int preeditEnd,
             int inputType) {
         boolean restart = mInputType != inputType || !mText.equals(text) || mCursorPosition != cursorPosition
                 || mAnchorPosition != anchorPosition;
         mText = text;
         mCursorPosition = cursorPosition;
         mAnchorPosition = anchorPosition;
-        mPreedit = preedit;
-        mPreeditOffset = preeditOffset;
+        mPreeditStart = preeditStart;
+        mPreeditEnd = preeditEnd;
         mInputType = inputType;
 
         if (restart) {
@@ -148,12 +168,12 @@ public class SlintAndroidJavaHelper {
         });
     }
 
-    static public native void updateText(String text, int cursorPosition, int anchorPosition, String preedit,
+    static public native void updateText(String text, int cursorPosition, int anchorPosition, int preeditStart,
             int preeditOffset);
 
     static public native void setDarkMode(boolean dark);
 
-    public void set_imm_data(String text, int cursor_position, int anchor_position, String preedit, int preedit_offset,
+    public void set_imm_data(String text, int cursor_position, int anchor_position, int preedit_start, int preedit_end,
             int rect_x, int rect_y, int rect_w, int rect_h, int input_type) {
 
         mActivity.runOnUiThread(new Runnable() {
@@ -164,7 +184,7 @@ public class SlintAndroidJavaHelper {
                 mInputView.setLayoutParams(layoutParams);
                 int selStart = Math.min(cursor_position, anchor_position);
                 int selEnd = Math.max(cursor_position, anchor_position);
-                mInputView.setText(text, selStart, selEnd, preedit, preedit_offset, input_type);
+                mInputView.setText(text, selStart, selEnd, preedit_start, preedit_end, input_type);
             }
         });
     }
