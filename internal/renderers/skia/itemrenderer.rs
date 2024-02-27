@@ -179,10 +179,11 @@ impl<'a> SkiaItemRenderer<'a> {
         });
 
         let skia_image = if let Some(img) = skia_image { img } else { return };
-
-        let fits = if let &i_slint_core::ImageInner::NineSlice(ref nine) = (&item.source()).into() {
+        let source = item.source();
+        let source_size = source.size();
+        let fits = if let &i_slint_core::ImageInner::NineSlice(ref nine) = (&source).into() {
             i_slint_core::graphics::fit9slice(
-                euclid::size2(skia_image.width(), skia_image.height()).cast(),
+                source_size.cast(),
                 nine.1,
                 dest_rect.size,
                 self.scale_factor,
@@ -194,8 +195,7 @@ impl<'a> SkiaItemRenderer<'a> {
             vec![i_slint_core::graphics::fit(
                 item.image_fit(),
                 dest_rect.size,
-                item.source_clip()
-                    .unwrap_or_else(|| euclid::rect(0, 0, skia_image.width(), skia_image.height())),
+                item.source_clip().unwrap_or_else(|| euclid::Rect::from_size(source_size.cast())),
                 self.scale_factor,
                 item.alignment(),
                 tiling,
@@ -208,10 +208,10 @@ impl<'a> SkiaItemRenderer<'a> {
             let dst = to_skia_rect(&PhysicalRect::new(fit.offset, fit.size));
             self.canvas.clip_rect(dst, None, None);
             let src = skia_safe::IRect::from_xywh(
-                fit.clip_rect.origin.x,
-                fit.clip_rect.origin.y,
-                fit.clip_rect.size.width,
-                fit.clip_rect.size.height,
+                skia_image.width() * fit.clip_rect.origin.x / source_size.width as i32,
+                skia_image.height() * fit.clip_rect.origin.y / source_size.height as i32,
+                skia_image.width() * fit.clip_rect.size.width / source_size.width as i32,
+                skia_image.height() * fit.clip_rect.size.height / source_size.height as i32,
             );
 
             let filter_mode: skia_safe::sampling_options::SamplingOptions =
@@ -223,7 +223,12 @@ impl<'a> SkiaItemRenderer<'a> {
 
             if let Some(tiled_offset) = fit.tiled {
                 let matrix = Matrix::translate(((fit.offset.x as i32), (fit.offset.y as i32)))
-                    * Matrix::scale((fit.source_to_target_x, fit.source_to_target_y))
+                    * Matrix::scale((
+                        fit.source_to_target_x * source_size.width as f32
+                            / skia_image.width() as f32,
+                        fit.source_to_target_y * source_size.height as f32
+                            / skia_image.height() as f32,
+                    ))
                     * Matrix::translate((-(tiled_offset.x as i32), -(tiled_offset.y as i32)));
                 if let Some(shader) = skia_image.make_subset(None, &src).and_then(|i| {
                     i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)

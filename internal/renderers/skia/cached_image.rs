@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use crate::PhysicalSize;
 #[cfg(skia_backend_opengl)]
 use i_slint_core::graphics::BorrowedOpenGLTexture;
 use i_slint_core::graphics::{
@@ -53,15 +54,19 @@ pub(crate) fn as_skia_image(
         }
         ImageInner::Svg(svg) => {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-            let target_size = i_slint_core::graphics::fit(
+            let svg_size = svg.size();
+            let fit = i_slint_core::graphics::fit(
                 image_fit,
                 target_size_fn() * scale_factor,
-                IntRect::from_size(svg.size().cast()),
+                IntRect::from_size(svg_size.cast()),
                 scale_factor,
                 Default::default(), // We only care about the size, so alignments don't matter
                 Default::default(),
-            )
-            .size;
+            );
+            let target_size = PhysicalSize::new(
+                svg_size.cast::<f32>().width * fit.source_to_target_x,
+                svg_size.cast::<f32>().height * fit.source_to_target_y,
+            );
             let pixels = match svg.render(Some(target_size.cast())).ok()? {
                 SharedImageBuffer::RGB8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8(_) => unreachable!(),
