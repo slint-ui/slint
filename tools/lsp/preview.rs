@@ -122,13 +122,14 @@ fn drop_component(
     x: f32,
     y: f32,
 ) {
-    if let Some((component, selection_offset)) =
+    if let Some((component, drop_data)) =
         drop_location::drop_at(x, y, component_name.to_string(), import_path.to_string())
     {
         let path = Url::to_file_path(component.insert_position.url()).ok().unwrap_or_default();
         element_selection::select_element_at_source_code_position(
             path,
-            selection_offset,
+            drop_data.selection_offset,
+            drop_data.debug_index,
             is_layout,
             None,
             true,
@@ -400,6 +401,7 @@ pub fn load_preview(preview_component: PreviewComponent) {
             element_selection::select_element_at_source_code_position(
                 se.path.clone(),
                 se.offset,
+                se.debug_index,
                 se.is_layout,
                 None,
                 false,
@@ -528,16 +530,20 @@ pub fn highlight(url: Option<Url>, offset: u32) {
             };
             let elements = component_instance.element_at_source_code_position(&path, offset);
             if let Some(e) = elements.first() {
-                let is_layout = e
-                    .borrow()
-                    .debug
-                    .iter()
-                    .find(|(node, _)| {
-                        node.text_range().contains(offset.into()) && node.source_file.path() == path
-                    })
-                    .map_or(false, |d| d.1.is_some());
+                let Some(debug_index) = e.borrow().debug.iter().position(|(n, _)| {
+                    n.text_range().contains(offset.into()) && n.source_file.path() == path
+                }) else {
+                    return;
+                };
+                let is_layout =
+                    e.borrow().debug.get(debug_index).map_or(false, |(_, l)| l.is_some());
                 element_selection::select_element_at_source_code_position(
-                    path, offset, is_layout, None, false,
+                    path,
+                    offset,
+                    debug_index,
+                    is_layout,
+                    None,
+                    false,
                 );
             } else {
                 element_selection::unselect_element();

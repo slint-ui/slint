@@ -62,6 +62,7 @@ impl ElementRcNode {
 pub struct ElementSelection {
     pub path: PathBuf,
     pub offset: u32,
+    pub debug_index: usize,
     pub instance_index: usize,
     pub is_layout: bool,
 }
@@ -123,6 +124,7 @@ pub fn unselect_element() {
 pub fn select_element_at_source_code_position(
     path: PathBuf,
     offset: u32,
+    debug_index: usize,
     is_layout: bool,
     position: Option<LogicalPoint>,
     notify_editor_about_selection_after_update: bool,
@@ -134,6 +136,7 @@ pub fn select_element_at_source_code_position(
         &component_instance,
         path,
         offset,
+        debug_index,
         is_layout,
         position,
         notify_editor_about_selection_after_update,
@@ -144,6 +147,7 @@ fn select_element_at_source_code_position_impl(
     component_instance: &ComponentInstance,
     path: PathBuf,
     offset: u32,
+    debug_index: usize,
     is_layout: bool,
     position: Option<LogicalPoint>,
     notify_editor_about_selection_after_update: bool,
@@ -157,7 +161,7 @@ fn select_element_at_source_code_position_impl(
         .unwrap_or_default();
 
     super::set_selected_element(
-        Some(ElementSelection { path, offset, instance_index, is_layout }),
+        Some(ElementSelection { path, offset, debug_index, instance_index, is_layout }),
         positions,
         notify_editor_about_selection_after_update,
     );
@@ -174,7 +178,7 @@ fn select_element_node(
         component_instance,
         path,
         offset,
-        // FIXME: need to check which one of the node this refer to to know if this is a layout
+        selected_element.debug_index,
         selected_element
             .element
             .borrow()
