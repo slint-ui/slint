@@ -33,6 +33,7 @@ component SelectionFrame {
 
     callback update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
     callback select-behind(/* x */ length, /* y */ length, /* enter component? */ bool, /* same file? */ bool);
+    callback selected-element-delete();
 
     if !selection.is-primary || !experimental: Rectangle {
         x: 0;
@@ -97,6 +98,7 @@ export component DrawArea {
     callback reselect(); // Reselect element e.g. after changing the window size (which may move the element)
     callback unselect();
     callback selected-element-update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
+    callback selected-element-delete();
 
     preferred-height: max(i-preview-area-container.preferred-height, i-preview-area-container.min-height) + 2 * i-scroll-view.border;
     preferred-width: max(i-preview-area-container.preferred-width, i-preview-area-container.min-width) + 2 * i-scroll-view.border;
@@ -210,6 +212,10 @@ export component DrawArea {
                         selection: s;
                         update-geometry(x, y, w, h) => {
                             root.selected-element-update-geometry(x, y, w, h);
+                        }
+
+                        selected-element-delete() => {
+                            root.selected-element-delete();
                         }
 
                         select-behind(x, y, c, f) => { root.select-behind(x, y, c, f); }

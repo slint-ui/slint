@@ -143,18 +143,32 @@ fn drop_component(
 }
 
 // triggered from the UI, running in UI thread
-fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) {
-    let Some(selected) = PREVIEW_STATE.with(move |preview_state| {
-        let preview_state = preview_state.borrow();
-        preview_state.selected.clone()
-    }) else {
+fn delete_selected_element() {
+    let Some(selected) = selected_element() else {
         return;
     };
 
-    let Some(selected_element_struct) = selected_element() else {
+    let Ok(url) = Url::from_file_path(&selected.path) else {
         return;
     };
-    let Some(selected_element) = selected_element_struct.as_element() else {
+
+    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    let Some((version, _)) = cache.source_code.get(&url).cloned() else {
+        return;
+    };
+
+    send_message_to_lsp(crate::common::PreviewToLspMessage::RemoveElement {
+        label: Some("Deleting element".to_string()),
+        position: VersionedPosition::new(VersionedUrl::new(url, version), selected.offset),
+    });
+}
+
+// triggered from the UI, running in UI thread
+fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) {
+    let Some(selected) = selected_element() else {
+        return;
+    };
+    let Some(selected_element) = selected.as_element() else {
         return;
     };
     let Some(component_instance) = component_instance() else {
@@ -182,27 +196,32 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
         })
         .unwrap_or_default();
 
-    let properties = {
+    let (properties, op) = {
         let mut p = Vec::with_capacity(4);
+        let mut op = "";
         if geometry.origin.x != x {
             p.push(crate::common::PropertyChange::new(
                 "x",
                 format!("{}px", (x - parent_x).round()),
             ));
+            op = "Moving";
         }
         if geometry.origin.y != y {
             p.push(crate::common::PropertyChange::new(
                 "y",
                 format!("{}px", (y - parent_y).round()),
             ));
+            op = "Moving";
         }
         if geometry.size.width != width {
             p.push(crate::common::PropertyChange::new("width", format!("{}px", width.round())));
+            op = "Resizing";
         }
         if geometry.size.height != height {
             p.push(crate::common::PropertyChange::new("height", format!("{}px", height.round())));
+            op = "Resizing";
         }
-        p
+        (p, op)
     };
 
     if !properties.is_empty() {
@@ -216,6 +235,7 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
         };
 
         send_message_to_lsp(crate::common::PreviewToLspMessage::UpdateElement {
+            label: Some(format!("{op} element")),
             position: VersionedPosition::new(VersionedUrl::new(url, version), selected.offset),
             properties,
         });
