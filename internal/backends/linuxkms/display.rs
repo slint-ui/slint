@@ -19,7 +19,11 @@ pub trait Presenter {
 
 #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg"))]
 pub mod gbmdisplay;
-#[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
+#[cfg(any(
+    feature = "renderer-skia-opengl",
+    feature = "renderer-skia-vulkan",
+    feature = "renderer-software"
+))]
 pub mod swdisplay;
 #[cfg(feature = "renderer-skia-vulkan")]
 pub mod vulkandisplay;

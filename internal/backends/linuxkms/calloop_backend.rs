@@ -99,13 +99,15 @@ impl Backend {
             Some("skia-software") => crate::renderer::skia::SkiaRendererAdapter::new_software,
             #[cfg(feature = "renderer-femtovg")]
             Some("femtovg") => crate::renderer::femtovg::FemtoVGRendererAdapter::new,
-            None => crate::renderer::try_skia_then_femtovg,
+            #[cfg(feature = "renderer-software")]
+            Some("software") => crate::renderer::sw::SoftwareRendererAdapter::new,
+            None => crate::renderer::try_skia_then_femtovg_then_software,
             Some(renderer_name) => {
                 eprintln!(
                     "slint linuxkms backend: unrecognized renderer {}, falling back default",
                     renderer_name
                 );
-                crate::renderer::try_skia_then_femtovg
+                crate::renderer::try_skia_then_femtovg_then_software
             }
         };
 

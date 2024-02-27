@@ -8,8 +8,9 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use i_slint_core::api::{LogicalPosition, PhysicalSize as PhysicalWindowSize};
-use i_slint_core::graphics::Image;
+use i_slint_core::graphics::{euclid, Image};
 use i_slint_core::item_rendering::ItemRenderer;
+use i_slint_core::lengths::LogicalRect;
 use i_slint_core::platform::WindowEvent;
 use i_slint_core::slice::Slice;
 use i_slint_core::Property;
@@ -108,6 +109,7 @@ impl FullscreenWindowAdapter {
                 self.rotation,
                 &|item_renderer| {
                     if let Some(mouse_position) = mouse_position.get() {
+                        let cursor_image = mouse_cursor_image();
                         item_renderer.save_state();
                         item_renderer.translate(
                             i_slint_core::lengths::logical_point_from_api(mouse_position)
@@ -115,6 +117,11 @@ impl FullscreenWindowAdapter {
                         );
                         item_renderer.draw_image_direct(mouse_cursor_image());
                         item_renderer.restore_state();
+                        let cursor_rect = LogicalRect::new(
+                            euclid::point2(mouse_position.x, mouse_position.y),
+                            euclid::Size2D::from_untyped(cursor_image.size().cast()),
+                        );
+                        self.renderer.as_core_renderer().mark_dirty_region(cursor_rect.to_box2d());
                     }
                 },
                 Box::new({

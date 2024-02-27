@@ -351,6 +351,33 @@ impl SoftwareRenderer {
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
     /// in the window frame of reference. It affected by the screen rotation.
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
+        self.render_with_post_render_callback(buffer, pixel_stride, None)
+    }
+
+    /// Render the window to the given frame buffer.
+    ///
+    /// The renderer uses a cache internally and will only render the part of the window
+    /// which are dirty. The `extra_draw_region` is an extra regin which will also
+    /// be rendered. (eg: the previous dirty region in case of double buffering)
+    /// This function returns the region that was rendered.
+    ///
+    /// The pixel_stride is the size, in pixel, between two line in the buffer
+    /// The buffer needs to be big enough to contain the window, so its size must be at least
+    /// `pixel_stride * height`, or `pixel_stride * width` if the screen is rotated by 90°.
+    ///
+    /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
+    /// in the window frame of reference. It affected by the screen rotation.
+    ///
+    /// After the rendering of the scene is complete, the optional post_render_callback
+    /// will be invoked, which provides the caller with access to the ItemRenderer, to render
+    /// additional content.
+    #[doc(hidden)]
+    pub fn render_with_post_render_callback(
+        &self,
+        buffer: &mut [impl TargetPixel],
+        pixel_stride: usize,
+        post_render_callback: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> PhysicalRegion {
         let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
         else {
             return Default::default();
@@ -433,6 +460,10 @@ impl SoftwareRenderer {
                         &mut renderer,
                         *origin,
                     );
+                }
+
+                if let Some(cb) = post_render_callback.as_ref() {
+                    cb(&mut renderer)
                 }
 
                 if let Some(metrics) = &self.rendering_metrics_collector {
@@ -2291,8 +2322,21 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    fn draw_image_direct(&mut self, _image: crate::graphics::Image) {
-        todo!()
+    fn draw_image_direct(&mut self, image: crate::graphics::Image) {
+        let image_size = image.size();
+        let target_width = LogicalLength::new(image_size.width as _);
+        let target_height = LogicalLength::new(image_size.height as _);
+
+        self.draw_image_impl(
+            LogicalRect::new(
+                Default::default(),
+                LogicalSize::from_lengths(target_width, target_height),
+            ),
+            &image,
+            IntRect::new(Default::default(), image_size.cast()),
+            ImageFit::Fill,
+            Color::default(),
+        )
     }
 
     fn window(&self) -> &crate::window::WindowInner {
