@@ -3,6 +3,13 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.6.0] - Unreleased
+
+## Slint Language
+
+ - Palette: Added `color-scheme` in-out property for accessing the
+   style's color scheme.
+
 ## [1.5.1] - 2024-03-20
 
  - Fix clipping with a border-radius. (#4854)

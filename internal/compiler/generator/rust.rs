@@ -2538,9 +2538,9 @@ fn compile_builtin_function_call(
                 sp::Color::from_argb_u8(a, r, g, b)
             })
         }
-        BuiltinFunction::DarkColorScheme => {
+        BuiltinFunction::ColorScheme => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).dark_color_scheme())
+            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).color_scheme())
         }
         BuiltinFunction::TextInputFocused => {
             let window_adapter_tokens = access_window_adapter_field(ctx);

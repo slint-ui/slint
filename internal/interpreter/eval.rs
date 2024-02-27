@@ -5,7 +5,7 @@ use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_item_tree::InstanceRef;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
-use corelib::items::{ItemRef, PropertyAnimation};
+use corelib::items::{ColorScheme, ItemRef, PropertyAnimation};
 use corelib::model::{Model, ModelRc};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
@@ -884,13 +884,12 @@ fn call_builtin_function(
             let a: u8 = (255. * a).max(0.).min(255.) as u8;
             Value::Brush(Brush::SolidColor(Color::from_argb_u8(a, r, g, b)))
         }
-        BuiltinFunction::DarkColorScheme => match local_context.component_instance {
-            ComponentInstance::InstanceRef(component) => Value::Bool(
-                component
-                    .window_adapter()
-                    .internal(corelib::InternalToken)
-                    .map_or(false, |x| x.dark_color_scheme()),
-            ),
+        BuiltinFunction::ColorScheme => match local_context.component_instance {
+            ComponentInstance::InstanceRef(component) => component
+                .window_adapter()
+                .internal(corelib::InternalToken)
+                .map_or(ColorScheme::Unknown, |x| x.color_scheme())
+                .into(),
             ComponentInstance::GlobalComponent(_) => {
                 panic!("Cannot get the window from a global component")
             }

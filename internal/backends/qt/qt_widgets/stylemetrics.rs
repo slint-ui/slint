@@ -3,7 +3,7 @@
 
 // cSpell: ignore deinit
 
-use i_slint_core::items::LayoutAlignment;
+use i_slint_core::items::{ColorScheme, LayoutAlignment};
 
 use super::*;
 
@@ -44,7 +44,7 @@ pub struct NativeStyleMetrics {
     pub placeholder_color: Property<Color>,
     pub placeholder_color_disabled: Property<Color>,
 
-    pub dark_color_scheme: Property<bool>,
+    pub color_scheme: Property<ColorScheme>,
 
     // Tab Bar metrics:
     pub tab_bar_alignment: Property<LayoutAlignment>,
@@ -73,7 +73,7 @@ impl NativeStyleMetrics {
             textedit_text_color_disabled: Default::default(),
             placeholder_color: Default::default(),
             placeholder_color_disabled: Default::default(),
-            dark_color_scheme: Default::default(),
+            color_scheme: Default::default(),
             tab_bar_alignment: Default::default(),
             style_change_listener: core::cell::Cell::new(core::ptr::null()),
         })
@@ -155,12 +155,17 @@ impl NativeStyleMetrics {
         });
         self.placeholder_color_disabled.set(Color::from_argb_encoded(placeholder_color_disabled));
 
-        self.dark_color_scheme.set(
-            (window_background.red() as u32
+        self.color_scheme.set(
+            if (window_background.red() as u32
                 + window_background.green() as u32
                 + window_background.blue() as u32)
                 / 3
-                < 128,
+                < 128
+            {
+                ColorScheme::Dark
+            } else {
+                ColorScheme::Light
+            },
         );
 
         let tab_bar_alignment = cpp!(unsafe[] -> u32 as "uint32_t" {

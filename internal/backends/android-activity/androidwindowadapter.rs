@@ -6,6 +6,7 @@ use crate::javahelper::{print_jni_error, JavaHelper};
 use android_activity::input::{InputEvent, KeyAction, Keycode, MotionAction, MotionEvent};
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::api::{LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window};
+use i_slint_core::items::ColorScheme;
 use i_slint_core::platform::{
     Key, PointerEventButton, WindowAdapter, WindowEvent, WindowProperties,
 };
@@ -29,7 +30,7 @@ pub struct AndroidWindowAdapter {
     pub(crate) event_queue: EventQueue,
     pub(crate) pending_redraw: Cell<bool>,
     pub(super) java_helper: JavaHelper,
-    pub(crate) dark_color_scheme: core::pin::Pin<Box<Property<bool>>>,
+    pub(crate) color_scheme: core::pin::Pin<Box<Property<ColorScheme>>>,
     pub(crate) fullscreen: Cell<bool>,
     /// The offset at which the Slint view is drawn in the native window (account for status bar)
     pub offset: Cell<PhysicalPosition>,
@@ -158,16 +159,21 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         });
     }
 
-    fn dark_color_scheme(&self) -> bool {
-        self.dark_color_scheme.as_ref().get()
+    fn color_scheme(&self) -> ColorScheme {
+        self.color_scheme.as_ref().get()
     }
 }
 
 impl AndroidWindowAdapter {
     pub fn new(app: AndroidApp) -> Rc<Self> {
         let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
-        let dark_color_scheme = Box::pin(Property::new(
-            java_helper.dark_color_scheme().unwrap_or_else(|e| print_jni_error(&app, e)),
+        let color_scheme = Box::pin(Property::new(
+            match java_helper.color_scheme().unwrap_or_else(|e| print_jni_error(&app, e)) {
+                0x10 => ColorScheme::Light,  // UI_MODE_NIGHT_NO(0x10)
+                0x20 => ColorScheme::Dark,   // UI_MODE_NIGHT_YES(0x20)
+                0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
+                _ => ColorScheme::Unknown,
+            },
         ));
         Rc::<Self>::new_cyclic(|w| Self {
             app,
@@ -175,7 +181,7 @@ impl AndroidWindowAdapter {
             renderer: SkiaRenderer::default(),
             event_queue: Default::default(),
             pending_redraw: Default::default(),
-            dark_color_scheme,
+            color_scheme,
             java_helper,
             fullscreen: Cell::new(false),
             offset: Default::default(),
