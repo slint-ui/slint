@@ -52,7 +52,7 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
     let methods = [
         jni::NativeMethod {
             name: "updateText".into(),
-            sig: "(Ljava/lang/String;IILjava/lang/String;I)V".into(),
+            sig: "(Ljava/lang/String;IIII)V".into(),
             fn_ptr: Java_SlintAndroidJavaHelper_updateText as *mut _,
         },
         jni::NativeMethod {
@@ -105,9 +105,22 @@ impl JavaHelper {
         data: &i_slint_core::window::InputMethodProperties,
     ) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
-            let text = &env.new_string(data.text.as_str())?;
-            let preedit_text = env.new_string(data.preedit_text.as_str())?;
-            let to_utf16 = |x| convert_utf8_index_to_utf16(&data.text, x as usize);
+            let mut text = data.text.to_string();
+            let mut cursor_position = data.cursor_position;
+            let mut anchor_position = data.anchor_position.unwrap_or(data.cursor_position);
+
+            if !data.preedit_text.is_empty() {
+                text.insert_str(data.preedit_offset, data.preedit_text.as_str());
+                if cursor_position >= data.preedit_offset {
+                    cursor_position += data.preedit_text.len()
+                }
+                if anchor_position >= data.preedit_offset {
+                    anchor_position += data.preedit_text.len()
+                }
+            }
+
+            let to_utf16 = |x| convert_utf8_index_to_utf16(&text, x as usize);
+            let text = &env.new_string(text.as_str())?;
 
             let class_it = env.find_class("android/text/InputType")?;
             let input_type = match data.input_type {
@@ -128,15 +141,13 @@ impl JavaHelper {
             env.call_method(
                 helper,
                 "set_imm_data",
-                "(Ljava/lang/String;IILjava/lang/String;IIIIII)V",
+                "(Ljava/lang/String;IIIIIIIII)V",
                 &[
                     JValue::Object(&text),
-                    JValue::from(to_utf16(data.cursor_position) as jint),
-                    JValue::from(
-                        to_utf16(data.anchor_position.unwrap_or(data.cursor_position)) as jint
-                    ),
-                    JValue::Object(&preedit_text),
+                    JValue::from(to_utf16(cursor_position) as jint),
+                    JValue::from(to_utf16(anchor_position) as jint),
                     JValue::from(to_utf16(data.preedit_offset) as jint),
+                    JValue::from(to_utf16(data.preedit_offset + data.preedit_text.len()) as jint),
                     JValue::from(data.cursor_rect_origin.x as jint),
                     JValue::from(data.cursor_rect_origin.y as jint),
                     JValue::from(data.cursor_rect_size.width as jint),
@@ -175,8 +186,8 @@ extern "system" fn Java_SlintAndroidJavaHelper_updateText(
     text: JString,
     cursor_position: jint,
     anchor_position: jint,
-    preedit: JString,
-    preedit_offset: jint,
+    preedit_start: jint,
+    preedit_end: jint,
 ) {
     fn make_shared_string(env: &mut JNIEnv, string: &JString) -> Option<SharedString> {
         let java_str = env.get_string(&string).ok()?;
@@ -184,24 +195,36 @@ extern "system" fn Java_SlintAndroidJavaHelper_updateText(
         Some(SharedString::from(decoded.as_ref()))
     }
     let Some(text) = make_shared_string(&mut env, &text) else { return };
-    let Some(preedit) = make_shared_string(&mut env, &preedit) else { return };
+
     let cursor_position = convert_utf16_index_to_utf8(&text, cursor_position as usize);
     let anchor_position = convert_utf16_index_to_utf8(&text, anchor_position as usize);
-    let preedit_offset = convert_utf16_index_to_utf8(&text, preedit_offset as usize) as i32;
+    let preedit_start = convert_utf16_index_to_utf8(&text, preedit_start as usize);
+    let preedit_end = convert_utf16_index_to_utf8(&text, preedit_end as usize);
 
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
             let runtime_window = i_slint_core::window::WindowInner::from_pub(&adaptor.window);
-            let event = i_slint_core::input::KeyEvent {
-                event_type: i_slint_core::input::KeyEventType::UpdateComposition,
-                text,
-                replacement_range: Some(i32::MIN..i32::MAX),
-                cursor_position: Some(cursor_position as _),
-                anchor_position: Some(anchor_position as _),
-                preedit_selection: (!preedit.is_empty())
-                    .then(|| preedit_offset..(preedit_offset + preedit.len() as i32)),
-                preedit_text: preedit,
-                ..Default::default()
+            let event = if preedit_start != preedit_end {
+                let adjust = |pos| if pos <= preedit_start { pos } else if pos >= preedit_end { pos - preedit_end + preedit_start } else { preedit_start } as i32;
+                i_slint_core::input::KeyEvent {
+                    event_type: i_slint_core::input::KeyEventType::UpdateComposition,
+                    text: i_slint_core::format!( "{}{}", &text[..preedit_start], &text[preedit_end..]),
+                    preedit_text: text[preedit_start..preedit_end].into(),
+                    preedit_selection: Some(0..(preedit_end - preedit_start) as i32),
+                    replacement_range: Some(i32::MIN..i32::MAX),
+                    cursor_position: Some(adjust(cursor_position)),
+                    anchor_position: Some(adjust(anchor_position)),
+                    ..Default::default()
+                }
+            } else {
+                i_slint_core::input::KeyEvent {
+                    event_type: i_slint_core::input::KeyEventType::CommitComposition,
+                    text,
+                    replacement_range: Some(i32::MIN..i32::MAX),
+                    cursor_position: Some(cursor_position as _),
+                    anchor_position: Some(anchor_position as _),
+                    ..Default::default()
+                }
             };
             runtime_window.process_key_input(event);
         }
