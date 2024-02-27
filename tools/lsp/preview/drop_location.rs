@@ -75,17 +75,26 @@ pub fn can_drop_at(x: f32, y: f32) -> bool {
     super::component_instance().and_then(|ci| find_drop_location(&ci, x, y)).is_some()
 }
 
+/// Extra data on an added Element, relevant to the Preview side only.
+#[derive(Clone, Debug)]
+pub struct DropData {
+    /// The offset to select next. This is different from the insert position
+    /// due to indentation, etc.
+    pub selection_offset: u32,
+    /// The index into the `debug` vector of the target element.
+    pub debug_index: usize,
+}
+
 /// Find a location in a file that would be a good place to insert the new component at
 ///
 /// Return a tuple containing the ComponentAddition info for the LSP and extra info for
-/// the live preview. Currently that extra info is just the offset at which the new element
-/// will be in the source code (!= the insertion position in the ComponentAddition struct).
+/// the live preview in the DropData struct.
 pub fn drop_at(
     x: f32,
     y: f32,
     component_type: String,
     import_path: String,
-) -> Option<(crate::common::ComponentAddition, u32)> {
+) -> Option<(crate::common::ComponentAddition, DropData)> {
     let component_instance = super::component_instance()?;
     let drop_info = find_drop_location(&component_instance, x, y)?;
 
@@ -143,6 +152,6 @@ pub fn drop_at(
             import_path: if import_path.is_empty() { None } else { Some(import_path) },
             insert_position: drop_info.insertion_position,
         },
-        selection_offset,
+        DropData { selection_offset, debug_index: drop_info.target_element_node.debug_index },
     ))
 }
