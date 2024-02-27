@@ -196,13 +196,37 @@ impl PropertyChange {
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToLspMessage {
-    Status { message: String, health: crate::lsp_ext::Health },
-    Diagnostics { uri: Url, diagnostics: Vec<lsp_types::Diagnostic> },
-    ShowDocument { file: Url, selection: lsp_types::Range },
-    PreviewTypeChanged { is_external: bool },
-    RequestState { unused: bool }, // send all documents!
-    AddComponent { label: Option<String>, component: ComponentAddition },
-    UpdateElement { position: VersionedPosition, properties: Vec<PropertyChange> },
+    Status {
+        message: String,
+        health: crate::lsp_ext::Health,
+    },
+    Diagnostics {
+        uri: Url,
+        diagnostics: Vec<lsp_types::Diagnostic>,
+    },
+    ShowDocument {
+        file: Url,
+        selection: lsp_types::Range,
+    },
+    PreviewTypeChanged {
+        is_external: bool,
+    },
+    RequestState {
+        unused: bool,
+    }, // send all documents!
+    AddComponent {
+        label: Option<String>,
+        component: ComponentAddition,
+    },
+    UpdateElement {
+        label: Option<String>,
+        position: VersionedPosition,
+        properties: Vec<PropertyChange>,
+    },
+    RemoveElement {
+        label: Option<String>,
+        position: VersionedPosition,
+    },
 }
 
 /// Information on the Element types available

@@ -14,7 +14,7 @@ pub mod lsp_ext;
 mod preview;
 pub mod util;
 
-use common::{LspToPreviewMessage, Result, VersionedUrl};
+use common::Result;
 use language::*;
 
 use i_slint_compiler::CompilerConfiguration;
@@ -138,7 +138,7 @@ impl ServerNotifier {
         }))
     }
 
-    pub fn send_message_to_preview(&self, message: LspToPreviewMessage) {
+    pub fn send_message_to_preview(&self, message: common::LspToPreviewMessage) {
         if self.use_external_preview.get() {
             let _ = self.send_notification("slint/lsp_to_preview".to_string(), message);
         } else {
@@ -277,10 +277,12 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
             let contents = std::fs::read_to_string(&path);
             if let Ok(contents) = &contents {
                 if let Ok(url) = Url::from_file_path(&path) {
-                    server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
-                        url: VersionedUrl::new(url, None),
-                        contents: contents.clone(),
-                    })
+                    server_notifier.send_message_to_preview(
+                        common::LspToPreviewMessage::SetContents {
+                            url: common::VersionedUrl::new(url, None),
+                            contents: contents.clone(),
+                        },
+                    )
                 }
             }
             Some(contents)
@@ -407,6 +409,28 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Rc<Context>) -
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+async fn send_workspace_edit(
+    server_notifier: ServerNotifier,
+    label: Option<String>,
+    edit: Result<lsp_types::WorkspaceEdit>,
+) -> Result<()> {
+    let edit = edit?;
+
+    let response = server_notifier
+        .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+            lsp_types::ApplyWorkspaceEditParams { label, edit },
+        )?
+        .await?;
+    if !response.applied {
+        return Err(response
+            .failure_reason
+            .unwrap_or("Operation failed, no specific reason given".into())
+            .into());
+    }
+    Ok(())
+}
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 async fn handle_preview_to_lsp_message(
     message: crate::common::PreviewToLspMessage,
     ctx: &Rc<Context>,
@@ -442,49 +466,28 @@ async fn handle_preview_to_lsp_message(
             crate::language::request_state(ctx);
         }
         M::AddComponent { label, component } => {
-            let edit = match crate::language::add_component(ctx, component) {
-                Ok(edit) => edit,
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                    return Ok(());
-                }
-            };
-            let response = ctx
-                .server_notifier
-                .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
-                    lsp_types::ApplyWorkspaceEditParams { label, edit },
-                )?
-                .await?;
-            if !response.applied {
-                return Err(response
-                    .failure_reason
-                    .unwrap_or("Operation failed, no specific reason given".into())
-                    .into());
-            }
+            let _ = send_workspace_edit(
+                ctx.server_notifier.clone(),
+                label,
+                element_edit::add_component(ctx, component),
+            )
+            .await;
         }
-        M::UpdateElement { position, properties } => {
-            let edit = match crate::language::update_element(ctx, position, properties) {
-                Ok(e) => e,
-                Err(e) => {
-                    eprintln!("Error: {e}");
-                    return Ok(());
-                }
-            };
-            let response = ctx
-                .server_notifier
-                .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
-                    lsp_types::ApplyWorkspaceEditParams {
-                        label: Some("Element update".to_string()),
-                        edit,
-                    },
-                )?
-                .await?;
-            if !response.applied {
-                return Err(response
-                    .failure_reason
-                    .unwrap_or("Operation failed, no specific reason given".into())
-                    .into());
-            }
+        M::UpdateElement { label, position, properties } => {
+            let _ = send_workspace_edit(
+                ctx.server_notifier.clone(),
+                label,
+                element_edit::update_element(ctx, position, properties),
+            )
+            .await;
+        }
+        M::RemoveElement { label, position } => {
+            let _ = send_workspace_edit(
+                ctx.server_notifier.clone(),
+                label,
+                element_edit::remove_element(ctx, position),
+            )
+            .await;
         }
     }
     Ok(())

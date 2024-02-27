@@ -5,6 +5,7 @@
 
 mod completion;
 mod component_catalog;
+pub mod element_edit;
 mod formatting;
 mod goto;
 mod properties;
@@ -12,13 +13,9 @@ mod semantic_tokens;
 #[cfg(test)]
 pub mod test;
 
-use crate::common::{
-    create_workspace_edit, create_workspace_edit_from_source_file, LspToPreviewMessage,
-    PreviewComponent, PreviewConfig, Result, VersionedUrl,
-};
-use crate::util::{
-    find_element_indent, lookup_current_element_type, map_node, map_range, map_token, to_lsp_diag,
-};
+use crate::common::{self, Result};
+use crate::util;
+
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 use i_slint_compiler::object_tree::ElementRc;
@@ -85,32 +82,6 @@ fn create_show_preview_command(
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-pub fn notify_preview_about_text_edit(
-    server_notifier: &crate::ServerNotifier,
-    edit: &TextEdit,
-    source_file: &i_slint_compiler::diagnostics::SourceFile,
-) {
-    let new_length = edit.new_text.len() as u32;
-    let (start_offset, end_offset) = {
-        let so =
-            source_file.offset(edit.range.start.line as usize, edit.range.start.character as usize);
-        let eo =
-            source_file.offset(edit.range.end.line as usize, edit.range.end.character as usize);
-        (std::cmp::min(so, eo) as u32, std::cmp::max(so, eo) as u32)
-    };
-
-    let Ok(url) = Url::from_file_path(source_file.path()) else {
-        return;
-    };
-    server_notifier.send_message_to_preview(LspToPreviewMessage::AdjustSelection {
-        url: VersionedUrl::new(url, source_file.version()),
-        start_offset,
-        end_offset,
-        new_length,
-    });
-}
-
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn request_state(ctx: &std::rc::Rc<Context>) {
     use i_slint_compiler::diagnostics::Spanned;
 
@@ -125,24 +96,24 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
             let Ok(url) = Url::from_file_path(p) else {
                 continue;
             };
-            ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
-                url: VersionedUrl::new(url, node.source_file().and_then(|sf| sf.version())),
+            ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
+                url: common::VersionedUrl::new(url, node.source_file().and_then(|sf| sf.version())),
                 contents: node.text().to_string(),
             })
         }
     }
-    ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::SetConfiguration {
+    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetConfiguration {
         config: cache.preview_config.clone(),
     });
     if let Some(c) = ctx.to_show.borrow().clone() {
-        ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::ShowPreview(c))
+        ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::ShowPreview(c))
     }
 }
 
 /// A cache of loaded documents
 pub struct DocumentCache {
     pub(crate) documents: TypeLoader,
-    preview_config: PreviewConfig,
+    preview_config: common::PreviewConfig,
 }
 
 impl DocumentCache {
@@ -164,7 +135,7 @@ pub struct Context {
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
     /// The last component for which the user clicked "show preview"
-    pub to_show: RefCell<Option<PreviewComponent>>,
+    pub to_show: RefCell<Option<common::PreviewComponent>>,
 }
 
 #[derive(Default)]
@@ -387,9 +358,9 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             if p.kind() == SyntaxKind::QualifiedName
                 && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
             {
-                if let Some(range) = map_node(&p) {
+                if let Some(range) = util::map_node(&p) {
                     ctx.server_notifier.send_message_to_preview(
-                        LspToPreviewMessage::HighlightFromEditor { url: Some(uri), offset },
+                        common::LspToPreviewMessage::HighlightFromEditor { url: Some(uri), offset },
                     );
                     return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
                 }
@@ -397,23 +368,22 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 
             if let Some(value) = find_element_id_for_highlight(&tk, &p) {
                 ctx.server_notifier.send_message_to_preview(
-                    LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
+                    common::LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
                 );
                 return Ok(Some(
                     value
                         .into_iter()
                         .map(|r| lsp_types::DocumentHighlight {
-                            range: map_range(&p.source_file, r),
+                            range: util::map_range(&p.source_file, r),
                             kind: None,
                         })
                         .collect(),
                 ));
             }
         }
-        ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::HighlightFromEditor {
-            url: None,
-            offset: 0,
-        });
+        ctx.server_notifier.send_message_to_preview(
+            common::LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
+        );
         Ok(None)
     });
     rh.register::<Rename, _>(|params, ctx| async move {
@@ -428,11 +398,11 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 let edits: Vec<_> = value
                     .into_iter()
                     .map(|r| TextEdit {
-                        range: map_range(&p.source_file, r),
+                        range: util::map_range(&p.source_file, r),
                         new_text: params.new_name.clone(),
                     })
                     .collect();
-                return Ok(Some(create_workspace_edit(uri, version, edits)));
+                return Ok(Some(common::create_workspace_edit(uri, version, edits)));
             }
         };
         Err("This symbol cannot be renamed. (Only element id can be renamed at the moment)".into())
@@ -442,7 +412,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         let uri = params.text_document.uri;
         if let Some((tk, _off)) = token_descr(&mut document_cache, &uri, &params.position) {
             if find_element_id_for_highlight(&tk, &tk.parent()).is_some() {
-                return Ok(map_token(&tk).map(PrepareRenameResponse::Range));
+                return Ok(util::map_token(&tk).map(PrepareRenameResponse::Range));
             }
         };
         Ok(None)
@@ -468,9 +438,13 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
-    let c = PreviewComponent { url, component, style: config.style.clone().unwrap_or_default() };
+    let c = common::PreviewComponent {
+        url,
+        component,
+        style: config.style.clone().unwrap_or_default(),
+    };
     ctx.to_show.replace(Some(c.clone()));
-    ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::ShowPreview(c));
+    ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::ShowPreview(c));
 
     // Update known Components
     report_known_components(document_cache, ctx);
@@ -558,7 +532,7 @@ pub async fn set_binding_command(
                 format!("No element found at the given start position {:?}", &element_range.start)
             })?;
 
-        let node_range = map_node(
+        let node_range = util::map_node(
             &element
                 .borrow()
                 .debug
@@ -642,7 +616,7 @@ pub async fn remove_binding_command(
                 format!("No element found at the given start position {:?}", &element_range.start)
             })?;
 
-        let node_range = map_node(
+        let node_range = util::map_node(
             &element
                 .borrow()
                 .debug
@@ -704,8 +678,8 @@ pub(crate) async fn reload_document_impl(
     }
 
     if let Some(ctx) = ctx {
-        ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::SetContents {
-            url: VersionedUrl::new(url, version),
+        ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
+            url: common::VersionedUrl::new(url, version),
             contents: content.clone(),
         });
     }
@@ -727,7 +701,7 @@ pub(crate) async fn reload_document_impl(
             continue;
         }
         let uri = Url::from_file_path(d.source_file().unwrap()).unwrap();
-        lsp_diags.entry(uri).or_default().push(to_lsp_diag(&d));
+        lsp_diags.entry(uri).or_default().push(util::to_lsp_diag(&d));
     }
 
     lsp_diags
@@ -751,11 +725,11 @@ fn report_known_components(document_cache: &mut DocumentCache, ctx: &Rc<Context>
 
         component_catalog::file_local_components(document_cache, &file, &mut components);
 
-        VersionedUrl::new(url, version)
+        common::VersionedUrl::new(url, version)
     });
 
     ctx.server_notifier
-        .send_message_to_preview(LspToPreviewMessage::KnownComponents { url, components });
+        .send_message_to_preview(common::LspToPreviewMessage::KnownComponents { url, components });
 }
 
 pub async fn reload_document(
@@ -907,14 +881,14 @@ fn get_code_actions(
     }
 
     if token.kind() == SyntaxKind::StringLiteral && node.kind() == SyntaxKind::Expression {
-        let r = map_range(&token.source_file, node.text_range());
+        let r = util::map_range(&token.source_file, node.text_range());
         let edits = vec![
             TextEdit::new(lsp_types::Range::new(r.start, r.start), "@tr(".into()),
             TextEdit::new(lsp_types::Range::new(r.end, r.end), ")".into()),
         ];
         result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
             title: "Wrap in `@tr()`".into(),
-            edit: create_workspace_edit_from_source_file(&token.source_file, edits),
+            edit: common::create_workspace_edit_from_source_file(&token.source_file, edits),
             ..Default::default()
         }));
     } else if token.kind() == SyntaxKind::Identifier
@@ -928,7 +902,7 @@ fn get_code_actions(
                 .get_document(token.source_file.path())
                 .map(|doc| &doc.local_registry)
                 .unwrap_or(&global_tr);
-            lookup_current_element_type(node.clone(), tr).is_none()
+            util::lookup_current_element_type(node.clone(), tr).is_none()
         };
         if is_lookup_error {
             // Couldn't lookup the element, there is probably an error. Suggest an edit
@@ -941,7 +915,7 @@ fn get_code_actions(
                     result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                         title: format!("Add import from \"{file}\""),
                         kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                        edit: create_workspace_edit_from_source_file(
+                        edit: common::create_workspace_edit_from_source_file(
                             &token.source_file,
                             vec![edit],
                         ),
@@ -952,9 +926,9 @@ fn get_code_actions(
         }
 
         if has_experimental_client_capability(client_capabilities, "snippetTextEdit") {
-            let r = map_range(&token.source_file, node.parent().unwrap().text_range());
+            let r = util::map_range(&token.source_file, node.parent().unwrap().text_range());
             let element = element_at_position(document_cache, &uri, &r.start);
-            let element_indent = element.as_ref().and_then(find_element_indent);
+            let element_indent = element.as_ref().and_then(util::find_element_indent);
             let indented_lines = node
                 .parent()
                 .unwrap()
@@ -976,7 +950,7 @@ fn get_code_actions(
             result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                 title: "Wrap in element".into(),
                 kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                edit: create_workspace_edit_from_source_file(&token.source_file, edits),
+                edit: common::create_workspace_edit_from_source_file(&token.source_file, edits),
                 ..Default::default()
             }));
 
@@ -1040,7 +1014,7 @@ fn get_code_actions(
                 result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                     title: "Remove element".into(),
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: create_workspace_edit_from_source_file(&token.source_file, edits),
+                    edit: common::create_workspace_edit_from_source_file(&token.source_file, edits),
                     ..Default::default()
                 }));
             }
@@ -1063,7 +1037,7 @@ fn get_code_actions(
                 result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                     title: "Repeat element".into(),
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: create_workspace_edit_from_source_file(&token.source_file, edits),
+                    edit: common::create_workspace_edit_from_source_file(&token.source_file, edits),
                     ..Default::default()
                 }));
 
@@ -1074,7 +1048,7 @@ fn get_code_actions(
                 result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                     title: "Make conditional".into(),
                     kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: create_workspace_edit_from_source_file(&token.source_file, edits),
+                    edit: common::create_workspace_edit_from_source_file(&token.source_file, edits),
                     ..Default::default()
                 }));
             }
@@ -1096,7 +1070,7 @@ fn get_document_color(
     loop {
         if token.kind() == SyntaxKind::ColorLiteral {
             (|| -> Option<()> {
-                let range = map_token(&token)?;
+                let range = util::map_token(&token)?;
                 let col = i_slint_compiler::literals::parse_color_literal(token.text())?;
                 let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
                 result.push(ColorInformation {
@@ -1141,14 +1115,14 @@ fn get_document_symbols(
             let root_element = c.root_element.borrow();
             let element_node = &root_element.debug.first()?.0;
             let component_node = syntax_nodes::Component::new(element_node.parent()?)?;
-            let selection_range = map_node(&component_node.DeclaredIdentifier())?;
+            let selection_range = util::map_node(&component_node.DeclaredIdentifier())?;
             if c.id.is_empty() {
                 // Symbols with empty names are invalid
                 return None;
             }
 
             Some(DocumentSymbol {
-                range: map_node(&component_node)?,
+                range: util::map_node(&component_node)?,
                 selection_range,
                 name: c.id.clone(),
                 kind: if c.is_global() {
@@ -1164,16 +1138,18 @@ fn get_document_symbols(
 
     r.extend(inner_types.iter().filter_map(|c| match c {
         Type::Struct { name: Some(name), node: Some(node), .. } => Some(DocumentSymbol {
-            range: map_node(node.parent().as_ref()?)?,
-            selection_range: map_node(&node.parent()?.child_node(SyntaxKind::DeclaredIdentifier)?)?,
+            range: util::map_node(node.parent().as_ref()?)?,
+            selection_range: util::map_node(
+                &node.parent()?.child_node(SyntaxKind::DeclaredIdentifier)?,
+            )?,
             name: name.clone(),
             kind: lsp_types::SymbolKind::STRUCT,
             ..ds.clone()
         }),
         Type::Enumeration(enumeration) => enumeration.node.as_ref().and_then(|node| {
             Some(DocumentSymbol {
-                range: map_node(node)?,
-                selection_range: map_node(&node.DeclaredIdentifier())?,
+                range: util::map_node(node)?,
+                selection_range: util::map_node(&node.DeclaredIdentifier())?,
                 name: enumeration.name.clone(),
                 kind: lsp_types::SymbolKind::ENUM,
                 ..ds.clone()
@@ -1193,8 +1169,8 @@ fn get_document_symbols(
                 let sub_element_node = element_node.parent()?;
                 debug_assert_eq!(sub_element_node.kind(), SyntaxKind::SubElement);
                 Some(DocumentSymbol {
-                    range: map_node(&sub_element_node)?,
-                    selection_range: map_node(element_node.QualifiedName().as_ref()?)?,
+                    range: util::map_node(&sub_element_node)?,
+                    selection_range: util::map_node(element_node.QualifiedName().as_ref()?)?,
                     name: e.base_type.to_string(),
                     detail: (!e.id.is_empty()).then(|| e.id.clone()),
                     kind: lsp_types::SymbolKind::VARIABLE,
@@ -1226,7 +1202,7 @@ fn get_code_lenses(
         // Handle preview lens
         r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
-                range: map_node(&c.root_element.borrow().debug.first()?.0)?,
+                range: util::map_node(&c.root_element.borrow().debug.first()?.0)?,
                 command: Some(create_show_preview_command(true, &text_document.uri, c.id.as_str())),
                 data: None,
             })
@@ -1362,95 +1338,16 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
     document_cache.documents.import_component("std-widgets.slint", "StyleMetrics", &mut diag).await;
 
     let cc = &document_cache.documents.compiler_config;
-    let config = PreviewConfig {
+    let config = common::PreviewConfig {
         hide_ui,
         style: cc.style.clone().unwrap_or_default(),
         include_paths: cc.include_paths.clone(),
         library_paths: cc.library_paths.clone(),
     };
     document_cache.preview_config = config.clone();
-    ctx.server_notifier.send_message_to_preview(LspToPreviewMessage::SetConfiguration { config });
+    ctx.server_notifier
+        .send_message_to_preview(common::LspToPreviewMessage::SetConfiguration { config });
     Ok(())
-}
-
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-pub fn add_component(
-    ctx: &Context,
-    component: crate::common::ComponentAddition,
-) -> Result<lsp_types::WorkspaceEdit> {
-    let document_url = component.insert_position.url();
-    let dc = ctx.document_cache.borrow();
-    let file = lsp_types::Url::to_file_path(document_url)
-        .map_err(|_| "Failed to convert URL to file path".to_string())?;
-
-    if &dc.document_version(document_url) != component.insert_position.version() {
-        return Err("Document version mismatch.".into());
-    }
-
-    let doc = dc
-        .documents
-        .get_document(&file)
-        .ok_or_else(|| "Document URL not found in cache".to_string())?;
-    let mut edits = Vec::with_capacity(2);
-    if let Some(edit) =
-        completion::create_import_edit(doc, &component.component_type, &component.import_path)
-    {
-        if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
-            notify_preview_about_text_edit(&ctx.server_notifier, &edit, sf);
-        }
-        edits.push(edit);
-    }
-
-    let source_file = doc.node.as_ref().unwrap().source_file.clone();
-
-    let ip = crate::util::map_position(&source_file, component.insert_position.offset().into());
-    edits.push(TextEdit {
-        range: lsp_types::Range::new(ip.clone(), ip),
-        new_text: component.component_text,
-    });
-
-    create_workspace_edit_from_source_file(&source_file, edits)
-        .ok_or("Could not create workspace edit".into())
-}
-
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-pub fn update_element(
-    ctx: &Context,
-    position: crate::common::VersionedPosition,
-    properties: Vec<crate::common::PropertyChange>,
-) -> Result<lsp_types::WorkspaceEdit> {
-    let mut document_cache = ctx.document_cache.borrow_mut();
-    let file = lsp_types::Url::to_file_path(position.url())
-        .map_err(|_| "Failed to convert URL to file path".to_string())?;
-
-    if &document_cache.document_version(position.url()) != position.version() {
-        return Err("Document version mismatch.".into());
-    }
-
-    let doc = document_cache
-        .documents
-        .get_document(&file)
-        .ok_or_else(|| "Document not found".to_string())?;
-
-    let source_file = doc
-        .node
-        .as_ref()
-        .map(|n| n.source_file.clone())
-        .ok_or_else(|| "Document had no node".to_string())?;
-    let element_position = crate::util::map_position(&source_file, position.offset().into());
-
-    let element = element_at_position(&mut document_cache, &position.url(), &element_position)
-        .ok_or_else(|| {
-            format!("No element found at the given start position {:?}", &element_position)
-        })?;
-
-    let (_, e) = crate::language::properties::set_bindings(
-        &mut document_cache,
-        position.url(),
-        &element,
-        &properties,
-    )?;
-    Ok(e.ok_or_else(|| "Failed to create workspace edit".to_string())?)
 }
 
 #[cfg(test)]

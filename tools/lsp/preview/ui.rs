@@ -47,6 +47,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     ui.on_can_drop(super::can_drop_component);
     ui.on_drop(super::drop_component);
     ui.on_selected_element_update_geometry(super::change_geometry_of_selected_element);
+    ui.on_selected_element_delete(super::delete_selected_element);
 
     Ok(ui)
 }

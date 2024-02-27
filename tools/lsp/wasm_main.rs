@@ -3,7 +3,7 @@
 
 #![cfg(target_arch = "wasm32")]
 
-mod common;
+pub mod common;
 mod fmt;
 mod language;
 pub mod lsp_ext;
@@ -14,7 +14,7 @@ pub mod util;
 use common::{LspToPreviewMessage, Result, VersionedUrl};
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
-pub use language::{Context, DocumentCache, RequestHandler};
+pub use language::{element_edit, Context, DocumentCache, RequestHandler};
 use lsp_types::Url;
 use serde::Serialize;
 use std::cell::RefCell;
@@ -226,6 +226,30 @@ pub fn create(
     })
 }
 
+fn send_workspace_edit(
+    server_notifier: ServerNotifier,
+    label: Option<String>,
+    edit: Result<lsp_types::WorkspaceEdit>,
+) {
+    let Ok(edit) = edit else {
+        return;
+    };
+
+    wasm_bindgen_futures::spawn_local(async move {
+        let fut = server_notifier.send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+            lsp_types::ApplyWorkspaceEditParams { label, edit },
+        );
+        if let Ok(fut) = fut {
+            // We ignore errors: If the LSP can not be reached, then all is lost
+            // anyway. The other thing that might go wrong is that our Workspace Edit
+            // refers to some outdated text. In that case the update is most likely
+            // in flight already and will cause the preview to re-render, which also
+            // invalidates all our state
+            let _ = fut.await;
+        }
+    });
+}
+
 #[wasm_bindgen]
 impl SlintServer {
     #[cfg(all(feature = "preview-engine", feature = "preview-external"))]
@@ -272,47 +296,25 @@ impl SlintServer {
                 crate::language::request_state(&self.ctx);
             }
             M::AddComponent { label, component } => {
-                let edit = crate::language::add_component(&self.ctx, component);
-                let sn = self.ctx.server_notifier.clone();
-
-                if let Ok(edit) = edit {
-                    wasm_bindgen_futures::spawn_local(async move {
-                        let fut = sn.send_request::<lsp_types::request::ApplyWorkspaceEdit>(
-                            lsp_types::ApplyWorkspaceEditParams { label, edit },
-                        );
-                        if let Ok(fut) = fut {
-                            // We ignore errors: If the LSP can not be reached, then all is lost
-                            // anyway. The other thing that might go wrong is that our Workspace Edit
-                            // refers to some outdated text. In that case the update is most likely
-                            // in flight already and will cause the preview to re-render, which also
-                            // invalidates all our state
-                            let _ = fut.await;
-                        }
-                    });
-                }
+                send_workspace_edit(
+                    self.ctx.server_notifier.clone(),
+                    label,
+                    element_edit::add_component(&self.ctx, component),
+                );
             }
-            M::UpdateElement { position, properties } => {
-                let edit = crate::language::update_element(&self.ctx, position, properties);
-                let sn = self.ctx.server_notifier.clone();
-
-                if let Ok(edit) = edit {
-                    wasm_bindgen_futures::spawn_local(async move {
-                        let fut = sn.send_request::<lsp_types::request::ApplyWorkspaceEdit>(
-                            lsp_types::ApplyWorkspaceEditParams {
-                                label: Some("Element update".to_string()),
-                                edit,
-                            },
-                        );
-                        if let Ok(fut) = fut {
-                            // We ignore errors: If the LSP can not be reached, then all is lost
-                            // anyway. The other thing that might go wrong is that our Workspace Edit
-                            // refers to some outdated text. In that case the update is most likely
-                            // in flight already and will cause the preview to re-render, which also
-                            // invalidates all our state
-                            let _ = fut.await;
-                        }
-                    });
-                }
+            M::UpdateElement { label, position, properties } => {
+                send_workspace_edit(
+                    self.ctx.server_notifier.clone(),
+                    label,
+                    element_edit::update_element(&self.ctx, position, properties),
+                );
+            }
+            M::RemoveElement { label, position } => {
+                send_workspace_edit(
+                    self.ctx.server_notifier.clone(),
+                    label,
+                    element_edit::remove_element(&self.ctx, position),
+                );
             }
         }
         Ok(())
