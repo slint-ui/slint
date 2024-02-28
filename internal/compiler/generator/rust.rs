@@ -1428,11 +1428,14 @@ fn generate_item_tree(
             #window_adapter_functions
         }
 
+        const _ : () = {
+            use slint::private_unstable_api::re_exports::*;
+            ItemTreeVTable_static!(static VT for self::#inner_component_id);
+        };
+
         impl sp::PinnedDrop for #inner_component_id {
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
-                use slint::private_unstable_api::re_exports::*;
-                ItemTreeVTable_static!(static VT for self::#inner_component_id);
-                new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
+                sp::vtable::new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
                 if let Some(wa) = self.maybe_window_adapter_impl() {
                     sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
                 }
