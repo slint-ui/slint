@@ -62,11 +62,14 @@ impl super::Surface for OpenGLSurface {
 
         let gl_interface = skia_safe::gpu::gl::Interface::new_load_with_cstr(|name| {
             current_glutin_context.display().get_proc_address(name) as *const _
-        });
+        })
+        .ok_or_else(|| {
+            format!("Skia Renderer: Internal Error: Could not create OpenGL Interface")
+        })?;
 
         let mut gr_context =
             skia_safe::gpu::DirectContext::new_gl(gl_interface, None).ok_or_else(|| {
-                format!("Skia Renderer: Internal Error: Could not create Skia OpenGL interface")
+                format!("Skia Renderer: Internal Error: Could not create Skia Direct Context from GL interface")
             })?;
 
         let width: i32 = size.width.try_into().map_err(|e| {
