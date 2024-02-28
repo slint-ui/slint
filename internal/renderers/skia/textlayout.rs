@@ -9,6 +9,7 @@ use i_slint_core::graphics::FontRequest;
 use i_slint_core::items::{TextHorizontalAlignment, TextVerticalAlignment};
 use i_slint_core::lengths::{LogicalLength, ScaleFactor};
 use i_slint_core::{items, Color};
+use skia_safe::FontMgr;
 
 use super::itemrenderer::to_skia_color;
 use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
@@ -33,6 +34,7 @@ thread_local! {
         let font_mgr = skia_safe::FontMgr::new();
         let type_face_font_provider = skia_safe::textlayout::TypefaceFontProvider::new();
         let mut font_collection = skia_safe::textlayout::FontCollection::new();
+        font_collection.set_default_font_manager(FontMgr::new(), None);
         // FontCollection first looks up in the dynamic font manager and then the asset font manager. If the
         // family is empty, the default font manager will match against the system default. We want that behavior,
         // and only if the family is not present in the system, then we want to fall back to the assert font manager
