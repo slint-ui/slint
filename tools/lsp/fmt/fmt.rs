@@ -1098,7 +1098,6 @@ mod tests {
     use super::*;
     use crate::fmt::writer::FileWriter;
     use i_slint_compiler::diagnostics::BuildDiagnostics;
-    use i_slint_compiler::parser::syntax_nodes;
 
     // FIXME more descriptive errors when an assertion fails
     fn assert_formatting(unformatted: &str, formatted: &str) {
