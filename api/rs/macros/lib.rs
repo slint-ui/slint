@@ -394,7 +394,7 @@ pub fn slint(stream: TokenStream) -> TokenStream {
 
     //println!("{:#?}", syntax_node);
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
-    let (root_component, diag) =
+    let (root_component, diag, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     //println!("{:#?}", tree);
     if diag.has_error() {

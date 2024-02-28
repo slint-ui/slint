@@ -97,7 +97,7 @@ fn main() -> std::io::Result<()> {
         compiler_config.style = Some(style);
     }
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
-    let (doc, diag) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+    let (doc, diag, _) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
     let diag = diag.check_and_exit_on_error();
 

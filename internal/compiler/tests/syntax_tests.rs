@@ -192,7 +192,7 @@ fn process_file_source(
     compiler_config.enable_component_containers = true;
     compiler_config.style = Some("fluent".into());
     let compile_diagnostics = if !parse_diagnostics.has_error() {
-        let (_, build_diags) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
+        let (_, build_diags, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
             syntax_node.clone(),
             parse_diagnostics,
             compiler_config.clone(),
