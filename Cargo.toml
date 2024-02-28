@@ -140,6 +140,9 @@ strum = { version = "0.26.1", default-features = false, features = ["derive"] }
 toml_edit = { version = "0.22" }
 cfg_aliases = { version = "0.2.0" }
 
+[patch.crates-io]
+smithay-client-toolkit = { git = "https://github.com/slint-ui/client-toolkit", branch = "simon/work-around-missing-frame-on-last-touch-up-v0.18" }
+
 [profile.release]
 lto = true
 panic = "abort"
