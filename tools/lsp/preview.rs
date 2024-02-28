@@ -641,6 +641,8 @@ fn set_selections(
             y: g.origin.y,
             border_color: if i == main_index { border_color } else { secondary_border_color },
             is_primary: i == main_index,
+            is_moveable: false,
+            is_resizable: false,
         })
         .collect::<Vec<_>>();
     let model = Rc::new(slint::VecModel::from(values));
