@@ -228,7 +228,8 @@ impl ReadOnlyRustModel {
         // Implement Iterator protocol by hand until it's stable in napi-rs
         let iterator_symbol = env
             .get_global()
-            .and_then(|global| global.get_named_property::<JsObject>("Symbol"))
+            .and_then(|global| global.get_named_property::<JsFunction>("Symbol"))
+            .and_then(|symbol_function| symbol_function.coerce_to_object())
             .and_then(|symbol_obj| symbol_obj.get::<&str, JsSymbol>("iterator"))?
             .expect("fatal: Unable to find Symbol.iterator");
 
