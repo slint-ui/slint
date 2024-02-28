@@ -259,7 +259,8 @@ pub(crate) fn generate(component: &Rc<Component>) -> CompiledGlobal {
         ElementType::Global => {
             generativity::make_guard!(guard);
             CompiledGlobal::Component {
-                component: crate::dynamic_item_tree::generate_item_tree(component, guard).into(),
+                component: crate::dynamic_item_tree::generate_item_tree(component, None, guard)
+                    .into(),
                 public_properties: Default::default(),
             }
         }
