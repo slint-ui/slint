@@ -325,7 +325,7 @@ pub(crate) fn completion_at(
                 .collect(),
         );
     } else if node.kind() == SyntaxKind::Document {
-        let r: Vec<_> = [
+        let mut r: Vec<_> = [
             // the $1 is first in the quote so the filename can be completed before the import names
             ("import", "import { ${2:Component} } from \"${1:std-widgets.slint}\";"),
             ("component", "component ${1:Component} {\n    $0\n}"),
@@ -343,7 +343,33 @@ pub(crate) fn completion_at(
             with_insert_text(c, ins_tex, snippet_support)
         })
         .collect();
+        if let Some(component) = token
+            .prev_sibling_or_token()
+            .filter(|x| x.kind() == SyntaxKind::Component)
+            .and_then(|x| x.into_node())
+        {
+            let has_child = |kind| {
+                !component.children().find(|n| n.kind() == kind).unwrap().text_range().is_empty()
+            };
+            if has_child(SyntaxKind::DeclaredIdentifier) && !has_child(SyntaxKind::Element) {
+                let mut c = CompletionItem::new_simple("inherits".into(), String::new());
+                c.kind = Some(CompletionItemKind::KEYWORD);
+                r.push(c)
+            }
+        }
         return Some(r);
+    } else if let Some(c) = syntax_nodes::Component::new(node.clone()) {
+        let id_range = c.DeclaredIdentifier().text_range();
+        if !id_range.is_empty()
+            && offset >= id_range.end().into()
+            && !c
+                .children_with_tokens()
+                .any(|c| c.as_token().map_or(false, |t| t.text() == "inherits"))
+        {
+            let mut c = CompletionItem::new_simple("inherits".into(), String::new());
+            c.kind = Some(CompletionItemKind::KEYWORD);
+            return Some(vec![c]);
+        }
     } else if node.kind() == SyntaxKind::State {
         let r: Vec<_> = [("when", "when $1: {\n    $0\n}")]
             .iter()
@@ -1159,5 +1185,29 @@ mod tests {
         assert_eq!(edit.range.end.line, 1);
         assert_eq!(edit.range.end.character, 32);
         assert_eq!(edit.new_text, ", AboutSlint");
+    }
+
+    #[test]
+    fn inherits() {
+        let sources = [
+            "component Bar 🔺",
+            "component Bar in🔺",
+            "component Bar 🔺 {}",
+            "component Bar in🔺 Window {}",
+        ];
+        for source in sources {
+            eprintln!("Test for inherits in {source:?}");
+            let res = get_completions(source).unwrap();
+            res.iter().find(|ci| ci.label == "inherits").unwrap();
+        }
+
+        let sources = ["component 🔺", "component Bar {}🔺", "component Bar inherits 🔺 {}", "🔺"];
+        for source in sources {
+            let Some(res) = get_completions(source) else { continue };
+            assert!(
+                res.iter().find(|ci| ci.label == "inherits").is_none(),
+                "completion for {source:?} contains 'inherits'"
+            );
+        }
     }
 }
