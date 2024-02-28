@@ -217,13 +217,14 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                 })
             },
             Some(quote! {
+                const _ : () = {
                     /// Make sure that Unpin is not implemented
                     #[allow(dead_code)]
-                    pub struct __MustNotImplUnpin<'__dummy_lifetime> (
-                        #(#types, )*
+                    struct __MustNotImplUnpin<'__dummy_lifetime> (
                         ::core::marker::PhantomData<&'__dummy_lifetime ()>
                     );
                     impl<'__dummy_lifetime> Unpin for #struct_name where __MustNotImplUnpin<'__dummy_lifetime> : Unpin {};
+                };
             }),
             quote!(#crate_::AllowPin),
             quote!(new_from_offset_pinned),
@@ -256,7 +257,6 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
             /// Return a struct containing the offset of for the fields of this struct
             pub const FIELD_OFFSETS : #field_struct_name = {
                 #ensure_pin_safe;
-                #ensure_no_unpin;
                 let mut len = 0usize;
                 #field_struct_name {
                     #( #fields : {
@@ -272,6 +272,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
         }
 
         #pinned_drop_impl
+        #ensure_no_unpin
     };
 
     #[cfg(feature = "field-offset-trait")]

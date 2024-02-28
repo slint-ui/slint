@@ -117,6 +117,32 @@ mod tests {
     }
 }
 
+/**
+Test that one can't implement Unpin for pinned struct
+
+This should work:
+
+```
+#[derive(const_field_offset::FieldOffsets)]
+#[repr(C)]
+#[pin]
+struct MyStructPin { a: u32 }
+```
+
+But this not:
+
+```compile_fail
+#[derive(const_field_offset::FieldOffsets)]
+#[repr(C)]
+#[pin]
+struct MyStructPin { a: u32 }
+impl Unpin for MyStructPin {};
+```
+
+*/
+#[cfg(doctest)]
+const NO_IMPL_UNPIN: u32 = 0;
+
 #[doc(hidden)]
 #[cfg(feature = "field-offset-trait")]
 mod internal {
