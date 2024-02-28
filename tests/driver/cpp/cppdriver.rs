@@ -21,7 +21,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Cpp);
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
-    let (root_component, diag) =
+    let (root_component, diag, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
     if diag.has_error() {

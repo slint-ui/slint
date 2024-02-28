@@ -158,7 +158,7 @@ fn generate_source(
     compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
     compiler_config.enable_component_containers = true;
     compiler_config.style = Some("fluent".to_string());
-    let (root_component, diag) =
+    let (root_component, diag, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
     if diag.has_error() {

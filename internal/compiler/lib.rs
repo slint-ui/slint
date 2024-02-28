@@ -160,7 +160,7 @@ pub async fn compile_syntax_node(
     doc_node: parser::SyntaxNode,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (object_tree::Document, diagnostics::BuildDiagnostics) {
+) -> (object_tree::Document, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     #[cfg(feature = "software-renderer")]
     if compiler_config.embed_resources == EmbedResourcesKind::EmbedTextures {
         // HACK: disable accessibility when compiling for the software renderer
@@ -186,7 +186,7 @@ pub async fn compile_syntax_node(
     );
 
     if diagnostics.has_error() {
-        return (crate::object_tree::Document::default(), diagnostics);
+        return (crate::object_tree::Document::default(), diagnostics, loader);
     }
 
     let (foreign_imports, reexports) =
@@ -214,5 +214,5 @@ pub async fn compile_syntax_node(
 
     diagnostics.all_loaded_files = loader.all_files().cloned().collect();
 
-    (doc, diagnostics)
+    (doc, diagnostics, loader)
 }

@@ -218,7 +218,7 @@ export component Foo {
         None,
         &mut test_diags,
     );
-    let (doc, diag) =
+    let (doc, diag, _) =
         spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
     assert!(!diag.has_error());
 

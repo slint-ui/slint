@@ -786,7 +786,7 @@ pub async fn load(
     if diag.has_error() {
         return (Err(()), diag);
     }
-    let (doc, mut diag) = compile_syntax_node(syntax_node, diag, compiler_config).await;
+    let (doc, mut diag, _) = compile_syntax_node(syntax_node, diag, compiler_config).await;
     if diag.has_error() {
         return (Err(()), diag);
     }
