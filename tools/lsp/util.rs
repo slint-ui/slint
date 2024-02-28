@@ -242,15 +242,20 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<ExpressionContextInfo>
         }
         match n.kind() {
             SyntaxKind::Binding | SyntaxKind::TwoWayBinding | SyntaxKind::CallbackConnection => {
-                let parent = n.parent()?;
+                let mut parent = n.parent()?;
                 if parent.kind() == SyntaxKind::PropertyAnimation {
                     let prop_name = i_slint_compiler::parser::identifier_text(&n)?;
                     let element = syntax_nodes::Element::new(parent.parent()?)?;
                     break (element, prop_name, true);
                 } else {
-                    let prop_name = i_slint_compiler::parser::identifier_text(&n)?;
-                    let element = syntax_nodes::Element::new(parent)?;
-                    break (element, prop_name, false);
+                    let prop_name =
+                        i_slint_compiler::parser::identifier_text(&n).unwrap_or_default();
+                    loop {
+                        if let Some(element) = syntax_nodes::Element::new(parent.clone()) {
+                            return Some(ExpressionContextInfo::new(element, prop_name, false));
+                        }
+                        parent = parent.parent()?;
+                    }
                 }
             }
             SyntaxKind::Function => {
