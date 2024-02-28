@@ -81,8 +81,6 @@ pub struct DropData {
     /// The offset to select next. This is different from the insert position
     /// due to indentation, etc.
     pub selection_offset: u32,
-    /// The index into the `debug` vector of the target element.
-    pub debug_index: usize,
 }
 
 /// Find a location in a file that would be a good place to insert the new component at
@@ -152,6 +150,6 @@ pub fn drop_at(
             import_path: if import_path.is_empty() { None } else { Some(import_path) },
             insert_position: drop_info.insertion_position,
         },
-        DropData { selection_offset, debug_index: drop_info.target_element_node.debug_index },
+        DropData { selection_offset },
     ))
 }

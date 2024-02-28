@@ -129,7 +129,6 @@ fn drop_component(
         element_selection::select_element_at_source_code_position(
             path,
             drop_data.selection_offset,
-            drop_data.debug_index,
             is_layout,
             None,
             true,
@@ -421,7 +420,6 @@ pub fn load_preview(preview_component: PreviewComponent) {
             element_selection::select_element_at_source_code_position(
                 se.path.clone(),
                 se.offset,
-                se.debug_index,
                 se.is_layout,
                 None,
                 false,
@@ -558,12 +556,7 @@ pub fn highlight(url: Option<Url>, offset: u32) {
                 let is_layout =
                     e.borrow().debug.get(debug_index).map_or(false, |(_, l)| l.is_some());
                 element_selection::select_element_at_source_code_position(
-                    path,
-                    offset,
-                    debug_index,
-                    is_layout,
-                    None,
-                    false,
+                    path, offset, is_layout, None, false,
                 );
             } else {
                 element_selection::unselect_element();
