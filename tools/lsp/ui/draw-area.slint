@@ -20,6 +20,8 @@ export struct Selection {
     height: length,
     border-color: color,
     is-primary: bool,
+    is-moveable: bool,
+    is-resizable: bool,
 }
 
 component SelectionFrame {
@@ -48,8 +50,8 @@ component SelectionFrame {
             root.select-behind(self.absolute-position.x + x, self.absolute-position.y + y, modifiers.control, modifiers.shift);
         }
 
-        is-moveable: true;
-        is-resizable: true;
+        is-moveable: root.selection.is-moveable;
+        is-resizable: root.selection.is-resizable;
 
         x-position: root.x;
         y-position: root.y;
