@@ -153,20 +153,24 @@ pub(crate) fn completion_at(
                 .collect::<Vec<_>>(),
         );
     } else if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
-        if token.kind() != SyntaxKind::Identifier {
+        let double_arrow_range =
+            n.children_with_tokens().find(|n| n.kind() == SyntaxKind::DoubleArrow)?.text_range();
+        if offset < double_arrow_range.end().into() {
             return None;
         }
-        let all = resolve_element_scope(syntax_nodes::Element::new(n.parent()?)?, document_cache)?;
-        return Some(
-            all.into_iter()
-                .filter(|ce| ce.kind == Some(CompletionItemKind::PROPERTY))
-                .collect::<Vec<_>>(),
-        );
+        return with_lookup_ctx(document_cache, node, |ctx| resolve_expression_scope(ctx))?;
     } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
             return None;
         }
-        let all = resolve_element_scope(syntax_nodes::Element::new(n.parent()?)?, document_cache)?;
+        let mut parent = n.parent()?;
+        let element = loop {
+            if let Some(e) = syntax_nodes::Element::new(parent.clone()) {
+                break e;
+            }
+            parent = parent.parent()?;
+        };
+        let all = resolve_element_scope(element, document_cache)?;
         return Some(
             all.into_iter()
                 .filter(|ce| ce.kind == Some(CompletionItemKind::METHOD))
@@ -444,6 +448,7 @@ fn resolve_element_scope(
                 pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
             );
             c.kind = Some(CompletionItemKind::PROPERTY);
+            c.sort_text = Some(format!("#{}", c.label));
             Some(c)
         }))
         .chain(element.CallbackDeclaration().filter_map(|cd| {
@@ -452,6 +457,7 @@ fn resolve_element_scope(
                 "callback".into(),
             );
             c.kind = Some(CompletionItemKind::METHOD);
+            c.sort_text = Some(format!("#{}", c.label));
             Some(c)
         }))
         .collect::<Vec<_>>();
@@ -1208,6 +1214,39 @@ mod tests {
                 res.iter().find(|ci| ci.label == "inherits").is_none(),
                 "completion for {source:?} contains 'inherits'"
             );
+        }
+    }
+
+    #[test]
+    fn two_way_bindings() {
+        let sources = [
+            "component X { property<string> prop; elem := Text{} property foo <=> 🔺",
+            "component X { property<string> prop; elem := Text{} property<string> foo <=> e🔺; }",
+            "component X { property<string> prop; elem := Text{} prop <=> 🔺",
+            "component X { property<string> prop; elem := Text{} prop <=> e🔺; }",
+        ];
+        for source in sources {
+            eprintln!("Test for two ways in {source:?}");
+            let res = get_completions(source).unwrap();
+            res.iter().find(|ci| ci.label == "prop").unwrap();
+            res.iter().find(|ci| ci.label == "self").unwrap();
+            res.iter().find(|ci| ci.label == "root").unwrap();
+            res.iter().find(|ci| ci.label == "elem").unwrap();
+        }
+
+        let sources = [
+            "component X { elem := Text{ property<int> prop; } property foo <=> elem.🔺",
+            "component X { elem := Text{ property<int> prop; } property <string> foo <=> elem.t🔺",
+            "component X { elem := Text{ property<int> prop; } property foo <=> elem.🔺; }",
+            "component X { elem := Text{ property<string> prop; } title <=> elem.t🔺",
+            "component X { elem := Text{ property<string> prop; } title <=> elem.🔺; }",
+        ];
+        for source in sources {
+            eprintln!("Test for two ways in {source:?}");
+            let res = get_completions(source).unwrap();
+            res.iter().find(|ci| ci.label == "text").unwrap();
+            res.iter().find(|ci| ci.label == "prop").unwrap();
+            assert!(res.iter().find(|ci| ci.label == "elem").is_none());
         }
     }
 }
