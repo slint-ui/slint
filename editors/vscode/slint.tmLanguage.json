@@ -35,10 +35,10 @@
                             "name": "keyword.other"
                         },
                         "3": {
-                            "name": "storage.type"
+                            "name": "entity.name.type"
                         },
                         "5": {
-                            "name": "storage.type"
+                            "name": "entity.name.type"
                         }
                     }
                 },
@@ -46,7 +46,7 @@
                     "match": "(?<!-)\\b([a-zA-Z_][a-zA-Z0-9_-]*)\\s*:",
                     "captures": {
                         "1": {
-                            "name": "variable.language"
+                            "name": "variable.parameter"
                         }
                     }
                 },
@@ -54,7 +54,7 @@
                     "match": "(?<!-)\\b([a-zA-Z_][a-zA-Z0-9_-]*)\\s*\\(.*\\)\\s*=>",
                     "captures": {
                         "1": {
-                            "name": "support.function"
+                            "name": "entity.name.function"
                         }
                     }
                 },
@@ -62,10 +62,10 @@
                     "match": "(?<!-)\\b(callback)\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\s*",
                     "captures": {
                         "1": {
-                            "name": "support.function"
+                            "name": "entity.name.function"
                         },
                         "2": {
-                            "name": "storage.type"
+                            "name": "entity.name.type"
                         }
                     }
                 },
@@ -74,10 +74,10 @@
                     "end": "\\}",
                     "beginCaptures": {
                         "1": {
-                            "name": "keyword.other"
+                            "name": "storage.type"
                         },
                         "2": {
-                            "name": "storage.type"
+                            "name": "entity.name.type"
                         }
                     },
                     "patterns": [
@@ -88,7 +88,7 @@
                                     "name": "variable.parameter"
                                 },
                                 "2": {
-                                    "name": "storage.type"
+                                    "name": "entity.name.type"
                                 }
                             }
                         }
@@ -99,10 +99,10 @@
                     "end": "\\}",
                     "beginCaptures": {
                         "1": {
-                            "name": "keyword.other"
+                            "name": "storage.type"
                         },
                         "2": {
-                            "name": "storage.type"
+                            "name": "entity.name.type"
                         }
                     },
                     "patterns": [
@@ -116,16 +116,16 @@
                     "end": "\\}",
                     "beginCaptures": {
                         "1": {
-                            "name": "keyword.other"
+                            "name": "storage.type"
                         },
                         "2": {
-                            "name": "storage.type"
+                            "name": "entity.name.type"
                         }
                     },
                     "patterns": [
                         {
                             "match": "([a-zA-Z_][a-zA-Z0-9_-]*)\\s*,?",
-                            "name": "storage.type"
+                            "name": "entity.name.type"
                         }
                     ]
                 },
@@ -133,10 +133,10 @@
                     "match": "(?<!-)\\b(component|inherits)\\s+([a-zA-Z_][a-zA-Z0-9_-]*)",
                     "captures": {
                         "1": {
-                            "name": "keyword.control"
+                            "name": "storage.type"
                         },
                         "2": {
-                            "name": "storage.type"
+                            "name": "entity.name.type"
                         }
                     }
                 },
@@ -150,7 +150,7 @@
                             "name": "keyword.operator"
                         },
                         "3": {
-                            "name": "storage.type"
+                            "name": "entity.name.type"
                         }
                     }
                 },
@@ -197,7 +197,7 @@
             "patterns": [
                 {
                     "begin": "\\b(property)\\b",
-                    "end": ";",
+                    "end": "(;|:|<=>)",
                     "beginCaptures": {
                         "1": {
                             "name": "keyword.other"
@@ -208,7 +208,7 @@
                             "match": "<([a-zA-Z_][a-zA-Z0-9_-]*)>",
                             "captures": {
                                 "1": {
-                                    "name": "storage.type"
+                                    "name": "entity.name.type"
                                 }
                             }
                         },
