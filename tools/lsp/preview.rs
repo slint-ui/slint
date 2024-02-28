@@ -606,6 +606,8 @@ fn set_selections(
     ui: Option<&ui::PreviewUi>,
     main_index: usize,
     is_layout: bool,
+    is_moveable: bool,
+    is_resizable: bool,
     positions: ComponentPositions,
 ) {
     let Some(ui) = ui else {
@@ -634,8 +636,8 @@ fn set_selections(
             y: g.origin.y,
             border_color: if i == main_index { border_color } else { secondary_border_color },
             is_primary: i == main_index,
-            is_moveable: false,
-            is_resizable: false,
+            is_moveable,
+            is_resizable,
         })
         .collect::<Vec<_>>();
     let model = Rc::new(slint::VecModel::from(values));
@@ -647,13 +649,21 @@ fn set_selected_element(
     positions: slint_interpreter::highlight::ComponentPositions,
     notify_editor_about_selection_after_update: bool,
 ) {
+    let (is_layout, is_in_layout) = selection
+        .as_ref()
+        .and_then(|s| s.as_element_node())
+        .map(|en| (en.is_layout(), element_selection::is_element_node_in_layout(&en)))
+        .unwrap_or((false, false));
+
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
 
         set_selections(
             preview_state.ui.as_ref(),
             selection.as_ref().map(|s| s.instance_index).unwrap_or_default(),
-            selection.as_ref().map(|s| s.is_layout).unwrap_or_default(),
+            is_layout,
+            !is_in_layout && !is_layout,
+            !is_in_layout && !is_layout,
             positions,
         );
 

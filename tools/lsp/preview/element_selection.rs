@@ -392,6 +392,29 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
     }
 }
 
+pub fn is_element_node_in_layout(element: &ElementRcNode) -> bool {
+    if element.debug_index > 0 {
+        // If we are not the first node, then we might have been inlined right
+        // after a layout managing us
+        element
+            .element
+            .borrow()
+            .debug
+            .get(element.debug_index - 1)
+            .map(|d| d.1.is_some())
+            .unwrap_or_default()
+    } else {
+        // If we are the first node, then we might be a child of a layout stored
+        // in the last node of our parent element.
+        let Some(parent) = i_slint_compiler::object_tree::find_parent_element(&element.element)
+        else {
+            return false;
+        };
+        let r = parent.borrow().debug.last().map(|d| d.1.is_some()).unwrap_or_default();
+        r
+    }
+}
+
 pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: bool) {
     let Some(component_instance) = super::component_instance() else {
         return;
