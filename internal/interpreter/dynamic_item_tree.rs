@@ -379,6 +379,11 @@ pub struct ItemTreeDescription<'id> {
     /// Map of all exported global singletons and their index in the compiled_globals vector. The key
     /// is the normalized name of the global.
     exported_globals_by_name: BTreeMap<String, usize>,
+
+    /// The type loader, which will be available only on the top-most `ItemTreeDescription`.
+    /// All other `ItemTreeDescription`s have `None` here.
+    #[cfg(feature = "highlight")]
+    pub(crate) type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
 }
 
 fn internal_properties_to_public<'a>(
@@ -786,7 +791,7 @@ pub async fn load(
     if diag.has_error() {
         return (Err(()), diag);
     }
-    let (doc, mut diag, _) = compile_syntax_node(syntax_node, diag, compiler_config).await;
+    let (doc, mut diag, loader) = compile_syntax_node(syntax_node, diag, compiler_config).await;
     if diag.has_error() {
         return (Err(()), diag);
     }
@@ -798,11 +803,12 @@ pub async fn load(
         return (Err(()), diag);
     }
 
-    (Ok(generate_item_tree(&doc.root_component, guard)), diag)
+    (Ok(generate_item_tree(&doc.root_component, Some(std::rc::Rc::new(loader)), guard)), diag)
 }
 
 pub(crate) fn generate_item_tree<'id>(
     component: &Rc<object_tree::Component>,
+    _type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
     guard: generativity::Guard<'id>,
 ) -> Rc<ItemTreeDescription<'id>> {
     //dbg!(&*component.root_element.borrow());
@@ -884,7 +890,7 @@ pub(crate) fn generate_item_tree<'id>(
             generativity::make_guard!(guard);
             self.repeater.push(
                 RepeaterWithinItemTree {
-                    item_tree_to_repeat: generate_item_tree(base_component, guard),
+                    item_tree_to_repeat: generate_item_tree(base_component, None, guard),
                     offset: self.type_builder.add_field_type::<Repeater<ErasedItemTreeBox>>(),
                     model: item.repeated.as_ref().unwrap().model.clone(),
                 }
@@ -1167,6 +1173,8 @@ pub(crate) fn generate_item_tree<'id>(
         public_properties,
         compiled_globals,
         exported_globals_by_name,
+        #[cfg(feature = "highlight")]
+        type_loader: _type_loader,
     };
 
     Rc::new(t)
@@ -2061,7 +2069,7 @@ pub fn show_popup(
 ) {
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
-    let compiled = generate_item_tree(&popup.component, guard);
+    let compiled = generate_item_tree(&popup.component, None, guard);
     let inst = instantiate(
         compiled,
         Some(parent_comp),

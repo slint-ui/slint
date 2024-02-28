@@ -888,6 +888,15 @@ impl ComponentDefinition {
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner.unerase(guard).original.clone()
     }
+
+    /// Return the `TypeLoader` used when parsing the code in the interpreter.
+    ///
+    /// WARNING: this is not part of the public API
+    #[cfg(feature = "highlight")]
+    pub fn type_loader(&self) -> std::rc::Rc<i_slint_compiler::typeloader::TypeLoader> {
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).type_loader.as_ref().unwrap().clone()
+    }
 }
 
 /// Print the diagnostics to stderr
