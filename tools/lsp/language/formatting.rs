@@ -81,7 +81,7 @@ pub fn format_document(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lsp_types::{Position, Range, TextEdit};
+    use lsp_types::{Position, Range};
 
     /// Given an unformatted source text, return text edits that will turn the source into formatted text
     fn get_formatting_edits(source: &str) -> Option<Vec<TextEdit>> {

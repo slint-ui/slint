@@ -5,7 +5,6 @@
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
 extern crate proc_macro;
-use core::iter::IntoIterator;
 use core::str::FromStr;
 use proc_macro::{Delimiter, TokenStream, TokenTree};
 

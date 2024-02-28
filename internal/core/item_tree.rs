@@ -1045,18 +1045,7 @@ pub(crate) mod ffi {
 
 #[cfg(test)]
 mod tests {
-    #![allow(unsafe_code)]
-
     use super::*;
-
-    use crate::accessibility::AccessibleStringProperty;
-    use crate::items::AccessibleRole;
-    use crate::layout::{LayoutInfo, Orientation};
-    use crate::slice::Slice;
-    use crate::window::WindowAdapterRc;
-    use crate::SharedString;
-
-    use vtable::VRc;
 
     struct TestItemTree {
         parent_component: Option<ItemTreeRc>,
