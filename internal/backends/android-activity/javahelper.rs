@@ -103,6 +103,7 @@ impl JavaHelper {
     pub fn set_imm_data(
         &self,
         data: &i_slint_core::window::InputMethodProperties,
+        scale_factor: f32
     ) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let mut text = data.text.to_string();
@@ -138,6 +139,10 @@ impl JavaHelper {
                 }
                 _ => 0 as jint,
             };
+
+            let cur_origin = data.cursor_rect_origin.to_physical(scale_factor);
+            let cur_size = data.cursor_rect_size.to_physical(scale_factor);
+
             env.call_method(
                 helper,
                 "set_imm_data",
@@ -148,10 +153,10 @@ impl JavaHelper {
                     JValue::from(to_utf16(anchor_position) as jint),
                     JValue::from(to_utf16(data.preedit_offset) as jint),
                     JValue::from(to_utf16(data.preedit_offset + data.preedit_text.len()) as jint),
-                    JValue::from(data.cursor_rect_origin.x as jint),
-                    JValue::from(data.cursor_rect_origin.y as jint),
-                    JValue::from(data.cursor_rect_size.width as jint),
-                    JValue::from(data.cursor_rect_size.height as jint),
+                    JValue::from(cur_origin.x as jint),
+                    JValue::from(cur_origin.y as jint),
+                    JValue::from(cur_size.width as jint),
+                    JValue::from(cur_size.height as jint),
                     JValue::from(input_type),
                 ],
             )?;
