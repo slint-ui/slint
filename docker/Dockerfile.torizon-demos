@@ -26,18 +26,19 @@ ENV CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc
 
 # Install Slint build dependencies (libxcb, etc.)
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libfontconfig1-dev:$TOOLCHAIN_ARCH libxcb1-dev:$TOOLCHAIN_ARCH libxcb-render0-dev:$TOOLCHAIN_ARCH libxcb-shape0-dev:$TOOLCHAIN_ARCH libxcb-xfixes0-dev:$TOOLCHAIN_ARCH libxkbcommon-dev:$TOOLCHAIN_ARCH python3 clang libstdc++-11-dev:$TOOLCHAIN_ARCH && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes pkg-config libfontconfig1-dev:$TOOLCHAIN_ARCH libxcb1-dev:$TOOLCHAIN_ARCH libxcb-render0-dev:$TOOLCHAIN_ARCH libxcb-shape0-dev:$TOOLCHAIN_ARCH libxcb-xfixes0-dev:$TOOLCHAIN_ARCH libxkbcommon-dev:$TOOLCHAIN_ARCH libinput-dev:$TOOLCHAIN_ARCH libudev-dev:$TOOLCHAIN_ARCH python3 clang libstdc++-11-dev:$TOOLCHAIN_ARCH && \
     rm -rf /var/lib/apt/lists/*
 
 # Don't require font-config when the compiler runs
 ENV RUST_FONTCONFIG_DLOPEN=on
+ENV PKG_CONFIG_ALLOW_CROSS=1
 
 # Build Demos
 COPY . /slint
 WORKDIR /slint
 RUN mkdir demos \
     && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo energy-monitor; do \
-    cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia -p $demo; \
+    cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat -p $demo || exit 1; \
     cp target/$RUST_TOOLCHAIN_ARCH/release/$demo ./demos/; \
     done
 
@@ -48,11 +49,11 @@ LABEL org.opencontainers.image.source=https://github.com/slint-ui/slint
 LABEL org.opencontainers.image.description="Container image providing Slint demos for use on Torizon. Run with 'docker run  --user=torizon -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw'. Available demos: printerdemo slide_puzzle gallery opengl_underlay carousel todo"
 
 RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install libfontconfig1 libxkbcommon0 fonts-noto-core fonts-noto-cjk fonts-noto-cjk-extra fonts-noto-color-emoji fonts-noto-ui-core fonts-noto-ui-extra \
+    && DEBIAN_FRONTEND=noninteractive apt-get install libfontconfig1 libxkbcommon0 libinput10 fonts-noto-core fonts-noto-cjk fonts-noto-cjk-extra fonts-noto-color-emoji fonts-noto-ui-core fonts-noto-ui-extra \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /slint/demos/* /usr/bin/
 
 ENV SLINT_FULLSCREEN=1
-ENV SLINT_BACKEND=winit-skia
+ENV SLINT_BACKEND=linuxkms-skia
 CMD /usr/bin/printerdemo
