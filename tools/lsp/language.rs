@@ -3,7 +3,7 @@
 
 // cSpell: ignore descr rfind unindented
 
-mod completion;
+pub mod completion;
 mod component_catalog;
 pub mod element_edit;
 mod formatting;

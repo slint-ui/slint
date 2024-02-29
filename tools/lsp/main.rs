@@ -465,14 +465,6 @@ async fn handle_preview_to_lsp_message(
         M::RequestState { .. } => {
             crate::language::request_state(ctx);
         }
-        M::AddComponent { label, component } => {
-            let _ = send_workspace_edit(
-                ctx.server_notifier.clone(),
-                label,
-                element_edit::add_component(ctx, component),
-            )
-            .await;
-        }
         M::UpdateElement { label, position, properties } => {
             let _ = send_workspace_edit(
                 ctx.server_notifier.clone(),
@@ -481,13 +473,8 @@ async fn handle_preview_to_lsp_message(
             )
             .await;
         }
-        M::RemoveElement { label, position } => {
-            let _ = send_workspace_edit(
-                ctx.server_notifier.clone(),
-                label,
-                element_edit::remove_element(ctx, position),
-            )
-            .await;
+        M::SendWorkspaceEdit { label, edit } => {
+            let _ = send_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit)).await;
         }
     }
     Ok(())

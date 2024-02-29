@@ -135,29 +135,11 @@ pub struct PreviewComponent {
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum LspToPreviewMessage {
-    SetContents {
-        url: VersionedUrl,
-        contents: String,
-    },
-    /// Adjust any selection in the document with `url` that is at or behind `offset` by `delta`
-    AdjustSelection {
-        url: VersionedUrl,
-        start_offset: u32,
-        end_offset: u32,
-        new_length: u32,
-    },
-    SetConfiguration {
-        config: PreviewConfig,
-    },
+    SetContents { url: VersionedUrl, contents: String },
+    SetConfiguration { config: PreviewConfig },
     ShowPreview(PreviewComponent),
-    HighlightFromEditor {
-        url: Option<Url>,
-        offset: u32,
-    },
-    KnownComponents {
-        url: Option<VersionedUrl>,
-        components: Vec<ComponentInformation>,
-    },
+    HighlightFromEditor { url: Option<Url>, offset: u32 },
+    KnownComponents { url: Option<VersionedUrl>, components: Vec<ComponentInformation> },
 }
 
 #[allow(unused)]
@@ -168,15 +150,6 @@ pub struct Diagnostic {
     pub line: usize,
     pub column: usize,
     pub level: String,
-}
-
-#[allow(unused)]
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub struct ComponentAddition {
-    pub component_type: String,
-    pub import_path: Option<String>, // Url fails to convert reliably:-/
-    pub insert_position: VersionedPosition,
-    pub component_text: String,
 }
 
 #[allow(unused)]
@@ -196,37 +169,25 @@ impl PropertyChange {
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToLspMessage {
-    Status {
-        message: String,
-        health: crate::lsp_ext::Health,
-    },
-    Diagnostics {
-        uri: Url,
-        diagnostics: Vec<lsp_types::Diagnostic>,
-    },
-    ShowDocument {
-        file: Url,
-        selection: lsp_types::Range,
-    },
-    PreviewTypeChanged {
-        is_external: bool,
-    },
-    RequestState {
-        unused: bool,
-    }, // send all documents!
-    AddComponent {
-        label: Option<String>,
-        component: ComponentAddition,
-    },
+    /// Show a status message in the editor
+    Status { message: String, health: crate::lsp_ext::Health },
+    /// Report diagnostics to editor.
+    Diagnostics { uri: Url, diagnostics: Vec<lsp_types::Diagnostic> },
+    /// Show a document in the editor.
+    ShowDocument { file: Url, selection: lsp_types::Range },
+    /// Switch between native and WASM preview (if supported)
+    PreviewTypeChanged { is_external: bool },
+    /// Request all documents and configuration to be sent from the LSP to the
+    /// Preview.
+    RequestState { unused: bool },
+    /// Update an existing Element (REMOVE THIS)
     UpdateElement {
         label: Option<String>,
         position: VersionedPosition,
         properties: Vec<PropertyChange>,
     },
-    RemoveElement {
-        label: Option<String>,
-        position: VersionedPosition,
-    },
+    /// Pass a `WorkspaceEdit` on to the editor
+    SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
 }
 
 /// Information on the Element types available
