@@ -469,7 +469,7 @@ async fn handle_preview_to_lsp_message(
             let _ = send_workspace_edit(
                 ctx.server_notifier.clone(),
                 label,
-                element_edit::update_element(ctx, position, properties),
+                properties::update_element_properties(ctx, position, properties),
             )
             .await;
         }

@@ -5,10 +5,9 @@
 
 pub mod completion;
 mod component_catalog;
-pub mod element_edit;
 mod formatting;
 mod goto;
-mod properties;
+pub mod properties;
 mod semantic_tokens;
 #[cfg(test)]
 pub mod test;
@@ -83,8 +82,6 @@ fn create_show_preview_command(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn request_state(ctx: &std::rc::Rc<Context>) {
-    use i_slint_compiler::diagnostics::Spanned;
-
     let cache = ctx.document_cache.borrow();
     let documents = &cache.documents;
 
@@ -97,7 +94,7 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
                 continue;
             };
             ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
-                url: common::VersionedUrl::new(url, node.source_file().and_then(|sf| sf.version())),
+                url: common::VersionedUrl::new(url, node.source_file.version()),
                 contents: node.text().to_string(),
             })
         }
@@ -476,7 +473,9 @@ pub fn query_properties_command(
         .expect("Failed to serialize none-element property query result!"));
     };
 
-    if let Some(element) = element_at_position(document_cache, &text_document_uri, &position) {
+    if let Some(element) =
+        element_at_position(&document_cache.documents, &text_document_uri, &position)
+    {
         properties::query_properties(&text_document_uri, source_version, &element)
             .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
     } else {
@@ -514,8 +513,9 @@ pub async fn set_binding_command(
     let (result, edit) = {
         let document_cache = &mut ctx.document_cache.borrow_mut();
         let uri = text_document.uri;
+        let version = document_cache.document_version(&uri);
         if let Some(source_version) = text_document.version {
-            if let Some(current_version) = document_cache.document_version(&uri) {
+            if let Some(current_version) = version {
                 if current_version != source_version {
                     return Err(
                         "Document version mismatch. Please refresh your property information"
@@ -527,20 +527,13 @@ pub async fn set_binding_command(
             }
         }
 
-        let element =
-            element_at_position(document_cache, &uri, &element_range.start).ok_or_else(|| {
+        let element = element_at_position(&document_cache.documents, &uri, &element_range.start)
+            .ok_or_else(|| {
                 format!("No element found at the given start position {:?}", &element_range.start)
             })?;
 
-        let node_range = util::map_node(
-            &element
-                .borrow()
-                .debug
-                .first()
-                .ok_or("The element was found, but had no range defined!")?
-                .0,
-        )
-        .ok_or("Failed to map node")?;
+        let node_range =
+            element.with_element_node(|node| util::map_node(node)).ok_or("Failed to map node")?;
 
         if node_range.start != element_range.start {
             return Err(format!(
@@ -557,7 +550,14 @@ pub async fn set_binding_command(
             .into());
         }
 
-        properties::set_binding(document_cache, &uri, &element, &property_name, new_expression)?
+        properties::set_binding(
+            &document_cache,
+            &uri,
+            version,
+            &element,
+            &property_name,
+            new_expression,
+        )?
     };
 
     if !dry_run {
@@ -597,9 +597,10 @@ pub async fn remove_binding_command(
     let edit = {
         let document_cache = &mut ctx.document_cache.borrow_mut();
         let uri = text_document.uri;
+        let version = document_cache.document_version(&uri);
 
         if let Some(source_version) = text_document.version {
-            if let Some(current_version) = document_cache.document_version(&uri) {
+            if let Some(current_version) = version {
                 if current_version != source_version {
                     return Err(
                         "Document version mismatch. Please refresh your property information"
@@ -611,20 +612,13 @@ pub async fn remove_binding_command(
             }
         }
 
-        let element =
-            element_at_position(document_cache, &uri, &element_range.start).ok_or_else(|| {
+        let element = element_at_position(&document_cache.documents, &uri, &element_range.start)
+            .ok_or_else(|| {
                 format!("No element found at the given start position {:?}", &element_range.start)
             })?;
 
-        let node_range = util::map_node(
-            &element
-                .borrow()
-                .debug
-                .first()
-                .ok_or("The element was found, but had no range defined!")?
-                .0,
-        )
-        .ok_or("Failed to map node")?;
+        let node_range =
+            element.with_element_node(|node| util::map_node(node)).ok_or("Failed to map node")?;
 
         if node_range.start != element_range.start {
             return Err(format!(
@@ -641,7 +635,7 @@ pub async fn remove_binding_command(
             .into());
         }
 
-        properties::remove_binding(document_cache, &uri, &element, &property_name)?
+        properties::remove_binding(uri, version, &element, &property_name)?
     };
 
     let response = ctx
@@ -756,39 +750,59 @@ pub async fn reload_document(
 }
 
 fn get_document_and_offset<'a>(
-    document_cache: &'a mut DocumentCache,
+    type_loader: &'a TypeLoader,
     text_document_uri: &'a Url,
     pos: &'a Position,
 ) -> Option<(&'a i_slint_compiler::object_tree::Document, u32)> {
     let path = uri_to_file(text_document_uri)?;
-    let doc = document_cache.documents.get_document(&path)?;
+    let doc = type_loader.get_document(&path)?;
     let o = doc.node.as_ref()?.source_file.offset(pos.line as usize + 1, pos.character as usize + 1)
         as u32;
     doc.node.as_ref()?.text_range().contains_inclusive(o.into()).then_some((doc, o))
 }
 
-fn element_contains(element: &i_slint_compiler::object_tree::ElementRc, offset: u32) -> bool {
+fn element_contains(
+    element: &i_slint_compiler::object_tree::ElementRc,
+    offset: u32,
+) -> Option<usize> {
     element
         .borrow()
         .debug
         .iter()
-        .any(|n| n.0.parent().map_or(false, |n| n.text_range().contains(offset.into())))
+        .position(|n| n.0.parent().map_or(false, |n| n.text_range().contains(offset.into())))
+}
+
+fn element_node_contains(element: &common::ElementRcNode, offset: u32) -> bool {
+    element.with_element_node(|node| {
+        node.parent().map_or(false, |n| n.text_range().contains(offset.into()))
+    })
 }
 
 pub fn element_at_position(
-    document_cache: &mut DocumentCache,
+    type_loader: &TypeLoader,
     text_document_uri: &Url,
     pos: &Position,
-) -> Option<i_slint_compiler::object_tree::ElementRc> {
-    let (doc, offset) = get_document_and_offset(document_cache, text_document_uri, pos)?;
+) -> Option<common::ElementRcNode> {
+    let (doc, offset) = get_document_and_offset(&type_loader, text_document_uri, pos)?;
 
     for component in &doc.inner_components {
-        let mut element = component.root_element.clone();
-        while element_contains(&element, offset) {
-            if let Some(c) =
-                element.clone().borrow().children.iter().find(|c| element_contains(c, offset))
+        let root_element = component.root_element.clone();
+        let Some(root_debug_index) = element_contains(&root_element, offset) else {
+            continue;
+        };
+
+        let mut element =
+            common::ElementRcNode { element: root_element, debug_index: root_debug_index };
+        while element_node_contains(&element, offset) {
+            if let Some((c, i)) = element
+                .element
+                .clone()
+                .borrow()
+                .children
+                .iter()
+                .find_map(|c| element_contains(c, offset).map(|i| (c, i)))
             {
-                element = c.clone();
+                element = common::ElementRcNode { element: c.clone(), debug_index: i };
             } else {
                 return Some(element);
             }
@@ -803,7 +817,7 @@ fn token_descr(
     text_document_uri: &Url,
     pos: &Position,
 ) -> Option<(SyntaxToken, u32)> {
-    let (doc, o) = get_document_and_offset(document_cache, text_document_uri, pos)?;
+    let (doc, o) = get_document_and_offset(&document_cache.documents, text_document_uri, pos)?;
     let node = doc.node.as_ref()?;
 
     let token = token_at_offset(node, o)?;
@@ -927,7 +941,7 @@ fn get_code_actions(
 
         if has_experimental_client_capability(client_capabilities, "snippetTextEdit") {
             let r = util::map_range(&token.source_file, node.parent().unwrap().text_range());
-            let element = element_at_position(document_cache, &uri, &r.start);
+            let element = element_at_position(&document_cache.documents, &uri, &r.start);
             let element_indent = element.as_ref().and_then(util::find_element_indent);
             let indented_lines = node
                 .parent()
@@ -1430,8 +1444,8 @@ pub mod tests {
         line: u32,
         character: u32,
     ) -> Option<String> {
-        let result = element_at_position(dc, url, &Position { line, character })?;
-        let element = result.borrow();
+        let result = element_at_position(&dc.documents, url, &Position { line, character })?;
+        let element = result.element.borrow();
         Some(element.id.clone())
     }
 
@@ -1441,8 +1455,8 @@ pub mod tests {
         line: u32,
         character: u32,
     ) -> Option<String> {
-        let result = element_at_position(dc, url, &Position { line, character })?;
-        let element = result.borrow();
+        let result = element_at_position(&dc.documents, url, &Position { line, character })?;
+        let element = result.element.borrow();
         Some(format!("{}", &element.base_type))
     }
 
@@ -1614,8 +1628,8 @@ enum {}
             get_document_symbols(&mut dc, &lsp_types::TextDocumentIdentifier { uri: uri.clone() })
                 .unwrap();
 
-        let mut check_start_with = |pos, str: &str| {
-            let (_, offset) = get_document_and_offset(&mut dc, &uri, &pos).unwrap();
+        let check_start_with = |pos, str: &str| {
+            let (_, offset) = get_document_and_offset(&dc.documents, &uri, &pos).unwrap();
             assert_eq!(&source[offset as usize..][..str.len()], str);
         };
 

@@ -49,7 +49,7 @@ impl TextOffsetAdjustment {
 }
 
 pub struct DropInformation {
-    pub target_element_node: element_selection::ElementRcNode,
+    pub target_element_node: common::ElementRcNode,
     pub insertion_position: common::VersionedPosition,
 }
 
@@ -154,11 +154,7 @@ pub fn drop_at(
 
     let indentation = format!(
         "{}    ",
-        crate::util::find_element_node_indent(
-            &drop_info.target_element_node.element,
-            drop_info.target_element_node.debug_index
-        )
-        .unwrap_or_default()
+        crate::util::find_element_indent(&drop_info.target_element_node).unwrap_or_default()
     );
 
     let new_text = if properties.is_empty() {
