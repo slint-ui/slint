@@ -8,7 +8,7 @@
 
 int main(int argc, char **argv)
 {
-   auto main_window = MainWindow::create();
+    auto main_window = MainWindow::create();
     main_window->run();
 }
 // ANCHOR_END: main
