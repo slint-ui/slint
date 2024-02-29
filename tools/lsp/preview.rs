@@ -1,11 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use crate::common;
-use crate::common::{
-    ComponentInformation, PreviewComponent, PreviewConfig, UrlVersion, VersionedPosition,
-    VersionedUrl,
-};
+use crate::common::{self, ComponentInformation, PreviewComponent, PreviewConfig};
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
@@ -54,7 +50,7 @@ enum PreviewFutureState {
 
 #[derive(Default)]
 struct ContentCache {
-    source_code: HashMap<Url, (UrlVersion, String)>,
+    source_code: HashMap<Url, (common::UrlVersion, String)>,
     dependency: HashSet<Url>,
     current: Option<PreviewComponent>,
     config: PreviewConfig,
@@ -74,7 +70,7 @@ struct PreviewState {
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
-pub fn set_contents(url: &VersionedUrl, content: String) {
+pub fn set_contents(url: &common::VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let old = cache.source_code.insert(url.url().clone(), (url.version().clone(), content.clone()));
     if cache.dependency.contains(url.url()) {
@@ -186,7 +182,7 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
     let Some(selected) = selected_element() else {
         return;
     };
-    let Some(selected_element) = selected.as_element() else {
+    let Some(selected_element_node) = selected.as_element_node() else {
         return;
     };
     let Some(component_instance) = component_instance() else {
@@ -194,7 +190,7 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
     };
 
     let Some(geometry) = component_instance
-        .element_position(&selected_element)
+        .element_position(&selected_element_node.element)
         .get(selected.instance_index)
         .cloned()
     else {
@@ -204,15 +200,16 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
     let click_position = LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
     let root_element = element_selection::root_element(&component_instance);
 
-    let (parent_x, parent_y) = search_for_parent_element(&root_element, &selected_element)
-        .and_then(|parent_element| {
-            component_instance
-                .element_position(&parent_element)
-                .iter()
-                .find(|g| g.contains(click_position))
-                .map(|g| (g.origin.x, g.origin.y))
-        })
-        .unwrap_or_default();
+    let (parent_x, parent_y) =
+        search_for_parent_element(&root_element, &selected_element_node.element)
+            .and_then(|parent_element| {
+                component_instance
+                    .element_position(&parent_element)
+                    .iter()
+                    .find(|g| g.contains(click_position))
+                    .map(|g| (g.origin.x, g.origin.y))
+            })
+            .unwrap_or_default();
 
     let (properties, op) = {
         let mut p = Vec::with_capacity(4);
@@ -254,7 +251,10 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
 
         send_message_to_lsp(crate::common::PreviewToLspMessage::UpdateElement {
             label: Some(format!("{op} element")),
-            position: VersionedPosition::new(VersionedUrl::new(url, version), selected.offset),
+            position: common::VersionedPosition::new(
+                common::VersionedUrl::new(url, version),
+                selected.offset,
+            ),
             properties,
         });
     }
@@ -313,14 +313,14 @@ pub fn config_changed(config: PreviewConfig) {
 
 /// If the file is in the cache, returns it.
 /// In any way, register it as a dependency
-fn get_url_from_cache(url: &Url) -> Option<(UrlVersion, String)> {
+fn get_url_from_cache(url: &Url) -> Option<(common::UrlVersion, String)> {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let r = cache.source_code.get(url).cloned();
     cache.dependency.insert(url.to_owned());
     r
 }
 
-fn get_path_from_cache(path: &Path) -> Option<(UrlVersion, String)> {
+fn get_path_from_cache(path: &Path) -> Option<(common::UrlVersion, String)> {
     let url = Url::from_file_path(path).ok()?;
     get_url_from_cache(&url)
 }
@@ -543,7 +543,10 @@ pub fn highlight(url: Option<Url>, offset: u32) {
 
 /// Highlight the element pointed at the offset in the path.
 /// When path is None, remove the highlight.
-pub fn known_components(_url: &Option<VersionedUrl>, components: Vec<ComponentInformation>) {
+pub fn known_components(
+    _url: &Option<common::VersionedUrl>,
+    components: Vec<ComponentInformation>,
+) {
     let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let current_url = cache.current.as_ref().map(|pc| pc.url.clone());
 

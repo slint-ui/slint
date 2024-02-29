@@ -1,15 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use super::DocumentCache;
-
 use i_slint_compiler::diagnostics::{DiagnosticLevel, SourceFile, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::LookupCtx;
-use i_slint_compiler::object_tree::{self, ElementRc};
+use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::parser::{TextRange, TextSize};
+use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
+
+use crate::common;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::UrlWasm;
@@ -57,23 +58,10 @@ pub fn last_non_ws_token(node: &SyntaxNode) -> Option<SyntaxToken> {
     last_non_ws
 }
 
-// Find the indentation of the element itself as well as the indentation of properties inside the
+// Find the indentation of the element node itself as well as the indentation of properties inside the
 // element. Returns the element indent followed by the block indent
-pub fn find_element_indent(element: &ElementRc) -> Option<String> {
-    let mut token = element.borrow().debug.first()?.0.first_token()?.prev_token();
-    while let Some(t) = token {
-        if t.kind() == SyntaxKind::Whitespace && t.text().contains('\n') {
-            return t.text().split('\n').last().map(|s| s.to_owned());
-        }
-        token = t.prev_token();
-    }
-    None
-}
-
-/// Find the indentation of the element itself as well as the indentation of properties inside the element.
-/// Returns the element indent followed by the block indent
-pub fn find_element_node_indent(element: &ElementRc, debug_index: usize) -> Option<String> {
-    let mut token = element.borrow().debug.get(debug_index)?.0.first_token()?.prev_token();
+pub fn find_element_indent(element: &common::ElementRcNode) -> Option<String> {
+    let mut token = element.with_element_node(|node| node.first_token()?.prev_token());
     while let Some(t) = token {
         if t.kind() == SyntaxKind::Whitespace && t.text().contains('\n') {
             return t.text().split('\n').last().map(|s| s.to_owned());
@@ -133,17 +121,17 @@ impl ExpressionContextInfo {
 
 /// Run the function with the LookupCtx associated with the token
 pub fn with_lookup_ctx<R>(
-    document_cache: &DocumentCache,
+    type_loader: &TypeLoader,
     node: SyntaxNode,
     f: impl FnOnce(&mut LookupCtx) -> R,
 ) -> Option<R> {
     let expr_context_info = lookup_expression_context(node)?;
-    with_property_lookup_ctx::<R>(document_cache, &expr_context_info, f)
+    with_property_lookup_ctx::<R>(type_loader, &expr_context_info, f)
 }
 
 /// Run the function with the LookupCtx associated with the token
 pub fn with_property_lookup_ctx<R>(
-    document_cache: &DocumentCache,
+    type_loader: &TypeLoader,
     expr_context_info: &ExpressionContextInfo,
     f: impl FnOnce(&mut LookupCtx) -> R,
 ) -> Option<R> {
@@ -152,10 +140,10 @@ pub fn with_property_lookup_ctx<R>(
         expr_context_info.property_name.as_str(),
         expr_context_info.is_animate,
     );
-    let global_tr = document_cache.documents.global_type_registry.borrow();
+    let global_tr = type_loader.global_type_registry.borrow();
     let tr = element
         .source_file()
-        .and_then(|sf| document_cache.documents.get_document(sf.path()))
+        .and_then(|sf| type_loader.get_document(sf.path()))
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
 
@@ -317,7 +305,7 @@ mod tests {
 
     #[test]
     fn test_find_element_indent() {
-        let (mut dc, url, _) = loaded_document_cache(
+        let (dc, url, _) = loaded_document_cache(
             r#"component MainWindow inherits Window {
     VerticalBox {
         label := Text { text: "text"; }
@@ -326,13 +314,16 @@ mod tests {
             .to_string(),
         );
 
-        let window = language::element_at_position(&mut dc, &url, &lsp_types::Position::new(0, 30));
+        let window =
+            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(0, 30));
         assert_eq!(find_element_indent(&window.unwrap()), None);
 
-        let vbox = language::element_at_position(&mut dc, &url, &lsp_types::Position::new(1, 4));
+        let vbox =
+            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(1, 4));
         assert_eq!(find_element_indent(&vbox.unwrap()), Some("    ".to_string()));
 
-        let label = language::element_at_position(&mut dc, &url, &lsp_types::Position::new(2, 17));
+        let label =
+            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(2, 17));
         assert_eq!(find_element_indent(&label.unwrap()), Some("        ".to_string()));
     }
 }

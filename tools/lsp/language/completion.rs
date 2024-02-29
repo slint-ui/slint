@@ -138,7 +138,7 @@ pub(crate) fn completion_at(
     } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
         if let Some(colon) = n.child_token(SyntaxKind::Colon) {
             if offset >= colon.text_range().end().into() {
-                return with_lookup_ctx(document_cache, node, |ctx| {
+                return with_lookup_ctx(&document_cache.documents, node, |ctx| {
                     resolve_expression_scope(ctx).map(Into::into)
                 })?;
             }
@@ -158,7 +158,9 @@ pub(crate) fn completion_at(
         if offset < double_arrow_range.end().into() {
             return None;
         }
-        return with_lookup_ctx(document_cache, node, |ctx| resolve_expression_scope(ctx))?;
+        return with_lookup_ctx(&document_cache.documents, node, |ctx| {
+            resolve_expression_scope(ctx)
+        })?;
     } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
             return None;
@@ -229,7 +231,7 @@ pub(crate) fn completion_at(
             );
         }
 
-        return with_lookup_ctx(document_cache, node, |ctx| {
+        return with_lookup_ctx(&document_cache.documents, node, |ctx| {
             resolve_expression_scope(ctx).map(Into::into)
         })?;
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
@@ -271,7 +273,7 @@ pub(crate) fn completion_at(
                 return resolve_type_scope(token, document_cache).map(Into::into);
             }
             SyntaxKind::Expression => {
-                return with_lookup_ctx(document_cache, node, |ctx| {
+                return with_lookup_ctx(&document_cache.documents, node, |ctx| {
                     let it = q.children_with_tokens().filter_map(|t| t.into_token());
                     let mut it = it.skip_while(|t| {
                         t.kind() != SyntaxKind::Identifier && t.token != token.token

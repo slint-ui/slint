@@ -14,7 +14,7 @@ pub mod util;
 use common::{LspToPreviewMessage, Result, VersionedUrl};
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
-pub use language::{element_edit, Context, DocumentCache, RequestHandler};
+pub use language::{Context, DocumentCache, RequestHandler};
 use lsp_types::Url;
 use serde::Serialize;
 use std::cell::RefCell;
@@ -299,7 +299,9 @@ impl SlintServer {
                 send_workspace_edit(
                     self.ctx.server_notifier.clone(),
                     label,
-                    element_edit::update_element(&self.ctx, position, properties),
+                    language::properties::update_element_properties(
+                        &self.ctx, position, properties,
+                    ),
                 );
             }
             M::SendWorkspaceEdit { label, edit } => {

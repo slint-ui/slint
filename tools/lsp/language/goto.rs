@@ -46,7 +46,7 @@ pub fn goto_definition(
                     if token.kind() != SyntaxKind::Identifier {
                         return None;
                     }
-                    let lr = with_lookup_ctx(document_cache, node, |ctx| {
+                    let lr = with_lookup_ctx(&document_cache.documents, node, |ctx| {
                         let mut it = n
                             .children_with_tokens()
                             .filter_map(|t| t.into_token())

@@ -1,19 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use super::DocumentCache;
-use crate::common::{create_workspace_edit, Error, Result};
-use crate::util::{
-    find_element_indent, map_node, map_node_and_url, map_position, map_range, to_lsp_diag,
-    with_property_lookup_ctx, ExpressionContextInfo,
-};
+use crate::common::{self, Result};
+use crate::language;
+use crate::util;
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFileVersion, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
-use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
+use i_slint_compiler::object_tree::{Element, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};
 
 use std::collections::HashSet;
+
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
 pub(crate) struct DefinitionInformation {
@@ -60,7 +60,7 @@ impl QueryPropertyResponse {
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub(crate) struct SetBindingResponse {
+pub struct SetBindingResponse {
     diagnostics: Vec<lsp_types::Diagnostic>,
 }
 
@@ -110,7 +110,7 @@ fn add_element_properties(
         let declared_at = value
             .type_node()
             .as_ref()
-            .and_then(map_node_and_url)
+            .and_then(util::map_node_and_url)
             .map(|(uri, range)| DeclarationInformation { uri, start_position: range.start });
         Some(PropertyInformation {
             name: name.clone(),
@@ -226,15 +226,20 @@ fn find_expression_range(
         }
     }
     Some(DefinitionInformation {
-        property_definition_range: map_range(source_file, property_definition_range?),
-        selection_range: map_range(source_file, selection_range?),
-        expression_range: map_range(source_file, expression_range?),
+        property_definition_range: util::map_range(source_file, property_definition_range?),
+        selection_range: util::map_range(source_file, selection_range?),
+        expression_range: util::map_range(source_file, expression_range?),
         expression_value: expression_value?,
     })
 }
 
-fn find_property_binding_offset(element: &Element, property_name: &str) -> Option<u32> {
-    let element_range = element.debug.first()?.0.text_range();
+fn find_property_binding_offset(
+    element: &common::ElementRcNode,
+    property_name: &str,
+) -> Option<u32> {
+    let element_range = element.with_element_node(|node| node.text_range());
+
+    let element = element.element.borrow();
 
     if let Some(v) = element.bindings.get(property_name) {
         if let Some(span) = &v.borrow().span {
@@ -251,21 +256,24 @@ fn find_property_binding_offset(element: &Element, property_name: &str) -> Optio
     None
 }
 
-fn insert_property_definitions(element: &Element, properties: &mut Vec<PropertyInformation>) {
-    if let Some((element_node, _)) = element.debug.first() {
-        for prop_info in properties {
-            if let Some(offset) = find_property_binding_offset(element, prop_info.name.as_str()) {
-                prop_info.defined_at = find_expression_range(element_node, offset);
-            }
+fn insert_property_definitions(
+    element: &common::ElementRcNode,
+    mut properties: Vec<PropertyInformation>,
+) -> Vec<PropertyInformation> {
+    for prop_info in properties.iter_mut() {
+        if let Some(offset) = find_property_binding_offset(element, prop_info.name.as_str()) {
+            prop_info.defined_at =
+                element.with_element_node(|node| find_expression_range(node, offset));
         }
     }
+    properties
 }
 
-fn get_properties(element: &ElementRc) -> Vec<PropertyInformation> {
+fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
     let mut result = Vec::new();
-    add_element_properties(&element.borrow(), "", true, &mut result);
+    add_element_properties(&element.element.borrow(), "", true, &mut result);
 
-    let mut current_element = element.clone();
+    let mut current_element = element.element.clone();
 
     let geometry_prop = HashSet::from(["x", "y", "width", "height"]);
 
@@ -374,7 +382,7 @@ fn get_properties(element: &ElementRc) -> Vec<PropertyInformation> {
             defined_at: None,
             group: "accessibility".into(),
         });
-        if element.borrow().is_binding_set("accessible-role", true) {
+        if current_element.borrow().is_binding_set("accessible-role", true) {
             result.extend(get_reserved_properties(
                 "accessibility",
                 i_slint_compiler::typeregister::RESERVED_ACCESSIBILITY_PROPERTIES,
@@ -383,38 +391,32 @@ fn get_properties(element: &ElementRc) -> Vec<PropertyInformation> {
         break;
     }
 
-    insert_property_definitions(&element.borrow(), &mut result);
-
-    result
+    insert_property_definitions(&element, result)
 }
 
-fn find_block_range(element: &ElementRc) -> Option<lsp_types::Range> {
-    let element = element.borrow();
-    let node = &element.debug.first()?.0;
+fn find_block_range(element: &common::ElementRcNode) -> Option<lsp_types::Range> {
+    element.with_element_node(|node| {
+        let open_brace = node.child_token(SyntaxKind::LBrace)?;
+        let close_brace = node.child_token(SyntaxKind::RBrace)?;
 
-    let open_brace = node.child_token(SyntaxKind::LBrace)?;
-    let close_brace = node.child_token(SyntaxKind::RBrace)?;
-
-    Some(lsp_types::Range::new(
-        map_position(node.source_file()?, open_brace.text_range().start()),
-        map_position(node.source_file()?, close_brace.text_range().end()),
-    ))
+        Some(lsp_types::Range::new(
+            util::map_position(node.source_file()?, open_brace.text_range().start()),
+            util::map_position(node.source_file()?, close_brace.text_range().end()),
+        ))
+    })
 }
 
-fn get_element_information(element: &ElementRc) -> ElementInformation {
-    let e = element.borrow();
+fn get_element_information(element: &common::ElementRcNode) -> ElementInformation {
+    let range = element.with_element_node(|node| util::map_node(node));
+    let e = element.element.borrow();
 
-    ElementInformation {
-        id: e.id.clone(),
-        type_name: e.base_type.to_string(),
-        range: e.debug.first().and_then(|n| map_node(&n.0)),
-    }
+    ElementInformation { id: e.id.clone(), type_name: e.base_type.to_string(), range }
 }
 
 pub(crate) fn query_properties(
     uri: &lsp_types::Url,
     source_version: SourceFileVersion,
-    element: &ElementRc,
+    element: &common::ElementRcNode,
 ) -> Result<QueryPropertyResponse> {
     Ok(QueryPropertyResponse {
         properties: get_properties(element),
@@ -458,7 +460,7 @@ fn validate_property_expression_type(
 }
 
 fn create_workspace_edit_for_set_binding_on_existing_property(
-    uri: &lsp_types::Url,
+    uri: lsp_types::Url,
     version: SourceFileVersion,
     property: &PropertyInformation,
     new_expression: String,
@@ -466,13 +468,13 @@ fn create_workspace_edit_for_set_binding_on_existing_property(
     property.defined_at.as_ref().map(|defined_at| {
         let edit =
             lsp_types::TextEdit { range: defined_at.expression_range, new_text: new_expression };
-        create_workspace_edit(uri.clone(), version, vec![edit])
+        common::create_workspace_edit(uri, version, vec![edit])
     })
 }
 
 fn set_binding_on_existing_property(
-    document_cache: &mut DocumentCache,
-    uri: &lsp_types::Url,
+    uri: lsp_types::Url,
+    version: SourceFileVersion,
     property: &PropertyInformation,
     new_expression: String,
     diag: &mut BuildDiagnostics,
@@ -481,7 +483,7 @@ fn set_binding_on_existing_property(
         .then(|| {
             create_workspace_edit_for_set_binding_on_existing_property(
                 uri,
-                document_cache.document_version(uri),
+                version,
                 property,
                 new_expression,
             )
@@ -489,7 +491,7 @@ fn set_binding_on_existing_property(
         .flatten();
 
     Ok((
-        SetBindingResponse { diagnostics: diag.iter().map(to_lsp_diag).collect::<Vec<_>>() },
+        SetBindingResponse { diagnostics: diag.iter().map(util::to_lsp_diag).collect::<Vec<_>>() },
         workspace_edit,
     ))
 }
@@ -546,9 +548,9 @@ fn find_insert_range_for_property(
 }
 
 fn create_workspace_edit_for_set_binding_on_known_property(
-    uri: &lsp_types::Url,
+    uri: lsp_types::Url,
     version: SourceFileVersion,
-    element: &ElementRc,
+    element: &common::ElementRcNode,
     properties: &[PropertyInformation],
     property_name: &str,
     new_expression: &str,
@@ -557,7 +559,7 @@ fn create_workspace_edit_for_set_binding_on_known_property(
 
     find_insert_range_for_property(&block_range, properties, property_name).map(
         |(range, insert_type)| {
-            let indent = find_element_indent(element).unwrap_or_default();
+            let indent = util::find_element_indent(element).unwrap_or_default();
             let edit = lsp_types::TextEdit {
                 range,
                 new_text: match insert_type {
@@ -569,15 +571,15 @@ fn create_workspace_edit_for_set_binding_on_known_property(
                     }
                 },
             };
-            create_workspace_edit(uri.clone(), version, vec![edit])
+            common::create_workspace_edit(uri, version, vec![edit])
         },
     )
 }
 
 fn set_binding_on_known_property(
-    document_cache: &mut DocumentCache,
-    uri: &lsp_types::Url,
-    element: &ElementRc,
+    uri: lsp_types::Url,
+    version: SourceFileVersion,
+    element: &common::ElementRcNode,
     properties: &[PropertyInformation],
     property_name: &str,
     new_expression: &str,
@@ -588,7 +590,7 @@ fn set_binding_on_known_property(
     } else {
         create_workspace_edit_for_set_binding_on_known_property(
             uri,
-            document_cache.document_version(uri),
+            version,
             element,
             properties,
             property_name,
@@ -597,15 +599,16 @@ fn set_binding_on_known_property(
     };
 
     Ok((
-        SetBindingResponse { diagnostics: diag.iter().map(to_lsp_diag).collect::<Vec<_>>() },
+        SetBindingResponse { diagnostics: diag.iter().map(util::to_lsp_diag).collect::<Vec<_>>() },
         workspace_edit,
     ))
 }
 
-pub(crate) fn set_binding(
-    document_cache: &mut DocumentCache,
+pub fn set_binding(
+    document_cache: &language::DocumentCache,
     uri: &lsp_types::Url,
-    element: &ElementRc,
+    version: SourceFileVersion,
+    element: &common::ElementRcNode,
     property_name: &str,
     new_expression: String,
 ) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
@@ -621,25 +624,21 @@ pub(crate) fn set_binding(
     };
 
     let new_expression_type = {
-        let element = element.borrow();
-        if let Some((node, _)) = &element.debug.first() {
-            let expr_context_info =
-                ExpressionContextInfo::new(node.clone(), property_name.to_string(), false);
-            with_property_lookup_ctx(document_cache, &expr_context_info, |ctx| {
-                let expression =
-                    i_slint_compiler::expression_tree::Expression::from_binding_expression_node(
-                        expression_node,
-                        ctx,
-                    );
-                expression.ty()
-            })
-            .unwrap_or(Type::Invalid)
-        } else {
-            Type::Invalid
-        }
+        let expr_context_info = element.with_element_node(|node| {
+            util::ExpressionContextInfo::new(node.clone(), property_name.to_string(), false)
+        });
+        util::with_property_lookup_ctx(&document_cache.documents, &expr_context_info, |ctx| {
+            let expression =
+                i_slint_compiler::expression_tree::Expression::from_binding_expression_node(
+                    expression_node,
+                    ctx,
+                );
+            expression.ty()
+        })
+        .unwrap_or(Type::Invalid)
     };
 
-    let properties = get_properties(element);
+    let properties = get_properties(&element);
     let property = match get_property_information(&properties, property_name) {
         Ok(p) => p,
         Err(e) => {
@@ -652,7 +651,7 @@ pub(crate) fn set_binding(
             );
             return Ok((
                 SetBindingResponse {
-                    diagnostics: diag.iter().map(to_lsp_diag).collect::<Vec<_>>(),
+                    diagnostics: diag.iter().map(util::to_lsp_diag).collect::<Vec<_>>(),
                 },
                 None,
             ));
@@ -662,12 +661,12 @@ pub(crate) fn set_binding(
     validate_property_expression_type(&property, new_expression_type, &mut diag);
     if property.defined_at.is_some() {
         // Change an already defined property:
-        set_binding_on_existing_property(document_cache, uri, &property, new_expression, &mut diag)
+        set_binding_on_existing_property(uri.clone(), version, &property, new_expression, &mut diag)
     } else {
         // Add a new definition to a known property:
         set_binding_on_known_property(
-            document_cache,
-            uri,
+            uri.clone(),
+            version,
             element,
             &properties,
             &property.name,
@@ -678,16 +677,16 @@ pub(crate) fn set_binding(
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-pub(crate) fn set_bindings(
-    document_cache: &mut DocumentCache,
-    uri: &lsp_types::Url,
-    element: &ElementRc,
+pub fn set_bindings(
+    document_cache: &language::DocumentCache,
+    uri: lsp_types::Url,
+    version: SourceFileVersion,
+    element: &common::ElementRcNode,
     properties: &[crate::common::PropertyChange],
 ) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>)> {
-    let version = document_cache.document_version(uri);
     let (responses, edits) = properties
         .iter()
-        .map(|p| set_binding(document_cache, uri, element, &p.name, p.value.clone()))
+        .map(|p| set_binding(document_cache, &uri, version, element, &p.name, p.value.clone()))
         .fold(
             Ok((SetBindingResponse { diagnostics: Default::default() }, Vec::new())),
             |prev_result: Result<(SetBindingResponse, Vec<lsp_types::TextEdit>)>, next_result| {
@@ -715,30 +714,76 @@ pub(crate) fn set_bindings(
     if edits.is_empty() {
         Ok((responses, None))
     } else {
-        Ok((responses, Some(crate::common::create_workspace_edit(uri.clone(), version, edits))))
+        Ok((responses, Some(common::create_workspace_edit(uri, version, edits))))
     }
 }
 
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+fn element_at_source_code_position(
+    dc: &mut language::DocumentCache,
+    position: &common::VersionedPosition,
+) -> Result<common::ElementRcNode> {
+    let file = lsp_types::Url::to_file_path(position.url())
+        .map_err(|_| "Failed to convert URL to file path".to_string())?;
+
+    if &dc.document_version(position.url()) != position.version() {
+        return Err("Document version mismatch.".into());
+    }
+
+    let doc = dc.documents.get_document(&file).ok_or_else(|| "Document not found".to_string())?;
+
+    let source_file = doc
+        .node
+        .as_ref()
+        .map(|n| n.source_file.clone())
+        .ok_or_else(|| "Document had no node".to_string())?;
+    let element_position = util::map_position(&source_file, position.offset().into());
+
+    Ok(language::element_at_position(&dc.documents, &position.url(), &element_position)
+        .ok_or_else(|| {
+            format!("No element found at the given start position {:?}", &element_position)
+        })?)
+}
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+pub fn update_element_properties(
+    ctx: &language::Context,
+    position: common::VersionedPosition,
+    properties: Vec<common::PropertyChange>,
+) -> Result<lsp_types::WorkspaceEdit> {
+    let element = element_at_source_code_position(&mut ctx.document_cache.borrow_mut(), &position)?;
+
+    let (_, e) = set_bindings(
+        &mut ctx.document_cache.borrow_mut(),
+        position.url().clone(),
+        *position.version(),
+        &element,
+        &properties,
+    )?;
+    Ok(e.ok_or_else(|| "Failed to create workspace edit".to_string())?)
+}
+
 fn create_workspace_edit_for_remove_binding(
-    uri: &lsp_types::Url,
+    uri: lsp_types::Url,
     version: SourceFileVersion,
     range: lsp_types::Range,
 ) -> lsp_types::WorkspaceEdit {
     let edit = lsp_types::TextEdit { range, new_text: String::new() };
-    create_workspace_edit(uri.clone(), version, vec![edit])
+    common::create_workspace_edit(uri.clone(), version, vec![edit])
 }
 
-pub(crate) fn remove_binding(
-    document_cache: &mut DocumentCache,
-    uri: &lsp_types::Url,
-    element: &ElementRc,
+pub fn remove_binding(
+    uri: lsp_types::Url,
+    version: common::UrlVersion,
+    element: &common::ElementRcNode,
     property_name: &str,
 ) -> Result<lsp_types::WorkspaceEdit> {
-    let element = element.borrow();
-    let source_file = &element.debug.first().and_then(|n| n.0.source_file());
+    let source_file = element.with_element_node(|node| node.source_file.clone());
 
     let range = find_property_binding_offset(&element, property_name)
-        .and_then(|offset| element.debug.first()?.0.token_at_offset(offset.into()).right_biased())
+        .and_then(|offset| {
+            element.with_element_node(|node| node.token_at_offset(offset.into()).right_biased())
+        })
         .and_then(|token| {
             for ancestor in token.parent_ancestors() {
                 if (ancestor.kind() == SyntaxKind::Binding)
@@ -779,7 +824,7 @@ pub(crate) fn remove_binding(
                             .unwrap_or(end)
                     };
 
-                    return source_file.map(|sf| map_range(sf, rowan::TextRange::new(start, end)));
+                    return Some(util::map_range(&source_file, rowan::TextRange::new(start, end)));
                 }
                 if ancestor.kind() == SyntaxKind::Element {
                     // There should have been a binding before the element!
@@ -788,24 +833,17 @@ pub(crate) fn remove_binding(
             }
             None
         })
-        .ok_or_else(|| Into::<Error>::into("Could not find range to delete."))?;
+        .ok_or_else(|| Into::<common::Error>::into("Could not find range to delete."))?;
 
-    Ok(create_workspace_edit_for_remove_binding(
-        uri,
-        Some(
-            document_cache
-                .document_version(uri)
-                .ok_or_else(|| Into::<Error>::into("Document not found in cache"))?,
-        ),
-        range,
-    ))
+    Ok(create_workspace_edit_for_remove_binding(uri, version, range))
 }
 
 #[cfg(test)]
 mod tests {
+    use i_slint_compiler::typeloader::TypeLoader;
+
     use super::*;
 
-    use crate::language;
     use crate::language::test::{complex_document_cache, loaded_document_cache};
 
     fn find_property<'a>(
@@ -818,20 +856,26 @@ mod tests {
     fn properties_at_position_in_cache(
         line: u32,
         character: u32,
-        dc: &mut DocumentCache,
+        tl: &TypeLoader,
         url: &lsp_types::Url,
-    ) -> Option<(ElementRc, Vec<PropertyInformation>)> {
+    ) -> Option<(common::ElementRcNode, Vec<PropertyInformation>)> {
         let element =
-            language::element_at_position(dc, url, &lsp_types::Position { line, character })?;
+            language::element_at_position(tl, url, &lsp_types::Position { line, character })?;
         Some((element.clone(), get_properties(&element)))
     }
 
     fn properties_at_position(
         line: u32,
         character: u32,
-    ) -> Option<(ElementRc, Vec<PropertyInformation>, DocumentCache, lsp_types::Url)> {
-        let (mut dc, url, _) = complex_document_cache();
-        if let Some((e, p)) = properties_at_position_in_cache(line, character, &mut dc, &url) {
+    ) -> Option<(
+        common::ElementRcNode,
+        Vec<PropertyInformation>,
+        language::DocumentCache,
+        lsp_types::Url,
+    )> {
+        let (dc, url, _) = complex_document_cache();
+        if let Some((e, p)) = properties_at_position_in_cache(line, character, &dc.documents, &url)
+        {
             Some((e, p, dc, url))
         } else {
             None
@@ -868,9 +912,10 @@ mod tests {
 
     #[test]
     fn test_element_information() {
-        let (mut dc, url, _) = complex_document_cache();
+        let (dc, url, _) = complex_document_cache();
         let element =
-            language::element_at_position(&mut dc, &url, &lsp_types::Position::new(33, 4)).unwrap();
+            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(33, 4))
+                .unwrap();
 
         let result = get_element_information(&element);
 
@@ -897,9 +942,10 @@ mod tests {
         println!("   :           1         2         3         4         5");
         println!("   : 012345678901234567890123456789012345678901234567890123456789");
 
-        let (mut dc, url, _) = loaded_document_cache(content);
+        let (dc, url, _) = loaded_document_cache(content);
 
-        let (_, result) = properties_at_position_in_cache(pos_l, pos_c, &mut dc, &url).unwrap();
+        let (_, result) =
+            properties_at_position_in_cache(pos_l, pos_c, &dc.documents, &url).unwrap();
 
         let p = find_property(&result, "text").unwrap();
         let definition = p.defined_at.as_ref().unwrap();
@@ -1295,7 +1341,7 @@ component MainWindow inherits Window {
 
     #[test]
     fn test_get_property_definition() {
-        let (mut dc, url, _) = loaded_document_cache(
+        let (dc, url, _) = loaded_document_cache(
             r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
 component Base1 {
@@ -1365,7 +1411,7 @@ component MainWindow inherits Window {
         let source = &doc.node.as_ref().unwrap().source_file;
         let (l, c) = source.line_column(source.source().unwrap().find("base2 :=").unwrap());
         let (_, result) =
-            properties_at_position_in_cache(l as u32, c as u32, &mut dc, &url).unwrap();
+            properties_at_position_in_cache(l as u32, c as u32, &dc.documents, &url).unwrap();
 
         let foo_property = find_property(&result, "foo").unwrap();
 
@@ -1381,7 +1427,7 @@ component MainWindow inherits Window {
 
     #[test]
     fn test_invalid_properties() {
-        let (mut dc, url, _) = loaded_document_cache(
+        let (dc, url, _) = loaded_document_cache(
             r#"
 global SomeGlobal := {
     property <int> glob: 77;
@@ -1397,7 +1443,7 @@ component SomeRect inherits Rectangle {
             .to_string(),
         );
 
-        let (_, result) = properties_at_position_in_cache(1, 25, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(1, 25, &dc.documents, &url).unwrap();
 
         let glob_property = find_property(&result, "glob").unwrap();
         assert_eq!(glob_property.type_name, "int");
@@ -1407,7 +1453,7 @@ component SomeRect inherits Rectangle {
         assert_eq!(glob_property.group, "");
         assert_eq!(find_property(&result, "width"), None);
 
-        let (_, result) = properties_at_position_in_cache(8, 4, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(8, 4, &dc.documents, &url).unwrap();
         let abcd_property = find_property(&result, "abcd").unwrap();
         assert_eq!(abcd_property.type_name, "int");
         let declaration = abcd_property.declared_at.as_ref().unwrap();
@@ -1429,10 +1475,10 @@ component SomeRect inherits Rectangle {
 
     #[test]
     fn test_invalid_property_panic() {
-        let (mut dc, url, _) =
+        let (dc, url, _) =
             loaded_document_cache(r#"export component Demo { Text { text: } }"#.to_string());
 
-        let (_, result) = properties_at_position_in_cache(0, 35, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(0, 35, &dc.documents, &url).unwrap();
 
         let prop = find_property(&result, "text").unwrap();
         assert_eq!(prop.defined_at, None); // The property has no valid definition at this time
@@ -1440,7 +1486,7 @@ component SomeRect inherits Rectangle {
 
     #[test]
     fn test_codeblock_property_declaration() {
-        let (mut dc, url, _) = loaded_document_cache(
+        let (dc, url, _) = loaded_document_cache(
             r#"
 component Base {
     property <int> a1: { 1 + 1 }
@@ -1456,7 +1502,7 @@ component Base {
             .to_string(),
         );
 
-        let (_, result) = properties_at_position_in_cache(3, 0, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(3, 0, &dc.documents, &url).unwrap();
         assert_eq!(find_property(&result, "a1").unwrap().type_name, "int");
         assert_eq!(
             find_property(&result, "a1").unwrap().defined_at.as_ref().unwrap().expression_value,
@@ -1486,7 +1532,7 @@ component Base {
 
     #[test]
     fn test_codeblock_property_definitions() {
-        let (mut dc, url, _) = loaded_document_cache(
+        let (dc, url, _) = loaded_document_cache(
             r#"
 component Base {
     in property <int> a1;
@@ -1511,7 +1557,7 @@ component MyComp {
             .to_string(),
         );
 
-        let (_, result) = properties_at_position_in_cache(11, 1, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(11, 1, &dc.documents, &url).unwrap();
         assert_eq!(find_property(&result, "a1").unwrap().type_name, "int");
         assert_eq!(
             find_property(&result, "a1").unwrap().defined_at.as_ref().unwrap().expression_value,
@@ -1541,7 +1587,7 @@ component MyComp {
 
     #[test]
     fn test_output_properties() {
-        let (mut dc, url, _) = loaded_document_cache(
+        let (dc, url, _) = loaded_document_cache(
             r#"
 component Base {
     property <int> a: 1;
@@ -1562,19 +1608,19 @@ component MyComp {
             .to_string(),
         );
 
-        let (_, result) = properties_at_position_in_cache(3, 0, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(3, 0, &dc.documents, &url).unwrap();
         assert_eq!(find_property(&result, "a").unwrap().type_name, "int");
         assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
         assert_eq!(find_property(&result, "c").unwrap().type_name, "int");
         assert_eq!(find_property(&result, "d").unwrap().type_name, "int");
 
-        let (_, result) = properties_at_position_in_cache(10, 0, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(10, 0, &dc.documents, &url).unwrap();
         assert_eq!(find_property(&result, "a"), None);
         assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
         assert_eq!(find_property(&result, "c"), None);
         assert_eq!(find_property(&result, "d").unwrap().type_name, "int");
 
-        let (_, result) = properties_at_position_in_cache(13, 0, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(13, 0, &dc.documents, &url).unwrap();
         assert_eq!(find_property(&result, "enabled").unwrap().type_name, "bool");
         assert_eq!(find_property(&result, "pressed"), None);
     }
@@ -1583,8 +1629,8 @@ component MyComp {
         property_name: &str,
         new_value: &str,
     ) -> (SetBindingResponse, Option<lsp_types::WorkspaceEdit>) {
-        let (element, _, mut dc, url) = properties_at_position(18, 15).unwrap();
-        set_binding(&mut dc, &url, &element, property_name, new_value.to_string()).unwrap()
+        let (element, _, dc, url) = properties_at_position(18, 15).unwrap();
+        set_binding(&dc, &url, None, &element, property_name, new_value.to_string()).unwrap()
     }
 
     #[test]

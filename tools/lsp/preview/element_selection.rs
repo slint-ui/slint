@@ -1,10 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use std::{
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::{path::PathBuf, rc::Rc};
 
 use i_slint_compiler::diagnostics::SourceFile;
 use i_slint_compiler::object_tree::{Component, ElementRc};
@@ -12,51 +9,7 @@ use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use rowan::TextRange;
 use slint_interpreter::{highlight::ComponentPositions, ComponentInstance};
 
-#[derive(Clone, Debug)]
-pub struct ElementRcNode {
-    pub element: ElementRc,
-    pub debug_index: usize,
-}
-
-impl ElementRcNode {
-    pub fn find_in(element: ElementRc, path: &Path, offset: u32) -> Option<Self> {
-        let debug_index = element.borrow().debug.iter().position(|(n, _)| {
-            u32::from(n.text_range().start()) == offset && n.source_file.path() == path
-        })?;
-
-        Some(Self { element, debug_index })
-    }
-
-    pub fn with_element_debug<R>(
-        &self,
-        func: impl Fn(
-            &i_slint_compiler::parser::syntax_nodes::Element,
-            &Option<i_slint_compiler::layout::Layout>,
-        ) -> R,
-    ) -> R {
-        let elem = self.element.borrow();
-        let (n, l) = &elem.debug.get(self.debug_index).unwrap();
-        func(n, l)
-    }
-
-    pub fn with_element_node<R>(
-        &self,
-        func: impl Fn(&i_slint_compiler::parser::syntax_nodes::Element) -> R,
-    ) -> R {
-        let elem = self.element.borrow();
-        func(&elem.debug.get(self.debug_index).unwrap().0)
-    }
-
-    pub fn path_and_offset(&self) -> (PathBuf, u32) {
-        self.with_element_node(|n| {
-            (n.source_file.path().to_owned(), u32::from(n.text_range().start()))
-        })
-    }
-
-    pub fn is_layout(&self) -> bool {
-        self.with_element_debug(|_, l| l.is_some())
-    }
-}
+use crate::common::ElementRcNode;
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
