@@ -20,3 +20,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes software-propert
     git config --global safe.directory '*'
 
 ENV PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig
+
+# In the absence of a sysroot, the header files we install earlier (such as libfontconfig1-dev:armhf) are in /usr/include
+# so remember to teach bindgen to also look there, despite its --target.
+ENV BINDGEN_EXTRA_CLANG_ARGS_armv7_unknown_linux_gnueabihf=-I/usr/include
