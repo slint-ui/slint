@@ -71,7 +71,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         match request {
             i_slint_core::window::InputMethodRequest::Enable(props) => {
                 self.java_helper
-                    .set_imm_data(&props)
+                    .set_imm_data(&props, self.window.scale_factor())
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 self.java_helper
                     .show_or_hide_soft_input(true)
@@ -79,7 +79,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
             }
             i_slint_core::window::InputMethodRequest::Update(props) => {
                 self.java_helper
-                    .set_imm_data(&props)
+                    .set_imm_data(&props, self.window.scale_factor())
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
             }
             i_slint_core::window::InputMethodRequest::Disable => {

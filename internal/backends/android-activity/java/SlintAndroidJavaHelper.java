@@ -1,19 +1,91 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.text.Editable;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
+import android.util.DisplayMetrics;
+import android.util.TypedValue;
 import android.view.inputmethod.InputMethodManager;
 import android.app.Activity;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.PopupWindow;
 import android.view.inputmethod.BaseInputConnection;
+
+class InputHandle extends ImageView {
+    private PopupWindow mPopupWindow;
+    private float mPressedX;
+    private float mPressedY;
+    private SlintInputView mRootView;
+
+    public InputHandle(SlintInputView rootView, int attr) {
+        super(rootView.getContext());
+        mRootView = rootView;
+        Context ctx = rootView.getContext();
+        // this.mInputView = mInputView;
+
+        mPopupWindow = new PopupWindow(ctx, null, android.R.attr.textSelectHandleWindowStyle);
+        mPopupWindow.setSplitTouchEnabled(true);
+        mPopupWindow.setClippingEnabled(false);
+        int[] attrs = { attr };
+        Drawable drawable = ctx.getTheme().obtainStyledAttributes(attrs).getDrawable(0);
+        mPopupWindow.setWidth(drawable.getIntrinsicWidth());
+        mPopupWindow.setHeight(drawable.getIntrinsicHeight());
+        this.setImageDrawable(drawable);
+
+        // mPopupWindow.setBackgroundDrawable(null);
+        // mPopupWindow.setAnimationStyle(0);
+        // mPopupWindow.setWindowLayoutType(WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL);
+        // mPopupWindow.setEnterTransition(null);
+        // mPopupWindow.setExitTransition(null);
+
+        mPopupWindow.setContentView(this);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent ev) {
+        switch (ev.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN: {
+                mPressedX = ev.getRawX();
+                mPressedY = ev.getRawY();
+                break;
+            }
+
+            case MotionEvent.ACTION_MOVE: {
+                // setSelectionAt
+                // (Math.round(ev.getRawX() - mPressedX), Math.round(ev.getRawY() - mPressedY));
+                break;
+            }
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                break;
+        }
+        return true;
+    }
+
+    public void setPosition(int x, int y) {
+        DisplayMetrics metrics = Resources.getSystem().getDisplayMetrics();
+        y += mPopupWindow.getHeight();
+        x -= mPopupWindow.getWidth() / 2;
+        mPopupWindow.showAtLocation(mRootView, 0, x, y);
+        mPopupWindow.update(x, y, -1, -1);
+    }
+
+    public void hide() {
+        mPopupWindow.dismiss();
+    }
+}
 
 class SlintInputView extends View {
     private String mText = "";
@@ -34,6 +106,7 @@ class SlintInputView extends View {
         @Override
         public SpannableStringBuilder replace(int start, int end, CharSequence tb, int tbstart, int tbend) {
             super.replace(start, end, tb, tbstart, tbend);
+            mHandle.hide();
             if (mInBatch == 0) {
                 update();
             } else {
@@ -127,6 +200,15 @@ class SlintInputView extends View {
                 break;
         }
     }
+
+    private InputHandle mHandle;
+
+    public void setCursorPos(int rect_x, int rect_y, int rect_w, int rect_h) {
+        if (mHandle == null) {
+            mHandle = new InputHandle(this, android.R.attr.textSelectHandle);
+        }
+        mHandle.setPosition(rect_x + rect_w / 2, rect_y + rect_h + 2 * rect_w);
+    }
 }
 
 public class SlintAndroidJavaHelper {
@@ -178,12 +260,10 @@ public class SlintAndroidJavaHelper {
         mActivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(rect_w, rect_h);
-                layoutParams.setMargins(rect_x, rect_y, 0, 0);
-                mInputView.setLayoutParams(layoutParams);
                 int selStart = Math.min(cursor_position, anchor_position);
                 int selEnd = Math.max(cursor_position, anchor_position);
                 mInputView.setText(text, selStart, selEnd, preedit_start, preedit_end, input_type);
+                mInputView.setCursorPos(rect_x, rect_y, rect_w, rect_h);
             }
         });
     }
