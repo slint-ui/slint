@@ -1,13 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use crate::common;
 use crate::common::{
     ComponentInformation, PreviewComponent, PreviewConfig, UrlVersion, VersionedPosition,
     VersionedUrl,
 };
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
-use crate::util::map_position;
+use crate::util;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes::Element, SyntaxKind};
 use i_slint_core::component_factory::FactoryContext;
@@ -122,21 +123,20 @@ fn drop_component(
     x: f32,
     y: f32,
 ) {
-    if let Some((component, drop_data)) =
+    if let Some((edit, drop_data)) =
         drop_location::drop_at(x, y, component_name.to_string(), import_path.to_string())
     {
-        let path = Url::to_file_path(component.insert_position.url()).ok().unwrap_or_default();
         element_selection::select_element_at_source_code_position(
-            path,
+            drop_data.path,
             drop_data.selection_offset,
             is_layout,
             None,
             true,
         );
 
-        send_message_to_lsp(crate::common::PreviewToLspMessage::AddComponent {
-            label: Some(format!("Dropped {}", component_name.as_str())),
-            component,
+        send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
+            label: Some(format!("Add element {}", component_name.as_str())),
+            edit,
         });
     };
 }
@@ -156,9 +156,28 @@ fn delete_selected_element() {
         return;
     };
 
-    send_message_to_lsp(crate::common::PreviewToLspMessage::RemoveElement {
-        label: Some("Deleting element".to_string()),
-        position: VersionedPosition::new(VersionedUrl::new(url, version), selected.offset),
+    let Some(range) = selected.as_element_node().and_then(|en| {
+        en.with_element_node(|n| {
+            if let Some(parent) = &n.parent() {
+                if parent.kind() == SyntaxKind::SubElement {
+                    return util::map_node(parent);
+                }
+            }
+            util::map_node(n)
+        })
+    }) else {
+        return;
+    };
+
+    let edit = common::create_workspace_edit(
+        url,
+        version,
+        vec![lsp_types::TextEdit { range, new_text: "".into() }],
+    );
+
+    send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
+        label: Some("Delete element".to_string()),
+        edit,
     });
 }
 
@@ -292,49 +311,6 @@ pub fn config_changed(config: PreviewConfig) {
     };
 }
 
-pub fn adjust_selection(url: VersionedUrl, start_offset: u32, end_offset: u32, new_length: u32) {
-    let Some((version, _)) = get_url_from_cache(url.url()) else {
-        return;
-    };
-
-    run_in_ui_thread(move || async move {
-        if &version != url.version() {
-            // We are outdated anyway, no use updating now.
-            return;
-        };
-
-        let Ok(path) = Url::to_file_path(url.url()) else {
-            return;
-        };
-
-        let Some(selected) = PREVIEW_STATE.with(move |preview_state| {
-            let preview_state = preview_state.borrow();
-
-            preview_state.selected.clone()
-        }) else {
-            return;
-        };
-
-        if selected.path != path {
-            // Not relevant for the current selection
-            return;
-        }
-        if selected.offset < start_offset {
-            // Nothing to do!
-        } else if selected.offset >= start_offset {
-            // Worst case if we get the offset wrong:
-            // Some other nearby element ends up getting marked as selected.
-            // So ignore special cases :-)
-            let old_length = end_offset - start_offset;
-            let offset = selected.offset + new_length - old_length;
-            PREVIEW_STATE.with(move |preview_state| {
-                let mut preview_state = preview_state.borrow_mut();
-                preview_state.selected = Some(ElementSelection { offset, ..selected });
-            });
-        }
-    })
-}
-
 /// If the file is in the cache, returns it.
 /// In any way, register it as a dependency
 fn get_url_from_cache(url: &Url) -> Option<(UrlVersion, String)> {
@@ -435,7 +411,7 @@ pub fn load_preview(preview_component: PreviewComponent) {
                             element.borrow().debug.iter().find(|n| !is_element_node_ignored(&n.0))
                         {
                             let sf = &node.source_file;
-                            let pos = map_position(sf, se.offset.into());
+                            let pos = util::map_position(sf, se.offset.into());
                             ask_editor_to_show_document(
                                 &se.path.to_string_lossy(),
                                 lsp_types::Range::new(pos.clone(), pos),
@@ -784,9 +760,6 @@ pub fn lsp_to_preview_message(
         }
         M::SetConfiguration { config } => {
             config_changed(config);
-        }
-        M::AdjustSelection { url, start_offset, end_offset, new_length } => {
-            adjust_selection(url, start_offset, end_offset, new_length);
         }
         M::ShowPreview(pc) => {
             #[cfg(not(target_arch = "wasm32"))]

@@ -295,13 +295,6 @@ impl SlintServer {
             M::RequestState { .. } => {
                 crate::language::request_state(&self.ctx);
             }
-            M::AddComponent { label, component } => {
-                send_workspace_edit(
-                    self.ctx.server_notifier.clone(),
-                    label,
-                    element_edit::add_component(&self.ctx, component),
-                );
-            }
             M::UpdateElement { label, position, properties } => {
                 send_workspace_edit(
                     self.ctx.server_notifier.clone(),
@@ -309,12 +302,8 @@ impl SlintServer {
                     element_edit::update_element(&self.ctx, position, properties),
                 );
             }
-            M::RemoveElement { label, position } => {
-                send_workspace_edit(
-                    self.ctx.server_notifier.clone(),
-                    label,
-                    element_edit::remove_element(&self.ctx, position),
-                );
+            M::SendWorkspaceEdit { label, edit } => {
+                send_workspace_edit(self.ctx.server_notifier.clone(), label, Ok(edit));
             }
         }
         Ok(())
