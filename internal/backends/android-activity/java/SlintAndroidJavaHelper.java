@@ -34,7 +34,6 @@ class SlintInputView extends View {
         @Override
         public SpannableStringBuilder replace(int start, int end, CharSequence tb, int tbstart, int tbend) {
             super.replace(start, end, tb, tbstart, tbend);
-            System.out.println("replace '" + toString() + "' mInBatch=" + mInBatch);
             if (mInBatch == 0) {
                 update();
             } else {
