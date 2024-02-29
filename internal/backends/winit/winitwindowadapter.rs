@@ -121,6 +121,9 @@ pub struct WinitWindowAdapter {
     constraints: Cell<corelib::window::LayoutConstraints>,
     shown: Cell<bool>,
     window_level: Cell<winit::window::WindowLevel>,
+    maximized: Cell<bool>,
+    minimized: Cell<bool>,
+    fullscreen: Cell<bool>,
 
     pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
     /// We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
@@ -154,6 +157,9 @@ impl WinitWindowAdapter {
             constraints: Default::default(),
             shown: Default::default(),
             window_level: Default::default(),
+            maximized: Cell::default(),
+            minimized: Cell::default(),
+            fullscreen: Cell::default(),
             winit_window: winit_window.clone(),
             size: Default::default(),
             has_explicit_size: Default::default(),
@@ -308,6 +314,7 @@ impl WinitWindowAdapter {
 
     pub fn window_state_event(&self) {
         if let Some(minimized) = self.winit_window.is_minimized() {
+            self.minimized.set(minimized);
             if minimized != self.window().is_minimized() {
                 self.window().set_minimized(minimized);
             }
@@ -318,8 +325,9 @@ impl WinitWindowAdapter {
         // that we only update the internal maximized state when the window is
         // not minimized. Otherwise, the window would be restored in a
         // non-maximized state even if it was maximized before being minimized.
+        let maximized = self.winit_window.is_maximized();
         if !self.window().is_minimized() {
-            let maximized = self.winit_window.is_maximized();
+            self.maximized.set(maximized);
             if maximized != self.window().is_maximized() {
                 self.window().set_maximized(maximized);
             }
@@ -488,9 +496,6 @@ impl WindowAdapter for WinitWindowAdapter {
             winit_window.set_window_level(new_window_level);
         }
 
-        winit_window.set_maximized(properties.is_maximized());
-        winit_window.set_minimized(properties.is_minimized());
-
         if width <= 0. || height <= 0. {
             must_resize = true;
 
@@ -530,14 +535,28 @@ impl WindowAdapter for WinitWindowAdapter {
         }
 
         self.with_window_handle(&mut |winit_window| {
-            if properties.is_fullscreen() {
-                if winit_window.fullscreen().is_none() {
-                    winit_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
-                }
-            } else {
-                if winit_window.fullscreen().is_some() {
+            let m = properties.is_fullscreen();
+            if m != self.fullscreen.get() {
+                if m {
+                    if winit_window.fullscreen().is_none() {
+                        winit_window
+                            .set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+                    }
+                } else {
                     winit_window.set_fullscreen(None);
                 }
+            }
+
+            let m = properties.is_maximized();
+            if m != self.maximized.get() {
+                self.maximized.set(m);
+                winit_window.set_maximized(m);
+            }
+
+            let m = properties.is_minimized();
+            if m != self.minimized.get() {
+                self.minimized.set(m);
+                winit_window.set_minimized(m);
             }
 
             // If we're in fullscreen, don't try to resize the window but
