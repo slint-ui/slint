@@ -128,7 +128,7 @@ fn init_fontdb() -> FontDatabase {
         font_db.load_fonts_dir("/system/fonts");
         font_db.set_sans_serif_family("Roboto");
     }
-    #[cfg(not(any(target_arch = "wasm32", target_arch = "android")))]
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
     {
         font_db.load_system_fonts();
         cfg_if::cfg_if! {
