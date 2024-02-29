@@ -21,10 +21,10 @@ int main()
     std::default_random_engine rng {};
     std::shuffle(new_tiles.begin(), new_tiles.end(), rng);
 
-    // ANCHOR: game_logic
-
     auto tiles_model = std::make_shared<slint::VectorModel<TileData>>(new_tiles);
     main_window->set_memory_tiles(tiles_model);
+
+    // ANCHOR: game_logic
 
     main_window->on_check_if_pair_solved(
             [main_window_weak = slint::ComponentWeakHandle(main_window)] {
@@ -63,8 +63,7 @@ int main()
                         });
                 }
             });
-
+    // ANCHOR_END: game_logic
     main_window->run();
 }
-// ANCHOR_END: game_logic
 // clang-format on
