@@ -56,9 +56,8 @@ use crate::namedreference::NamedReference;
 
 pub async fn run_passes(
     doc: &crate::object_tree::Document,
-    diag: &mut crate::diagnostics::BuildDiagnostics,
     type_loader: &mut crate::typeloader::TypeLoader,
-    compiler_config: &crate::CompilerConfiguration,
+    diag: &mut crate::diagnostics::BuildDiagnostics,
 ) {
     if matches!(
         doc.root_component.root_element.borrow().base_type,
@@ -89,7 +88,7 @@ pub async fn run_passes(
         compile_paths::compile_paths(
             component,
             &doc.local_registry,
-            compiler_config.embed_resources,
+            type_loader.compiler_config.embed_resources,
             diag,
         );
         lower_tabwidget::lower_tabwidget(component, type_loader, diag).await;
@@ -167,7 +166,7 @@ pub async fn run_passes(
             diag,
         );
         clip::handle_clip(component, &global_type_registry.borrow(), diag);
-        if compiler_config.accessibility {
+        if type_loader.compiler_config.accessibility {
             lower_accessibility::lower_accessibility_properties(component, diag);
         }
         collect_init_code::collect_init_code(component);
@@ -176,7 +175,7 @@ pub async fn run_passes(
     lower_layout::check_window_layout(root_component);
     collect_globals::collect_globals(doc, diag);
 
-    if compiler_config.inline_all_elements {
+    if type_loader.compiler_config.inline_all_elements {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
         root_component.used_types.borrow_mut().sub_components.clear();
     }
@@ -220,26 +219,27 @@ pub async fn run_passes(
 
     embed_images::embed_images(
         root_component,
-        compiler_config.embed_resources,
-        compiler_config.scale_factor,
-        &compiler_config.resource_url_mapper,
+        type_loader.compiler_config.embed_resources,
+        type_loader.compiler_config.scale_factor,
+        &type_loader.compiler_config.resource_url_mapper,
         diag,
     )
     .await;
 
-    match compiler_config.embed_resources {
+    match type_loader.compiler_config.embed_resources {
         #[cfg(feature = "software-renderer")]
         crate::EmbedResourcesKind::EmbedTextures => {
             let mut characters_seen = std::collections::HashSet::new();
 
             // Include at least the default font sizes used in the MCU backend
-            let mut font_pixel_sizes = vec![(12. * compiler_config.scale_factor) as i16];
+            let mut font_pixel_sizes =
+                vec![(12. * type_loader.compiler_config.scale_factor) as i16];
             for component in (root_component.used_types.borrow().sub_components.iter())
                 .chain(std::iter::once(root_component))
             {
                 embed_glyphs::collect_font_sizes_used(
                     component,
-                    compiler_config.scale_factor,
+                    type_loader.compiler_config.scale_factor,
                     &mut font_pixel_sizes,
                 );
                 embed_glyphs::scan_string_literals(component, &mut characters_seen);
@@ -247,7 +247,7 @@ pub async fn run_passes(
 
             embed_glyphs::embed_glyphs(
                 root_component,
-                compiler_config.scale_factor,
+                type_loader.compiler_config.scale_factor,
                 font_pixel_sizes,
                 characters_seen,
                 std::iter::once(doc).chain(type_loader.all_documents()),
@@ -259,7 +259,8 @@ pub async fn run_passes(
             collect_custom_fonts::collect_custom_fonts(
                 root_component,
                 std::iter::once(doc).chain(type_loader.all_documents()),
-                compiler_config.embed_resources == crate::EmbedResourcesKind::EmbedAllResources,
+                type_loader.compiler_config.embed_resources
+                    == crate::EmbedResourcesKind::EmbedAllResources,
             );
         }
     }
