@@ -895,7 +895,7 @@ impl ComponentDefinition {
     #[cfg(feature = "highlight")]
     pub fn type_loader(&self) -> std::rc::Rc<i_slint_compiler::typeloader::TypeLoader> {
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        self.inner.unerase(guard).type_loader.as_ref().unwrap().clone()
+        self.inner.unerase(guard).type_loader.get().unwrap().clone()
     }
 }
 

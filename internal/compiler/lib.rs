@@ -37,6 +37,8 @@ pub mod typeregister;
 
 pub mod passes;
 
+use std::path::Path;
+
 /// Specify how the resources are embedded by the compiler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EmbedResourcesKind {
@@ -156,11 +158,10 @@ impl CompilerConfiguration {
     }
 }
 
-pub async fn compile_syntax_node(
-    doc_node: parser::SyntaxNode,
-    mut diagnostics: diagnostics::BuildDiagnostics,
+fn prepare_for_compile(
+    diagnostics: &mut diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (object_tree::Document, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+) -> typeloader::TypeLoader {
     #[cfg(feature = "software-renderer")]
     if compiler_config.embed_resources == EmbedResourcesKind::EmbedTextures {
         // HACK: disable accessibility when compiling for the software renderer
@@ -174,21 +175,24 @@ pub async fn compile_syntax_node(
         crate::typeregister::TypeRegister::builtin()
     };
 
-    let type_registry =
-        Rc::new(RefCell::new(typeregister::TypeRegister::new(&global_type_registry)));
+    typeloader::TypeLoader::new(global_type_registry, compiler_config, diagnostics)
+}
+
+pub async fn compile_syntax_node(
+    doc_node: parser::SyntaxNode,
+    mut diagnostics: diagnostics::BuildDiagnostics,
+    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
+) -> (object_tree::Document, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
 
     let doc_node: parser::syntax_nodes::Document = doc_node.into();
-
-    let mut loader = typeloader::TypeLoader::new(
-        global_type_registry,
-        compiler_config.clone(),
-        &mut diagnostics,
-    );
 
     if diagnostics.has_error() {
         return (crate::object_tree::Document::default(), diagnostics, loader);
     }
 
+    let type_registry =
+        Rc::new(RefCell::new(typeregister::TypeRegister::new(&loader.global_type_registry)));
     let (foreign_imports, reexports) =
         loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
 
@@ -206,13 +210,29 @@ pub async fn compile_syntax_node(
     }
 
     if !diagnostics.has_error() {
-        passes::run_passes(&doc, &mut diagnostics, &mut loader, &compiler_config).await;
+        passes::run_passes(&doc, &mut loader, &mut diagnostics).await;
     } else {
         // Don't run all the passes in case of errors because because some invariants are not met.
-        passes::run_import_passes(&doc, &mut loader, &mut diagnostics);
+        passes::run_import_passes(&doc, &loader, &mut diagnostics);
     }
 
     diagnostics.all_loaded_files = loader.all_files().cloned().collect();
 
     (doc, diagnostics, loader)
+}
+
+pub async fn load_root_file(
+    path: &Path,
+    version: diagnostics::SourceFileVersion,
+    source_path: &Path,
+    source_code: String,
+    mut diagnostics: diagnostics::BuildDiagnostics,
+    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
+) -> (std::path::PathBuf, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
+
+    let path =
+        loader.load_root_file(path, version, source_path, source_code, &mut diagnostics).await;
+
+    (path, diagnostics, loader)
 }

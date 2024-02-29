@@ -387,6 +387,7 @@ impl TypeLoader {
                     &import_stack,
                 )
                 .await;
+
                 true
             }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
@@ -449,7 +450,40 @@ impl TypeLoader {
             is_builtin,
             &Default::default(),
         )
-        .await
+        .await;
+    }
+
+    /// Load a file, and its dependency not run the passes.
+    ///
+    /// the path must be the canonical path
+    pub async fn load_root_file(
+        &mut self,
+        path: &Path,
+        version: SourceFileVersion,
+        source_path: &Path,
+        source_code: String,
+        diag: &mut BuildDiagnostics,
+    ) -> PathBuf {
+        let path = crate::pathutils::clean_path(path);
+        let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
+        let (path, doc) = Self::load_file_no_pass(
+            &state,
+            &path,
+            version,
+            source_path,
+            source_code,
+            false,
+            &Default::default(),
+        )
+        .await;
+
+        let mut state = state.borrow_mut();
+        let state = &mut *state;
+        if !state.diag.has_error() {
+            crate::passes::run_passes(&doc, state.tl, state.diag).await;
+        }
+        state.tl.all_documents.docs.insert(path.clone(), doc);
+        path
     }
 
     async fn load_file_impl<'a>(
@@ -461,6 +495,34 @@ impl TypeLoader {
         is_builtin: bool,
         import_stack: &HashSet<PathBuf>,
     ) {
+        let (path, doc) = Self::load_file_no_pass(
+            state,
+            path,
+            version,
+            source_path,
+            source_code,
+            is_builtin,
+            import_stack,
+        )
+        .await;
+
+        let mut state = state.borrow_mut();
+        let state = &mut *state;
+        if !state.diag.has_error() {
+            crate::passes::run_import_passes(&doc, state.tl, state.diag);
+        }
+        state.tl.all_documents.docs.insert(path, doc);
+    }
+
+    async fn load_file_no_pass<'a>(
+        state: &'a RefCell<BorrowedTypeLoader<'a>>,
+        path: &Path,
+        version: SourceFileVersion,
+        source_path: &Path,
+        source_code: String,
+        is_builtin: bool,
+        import_stack: &HashSet<PathBuf>,
+    ) -> (PathBuf, Document) {
         let dependency_doc: syntax_nodes::Document =
             crate::parser::parse(source_code, Some(source_path), version, state.borrow_mut().diag)
                 .into();
@@ -492,8 +554,7 @@ impl TypeLoader {
                 &mut ignore_diag,
                 &dependency_registry,
             );
-            state.borrow_mut().tl.all_documents.docs.insert(path.to_owned(), doc);
-            return;
+            return (path.to_owned(), doc);
         }
         let mut state = state.borrow_mut();
         let state = &mut *state;
@@ -504,8 +565,7 @@ impl TypeLoader {
             state.diag,
             &dependency_registry,
         );
-        crate::passes::run_import_passes(&doc, state.tl, state.diag);
-        state.tl.all_documents.docs.insert(path.to_owned(), doc);
+        (path.to_owned(), doc)
     }
 
     fn register_imported_types(
