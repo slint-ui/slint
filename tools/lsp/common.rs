@@ -16,10 +16,17 @@ pub type UrlVersion = Option<i32>;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ElementRcNode {
     pub element: ElementRc,
     pub debug_index: usize,
+}
+
+impl std::fmt::Debug for ElementRcNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (path, offset) = self.path_and_offset();
+        write!(f, "ElementNode {{ {path:?}:{offset} }}")
+    }
 }
 
 impl ElementRcNode {

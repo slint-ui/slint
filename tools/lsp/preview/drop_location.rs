@@ -57,9 +57,11 @@ fn find_drop_location(
     component_instance: &ComponentInstance,
     x: f32,
     y: f32,
+    component_type: &str,
 ) -> Option<DropInformation> {
     let target_element_node = {
         let mut result = None;
+        let tl = component_instance.definition().type_loader();
         for sc in &element_selection::collect_all_element_nodes_covering(x, y, &component_instance)
         {
             let Some(en) = sc.as_element_node() else {
@@ -70,14 +72,23 @@ fn find_drop_location(
                 continue;
             }
 
-            if !element_selection::is_same_file_as_root_node(&component_instance, &en) {
+            let (path, _) = en.path_and_offset();
+            let Some(doc) = tl.get_document(&path) else {
                 continue;
+            };
+            if let Some(element_type) = en.with_element_node(|node| {
+                util::lookup_current_element_type((node.clone()).into(), &doc.local_registry)
+            }) {
+                if !en.is_layout()
+                    && element_type
+                        .accepts_child_element(component_type, &doc.local_registry)
+                        .is_err()
+                {
+                    break;
+                }
             }
 
-            if en.with_element_node(|n| {
-                n.child_node(i_slint_compiler::parser::SyntaxKind::ChildrenPlaceholder).is_some()
-            }) && !element_selection::is_root_element_node(&component_instance, &en)
-            {
+            if !element_selection::is_same_file_as_root_node(&component_instance, &en) {
                 continue;
             }
 
@@ -105,8 +116,10 @@ fn find_drop_location(
 }
 
 /// Find the Element to insert into. None means we can not insert at this point.
-pub fn can_drop_at(x: f32, y: f32) -> bool {
-    super::component_instance().and_then(|ci| find_drop_location(&ci, x, y)).is_some()
+pub fn can_drop_at(x: f32, y: f32, component_type: String) -> bool {
+    super::component_instance()
+        .and_then(|ci| find_drop_location(&ci, x, y, &component_type))
+        .is_some()
 }
 
 /// Extra data on an added Element, relevant to the Preview side only.
@@ -130,7 +143,7 @@ pub fn drop_at(
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let component_instance = preview::component_instance()?;
     let tl = component_instance.definition().type_loader();
-    let drop_info = find_drop_location(&component_instance, x, y)?;
+    let drop_info = find_drop_location(&component_instance, x, y, &component_type)?;
 
     let properties = {
         let click_position =
