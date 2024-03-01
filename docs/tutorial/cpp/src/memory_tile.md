@@ -43,7 +43,7 @@ powershell Expand-Archive -Path icons.zip -DestinationPath .
 
 This unpacks an `icons` directory containing several icons.
 
-Compile the program with `cmake --build build` and running with the `./build/memory` gives us a
+Compile the program with `cmake --build build` and running with the `./build/my_application` gives us a
 window on the screen that shows the icon of a bus on a blue background.
 
 ![Screenshot of the first tile](https://slint.dev/blog/memory-game-tutorial/memory-tile.png "Memory Tile Screenshot")

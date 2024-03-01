@@ -8,13 +8,13 @@ component MemoryTile inherits Rectangle {
     background: #3960D5;
 
     Image {
-        source: @image-url("../icons/bus.png");
+        source: @image-url("icons/bus.png");
         width: parent.width;
         height: parent.height;
     }
 }
 
-export component AppWindow inherits Window {
+export component MainWindow inherits Window {
     MemoryTile {}
 }
 // ANCHOR_END: main_window

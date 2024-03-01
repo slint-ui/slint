@@ -16,19 +16,19 @@ git clone https://github.com/slint-ui/slint-cpp-template memory
 cd memory
 ```
 
-Change all the references to `my_application` in the `CMakeLists.txt` file to `memory`.
+The `CMakeLists.txt` uses the line `add_executable(my_application src/main.cpp)` to set `src/main.cpp` as the main C++ code file.
 
-The `CMakeLists.txt` uses the line `add_executable(memory src/main.cpp)` to set `src/main.cpp` as the main C++ code file.
+Change the content of `src/main.cpp` to the following:
 
 ```cpp
 {{#include main_initial.cpp:main}}
 ```
 
 Also in `CMakeLists.txt` the line
-`slint_target_sources(memory ui/appwindow.slint)` is a Slint function used to
+`slint_target_sources(my_application ui/appwindow.slint)` is a Slint function used to
 add the `appwindow.slint` file to the target.
 
-Change the contents of `appwindow.slint` to the following:
+Change the contents of `ui/appwindow.slint` to the following:
 
 ```slint
 {{#include appwindow.slint:main_window}}
@@ -37,7 +37,6 @@ Change the contents of `appwindow.slint` to the following:
 Configure with CMake:
 
 ```sh
-mkdir build
 cmake -B build
 ```
 
@@ -50,7 +49,7 @@ cmake --build build
 Run the application binary on Linux or macOS:
 
 ```sh
-./build/memory
+./build/my_application
 ```
 
 Windows:
@@ -64,7 +63,7 @@ This opens a window with a green "Hello World" greeting.
 If you are stepping through this tutorial on a Windows machine, you can run it with
 
 ```sh
-memory
+my_application
 ```
 
 ![Screenshot of initial tutorial app showing Hello World](https://slint.dev/blog/memory-game-tutorial/getting-started.png "Hello World")
