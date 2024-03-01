@@ -24,7 +24,7 @@ you also need to install a Rust compiler (1.70 or newer). You can easily install
 following the instruction from [the Rust website](https://www.rust-lang.org/learn/get-started).
 We're going to use `cmake`'s builtin FetchContent module to fetch the source code of Slint. -->
 
-Change the references to `my_application` in the `CMakeLists.txt` file to `memory`
+Change all the references to `my_application` in the `CMakeLists.txt` file to `memory`.
 
 The `CMakeLists.txt` uses the line `add_executable(memory src/main.cpp)` to set `src/main.cpp` as the main C++ code file.
 
