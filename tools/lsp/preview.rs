@@ -107,8 +107,8 @@ fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<Elem
 }
 
 // triggered from the UI, running in UI thread
-fn can_drop_component(_component_name: slint::SharedString, x: f32, y: f32) -> bool {
-    drop_location::can_drop_at(x, y)
+fn can_drop_component(component_name: slint::SharedString, x: f32, y: f32) -> bool {
+    drop_location::can_drop_at(x, y, component_name.into())
 }
 
 // triggered from the UI, running in UI thread

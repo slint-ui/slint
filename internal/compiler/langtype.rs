@@ -481,23 +481,43 @@ impl ElementType {
         }
     }
 
-    pub fn lookup_type_for_child_element(
+    pub fn can_have_child(&self, name: &str, tr: &TypeRegister) -> bool {
+        match self {
+            Self::Component(component) if component.child_insertion_point.borrow().is_none() => {
+                let base_type = component.root_element.borrow().base_type.clone();
+                if base_type == tr.empty_type() {
+                    false
+                } else {
+                    base_type.can_have_child(name, tr)
+                }
+            }
+            Self::Builtin(builtin) => {
+                if builtin.additional_accepted_child_types.contains_key(name) {
+                    true
+                } else {
+                    !builtin.disallow_global_types_as_child_elements
+                }
+            }
+            _ => true,
+        }
+    }
+
+    pub fn accepts_child_element(
         &self,
         name: &str,
         tr: &TypeRegister,
-    ) -> Result<ElementType, String> {
+    ) -> Result<Option<ElementType>, String> {
         match self {
             Self::Component(component) if component.child_insertion_point.borrow().is_none() => {
                 let base_type = component.root_element.borrow().base_type.clone();
                 if base_type == tr.empty_type() {
                     return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));
-                } else {
-                    return base_type.lookup_type_for_child_element(name, tr);
                 }
+                return base_type.accepts_child_element(name, tr);
             }
             Self::Builtin(builtin) => {
                 if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
-                    return Ok(child_type.clone());
+                    return Ok(Some(child_type.clone()));
                 }
                 if builtin.disallow_global_types_as_child_elements {
                     let mut valid_children: Vec<_> =
@@ -514,6 +534,18 @@ impl ElementType {
             }
             _ => {}
         };
+        Ok(None)
+    }
+
+    pub fn lookup_type_for_child_element(
+        &self,
+        name: &str,
+        tr: &TypeRegister,
+    ) -> Result<ElementType, String> {
+        if let Some(ct) = self.accepts_child_element(name, tr)? {
+            return Ok(ct);
+        }
+
         tr.lookup_element(name).and_then(|t| {
             if !tr.expose_internal_types && matches!(&t, Self::Builtin(e) if e.is_internal) {
                 Err(format!("Unknown type {}. (The type exist as an internal type, but cannot be accessed in this scope)", name))
