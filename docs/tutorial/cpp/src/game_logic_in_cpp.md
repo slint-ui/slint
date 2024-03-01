@@ -40,7 +40,7 @@ Insert this code before the `main_window->run()` call:
 {{#include main_game_logic.cpp:game_logic}}
 ```
 
-The code uses a [Weak](https://slint.dev/docs/rust/slint/struct.Weak) pointer of the `main_window`. This is
+The code uses a [ComponentWeakHandle](https://slint.dev/docs/cpp/api/classslint_1_1ComponentWeakHandle) pointer of the `main_window`. This is
 important because capturing a copy of the `main_window` itself within the callback handler would result in circular ownership.
 The `MainWindow` owns the callback handler, which itself owns a reference to the `MainWindow`, which must be weak
 instead of strong to avoid a memory leak.
