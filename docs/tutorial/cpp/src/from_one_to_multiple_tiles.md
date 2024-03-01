@@ -25,7 +25,7 @@ First, add the tile data structure definition at the top of the `ui/appwindow.sl
 {{#include ../../rust/src/main_multiple_tiles.rs:tile_data}}
 ```
 
-Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the memory.slint file with the following:
+Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `ui/appwindow.slint` file with the following:
 
 ```slint
 {{#include ../../rust/src/main_multiple_tiles.rs:main_window}}
