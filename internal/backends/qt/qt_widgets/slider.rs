@@ -30,6 +30,7 @@ pub struct NativeSlider {
     pub cached_rendering_data: CachedRenderingData,
     data: Property<NativeSliderData>,
     pub changed: Callback<FloatArg>,
+    pub released: Callback<FloatArg>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
 }
@@ -209,6 +210,7 @@ impl Item for NativeSlider {
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 data.pressed = 0;
+                Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
                 InputEventResult::EventAccepted
             }
             MouseEvent::Moved { position: pos } => {
