@@ -34,6 +34,13 @@ unzip icons.zip
 cd ..
 ```
 
+If you are on Windows, use the following commands:
+
+```sh
+powershell curl -Uri https://slint.dev/blog/memory-game-tutorial/icons.zip -Outfile icons.zip
+powershell Expand-Archive -Path icons.zip -DestinationPath .
+```
+
 This unpacks an `icons` directory containing several icons.
 
 Compile the program with `cmake --build build` and running with the `./build/memory` gives us a
