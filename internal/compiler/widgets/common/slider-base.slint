@@ -89,6 +89,14 @@ export component SliderBase {
 
             reject
         }
+
+        key-released => {
+            if (!self.enabled) {
+                return reject;
+            }
+            root.released(root.value);
+            return accept;
+        }
     }
 
     pure function size-to-value(size: length, range: length) -> float {
