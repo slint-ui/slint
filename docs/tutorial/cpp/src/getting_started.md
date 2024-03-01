@@ -16,7 +16,7 @@ git clone https://github.com/slint-ui/slint-cpp-template memory
 cd memory
 ```
 
-Change the references to `my_application` in the `CMakeLists.txt` file to `memory`
+Change all the references to `my_application` in the `CMakeLists.txt` file to `memory`.
 
 The `CMakeLists.txt` uses the line `add_executable(memory src/main.cpp)` to set `src/main.cpp` as the main C++ code file.
 

@@ -4,7 +4,7 @@
 
 This step places the game tiles randomly.
 
-Change the `main` function and imports in `src/main.cpp` to the following:
+Change the `main` function and includes in `src/main.cpp` to the following:
 
 ```cpp
 {{#include main_tiles_from_cpp.cpp:main}}
