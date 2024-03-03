@@ -39,7 +39,7 @@ The following struct would be generated:
 ```rust
 #[derive(Default, Clone, Debug, PartialEq)]
 struct MyStruct {
-    foo : i32,
+    foo: i32,
     bar: slint::SharedString,
     names: slint::ModelRc<slint::SharedString>,
 }
@@ -51,7 +51,7 @@ Consider the following structure defined in the `.slint` file with Rust attribut
 ```slint,ignore
 @rust-attr(derive(serde::Serialize, serde::Deserialize))
 struct MyStruct {
-    foo : i32,
+    foo: int,
 }
 ```
 
@@ -61,6 +61,6 @@ Based on this structure, the following Rust code would be generated:
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Default, Clone, Debug, PartialEq)]
 struct MyStruct {
-    foo : i32,
+    foo: i32,
 }
 ```
