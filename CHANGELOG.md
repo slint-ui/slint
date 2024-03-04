@@ -20,6 +20,7 @@ All notable changes to this project are documented in this file.
  - Image: Added `ImageFit.preserve`
  - Image: Added `horizontal-` and `vertical-alignment`
  - Image: Added support for 9 slice scaling
+ - Cupertino TabWidget: Tweaked visual appearance
 
 ### Widgets
 
