@@ -1,14 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::rc::Rc;
 
-use slint_interpreter::ComponentHandle;
+use slint_interpreter::{ComponentHandle, Value};
 
 use indexmap::IndexMap;
+use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
+use pyo3::PyTraverseError;
 
 use crate::errors::{
     PyGetPropertyError, PyInvokeError, PyPlatformError, PySetCallbackError, PySetPropertyError,
@@ -166,7 +170,11 @@ impl ComponentDefinition {
     }
 
     fn create(&self) -> Result<ComponentInstance, crate::errors::PyPlatformError> {
-        Ok(ComponentInstance { instance: self.definition.create()? })
+        Ok(ComponentInstance {
+            instance: self.definition.create()?,
+            callbacks: Default::default(),
+            global_callbacks: Default::default(),
+        })
     }
 }
 
@@ -198,9 +206,11 @@ impl From<slint_interpreter::ValueType> for PyValueType {
     }
 }
 
-#[pyclass(unsendable)]
+#[pyclass(unsendable, weakref)]
 struct ComponentInstance {
     instance: slint_interpreter::ComponentInstance,
+    callbacks: GcVisibleCallbacks,
+    global_callbacks: HashMap<String, GcVisibleCallbacks>,
 }
 
 #[pymethods]
@@ -269,47 +279,23 @@ impl ComponentInstance {
             .into())
     }
 
-    fn set_callback(
-        &self,
-        callback_name: &str,
-        callable: PyObject,
-    ) -> Result<(), PySetCallbackError> {
-        Ok(self
-            .instance
-            .set_callback(callback_name, move |args| {
-                Python::with_gil(|py| {
-                    let py_args = PyTuple::new(py, args.iter().map(|v| PyValue(v.clone())));
-                    let result =
-                        callable.call(py, py_args, None).expect("invoking python callback failed");
-                    let pv: PyValue = result.extract(py).expect(
-                        "unable to convert python callback result to slint interpreter value",
-                    );
-                    pv.0
-                })
-            })?
-            .into())
+    fn set_callback(&self, name: &str, callable: PyObject) -> Result<(), PySetCallbackError> {
+        let rust_cb = self.callbacks.register(name.to_string(), callable);
+        Ok(self.instance.set_callback(name, rust_cb)?.into())
     }
 
     fn set_global_callback(
-        &self,
+        &mut self,
         global_name: &str,
         callback_name: &str,
         callable: PyObject,
     ) -> Result<(), PySetCallbackError> {
-        Ok(self
-            .instance
-            .set_global_callback(global_name, callback_name, move |args| {
-                Python::with_gil(|py| {
-                    let py_args = PyTuple::new(py, args.iter().map(|v| PyValue(v.clone())));
-                    let result =
-                        callable.call(py, py_args, None).expect("invoking python callback failed");
-                    let pv: PyValue = result.extract(py).expect(
-                        "unable to convert python callback result to slint interpreter value",
-                    );
-                    pv.0
-                })
-            })?
-            .into())
+        let rust_cb = self
+            .global_callbacks
+            .entry(global_name.to_string())
+            .or_default()
+            .register(callback_name.to_string(), callable);
+        Ok(self.instance.set_global_callback(global_name, callback_name, rust_cb)?.into())
     }
 
     fn show(&self) -> Result<(), PyPlatformError> {
@@ -322,5 +308,56 @@ impl ComponentInstance {
 
     fn run(&self) -> Result<(), PyPlatformError> {
         Ok(self.instance.run()?)
+    }
+
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        self.callbacks.__traverse__(&visit)?;
+        for global_callbacks in self.global_callbacks.values() {
+            global_callbacks.__traverse__(&visit)?;
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self) {
+        self.callbacks.__clear__();
+        self.global_callbacks.clear();
+    }
+}
+
+#[derive(Default)]
+struct GcVisibleCallbacks {
+    callables: Rc<RefCell<HashMap<String, PyObject>>>,
+}
+
+impl GcVisibleCallbacks {
+    fn register(&self, name: String, callable: PyObject) -> impl Fn(&[Value]) -> Value + 'static {
+        self.callables.borrow_mut().insert(name.clone(), callable);
+
+        let callables = self.callables.clone();
+
+        move |args| {
+            let callables = callables.borrow();
+            let callable = callables.get(&name).unwrap();
+            Python::with_gil(|py| {
+                let py_args = PyTuple::new(py, args.iter().map(|v| PyValue(v.clone())));
+                let result =
+                    callable.call(py, py_args, None).expect("invoking python callback failed");
+                let pv: PyValue = result
+                    .extract(py)
+                    .expect("unable to convert python callback result to slint interpreter value");
+                pv.0
+            })
+        }
+    }
+
+    fn __traverse__(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        for callback in self.callables.borrow().values() {
+            visit.call(callback)?;
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self) {
+        self.callables.borrow_mut().clear();
     }
 }
