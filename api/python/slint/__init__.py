@@ -14,3 +14,4 @@ def load_file(path):
 Image = native.PyImage
 Color = native.PyColor
 Brush = native.PyBrush
+Model = native.PyModelBase

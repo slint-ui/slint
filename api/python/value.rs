@@ -37,7 +37,10 @@ impl<'a> ToPyObject for PyValueRef<'a> {
             slint_interpreter::Value::Image(image) => {
                 crate::image::PyImage::from(image).into_py(py)
             }
-            slint_interpreter::Value::Model(_) => todo!(),
+            slint_interpreter::Value::Model(model) => {
+                crate::models::PyModelShared::rust_into_js_model(model)
+                    .unwrap_or_else(|| crate::models::ReadOnlyRustModel::from(model).into_py(py))
+            }
             slint_interpreter::Value::Struct(structval) => structval
                 .iter()
                 .map(|(name, val)| (name.to_string().into_py(py), PyValueRef(val).into_py(py)))
@@ -71,6 +74,14 @@ impl FromPyObject<'_> for PyValue {
             .or_else(|_| {
                 ob.extract::<PyRef<'_, crate::brush::PyBrush>>()
                     .map(|pybrush| slint_interpreter::Value::Brush(pybrush.brush.clone()))
+            })
+            .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::models::PyModelBase>>()
+                    .map(|pymodel| slint_interpreter::Value::Model(pymodel.as_model()))
+            })
+            .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::models::ReadOnlyRustModel>>()
+                    .map(|rustmodel| slint_interpreter::Value::Model(rustmodel.0.clone()))
             })
             .or_else(|_| {
                 ob.extract::<&PyDict>().and_then(|dict| {

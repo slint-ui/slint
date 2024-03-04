@@ -6,6 +6,7 @@ mod interpreter;
 use interpreter::{ComponentCompiler, PyDiagnostic, PyDiagnosticLevel, PyValueType};
 mod brush;
 mod errors;
+mod models;
 mod timer;
 mod value;
 
@@ -38,6 +39,7 @@ fn slint(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<timer::PyTimer>()?;
     m.add_class::<brush::PyColor>()?;
     m.add_class::<brush::PyBrush>()?;
+    m.add_class::<models::PyModelBase>()?;
     m.add_function(wrap_pyfunction!(run_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(quit_event_loop, m)?)?;
 
