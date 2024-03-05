@@ -3051,6 +3051,15 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorRgbaStruct => {
             format!("{}.to_argb_uint()", a.next().unwrap())
         }
+        BuiltinFunction::ColorHue => {
+            format!("{}.hue()", a.next().unwrap())
+        }
+        BuiltinFunction::ColorSaturation => {
+            format!("{}.saturation()", a.next().unwrap())
+        }
+        BuiltinFunction::ColorBrightness => {
+            format!("{}.brightness()", a.next().unwrap())
+        }
         BuiltinFunction::ColorBrighter => {
             format!("{}.brighter({})", a.next().unwrap(), a.next().unwrap())
         }
@@ -3077,6 +3086,14 @@ fn compile_builtin_function_call(
                 r = a.next().unwrap(),
                 g = a.next().unwrap(),
                 b = a.next().unwrap(),
+                a = a.next().unwrap(),
+            )
+        }
+        BuiltinFunction::Hsv => {
+            format!("slint::Color::from_hsva(std::clamp(static_cast<float>({h}), 0., 360.), std::clamp(static_cast<float>({s}), 0., 1.), std::clamp(static_cast<float>({v}), 0., 1.), std::clamp(static_cast<float>({a}) * 1., 0., 1.))",
+                h = a.next().unwrap(),
+                s = a.next().unwrap(),
+                v = a.next().unwrap(),
                 a = a.next().unwrap(),
             )
         }

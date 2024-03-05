@@ -46,6 +46,8 @@ All notable changes to this project are documented in this file.
  - Image: Added `horizontal-` and `vertical-tiling`
  - Flickable: Added `flicked` callback
  - Slint: Expose `.red`, `.green`, `.blue`, and `.alpha` properties on `color`
+ - Slint: Expose `.hue()`, `.saturation()`, `.brightness()` methods on `color`
+ - Slint: Add `hsv` and `hsva` as method to create colors
 
 ### Widgets
 
