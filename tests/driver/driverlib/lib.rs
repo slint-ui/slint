@@ -238,3 +238,24 @@ fn test_extract_ignores() {
     let r = extract_ignores(source).collect::<Vec<_>>();
     assert_eq!(r, ["cpp", "rust", "nodejs"]);
 }
+
+pub fn extract_cpp_namespace(source: &str) -> Option<String> {
+    lazy_static::lazy_static! {
+        static ref RX: Regex = Regex::new(r"//cpp-namespace:\s*(.+)\s*\n").unwrap();
+    }
+    RX.captures(source).map(|mat| mat.get(1).unwrap().as_str().trim().to_string())
+}
+
+#[test]
+fn test_extract_cpp_namespace() {
+    assert!(extract_cpp_namespace("something").is_none());
+
+    let source = r"
+    //cpp-namespace: ui
+    Blah {}
+";
+    
+    let r = extract_cpp_namespace(source);
+        assert_eq!(r, Some("ui".to_string()));
+}
+

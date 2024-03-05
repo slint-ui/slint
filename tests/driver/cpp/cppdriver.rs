@@ -16,9 +16,13 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .map(|(k, v)| (k.to_string(), std::path::PathBuf::from(v)))
         .collect::<std::collections::HashMap<_, _>>();
 
+    let cpp_namespace = test_driver_lib::extract_cpp_namespace(&source);
+
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), None, &mut diag);
-    let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Cpp);
+    let output_format = generator::OutputFormat::Cpp(generator::cpp::Config { namespace: cpp_namespace });
+
+    let mut compiler_config = CompilerConfiguration::new(output_format.clone());
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
     let (root_component, diag, _) =
@@ -31,7 +35,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let mut generated_cpp: Vec<u8> = Vec::new();
 
-    generator::generate(generator::OutputFormat::Cpp, &mut generated_cpp, &root_component)?;
+    generator::generate(output_format, &mut generated_cpp, &root_component)?;
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
