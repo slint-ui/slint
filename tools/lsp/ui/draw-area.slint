@@ -153,11 +153,11 @@ export component DrawArea {
                 // Also make a condition that abuses the fact that the init callback
                 // is called every time the condition is dirty, to make sure that the size
                 // is within the bounds.
-                // Querty the preview-area to make sure this is evaluated when it changes
+                // Query the preview-area to make sure this is evaluated when it changes
                 if i-preview-area-container.has-component && root.preview-area == i-preview-area-container.component-factory : Rectangle {
                     init => {
-                        i-preview-area-container.width = clamp(i-preview-area-container.width, i-preview-area-container.min-width, i-preview-area-container.max-width);
-                        i-preview-area-container.height = clamp(i-preview-area-container.height, i-preview-area-container.min-height, i-preview-area-container.max-height);
+                        i-preview-area-container.width = clamp(i-preview-area-container.width, max(i-preview-area-container.min-width, 16px), max(i-preview-area-container.max-width, 16px));
+                        i-preview-area-container.height = clamp(i-preview-area-container.height, max(i-preview-area-container.min-height, 16px),  max(i-preview-area-container.max-height, 16px));
                     }
                 }
 
