@@ -1,48 +1,45 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Getting Started
 
-In this tutorial, we use JavaScript as the host programming language. We also support other programming languages like
+This tutorial uses JavaScript as the host programming language. Slint also supports other programming languages like
 [Rust](https://slint.dev/docs/rust/slint/) or [C++](https://slint.dev/docs/cpp/).
 
-You'll need a development environment with [Node.js 16](https://nodejs.org/download/release/v16.19.1/) and [npm](https://www.npmjs.com/) installed. More recent
-versions of NodeJS are currently not supported, for details check [Issue #961](https://github.com/slint-ui/slint/issues/961).
-Since Slint is implemented in the Rust programming language, you also need to install a Rust compiler (1.70 or newer). You can easily install a Rust compiler
-following the instruction from [the Rust website](https://www.rust-lang.org/learn/get-started).
-You will also need some additional platform-specific dependencies, see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>
+Slint has an application template you can use to create a project with dependencies already set up that follows recommended best practices.
 
-We're going to use `slint-ui` as `npm` dependency.
+As Slint is implemented in the Rust programming language, you also need to install a Rust compiler (1.70 or newer). You can install a Rust compiler
+following the instructions from [the Rust website](https://www.rust-lang.org/learn/get-started).
+You might also need additional platform-specific dependencies, read <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites> for more details.
 
-In a new directory, we create a new `package.json` file.
+Clone the template with the following command:
 
-```json
-{{#include package.json}}
+```sh
+git clone https://github.com/slint-ui/slint-nodejs-template memory
+cd memory
 ```
 
-This should look familiar to people familiar with NodeJS. We see that this package.json
-references a `main.js`, which we will add later. We must then create, in the same directory,
-the `memory.slint` file. Let's just fill it with a hello world for now:
+Install dependencies with npm:
 
-```slint
-{{#include memory.slint:main_window}}
+```sh
+npm install
 ```
 
-What's still missing is the `main.js`:
+The `package.json` file references `src/main.js` as the entry point for the application and `src/main.js` references `memory.slint` as the UI file.
+
+Replace the contents of `src/main.js` with the following:
 
 ```js
 {{#include main_initial.js:main}}
 ```
 
-To recap, we now have a directory with a `package.json`, `memory.slint`, and `main.js`.
+Note that `slint.loadFile` resolves files from the process's current working directory, so from the `package.json` file's location.
 
-We can now compile and run the program:
+Replace the contents of `ui/appwindow.slint` with the following:
 
-```sh
-npm install
-npm start
+```slint
+{{#include memory.slint:main_window}}
 ```
 
-and a window will appear with the green "Hello World" greeting.
+Run the example with `npm start` and a window appears with the green "Hello World" greeting.
 
-![Screenshot of initial tutorial app showing Hello World](https://slint.dev/blog/memory-game-tutorial/getting-started.png "Hello World")
-
-Feel free to use your favorite IDE for this purpose.
+![Screenshot of an initial tutorial app showing Hello World](https://slint.dev/blog/memory-game-tutorial/getting-started.png "Hello World")
