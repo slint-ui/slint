@@ -828,6 +828,8 @@ impl LookupObject for ColorFunctions {
         let mut f = |n, e: Expression| f(n, e.into());
         None.or_else(|| f("rgb", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
             .or_else(|| f("rgba", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
+            .or_else(|| f("hsv", BuiltinMacroReference(BuiltinMacroFunction::Hsv, t.clone())))
+            .or_else(|| f("hsva", BuiltinMacroReference(BuiltinMacroFunction::Hsv, t.clone())))
     }
 }
 
@@ -1015,6 +1017,9 @@ impl<'a> LookupObject for ColorExpression<'a> {
             .or_else(|| f("green", field_access("green")))
             .or_else(|| f("blue", field_access("blue")))
             .or_else(|| f("alpha", field_access("alpha")))
+            .or_else(|| f("hue", member_function(BuiltinFunction::ColorHue)))
+            .or_else(|| f("saturation", member_function(BuiltinFunction::ColorSaturation)))
+            .or_else(|| f("brightness", member_function(BuiltinFunction::ColorBrightness)))
             .or_else(|| f("brighter", member_function(BuiltinFunction::ColorBrighter)))
             .or_else(|| f("darker", member_function(BuiltinFunction::ColorDarker)))
             .or_else(|| f("transparentize", member_function(BuiltinFunction::ColorTransparentize)))
