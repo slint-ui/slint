@@ -62,6 +62,10 @@ struct Cli {
     /// Translation domain
     #[arg(long = "translation-domain", action)]
     translation_domain: Option<String>,
+
+    /// C++ namespace
+    #[arg(long = "cpp-namespace", name = "C++ namespace")]
+    cpp_namespace: Option<String>,
 }
 
 fn main() -> std::io::Result<()> {
@@ -74,7 +78,7 @@ fn main() -> std::io::Result<()> {
         diag.print();
         std::process::exit(-1);
     }
-    let mut compiler_config = CompilerConfiguration::new(args.format);
+    let mut compiler_config = CompilerConfiguration::new(args.format.clone());
     compiler_config.translation_domain = args.translation_domain;
 
     // Override defaults from command line:
