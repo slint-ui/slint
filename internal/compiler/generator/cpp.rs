@@ -429,8 +429,10 @@ fn property_set_value_code(
     ctx: &EvaluationContext,
 ) -> String {
     let prop = access_member(property, ctx);
-    if let Some(animation) = ctx.current_sub_component.and_then(|c| c.animations.get(property)) {
-        let animation_code = compile_expression(animation, ctx);
+    if let Some((animation, map)) = &ctx.property_info(property).animation {
+        let mut animation = (*animation).clone();
+        map.map_expression(&mut animation);
+        let animation_code = compile_expression(&animation, ctx);
         return format!("{}.set_animated_value({}, {})", prop, value_expr, animation_code);
     }
     format!("{}.set({})", prop, value_expr)

@@ -1664,8 +1664,10 @@ fn property_set_value_tokens(
     let prop = access_member(property, ctx);
     let prop_type = ctx.property_ty(property);
     let value_tokens = set_primitive_property_value(prop_type, value_tokens);
-    if let Some(animation) = ctx.current_sub_component.and_then(|c| c.animations.get(property)) {
-        let animation_tokens = compile_expression(animation, ctx);
+    if let Some((animation, map)) = &ctx.property_info(property).animation {
+        let mut animation = (*animation).clone();
+        map.map_expression(&mut animation);
+        let animation_tokens = compile_expression(&animation, ctx);
         return quote!(#prop.set_animated_value(#value_tokens as _, #animation_tokens));
     }
     quote!(#prop.set(#value_tokens as _))
