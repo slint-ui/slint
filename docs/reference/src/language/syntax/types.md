@@ -81,6 +81,11 @@ All properties are in the range 0-255.
 
 All colors and brushes define the following methods:
 
+- **`linear-mix(other: brush, factor: float) -> brush`**
+
+    Returns a new color that is a mix of this color and `other`, with a proportion
+    factor given by \a factor (which will be clamped to be between `0.0` and `1.0`).
+
 -   **`brighter(factor: float) -> brush`**
 
     Returns a new color derived from this color but has its brightness increased by the specified factor.

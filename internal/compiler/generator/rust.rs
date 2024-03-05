@@ -2494,6 +2494,18 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringIsFloat => quote!(#(#a)*.as_str().parse::<f64>().is_ok()),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
+        BuiltinFunction::ColorHue => {
+            let x = a.next().unwrap();
+            quote!(#x.hue())
+        }
+        BuiltinFunction::ColorSaturation => {
+            let x = a.next().unwrap();
+            quote!(#x.saturation())
+        }
+        BuiltinFunction::ColorBrightness => {
+            let x = a.next().unwrap();
+            quote!(#x.brightness())
+        }
         BuiltinFunction::ColorBrighter => {
             let x = a.next().unwrap();
             let factor = a.next().unwrap();
@@ -2537,6 +2549,17 @@ fn compile_builtin_function_call(
                 let b: u8 = (#b as u32).max(0).min(255) as u8;
                 let a: u8 = (255. * (#a as f32)).max(0.).min(255.) as u8;
                 sp::Color::from_argb_u8(a, r, g, b)
+            })
+        }
+        BuiltinFunction::Hsv => {
+            let (h, s, v, a) =
+                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+            quote!({
+                let h: f32 = (#h as f32).max(0.).min(360.) as f32;
+                let s: f32 = (#s as f32).max(0.).min(1.) as f32;
+                let v: f32 = (#v as f32).max(0.).min(1.) as f32;
+                let a: f32 = (1. * (#a as f32)).max(0.).min(1.) as f32;
+                sp::Color::from_hsva(h, s, v, a)
             })
         }
         BuiltinFunction::ColorScheme => {
