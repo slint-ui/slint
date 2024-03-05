@@ -89,6 +89,7 @@ function getPreviewHtml(
     slint_wasm_preview_url: Uri,
     default_style: string,
 ): string {
+    const experimental = process.env.hasOwnProperty("SLINT_ENABLE_EXPERIMENTAL_FEATURES");
     const result = `<!DOCTYPE html>
 <html lang="en" style="height: 100%; width: 100%;">
 <head>
@@ -143,6 +144,7 @@ function getPreviewHtml(
             vscode.postMessage({ command: "map_url", url: url });
         })},
         "${default_style}",
+        ${experimental ? "true" : "false"}
     );
 
     window.addEventListener('message', async message => {
