@@ -1,231 +1,231 @@
 {
-    "name": "slint",
-    "displayName": "Slint",
-    "description": "Slint Language extension",
-    "version": "1.5.0",
-    "publisher": "Slint",
-    "icon": "extension-logo.png",
-    "license": "GPL-3.0",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/slint-ui/slint"
-    },
-    "engines": {
-        "vscode": "^1.82.0"
-    },
-    "categories": [
-        "Programming Languages"
+  "name": "slint",
+  "displayName": "Slint",
+  "description": "Slint Language extension",
+  "version": "1.5.0",
+  "publisher": "Slint",
+  "icon": "extension-logo.png",
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slint-ui/slint"
+  },
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "qna": "https://github.com/slint-ui/slint/discussions/categories/q-a",
+  "activationEvents": [
+    "onCommand:slint.showPreview",
+    "onCommand:slint.reload",
+    "onLanguage:slint",
+    "onLanguage:rust",
+    "onWebviewPanel:slint-preview",
+    "onView:slint.propertiesView",
+    "workspaceContains:{**/CMakeLists.txt,**/Cargo.toml,**/*.slint}"
+  ],
+  "main": "./out/extension.js",
+  "browser": "./out/browser.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "slint",
+        "aliases": [
+          "Slint"
+        ],
+        "extensions": [
+          ".slint",
+          ".60"
+        ],
+        "configuration": "language-configuration.json"
+      }
     ],
-    "qna": "https://github.com/slint-ui/slint/discussions/categories/q-a",
-    "activationEvents": [
-        "onCommand:slint.showPreview",
-        "onCommand:slint.reload",
-        "onLanguage:slint",
-        "onLanguage:rust",
-        "onWebviewPanel:slint-preview",
-        "onView:slint.propertiesView",
-        "workspaceContains:{**/CMakeLists.txt,**/Cargo.toml,**/*.slint}"
+    "grammars": [
+      {
+        "language": "slint",
+        "scopeName": "source.slint",
+        "path": "./slint.tmLanguage.json"
+      },
+      {
+        "injectTo": [
+          "source.rust"
+        ],
+        "scopeName": "source.rust.slint",
+        "path": "./slint.injection.json",
+        "embeddedLanguages": {
+          "source.slint": "slint"
+        }
+      }
     ],
-    "main": "./out/extension.js",
-    "browser": "./out/browser.js",
-    "contributes": {
-        "languages": [
-            {
-                "id": "slint",
-                "aliases": [
-                    "Slint"
-                ],
-                "extensions": [
-                    ".slint",
-                    ".60"
-                ],
-                "configuration": "language-configuration.json"
+    "commands": [
+      {
+        "command": "slint.showPreview",
+        "title": "Show Preview",
+        "category": "Slint",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "slint.reload",
+        "title": "Restart server",
+        "category": "Slint",
+        "icon": "$(debug-restart)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "slint.showPreview",
+          "when": "editorLangId == slint"
+        },
+        {
+          "command": "slint.reload"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "Slint",
+      "properties": {
+        "slint.lsp-args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The command line arguments passed to the Slint LSP server"
+        },
+        "slint.preview.hide_ui": {
+          "type": "boolean",
+          "default": false,
+          "description": "Hide the toolbar of the preview"
+        },
+        "slint.preview.style": {
+          "type": "string",
+          "description": "The default style to be used for the preview (eg: 'fluent', 'material', or 'native')"
+        },
+        "slint.preview.providedByEditor": {
+          "type": "boolean",
+          "default": false,
+          "description": "Instead of letting the Language Server display the preview in a native window, show the preview in an editor tab using web-assembly.  This has no effect for the web extension where the preview is always provided by the editor."
+        },
+        "slint.includePaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of paths in which the `import` statement and `@image-url` are looked up"
+        },
+        "slint.libraryPaths": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-zA-Z][a-zA-Z0-9-_]*$": {
+              "type": "string"
             }
-        ],
-        "grammars": [
-            {
-                "language": "slint",
-                "scopeName": "source.slint",
-                "path": "./slint.tmLanguage.json"
+          },
+          "description": "Map of paths in which the `import` statement for `@library` imports are looked up"
+        }
+      }
+    },
+    "views": {
+      "explorer": [
+        {
+          "type": "webview",
+          "id": "slint.propertiesView",
+          "name": "Properties",
+          "contextualTitle": "Slint Properties"
+        }
+      ]
+    },
+    "walkthroughs": [
+      {
+        "id": "slint.welcomeWalkthrough",
+        "title": "Getting Started with Slint",
+        "description": "Dive into VSCode's rich Slint development experience",
+        "steps": [
+          {
+            "id": "create_slint_file",
+            "title": "Create a .slint File",
+            "description": "[Open](command:toSide:workbench.action.files.openFile) or [create](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22slint%22%7D) a `.slint` file. Be sure to save it with the \".slint\" extension, such as \"helloworld.slint\". \n[Create a .slint File](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22slint%22%7D)",
+            "media": {
+              "markdown": "static/walkthroughs/welcome/create_slint_file.md"
+            }
+          },
+          {
+            "id": "live_preview",
+            "title": "Live Preview your UI",
+            "description": "Click on $(play) Show Preview above any component in your editor showing a .slint file to a preview of your user interface. Keep the preview open: It updates as you type.",
+            "media": {
+              "image": "static/walkthroughs/welcome/show_preview.png",
+              "altText": "live preview in action"
             },
-            {
-                "injectTo": [
-                    "source.rust"
-                ],
-                "scopeName": "source.rust.slint",
-                "path": "./slint.injection.json",
-                "embeddedLanguages": {
-                    "source.slint": "slint"
-                }
-            }
-        ],
-        "commands": [
-            {
-                "command": "slint.showPreview",
-                "title": "Show Preview",
-                "category": "Slint",
-                "icon": "$(preview)"
+            "completionEvents": [
+              "onCommand:slint.showPreview"
+            ]
+          },
+          {
+            "id": "property_editor",
+            "title": "Edit Properties",
+            "description": "When your cursor is on an Slint element in your editor, the property editor shows all possible properties defined on the Element.\n[Open Properties Editor](command:slint.propertiesView.focus)",
+            "media": {
+              "markdown": "static/walkthroughs/welcome/properties_editor.md"
             },
-            {
-                "command": "slint.reload",
-                "title": "Restart server",
-                "category": "Slint",
-                "icon": "$(debug-restart)"
-            }
-        ],
-        "menus": {
-            "commandPalette": [
-                {
-                    "command": "slint.showPreview",
-                    "when": "editorLangId == slint"
-                },
-                {
-                    "command": "slint.reload"
-                }
+            "completionEvents": [
+              "onView:slint.propertiesView"
             ]
-        },
-        "configuration": {
-            "type": "object",
-            "title": "Slint",
-            "properties": {
-                "slint.lsp-args": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "The command line arguments passed to the Slint LSP server"
-                },
-                "slint.preview.hide_ui": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Hide the toolbar of the preview"
-                },
-                "slint.preview.style": {
-                    "type": "string",
-                    "description": "The default style to be used for the preview (eg: 'fluent', 'material', or 'native')"
-                },
-                "slint.preview.providedByEditor": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Instead of letting the Language Server display the preview in a native window, show the preview in an editor tab using web-assembly.  This has no effect for the web extension where the preview is always provided by the editor."
-                },
-                "slint.includePaths": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of paths in which the `import` statement and `@image-url` are looked up"
-                },
-                "slint.libraryPaths": {
-                    "type": "object",
-                    "patternProperties": {
-                        "^[a-zA-Z][a-zA-Z0-9-_]*$": {
-                            "type": "string"
-                        }
-                    },
-                    "description": "Map of paths in which the `import` statement for `@library` imports are looked up"
-                }
+          },
+          {
+            "id": "get_help",
+            "title": "Learn More",
+            "description": "Well done! You've completed Getting Started with Slint.",
+            "media": {
+              "markdown": "static/walkthroughs/welcome/get_help.md"
             }
-        },
-        "views": {
-            "explorer": [
-                {
-                    "type": "webview",
-                    "id": "slint.propertiesView",
-                    "name": "Properties",
-                    "contextualTitle": "Slint Properties"
-                }
-            ]
-        },
-        "walkthroughs": [
-            {
-                "id": "slint.welcomeWalkthrough",
-                "title": "Getting Started with Slint",
-                "description": "Dive into VSCode's rich Slint development experience",
-                "steps": [
-                    {
-                        "id": "create_slint_file",
-                        "title": "Create a .slint File",
-                        "description": "[Open](command:toSide:workbench.action.files.openFile) or [create](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22slint%22%7D) a `.slint` file. Be sure to save it with the \".slint\" extension, such as \"helloworld.slint\". \n[Create a .slint File](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22slint%22%7D)",
-                        "media": {
-                            "markdown": "static/walkthroughs/welcome/create_slint_file.md"
-                        }
-                    },
-                    {
-                        "id": "live_preview",
-                        "title": "Live Preview your UI",
-                        "description": "Click on $(play) Show Preview above any component in your editor showing a .slint file to a preview of your user interface. Keep the preview open: It updates as you type.",
-                        "media": {
-                            "image": "static/walkthroughs/welcome/show_preview.png",
-                            "altText": "live preview in action"
-                        },
-                        "completionEvents": [
-                            "onCommand:slint.showPreview"
-                        ]
-                    },
-                    {
-                        "id": "property_editor",
-                        "title": "Edit Properties",
-                        "description": "When your cursor is on an Slint element in your editor, the property editor shows all possible properties defined on the Element.\n[Open Properties Editor](command:slint.propertiesView.focus)",
-                        "media": {
-                            "markdown": "static/walkthroughs/welcome/properties_editor.md"
-                        },
-                        "completionEvents": [
-                            "onView:slint.propertiesView"
-                        ]
-                    },
-                    {
-                        "id": "get_help",
-                        "title": "Learn More",
-                        "description": "Well done! You've completed Getting Started with Slint.",
-                        "media": {
-                            "markdown": "static/walkthroughs/welcome/get_help.md"
-                        }
-                    }
-                ]
-            }
+          }
         ]
-    },
-    "dependencies": {
-        "@vscode/codicons": "0.0.33",
-        "vscode-languageclient": "^8.1.0",
-        "vscode-languageserver": "^8.1.0"
-    },
-    "files": [
-        "bin/slint-lsp-*"
-    ],
-    "scripts": {
-        "vscode:prepublish": "npm run build:wasm_lsp-release && npm run compile && shx echo \"GPL-3.0-only OR LicenseRef-Slint-commercial\" > LICENSE.txt",
-        "build:lsp": "cargo build -p slint-lsp",
-        "build:lsp-release": "cargo build --release -p slint-lsp",
-        "build:wasm_lsp": "env-var wasm-pack build --dev     --target web ../../tools/lsp --out-dir {{npm_config_local_prefix}}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
-        "build:wasm_lsp-release": "env-var wasm-pack build --release --target web ../../tools/lsp --out-dir {{npm_config_local_prefix}}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
-        "compile": "node ./esbuild.js",
-        "local-package": "shx mkdir -p bin && shx cp ../../target/debug/slint-lsp* bin/ && npx vsce package",
-        "watch": "tsc -watch -p ./",
-        "pretest": "npm run compile && npm run lint",
-        "lint": "eslint src --ext ts",
-        "test": "node ./out/test/runTest.js",
-        "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"
-    },
-    "devDependencies": {
-        "@rauschma/env-var": "^1.0.1",
-        "@types/glob": "^8.1.0",
-        "@types/mocha": "^10.0.1",
-        "@types/node": "^16.0",
-        "@types/vscode": "1.82.0",
-        "@typescript-eslint/eslint-plugin": "^6.4.1",
-        "@typescript-eslint/parser": "^6.4.1",
-        "esbuild": "^0.19.2",
-        "eslint": "^8.48.0",
-        "glob": "^10.3.3",
-        "mocha": "^10.0.1",
-        "path-browserify": "^1.0.1",
-        "shx": "^0.3.4",
-        "ts-loader": "^9.4.4",
-        "typescript": "5.1.6",
-        "vscode-test": "^1.6.1",
-        "webpack": "^5.88.2",
-        "webpack-cli": "^5.1.4"
-    }
+      }
+    ]
+  },
+  "dependencies": {
+    "@vscode/codicons": "0.0.33",
+    "vscode-languageclient": "^8.1.0",
+    "vscode-languageserver": "^8.1.0"
+  },
+  "files": [
+    "bin/slint-lsp-*"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run build:wasm_lsp-release && npm run compile && shx echo \"GPL-3.0-only OR LicenseRef-Slint-commercial\" > LICENSE.txt",
+    "build:lsp": "cargo build -p slint-lsp",
+    "build:lsp-release": "cargo build --release -p slint-lsp",
+    "build:wasm_lsp": "env-var wasm-pack build --dev     --target web ../../tools/lsp --out-dir {{npm_config_local_prefix}}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
+    "build:wasm_lsp-release": "env-var wasm-pack build --release --target web ../../tools/lsp --out-dir {{npm_config_local_prefix}}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
+    "compile": "node ./esbuild.js",
+    "local-package": "shx mkdir -p bin && shx cp ../../target/debug/slint-lsp* bin/ && npx vsce package",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"
+  },
+  "devDependencies": {
+    "@rauschma/env-var": "^1.0.1",
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^16.0",
+    "@types/vscode": "1.82.0",
+    "@typescript-eslint/eslint-plugin": "^6.4.1",
+    "@typescript-eslint/parser": "^6.4.1",
+    "esbuild": "^0.19.2",
+    "eslint": "^8.48.0",
+    "glob": "^10.3.3",
+    "mocha": "^10.0.1",
+    "path-browserify": "^1.0.1",
+    "shx": "^0.3.4",
+    "ts-loader": "^9.4.4",
+    "typescript": "5.1.6",
+    "vscode-test": "^1.6.1",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  }
 }
