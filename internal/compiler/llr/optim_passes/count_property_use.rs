@@ -122,7 +122,7 @@ pub fn count_property_use(root: &PublicComponent) {
 }
 
 fn visit_property(pr: &PropertyReference, ctx: &EvaluationContext) {
-    let p_info = super::inline_expressions::property_binding_and_analysis(ctx, pr);
+    let p_info = ctx.property_info(pr);
     if let Some(p) = &p_info.property_decl {
         p.use_count.set(p.use_count.get() + 1);
     }
@@ -151,9 +151,7 @@ fn visit_expression(expr: &Expression, ctx: &EvaluationContext) {
         Expression::PropertyReference(p) => p,
         Expression::CallBackCall { callback, .. } => callback,
         Expression::PropertyAssignment { property, .. } => {
-            if let Some((a, map)) =
-                &super::inline_expressions::property_binding_and_analysis(ctx, property).animation
-            {
+            if let Some((a, map)) = &ctx.property_info(property).animation {
                 let ctx2 = map.map_context(ctx);
                 a.visit_recursive(&mut |e| visit_expression(e, &ctx2))
             }

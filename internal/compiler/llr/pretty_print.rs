@@ -47,7 +47,7 @@ impl<'a> PrettyPrinter<'a> {
         self.indentation += 1;
         for p in &sc.properties {
             self.indent()?;
-            writeln!(self.writer, "property <{}> {}; //{}", p.ty, p.name, p.use_count.get())?;
+            writeln!(self.writer, "property <{}> {}; //use={}", p.ty, p.name, p.use_count.get())?;
         }
         for f in &sc.functions {
             self.indent()?;

@@ -5,6 +5,7 @@ use super::PropertyReference;
 use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
 use crate::langtype::Type;
 use crate::layout::Orientation;
+use core::num::NonZeroUsize;
 use itertools::Either;
 use std::collections::HashMap;
 
@@ -479,6 +480,136 @@ impl<'a, T> EvaluationContext<'a, T> {
             argument_types: &[],
         }
     }
+
+    pub(crate) fn property_info<'b>(&'b self, prop: &PropertyReference) -> PropertyInfoResult<'b> {
+        fn match_in_sub_component<'b>(
+            sc: &'b super::SubComponent,
+            prop: &PropertyReference,
+            map: ContextMap,
+        ) -> PropertyInfoResult<'b> {
+            let property_decl =
+                if let PropertyReference::Local { property_index, sub_component_path } = &prop {
+                    let mut sc = sc;
+                    for i in sub_component_path {
+                        sc = &sc.sub_components[*i].ty;
+                    }
+                    Some(&sc.properties[*property_index])
+                } else {
+                    None
+                };
+            let animation = sc.animations.get(prop).map(|a| (a, map.clone()));
+            if let Some(a) = sc.prop_analysis.get(prop) {
+                let binding = a.property_init.map(|i| (&sc.property_init[i].1, map));
+                return PropertyInfoResult {
+                    analysis: Some(&a.analysis),
+                    binding,
+                    animation,
+                    property_decl,
+                };
+            }
+            let apply_animation = |mut r: PropertyInfoResult<'b>| -> PropertyInfoResult<'b> {
+                if animation.is_some() {
+                    r.animation = animation
+                };
+                r
+            };
+            match prop {
+                PropertyReference::Local { sub_component_path, property_index } => {
+                    if !sub_component_path.is_empty() {
+                        let prop2 = PropertyReference::Local {
+                            sub_component_path: sub_component_path[1..].to_vec(),
+                            property_index: *property_index,
+                        };
+                        let idx = sub_component_path[0];
+                        return apply_animation(match_in_sub_component(
+                            &sc.sub_components[idx].ty,
+                            &prop2,
+                            map.deeper_in_sub_component(idx),
+                        ));
+                    }
+                }
+                PropertyReference::InNativeItem { item_index, sub_component_path, prop_name } => {
+                    if !sub_component_path.is_empty() {
+                        let prop2 = PropertyReference::InNativeItem {
+                            sub_component_path: sub_component_path[1..].to_vec(),
+                            prop_name: prop_name.clone(),
+                            item_index: *item_index,
+                        };
+                        let idx = sub_component_path[0];
+                        return apply_animation(match_in_sub_component(
+                            &sc.sub_components[idx].ty,
+                            &prop2,
+                            map.deeper_in_sub_component(idx),
+                        ));
+                    }
+                }
+                _ => unreachable!(),
+            }
+            apply_animation(PropertyInfoResult { property_decl, ..Default::default() })
+        }
+
+        match prop {
+            PropertyReference::Local { property_index, .. } => {
+                if let Some(g) = self.current_global {
+                    return PropertyInfoResult {
+                        analysis: Some(&g.prop_analysis[*property_index]),
+                        binding: g.init_values[*property_index]
+                            .as_ref()
+                            .map(|b| (b, ContextMap::Identity)),
+                        animation: None,
+                        property_decl: Some(&g.properties[*property_index]),
+                    };
+                } else if let Some(sc) = self.current_sub_component.as_ref() {
+                    return match_in_sub_component(sc, prop, ContextMap::Identity);
+                } else {
+                    unreachable!()
+                }
+            }
+            PropertyReference::InNativeItem { .. } => {
+                return match_in_sub_component(
+                    self.current_sub_component.as_ref().unwrap(),
+                    prop,
+                    ContextMap::Identity,
+                );
+            }
+            PropertyReference::Global { global_index, property_index } => {
+                let g = &self.public_component.globals[*global_index];
+                return PropertyInfoResult {
+                    analysis: Some(&g.prop_analysis[*property_index]),
+                    animation: None,
+                    binding: g
+                        .init_values
+                        .get(*property_index)
+                        .and_then(Option::as_ref)
+                        .map(|b| (b, ContextMap::InGlobal(*global_index))),
+                    property_decl: Some(&g.properties[*property_index]),
+                };
+            }
+            PropertyReference::InParent { level, parent_reference } => {
+                let mut ctx = self;
+                for _ in 0..level.get() {
+                    ctx = ctx.parent.as_ref().unwrap().ctx;
+                }
+                let mut ret = ctx.property_info(parent_reference);
+                match &mut ret.binding {
+                    Some((_, m @ ContextMap::Identity)) => {
+                        *m = ContextMap::InSubElement {
+                            path: Default::default(),
+                            parent: level.get(),
+                        };
+                    }
+                    Some((_, ContextMap::InSubElement { parent, .. })) => {
+                        *parent += level.get();
+                    }
+                    _ => {}
+                }
+                ret
+            }
+            PropertyReference::Function { .. } | PropertyReference::GlobalFunction { .. } => {
+                unreachable!()
+            }
+        }
+    }
 }
 
 impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
@@ -538,5 +669,135 @@ impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
 
     fn arg_type(&self, index: usize) -> &Type {
         &self.argument_types[index]
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct PropertyInfoResult<'a> {
+    pub analysis: Option<&'a crate::object_tree::PropertyAnalysis>,
+    pub binding: Option<(&'a super::BindingExpression, ContextMap)>,
+    pub animation: Option<(&'a Expression, ContextMap)>,
+    pub property_decl: Option<&'a super::Property>,
+}
+
+/// Maps between two evaluation context.
+/// This allows to go from the current subcomponent's context, to the context
+/// relative to the binding we want to inline
+#[derive(Debug, Clone)]
+pub(crate) enum ContextMap {
+    Identity,
+    InSubElement { path: Vec<usize>, parent: usize },
+    InGlobal(usize),
+}
+
+impl ContextMap {
+    fn deeper_in_sub_component(self, sub: usize) -> Self {
+        match self {
+            ContextMap::Identity => ContextMap::InSubElement { parent: 0, path: vec![sub] },
+            ContextMap::InSubElement { mut path, parent } => {
+                path.push(sub);
+                ContextMap::InSubElement { path, parent }
+            }
+            ContextMap::InGlobal(_) => panic!(),
+        }
+    }
+
+    pub fn map_property_reference(&self, p: &PropertyReference) -> PropertyReference {
+        match self {
+            ContextMap::Identity => p.clone(),
+            ContextMap::InSubElement { path, parent } => {
+                let map_sub_path = |sub_component_path: &[usize]| -> Vec<usize> {
+                    path.iter().chain(sub_component_path.iter()).copied().collect()
+                };
+
+                let p2 = match p {
+                    PropertyReference::Local { sub_component_path, property_index } => {
+                        PropertyReference::Local {
+                            sub_component_path: map_sub_path(sub_component_path),
+                            property_index: *property_index,
+                        }
+                    }
+                    PropertyReference::Function { sub_component_path, function_index } => {
+                        PropertyReference::Function {
+                            sub_component_path: map_sub_path(sub_component_path),
+                            function_index: *function_index,
+                        }
+                    }
+                    PropertyReference::InNativeItem {
+                        sub_component_path,
+                        item_index,
+                        prop_name,
+                    } => PropertyReference::InNativeItem {
+                        item_index: *item_index,
+                        prop_name: prop_name.clone(),
+                        sub_component_path: map_sub_path(sub_component_path),
+                    },
+                    PropertyReference::InParent { level, parent_reference } => {
+                        return PropertyReference::InParent {
+                            level: (parent + level.get()).try_into().unwrap(),
+                            parent_reference: parent_reference.clone(),
+                        }
+                    }
+                    PropertyReference::Global { .. } | PropertyReference::GlobalFunction { .. } => {
+                        return p.clone()
+                    }
+                };
+                if let Some(level) = NonZeroUsize::new(*parent) {
+                    PropertyReference::InParent { level, parent_reference: p2.into() }
+                } else {
+                    p2
+                }
+            }
+            ContextMap::InGlobal(global_index) => match p {
+                PropertyReference::Local { sub_component_path, property_index } => {
+                    assert!(sub_component_path.is_empty());
+                    PropertyReference::Global {
+                        global_index: *global_index,
+                        property_index: *property_index,
+                    }
+                }
+                g @ PropertyReference::Global { .. } => g.clone(),
+                _ => unreachable!(),
+            },
+        }
+    }
+
+    pub fn map_expression(&self, e: &mut Expression) {
+        match e {
+            Expression::PropertyReference(p)
+            | Expression::CallBackCall { callback: p, .. }
+            | Expression::PropertyAssignment { property: p, .. }
+            | Expression::LayoutCacheAccess { layout_cache_prop: p, .. } => {
+                *p = self.map_property_reference(p);
+            }
+            _ => (),
+        }
+        e.visit_mut(|e| self.map_expression(e))
+    }
+
+    pub fn map_context<'a>(&self, ctx: &EvaluationContext<'a>) -> EvaluationContext<'a> {
+        match self {
+            ContextMap::Identity => ctx.clone(),
+            ContextMap::InSubElement { path, parent } => {
+                let mut ctx = ctx;
+                for _ in 0..*parent {
+                    ctx = ctx.parent.unwrap().ctx;
+                }
+                if path.is_empty() {
+                    ctx.clone()
+                } else {
+                    let mut e = ctx.current_sub_component.unwrap();
+                    for i in path {
+                        e = &e.sub_components[*i].ty;
+                    }
+                    EvaluationContext::new_sub_component(ctx.public_component, e, (), None)
+                }
+            }
+            ContextMap::InGlobal(g) => EvaluationContext::new_global(
+                ctx.public_component,
+                &ctx.public_component.globals[*g],
+                (),
+            ),
+        }
     }
 }
