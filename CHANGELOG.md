@@ -22,6 +22,7 @@ All notable changes to this project are documented in this file.
  - Image: Added support for 9 slice scaling
  - Image: Added `horizontal-` and `vertical-tiling`
  - Flickable: Added `flicked` callback
+ - Slint: Expose `.red`, `.green`, `.blue`, and `.alpha` properties on `color`
 
 ### Widgets
 
