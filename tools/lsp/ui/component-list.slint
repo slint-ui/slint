@@ -3,17 +3,9 @@
 
 import { Palette, ScrollView, VerticalBox, GroupBox } from "std-widgets.slint";
 
-export struct ComponentListSubItem {
-    name: string,
-    import_file: string,
-    is_builtin: bool,
-    is_std_widget: bool,
-    is_layout: bool,
-    is_exported: bool,
-}
 export struct ComponentListItem {
     category: string,
-    components: [ComponentListSubItem]
+    components: [string]
 }
 
 export component ComponentList {
@@ -24,8 +16,8 @@ export component ComponentList {
     in property <length> preview-area-width;
     in property <length> preview-area-height;
 
-    pure callback can-drop(string /* component type */, length /* x */, length /* y */) -> bool;
-    callback drop(string /* component type */, string /* import_path */, bool /* is_layout */, length /* x */, length /* y */);
+    pure callback can-drop(string /* component_type */, length /* x */, length /* y */) -> bool;
+    callback drop(string /* component_type */, length /* x */, length /* y */);
 
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
 
@@ -55,15 +47,15 @@ export component ComponentList {
                         private property <length> drop-y: self.absolute-position.y + self.mouse-y - root.preview-area-position-y;
                         private property <bool> on-drop-area:
                             drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
-                        private property <bool> can-drop-here: on-drop-area && root.can-drop(ci.name, drop-x, drop-y);
+                        private property <bool> can-drop-here: on-drop-area && root.can-drop(ci, drop-x, drop-y);
                         enabled: root.preview-visible;
                         height: name.preferred-height + 10px;
                         width: 100%;
-                        name := Text { text: ci.name; }
+                        name := Text { text: ci; }
 
                         pointer-event(event) => {
                             if (self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
-                                root.drop(ci.name, ci.import_file, ci.is_layout, drop-x, drop-y);
+                                root.drop(ci, drop-x, drop-y);
                             }
                         }
                         states [

@@ -207,7 +207,7 @@ pub struct Diagnostic {
 }
 
 #[allow(unused)]
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Eq, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct PropertyChange {
     pub name: String,
     pub value: String,
@@ -262,8 +262,12 @@ pub struct ComponentInformation {
     pub is_exported: bool,
     /// This is a layout
     pub is_layout: bool,
+    /// This element fills its parent
+    pub fills_parent: bool,
     /// The URL to the file containing this type
     pub defined_at: Option<Position>,
+    /// Default property values
+    pub default_properties: Vec<PropertyChange>,
 }
 
 impl ComponentInformation {
