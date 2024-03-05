@@ -8,6 +8,13 @@
 
 use std::fmt::Write;
 
+
+/// The configuration for the C++ code generator
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Config {
+    pub namespace: Option<String>,
+}
+
 fn ident(ident: &str) -> String {
     if ident.contains('-') {
         ident.replace('-', "_")
@@ -76,6 +83,7 @@ mod cpp_ast {
     pub struct File {
         pub includes: Vec<String>,
         pub after_includes: String,
+        pub namespace: Option<String>,
         pub declarations: Vec<Declaration>,
         pub definitions: Vec<Declaration>,
     }
@@ -85,6 +93,11 @@ mod cpp_ast {
             for i in &self.includes {
                 writeln!(f, "#include {}", i)?;
             }
+            if let Some(namespace) = &self.namespace {
+                writeln!(f, "namespace {} {{", namespace)?;
+                INDENTATION.with(|x| x.set(x.get() + 1));
+            }
+
             write!(f, "{}", self.after_includes)?;
             for d in &self.declarations {
                 write!(f, "\n{}", d)?;
@@ -92,6 +105,11 @@ mod cpp_ast {
             for d in &self.definitions {
                 write!(f, "\n{}", d)?;
             }
+            if let Some(namespace) = &self.namespace {
+                writeln!(f, "}} // end {}", namespace)?;
+                INDENTATION.with(|x| x.set(x.get() - 1));
+            }
+
             Ok(())
         }
     }
@@ -515,8 +533,11 @@ fn handle_property_init(
 }
 
 /// Returns the text of the C++ code produced by the given root component
-pub fn generate(doc: &Document) -> impl std::fmt::Display {
-    let mut file = File::default();
+pub fn generate(doc: &Document, config: Config) -> impl std::fmt::Display {
+    let mut file = File {
+        namespace: config.namespace.clone(),
+        ..Default::default()
+    };
 
     file.includes.push("<array>".into());
     file.includes.push("<limits>".into());

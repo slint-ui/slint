@@ -18,15 +18,15 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Document, ElementRc};
 
 #[cfg(feature = "cpp")]
-mod cpp;
+pub mod cpp;
 
 #[cfg(feature = "rust")]
 pub mod rust;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum OutputFormat {
     #[cfg(feature = "cpp")]
-    Cpp,
+    Cpp(cpp::Config),
     #[cfg(feature = "rust")]
     Rust,
     Interpreter,
@@ -37,7 +37,7 @@ impl OutputFormat {
     pub fn guess_from_extension(path: &std::path::Path) -> Option<Self> {
         match path.extension().and_then(|ext| ext.to_str()) {
             #[cfg(feature = "cpp")]
-            Some("cpp") | Some("cxx") | Some("h") | Some("hpp") => Some(Self::Cpp),
+            Some("cpp") | Some("cxx") | Some("h") | Some("hpp") => Some(Self::Cpp(cpp::Config::default())),
             #[cfg(feature = "rust")]
             Some("rs") => Some(Self::Rust),
             _ => None,
@@ -50,7 +50,7 @@ impl std::str::FromStr for OutputFormat {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             #[cfg(feature = "cpp")]
-            "cpp" => Ok(Self::Cpp),
+            "cpp" => Ok(Self::Cpp(cpp::Config::default())),
             #[cfg(feature = "rust")]
             "rust" => Ok(Self::Rust),
             "llr" => Ok(Self::Llr),
@@ -74,8 +74,8 @@ pub fn generate(
 
     match format {
         #[cfg(feature = "cpp")]
-        OutputFormat::Cpp => {
-            let output = cpp::generate(doc);
+        OutputFormat::Cpp(config) => {
+            let output = cpp::generate(doc, config);
             write!(destination, "{}", output)?;
         }
         #[cfg(feature = "rust")]
