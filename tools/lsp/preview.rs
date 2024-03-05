@@ -67,6 +67,7 @@ struct PreviewState {
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
+    known_components: Vec<ComponentInformation>,
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
@@ -107,31 +108,51 @@ fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<Elem
 }
 
 // triggered from the UI, running in UI thread
-fn can_drop_component(component_name: slint::SharedString, x: f32, y: f32) -> bool {
-    drop_location::can_drop_at(x, y, component_name.into())
+fn can_drop_component(component_type: slint::SharedString, x: f32, y: f32) -> bool {
+    let component_type = component_type.to_string();
+
+    PREVIEW_STATE.with(move |preview_state| {
+        let preview_state = preview_state.borrow();
+
+        let component_index = &preview_state
+            .known_components
+            .binary_search_by_key(&component_type.as_str(), |ci| ci.name.as_str())
+            .unwrap_or(usize::MAX);
+
+        let Some(component) = preview_state.known_components.get(*component_index) else {
+            return false;
+        };
+
+        drop_location::can_drop_at(x, y, component)
+    })
 }
 
 // triggered from the UI, running in UI thread
-fn drop_component(
-    component_name: slint::SharedString,
-    import_path: slint::SharedString,
-    is_layout: bool,
-    x: f32,
-    y: f32,
-) {
-    if let Some((edit, drop_data)) =
-        drop_location::drop_at(x, y, component_name.to_string(), import_path.to_string())
-    {
+fn drop_component(component_type: slint::SharedString, x: f32, y: f32) {
+    let component_type = component_type.to_string();
+
+    let drop_result = PREVIEW_STATE.with(|preview_state| {
+        let preview_state = preview_state.borrow();
+
+        let component_index = &preview_state
+            .known_components
+            .binary_search_by_key(&component_type.as_str(), |ci| ci.name.as_str())
+            .unwrap_or(usize::MAX);
+
+        drop_location::drop_at(x, y, preview_state.known_components.get(*component_index)?)
+    });
+
+    if let Some((edit, drop_data)) = drop_result {
         element_selection::select_element_at_source_code_position(
             drop_data.path,
             drop_data.selection_offset,
-            is_layout,
+            drop_data.is_layout,
             None,
             true,
         );
 
         send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
-            label: Some(format!("Add element {}", component_name.as_str())),
+            label: Some(format!("Add element {}", component_type)),
             edit,
         });
     };
@@ -541,20 +562,19 @@ pub fn highlight(url: Option<Url>, offset: u32) {
     }
 }
 
-/// Highlight the element pointed at the offset in the path.
-/// When path is None, remove the highlight.
 pub fn known_components(
     _url: &Option<common::VersionedUrl>,
-    components: Vec<ComponentInformation>,
+    mut components: Vec<ComponentInformation>,
 ) {
-    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let current_url = cache.current.as_ref().map(|pc| pc.url.clone());
+    components.sort_unstable_by_key(|ci| ci.name.clone());
 
     run_in_ui_thread(move || async move {
         PREVIEW_STATE.with(|preview_state| {
-            let preview_state = preview_state.borrow();
+            let mut preview_state = preview_state.borrow_mut();
+            preview_state.known_components = components;
+
             if let Some(ui) = &preview_state.ui {
-                ui::ui_set_known_components(ui, &current_url, &components)
+                ui::ui_set_known_components(ui, &preview_state.known_components)
             }
         })
     });

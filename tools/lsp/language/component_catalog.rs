@@ -3,10 +3,10 @@
 
 // cSpell: ignore descr rfind unindented
 
-use crate::common::{ComponentInformation, Position};
+use crate::common::{ComponentInformation, Position, PropertyChange};
 use crate::language::DocumentCache;
 
-use i_slint_compiler::langtype::ElementType;
+use i_slint_compiler::langtype::{DefaultSizeBinding, ElementType};
 use lsp_types::Url;
 
 use std::{path::Path, rc::Rc};
@@ -14,15 +14,19 @@ use std::{path::Path, rc::Rc};
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::UrlWasm;
 
-fn builtin_component_info(name: &str) -> ComponentInformation {
-    let (category, is_layout) = {
-        match name {
-            "GridLayout" | "HorizontalLayout" | "VerticalLayout" => ("Layout", true),
-            "Dialog" | "Window" | "PopupWindow" => ("Window Management", false),
-            "FocusScope" | "TouchArea" => ("Event Handling", false),
-            "Text" => ("Text Handling", false),
-            _ => ("Primitives", false),
-        }
+fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformation {
+    let (category, is_layout) = match name {
+        "GridLayout" | "HorizontalLayout" | "VerticalLayout" => ("Layout", true),
+        "Dialog" | "Window" | "PopupWindow" => ("Window Management", false),
+        "FocusScope" | "TouchArea" => ("Event Handling", false),
+        "Text" => ("Text Handling", false),
+        _ => ("Primitives", false),
+    };
+
+    let default_properties = match name {
+        "Text" | "TextInput" => vec![PropertyChange::new("text", format!("\"{name}\""))],
+        "Image" => vec![PropertyChange::new("source", "@image(\"EDIT_ME.png\")".to_string())],
+        _ => vec![],
     };
 
     ComponentInformation {
@@ -32,23 +36,37 @@ fn builtin_component_info(name: &str) -> ComponentInformation {
         is_builtin: true,
         is_std_widget: false,
         is_layout,
+        fills_parent: is_layout || fills_parent,
         is_exported: true,
         defined_at: None,
+        default_properties,
     }
 }
 
 fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
-    let (category, is_layout) = {
-        match name {
-            "GridBox" | "HorizontalBox" | "VerticalBox" => ("Layout", true),
-            "LineEdit" | "TextEdit" => ("Text Handling", false),
-            "Button" | "CheckBox" | "ComboBox" | "Slider" | "SpinBox" | "Switch" => {
-                ("Input", false)
-            }
-            "ProgressIndicator" | "Spinner" => ("Status", false),
-            "ListView" | "StandardListView" | "StandardTableView" => ("Views", false),
-            _ => ("Widgets", false),
+    let (category, is_layout) = match name {
+        "GridBox" | "HorizontalBox" | "VerticalBox" => ("Layout", true),
+        "LineEdit" | "TextEdit" => ("Text Handling", false),
+        "Button" | "CheckBox" | "ComboBox" | "Slider" | "SpinBox" | "Switch" => ("Input", false),
+        "ProgressIndicator" | "Spinner" => ("Status", false),
+        "ListView" | "StandardListView" | "StandardTableView" => ("Views", false),
+        _ => ("Widgets", false),
+    };
+
+    let default_properties = match name {
+        "Button" | "CheckBox" | "LineEdit" | "Switch" | "TextEdit" => {
+            vec![PropertyChange::new("text", format!("\"{name}\""))]
         }
+        "ComboBox" => {
+            vec![PropertyChange::new("model", "[\"first\", \"second\", \"third\"]".to_string())]
+        }
+        "Slider" | "SpinBox" => vec![
+            PropertyChange::new("minimum", "0".to_string()),
+            PropertyChange::new("value", "42".to_string()),
+            PropertyChange::new("maximum", "100".to_string()),
+        ],
+        "StandardButton" => vec![PropertyChange::new("kind", "ok".to_string())],
+        _ => vec![],
     };
 
     ComponentInformation {
@@ -58,8 +76,10 @@ fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
         is_builtin: false,
         is_std_widget: true,
         is_layout,
+        fills_parent: is_layout,
         is_exported: true,
         defined_at: None,
+        default_properties,
     }
 }
 
@@ -75,8 +95,10 @@ fn exported_project_component_info(
         is_builtin: false,
         is_std_widget: false,
         is_layout: false,
+        fills_parent: false,
         is_exported: true,
         defined_at: Some(position),
+        default_properties: vec![],
     }
 }
 
@@ -88,16 +110,22 @@ fn file_local_component_info(name: &str, position: Position) -> ComponentInforma
         is_builtin: false,
         is_std_widget: false,
         is_layout: false,
+        fills_parent: false,
         is_exported: false,
         defined_at: Some(position),
+        default_properties: vec![],
     }
 }
 
 pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<ComponentInformation>) {
     let registry = document_cache.documents.global_type_registry.borrow();
-    result.extend(registry.all_elements().iter().filter_map(|(name, ty)| {
-        matches!(ty, ElementType::Builtin(b) if !b.is_internal)
-            .then_some(builtin_component_info(name))
+    result.extend(registry.all_elements().iter().filter_map(|(name, ty)| match ty {
+        ElementType::Builtin(b) if !b.is_internal => {
+            let fills_parent =
+                matches!(b.default_size_binding, DefaultSizeBinding::ExpandsToParentGeometry);
+            Some(builtin_component_info(name, fills_parent))
+        }
+        _ => None,
     }));
 }
 

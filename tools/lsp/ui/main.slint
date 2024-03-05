@@ -24,7 +24,7 @@ export component PreviewUi inherits Window {
     out property <bool> design-mode;
 
     pure callback can-drop(/* component_type */ string, /* x */ length, /* y */ length) -> bool;
-    callback drop(/* component_type */ string, /* import_path */ string, /* is_layout */ bool, /* x */ length, /* y */ length);
+    callback drop(/* component_type */ string, /* x */ length, /* y */ length);
     callback selected-element-update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
     callback selected-element-delete();
     callback select-at(/* x */ length, /* y */ length, /* enter_component? */ bool);
@@ -99,8 +99,8 @@ export component PreviewUi inherits Window {
                             preview-area-width: draw-area.preview-area-width;
                             preview-area-height: draw-area.preview-area-height;
 
-                            can-drop(ct, x, y) => { return root.can-drop(ct, x, y); }
-                            drop(ct, ip, il, x, y) => { root.drop(ct, ip, il, x, y); }
+                            can-drop(c, x, y) => { return root.can-drop(c, x, y); }
+                            drop(c, x, y) => { root.drop(c, x, y); }
                         }
                     }
 
