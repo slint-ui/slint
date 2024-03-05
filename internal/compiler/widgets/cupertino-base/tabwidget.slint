@@ -45,14 +45,19 @@ export component TabImpl inherits Rectangle {
     accessible-role: tab;
     accessible-label: root.title;
 
-    Rectangle {
-        clip: true;
+    if (root.is-current || i-touch-area.pressed) : Rectangle {
         width: 100%;
         height: 100%;
-        background: root.is-current ? CupertinoPalette.control-background : transparent;
+        background: i-touch-area.pressed ? CupertinoPalette.secondary-control-background :
+            CupertinoPalette.control-background;
         border-radius: 5px;
+        drop-shadow-blur: 0.25px;
+        drop-shadow-color: #0000001f;
+        drop-shadow-offset-y: 1px;
+        border-width: 1px;
+        border-color: CupertinoPalette.decent-border;
 
-        animate background { duration: 150ms; easing: linear; }
+        animate background { duration: 75ms; easing: linear; }
     }
 
     if (!root.is-current && root.tab-index < root.num-tabs  - 1) : Rectangle {
