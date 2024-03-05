@@ -33,6 +33,19 @@ fn set_xdg_app_id(app_id: String) -> Result<(), errors::PyPlatformError> {
     slint_interpreter::set_xdg_app_id(app_id).map_err(|e| e.into())
 }
 
+#[gen_stub_pyfunction]
+#[pyfunction]
+fn invoke_from_event_loop(callable: PyObject) -> Result<(), errors::PyEventLoopError> {
+    slint_interpreter::invoke_from_event_loop(move || {
+        Python::with_gil(|py| {
+            if let Err(err) = callable.call0(py) {
+                eprintln!("Error invoking python callable from closure invoked via slint::invoke_from_event_loop: {}", err)
+            }
+        })
+    })
+    .map_err(|e| e.into())
+}
+
 use pyo3::prelude::*;
 
 #[pymodule]
@@ -60,6 +73,7 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(run_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(quit_event_loop, m)?)?;
     m.add_function(wrap_pyfunction!(set_xdg_app_id, m)?)?;
+    m.add_function(wrap_pyfunction!(invoke_from_event_loop, m)?)?;
 
     Ok(())
 }
