@@ -146,6 +146,7 @@ impl CompilerConfiguration {
         let enable_component_containers = enable_experimental_features;
 
         let cpp_namespace = match output_format {
+            #[cfg(feature = "cpp")]
             crate::generator::OutputFormat::Cpp(config) => 
                 match config.namespace {
                     Some(namespace) => Some(namespace),
