@@ -3048,6 +3048,24 @@ fn compile_builtin_function_call(
             ctx.generator_state.conditional_includes.cstdlib.set(true);
             format!("[](const auto &a){{ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); auto r = std::strtod(std::begin(a), &e2); return e1 == e2 ? r : 0; }}({})", a.next().unwrap())
         }
+        BuiltinFunction::ColorRed => {
+            format!("{}.red()", a.next().unwrap())
+        }
+        BuiltinFunction::ColorGreen => {
+            format!("{}.green()", a.next().unwrap())
+        }
+        BuiltinFunction::ColorBlue => {
+            format!("{}.blue()", a.next().unwrap())
+        }
+        BuiltinFunction::ColorHue => {
+            format!("{}.hue()", a.next().unwrap())
+        }
+        BuiltinFunction::ColorSaturation => {
+            format!("{}.saturation()", a.next().unwrap())
+        }
+        BuiltinFunction::ColorBrightness => {
+            format!("{}.brightness()", a.next().unwrap())
+        }
         BuiltinFunction::ColorBrighter => {
             format!("{}.brighter({})", a.next().unwrap(), a.next().unwrap())
         }
@@ -3074,6 +3092,14 @@ fn compile_builtin_function_call(
                 r = a.next().unwrap(),
                 g = a.next().unwrap(),
                 b = a.next().unwrap(),
+                a = a.next().unwrap(),
+            )
+        }
+        BuiltinFunction::Hsv => {
+            format!("slint::Color::from_hsva(std::clamp(static_cast<float>({h}), 0., 360.), std::clamp(static_cast<float>({s}), 0., 1.), std::clamp(static_cast<float>({v}), 0., 1.), std::clamp(static_cast<float>({a}) * 1., 0., 1.))",
+                h = a.next().unwrap(),
+                s = a.next().unwrap(),
+                v = a.next().unwrap(),
                 a = a.next().unwrap(),
             )
         }

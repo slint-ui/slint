@@ -47,6 +47,12 @@ pub enum BuiltinFunction {
     StringToFloat,
     /// the "42".is_float()
     StringIsFloat,
+    ColorRed,
+    ColorGreen,
+    ColorBlue,
+    ColorHue,
+    ColorSaturation,
+    ColorBrightness,
     ColorBrighter,
     ColorDarker,
     ColorTransparentize,
@@ -55,6 +61,7 @@ pub enum BuiltinFunction {
     ImageSize,
     ArrayLength,
     Rgb,
+    Hsv,
     DarkColorScheme,
     TextInputFocused,
     SetTextInputFocused,
@@ -85,6 +92,7 @@ pub enum BuiltinMacroFunction {
     /// The argument can be r,g,b,a or r,g,b and they can be percentages or integer.
     /// transform the argument so it is always rgb(r, g, b, a) with r, g, b between 0 and 255.
     Rgb,
+    Hsv,
     /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
     Debug,
 }
@@ -153,6 +161,30 @@ impl BuiltinFunction {
                 return_type: Box::new(crate::layout::layout_info_type()),
                 args: vec![Type::ElementReference],
             },
+            BuiltinFunction::ColorRed => Type::Function {
+                return_type: Box::new(Type::Int32),
+                args: vec![Type::Color],
+            },
+            BuiltinFunction::ColorGreen => Type::Function {
+                return_type: Box::new(Type::Int32),
+                args: vec![Type::Color],
+            },
+            BuiltinFunction::ColorBlue => Type::Function {
+                return_type: Box::new(Type::Int32),
+                args: vec![Type::Color],
+            },
+            BuiltinFunction::ColorHue => Type::Function {
+                return_type: Box::new(Type::Float32),
+                args: vec![Type::Color],
+            },
+            BuiltinFunction::ColorSaturation => Type::Function {
+                return_type: Box::new(Type::Float32),
+                args: vec![Type::Color],
+            },
+            BuiltinFunction::ColorBrightness => Type::Function {
+                return_type: Box::new(Type::Float32),
+                args: vec![Type::Color],
+            },
             BuiltinFunction::ColorBrighter => Type::Function {
                 return_type: Box::new(Type::Brush),
                 args: vec![Type::Brush, Type::Float32],
@@ -192,6 +224,10 @@ impl BuiltinFunction {
             BuiltinFunction::Rgb => Type::Function {
                 return_type: Box::new(Type::Color),
                 args: vec![Type::Int32, Type::Int32, Type::Int32, Type::Float32],
+            },
+            BuiltinFunction::Hsv => Type::Function {
+                return_type: Box::new(Type::Color),
+                args: vec![Type::Float32, Type::Float32, Type::Float32, Type::Float32],
             },
             BuiltinFunction::DarkColorScheme => {
                 Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
@@ -256,7 +292,13 @@ impl BuiltinFunction {
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
-            BuiltinFunction::ColorBrighter
+            BuiltinFunction::ColorRed
+            | BuiltinFunction::ColorGreen
+            | BuiltinFunction::ColorBlue
+            | BuiltinFunction::ColorHue
+            | BuiltinFunction::ColorSaturation
+            | BuiltinFunction::ColorBrightness
+            | BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
             | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorMix
@@ -271,6 +313,7 @@ impl BuiltinFunction {
             BuiltinFunction::ImageSize => false,
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
+            BuiltinFunction::Hsv => true,
             BuiltinFunction::SetTextInputFocused => false,
             BuiltinFunction::TextInputFocused => false,
             BuiltinFunction::ImplicitLayoutInfo(_) => false,
@@ -310,7 +353,13 @@ impl BuiltinFunction {
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
-            BuiltinFunction::ColorBrighter
+            BuiltinFunction::ColorRed
+            | BuiltinFunction::ColorGreen
+            | BuiltinFunction::ColorBlue
+            | BuiltinFunction::ColorHue
+            | BuiltinFunction::ColorSaturation
+            | BuiltinFunction::ColorBrightness
+            | BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
             | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorMix
@@ -318,6 +367,7 @@ impl BuiltinFunction {
             BuiltinFunction::ImageSize => true,
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
+            BuiltinFunction::Hsv => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => true,
             BuiltinFunction::ItemAbsolutePosition => true,
             BuiltinFunction::SetTextInputFocused => false,
