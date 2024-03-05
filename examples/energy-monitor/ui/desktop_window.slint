@@ -1,10 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Theme } from "theme.slint";
+import { Theme, ScreenSize } from "theme.slint";
 import { SmallMain } from "small_main.slint";
 import { BigMain } from "big_main.slint";
 import { MidMain } from "mid_main.slint";
+import { MidMain } from "mid_main.slint";
+import { MobileMain } from "mobile_main.slint";
 import { BarTileModel } from "widgets/widgets.slint";
 import { Images } from "images.slint";
 import { Theme } from "theme.slint";
@@ -19,9 +21,8 @@ export { OverviewAdapter, UsageAdapter, Value, WeatherAdapter, MenuPageAdapter, 
 export component MainWindow inherits Window {
     private property <length> big-break-point: 1366px;
     private property <length> mid-break-point: 799px;
-    private property <bool> show-big: root.width >= big-break-point;
-    private property <bool> show-mid: root.width >= mid-break-point && root.width < big-break-point;
-    private property <bool> show-small: !show-big && !show-mid;
+    private property <length> mobile-break-point: 444px;
+    private property <ScreenSize> screen-size: root.get-screen-size();
 
     title: "EnergyMNG Demo";
     min-width: 320px;
@@ -31,21 +32,38 @@ export component MainWindow inherits Window {
     preferred-height: 480px;
 
     /* The design is not finished yet
-    if show-big : BigMain {
+    if root.screen-size == ScreenSize.Desktop : BigMain {
         preferred-width: 100%;
         preferred-height: 100%;
     }
     */
 
-    if show-mid || show-big : MidMain {
+    if root.screen-size == ScreenSize.Mobile : MobileMain {
         preferred-width: 100%;
         preferred-height: 100%;
     }
 
-    if show-small : SmallMain {
+    if root.screen-size == ScreenSize.EmbeddedMedium : MidMain {
+        preferred-width: 100%;
+        preferred-height: 100%;
+    }
+
+    if root.screen-size == ScreenSize.EmbeddedSmall : SmallMain {
         preferred-width: 100%;
         preferred-height: 100%;
     }
 
     if SettingsAdapter.kiosk-mode-checked : KioskOverlay {}
+
+    pure function get-screen-size() -> ScreenSize {
+        if (root.width <= root.mobile-break-point && root.width < root.height) {
+            return ScreenSize.Mobile;
+        }
+
+        if (root.width < root.mid-break-point) {
+            return ScreenSize.EmbeddedSmall;
+        }
+
+        return ScreenSize.EmbeddedMedium;
+    }
 }
