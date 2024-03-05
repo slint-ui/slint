@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+//cpp-namespace: my::ui
+//ignore: rust,js
+export component TestCase inherits Rectangle {
+    in-out property <bool> condition : false;
+}
+
+/*
+```cpp
+auto handle = my::ui::TestCase::create();
+const my::ui::TestCase &instance = *handle;
+instance.set_condition(true);
+assert_eq(instance.get_condition(), true);
+```
+
+*/
