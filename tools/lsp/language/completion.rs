@@ -341,6 +341,8 @@ pub(crate) fn completion_at(
             ("export component", "export component ${1:ExportedComponent} {\n    $0\n}"),
             ("export struct", "export struct ${1:Name} {\n    $0\n}"),
             ("export global", "export global ${1:Name} {\n    $0\n}"),
+            ("new window", "export component ${1:MyMainWindow} inherits Window {\n    $0\n}"),
+            ("new dialog", "export component ${1:MyDialog} inherits Dialog {\n    $0\n}"),
         ]
         .iter()
         .map(|(kw, ins_tex)| {
@@ -1204,7 +1206,6 @@ mod tests {
             "component Bar in🔺 Window {}",
         ];
         for source in sources {
-            eprintln!("Test for inherits in {source:?}");
             let res = get_completions(source).unwrap();
             res.iter().find(|ci| ci.label == "inherits").unwrap();
         }
@@ -1228,7 +1229,6 @@ mod tests {
             "component X { property<string> prop; elem := Text{} prop <=> e🔺; }",
         ];
         for source in sources {
-            eprintln!("Test for two ways in {source:?}");
             let res = get_completions(source).unwrap();
             res.iter().find(|ci| ci.label == "prop").unwrap();
             res.iter().find(|ci| ci.label == "self").unwrap();
@@ -1244,7 +1244,6 @@ mod tests {
             "component X { elem := Text{ property<string> prop; } title <=> elem.🔺; }",
         ];
         for source in sources {
-            eprintln!("Test for two ways in {source:?}");
             let res = get_completions(source).unwrap();
             res.iter().find(|ci| ci.label == "text").unwrap();
             res.iter().find(|ci| ci.label == "prop").unwrap();
