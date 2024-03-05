@@ -66,6 +66,17 @@ draw the outline.
 CSS Color names are only in scope in expressions of type `color` or `brush`. Otherwise, you can access
 colors from the `Colors` namespace.
 
+### Properties
+
+The following properties are exposed:
+
+- **`red`**
+- **`green`**
+- **`blue`**
+- **`alpha`**
+
+All properties are in the range 0-255.
+
 ### Methods
 
 All colors and brushes define the following methods:

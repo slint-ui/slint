@@ -87,6 +87,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ItemMemberFunction(..) => isize::MAX,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,
+        BuiltinFunction::ColorRgbaStruct => 50,
         BuiltinFunction::ColorBrighter => 50,
         BuiltinFunction::ColorDarker => 50,
         BuiltinFunction::ColorTransparentize => 50,

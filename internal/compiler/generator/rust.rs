@@ -2492,6 +2492,7 @@ fn compile_builtin_function_call(
             quote!(#(#a)*.as_str().parse::<f64>().unwrap_or_default())
         }
         BuiltinFunction::StringIsFloat => quote!(#(#a)*.as_str().parse::<f64>().is_ok()),
+        BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorBrighter => {
             let x = a.next().unwrap();
             let factor = a.next().unwrap();

@@ -996,7 +996,24 @@ impl<'a> LookupObject for ColorExpression<'a> {
                 )),
             })
         };
-        None.or_else(|| f("brighter", member_function(BuiltinFunction::ColorBrighter)))
+        let field_access = |f: &str| {
+            LookupResult::from(Expression::StructFieldAccess {
+                base: Box::new(Expression::FunctionCall {
+                    function: Box::new(Expression::BuiltinFunctionReference(
+                        BuiltinFunction::ColorRgbaStruct,
+                        ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                    )),
+                    source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                    arguments: vec![self.0.clone()],
+                }),
+                name: f.into(),
+            })
+        };
+        None.or_else(|| f("red", field_access("red")))
+            .or_else(|| f("green", field_access("green")))
+            .or_else(|| f("blue", field_access("blue")))
+            .or_else(|| f("alpha", field_access("alpha")))
+            .or_else(|| f("brighter", member_function(BuiltinFunction::ColorBrighter)))
             .or_else(|| f("darker", member_function(BuiltinFunction::ColorDarker)))
             .or_else(|| f("transparentize", member_function(BuiltinFunction::ColorTransparentize)))
             .or_else(|| f("with-alpha", member_function(BuiltinFunction::ColorWithAlpha)))

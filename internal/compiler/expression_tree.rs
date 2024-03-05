@@ -47,6 +47,7 @@ pub enum BuiltinFunction {
     StringToFloat,
     /// the "42".is_float()
     StringIsFloat,
+    ColorRgbaStruct,
     ColorBrighter,
     ColorDarker,
     ColorTransparentize,
@@ -153,6 +154,21 @@ impl BuiltinFunction {
                 return_type: Box::new(crate::layout::layout_info_type()),
                 args: vec![Type::ElementReference],
             },
+            BuiltinFunction::ColorRgbaStruct => Type::Function {
+                return_type: Box::new(Type::Struct {
+                    fields: IntoIterator::into_iter([
+                        ("red".to_string(), Type::Int32),
+                        ("green".to_string(), Type::Int32),
+                        ("blue".to_string(), Type::Int32),
+                        ("alpha".to_string(), Type::Int32),
+                    ])
+                    .collect(),
+                    name: Some("Color".into()),
+                    node: None,
+                    rust_attributes: None,
+                }),
+                args: vec![Type::Color],
+            },
             BuiltinFunction::ColorBrighter => Type::Function {
                 return_type: Box::new(Type::Brush),
                 args: vec![Type::Brush, Type::Float32],
@@ -256,7 +272,8 @@ impl BuiltinFunction {
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
-            BuiltinFunction::ColorBrighter
+            BuiltinFunction::ColorRgbaStruct
+            | BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
             | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorMix
@@ -310,7 +327,8 @@ impl BuiltinFunction {
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
-            BuiltinFunction::ColorBrighter
+            BuiltinFunction::ColorRgbaStruct
+            | BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
             | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorMix

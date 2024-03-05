@@ -739,6 +739,24 @@ fn call_builtin_function(
                 panic!("Argument not a string");
             }
         }
+        BuiltinFunction::ColorRgbaStruct => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ColorRGBAComponents")
+            }
+            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
+                let color = brush.color();
+                let values = IntoIterator::into_iter([
+                    ("red".to_string(), Value::Number(color.red().into())),
+                    ("green".to_string(), Value::Number(color.green().into())),
+                    ("blue".to_string(), Value::Number(color.blue().into())),
+                    ("alpha".to_string(), Value::Number(color.alpha().into())),
+                ])
+                .collect();
+                Value::Struct(values)
+            } else {
+                panic!("First argument not a color");
+            }
+        }
         BuiltinFunction::ColorBrighter => {
             if arguments.len() != 2 {
                 panic!("internal error: incorrect argument count to ColorBrighter")
