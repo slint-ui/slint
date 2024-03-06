@@ -340,11 +340,20 @@ impl GcVisibleCallbacks {
             let callable = callables.get(&name).unwrap();
             Python::with_gil(|py| {
                 let py_args = PyTuple::new(py, args.iter().map(|v| PyValue(v.clone())));
-                let result =
-                    callable.call(py, py_args, None).expect("invoking python callback failed");
-                let pv: PyValue = result
-                    .extract(py)
-                    .expect("unable to convert python callback result to slint interpreter value");
+                let result = match callable.call(py, py_args, None) {
+                    Ok(result) => result,
+                    Err(err) => {
+                        eprintln!("Python: Invoking python callback threw an exception: {err}");
+                        return Value::Void;
+                    }
+                };
+                let pv: PyValue = match result.extract(py) {
+                    Ok(value) => value,
+                    Err(err) => {
+                        eprintln!("Python: Unable to convert return value of Python callback to Slint value: {err}");
+                        return Value::Void;
+                    }
+                };
                 pv.0
             })
         }
