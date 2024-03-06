@@ -1,0 +1,62 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# autopep8: off
+from datetime import timedelta, datetime
+import os
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "ui"))
+from slint import Color, ListModel, Timer, TimerMode
+import printerdemo_slint
+# autopep8: on
+
+
+class MainWindow(printerdemo_slint.MainWindow):
+    def __init__(self):
+        super().__init__()
+        self.ink_levels = ListModel([
+            {"color": Color("#0ff"), "level": 0.4},
+            {"color": Color("#ff0"), "level": 0.2},
+            {"color": Color("#f0f"), "level": 0.5},
+            {"color": Color("#000"), "level": 0.8},
+        ])
+        # Copy the read-only mock data from the UI into a mutable ListModel
+        self.printer_queue = ListModel(self.PrinterQueue.printer_queue)
+        self.PrinterQueue.printer_queue = self.printer_queue
+        self.PrinterQueue.start_job = self.push_job
+        self.PrinterQueue.cancel_job = self.remove_job
+        self.print_progress_timer = Timer()
+        self.print_progress_timer.start(
+            TimerMode.Repeated, timedelta(seconds=1), self.update_jobs)
+
+        self.quit = lambda: self.hide()
+
+    def push_job(self, title):
+        self.printer_queue.append({
+            "status": "waiting",
+            "progress": 0,
+            "title": title,
+            "owner": "Me",
+            "pages": 1,
+            "size": "100kB",
+            "submission_date": str(datetime.now()),
+        })
+
+    def remove_job(self, index):
+        del self.printer_queue[index]
+
+    def update_jobs(self):
+        if len(self.printer_queue) <= 0:
+            return
+        top_item = self.printer_queue[0]
+        top_item["progress"] += 1
+        if top_item["progress"] >= 100:
+            del self.printer_queue[0]
+            if len(self.printer_queue) == 0:
+                return
+            top_item = self.printer_queue[0]
+        self.printer_queue[0] = top_item
+
+
+main_window = MainWindow()
+main_window.run()
