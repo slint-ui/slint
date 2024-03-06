@@ -7,9 +7,10 @@ import { Balance, Overview, Usage, UsageAdapter, Weather, MenuPage, MenuOverview
 import { Images } from "images.slint";
 
 import { TabWidget, TabItem } from "widgets/widgets.slint";
-import { DashboardMobile, Weather } from "pages/pages.slint";
+import { DashboardMobile, Weather, About } from "pages/pages.slint";
 import { MobileHeader } from "blocks/blocks.slint";
 import { MenuBackground } from "components/menu_background.slint";
+
 
 export component MobileMain {
     tab-widget := TabWidget {
@@ -19,6 +20,7 @@ export component MobileMain {
         tabs: [
             { text: "Dashboard", icon: Images.dashboard },
             { text: "Weather", icon: Images.sunny },
+            { text: "About", icon: Images.information },
         ];
 
         DashboardMobile {
@@ -28,6 +30,11 @@ export component MobileMain {
 
         Weather {
             index: 1;
+            current-index: tab-widget.selected-tab;
+        }
+
+        About {
+            index: 2;
             current-index: tab-widget.selected-tab;
         }
     }
