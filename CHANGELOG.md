@@ -20,11 +20,13 @@ All notable changes to this project are documented in this file.
  - Image: Added `ImageFit.preserve`
  - Image: Added `horizontal-` and `vertical-alignment`
  - Image: Added support for 9 slice scaling
- - Cupertino TabWidget: Tweaked visual appearance
+ - Image: Added `horizontal-` and `vertical-tiling`
+ - Flickable: Added `flicked` callback
 
 ### Widgets
 
  - Fixed edited callback of SpinBox for Cupertino and Material style.
+ - Cupertino TabWidget: Tweaked visual appearance
 
 ### Rust
 
@@ -51,6 +53,9 @@ All notable changes to this project are documented in this file.
 
  - Added support for code formatting.
  - Sort properties first in auto-completion.
+ - Fixed completion in two way bindings
+ - Preview: Design mode with drag and drop
+ - Fixed wasm embedded preview on Windows
 
 ## [1.4.1] - 2024-02-02
 
