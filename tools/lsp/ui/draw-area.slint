@@ -26,7 +26,6 @@ export struct Selection {
 
 component SelectionFrame {
     in property <Selection> selection;
-    in property <bool> experimental: false;
     in property <bool> interactive: true;
 
     x: root.selection.x;
@@ -38,14 +37,14 @@ component SelectionFrame {
     callback select-behind(/* x */ length, /* y */ length, /* enter component? */ bool, /* same file? */ bool);
     callback selected-element-delete();
 
-    if !root.interactive || !selection.is-primary || !experimental: Rectangle {
+    if !root.interactive || !selection.is-primary: Rectangle {
         x: 0;
         y: 0;
         border-color: root.selection.border-color;
         border-width: 1px;
     }
 
-    if root.interactive && selection.is-primary && experimental: Resizer {
+    if root.interactive && selection.is-primary: Resizer {
         double-clicked(x, y, modifiers) => {
             root.select-behind(self.absolute-position.x + x, self.absolute-position.y + y, modifiers.control, modifiers.shift);
         }
@@ -86,7 +85,6 @@ export component DrawArea {
     in property <[Selection]> selections;
     in property <component-factory> preview-area;
     in property <bool> design-mode;
-    in property <bool> experimental: false;
 
     out property <bool> preview-visible: i-preview-area-container.has-component && !diagnostics.diagnostics-open;
 
@@ -212,7 +210,6 @@ export component DrawArea {
                 i-selection-display-area := Rectangle {
                     for s in root.selections: SelectionFrame {
                         interactive: root.design-mode;
-                        experimental: root.experimental;
                         selection: s;
                         update-geometry(x, y, w, h) => {
                             root.selected-element-update-geometry(x, y, w, h);
