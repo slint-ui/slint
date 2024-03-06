@@ -42,11 +42,11 @@ component ValueLabel {
 component BarTile {
     in property <string> title <=> i-title.text;
     in property <image> icon <=> i-icon.source;
-    in property <int> max: min;
-    in property <int> min;
+    in property <float> max: min;
+    in property <float> min;
     in property <string> unit;
-    in property <int> absolute-min;
-    in property <int> absolute-max;
+    in property <float> absolute-min;
+    in property <float> absolute-max;
 
     HorizontalLayout {
         alignment: center;
@@ -68,7 +68,7 @@ component BarTile {
             }
 
             ValueLabel {
-                text: max;
+                text: floor(max);
                 unit: unit;
             }
 
@@ -94,7 +94,7 @@ component BarTile {
             }
 
             ValueLabel {
-                text: min;
+                text: floor(min);
                 unit: unit;
             }
         }
