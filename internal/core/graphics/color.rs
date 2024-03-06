@@ -47,13 +47,10 @@ pub struct RgbaColor<T> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(C)]
 pub struct Color {
-    red: u8,
-    green: u8,
-    blue: u8,
-    alpha: u8,
-    // cache the conversion so additional method calls don't recalculate all the same values
-    hsva_cached: bool,
-    hsva: HsvaColor,
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
+    pub alpha: u8,
 }
 
 impl From<RgbaColor<u8>> for Color {
@@ -63,7 +60,6 @@ impl From<RgbaColor<u8>> for Color {
             green: col.green,
             blue: col.blue,
             alpha: col.alpha,
-            ..Default::default()
         }
     }
 }
@@ -99,7 +95,6 @@ impl From<RgbaColor<f32>> for Color {
             green: (col.green * 255.).round() as u8,
             blue: (col.blue * 255.).round() as u8,
             alpha: (col.alpha * 255.).round() as u8,
-            ..Default::default()
         }
     }
 }
@@ -112,8 +107,6 @@ impl Color {
             green: (encoded >> 8) as u8,
             blue: encoded as u8,
             alpha: (encoded >> 24) as u8,
-            hsva_cached: false,
-            hsva: HsvaColor { h: 0., s: 0., v: 0., alpha: 0. },
         }
     }
 
@@ -132,8 +125,6 @@ impl Color {
             green,
             blue,
             alpha,
-            hsva_cached: false,
-            hsva: HsvaColor { h: 0., s: 0., v: 0., alpha: 0. },
         }
     }
 
@@ -181,7 +172,6 @@ impl Color {
     pub fn from_hsv(hue: f32, saturation: f32, value: f32) -> Self {
         let hsva = HsvaColor { h: hue, s: saturation, v: value, alpha: 1.0 };
         let mut color: Self = <RgbaColor<f32>>::from(hsva).into();
-        color.hsva = hsva;
         color
     }
 
@@ -189,7 +179,6 @@ impl Color {
     pub fn from_hsva(hue: f32, saturation: f32, value: f32, alpha: f32) -> Self {
         let hsva = HsvaColor { h: hue, s: saturation, v: value, alpha };
         let mut color: Self = <RgbaColor<f32>>::from(hsva).into();
-        color.hsva = hsva;
         color
     }
 
@@ -218,15 +207,8 @@ impl Color {
     }
 
     fn hsva(&mut self) -> HsvaColor {
-        if self.hsva_cached {
-            self.hsva
-        } else {
-            let rgba: RgbaColor<f32> = (*self).into();
-            let hsva: HsvaColor = rgba.into();
-            self.hsva = hsva;
-            self.hsva_cached = true;
-            hsva
-        }
+        let rgba: RgbaColor<f32> = (*self).into();
+        rgba.into()
     }
 
     /// Returns the hue channel of the color as f32 in degrees 0..PI.
@@ -384,7 +366,7 @@ impl Color {
 
         let alpha = lerp(self.alpha, other.alpha, original_factor);
 
-        Self { red, green, blue, alpha, ..Default::default() }
+        Self { red, green, blue, alpha }
     }
 
     /// Returns a new version of this color with the opacity set to `alpha`.
@@ -403,7 +385,6 @@ impl InterpolatedPropertyValue for Color {
             green: self.green.interpolate(&target_value.green, t),
             blue: self.blue.interpolate(&target_value.blue, t),
             alpha: self.alpha.interpolate(&target_value.alpha, t),
-            ..Default::default()
         }
     }
 }
@@ -414,9 +395,7 @@ impl core::fmt::Display for Color {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 struct HsvaColor {
     h: f32,
     s: f32,

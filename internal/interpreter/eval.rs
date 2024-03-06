@@ -739,6 +739,24 @@ fn call_builtin_function(
                 panic!("Argument not a string");
             }
         }
+        BuiltinFunction::ColorRGBAComponents => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ColorRGBAComponents")
+            }
+            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
+                let color = brush.color();
+                let values = IntoIterator::into_iter([
+                    ("red".to_string(), Value::Number(color.red().into())),
+                    ("green".to_string(), Value::Number(color.green().into())),
+                    ("blue".to_string(), Value::Number(color.blue().into())),
+                    ("alpha".to_string(), Value::Number(color.alpha().into())),
+                ])
+                .collect();
+                Value::Struct(values)
+            } else {
+                panic!("First argument not a color");
+            }
+        }
         BuiltinFunction::ColorBrighter => {
             if arguments.len() != 2 {
                 panic!("internal error: incorrect argument count to ColorBrighter")
@@ -763,36 +781,6 @@ fn call_builtin_function(
                 } else {
                     panic!("Second argument not a number");
                 }
-            } else {
-                panic!("First argument not a color");
-            }
-        }
-        BuiltinFunction::ColorRed => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ColorRed")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
-                (brush.color().red() as u32).into()
-            } else {
-                panic!("First argument not a color");
-            }
-        }
-        BuiltinFunction::ColorGreen => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ColorGreen")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
-                (brush.color().green() as u32).into()
-            } else {
-                panic!("First argument not a color");
-            }
-        }
-        BuiltinFunction::ColorBlue => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ColorBlue")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
-                (brush.color().blue() as u32).into()
             } else {
                 panic!("First argument not a color");
             }

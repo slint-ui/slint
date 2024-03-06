@@ -2492,18 +2492,7 @@ fn compile_builtin_function_call(
             quote!(#(#a)*.as_str().parse::<f64>().unwrap_or_default())
         }
         BuiltinFunction::StringIsFloat => quote!(#(#a)*.as_str().parse::<f64>().is_ok()),
-        BuiltinFunction::ColorRed => {
-            let x = a.next().unwrap();
-            quote!(#x.red())
-        }
-        BuiltinFunction::ColorGreen => {
-            let x = a.next().unwrap();
-            quote!(#x.green())
-        }
-        BuiltinFunction::ColorBlue => {
-            let x = a.next().unwrap();
-            quote!(#x.blue())
-        }
+        BuiltinFunction::ColorRGBAComponents => quote!( #(#a)*),
         BuiltinFunction::ColorHue => {
             let x = a.next().unwrap();
             quote!(#x.hue())

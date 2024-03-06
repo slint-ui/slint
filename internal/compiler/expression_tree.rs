@@ -47,9 +47,7 @@ pub enum BuiltinFunction {
     StringToFloat,
     /// the "42".is_float()
     StringIsFloat,
-    ColorRed,
-    ColorGreen,
-    ColorBlue,
+    ColorRGBAComponents,
     ColorHue,
     ColorSaturation,
     ColorBrightness,
@@ -162,16 +160,19 @@ impl BuiltinFunction {
                 return_type: Box::new(crate::layout::layout_info_type()),
                 args: vec![Type::ElementReference],
             },
-            BuiltinFunction::ColorRed => Type::Function {
-                return_type: Box::new(Type::Int32),
-                args: vec![Type::Color],
-            },
-            BuiltinFunction::ColorGreen => Type::Function {
-                return_type: Box::new(Type::Int32),
-                args: vec![Type::Color],
-            },
-            BuiltinFunction::ColorBlue => Type::Function {
-                return_type: Box::new(Type::Int32),
+            BuiltinFunction::ColorRGBAComponents => Type::Function {
+                return_type: Box::new(Type::Struct {
+                    fields: IntoIterator::into_iter([
+                        ("red".to_string(), Type::Int32),
+                        ("green".to_string(), Type::Int32),
+                        ("blue".to_string(), Type::Int32),
+                        ("alpha".to_string(), Type::Int32),
+                    ])
+                    .collect(),
+                    name: Some("Color".into()),
+                    node: None,
+                    rust_attributes: None,
+                }),
                 args: vec![Type::Color],
             },
             BuiltinFunction::ColorHue => Type::Function {
@@ -297,9 +298,7 @@ impl BuiltinFunction {
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
-            BuiltinFunction::ColorRed
-            | BuiltinFunction::ColorGreen
-            | BuiltinFunction::ColorBlue
+            BuiltinFunction::ColorRGBAComponents
             | BuiltinFunction::ColorHue
             | BuiltinFunction::ColorSaturation
             | BuiltinFunction::ColorLinearBlend
@@ -359,9 +358,7 @@ impl BuiltinFunction {
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
-            BuiltinFunction::ColorRed
-            | BuiltinFunction::ColorGreen
-            | BuiltinFunction::ColorBlue
+            BuiltinFunction::ColorRGBAComponents
             | BuiltinFunction::ColorHue
             | BuiltinFunction::ColorSaturation
             | BuiltinFunction::ColorLinearBlend
