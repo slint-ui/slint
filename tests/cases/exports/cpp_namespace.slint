@@ -3,16 +3,34 @@
 
 //cpp-namespace: my::ui
 //ignore: rust,js
+struct TestStruct {
+    condition: bool,
+}
+
+enum TestEnum {
+    A,
+    B,
+    C
+}
+
 export component TestCase inherits Rectangle {
-    in-out property <bool> condition : false;
+    in-out property <TestStruct> test_struct;
+    in-out property <TestEnum> test_enum;
 }
 
 /*
 ```cpp
 auto handle = my::ui::TestCase::create();
 const my::ui::TestCase &instance = *handle;
-instance.set_condition(true);
-assert_eq(instance.get_condition(), true);
+my::ui::TestStruct test_struct {.condition = false};
+test_struct.condition = true;
+instance.set_test_struct(test_struct);
+assert(instance.get_test_struct() == test_struct);
+instance.set_test_enum(my::ui::TestEnum::A);
+auto test_enum = instance.get_test_enum();
+test_enum = my::ui::TestEnum::B;
+instance.set_test_enum(test_enum);
+assert(instance.get_test_enum() == my::ui::TestEnum::B);
 ```
 
 */
