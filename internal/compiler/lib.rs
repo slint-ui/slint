@@ -147,16 +147,15 @@ impl CompilerConfiguration {
 
         let cpp_namespace = match output_format {
             #[cfg(feature = "cpp")]
-            crate::generator::OutputFormat::Cpp(config) => 
-                match config.namespace {
-                    Some(namespace) => Some(namespace),
-                    None => match std::env::var("SLINT_CPP_NAMESPACE") {
-                        Ok(namespace) => Some(namespace),
-                        Err(_) => None,
-                    }
-                }
-            _ => None
-            };
+            crate::generator::OutputFormat::Cpp(config) => match config.namespace {
+                Some(namespace) => Some(namespace),
+                None => match std::env::var("SLINT_CPP_NAMESPACE") {
+                    Ok(namespace) => Some(namespace),
+                    Err(_) => None,
+                },
+            },
+            _ => None,
+        };
 
         Self {
             embed_resources,

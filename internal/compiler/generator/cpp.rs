@@ -8,7 +8,6 @@
 
 use std::fmt::Write;
 
-
 /// The configuration for the C++ code generator
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Config {
@@ -534,10 +533,7 @@ fn handle_property_init(
 
 /// Returns the text of the C++ code produced by the given root component
 pub fn generate(doc: &Document, config: Config) -> impl std::fmt::Display {
-    let mut file = File {
-        namespace: config.namespace.clone(),
-        ..Default::default()
-    };
+    let mut file = File { namespace: config.namespace.clone(), ..Default::default() };
 
     file.includes.push("<array>".into());
     file.includes.push("<limits>".into());

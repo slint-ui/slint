@@ -37,7 +37,9 @@ impl OutputFormat {
     pub fn guess_from_extension(path: &std::path::Path) -> Option<Self> {
         match path.extension().and_then(|ext| ext.to_str()) {
             #[cfg(feature = "cpp")]
-            Some("cpp") | Some("cxx") | Some("h") | Some("hpp") => Some(Self::Cpp(cpp::Config::default())),
+            Some("cpp") | Some("cxx") | Some("h") | Some("hpp") => {
+                Some(Self::Cpp(cpp::Config::default()))
+            }
             #[cfg(feature = "rust")]
             Some("rs") => Some(Self::Rust),
             _ => None,
