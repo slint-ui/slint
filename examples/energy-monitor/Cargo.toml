@@ -11,8 +11,10 @@ publish = false
 license = "MIT"
 
 [[bin]]
-path = "src/main.rs"
 name = "energy-monitor"
+
+[lib]
+crate-type = ["cdylib", "lib"]
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
@@ -22,23 +24,15 @@ weer_api = { version = "0.1", optional = true }
 tokio = { version = "1.25", optional = true, features = ["full"] }
 futures = { version = "0.3.26", optional = true }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { version = "0.2" }
+web-sys = { version = "0.3", features=["console"] }
+console_error_panic_hook = "0.1.5"
+
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
 
 [features]
-default = ["slint/default", "network", "chrono"]
+default = ["slint/default", "network", "chrono", "slint/backend-android-activity-05"]
 simulator = ["mcu-board-support", "slint/renderer-software", "slint/backend-winit", "slint/std"]
 network = ["dep:weer_api", "tokio", "futures"]
-
-# Remove the `#wasm#` to uncomment the wasm build.
-# This is commented out by default because we don't want to build it as a library by default
-# The CI has a script that does sed "s/#wasm# //" to generate the wasm build.
-
-#wasm# [lib]
-#wasm# crate-type = ["cdylib"]
-#wasm# path = "src/main.rs"
-#wasm#
-#wasm# [target.'cfg(target_arch = "wasm32")'.dependencies]
-#wasm# wasm-bindgen = { version = "0.2" }
-#wasm# web-sys = { version = "0.3", features=["console"] }
-#wasm# console_error_panic_hook = "0.1.5"
