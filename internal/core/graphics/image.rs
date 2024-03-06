@@ -911,7 +911,7 @@ impl FitResult {
                     };
                     r.size.width = target.width;
                 } else if (o.width as f32) < target.width / r.source_to_target_x {
-                    r.offset.x = match alignment.0 {
+                    r.offset.x += match alignment.0 {
                         ImageHorizontalAlignment::Center => {
                             (target.width - o.width as f32 * r.source_to_target_x) / 2.
                         }
@@ -960,7 +960,7 @@ impl FitResult {
                     };
                     r.size.height = target.height;
                 } else if (o.height as f32) < target.height / r.source_to_target_y {
-                    r.offset.y = match alignment.1 {
+                    r.offset.y += match alignment.1 {
                         ImageVerticalAlignment::Center => {
                             (target.height - o.height as f32 * r.source_to_target_y) / 2.
                         }
@@ -1077,36 +1077,39 @@ pub fn fit9slice(
     use euclid::rect;
     let sf = |x| scale_factor.get() * x as f32;
     let source = source_rect.cast::<u16>();
-
-    [
-        fit_to(rect(0, 0, l, t), rect(0., 0., sf(l), sf(t))),
-        fit_to(
-            rect(l, 0, source.width - l - r, t),
-            rect(sf(l), 0., target.width - sf(l) - sf(r), sf(t)),
-        ),
-        fit_to(rect(source.width - r, 0, r, t), rect(target.width - sf(r), 0., sf(r), sf(t))),
-        fit_to(
-            rect(0, t, l, source.height - t - b),
-            rect(0., sf(t), sf(l), target.height - sf(t) - sf(b)),
-        ),
-        fit_to(
-            rect(l, t, source.width - l - r, source.height - t - b),
-            rect(sf(l), sf(t), target.width - sf(l) - sf(r), target.height - sf(t) - sf(b)),
-        ),
-        fit_to(
-            rect(source.width - r, t, r, source.height - t - b),
-            rect(target.width - sf(r), sf(t), sf(r), target.height - sf(t) - sf(b)),
-        ),
-        fit_to(rect(0, source.width - b, l, b), rect(0., target.height - sf(b), sf(l), sf(b))),
-        fit_to(
-            rect(l, source.width - b, source.width - l - r, b),
-            rect(sf(l), target.height - sf(b), target.width - sf(l) - sf(r), sf(b)),
-        ),
-        fit_to(
-            rect(source.width - r, source.width - b, r, b),
-            rect(target.width - sf(r), target.height - sf(b), sf(r), sf(b)),
-        ),
-    ]
+    if t + b > source.height || l + r > source.width {
+        [None, None, None, None, None, None, None, None, None]
+    } else {
+        [
+            fit_to(rect(0, 0, l, t), rect(0., 0., sf(l), sf(t))),
+            fit_to(
+                rect(l, 0, source.width - l - r, t),
+                rect(sf(l), 0., target.width - sf(l) - sf(r), sf(t)),
+            ),
+            fit_to(rect(source.width - r, 0, r, t), rect(target.width - sf(r), 0., sf(r), sf(t))),
+            fit_to(
+                rect(0, t, l, source.height - t - b),
+                rect(0., sf(t), sf(l), target.height - sf(t) - sf(b)),
+            ),
+            fit_to(
+                rect(l, t, source.width - l - r, source.height - t - b),
+                rect(sf(l), sf(t), target.width - sf(l) - sf(r), target.height - sf(t) - sf(b)),
+            ),
+            fit_to(
+                rect(source.width - r, t, r, source.height - t - b),
+                rect(target.width - sf(r), sf(t), sf(r), target.height - sf(t) - sf(b)),
+            ),
+            fit_to(rect(0, source.height - b, l, b), rect(0., target.height - sf(b), sf(l), sf(b))),
+            fit_to(
+                rect(l, source.height - b, source.width - l - r, b),
+                rect(sf(l), target.height - sf(b), target.width - sf(l) - sf(r), sf(b)),
+            ),
+            fit_to(
+                rect(source.width - r, source.height - b, r, b),
+                rect(target.width - sf(r), target.height - sf(b), sf(r), sf(b)),
+            ),
+        ]
+    }
     .into_iter()
     .filter_map(|x| x)
 }
