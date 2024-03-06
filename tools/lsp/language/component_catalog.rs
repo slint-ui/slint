@@ -25,7 +25,7 @@ fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformatio
 
     let default_properties = match name {
         "Text" | "TextInput" => vec![PropertyChange::new("text", format!("\"{name}\""))],
-        "Image" => vec![PropertyChange::new("source", "@image(\"EDIT_ME.png\")".to_string())],
+        "Image" => vec![PropertyChange::new("source", "@image-url(\"EDIT_ME.png\")".to_string())],
         _ => vec![],
     };
 
