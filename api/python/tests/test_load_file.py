@@ -20,3 +20,21 @@ def test_load_file(caplog):
 def test_load_file_fail():
     with pytest.raises(CompileError, match="Could not compile non-existent.slint"):
         load_file("non-existent.slint")
+
+
+def test_load_file_wrapper():
+    module = load_file(os.path.join(os.path.dirname(
+        __spec__.origin), "test_load_file.slint"), quiet=False)
+
+    instance = module.App()
+
+    assert instance.hello == "World"
+    instance.hello = "Ok"
+    assert instance.hello == "Ok"
+
+    instance.say_hello = lambda x: "from here: " + x
+    assert instance.say_hello("wohoo") == "from here: wohoo"
+
+    assert instance.MyGlobal.global_prop == "This is global"
+
+    del instance

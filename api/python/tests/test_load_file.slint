@@ -1,7 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+export global MyGlobal {
+    in-out property <string> global-prop: "This is global";
+}
+
 export component App {
+    in-out property <string> hello: "World";
+    callback say-hello(string);
     Rectangle {
         color: red;
     }
