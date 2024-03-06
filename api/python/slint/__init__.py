@@ -154,3 +154,5 @@ Brush = native.PyBrush
 Model = native.PyModelBase
 ListModel = models.ListModel
 Model = models.Model
+Timer = native.Timer
+TimerMode = native.TimerMode
