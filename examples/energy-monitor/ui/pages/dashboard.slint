@@ -32,10 +32,14 @@ export component BarChartTile {
     in property <float> max <=> i-bar-chart.max;
     in property <bool> active;
 
+    height: i-group-box.min-height;
+
     i-group-box := GroupBox {
+        preferred-width: 100%;
+        min-height: 124px;
+
         i-value-display := ValueDisplay {
             width: 100%;
-            horizontal-stretch: 0;
             alternative-colors: true;
             active: root.active;
             vertical: true;
