@@ -49,7 +49,10 @@ impl<'a> ToPyObject for PyValueRef<'a> {
             slint_interpreter::Value::Brush(brush) => {
                 crate::brush::PyBrush::from(brush.clone()).into_py(py)
             }
-            _ => todo!(),
+            v @ _ => {
+                eprintln!("Python: conversion from slint to python needed for {:#?} and not implemented yet", v);
+                ().into_py(py)
+            }
         }
     }
 }
