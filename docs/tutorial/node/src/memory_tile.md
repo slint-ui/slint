@@ -40,8 +40,10 @@ cd ..
 If you are on Windows, use the following commands:
 
 ```sh
+cd ui
 powershell curl -Uri https://slint.dev/blog/memory-game-tutorial/icons.zip -Outfile icons.zip
 powershell Expand-Archive -Path icons.zip -DestinationPath .
+cd ..
 ```
 
 This unpacks an `icons` directory containing several icons.
