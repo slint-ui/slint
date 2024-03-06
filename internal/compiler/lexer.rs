@@ -415,6 +415,7 @@ fn test_locate_rust_macro() {
 /// string to preserve line and column number.
 pub fn extract_rust_macro(rust_source: String) -> Option<String> {
     let core::ops::Range { start, end } = locate_slint_macro(&rust_source).next()?;
+    eprintln!("slint macro covers offsets: {start} - {end}");
     let mut bytes = rust_source.into_bytes();
     for c in &mut bytes[..start] {
         if *c != b'\n' {
@@ -423,13 +424,15 @@ pub fn extract_rust_macro(rust_source: String) -> Option<String> {
     }
 
     if start > 0 {
+        eprintln!("Placed SOT at {}", start - 1);
         bytes[start - 1] = 2;
     }
     if end < bytes.len() {
+        eprintln!("Placed EOT at {}", end);
         bytes[end] = 3;
     }
 
-    for c in &mut bytes[end..] {
+    for c in &mut bytes[end + 1..] {
         if *c != b'\n' {
             *c = b' '
         }
