@@ -32,7 +32,7 @@ enum PyColorInput {
 #[pyclass]
 #[derive(Clone)]
 pub struct PyColor {
-    color: slint_interpreter::Color,
+    pub color: slint_interpreter::Color,
 }
 
 #[pymethods]

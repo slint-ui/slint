@@ -76,6 +76,10 @@ impl FromPyObject<'_> for PyValue {
                     .map(|pybrush| slint_interpreter::Value::Brush(pybrush.brush.clone()))
             })
             .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::brush::PyColor>>()
+                    .map(|pycolor| slint_interpreter::Value::Brush(pycolor.color.clone().into()))
+            })
+            .or_else(|_| {
                 ob.extract::<PyRef<'_, crate::models::PyModelBase>>()
                     .map(|pymodel| slint_interpreter::Value::Model(pymodel.as_model()))
             })

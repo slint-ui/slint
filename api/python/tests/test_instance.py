@@ -31,7 +31,7 @@ def test_property_access():
             in property <bool> boolprop: true;
             in property <image> imgprop;
             in property <brush> brushprop: Colors.rgb(255, 0, 255);
-            in property <color> colprop;
+            in property <color> colprop: Colors.rgb(0, 255, 0);
             in property <[string]> modelprop;
             in property <MyStruct> structprop: {
                 title: "builtin",
@@ -102,6 +102,12 @@ def test_property_access():
     assert str(brushval.color) == "argb(255, 255, 0, 255)"
     instance.set_property("brushprop", Brush(Color("rgb(128, 128, 128)")))
     brushval = instance.get_property("brushprop")
+    assert str(brushval.color) == "argb(255, 128, 128, 128)"
+
+    brushval = instance.get_property("colprop")
+    assert str(brushval.color) == "argb(255, 0, 255, 0)"
+    instance.set_property("colprop", Color("rgb(128, 128, 128)"))
+    brushval = instance.get_property("colprop")
     assert str(brushval.color) == "argb(255, 128, 128, 128)"
 
     with pytest.raises(ValueError, match="no such property"):
