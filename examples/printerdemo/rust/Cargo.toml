@@ -17,11 +17,10 @@ name = "printerdemo"
 [lib]
 path = "lib.rs"
 crate-type = ["lib", "cdylib"]
-
+name = "printerdemo_lib"
 
 [dependencies]
 slint = { path = "../../../api/rs/slint", features = ["backend-android-activity-05"] }
-
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}
 
 [build-dependencies]

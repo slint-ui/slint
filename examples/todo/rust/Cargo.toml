@@ -13,6 +13,7 @@ license = "MIT"
 [lib]
 crate-type = ["lib", "cdylib"]
 path = "lib.rs"
+name = "todo_lib"
 
 [[bin]]
 path = "main.rs"
