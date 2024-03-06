@@ -4,6 +4,7 @@
 from . import slint as native
 import types
 import logging
+from . import models
 
 
 class CompileError(Exception):
@@ -151,3 +152,5 @@ Image = native.PyImage
 Color = native.PyColor
 Brush = native.PyBrush
 Model = native.PyModelBase
+ListModel = models.ListModel
+Model = models.Model
