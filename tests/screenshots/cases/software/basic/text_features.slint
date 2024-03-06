@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+
+    Text {
+        text: "Elide me please for I am a very long paragraph";
+        wrap: word-wrap;
+        overflow: elide;
+        font-size: 10px;
+        height: 40px;
+        width: 100%;
+        letter-spacing: 3px;
+    }
+}
