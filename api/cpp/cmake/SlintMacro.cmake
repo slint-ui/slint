@@ -20,6 +20,7 @@ function(SLINT_TARGET_SOURCES target)
         list(REMOVE_AT ARGN ${_index})
         list(FIND ARGN "${SLINT_TARGET_SOURCES_NAMESPACE}" _index)
         list(REMOVE_AT ARGN ${_index})
+        set(_SLINT_CPP_NAMESPACE_ARG "--cpp-namespace=${SLINT_TARGET_SOURCES_NAMESPACE}")
     endif()
 
     foreach (it IN ITEMS ${ARGN})
@@ -30,10 +31,6 @@ function(SLINT_TARGET_SOURCES target)
         set(t_prop "$<TARGET_PROPERTY:${target},SLINT_EMBED_RESOURCES>")
         set(global_fallback "${DEFAULT_SLINT_EMBED_RESOURCES}")
         set(embed "$<IF:$<STREQUAL:${t_prop},>,${global_fallback},${t_prop}>")
-
-        if (DEFINED SLINT_TARGET_SOURCES_NAMESPACE)
-            set(_SLINT_CPP_NAMESPACE_ARG "--cpp-namespace=${SLINT_TARGET_SOURCES_NAMESPACE}")
-        endif()
 
         add_custom_command(
             OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
