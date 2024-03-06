@@ -1,9 +1,13 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+from importlib.machinery import ModuleSpec
+import os
+import sys
 from . import slint as native
 import types
 import logging
+import importlib
 from . import models
 
 
@@ -165,6 +169,34 @@ def load_file(path, quiet=False, style=None, include_paths=None, library_paths=N
 
     return module
 
+
+class SlintModuleLoader:
+    def create_module(self, spec):
+        return None
+
+    def exec_module(self, module):
+        m = load_file(module.__name__)
+        module.__dict__.update(m.__dict__)
+
+
+class SlintModuleFinder:
+    def find_spec(self, name, path, target=None):
+        if "." in name:
+            return None
+
+        if not name.endswith("_slint"):
+            return None
+
+        candidate_filename = name.removesuffix("_slint") + ".slint"
+
+        for path in sys.path:
+            candidate = os.path.join(path, candidate_filename)
+            if os.path.exists(candidate):
+                return ModuleSpec(os.path.realpath(candidate), SlintModuleLoader())
+        return None
+
+
+sys.meta_path.append(SlintModuleFinder())
 
 Image = native.PyImage
 Color = native.PyColor
