@@ -25,7 +25,6 @@ pub struct RgbaColor<T> {
     pub green: T,
     /// The blue channel.
     pub blue: T,
-    hsva: Option<HsvaColor>,
 }
 
 /// Color represents a color in the Slint run-time, represented using 8-bit channels for
@@ -69,7 +68,6 @@ impl From<Color> for RgbaColor<u8> {
             green: col.green,
             blue: col.blue,
             alpha: col.alpha,
-            hsva: col.hsva,
         }
     }
 }
@@ -81,7 +79,6 @@ impl From<RgbaColor<u8>> for RgbaColor<f32> {
             green: (col.green as f32) / 255.0,
             blue: (col.blue as f32) / 255.0,
             alpha: (col.alpha as f32) / 255.0,
-            hsva: col.hsva,
         }
     }
 }
@@ -138,7 +135,7 @@ impl Color {
 
     /// Construct a color from the alpha, red, green and blue color channel parameters.
     pub fn from_argb_f32(alpha: f32, red: f32, green: f32, blue: f32) -> Self {
-        RgbaColor { alpha, red, green, blue, hsva: None }.into()
+        RgbaColor { alpha, red, green, blue }.into()
     }
 
     /// Construct a color from the red, green and blue color channel parameters. The alpha
@@ -450,7 +447,7 @@ impl From<HsvaColor> for RgbaColor<f32> {
 
         let m = col.v - chroma;
 
-        Self { red: red + m, green: green + m, blue: blue + m, alpha: col.alpha, hsva: Some(col) }
+        Self { red: red + m, green: green + m, blue: blue + m, alpha: col.alpha }
     }
 }
 
@@ -458,7 +455,7 @@ impl From<HsvaColor> for RgbaColor<f32> {
 fn test_rgb_to_hsv() {
     // White
     assert_eq!(
-        HsvaColor::from(RgbaColor::<f32> { red: 1., green: 1., blue: 1., alpha: 0.5, hsva: None }),
+        HsvaColor::from(RgbaColor::<f32> { red: 1., green: 1., blue: 1., alpha: 0.5 }),
         HsvaColor { h: 0., s: 0., v: 1., alpha: 0.5 }
     );
     assert_eq!(
@@ -468,13 +465,12 @@ fn test_rgb_to_hsv() {
             green: 1.,
             blue: 1.,
             alpha: 0.3,
-            hsva: Some(HsvaColor { h: 0.0, s: 0.0, v: 1.0, alpha: 0.3 })
         }
     );
 
     // Bright greenish, verified via colorizer.org
     assert_eq!(
-        HsvaColor::from(RgbaColor::<f32> { red: 0., green: 0.9, blue: 0., alpha: 1.0, hsva: None }),
+        HsvaColor::from(RgbaColor::<f32> { red: 0., green: 0.9, blue: 0., alpha: 1.0 }),
         HsvaColor { h: 120., s: 1., v: 0.9, alpha: 1.0 }
     );
     assert_eq!(
@@ -484,7 +480,6 @@ fn test_rgb_to_hsv() {
             green: 0.9,
             blue: 0.,
             alpha: 1.0,
-            hsva: Some(HsvaColor { h: 120., s: 1., v: 0.9, alpha: 1.0 })
         }
     );
 }
