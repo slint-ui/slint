@@ -20,7 +20,8 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), None, &mut diag);
-    let output_format = generator::OutputFormat::Cpp(generator::cpp::Config { namespace: cpp_namespace });
+    let output_format =
+        generator::OutputFormat::Cpp(generator::cpp::Config { namespace: cpp_namespace });
 
     let mut compiler_config = CompilerConfiguration::new(output_format.clone());
     compiler_config.include_paths = include_paths;

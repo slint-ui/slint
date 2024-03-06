@@ -254,8 +254,7 @@ fn test_extract_cpp_namespace() {
     //cpp-namespace: ui
     Blah {}
 ";
-    
-    let r = extract_cpp_namespace(source);
-        assert_eq!(r, Some("ui".to_string()));
-}
 
+    let r = extract_cpp_namespace(source);
+    assert_eq!(r, Some("ui".to_string()));
+}
