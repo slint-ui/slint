@@ -83,7 +83,7 @@ fn main() -> std::io::Result<()> {
 
     if args.cpp_namespace.is_some() {
         if args.format != format {
-            println!("C++ namespace option was set. Output format will be C++.");
+            eprintln!("C++ namespace option was set. Output format will be C++.");
         }
         format =
             generator::OutputFormat::Cpp(generator::cpp::Config { namespace: args.cpp_namespace });
