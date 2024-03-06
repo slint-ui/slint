@@ -11,6 +11,19 @@ set_property(CACHE DEFAULT_SLINT_EMBED_RESOURCES PROPERTY STRINGS
 #     INITIALIZE_FROM_VARIABLE DEFAULT_SLINT_EMBED_RESOURCES)
 
 function(SLINT_TARGET_SOURCES target)
+    # Parse the NAMESPACE argument
+    cmake_parse_arguments(SLINT_TARGET_SOURCES "" "NAMESPACE" "" ${ARGN})
+
+    if (DEFINED SLINT_TARGET_SOURCES_NAMESPACE)
+        # Remove the NAMESPACE argument from the list
+        list(FIND ARGN "NAMESPACE" _index)
+        list(REMOVE_AT ARGN ${_index})
+        list(FIND ARGN "${SLINT_TARGET_SOURCES_NAMESPACE}" _index)
+        list(REMOVE_AT ARGN ${_index})
+        # If the namespace is not empty, add the --cpp-namespace argument
+        set(_SLINT_CPP_NAMESPACE_ARG "--cpp-namespace=${SLINT_TARGET_SOURCES_NAMESPACE}")
+    endif()
+
     foreach (it IN ITEMS ${ARGN})
         get_filename_component(_SLINT_BASE_NAME ${it} NAME_WE)
         get_filename_component(_SLINT_ABSOLUTE ${it} REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -28,6 +41,7 @@ function(SLINT_TARGET_SOURCES target)
                 --style ${_SLINT_STYLE}
                 --embed-resources=${embed}
                 --translation-domain="${target}"
+                ${_SLINT_CPP_NAMESPACE_ARG}
             DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE}
             COMMENT "Generating ${_SLINT_BASE_NAME}.h"
             DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d

@@ -94,6 +94,9 @@ pub struct CompilerConfiguration {
 
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
+
+    /// C++ namespace
+    pub cpp_namespace: Option<String>,
 }
 
 impl CompilerConfiguration {
@@ -142,6 +145,18 @@ impl CompilerConfiguration {
 
         let enable_component_containers = enable_experimental_features;
 
+        let cpp_namespace = match output_format {
+            #[cfg(feature = "cpp")]
+            crate::generator::OutputFormat::Cpp(config) => match config.namespace {
+                Some(namespace) => Some(namespace),
+                None => match std::env::var("SLINT_CPP_NAMESPACE") {
+                    Ok(namespace) => Some(namespace),
+                    Err(_) => None,
+                },
+            },
+            _ => None,
+        };
+
         Self {
             embed_resources,
             include_paths: Default::default(),
@@ -154,6 +169,7 @@ impl CompilerConfiguration {
             accessibility: true,
             enable_component_containers,
             translation_domain: None,
+            cpp_namespace,
         }
     }
 }

@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+//cpp-namespace: my::ui
+//ignore: rust,js
+struct TestStruct {
+    condition: bool,
+}
+
+enum TestEnum {
+    A,
+    B,
+    C
+}
+
+export component TestCase inherits Rectangle {
+    in-out property <TestStruct> test_struct;
+    in-out property <TestEnum> test_enum;
+}
+
+/*
+```cpp
+auto handle = my::ui::TestCase::create();
+const my::ui::TestCase &instance = *handle;
+my::ui::TestStruct test_struct {.condition = false};
+test_struct.condition = true;
+instance.set_test_struct(test_struct);
+assert(instance.get_test_struct() == test_struct);
+instance.set_test_enum(my::ui::TestEnum::A);
+auto test_enum = instance.get_test_enum();
+test_enum = my::ui::TestEnum::B;
+instance.set_test_enum(test_enum);
+assert(instance.get_test_enum() == my::ui::TestEnum::B);
+```
+
+*/

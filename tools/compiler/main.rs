@@ -62,6 +62,10 @@ struct Cli {
     /// Translation domain
     #[arg(long = "translation-domain", action)]
     translation_domain: Option<String>,
+
+    /// C++ namespace
+    #[arg(long = "cpp-namespace", name = "C++ namespace")]
+    cpp_namespace: Option<String>,
 }
 
 fn main() -> std::io::Result<()> {
@@ -74,7 +78,18 @@ fn main() -> std::io::Result<()> {
         diag.print();
         std::process::exit(-1);
     }
-    let mut compiler_config = CompilerConfiguration::new(args.format);
+
+    let mut format = args.format.clone();
+
+    if args.cpp_namespace.is_some() {
+        if !matches!(format, generator::OutputFormat::Cpp(..)) {
+            eprintln!("C++ namespace option was set. Output format will be C++.");
+        }
+        format =
+            generator::OutputFormat::Cpp(generator::cpp::Config { namespace: args.cpp_namespace });
+    }
+
+    let mut compiler_config = CompilerConfiguration::new(format.clone());
     compiler_config.translation_domain = args.translation_domain;
 
     // Override defaults from command line:
@@ -102,10 +117,10 @@ fn main() -> std::io::Result<()> {
     let diag = diag.check_and_exit_on_error();
 
     if args.output == std::path::Path::new("-") {
-        generator::generate(args.format, &mut std::io::stdout(), &doc)?;
+        generator::generate(format, &mut std::io::stdout(), &doc)?;
     } else {
         generator::generate(
-            args.format,
+            format,
             &mut BufWriter::new(std::fs::File::create(&args.output)?),
             &doc,
         )?;
