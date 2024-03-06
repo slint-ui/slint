@@ -427,11 +427,10 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
 
     let e = || "InvalidParameter";
 
-    let url = if let serde_json::Value::String(s) = params.first().ok_or_else(e)? {
-        Url::parse(s)?
-    } else {
-        return Err(e().into());
-    };
+    let url: Url = serde_json::from_value(params.first().ok_or_else(e)?.clone())?;
+    // Normalize the URL to make sure it is encoded the same way as what the preview expect from other URLs
+    let url = Url::from_file_path(uri_to_file(&url).ok_or_else(e)?).map_err(|_| e())?;
+
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
@@ -663,6 +662,8 @@ pub(crate) async fn reload_document_impl(
     document_cache: &mut DocumentCache,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
     let Some(path) = uri_to_file(&url) else { return Default::default() };
+    // Normalize the URL
+    let Ok(url) = Url::from_file_path(path.clone()) else { return Default::default() };
     if path.extension().map_or(false, |e| e == "rs") {
         content = match i_slint_compiler::lexer::extract_rust_macro(content) {
             Some(content) => content,
