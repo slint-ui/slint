@@ -44,10 +44,12 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 
+const POPULATE_COMMAND: &str = "slint/populate";
 pub const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
 
 fn command_list() -> Vec<String> {
     vec![
+        POPULATE_COMMAND.into(),
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
         SHOW_PREVIEW_COMMAND.into(),
     ]
@@ -63,6 +65,20 @@ fn create_show_preview_command(
         title,
         SHOW_PREVIEW_COMMAND.into(),
         Some(vec![file.as_str().into(), component_name.into()]),
+    )
+}
+
+fn create_populate_command(
+    uri: lsp_types::Url,
+    version: common::SourceFileVersion,
+    title: String,
+    text: String,
+) -> Command {
+    let text_document = lsp_types::OptionalVersionedTextDocumentIdentifier { uri, version };
+    Command::new(
+        title,
+        POPULATE_COMMAND.into(),
+        Some(vec![serde_json::to_value(text_document).unwrap(), text.into()]),
     )
 }
 
@@ -344,10 +360,14 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             });
         Ok(result)
     });
-    rh.register::<ExecuteCommand, _>(|params, _ctx| async move {
+    rh.register::<ExecuteCommand, _>(|params, ctx| async move {
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
             #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-            show_preview_command(&params.arguments, &_ctx)?;
+            show_preview_command(&params.arguments, &ctx)?;
+            return Ok(None::<serde_json::Value>);
+        }
+        if params.command.as_str() == POPULATE_COMMAND {
+            populate_command(&params.arguments, &ctx).await?;
             return Ok(None::<serde_json::Value>);
         }
         Ok(None::<serde_json::Value>)
@@ -574,6 +594,124 @@ pub fn show_preview_command(
     ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::ShowPreview(c));
 
     Ok(())
+}
+
+fn populate_command_range(node: &SyntaxNode) -> Option<lsp_types::Range> {
+    let range = node.text_range();
+
+    let start_offset = node
+        .text()
+        .find_char('\u{0002}')
+        .and_then(|s| s.checked_add(1.into()))
+        .unwrap_or(range.start());
+    let end_offset = node.text().find_char('\u{0003}').unwrap_or(range.end());
+
+    (start_offset <= end_offset).then_some(util::text_range_to_lsp_range(
+        &node.source_file,
+        TextRange::new(start_offset, end_offset),
+    ))
+}
+
+pub async fn populate_command(
+    params: &[serde_json::Value],
+    ctx: &Rc<Context>,
+) -> Result<serde_json::Value, LspError> {
+    let text_document =
+        serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
+            params
+                .first()
+                .ok_or_else(|| LspError {
+                    code: LspErrorCode::InvalidParameter,
+                    message: "No textdocument provided".into(),
+                })?
+                .clone(),
+        )
+        .map_err(|_| LspError {
+            code: LspErrorCode::InvalidParameter,
+            message: "First paramater is not a OptionalVersionedTextDocumentIdentifier".into(),
+        })?;
+    let new_text = serde_json::from_value::<String>(
+        params
+            .get(1)
+            .ok_or_else(|| LspError {
+                code: LspErrorCode::InvalidParameter,
+                message: "No code to insert".into(),
+            })?
+            .clone(),
+    )
+    .map_err(|_| LspError {
+        code: LspErrorCode::InvalidParameter,
+        message: "Invalid second parameter".into(),
+    })?;
+
+    let edit = {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
+        let uri = text_document.uri;
+        let version = document_cache.document_version(&uri);
+
+        if let Some(source_version) = text_document.version {
+            if let Some(current_version) = version {
+                if current_version != source_version {
+                    return Err(LspError {
+                        code: LspErrorCode::InvalidParameter,
+                        message: "Document version mismatch".into(),
+                    });
+                }
+            } else {
+                return Err(LspError {
+                    code: LspErrorCode::InvalidParameter,
+                    message: format!("Document with uri {uri} not found in cache").into(),
+                });
+            }
+        }
+
+        let Some(doc) = document_cache.get_document(&uri) else {
+            return Err(LspError {
+                code: LspErrorCode::InvalidParameter,
+                message: "Document not in cache".into(),
+            });
+        };
+        let Some(node) = &doc.node else {
+            return Err(LspError {
+                code: LspErrorCode::InvalidParameter,
+                message: "Document has no node".into(),
+            });
+        };
+
+        let Some(range) = populate_command_range(&node) else {
+            return Err(LspError {
+                code: LspErrorCode::InvalidParameter,
+                message: "No slint code range in document".into(),
+            });
+        };
+
+        let edit = lsp_types::TextEdit { range, new_text };
+        common::create_workspace_edit(uri, version, vec![edit])
+    };
+
+    let response = ctx
+        .server_notifier
+        .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+            lsp_types::ApplyWorkspaceEditParams { label: Some("Populate empty file".into()), edit },
+        )
+        .map_err(|_| LspError {
+            code: LspErrorCode::RequestFailed,
+            message: "Failed to send populate edit".into(),
+        })?
+        .await
+        .map_err(|_| LspError {
+            code: LspErrorCode::RequestFailed,
+            message: "Failed to send populate edit".into(),
+        })?;
+
+    if !response.applied {
+        return Err(LspError {
+            code: LspErrorCode::RequestFailed,
+            message: "Failed to apply population edit".into(),
+        });
+    }
+
+    Ok(serde_json::to_value(()).expect("Failed to serialize ()!"))
 }
 
 pub(crate) async fn reload_document_impl(
@@ -1115,25 +1253,61 @@ fn get_code_lenses(
     document_cache: &mut common::DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<CodeLens>> {
-    if cfg!(any(feature = "preview-builtin", feature = "preview-external")) {
-        let doc = document_cache.get_document(&text_document.uri)?;
+    let doc = document_cache.get_document(&text_document.uri)?;
+    let version = document_cache.document_version(&text_document.uri);
 
+    let mut result = vec![];
+
+    if cfg!(any(feature = "preview-builtin", feature = "preview-external")) {
         let inner_components = doc.inner_components.clone();
 
-        let mut r = vec![];
-
         // Handle preview lens
-        r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
+        result.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
                 range: util::node_to_lsp_range(&c.root_element.borrow().debug.first()?.node),
                 command: Some(create_show_preview_command(true, &text_document.uri, c.id.as_str())),
                 data: None,
             })
         }));
+    }
 
-        Some(r)
-    } else {
+    if let Some(node) = &doc.node {
+        let has_non_ws_token = node
+            .children_with_tokens()
+            .any(|nt| nt.kind() != SyntaxKind::Whitespace && nt.kind() != SyntaxKind::Eof);
+        if !has_non_ws_token {
+            if let Some(range) = populate_command_range(&node) {
+                result.push(CodeLens {
+                    range: range.clone(),
+                    command: Some(create_populate_command(
+                        text_document.uri.clone(),
+                        version.clone(),
+                        "Start with Hello World!".to_string(),
+                        r#"import { AboutSlint, VerticalBox } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    VerticalBox {
+        Text {
+            text: "Hello World!";
+        }
+        AboutSlint {
+            preferred-height: 150px;
+        }
+    }
+}
+"#
+                        .to_string(),
+                    )),
+                    data: None,
+                });
+            }
+        }
+    }
+
+    if result.is_empty() {
         None
+    } else {
+        Some(result)
     }
 }
 
