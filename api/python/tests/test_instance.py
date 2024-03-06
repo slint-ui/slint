@@ -166,6 +166,6 @@ if __name__ == "__main__":
     module = slint.load_file(
         "../../examples/printerdemo/ui/printerdemo.slint")
     instance = module.MainWindow()
-    instance.set_global_callback(
-        "PrinterQueue", "start-job", lambda title: print(f"new print job {title}"))
+    instance.PrinterQueue.start_job = lambda title: print(
+        f"new print job {title}")
     instance.run()
