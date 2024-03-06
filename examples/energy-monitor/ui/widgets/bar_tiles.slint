@@ -42,7 +42,7 @@ component ValueLabel {
 component BarTile {
     in property <string> title <=> i-title.text;
     in property <image> icon <=> i-icon.source;
-    in property <int> max;
+    in property <int> max: min;
     in property <int> min;
     in property <string> unit;
     in property <int> absolute-min;
@@ -129,10 +129,10 @@ export component BarTiles {
 
             states [
                 active when active : {
-                    max: display-max;
+                    max: min(display-max);
 
                     in {
-                        animate max { duration: Theme.durations.slow; easing: ease-in-out; }
+                        animate max { duration: Theme.durations.slow; easing: cubic-bezier(0, 0, 0, 1); }
                     }
                 }
             ]
