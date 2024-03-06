@@ -63,7 +63,7 @@ export component PreviewUi inherits Window {
                 height: self.preferred-height;
 
                 i-pick-button := Button {
-                    text: root.experimental ? @tr("Design Mode") : @tr("Pick Mode");
+                    text: @tr("Design Mode");
                     checkable: true;
                     checked <=> root.design-mode;
                     clicked() => {
@@ -90,7 +90,7 @@ export component PreviewUi inherits Window {
             }
 
             HorizontalLayout {
-                if (root.experimental): left-sidebar := Rectangle {
+                left-sidebar := Rectangle {
                     VerticalBox {
                         ComponentList {
                             known-components <=> root.known-components;
@@ -119,7 +119,6 @@ export component PreviewUi inherits Window {
                     diagnostics <=> root.diagnostics;
                     preview-area <=> root.preview-area;
                     selections <=> root.selections;
-                    experimental <=> root.experimental;
 
                     select-at(x, y, enter_component) => { root.select-at(x, y, enter_component); }
                     selected-element-update-geometry(x, y, w, h) => { root.selected-element-update-geometry(x, y, w, h); }
@@ -136,7 +135,7 @@ export component PreviewUi inherits Window {
     }
 
     key-handler := FocusScope {
-        enabled: root.design-mode && root.experimental;
+        enabled: root.design-mode;
 
         key-released(event) => {
             if event.text == Key.Delete {
