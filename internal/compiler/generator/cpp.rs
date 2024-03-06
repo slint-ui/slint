@@ -105,7 +105,7 @@ mod cpp_ast {
                 write!(f, "\n{}", d)?;
             }
             if let Some(namespace) = &self.namespace {
-                writeln!(f, "}} // end {}", namespace)?;
+                writeln!(f, "}} // namespace {}", namespace)?;
                 INDENTATION.with(|x| x.set(x.get() - 1));
             }
 
