@@ -129,7 +129,7 @@ export component BarTiles {
 
             states [
                 active when active : {
-                    max: min(display-max);
+                    max: display-max;
 
                     in {
                         animate max { duration: Theme.durations.slow; easing: cubic-bezier(0, 0, 0, 1); }
