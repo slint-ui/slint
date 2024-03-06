@@ -37,13 +37,18 @@ def _build_global_class(compdef, global_name):
             logging.warning(f"Duplicated property {prop_name}")
             continue
 
-        def getter(self): return self.__instance__.get_global_property(
-            global_name, prop_name)
+        def mk_setter_getter(prop_name):
+            def getter(self):
+                return self.__instance__.get_global_property(
+                    global_name, prop_name)
 
-        def setter(self, value): return self.__instance__.set_global_property(
-            global_name, prop_name, value)
+            def setter(self, value):
+                return self.__instance__.set_global_property(
+                    global_name, prop_name, value)
 
-        properties_and_callbacks[python_prop] = property(getter, setter)
+            return property(getter, setter)
+
+        properties_and_callbacks[python_prop] = mk_setter_getter(prop_name)
 
     for callback_name in compdef.global_callbacks(global_name):
         python_prop = _normalize_prop(callback_name)
@@ -51,15 +56,19 @@ def _build_global_class(compdef, global_name):
             logging.warning(f"Duplicated property {prop_name}")
             continue
 
-        def getter(self):
-            def call(*args):
-                return self.__instance__.invoke_global(global_name, callback_name, *args)
-            return call
+        def mk_setter_getter(callback_name):
+            def getter(self):
+                def call(*args):
+                    return self.__instance__.invoke_global(global_name, callback_name, *args)
+                return call
 
-        def setter(self, value): return self.__instance__.set_global_callback(
-            global_name, callback_name, value)
+            def setter(self, value):
+                return self.__instance__.set_global_callback(
+                    global_name, callback_name, value)
 
-        properties_and_callbacks[python_prop] = property(getter, setter)
+            return property(getter, setter)
+
+        properties_and_callbacks[python_prop] = mk_setter_getter(callback_name)
 
     return type("SlintGlobalClassWrapper", (), properties_and_callbacks)
 
@@ -79,12 +88,17 @@ def _build_class(compdef):
             logging.warning(f"Duplicated property {prop_name}")
             continue
 
-        def getter(self): return self.__instance__.get_property(prop_name)
+        def mk_setter_getter(prop_name):
+            def getter(self):
+                return self.__instance__.get_property(prop_name)
 
-        def setter(self, value): return self.__instance__.set_property(
-            prop_name, value)
+            def setter(self, value):
+                return self.__instance__.set_property(
+                    prop_name, value)
 
-        properties_and_callbacks[python_prop] = property(getter, setter)
+            return property(getter, setter)
+
+        properties_and_callbacks[python_prop] = mk_setter_getter(prop_name)
 
     for callback_name in compdef.callbacks:
         python_prop = _normalize_prop(callback_name)
@@ -92,15 +106,19 @@ def _build_class(compdef):
             logging.warning(f"Duplicated property {prop_name}")
             continue
 
-        def getter(self):
-            def call(*args):
-                return self.__instance__.invoke(callback_name, *args)
-            return call
+        def mk_setter_getter(callback_name):
+            def getter(self):
+                def call(*args):
+                    return self.__instance__.invoke(callback_name, *args)
+                return call
 
-        def setter(self, value): return self.__instance__.set_callback(
-            callback_name, value)
+            def setter(self, value):
+                return self.__instance__.set_callback(
+                    callback_name, value)
 
-        properties_and_callbacks[python_prop] = property(getter, setter)
+            return property(getter, setter)
+
+        properties_and_callbacks[python_prop] = mk_setter_getter(callback_name)
 
     for global_name in compdef.globals:
         global_class = _build_global_class(compdef, global_name)
