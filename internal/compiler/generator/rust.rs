@@ -2516,6 +2516,12 @@ fn compile_builtin_function_call(
             let x = a.next().unwrap();
             quote!(#x.brightness())
         }
+        BuiltinFunction::ColorLinearBlend => {
+            let x = a.next().unwrap();
+            let y = a.next().unwrap();
+            let factor = a.next().unwrap();
+            quote!(#x.linear_blend(&#y.into(), #factor as f32))
+        }
         BuiltinFunction::ColorBrighter => {
             let x = a.next().unwrap();
             let factor = a.next().unwrap();

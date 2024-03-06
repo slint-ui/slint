@@ -3066,6 +3066,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorBrightness => {
             format!("{}.brightness()", a.next().unwrap())
         }
+        BuiltinFunction::ColorLinearBlend => {
+            format!("{}.linear_blend({}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
+        }
         BuiltinFunction::ColorBrighter => {
             format!("{}.brighter({})", a.next().unwrap(), a.next().unwrap())
         }

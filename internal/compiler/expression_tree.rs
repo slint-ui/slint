@@ -53,6 +53,7 @@ pub enum BuiltinFunction {
     ColorHue,
     ColorSaturation,
     ColorBrightness,
+    ColorLinearBlend,
     ColorBrighter,
     ColorDarker,
     ColorTransparentize,
@@ -185,6 +186,10 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Float32),
                 args: vec![Type::Color],
             },
+            BuiltinFunction::ColorLinearBlend => Type::Function {
+                return_type: Box::new(Type::Color),
+                args: vec![Type::Color, Type::Color, Type::Float32],
+            },
             BuiltinFunction::ColorBrighter => Type::Function {
                 return_type: Box::new(Type::Brush),
                 args: vec![Type::Brush, Type::Float32],
@@ -297,6 +302,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorBlue
             | BuiltinFunction::ColorHue
             | BuiltinFunction::ColorSaturation
+            | BuiltinFunction::ColorLinearBlend
             | BuiltinFunction::ColorBrightness
             | BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
@@ -358,6 +364,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorBlue
             | BuiltinFunction::ColorHue
             | BuiltinFunction::ColorSaturation
+            | BuiltinFunction::ColorLinearBlend
             | BuiltinFunction::ColorBrightness
             | BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker

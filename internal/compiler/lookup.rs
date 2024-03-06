@@ -1003,6 +1003,7 @@ impl<'a> LookupObject for ColorExpression<'a> {
             .or_else(|| f("blue", member_function(BuiltinFunction::ColorBlue)))
             .or_else(|| f("hue", member_function(BuiltinFunction::ColorHue)))
             .or_else(|| f("saturation", member_function(BuiltinFunction::ColorSaturation)))
+            .or_else(|| f("linear-blend", member_function(BuiltinFunction::ColorLinearBlend)))
             .or_else(|| f("brightness", member_function(BuiltinFunction::ColorBrightness)))
             .or_else(|| f("brighter", member_function(BuiltinFunction::ColorBrighter)))
             .or_else(|| f("darker", member_function(BuiltinFunction::ColorDarker)))

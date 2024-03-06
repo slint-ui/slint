@@ -276,6 +276,22 @@ impl Color {
         rgba.into()
     }
 
+    /// Returns a new color that is a linear blend of `self` and `other`, with a proportion
+    /// factor given by `factor` (which will be clamped to be between `0.0` and `1.0`).
+    #[must_use]
+    pub fn linear_blend(&self,other: &Self, factor: f32) -> Self {
+        let factor = factor.clamp(0.0, 1.0);
+        let c1 = RgbaColor::<f32>::from(*self);
+        let c2 = RgbaColor::<f32>::from(*other);
+        RgbaColor {
+            alpha: c1.alpha + (c2.alpha - c1.alpha) * factor,
+            red: c1.red + (c2.red - c1.red) * factor,
+            green: c1.green + (c2.green - c1.green) * factor,
+            blue: c1.blue + (c2.blue - c1.blue) * factor,
+            .. Default::default()
+        }.into()
+    }
+
     /// Returns a new version of this color with the opacity decreased by `factor`.
     ///
     /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.

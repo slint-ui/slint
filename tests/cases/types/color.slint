@@ -53,12 +53,15 @@ Test := Rectangle {
     property<float> bwood_sat: 0.39189186692237854;
     property<float> bwood_bri: 0.8705882430076599;
 
+    property <color> blended: gr1.linear-blend(bwood, 0.5);
+
     property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%)
         && b1.hue()        == b1hue && r1.hue()        == r1hue && y1.hue()        == y1hue && gr1.hue()        == gr1hue && bwood.hue()        == bwood_hue
         && b1.saturation() == b1sat && r1.saturation() == r1sat && y1.saturation() == y1sat && gr1.saturation() == gr1sat && bwood.saturation() == bwood_sat
         && b1.brightness() == b1bri && r1.brightness() == r1bri && y1.brightness() == y1bri && gr1.brightness() == gr1bri && bwood.brightness() == bwood_bri
         && gr1.red() == new_green.red() && gr1.green()      == new_green.green()      && gr1.blue()       == new_green.blue()
-        && gr1.hue() == new_green.hue() && gr1.saturation() == new_green.saturation() && gr1.brightness() == new_green.brightness();
+        && gr1.hue() == new_green.hue() && gr1.saturation() == new_green.saturation() && gr1.brightness() == new_green.brightness()
+        && blended.red() == 111 && blended.green() == 156 && blended.blue() == 68;
 }
 
 /*

@@ -92,6 +92,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ColorBlue => 10,
         BuiltinFunction::ColorHue => 50,
         BuiltinFunction::ColorSaturation => 50,
+        BuiltinFunction::ColorLinearBlend => 50,
         BuiltinFunction::ColorBrightness => 50,
         BuiltinFunction::ColorBrighter => 50,
         BuiltinFunction::ColorDarker => 50,

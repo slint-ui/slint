@@ -827,6 +827,36 @@ fn call_builtin_function(
                 panic!("First argument not a color");
             }
         }
+        BuiltinFunction::ColorLinearBlend => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to ColorLinearBlend")
+            }
+
+            let arg0 = eval_expression(&arguments[0], local_context);
+            let arg1 = eval_expression(&arguments[1], local_context);
+            let arg2 = eval_expression(&arguments[2], local_context);
+
+            if !matches!(arg0, Value::Brush(Brush::SolidColor(_))) {
+                panic!("First argument not a color");
+            }
+            if !matches!(arg1, Value::Brush(Brush::SolidColor(_))) {
+                panic!("Second argument not a color");
+            }
+            if !matches!(arg2, Value::Number(_)) {
+                panic!("Third argument not a number");
+            }
+
+            let (
+                Value::Brush(Brush::SolidColor(color_a)),
+                Value::Brush(Brush::SolidColor(color_b)),
+                Value::Number(factor),
+            ) = (arg0, arg1, arg2)
+            else {
+                unreachable!()
+            };
+
+            color_a.linear_blend(&color_b, factor as _).into()
+        }
         BuiltinFunction::ColorTransparentize => {
             if arguments.len() != 2 {
                 panic!("internal error: incorrect argument count to ColorFaded")
