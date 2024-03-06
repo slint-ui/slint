@@ -14,12 +14,13 @@ function(SLINT_TARGET_SOURCES target)
     # Parse the NAMESPACE argument
     cmake_parse_arguments(SLINT_TARGET_SOURCES "" "NAMESPACE" "" ${ARGN})
 
-    # Remove the NAMESPACE argument from the list
     if (DEFINED SLINT_TARGET_SOURCES_NAMESPACE)
+        # Remove the NAMESPACE argument from the list
         list(FIND ARGN "NAMESPACE" _index)
         list(REMOVE_AT ARGN ${_index})
         list(FIND ARGN "${SLINT_TARGET_SOURCES_NAMESPACE}" _index)
         list(REMOVE_AT ARGN ${_index})
+        # If the namespace is not empty, add the --cpp-namespace argument
         set(_SLINT_CPP_NAMESPACE_ARG "--cpp-namespace=${SLINT_TARGET_SOURCES_NAMESPACE}")
     endif()
 
