@@ -5,7 +5,8 @@
 
 int main()
 {
-    auto demo = MainWindow::create();
+    auto demo = todo_ui::MainWindow::create();
+    using todo_ui::TodoItem;
 
     auto todo_model = std::make_shared<slint::VectorModel<TodoItem>>(std::vector {
             TodoItem { "Implement the .slint file", true },
