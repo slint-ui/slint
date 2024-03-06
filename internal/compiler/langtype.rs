@@ -481,27 +481,10 @@ impl ElementType {
         }
     }
 
-    pub fn can_have_child(&self, name: &str, tr: &TypeRegister) -> bool {
-        match self {
-            Self::Component(component) if component.child_insertion_point.borrow().is_none() => {
-                let base_type = component.root_element.borrow().base_type.clone();
-                if base_type == tr.empty_type() {
-                    false
-                } else {
-                    base_type.can_have_child(name, tr)
-                }
-            }
-            Self::Builtin(builtin) => {
-                if builtin.additional_accepted_child_types.contains_key(name) {
-                    true
-                } else {
-                    !builtin.disallow_global_types_as_child_elements
-                }
-            }
-            _ => true,
-        }
-    }
-
+    /// This function looks at the element and checks whether it can have Elements of type `name` as children.
+    /// It returns an Error if that is not possible or an Option of the ElementType if it is.
+    /// The option is unset when the compiler does not know the type well enough to avoid further
+    /// probing.
     pub fn accepts_child_element(
         &self,
         name: &str,
@@ -537,6 +520,9 @@ impl ElementType {
         Ok(None)
     }
 
+    /// This function looks at the element and checks whether it can have Elements of type `name` as children.
+    /// In addition to what `accepts_child_element` does, this method also probes the type of `name`.
+    /// It returns an Error if that is not possible or an `ElementType` if it is.
     pub fn lookup_type_for_child_element(
         &self,
         name: &str,
