@@ -82,7 +82,7 @@ fn main() -> std::io::Result<()> {
     let mut format = args.format.clone();
 
     if args.cpp_namespace.is_some() {
-        if !matches(format, generator::OutputFormat::Cpp(...)) {
+        if !matches!(format, generator::OutputFormat::Cpp(...)) {
             eprintln!("C++ namespace option was set. Output format will be C++.");
         }
         format =
