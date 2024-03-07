@@ -405,7 +405,6 @@ lazy_static! {
         ("^\\.mailmap$", LicenseLocation::NoLicense),
         ("^\\.pre-commit-config\\.yaml$", LicenseLocation::NoLicense),
         ("^\\.reuse/dep5$", LicenseLocation::NoLicense), // .reuse files have no license headers
-        ("^api/cpp/docs/Pipfile$", LicenseLocation::NoLicense),
         ("^api/cpp/docs/conf\\.py$", LicenseLocation::NoLicense),
         ("^docs/reference/Pipfile$", LicenseLocation::NoLicense),
         ("^docs/reference/conf\\.py$", LicenseLocation::NoLicense),
@@ -426,6 +425,7 @@ lazy_static! {
         ("(^|/)webpack\\..+\\.js$", LicenseLocation::NoLicense),
         ("(^|/)partitions\\.csv$", LicenseLocation::NoLicense),
         ("(^|/)sdkconfig", LicenseLocation::NoLicense), // auto-generated
+        ("(^|/)Pipfile$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
 
         // Path prefix matches:
         ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
