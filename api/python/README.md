@@ -9,8 +9,7 @@ Slint-python is the integration with Python.
 Slint-python is still in the very early stages of development: APIs will change and important features are still being developed,
 the project is overall incomplete.
 
-You can track the overall progress for the Python integration in GitHub at https://github.com/slint-ui/slint/milestone/18
-as well as by looking at python-labelled issues at https://github.com/slint-ui/slint/labels/a%3Alanguage-python .
+You can track the overall progress for the Python integration by looking at python-labelled issues at https://github.com/slint-ui/slint/labels/a%3Alanguage-python .
 
 ## Slint Language Manual
 
