@@ -25,9 +25,12 @@ class Model(native.PyModelBase):
 
 
 class ListModel(Model):
-    def __init__(self, lst=None):
+    def __init__(self, iterable=None):
         super().__init__()
-        self.list = lst or []
+        if iterable is not None:
+            self.list = list(iterable)
+        else:
+            self.list = []
 
     def row_count(self):
         return len(self.list)

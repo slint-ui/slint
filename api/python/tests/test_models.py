@@ -83,6 +83,19 @@ def test_python_model_sequence():
     assert model[2] == 3
 
 
+def test_python_model_iterable():
+    def test_generator(max):
+        i = 0
+        while i < max:
+            yield i
+            i += 1
+
+    model = models.ListModel(test_generator(5))
+
+    assert len(model) == 5
+    assert list(model) == [0, 1, 2, 3, 4]
+
+
 def test_rust_model_sequence():
     compiler = native.ComponentCompiler()
 
