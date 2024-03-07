@@ -81,6 +81,22 @@ def _build_class(compdef):
 
     def cls_init(self, **kwargs):
         self.__instance__ = compdef.create()
+        for name, value in self.__class__.__dict__.items():
+            if hasattr(value, "slint.callback"):
+                callback_info = getattr(value, "slint.callback")
+                name = callback_info["name"]
+
+                def mk_callback(self, callback):
+                    def invoke(*args, **kwargs):
+                        return callback(self, *args, **kwargs)
+                    return invoke
+
+                if "global_name" in callback_info:
+                    self.__instance__.set_global_callback(
+                        callback_info["global_name"], name, mk_callback(self, value))
+                else:
+                    self.__instance__.set_callback(
+                        name, mk_callback(self, value))
 
     properties_and_callbacks = {
         "__init__": cls_init
@@ -194,6 +210,26 @@ class SlintModuleFinder:
             if os.path.exists(candidate):
                 return ModuleSpec(os.path.realpath(candidate), SlintModuleLoader())
         return None
+
+
+def _callback_decorator(callable, info):
+    if "name" not in info:
+        info["name"] = callable.__name__
+    setattr(callable, "slint.callback", info)
+    return callable
+
+
+def callback(global_name=None, name=None):
+    if callable(global_name):
+        callback = global_name
+        return _callback_decorator(callback, {})
+    else:
+        info = {}
+        if name:
+            info["name"] = name
+        if global_name:
+            info["global_name"] = global_name
+        return lambda callback: _callback_decorator(callback, info)
 
 
 sys.meta_path.append(SlintModuleFinder())

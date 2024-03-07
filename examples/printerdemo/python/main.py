@@ -6,6 +6,7 @@ from datetime import timedelta, datetime
 import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "ui"))
+import slint
 from slint import Color, ListModel, Timer, TimerMode
 import printerdemo_slint
 # autopep8: on
@@ -23,14 +24,15 @@ class MainWindow(printerdemo_slint.MainWindow):
         # Copy the read-only mock data from the UI into a mutable ListModel
         self.printer_queue = ListModel(self.PrinterQueue.printer_queue)
         self.PrinterQueue.printer_queue = self.printer_queue
-        self.PrinterQueue.start_job = self.push_job
-        self.PrinterQueue.cancel_job = self.remove_job
         self.print_progress_timer = Timer()
         self.print_progress_timer.start(
             TimerMode.Repeated, timedelta(seconds=1), self.update_jobs)
 
-        self.quit = lambda: self.hide()
+    @slint.callback
+    def quit(self):
+        self.hide()
 
+    @slint.callback(global_name="PrinterQueue", name="start_job")
     def push_job(self, title):
         self.printer_queue.append({
             "status": "waiting",
@@ -42,7 +44,8 @@ class MainWindow(printerdemo_slint.MainWindow):
             "submission_date": str(datetime.now()),
         })
 
-    def remove_job(self, index):
+    @slint.callback(global_name="PrinterQueue")
+    def cancel_job(self, index):
         del self.printer_queue[index]
 
     def update_jobs(self):
