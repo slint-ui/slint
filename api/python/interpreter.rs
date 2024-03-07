@@ -343,14 +343,16 @@ impl GcVisibleCallbacks {
                 let result = match callable.call(py, py_args, None) {
                     Ok(result) => result,
                     Err(err) => {
-                        eprintln!("Python: Invoking python callback threw an exception: {err}");
+                        eprintln!(
+                            "Python: Invoking python callback for {name} threw an exception: {err}"
+                        );
                         return Value::Void;
                     }
                 };
                 let pv: PyValue = match result.extract(py) {
                     Ok(value) => value,
                     Err(err) => {
-                        eprintln!("Python: Unable to convert return value of Python callback to Slint value: {err}");
+                        eprintln!("Python: Unable to convert return value of Python callback for {name} to Slint value: {err}");
                         return Value::Void;
                     }
                 };
