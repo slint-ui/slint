@@ -589,7 +589,7 @@ When not part of a layout, its width and height default to 100% of the parent el
 -   **`background`** (_in_ _brush_): The background brush of this `Rectangle`, typically a color. (default value: `transparent`)
 -   **`border-color`** (_in_ _brush_): The color of the border. (default value: `transparent`)
 -   **`border-radius`** (_in_ _length_): The size of the radius. (default value: 0)
--   **`border-top-left-radius`**, **`border-top-right-radius`**, **`border-bottom-left-radius`** and **`border-bottom-right-radius`** (_in_ _length_): Set these properties to override the radius for specific corners.
+-   **`top-left-border-radius`**, **`top-right-border-radius`**, **`bottom-left-border-radius`** and **`bottom-right-border-radius`** (_in_ _length_): Set these properties to override the radius for specific corners.
 -   **`border-width`** (_in_ _length_): The width of the border. (default value: 0)
 -   **`clip`** (_in_ _bool_): By default, when an element is bigger or outside another element, it's still shown. When this property is set to `true`, the children of this `Rectangle` are clipped to the border of the rectangle. (default value: `false`)
 

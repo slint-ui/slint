@@ -155,7 +155,7 @@ fn select_minimal_class() {
     assert_eq!(
         select_minimal_class_based_on_property_usage(
             &rect.native_class,
-            ["border-top-left-radius".to_owned(), "x".to_owned()].iter()
+            ["top-left-border-radius".to_owned(), "x".to_owned()].iter()
         )
         .class_name,
         "BorderRectangle",

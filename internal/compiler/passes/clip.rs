@@ -81,10 +81,10 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
         .collect();
     for optional_binding in [
         "border-radius",
-        "border-top-left-radius",
-        "border-top-right-radius",
-        "border-bottom-right-radius",
-        "border-bottom-left-radius",
+        "top-left-border-radius",
+        "top-right-border-radius",
+        "bottom-right-border-radius",
+        "bottom-left-border-radius",
         "border-width",
     ]
     .iter()

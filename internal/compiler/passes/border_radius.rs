@@ -9,10 +9,10 @@ use crate::object_tree::Component;
 use std::rc::Rc;
 
 const BORDER_RADIUS_PROPERTIES: [&str; 4] = [
-    "border-top-left-radius",
-    "border-top-right-radius",
-    "border-bottom-right-radius",
-    "border-bottom-left-radius",
+    "top-left-border-radius",
+    "top-right-border-radius",
+    "bottom-right-border-radius",
+    "bottom-left-border-radius",
 ];
 
 pub fn handle_border_radius(root_component: &Rc<Component>, _diag: &mut BuildDiagnostics) {

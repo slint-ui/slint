@@ -429,10 +429,10 @@ pub struct BorderRectangle {
     pub background: Property<Brush>,
     pub border_width: Property<LogicalLength>,
     pub border_radius: Property<LogicalLength>,
-    pub border_top_left_radius: Property<LogicalLength>,
-    pub border_top_right_radius: Property<LogicalLength>,
-    pub border_bottom_left_radius: Property<LogicalLength>,
-    pub border_bottom_right_radius: Property<LogicalLength>,
+    pub top_left_border_radius: Property<LogicalLength>,
+    pub top_right_border_radius: Property<LogicalLength>,
+    pub bottom_left_border_radius: Property<LogicalLength>,
+    pub bottom_right_border_radius: Property<LogicalLength>,
     pub border_color: Property<Brush>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -504,10 +504,10 @@ impl RenderBorderRectangle for BorderRectangle {
     }
     fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
         LogicalBorderRadius::from_lengths(
-            self.border_top_left_radius(),
-            self.border_top_right_radius(),
-            self.border_bottom_right_radius(),
-            self.border_bottom_left_radius(),
+            self.top_left_border_radius(),
+            self.top_right_border_radius(),
+            self.bottom_right_border_radius(),
+            self.bottom_left_border_radius(),
         )
     }
     fn border_color(self: Pin<&Self>) -> Brush {
@@ -855,10 +855,10 @@ declare_item_vtable! {
 /// The implementation of the `Clip` element
 pub struct Clip {
     pub border_radius: Property<LogicalLength>,
-    pub border_top_left_radius: Property<LogicalLength>,
-    pub border_top_right_radius: Property<LogicalLength>,
-    pub border_bottom_left_radius: Property<LogicalLength>,
-    pub border_bottom_right_radius: Property<LogicalLength>,
+    pub top_left_border_radius: Property<LogicalLength>,
+    pub top_right_border_radius: Property<LogicalLength>,
+    pub bottom_left_border_radius: Property<LogicalLength>,
+    pub bottom_right_border_radius: Property<LogicalLength>,
     pub border_width: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
     pub clip: Property<bool>,
@@ -935,10 +935,10 @@ impl Item for Clip {
 impl Clip {
     pub fn logical_border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
         LogicalBorderRadius::from_lengths(
-            self.border_top_left_radius(),
-            self.border_top_right_radius(),
-            self.border_bottom_right_radius(),
-            self.border_bottom_left_radius(),
+            self.top_left_border_radius(),
+            self.top_right_border_radius(),
+            self.bottom_right_border_radius(),
+            self.bottom_left_border_radius(),
         )
     }
 }

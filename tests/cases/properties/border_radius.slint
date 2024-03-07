@@ -4,13 +4,13 @@
 export component TestCase {
     rect := Rectangle { 
         border-radius: 45px;
-        border-top-left-radius: 98px;
+        top-left-border-radius: 98px;
     }
 
-    out property<bool> tl_ok: rect.border-top-left-radius == 98px;
-    out property<bool> tr_ok: rect.border-top-right-radius == 45px;
-    out property<bool> br_ok: rect.border-bottom-right-radius == 45px;
-    out property<bool> bl_ok: rect.border-bottom-left-radius == 45px;
+    out property<bool> tl_ok: rect.top-left-border-radius == 98px;
+    out property<bool> tr_ok: rect.top-right-border-radius == 45px;
+    out property<bool> br_ok: rect.bottom-right-border-radius == 45px;
+    out property<bool> bl_ok: rect.bottom-left-border-radius == 45px;
 
     out property<bool> test: tl_ok && tr_ok && br_ok && bl_ok;
 }
