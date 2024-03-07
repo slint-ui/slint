@@ -175,7 +175,7 @@ export component Example inherits Window {
 ```
 
 It is also possible to load images supporting [9 slice scaling](https://en.wikipedia.org/wiki/9-slice_scaling) (also called nine patch or border images)
-by adding a  `9slice(...)` argument. The argument can have either one, two, or four numbers that specifies the size of the edges.
+by adding a  `nine-slice(...)` argument. The argument can have either one, two, or four numbers that specifies the size of the edges.
 The numbers are either `top right bottom left` or `vertical horizontal`, or one number for everything
 
 ## Structs

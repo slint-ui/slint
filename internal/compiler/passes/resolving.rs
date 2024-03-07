@@ -369,16 +369,16 @@ impl Expression {
             .children_with_tokens()
             .filter_map(|n| n.into_token())
             .filter(|t| t.kind() == SyntaxKind::NumberLiteral)
-            .skip(1) // slip "9slice"
             .map(|arg| {
                 arg.text().parse().unwrap_or_else(|err: std::num::ParseIntError| {
                     match err.kind() {
                         IntErrorKind::PosOverflow | IntErrorKind::NegOverflow => {
                             ctx.diag.push_error("Number too big".into(), &arg)
                         }
-                        IntErrorKind::InvalidDigit => ctx
-                            .diag
-                            .push_error("Border widths of a 9slice can't have units".into(), &arg),
+                        IntErrorKind::InvalidDigit => ctx.diag.push_error(
+                            "Border widths of a nine-slice can't have units".into(),
+                            &arg,
+                        ),
                         _ => ctx.diag.push_error("Cannot parse number literal".into(), &arg),
                     };
                     0u16

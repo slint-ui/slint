@@ -553,7 +553,7 @@ module.exports = grammar({
         field("name", "@image-url"),
         "(",
         field("image", $.string_value),
-        optional(seq(",", "9slice", "(", repeat($._int_number), ")")),
+        optional(seq(",", "nine-slice", "(", repeat($._int_number), ")")),
         ")",
       ),
 

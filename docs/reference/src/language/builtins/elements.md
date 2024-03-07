@@ -361,7 +361,7 @@ export component Example inherits Window {
 }
 ```
 
-Example using 9slice:
+Example using nine-slice:
 
 ```slint
 export component Example inherits Window {
@@ -369,7 +369,7 @@ export component Example inherits Window {
     height: 150px;
     VerticalLayout {
         Image {
-            source: @image-url("https://interactive-examples.mdn.mozilla.net/media/examples/border-diamonds.png", 9slice(30));
+            source: @image-url("https://interactive-examples.mdn.mozilla.net/media/examples/border-diamonds.png", nine-slice(30));
         }
     }
 }

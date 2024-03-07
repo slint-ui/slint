@@ -326,7 +326,7 @@ impl ImageCacheKey {
     }
 }
 
-/// Represent a 9slice image with the base image and the 4 borders
+/// Represent a nine-slice image with the base image and the 4 borders
 pub struct NineSliceImage(pub ImageInner, pub [u16; 4]);
 
 impl NineSliceImage {
@@ -1052,7 +1052,7 @@ pub fn fit(
     .adjust_for_tiling(ratio, alignment, tiling)
 }
 
-/// Generate an iterator of  [`FitResult`] for each slice of a 9slice border image
+/// Generate an iterator of  [`FitResult`] for each slice of a nine-slice border image
 pub fn fit9slice(
     source_rect: IntSize,
     [t, r, b, l]: [u16; 4],
