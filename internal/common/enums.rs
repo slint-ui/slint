@@ -227,7 +227,7 @@ macro_rules! for_each_enums {
                 /// The source image is scaled to cover into the [`Image`](elements.md#image) element's dimension while preserving the aspect ratio.
                 /// If the aspect ratio of the source image doesn't match the element's one, then the image will be clipped to fit.
                 Cover,
-                /// Preserves the size of the source image in logical pixel.
+                /// Preserves the size of the source image in logical pixels.
                 /// The source image will still be scaled by the scale factor that applies to all elements in the window.
                 /// Any extra space will be left blank.
                 Preserve,
