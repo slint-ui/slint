@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-TestCase := Window {
+export component TestCase inherits Window {
     width: 64px;
     height: 64px;
     VerticalLayout {
@@ -12,7 +12,8 @@ TestCase := Window {
             font-size: 10px;
         }
         Text {
-            text: "Hello";
+            // note: j has negative bearing
+            text: "jello";
             color: #abcd;
             opacity: 0.9;
             font-size: 10px;
