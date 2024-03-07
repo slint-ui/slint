@@ -38,3 +38,18 @@ def test_load_file_wrapper():
     assert instance.MyGlobal.global_prop == "This is global"
 
     del instance
+
+
+def test_constructor_kwargs():
+    module = load_file(os.path.join(os.path.dirname(
+        __spec__.origin), "test_load_file.slint"), quiet=False)
+
+    def early_say_hello(arg):
+        return "early:" + arg
+
+    instance = module.App(hello="Set early", say_hello=early_say_hello)
+
+    assert instance.hello == "Set early"
+    assert instance.invoke_say_hello("test") == "early:test"
+
+    del instance

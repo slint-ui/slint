@@ -98,6 +98,9 @@ def _build_class(compdef):
                     self.__instance__.set_callback(
                         name, mk_callback(self, value))
 
+        for prop, val in kwargs.items():
+            setattr(self, prop, val)
+
     properties_and_callbacks = {
         "__init__": cls_init
     }
