@@ -41,6 +41,7 @@ All notable changes to this project are documented in this file.
  - Added `Window::set_fullscreen`.
  - Fixed error in generated code when struct or enum has an underscore. (#4659)
  - Added `slint::interpreter::ComponentCompiler::set_translation_domain`.
+ - Added `NAMESPACE` modifier in the `slint_target_sources` cmake macro to generate in a namespace.
 
 ### JavaScript
 
