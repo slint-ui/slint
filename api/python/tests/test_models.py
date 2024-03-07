@@ -114,3 +114,35 @@ def test_rust_model_sequence():
     assert len(model) == 5
     assert list(model) == [1, 2, 3, 4, 5]
     assert model[2] == 3
+
+
+def test_model_writeback():
+    compiler = native.ComponentCompiler()
+
+    compdef = compiler.build_from_source("""
+  export component App {
+    width: 300px;
+    height: 300px;
+
+    in-out property<[int]> model;
+    callback write-to-model(int, int);
+    write-to-model(index, value) => {
+        self.model[index] = value
+    }
+
+  }
+    """, "")
+    assert compdef != None
+
+    instance = compdef.create()
+    assert instance != None
+
+    model = models.ListModel([100, 0])
+
+    instance.set_property(
+        "model", model)
+
+    instance.invoke("write-to-model", 1, 42)
+    assert list(instance.get_property("model")) == [100, 42]
+    instance.invoke("write-to-model", 0, 25)
+    assert list(instance.get_property("model")) == [25, 42]
