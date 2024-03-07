@@ -12,16 +12,10 @@ the project is overall incomplete.
 You can track the overall progress for the Python integration in GitHub at https://github.com/slint-ui/slint/milestone/18
 as well as by looking at python-labelled issues at https://github.com/slint-ui/slint/labels/a%3Alanguage-python .
 
-If you want to just play with this, you can try running one of our test cases in a virtual environment:
+If you want to just play with this, you can try running our Python port of the [printer demo](../../examples/printerdemo/python/README.md):
 
 ```bash
-cd api/python
-python -m venv .env
-source .env/bin/activate
-pip install maturin
-maturin develop
-python ./tests/test_instance.py
+cd examples/printerdemo/python
+pipenv update
+pipenv run python main.py
 ```
-
-This will bring up the printer demo and a Python callback is invoked when starting a new print job.
-
