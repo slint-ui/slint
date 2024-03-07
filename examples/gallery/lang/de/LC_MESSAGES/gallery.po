@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-14 03:04+0000\n"
+"POT-Creation-Date: 2024-03-07 03:03+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: German (https://app.transifex.com/slint/teams/170022/de/)\n"
@@ -55,12 +55,6 @@ msgstr ""
 msgctxt "Menu"
 msgid "About"
 msgstr ""
-
-#: ui/pages/page.slint:26
-#, fuzzy
-msgctxt "Page"
-msgid "Widgets enabled"
-msgstr "Slint Widgets Galerie"
 
 #: ui/pages/table_view_page.slint:23
 msgctxt "TableViewPage"
@@ -135,6 +129,26 @@ msgctxt "TextEditPage"
 msgid "No-Wrap"
 msgstr ""
 
+#: ui/pages/easings_page.slint:55
+msgctxt "EasingsPage"
+msgid "Easings"
+msgstr ""
+
+#: ui/pages/easings_page.slint:56
+msgctxt "EasingsPage"
+msgid "Easing demos"
+msgstr ""
+
+#: ui/pages/easings_page.slint:66
+msgctxt "EasingsPage"
+msgid "Animate All"
+msgstr ""
+
+#: ui/pages/easings_page.slint:102
+msgctxt "EasingsPage"
+msgid "Duration:"
+msgstr ""
+
 #: ui/pages/about_page.slint:9
 msgctxt "AboutPage"
 msgid "About"
@@ -146,6 +160,12 @@ msgid ""
 "Are you curious now? Check out the docs and getting starteds from the Github "
 "repository and the website https://slint.dev and try it yourself."
 msgstr ""
+
+#: ui/pages/page.slint:26
+#, fuzzy
+msgctxt "Page"
+msgid "Widgets enabled"
+msgstr "Slint Widgets Galerie"
 
 #: ui/pages/controls_page.slint:10
 msgctxt "ControlsPage"
@@ -300,26 +320,6 @@ msgstr ""
 #: ui/pages/controls_page.slint:208
 msgctxt "ControlsPage"
 msgid "Content of tab 3"
-msgstr ""
-
-#: ui/pages/easings_page.slint:55
-msgctxt "EasingsPage"
-msgid "Easings"
-msgstr ""
-
-#: ui/pages/easings_page.slint:56
-msgctxt "EasingsPage"
-msgid "Easing demos"
-msgstr ""
-
-#: ui/pages/easings_page.slint:66
-msgctxt "EasingsPage"
-msgid "Animate All"
-msgstr ""
-
-#: ui/pages/easings_page.slint:102
-msgctxt "EasingsPage"
-msgid "Duration:"
 msgstr ""
 
 #: ui/pages/list_view_page.slint:9 ui/pages/list_view_page.slint:16
