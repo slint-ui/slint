@@ -1583,9 +1583,9 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
                         if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
                             let geometry = clipped_src.translate(offset).round();
-                            let origin = (geometry.origin - offset.round()).round().cast::<usize>();
-                            let actual_x = origin.x - src_rect.origin.x as usize;
-                            let actual_y = origin.y - src_rect.origin.y as usize;
+                            let origin = (geometry.origin - offset.round()).round().cast::<i16>();
+                            let actual_x = (origin.x - src_rect.origin.x as i16) as usize;
+                            let actual_y = (origin.y - src_rect.origin.y as i16) as usize;
                             let pixel_stride = glyph.width.get() as u16;
                             let mut geometry = geometry.cast();
                             if geometry.size.width > glyph.width.get() - (actual_x as i16) {
