@@ -417,8 +417,8 @@ fn parse_tr(p: &mut impl Parser) {
 /// ```test,AtImageUrl
 /// @image-url("foo.png")
 /// @image-url("foo.png",)
-/// @image-url("foo.png", 9slice(1 2 3 4))
-/// @image-url("foo.png", 9slice(1))
+/// @image-url("foo.png", nine-slice(1 2 3 4))
+/// @image-url("foo.png", nine-slice(1))
 /// ```
 fn parse_image_url(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::AtImageUrl);
@@ -449,8 +449,8 @@ fn parse_image_url(p: &mut impl Parser) {
     if p.test(SyntaxKind::RParent) {
         return;
     }
-    if p.peek().as_str() != "9slice" {
-        p.error("Expected '9slice(...)' argument");
+    if p.peek().as_str() != "nine-slice" {
+        p.error("Expected 'nine-slice(...)' argument");
         p.until(SyntaxKind::RParent);
         return;
     }
@@ -474,7 +474,7 @@ fn parse_image_url(p: &mut impl Parser) {
                 p.consume();
             }
             SyntaxKind::Comma | SyntaxKind::Colon => {
-                p.error("Arguments of 9slice need to be separated by spaces");
+                p.error("Arguments of nine-slice need to be separated by spaces");
                 p.until(SyntaxKind::RParent);
                 break;
             }

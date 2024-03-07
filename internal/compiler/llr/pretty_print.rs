@@ -219,7 +219,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::ImageReference { resource_ref, nine_slice } => {
                 write!(f, "{:?}", resource_ref)?;
                 if let Some(nine_slice) = &nine_slice {
-                    write!(f, "9slice({:?})", nine_slice)?;
+                    write!(f, "nine-slice({:?})", nine_slice)?;
                 }
                 Ok(())
             }
