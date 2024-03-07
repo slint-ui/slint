@@ -1,0 +1,15 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+slint = { file = "../../api/python", editable = true }
+
+[dev-packages]
+
+[requires]
+python_version = "3"
