@@ -68,7 +68,7 @@ For a full example, see [/examples/todo/node](https://github.com/slint-ui/slint/
 
 ### Instantiating a Component
 
-The following example shows how to instantiating a Slint component from JavaScript.
+The following example shows how to instantiate a Slint component from JavaScript.
 
 **`ui/main.slint`**
 
@@ -112,8 +112,8 @@ console.log(component.counter);
 
 ### Callbacks
 
-Callback in Slint can be defined usign the `callback` keyword and can be connected to a callback of an other component
-usign the `<=>` syntax.
+Callbacks in Slint can be defined using the `callback` keyword and can be connected to a callback of an other component
+using the `<=>` syntax.
 
 **`ui/my-component.slint`**
 
@@ -128,7 +128,7 @@ export component MyComponent inherits Window {
 }
 ```
 
-The callbacks in JavaScript are exposed as property and that can be called as a function.
+The callbacks in Slint are exposed as properties in JavaScript and that can be called as a function.
 
 **`main.js`**
 
