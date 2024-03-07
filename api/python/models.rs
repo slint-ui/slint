@@ -131,6 +131,23 @@ impl i_slint_core::model::Model for PyModelShared {
         })
     }
 
+    fn set_row_data(&self, row: usize, data: Self::Data) {
+        Python::with_gil(|py| {
+            let obj = self.self_ref.borrow();
+            let Some(obj) = obj.as_ref() else {
+                eprintln!("Python: Model implementation is lacking self object (in set_row_data)");
+                return;
+            };
+
+            if let Err(err) = obj.call_method1(py, "set_row_data", (row, PyValue::from(data))) {
+                eprintln!(
+                    "Python: Model implementation of set_row_data() threw an exception: {}",
+                    err
+                );
+            };
+        });
+    }
+
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
         &self.notify
     }
