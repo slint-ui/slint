@@ -39,7 +39,7 @@ pub fn main() {
     #[cfg(all(not(feature = "mcu-board-support"), feature = "chrono"))]
     let _timer = header::setup(&window);
 
-    #[cfg(all(not(feature = "mcu-board-support"), fature = "network"))]
+    #[cfg(all(not(feature = "mcu-board-support"), feature = "network"))]
     let weather_join = weather::setup(&window);
 
     let _kiosk_mode_timer = kiosk_timer(&window);
