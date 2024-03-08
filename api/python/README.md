@@ -225,7 +225,7 @@ subclasses of `slint.Model`.
 Use the `slint.ListModel` class to construct a model from an iterable.
 
 ```js
-component.model = slint.ListMode([1, 2, 3]);
+component.model = slint.ListModel([1, 2, 3]);
 component.model.append(4)
 del component.model[0]
 ```
