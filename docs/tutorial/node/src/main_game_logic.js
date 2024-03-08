@@ -16,10 +16,10 @@ for (let i = tiles.length - 1; i > 0; i--) {
     [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
 }
 
-// ANCHOR: game_logic
 let model = new slint.ArrayModel(tiles);
 mainWindow.memory_tiles = model;
 
+// ANCHOR: game_logic
 mainWindow.check_if_pair_solved = function () {
     let flipped_tiles = [];
     tiles.forEach((tile, index) => {
@@ -61,7 +61,5 @@ mainWindow.check_if_pair_solved = function () {
         }
     }
 };
-
-await mainWindow.run();
-
 // ANCHOR_END: game_logic
+await mainWindow.run();
