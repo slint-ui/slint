@@ -7,9 +7,6 @@ This tutorial uses JavaScript as the host programming language. Slint also suppo
 
 Slint has an application template you can use to create a project with dependencies already set up that follows recommended best practices.
 
-As Slint is implemented in the Rust programming language, you also need to install a Rust compiler (1.70 or newer). You can install a Rust compiler
-following the instructions from [the Rust website](https://www.rust-lang.org/learn/get-started).
-You might also need additional platform-specific dependencies, read <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites> for more details.
 
 Clone the template with the following command:
 
