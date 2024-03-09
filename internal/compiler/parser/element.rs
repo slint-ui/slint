@@ -334,8 +334,9 @@ fn parse_callback_declaration(p: &mut impl Parser) {
         parse_type(&mut *p);
     }
 
-    if p.test(SyntaxKind::DoubleArrow) {
+    if p.peek().kind() == SyntaxKind::DoubleArrow {
         let mut p = p.start_node(SyntaxKind::TwoWayBinding);
+        p.expect(SyntaxKind::DoubleArrow);
         parse_expression(&mut *p);
     }
 

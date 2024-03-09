@@ -81,6 +81,9 @@ fn format_node(
         SyntaxKind::Binding => {
             return format_binding(node, writer, state);
         }
+        SyntaxKind::TwoWayBinding => {
+            return format_two_way_binding(node, writer, state);
+        }
         SyntaxKind::CallbackConnection => {
             return format_callback_connection(node, writer, state);
         }
@@ -388,13 +391,16 @@ fn format_property_declaration(
             _ => continue,
         }
     }
+    let need_newline =
+        if node.child_node(SyntaxKind::TwoWayBinding).is_some() { false } else { true };
 
     state.skip_all_whitespace = true;
-    // FIXME: more formatting
     for s in sub {
         fold(s, writer, state)?;
     }
-    state.new_line();
+    if need_newline {
+        state.new_line();
+    }
     Ok(())
 }
 
@@ -412,6 +418,27 @@ fn format_binding(
         fold(s, writer, state)?;
     }
     state.new_line();
+    Ok(())
+}
+
+fn format_two_way_binding(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    if node.child_token(SyntaxKind::Identifier).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    }
+    let _ok = whitespace_to(&mut sub, SyntaxKind::DoubleArrow, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+    if node.child_token(SyntaxKind::Semicolon).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+        state.new_line();
+    }
+    for s in sub {
+        fold(s, writer, state)?;
+    }
     Ok(())
 }
 
@@ -442,6 +469,9 @@ fn format_callback_declaration(
                 state.insert_whitespace(" ");
                 fold(n, writer, state)?;
                 whitespace_to(&mut sub, SyntaxKind::ReturnType, writer, state, " ")?;
+            }
+            SyntaxKind::TwoWayBinding => {
+                fold(n, writer, state)?;
             }
             _ => {
                 fold(n, writer, state)?;
@@ -1744,6 +1774,20 @@ export component MainWindow2 inherits Rectangle {
             r#"
 export component MainWindow2 inherits Rectangle {
     in property <[string]> model: [];
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn two_way_binding() {
+        assert_formatting(
+            "export component Foobar{foo<=>xx.bar ; property<int\n>xx   <=>   ff . mm  ; callback doo <=> moo\n;\nproperty  e-e<=>f-f; }",
+            r#"export component Foobar {
+    foo <=> xx.bar;
+    property <int> xx <=> ff.mm;
+    callback doo <=> moo;
+    property e-e <=> f-f;
 }
 "#,
         );
