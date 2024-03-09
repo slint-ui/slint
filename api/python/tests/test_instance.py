@@ -22,6 +22,7 @@ def test_property_access():
         export struct MyStruct {
             title: string,
             finished: bool,
+            dash-prop: bool,
         }
 
         export component Test {
@@ -36,6 +37,7 @@ def test_property_access():
             in property <MyStruct> structprop: {
                 title: "builtin",
                 finished: true,
+                dash-prop: true,
             };
             in property <image> imageprop: @image-url("../../../examples/printerdemo/ui/images/cat.jpg");
 
@@ -75,11 +77,16 @@ def test_property_access():
         instance.set_property("boolprop", 0)
 
     structval = instance.get_property("structprop")
-    assert isinstance(structval, dict)
-    assert structval == {'title': 'builtin', 'finished': True}
-    instance.set_property("structprop", {'title': 'new', 'finished': False})
-    assert instance.get_property("structprop") == {
-        'title': 'new', 'finished': False}
+    assert isinstance(structval, native.PyStruct)
+    assert structval.title == "builtin"
+    assert structval.finished == True
+    assert structval.dash_prop == True
+    instance.set_property(
+        "structprop", {'title': 'new', 'finished': False, 'dash_prop': False})
+    structval = instance.get_property("structprop")
+    assert structval.title == "new"
+    assert structval.finished == False
+    assert structval.dash_prop == False
 
     imageval = instance.get_property("imageprop")
     assert imageval.width == 320

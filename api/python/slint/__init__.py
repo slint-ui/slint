@@ -281,3 +281,4 @@ ListModel = models.ListModel
 Model = models.Model
 Timer = native.Timer
 TimerMode = native.TimerMode
+Struct = native.PyStruct
