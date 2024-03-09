@@ -452,13 +452,22 @@ jobs:
             - uses: ./.github/actions/setup-rust
             - name: run the formatter
               run: |
-                  cargo run -p slint-lsp --no-default-features -- format -i tests/cases/*/*.slint
-                  cargo run -p slint-lsp --no-default-features -- format -i examples/*/*.slint
-                  cargo run -p slint-lsp --no-default-features -- format -i examples/*/*/*.slint
+                  cargo run -p slint-lsp --no-default-features -- format -i tests/cases/**/*.slint
+                  cargo run -p slint-lsp --no-default-features -- format -i examples/**/*.slint
             - name: Show the diff
               run: git diff
             - name: Run the intepreter test to make sure that the test are passing after format
               run: cargo test -p test-driver-interpreter
+            - name: "Commit changes"
+              run: |
+                  git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+                  git config --global user.name "${GITHUB_ACTOR}"
+                  git commit -a -m "Run slint-lsp format"
+            - name: Do another pass to check that it is idempotent
+              run: |
+                  cargo run -p slint-lsp --no-default-features -- format -i tests/cases/**/*.slint
+                  cargo run -p slint-lsp --no-default-features -- format -i examples/**/*.slint
+                  git diff --exit-code
 
     esp-idf-quick:
         runs-on: ubuntu-22.04
