@@ -5,6 +5,7 @@ from slint import Color, ListModel, Timer, TimerMode
 import slint
 from datetime import timedelta, datetime
 import os
+import copy
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -48,13 +49,13 @@ class MainWindow(slint.loader.ui.printerdemo.MainWindow):
     def update_jobs(self):
         if len(self.printer_queue) <= 0:
             return
-        top_item = self.printer_queue[0]
-        top_item["progress"] += 1
-        if top_item["progress"] >= 100:
+        top_item = copy.copy(self.printer_queue[0])
+        top_item.progress += 1
+        if top_item.progress >= 100:
             del self.printer_queue[0]
             if len(self.printer_queue) == 0:
                 return
-            top_item = self.printer_queue[0]
+            top_item = copy.copy(self.printer_queue[0])
         self.printer_queue[0] = top_item
 
 

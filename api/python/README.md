@@ -229,7 +229,7 @@ The types used for properties in the Slint Language each translate to specific t
 | `physical_length` | `float` | |
 | `duration` | `float` | The number of milliseconds |
 | `angle` | `float` | The angle in degrees |
-| structure | `dict` | Structures are mapped to Python dictionaries where each structure field is an item. |
+| structure | `dict`/`Struct` | When reading, structures are mapped to data classes, when writing dicts are also accepted. |
 | array | `slint.Model` | |
 
 ### Arrays and Models

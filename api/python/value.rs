@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use pyo3::prelude::*;
-use pyo3::types::{IntoPyDict, PyDict};
+use pyo3::types::PyDict;
+
+use std::collections::HashMap;
 
 pub struct PyValue(pub slint_interpreter::Value);
 struct PyValueRef<'a>(&'a slint_interpreter::Value);
@@ -41,11 +43,9 @@ impl<'a> ToPyObject for PyValueRef<'a> {
                 crate::models::PyModelShared::rust_into_js_model(model)
                     .unwrap_or_else(|| crate::models::ReadOnlyRustModel::from(model).into_py(py))
             }
-            slint_interpreter::Value::Struct(structval) => structval
-                .iter()
-                .map(|(name, val)| (name.to_string().into_py(py), PyValueRef(val).into_py(py)))
-                .into_py_dict_bound(py)
-                .into_py(py),
+            slint_interpreter::Value::Struct(structval) => {
+                PyStruct { data: structval.clone() }.into_py(py)
+            }
             slint_interpreter::Value::Brush(brush) => {
                 crate::brush::PyBrush::from(brush.clone()).into_py(py)
             }
@@ -91,12 +91,17 @@ impl FromPyObject<'_> for PyValue {
                     .map(|rustmodel| slint_interpreter::Value::Model(rustmodel.0.clone()))
             })
             .or_else(|_| {
+                ob.extract::<PyRef<'_, PyStruct>>().and_then(|pystruct| {
+                    Ok(slint_interpreter::Value::Struct(pystruct.data.clone()))
+                })
+            })
+            .or_else(|_| {
                 ob.extract::<&PyDict>().and_then(|dict| {
                     let dict_items: Result<Vec<(String, slint_interpreter::Value)>, PyErr> = dict
                         .iter()
                         .map(|(name, pyval)| {
                             let name = name.extract::<&str>()?.to_string();
-                            let slintval: PyValue = pyval.extract()?;
+                            let slintval = PyValue::extract(pyval)?;
                             Ok((name, slintval.0))
                         })
                         .collect::<Result<Vec<(_, _)>, PyErr>>();
@@ -112,5 +117,66 @@ impl FromPyObject<'_> for PyValue {
 impl From<slint_interpreter::Value> for PyValue {
     fn from(value: slint_interpreter::Value) -> Self {
         Self(value)
+    }
+}
+
+#[pyclass(subclass, unsendable)]
+#[derive(Clone, Default)]
+pub struct PyStruct {
+    data: slint_interpreter::Struct,
+}
+
+#[pymethods]
+impl PyStruct {
+    #[new]
+    fn new() -> Self {
+        Default::default()
+    }
+
+    fn __getattr__(&self, key: &str) -> PyResult<PyValue> {
+        self.data.get_field(key).map_or_else(
+            || {
+                Err(pyo3::exceptions::PyAttributeError::new_err(format!(
+                    "Python: No such field {key} on PyStruct"
+                )))
+            },
+            |value| Ok(value.clone().into()),
+        )
+    }
+    fn __setattr__(&mut self, py: Python<'_>, key: String, value: PyObject) -> PyResult<()> {
+        let pv: PyValue = value.extract(py)?;
+        self.data.set_field(key, pv.0);
+        Ok(())
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> PyStructFieldIterator {
+        PyStructFieldIterator {
+            inner: slf
+                .data
+                .iter()
+                .map(|(name, val)| (name.to_string(), val.clone()))
+                .collect::<HashMap<_, _>>()
+                .into_iter(),
+        }
+    }
+
+    fn __copy__(&self) -> Self {
+        self.clone()
+    }
+}
+
+#[pyclass(unsendable)]
+struct PyStructFieldIterator {
+    inner: std::collections::hash_map::IntoIter<String, slint_interpreter::Value>,
+}
+
+#[pymethods]
+impl PyStructFieldIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<(String, PyValue)> {
+        slf.inner.next().map(|(name, val)| (name, PyValue(val)))
     }
 }
