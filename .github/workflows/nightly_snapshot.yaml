@@ -471,8 +471,13 @@ jobs:
 
 # Purely quality-assurance related jobs, not relevant for release artefacts
     qa-esp-idf:
+        strategy:
+          matrix:
+            esp-idf-target:
+              - release-v5.2
+              - latest
         runs-on: ubuntu-22.04
-        container: espressif/idf:release-v5.2
+        container: espressif/idf:${{ matrix.esp-idf-target }}
         steps:
             - uses: actions/checkout@v4
             - uses: dtolnay/rust-toolchain@stable
