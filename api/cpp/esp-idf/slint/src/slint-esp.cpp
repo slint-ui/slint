@@ -6,7 +6,12 @@
 #include "slint-esp.h"
 #include "slint-platform.h"
 #include "esp_lcd_panel_ops.h"
-#include "esp_lcd_panel_rgb.h"
+#if __has_include("soc/soc_caps.h")
+#    include "soc/soc_caps.h"
+#endif
+#if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+#    include "esp_lcd_panel_rgb.h"
+#endif
 #include "esp_log.h"
 
 static const char *TAG = "slint_platform";
