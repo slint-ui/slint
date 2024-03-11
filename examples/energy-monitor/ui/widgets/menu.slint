@@ -119,33 +119,37 @@ export component MobileMenu {
        root.open = false;
     }
 
-    menu := Rectangle {
-        x: root.menu-x;
-        y: -self.height;
-        width: root.menu-width;
-        height: root.height / 2;
-        visible: visibility > 0.0;
+    Rectangle {
+        clip: true;
+        menu := Rectangle {
+            x: root.menu-x;
+            y: -self.height;
+            width: root.menu-width;
+            height: root.height / 2;
+            visible: visibility > 0.0;
 
-        private property <float> visibility;
+            private property <float> visibility;
 
-        MenuBackground {
-            // avoid click-through
-            TouchArea {}
+            MenuBackground {
+                // avoid click-through
+                TouchArea {}
 
-            @children
+                @children
+            }
+
+            states [
+                open when root.open : {
+                    menu.y: end-y;
+                    visibility: 1.0;
+
+                    out {
+                        animate visibility { duration: Theme.durations.medium; }
+                    }
+                }
+            ]
+
+            animate y { duration: Theme.durations.fast; }
         }
 
-        states [
-            open when root.open : {
-                menu.y: end-y;
-                visibility: 1.0;
-
-                out {
-                    animate visibility { duration: Theme.durations.medium; }
-                }
-            }
-        ]
-
-        animate y { duration: Theme.durations.slow; }
     }
 }
