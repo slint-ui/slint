@@ -21,7 +21,7 @@ name = "test-driver-screenshot"
 slint = { workspace = true, features = ["std", "compat-1-2"] }
 i-slint-core = { workspace = true, features = ["default", "software-renderer", "software-renderer-rotation"] }
 i-slint-backend-testing = { workspace = true, features = ["default"] }
-image = { version = "0.24.0", default-features = false, features = ["png", "jpeg"] }
+image = { workspace = true }
 crossterm = "0.27"
 
 [build-dependencies]

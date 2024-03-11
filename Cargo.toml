@@ -132,6 +132,7 @@ css-color-parser2 = { version = "1.0.1" }
 fontdb = { version = "0.16.0", default-features = false }
 fontdue = { version = "0.8.0" }
 glutin = { version = "0.31.1", default-features = false }
+image = { version = "0.25", default-features = false, features = [ "png", "jpeg" ] }
 itertools = { version = "0.12" }
 resvg = { version= "0.40.0", default-features = false, features = ["text"] }
 send_wrapper = { version = "0.6.0" }

@@ -22,4 +22,3 @@ default = []
 [dependencies]
 i-slint-core = { workspace = true, features = ["default"] }
 vtable = { workspace = true }
-image = { version = "0.24.0", default-features = false, features = ["png", "jpeg"] }
