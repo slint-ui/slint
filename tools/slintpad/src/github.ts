@@ -124,12 +124,16 @@ function url_common_prefix(urls: string[]): number {
     // check border cases size 1 array and empty first word)
     if (urls.length == 1) return urls[0].lastIndexOf("/") + 1;
     let i = 0;
+    let last_slash = 0;
     // while all words have the same character at position i, increment i
     while (urls[0][i] && urls.every((w) => w[i] === urls[0][i])) {
+        if (urls[0][i] === "/") {
+            last_slash = i;
+        }
         i++;
     }
 
-    return i;
+    return last_slash;
 }
 
 export async function export_to_gist(
@@ -155,7 +159,7 @@ export async function export_to_gist(
 
     for (const u of urls) {
         const filename = u.slice(to_strip);
-        if (filename.indexOf("/") >= -1) {
+        if (filename.indexOf("/") >= 0) {
             return Promise.reject(
                 "Gists do not allow to create folders via the API",
             );
