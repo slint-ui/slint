@@ -40,14 +40,19 @@ async fn weather_worker_loop(window_weak: Weak<MainWindow>) {
     let mut forecast_days = vec![];
 
     let client = Client::new(&api_key, true);
-    let mut forecast_list =
-        future::join_all((0..FORECAST_DAYS).map(|i| {
-            let client = client.clone();
-            async move {
-                current_forecast(client.clone(), lat, long, now + chrono::Duration::days(i)).await
-            }
-        }))
-        .await;
+    let mut forecast_list = future::join_all((0..FORECAST_DAYS).map(|i| {
+        let client = client.clone();
+        async move {
+            current_forecast(
+                client.clone(),
+                lat,
+                long,
+                now + chrono::TimeDelta::try_days(i).unwrap_or_default(),
+            )
+            .await
+        }
+    }))
+    .await;
 
     for i in 0..forecast_list.len() {
         if let Some((date, forecast)) = forecast_list.remove(0) {
