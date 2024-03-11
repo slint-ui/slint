@@ -1,5 +1,5 @@
 {
-    "//": "cSpell: ignore codingame dragdrop femtovg frsource lumino treemending quickaccess ",
+    "//": "cSpell: ignore codingame dragdrop femtovg frsource lumino treemended quickaccess ",
     "name": "slintpad",
     "version": "1.5.0",
     "description": "",
@@ -22,11 +22,18 @@
         "test:cypress_open-chromium": "cypress open --browser=chromium --e2e",
         "test:cypress_run-ff": "cypress run --browser=firefox --e2e",
         "test:cypress_open-ff": "cypress open --browser=firefox --e2e",
-        "slintpad:prepublish": "npm run clean && npm run build:wasm_lsp-release && npm run build:wasm_interpreter-release",
-        "postinstall": "monaco-treemending"
+        "slintpad:prepublish": "npm run clean && npm run build:wasm_lsp-release && npm run build:wasm_interpreter-release"
     },
     "keywords": [],
     "author": "",
+    "overrides": {
+        "monaco-editor": "npm:@codingame/monaco-editor-treemended@>=1.85.0 <1.86.0",
+        "vscode": "npm:@codingame/monaco-vscode-api@>=1.85.0 <1.86.0"
+    },
+    "resolutions": {
+        "monaco-editor": "npm:@codingame/monaco-editor-treemended@>=1.85.0 <1.86.0",
+        "vscode": "npm:@codingame/monaco-vscode-api@>=1.85.0 <1.86.0"
+    },
     "devDependencies": {
         "@lumino/default-theme": "^2.1.1",
         "@lumino/dragdrop": "^2.1.1",
@@ -36,20 +43,20 @@
         "@typescript-eslint/parser": "^7.1.1",
         "cross-env": "^7.0.3",
         "eslint": "^8.32.0",
-        "monaco-editor": "0.44.0",
-        "monaco-languageclient": "6.6.1",
-        "@codingame/monaco-vscode-configuration-service-override": "1.83.3",
-        "@codingame/monaco-vscode-editor-service-override": "1.83.3",
-        "@codingame/monaco-vscode-languages-service-override": "1.83.3",
-        "@codingame/monaco-vscode-model-service-override": "1.83.3",
-        "@codingame/monaco-vscode-quickaccess-service-override": "1.83.3",
-        "@codingame/monaco-vscode-snippets-service-override": "1.83.3",
-        "@codingame/monaco-vscode-storage-service-override": "1.83.3",
+        "monaco-editor": "npm:@codingame/monaco-editor-treemended@>=1.85.0 <1.86.0",
+        "monaco-languageclient": "~7.3.0",
+        "@codingame/monaco-vscode-configuration-service-override": "~1.85.0",
+        "@codingame/monaco-vscode-editor-service-override": "~1.85.0",
+        "@codingame/monaco-vscode-languages-service-override": "~1.85.0",
+        "@codingame/monaco-vscode-model-service-override": "~1.85.0",
+        "@codingame/monaco-vscode-quickaccess-service-override": "~1.85.0",
+        "@codingame/monaco-vscode-snippets-service-override": "~1.85.0",
+        "@codingame/monaco-vscode-storage-service-override": "~1.85.0",
         "path-browserify": "^1.0.1",
         "rimraf": "^5.0.0",
         "typescript": "~5.3.3",
         "vite": "^5.1.5",
-        "vscode": "npm:@codingame/monaco-vscode-api@1.83.3",
+        "vscode": "npm:@codingame/monaco-vscode-api@>=1.85.0 <1.86.0",
         "vscode-languageserver": "8.1.0",
         "vscode-languageserver-protocol": "3.17.3"
     }
