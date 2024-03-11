@@ -9,7 +9,7 @@ endif()
 
 add_executable(memory_tutorial_initial main_initial.cpp)
 target_link_libraries(memory_tutorial_initial PRIVATE Slint::Slint)
-slint_target_sources(memory_tutorial_initial memory.slint)
+slint_target_sources(memory_tutorial_initial appwindow.slint)
 
 add_executable(memory_tutorial_tiles_from_cpp main_tiles_from_cpp.cpp)
 target_link_libraries(memory_tutorial_tiles_from_cpp PRIVATE Slint::Slint)
