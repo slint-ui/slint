@@ -23,7 +23,6 @@ import { MonacoLanguageClient } from "monaco-languageclient";
 import { createConfiguredEditor } from "vscode/monaco";
 
 import { initialize as initializeMonacoServices } from "vscode/services";
-import { initialize as initializeVscodeExtensions } from "vscode/extensions";
 import getConfigurationServiceOverride from "@codingame/monaco-vscode-configuration-service-override";
 import getEditorServiceOverride, {
     IReference,
@@ -55,9 +54,7 @@ export function initialize(): Promise<void> {
                 ...getSnippetServiceOverride(),
                 ...getStorageServiceOverride(),
             }).then(() => {
-                initializeVscodeExtensions().then(() => {
-                    resolve();
-                });
+                resolve();
             });
         } catch (e) {
             reject(e);
