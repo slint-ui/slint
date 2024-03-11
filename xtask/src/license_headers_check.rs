@@ -620,7 +620,7 @@ impl CargoDependency {
 
 struct CargoToml {
     path: std::path::PathBuf,
-    doc: toml_edit::Document,
+    doc: toml_edit::DocumentMut,
     edited: bool,
 }
 
