@@ -5,8 +5,9 @@
 This tutorial uses JavaScript as the host programming language. Slint also supports other programming languages like
 [Rust](https://slint.dev/docs/rust/slint/) or [C++](https://slint.dev/docs/cpp/).
 
-Slint has an application template you can use to create a project with dependencies already set up that follows recommended best practices.
+We recommend using [our editor integrations for Slint](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
 
+Slint has an application template you can use to create a project with dependencies already set up that follows recommended best practices.
 
 Clone the template with the following command:
 
@@ -29,7 +30,7 @@ Replace the contents of `src/main.js` with the following:
 {{#include main_initial.js:main}}
 ```
 
-Note that `slint.loadFile` resolves files from the process's current working directory, so from the `package.json` file's location.
+The `slint.loadFile` method resolves files from the process's current working directory, so from the `package.json` file's location.
 
 Replace the contents of `ui/appwindow.slint` with the following:
 

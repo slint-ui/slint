@@ -2,7 +2,10 @@
 
 # Getting Started
 
-This tutorial assumes that you are somewhat familiar with Rust. We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our editor integrations for `.slint` files](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
+This tutorial uses Rust as the host programming language. Slint also supports other programming languages like
+[C++](https://slint.dev/docs/cpp/) or [JavaScript](https://slint.dev/docs/node/).
+
+We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our editor integrations for Slint](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
 
 Slint has an application template you can use to create a project with dependencies already set up that follows recommended best practices.
 
@@ -14,13 +17,12 @@ cargo install cargo-generate
 
 Use the template to create a new project with the following command:
 
-
 ```sh
 cargo generate --git https://github.com/slint-ui/slint-rust-template --name memory
 cd memory
 ```
 
-Replace the contents of `src/main.rs` with the hello world program from the [Slint documentation](https://slint.dev/docs/rust/slint/):
+Replace the contents of `src/main.rs` with the following:
 
 ```rust,noplayground
 {{#include main_initial.rs:main}}
