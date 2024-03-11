@@ -14,7 +14,7 @@ After modeling a single tile, this step creates a grid of them. For the grid to 
 With Slint you declare an array of structures based on a model using square brackets. Use a <span class="hljs-keyword">for</span> loop
 to create multiple instances of the same element.
 
-With Slint the for loop is declarative and automatically updates when
+The <span class="hljs-keyword">for</span> loop is declarative and automatically updates when
 the model changes. The loop instantiates all the <span class="hljs-title">MemoryTile</span> elements and places them on a grid based on their
 index with spacing between the tiles.
 

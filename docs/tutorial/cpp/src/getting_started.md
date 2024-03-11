@@ -5,6 +5,8 @@
 This tutorial uses C++ as the host programming language. Slint also supports other programming languages like
 [Rust](https://slint.dev/docs/rust/slint/) or [JavaScript](https://slint.dev/docs/node/).
 
+We recommend using [our editor integrations for Slint](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
+
 Slint has an application template you can use to create a project with dependencies already set up that follows recommended best practices.
 
 Before using the template, you need a C++ compiler that supports C++ 20 and to install [CMake](https://cmake.org/download/) 3.21 or newer.
@@ -40,6 +42,10 @@ Configure with CMake:
 cmake -B build
 ```
 
+_Note_: When configuring with CMake, the FetchContent module fetches the source code of Slint via git.
+This may take some time when building for the first time, as the process needs to build
+the Slint runtime and compiler.
+
 Build with CMake:
 
 ```sh
@@ -67,7 +73,3 @@ my_application
 ```
 
 ![Screenshot of initial tutorial app showing Hello World](https://slint.dev/blog/memory-game-tutorial/getting-started.png "Hello World")
-
-_Note_: When configuring with CMake, the FetchContent module fetches the source code of Slint via git.
-This may take some time when building for the first time, as the process needs to build
-the Slint runtime and compiler.

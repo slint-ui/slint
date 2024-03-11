@@ -2,7 +2,7 @@
 
 # Game Logic In C++
 
-This step implements the rules of the game in C++ as well.
+This step implements the rules of the game in C++.
 
 Slint's general philosophy is that you implement the user interface in Slint and the business logic in your favorite programming
 language.
@@ -18,7 +18,7 @@ Add the following code inside the <span class="hljs-title">MainWindow</span> com
 ```
 
 This change adds a way for the <span class="hljs-title">MainWindow</span> to call to the C++ code that it should
-check if a player has solved a pair of tiles. The C++ code needs an additional property to toggle to disable further
+check if a player has solved a pair of tiles. The Rust code needs an additional property to toggle to disable further
 tile interaction, to prevent the player from opening more tiles than allowed. No cheating allowed!
 
 The last change to the code is to act when the <span class="hljs-title">MemoryTile</span> signals that a player clicked it.

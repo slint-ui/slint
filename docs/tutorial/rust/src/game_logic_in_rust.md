@@ -2,7 +2,7 @@
 
 # Game Logic In Rust
 
-This step implements the rules of the game in Rust as well.
+This step implements the rules of the game in Rust.
 
 Slint's general philosophy is that you implement the user interface in Slint and the business logic in your favorite programming
 language.
@@ -23,7 +23,7 @@ tile interaction, to prevent the player from opening more tiles than allowed. No
 
 The last change to the code is to act when the <span class="hljs-title">MemoryTile</span> signals that a player clicked it.
 
-Add the following handler in <span class="hljs-title">MainWindow</span>:
+Add the following handler in the <span class="hljs-title">MainWindow</span> `for` loop `clicked` handler:
 
 ```slint
 {{#include main_game_logic_in_rust.rs:tile_click_logic}}
