@@ -84,12 +84,12 @@ cpp! {{
     };
 
     struct SlintWidget : QWidget {
-        void *rust_window;
+        void *rust_window = nullptr;
         bool isMouseButtonDown = false;
         QRect ime_position;
         QString ime_text;
-        int ime_cursor;
-        int ime_anchor;
+        int ime_cursor = 0;
+        int ime_anchor = 0;
 
         SlintWidget() {
             setMouseTracking(true);
@@ -237,7 +237,7 @@ cpp! {{
 
         void changeEvent(QEvent *event) override {
             if (!rust_window)
-                return;
+                return QWidget::changeEvent(event);
 
             if (event->type() == QEvent::ActivationChange) {
                 bool active = isActiveWindow();
