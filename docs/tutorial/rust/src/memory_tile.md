@@ -3,14 +3,13 @@
 # Memory Tile
 
 With the skeleton in place, this step looks at the first element of the game, the memory tile. It's the
-visual building block that consists of an underlying filled rectangle background, the icon image. Later you'll add a
-covering rectangle that acts as a curtain.
+visual building block that consists of an underlying filled rectangle background, the icon image. Later steps add a covering rectangle that acts as a curtain.
 
-You declare the background rectangle as 64 logical pixels wide and tall
-and it's filled with a soothing tone of blue.
+Declare the background rectangle as 64 logical pixels wide and tall
+filled with a soothing tone of blue.
 
-Note how lengths in the `.slint` language have a unit, here
-the `px` suffix. That makes the code easier to read and the compiler can detect when you accidentally
+Note how lengths in the `.slint` language have a unit, here the `px` suffix.
+This makes the code easier to read and the compiler can detect when you accidentally
 mix values with different units attached to them.
 
 Copy the following code inside of the `slint!` macro, replacing the current content:
