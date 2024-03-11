@@ -385,8 +385,9 @@ class EditorPaneWidget extends Widget {
 
     private resize_editor() {
         if (this.#editor != null) {
-            const width = this.contentNode.offsetWidth;
-            const height = this.contentNode.offsetHeight;
+            // This has a 1px wide border all around, so subtract 2px...
+            const width = this.contentNode.offsetWidth - 2;
+            const height = this.contentNode.offsetHeight - 2;
             this.#editor.layout({ width, height });
         }
     }
