@@ -434,7 +434,7 @@ pub fn print_rustc_flags() -> std::io::Result<()> {
         std::env::var_os("DEP_MCU_BOARD_SUPPORT_BOARD_CONFIG_PATH").map(std::path::PathBuf::from)
     {
         let config = std::fs::read_to_string(board_config_path.as_path())?;
-        let toml = config.parse::<toml_edit::Document>().expect("invalid board config toml");
+        let toml = config.parse::<toml_edit::DocumentMut>().expect("invalid board config toml");
 
         for link_arg in
             toml.get("link_args").and_then(toml_edit::Item::as_array).into_iter().flatten()

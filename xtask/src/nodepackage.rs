@@ -46,7 +46,7 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
 
     let workspace_source =
         sh.read_file(root.join("Cargo.toml")).context("Failed to read workspace Cargo.toml")?;
-    let workspace_toml: toml_edit::Document =
+    let workspace_toml: toml_edit::DocumentMut =
         workspace_source.parse().context("Error parsing workspace Cargo.toml")?;
 
     let workspace_package_fields = workspace_toml
@@ -66,7 +66,8 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
     let toml_source =
         sh.read_file(cargo_toml_path.clone()).context("Failed to read Node Cargo.toml")?;
 
-    let mut toml: toml_edit::Document = toml_source.parse().context("Error parsing Cargo.toml")?;
+    let mut toml: toml_edit::DocumentMut =
+        toml_source.parse().context("Error parsing Cargo.toml")?;
 
     // Replace workspace fields
     let package_table = toml["package"]
