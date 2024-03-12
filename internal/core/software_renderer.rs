@@ -1533,7 +1533,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         };
     }
 
-    fn draw_text_paragraph<Font: AbstractFont>(
+    fn draw_text_paragraph<Font>(
         &mut self,
         paragraph: &TextParagraphLayout<'_, Font>,
         physical_clip: euclid::Rect<f32, PhysicalPx>,
@@ -1541,8 +1541,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         color: Color,
         selection: Option<SelectionInfo>,
     ) where
-        Font: crate::textlayout::TextShaper<Length = PhysicalLength>,
-        Font: GlyphRenderer,
+        Font: AbstractFont + crate::textlayout::TextShaper<Length = PhysicalLength> + GlyphRenderer,
     {
         paragraph
             .layout_lines::<()>(
