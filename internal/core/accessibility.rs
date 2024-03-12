@@ -51,7 +51,7 @@ pub enum AccessibilityAction {
     ScrollToPoint(LogicalPoint),
     SetScrollOffset(LogicalVector),
     SetTextSelection(Option<core::ops::Range<i32>>),
-    SetValue(f64)
+    SetValue(f64),
 }
 
 bitflags! {
