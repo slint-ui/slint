@@ -29,7 +29,11 @@ Test := Rectangle {
     // allow to use `with_alpha` on colors
     property<brush> invisible: b1.with-alpha(0%);
 
-    property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%);
+    out property <bool> test_rgb: Colors.blue.blue == 255 && Colors.blue.red == 0 && Colors.blue.green == 0 && Colors.blue.alpha == 255
+        && Colors.rgb(45, 12, 78).red == 45 && Colors.rgb(45, 12, 78).green == 12 && Colors.rgba(45, 12, 78, 12/255).alpha == 12 && Colors.rgba(145, 112, 178, 85%).alpha == floor(85% * 255)
+        && #abc.green == (11 * 16 + 11) && #abcd.alpha == (13 * 16 + 13) && #abcdef.red == (10 * 16 + 11);
+
+    property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%) && test_rgb;
 }
 
 /*
@@ -77,6 +81,9 @@ assert_eq(t.get_i1().alpha(), 0xff);
 assert_eq(t.get_i1().red(), 0);
 assert_eq(t.get_i1().green(), 255);
 assert_eq(t.get_i1().blue(), 0);
+
+assert(t.get_test_rgb());
+assert(t.get_test());
 ```
 
 
@@ -124,6 +131,9 @@ assert_eq!(t.get_i1().red(), 0);
 assert_eq!(t.get_i1().green(), 255);
 assert_eq!(t.get_i1().blue(), 0);
 
+assert!(t.get_test_rgb());
+assert!(t.get_test());
+
 ```
 
 ```js
@@ -155,6 +165,9 @@ assert.equal(t.c1.toString(), "#ff335588");
 assert.equal(t.c2.toString(), "#64172aff");
 assert.equal(t.c3.toString(), "#637f28ce");
 assert.equal(t.i1.toString(), "#00ff00ff");
+
+assert(t.test_rgb);
+assert(t.test);
 
 ```
 */

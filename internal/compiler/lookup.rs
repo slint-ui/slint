@@ -997,6 +997,11 @@ impl<'a> LookupObject for ColorExpression<'a> {
             })
         };
         let field_access = |f: &str| {
+            let base = if self.0.ty() == Type::Brush {
+                Expression::Cast { from: Box::new(self.0.clone()), to: Type::Color }
+            } else {
+                self.0.clone()
+            };
             LookupResult::from(Expression::StructFieldAccess {
                 base: Box::new(Expression::FunctionCall {
                     function: Box::new(Expression::BuiltinFunctionReference(
@@ -1004,7 +1009,7 @@ impl<'a> LookupObject for ColorExpression<'a> {
                         ctx.current_token.as_ref().map(|t| t.to_source_location()),
                     )),
                     source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                    arguments: vec![self.0.clone()],
+                    arguments: vec![base],
                 }),
                 name: f.into(),
             })
