@@ -175,16 +175,13 @@ impl BuiltinFunction {
                 args: vec![Type::Color],
             },
             BuiltinFunction::ColorHue => Type::Function {
-                return_type: Box::new(Type::Float32),
-                args: vec![Type::Color],
+                return_type: Box::new(Type::Float32), args: vec![Type::Color],
             },
             BuiltinFunction::ColorSaturation => Type::Function {
-                return_type: Box::new(Type::Float32),
-                args: vec![Type::Color],
+                return_type: Box::new(Type::Float32), args: vec![Type::Color],
             },
             BuiltinFunction::ColorBrightness => Type::Function {
-                return_type: Box::new(Type::Float32),
-                args: vec![Type::Color],
+                return_type: Box::new(Type::Float32), args: vec![Type::Color],
             },
             BuiltinFunction::ColorBrighter => Type::Function {
                 return_type: Box::new(Type::Brush),
