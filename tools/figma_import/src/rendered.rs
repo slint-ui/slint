@@ -169,8 +169,8 @@ fn render_vector(
                 if let Some(_imr) = &p.imageRef { /* */ }
             }
             rc.end_element()?;
-            return Ok(false);
         }
+        return Ok(false);
     }
 
     for p in vector.fills.iter() {
