@@ -195,15 +195,14 @@ where
         animation: AnimatedBindingKind,
     ) -> Result<(), ()> {
         // Put in a function that does not depends on Item to avoid code bloat
-        fn set_binding_impl<T: Clone + 'static, Value: 'static>(
+        fn set_binding_impl<T, Value>(
             p: Pin<&crate::Property<T>>,
             binding: Box<dyn Fn() -> Value>,
             animation: AnimatedBindingKind,
         ) -> Result<(), ()>
         where
-            Value: TryInto<T>,
-            T: TryInto<Value>,
-            T: crate::properties::InterpolatedPropertyValue,
+            T: Clone + TryInto<Value> + crate::properties::InterpolatedPropertyValue + 'static,
+            Value: TryInto<T> + 'static,
         {
             match animation {
                 AnimatedBindingKind::NotAnimated => {

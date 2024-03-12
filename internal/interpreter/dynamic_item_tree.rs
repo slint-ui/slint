@@ -991,10 +991,9 @@ pub(crate) fn generate_item_tree<'id>(
 
     let mut custom_properties = HashMap::new();
     let mut custom_callbacks = HashMap::new();
-    fn property_info<T: PartialEq + Clone + Default + 'static>(
-    ) -> (Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)
+    fn property_info<T>() -> (Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)
     where
-        T: std::convert::TryInto<Value>,
+        T: PartialEq + Clone + Default + std::convert::TryInto<Value> + 'static,
         Value: std::convert::TryInto<T>,
     {
         // Fixme: using u8 in PropertyInfo<> is not sound, we would need to materialize a type for out component
@@ -1005,10 +1004,10 @@ pub(crate) fn generate_item_tree<'id>(
             dynamic_type::StaticTypeInfo::new::<Property<T>>(),
         )
     }
-    fn animated_property_info<T: Clone + Default + InterpolatedPropertyValue + 'static>(
+    fn animated_property_info<T>(
     ) -> (Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)
     where
-        T: std::convert::TryInto<Value>,
+        T: Clone + Default + InterpolatedPropertyValue + std::convert::TryInto<Value> + 'static,
         Value: std::convert::TryInto<T>,
     {
         // Fixme: using u8 in PropertyInfo<> is not sound, we would need to materialize a type for out component
