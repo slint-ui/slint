@@ -112,7 +112,7 @@ impl RepeatedItemTree for ErasedItemTreeBox {
     fn update(&self, index: usize, data: Self::Data) {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
-        s.description.set_property(s.borrow(), "index", index.try_into().unwrap()).unwrap();
+        s.description.set_property(s.borrow(), "index", index.into()).unwrap();
         s.description.set_property(s.borrow(), "model_data", data).unwrap();
     }
 
@@ -1134,7 +1134,7 @@ pub(crate) fn generate_item_tree<'id>(
 
             if component.visible_in_public_api() {
                 global.extend_public_properties(
-                    component.root_element.borrow().property_declarations.clone().into_iter(),
+                    component.root_element.borrow().property_declarations.clone(),
                 );
 
                 exported_globals_by_name.extend(

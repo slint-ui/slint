@@ -976,7 +976,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                 }
 
                 self.ensure_updated_impl(&init, &model, 1);
-                if let Some(c) = self.data().inner.borrow().instances.get(0) {
+                if let Some(c) = self.data().inner.borrow().instances.first() {
                     if let Some(x) = c.1.as_ref() {
                         get_height_visitor(x);
                     }

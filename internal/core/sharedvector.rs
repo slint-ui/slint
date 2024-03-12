@@ -448,7 +448,7 @@ where
         S: serde::Serializer,
     {
         let mut seq = serializer.serialize_seq(Some(self.len()))?;
-        for item in self.into_iter() {
+        for item in self.iter() {
             seq.serialize_element(item)?;
         }
         seq.end()

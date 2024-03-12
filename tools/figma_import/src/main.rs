@@ -139,7 +139,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let result = rendered::render(node.name.as_str(), render_node, *backgroundColor, &doc)?;
 
-            std::fs::write("figma_output/main.slint", &result)?;
+            std::fs::write("figma_output/main.slint", result)?;
         }
     }
 

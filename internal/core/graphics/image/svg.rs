@@ -71,7 +71,7 @@ impl ParsedSVG {
         )
         .ok_or(usvg::Error::InvalidSize)?;
 
-        resvg::render(&tree, transform, &mut skia_buffer);
+        resvg::render(tree, transform, &mut skia_buffer);
         Ok(SharedImageBuffer::RGBA8Premultiplied(buffer))
     }
 }

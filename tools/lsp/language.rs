@@ -550,7 +550,7 @@ pub async fn set_binding_command(
         }
 
         properties::set_binding(
-            &document_cache,
+            document_cache,
             &uri,
             version,
             &element,
@@ -784,7 +784,7 @@ pub fn element_at_position(
     text_document_uri: &Url,
     pos: &Position,
 ) -> Option<common::ElementRcNode> {
-    let (doc, offset) = get_document_and_offset(&type_loader, text_document_uri, pos)?;
+    let (doc, offset) = get_document_and_offset(type_loader, text_document_uri, pos)?;
 
     for component in &doc.inner_components {
         let root_element = component.root_element.clone();

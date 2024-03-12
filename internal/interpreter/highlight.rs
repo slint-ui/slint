@@ -54,7 +54,7 @@ pub(crate) fn component_positions(
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
-    let elements = find_element_at_offset(&c.description().original, path, offset.into());
+    let elements = find_element_at_offset(&c.description().original, path, offset);
     collect_highlight_data(
         component_instance,
         &elements.into_iter().map(|e| Rc::downgrade(&e)).collect::<Vec<_>>(),
@@ -70,7 +70,7 @@ pub(crate) fn element_position(
 
     let mut values = ComponentPositions::default();
     if let Some(repeater_path) = repeater_path(element) {
-        fill_highlight_data(&repeater_path, &element, &c, &c, &mut values);
+        fill_highlight_data(&repeater_path, element, &c, &c, &mut values);
     }
     values.geometries
 }
@@ -83,7 +83,7 @@ pub(crate) fn element_at_source_code_position(
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
-    find_element_at_offset(&c.description().original, path, offset.into())
+    find_element_at_offset(&c.description().original, path, offset)
 }
 
 fn fill_highlight_data(

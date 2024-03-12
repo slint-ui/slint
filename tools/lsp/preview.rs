@@ -73,7 +73,7 @@ thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default:
 
 pub fn set_contents(url: &common::VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let old = cache.source_code.insert(url.url().clone(), (url.version().clone(), content.clone()));
+    let old = cache.source_code.insert(url.url().clone(), (*url.version(), content.clone()));
     if cache.dependency.contains(url.url()) {
         if let Some((old_version, old)) = old {
             if content == old && old_version == *url.version() {
@@ -435,7 +435,7 @@ pub fn load_preview(preview_component: PreviewComponent) {
                             let pos = util::map_position(sf, se.offset.into());
                             ask_editor_to_show_document(
                                 &se.path.to_string_lossy(),
-                                lsp_types::Range::new(pos.clone(), pos),
+                                lsp_types::Range::new(pos, pos),
                             );
                         }
                     }

@@ -65,7 +65,7 @@ mod tests {
 
     use crate::item_tree::ItemTreeNode;
 
-    fn validate_focus_chains<'a>(item_tree: ItemTreeNodeArray<'a>) {
+    fn validate_focus_chains(item_tree: ItemTreeNodeArray<'_>) {
         let forward_chain = {
             let mut tmp = alloc::vec::Vec::with_capacity(item_tree.node_count());
             let mut node = 0;

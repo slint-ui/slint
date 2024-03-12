@@ -140,7 +140,7 @@ impl TextShaper for VectorFont {
                     face.glyph_index(ch).map(|glyph_index| {
                         let mut out_glyph = Glyph::default();
 
-                        out_glyph.glyph_id = core::num::NonZeroU16::new(glyph_index.0 as u16);
+                        out_glyph.glyph_id = core::num::NonZeroU16::new(glyph_index.0);
 
                         out_glyph.advance = (FontLength::new(
                             face.glyph_hor_advance(glyph_index).unwrap_or_default() as _,

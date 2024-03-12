@@ -1082,7 +1082,7 @@ impl TextInput {
         self.anchor_position_byte_offset.set(anchor as i32);
 
         self.add_undo_item(UndoItem {
-            pos: anchor as usize,
+            pos: anchor,
             text: removed_text,
             cursor: real_cursor,
             anchor: real_anchor,
@@ -1183,7 +1183,7 @@ impl TextInput {
         }
 
         self.add_undo_item(UndoItem {
-            pos: cursor_pos as usize,
+            pos: cursor_pos,
             text: inserted_text,
             cursor: real_cursor,
             anchor: real_anchor,

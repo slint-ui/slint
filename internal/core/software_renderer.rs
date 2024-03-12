@@ -1977,7 +1977,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 image.alignment(),
                 image.tiling(),
             );
-            self.draw_image_impl(&image_inner, fit, image.colorize().color());
+            self.draw_image_impl(image_inner, fit, image.colorize().color());
         }
     }
 
@@ -2257,7 +2257,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 let layout = fonts::text_layout_for_font(&pf, &font_request, self.scale_factor);
 
                 let paragraph = TextParagraphLayout {
-                    string: &string,
+                    string,
                     layout,
                     max_width: clip.width_length().cast(),
                     max_height: clip.height_length().cast(),
@@ -2275,7 +2275,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
 
                 let paragraph = TextParagraphLayout {
-                    string: &string,
+                    string,
                     layout,
                     max_width: clip.width_length().cast(),
                     max_height: clip.height_length().cast(),

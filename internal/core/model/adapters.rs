@@ -321,7 +321,7 @@ where
 
         if !insertion.is_empty() {
             let insertion_len = insertion.len();
-            mapping.splice(insertion_point..insertion_point, insertion.into_iter());
+            mapping.splice(insertion_point..insertion_point, insertion);
 
             drop(mapping);
             self.notify.row_added(insertion_point, insertion_len);
@@ -1019,7 +1019,7 @@ mod sort_tests {
 
         assert!(observer.added_rows.borrow().is_empty());
         assert_eq!(observer.changed_rows.borrow().len(), 1);
-        assert_eq!(*observer.changed_rows.borrow().get(0).unwrap(), 3);
+        assert_eq!(*observer.changed_rows.borrow().first().unwrap(), 3);
         assert!(observer.removed_rows.borrow().is_empty());
         assert_eq!(*observer.reset.borrow(), 0);
         observer.clear();
@@ -1034,10 +1034,10 @@ mod sort_tests {
         wrapped_rc.set_row_data(1, 0);
 
         assert_eq!(observer.added_rows.borrow().len(), 1);
-        assert!(observer.added_rows.borrow().get(0).unwrap().eq(&(0, 1)));
+        assert!(observer.added_rows.borrow().first().unwrap().eq(&(0, 1)));
         assert!(observer.changed_rows.borrow().is_empty());
         assert_eq!(observer.removed_rows.borrow().len(), 1);
-        assert!(observer.removed_rows.borrow().get(0).unwrap().eq(&(3, 1)));
+        assert!(observer.removed_rows.borrow().first().unwrap().eq(&(3, 1)));
         assert_eq!(*observer.reset.borrow(), 0);
         observer.clear();
 

@@ -93,7 +93,7 @@ pub(super) fn draw_texture_line(
                 },
             );
             begin = end;
-            end = end + tile_len;
+            end += tile_len;
             pos = init;
             pos += acc_err;
             if remainder != Fixed::from_integer(0) {
@@ -156,7 +156,7 @@ pub(super) fn draw_texture_line(
                 },
             );
             begin = end;
-            end = end + tile_len;
+            end += tile_len;
             row = row_init;
             row += acc_err;
             if remainder != Fixed::from_integer(0) {
