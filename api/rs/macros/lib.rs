@@ -84,7 +84,7 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                     if (last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1)
                         || (last.kind == SyntaxKind::Identifier
                             && are_token_touching(prev_span, span)
-                                .unwrap_or_else(|| last.text.ends_with("-")))
+                                .unwrap_or_else(|| last.text.ends_with('-')))
                     {
                         last.text = format!("{}{}", last.text, i).into();
                         prev_span = span;
@@ -224,7 +224,7 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                         if (last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1)
                             || (last.kind == SyntaxKind::Identifier
                                 && are_token_touching(prev_span, span)
-                                    .unwrap_or_else(|| last.text.ends_with("-")))
+                                    .unwrap_or_else(|| last.text.ends_with('-')))
                         {
                             last.text = format!("{}{}", last.text, s).into();
                             prev_span = span;

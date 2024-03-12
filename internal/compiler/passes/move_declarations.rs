@@ -99,13 +99,13 @@ fn do_move_declarations(component: &Rc<Component>) {
 
     recurse_elem(&component.root_element, &(), &mut |elem, _| move_properties(elem));
 
-    component.optimized_elements.borrow().iter().for_each(|e| move_properties(e));
+    component.optimized_elements.borrow().iter().for_each(move_properties);
 
     {
         let mut r = component.root_element.borrow_mut();
         r.property_declarations = decl.property_declarations;
-        r.bindings.extend(new_root_bindings.into_iter());
-        r.property_analysis.borrow_mut().extend(new_root_property_analysis.into_iter());
+        r.bindings.extend(new_root_bindings);
+        r.property_analysis.borrow_mut().extend(new_root_property_analysis);
     }
 
     // By now, the optimized item should be unused

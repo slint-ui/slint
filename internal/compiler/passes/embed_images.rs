@@ -46,7 +46,7 @@ pub async fn embed_images(
 
             // Map URLs (async -- well, not really):
             for i in urls.iter_mut() {
-                *i.1 = (*mapper)(&i.0).await;
+                *i.1 = (*mapper)(i.0).await;
             }
         }
 
@@ -100,7 +100,7 @@ fn embed_images_from_expression(
                     *resource_ref = embed_image(
                         global_embedded_resources,
                         embed_files,
-                        &path,
+                        path,
                         scale_factor,
                         diag,
                         source_location,

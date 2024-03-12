@@ -351,11 +351,9 @@ impl FemtoVGRenderer {
     }
 
     fn window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        self.maybe_window_adapter
-            .borrow()
-            .as_ref()
-            .and_then(|w| w.upgrade())
-            .ok_or_else(|| format!("Renderer must be associated with component before use").into())
+        self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade()).ok_or_else(|| {
+            "Renderer must be associated with component before use".to_string().into()
+        })
     }
 }
 

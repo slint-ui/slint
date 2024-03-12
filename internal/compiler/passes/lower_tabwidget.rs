@@ -179,7 +179,7 @@ fn process_tabwidget(
         elem.borrow_mut().bindings.insert("content-min-height".into(), RefCell::new(expr.into()));
     };
 
-    elem.borrow_mut().children = std::iter::once(tabbar).chain(children.into_iter()).collect();
+    elem.borrow_mut().children = std::iter::once(tabbar).chain(children).collect();
 }
 
 fn set_geometry_prop(

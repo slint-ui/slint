@@ -24,7 +24,11 @@ pub fn get_native_style(has_qt: bool, target: &str) -> &'static str {
     } else if target.contains("wasm") {
         "fluent"
     } else if target.contains("linux") | target.contains("bsd") {
-        if has_qt { "qt" } else { "fluent" }.into()
+        if has_qt {
+            "qt"
+        } else {
+            "fluent"
+        }
     } else if cfg!(target_os = "android") {
         "material"
     } else if cfg!(target_os = "windows") {

@@ -100,7 +100,7 @@ impl<'a> LocalFocusForwards<'a> {
             let focus_target = focus_target.upgrade().unwrap();
             let location = forward_focus_binding.to_source_location();
 
-            if Rc::ptr_eq(&elem, &focus_target) {
+            if Rc::ptr_eq(elem, &focus_target) {
                 diag.push_error("forward-focus can't refer to itself".into(), &location);
                 return;
             }
@@ -141,9 +141,7 @@ impl<'a> LocalFocusForwards<'a> {
         &mut self,
         element: &ElementRc,
     ) -> Option<(ElementRc, SourceLocation)> {
-        let Some((mut focus_redirect, mut location)) = self.get(element) else {
-            return None;
-        };
+        let (mut focus_redirect, mut location) = self.get(element)?;
 
         let mut visited: HashSet<ByAddress<Rc<RefCell<Element>>>> = HashSet::new();
         loop {
@@ -229,7 +227,7 @@ fn call_focus_function(
     if declares_focus_function {
         Some(Expression::FunctionCall {
             function: Box::new(Expression::FunctionReference(
-                NamedReference::new(&element, "focus"),
+                NamedReference::new(element, "focus"),
                 None,
             )),
             arguments: vec![],
@@ -242,7 +240,7 @@ fn call_focus_function(
                 BuiltinFunction::SetFocusItem,
                 source_location.clone(),
             )),
-            arguments: vec![Expression::ElementReference(Rc::downgrade(&element))],
+            arguments: vec![Expression::ElementReference(Rc::downgrade(element))],
             source_location,
         })
     } else {

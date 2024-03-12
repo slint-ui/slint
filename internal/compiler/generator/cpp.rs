@@ -1841,7 +1841,7 @@ fn generate_sub_component(
                                       code: Vec<String>| {
         let mut code = ["[[maybe_unused]] auto self = this;".into()]
             .into_iter()
-            .chain(code.into_iter())
+            .chain(code)
             .collect::<Vec<_>>();
 
         let mut else_ = "";
@@ -3323,8 +3323,8 @@ fn generate_type_aliases(file: &mut File, doc: &Document) {
         .filter(|(export_name, type_name)| export_name != type_name)
         .map(|(export_name, type_name)| {
             Declaration::TypeAlias(TypeAlias {
-                old_name: ident(&type_name),
-                new_name: ident(&export_name),
+                old_name: ident(type_name),
+                new_name: ident(export_name),
             })
         });
 

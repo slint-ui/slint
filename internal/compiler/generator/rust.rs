@@ -2793,8 +2793,8 @@ fn generate_named_exports(doc: &Document) -> Vec<TokenStream> {
         })
         .filter(|(export_name, type_name)| export_name != type_name)
         .map(|(export_name, type_name)| {
-            let type_id = ident(&type_name);
-            let export_id = ident(&export_name);
+            let type_id = ident(type_name);
+            let export_id = ident(export_name);
             quote!(#type_id as #export_id)
         })
         .collect::<Vec<_>>()

@@ -107,9 +107,9 @@ fn try_create_window_with_fallback_renderer(
             feature = "renderer-skia-vulkan"
         ))]
         renderer::skia::WinitSkiaRenderer::new,
-        #[cfg(any(feature = "renderer-femtovg"))]
+        #[cfg(feature = "renderer-femtovg")]
         renderer::femtovg::GlutinFemtoVGRenderer::new,
-        #[cfg(any(feature = "renderer-software"))]
+        #[cfg(feature = "renderer-software")]
         renderer::sw::WinitSoftwareRenderer::new,
     ]
     .into_iter()
