@@ -17,7 +17,7 @@ namespace slint::private_api {
 using cbindgen_private::StateInfo;
 
 inline void slint_property_set_animated_binding_helper(
-        const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, int32_t *),
+        const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, int *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *))

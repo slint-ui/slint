@@ -276,7 +276,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
 #[no_mangle]
 pub unsafe extern "C" fn slint_property_set_animated_binding_int(
     handle: &PropertyHandleOpaque,
-    binding: extern "C" fn(*mut c_void, *mut i32),
+    binding: extern "C" fn(*mut c_void, *mut core::ffi::c_int),
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
     animation_data: Option<&PropertyAnimation>,
