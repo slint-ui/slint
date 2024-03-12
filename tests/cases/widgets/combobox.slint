@@ -1,0 +1,92 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { ComboBox } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    in-out property <string> output;
+    TouchArea {
+        clicked => { output += "clicked-under\n"; }
+    }
+
+    VerticalLayout {
+        alignment: center;
+        box := ComboBox {
+            model: ["Aaa", "Bbb", "Ccc"];
+            selected => {
+                output += "selected("+self.current-value+","+self.current-index+")\n";
+            }
+        }
+    }
+
+    in-out property current-index <=> box.current-index;
+    in-out property current-value <=> box.current-value;
+    out property has-focus <=> box.has-focus;
+}
+
+/*
+
+
+```rust
+use slint::platform::Key;
+use slint::SharedString;
+
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_current_value(), "Aaa");
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_has_focus(), false);
+
+// Change the index programmatically
+instance.set_current_index(1);
+assert_eq!(instance.get_current_value(), "Bbb");
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_output(), "");
+instance.set_current_index(0);
+assert_eq!(instance.get_current_value(), "Aaa");
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_output(), "");
+assert_eq!(instance.get_has_focus(), false);
+
+// Open the combobox
+slint_testing::send_mouse_click(&instance, 100., 100.);
+assert_eq!(instance.get_output(), "");
+assert_eq!(instance.get_has_focus(), true);
+
+// click outside of the combobox, this should close it
+slint_testing::send_mouse_click(&instance, 100., 10.);
+assert_eq!(instance.get_output(), "");
+assert_eq!(instance.get_current_value(), "Aaa");
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_has_focus(), true);
+
+// click outside of the combobox again
+slint_testing::send_mouse_click(&instance, 100., 10.);
+assert_eq!(instance.get_output(), "clicked-under\n");
+instance.set_output(Default::default());
+assert_eq!(instance.get_current_value(), "Aaa");
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_has_focus(), true);
+
+
+// The arrow change the values
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+assert_eq!(instance.get_current_value(), "Bbb");
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_output(), "selected(Bbb,1)\n");
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+assert_eq!(instance.get_current_value(), "Ccc");
+assert_eq!(instance.get_current_index(), 2);
+assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\n");
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
+assert_eq!(instance.get_current_value(), "Bbb");
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\nselected(Bbb,1)\n");
+instance.set_output(Default::default());
+
+
+```
+
+*/
