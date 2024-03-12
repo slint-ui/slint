@@ -40,10 +40,6 @@ pub enum AccessibilityAction {
     CustomAction,
     Decrement,
     Increment,
-    // FIXME: Can it be currently supported?
-    HideToolTip,
-    // FIXME: Can it be currently supported?
-    ShowToolTip,
     ReplaceSelectedText(SharedString),
     ScrollBackward,
     ScrollDown,
@@ -55,11 +51,7 @@ pub enum AccessibilityAction {
     ScrollToPoint(LogicalPoint),
     SetScrollOffset(LogicalVector),
     SetTextSelection(Option<core::ops::Range<i32>>),
-    // FIXME: Do we need this?
-    SetSequentialFocusNavigationStartingPoint,
-    SetValue(f64),
-    // FIXME: Can it be currently supported?
-    ShowContextMenu,
+    SetValue(f64)
 }
 
 bitflags! {
@@ -73,8 +65,6 @@ bitflags! {
         const CustomAction = 0b00000111;
         const Decrement = 0b00001000;
         const Increment = 0b00001001;
-        const HideToolTip = 0b00001010;
-        const ShowToolTip = 0b00001011;
         const ReplaceSelectedText = 0b00001100;
         const ScrollBackward = 0b00001101;
         const ScrollDown = 0b00001110;
@@ -86,9 +76,7 @@ bitflags! {
         const ScrollToPoint = 0b00010011;
         const SetScrollOffset = 0b00010100;
         const SetTextSelection = 0b00010101;
-        const SetSequentialFocusNavigationStartingPoint = 0b00010110;
         const SetValue = 0b00010111;
-        const ShowContextMenu = 0b00011000;
     }
 }
 
