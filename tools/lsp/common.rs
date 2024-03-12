@@ -76,7 +76,7 @@ pub fn create_workspace_edit(
 ) -> WorkspaceEdit {
     let edits = edits
         .into_iter()
-        .map(|te| lsp_types::OneOf::Left::<TextEdit, lsp_types::AnnotatedTextEdit>(te))
+        .map(lsp_types::OneOf::Left::<TextEdit, lsp_types::AnnotatedTextEdit>)
         .collect();
     let edit = lsp_types::TextDocumentEdit {
         text_document: lsp_types::OptionalVersionedTextDocumentIdentifier { uri, version },

@@ -133,7 +133,7 @@ pub fn as_dot(element: &ElementRc, mark_up: Option<ElementRc>) -> ElementMap {
     );
     i_slint_core::debug_log!("{}", state.generate(connections));
 
-    let map: HashMap<_, _> = state.elements.iter().map(|(k, v)| (k.clone(), v.node_id())).collect();
+    let map: HashMap<_, _> = state.elements.iter().map(|(k, v)| (*k, v.node_id())).collect();
     ElementMap(map)
 }
 

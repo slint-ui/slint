@@ -14,7 +14,7 @@ struct StringWriter {
 
 impl writer::TokenWriter for StringWriter {
     fn no_change(&mut self, token: SyntaxToken) -> std::io::Result<()> {
-        self.text += &token.text();
+        self.text += token.text();
         Ok(())
     }
 
@@ -25,7 +25,7 @@ impl writer::TokenWriter for StringWriter {
 
     fn insert_before(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()> {
         self.text += contents;
-        self.text += &token.text();
+        self.text += token.text();
         Ok(())
     }
 }
@@ -114,7 +114,7 @@ mod tests {
             };
         }
 
-        let expected = vec![
+        let expected = [
             text_edit!(0, 29, 0, 29, "\n   "),
             text_edit!(0, 49, 0, 50, " }\n\n   "),
             text_edit!(0, 73, 0, 75, "\n}\n"),

@@ -62,13 +62,12 @@ fn find_drop_location(
     let target_element_node = {
         let mut result = None;
         let tl = component_instance.definition().type_loader();
-        for sc in &element_selection::collect_all_element_nodes_covering(x, y, &component_instance)
-        {
+        for sc in &element_selection::collect_all_element_nodes_covering(x, y, component_instance) {
             let Some(en) = sc.as_element_node() else {
                 continue;
             };
 
-            if en.with_element_node(|n| preview::is_element_node_ignored(n)) {
+            if en.with_element_node(preview::is_element_node_ignored) {
                 continue;
             }
 
@@ -88,7 +87,7 @@ fn find_drop_location(
                 }
             }
 
-            if !element_selection::is_same_file_as_root_node(&component_instance, &en) {
+            if !element_selection::is_same_file_as_root_node(component_instance, &en) {
                 continue;
             }
 
@@ -145,7 +144,7 @@ pub fn drop_at(
     let component_type = &component.name;
     let component_instance = preview::component_instance()?;
     let tl = component_instance.definition().type_loader();
-    let drop_info = find_drop_location(&component_instance, x, y, &component_type)?;
+    let drop_info = find_drop_location(&component_instance, x, y, component_type)?;
 
     let properties = {
         let mut props = component.default_properties.clone();
@@ -202,7 +201,7 @@ pub fn drop_at(
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
 
     let ip = util::map_position(&source_file, drop_info.insertion_position.offset().into());
-    edits.push(lsp_types::TextEdit { range: lsp_types::Range::new(ip.clone(), ip), new_text });
+    edits.push(lsp_types::TextEdit { range: lsp_types::Range::new(ip, ip), new_text });
 
     Some((
         common::create_workspace_edit_from_source_file(&source_file, edits)?,

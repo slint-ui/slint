@@ -1111,7 +1111,7 @@ pub fn fit9slice(
         ]
     }
     .into_iter()
-    .filter_map(|x| x)
+    .flatten()
 }
 
 #[cfg(feature = "ffi")]

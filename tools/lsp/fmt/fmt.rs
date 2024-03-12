@@ -391,8 +391,7 @@ fn format_property_declaration(
             _ => continue,
         }
     }
-    let need_newline =
-        if node.child_node(SyntaxKind::TwoWayBinding).is_some() { false } else { true };
+    let need_newline = node.child_node(SyntaxKind::TwoWayBinding).is_none();
 
     state.skip_all_whitespace = true;
     for s in sub {
@@ -786,7 +785,7 @@ fn format_array(
             }
         })
         .unwrap_or(false);
-    // len of all childrens
+    // len of all children
     let len = node.children().fold(0, |acc, e| {
         let mut len = 0;
         e.text().for_each_chunk(|s| len += s.trim().len());
@@ -1056,7 +1055,7 @@ fn format_object_literal(
             }
         })
         .unwrap_or(false);
-    // len of all childrens
+    // len of all children
     let len = node.children().fold(0, |acc, e| {
         let mut len = 0;
         e.text().for_each_chunk(|s| len += s.trim().len());

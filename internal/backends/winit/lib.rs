@@ -277,7 +277,7 @@ impl i_slint_core::platform::Platform for Backend {
                 if code == 0 {
                     Ok(core::ops::ControlFlow::Break(()))
                 } else {
-                    return Err(format!("Event loop exited with non-zero code {code}").into());
+                    Err(format!("Event loop exited with non-zero code {code}").into())
                 }
             }
         }

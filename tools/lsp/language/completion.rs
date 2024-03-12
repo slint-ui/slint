@@ -1213,7 +1213,7 @@ mod tests {
         for source in sources {
             let Some(res) = get_completions(source) else { continue };
             assert!(
-                res.iter().find(|ci| ci.label == "inherits").is_none(),
+                !res.iter().any(|ci| ci.label == "inherits"),
                 "completion for {source:?} contains 'inherits'"
             );
         }
@@ -1248,7 +1248,7 @@ mod tests {
             let res = get_completions(source).unwrap();
             res.iter().find(|ci| ci.label == "text").unwrap();
             res.iter().find(|ci| ci.label == "prop").unwrap();
-            assert!(res.iter().find(|ci| ci.label == "elem").is_none());
+            assert!(!res.iter().any(|ci| ci.label == "elem"));
         }
     }
 }

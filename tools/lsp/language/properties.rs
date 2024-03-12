@@ -391,7 +391,7 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
         break;
     }
 
-    insert_property_definitions(&element, result)
+    insert_property_definitions(element, result)
 }
 
 fn find_block_range(element: &common::ElementRcNode) -> Option<lsp_types::Range> {
@@ -638,7 +638,7 @@ pub fn set_binding(
         .unwrap_or(Type::Invalid)
     };
 
-    let properties = get_properties(&element);
+    let properties = get_properties(element);
     let property = match get_property_information(&properties, property_name) {
         Ok(p) => p,
         Err(e) => {
@@ -700,7 +700,7 @@ pub fn set_bindings(
                         document_changes: Some(lsp_types::DocumentChanges::Edits(e)),
                         ..
                     }) => {
-                        edits.extend(e.get(0).unwrap().edits.iter().filter_map(|e| match e {
+                        edits.extend(e.first().unwrap().edits.iter().filter_map(|e| match e {
                             lsp_types::OneOf::Left(edit) => Some(edit.clone()),
                             _ => None,
                         }));
@@ -739,10 +739,9 @@ fn element_at_source_code_position(
         .ok_or_else(|| "Document had no node".to_string())?;
     let element_position = util::map_position(&source_file, position.offset().into());
 
-    Ok(language::element_at_position(&dc.documents, &position.url(), &element_position)
-        .ok_or_else(|| {
-            format!("No element found at the given start position {:?}", &element_position)
-        })?)
+    Ok(language::element_at_position(&dc.documents, position.url(), &element_position).ok_or_else(
+        || format!("No element found at the given start position {:?}", &element_position),
+    )?)
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -780,7 +779,7 @@ pub fn remove_binding(
 ) -> Result<lsp_types::WorkspaceEdit> {
     let source_file = element.with_element_node(|node| node.source_file.clone());
 
-    let range = find_property_binding_offset(&element, property_name)
+    let range = find_property_binding_offset(element, property_name)
         .and_then(|offset| {
             element.with_element_node(|node| node.token_at_offset(offset.into()).right_biased())
         })

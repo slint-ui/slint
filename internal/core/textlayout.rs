@@ -12,7 +12,7 @@
 //! 3. Loop over all glyph clusters as well as the line break opportunities produced by the unicode line break algorithm:
 //!     Sum up the width of all glyph clusters until the next line break opportunity (encapsulated in FragmentIterator), record separately the width of
 //!     trailing space within the fragment.
-//!     If the width of the current line (including trailing whitespace) and the new fragment of glyph clusters (without trailing whitepace) is less or
+//!     If the width of the current line (including trailing whitespace) and the new fragment of glyph clusters (without trailing whitespace) is less or
 //!         equal to the available width:
 //!         Add fragment of glyph clusters to the current line
 //!     Else:
@@ -435,9 +435,7 @@ fn test_elision() {
         .layout_lines::<()>(
             |glyphs, _, _, _, _| {
                 lines.push(
-                    glyphs
-                        .map(|positioned_glyph| positioned_glyph.glyph_id.clone())
-                        .collect::<Vec<_>>(),
+                    glyphs.map(|positioned_glyph| positioned_glyph.glyph_id).collect::<Vec<_>>(),
                 );
                 core::ops::ControlFlow::Continue(())
             },
@@ -479,9 +477,7 @@ fn test_exact_fit() {
         .layout_lines::<()>(
             |glyphs, _, _, _, _| {
                 lines.push(
-                    glyphs
-                        .map(|positioned_glyph| positioned_glyph.glyph_id.clone())
-                        .collect::<Vec<_>>(),
+                    glyphs.map(|positioned_glyph| positioned_glyph.glyph_id).collect::<Vec<_>>(),
                 );
                 core::ops::ControlFlow::Continue(())
             },
@@ -523,9 +519,7 @@ fn test_no_line_separators_characters_rendered() {
         .layout_lines::<()>(
             |glyphs, _, _, _, _| {
                 lines.push(
-                    glyphs
-                        .map(|positioned_glyph| positioned_glyph.glyph_id.clone())
-                        .collect::<Vec<_>>(),
+                    glyphs.map(|positioned_glyph| positioned_glyph.glyph_id).collect::<Vec<_>>(),
                 );
                 core::ops::ControlFlow::Continue(())
             },
@@ -584,7 +578,7 @@ fn test_cursor_position() {
     assert_eq!(paragraph.cursor_pos_for_byte_offset(text.len()), (10. * 5., 10.));
 
     let first_space_offset =
-        text.char_indices().find_map(|(offset, ch)| ch.is_whitespace().then(|| offset)).unwrap();
+        text.char_indices().find_map(|(offset, ch)| ch.is_whitespace().then_some(offset)).unwrap();
     assert_eq!(paragraph.cursor_pos_for_byte_offset(first_space_offset), (5. * 10., 0.));
     assert_eq!(paragraph.cursor_pos_for_byte_offset(first_space_offset + 15), (10. * 10., 0.));
     assert_eq!(paragraph.cursor_pos_for_byte_offset(first_space_offset + 16), (10. * 10., 0.));
@@ -635,7 +629,7 @@ fn test_byte_offset() {
     let font = FixedTestFont;
     let text = "Hello                    World";
     let mut end_helper_text = text.to_string();
-    end_helper_text.push_str("!");
+    end_helper_text.push('!');
 
     let paragraph = TextParagraphLayout {
         string: text,

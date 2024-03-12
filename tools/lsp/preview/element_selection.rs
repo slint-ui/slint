@@ -264,12 +264,12 @@ pub fn collect_all_element_nodes_covering(
     y: f32,
     component_instance: &ComponentInstance,
 ) -> Vec<SelectionCandidate> {
-    let root_element = root_element(&component_instance);
+    let root_element = root_element(component_instance);
     let mut elements = Vec::new();
     collect_all_element_nodes_covering_impl(
         x,
         y,
-        &component_instance,
+        component_instance,
         &root_element,
         &vec![],
         &mut elements,
@@ -281,7 +281,7 @@ pub fn is_root_element_node(
     component_instance: &ComponentInstance,
     element_node: &ElementRcNode,
 ) -> bool {
-    let root_element = root_element(&component_instance);
+    let root_element = root_element(component_instance);
     let Some((root_path, root_offset)) = root_element
         .borrow()
         .debug
@@ -300,9 +300,9 @@ pub fn is_same_file_as_root_node(
     component_instance: &ComponentInstance,
     element_node: &ElementRcNode,
 ) -> bool {
-    let root_element = root_element(&component_instance);
+    let root_element = root_element(component_instance);
     let Some(root_path) =
-        root_element.borrow().debug.get(0).map(|(n, _)| n.source_file.path().to_owned())
+        root_element.borrow().debug.first().map(|(n, _)| n.source_file.path().to_owned())
     else {
         return false;
     };
@@ -330,7 +330,7 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
             continue;
         };
 
-        if en.with_element_node(|n| super::is_element_node_ignored(n)) {
+        if en.with_element_node(super::is_element_node_ignored) {
             continue;
         }
         if !enter_component && !is_same_file_as_root_node(&component_instance, &en) {
@@ -402,7 +402,7 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
             continue;
         };
 
-        if en.with_element_node(|n| super::is_element_node_ignored(n)) {
+        if en.with_element_node(super::is_element_node_ignored) {
             continue;
         }
 
