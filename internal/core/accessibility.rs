@@ -57,26 +57,26 @@ pub enum AccessibilityAction {
 bitflags! {
     // Define a accessibility actions that currently supported by Slint.
     pub struct SupportedAccessibilityAction: u32 {
-        const Default = 0b00000001;
-        const Focus = 0b00000010;
-        const Blur = 0b00000011;
-        const Collapse = 0b00000100;
-        const Expand = 0b00000110;
-        const CustomAction = 0b00000111;
-        const Decrement = 0b00001000;
-        const Increment = 0b00001001;
-        const ReplaceSelectedText = 0b00001100;
-        const ScrollBackward = 0b00001101;
-        const ScrollDown = 0b00001110;
-        const ScrollForward = 0b00001110;
-        const ScrollLeft = 0b00001111;
-        const ScrollRight = 0b00010000;
-        const ScrollUp = 0b00010001;
-        const ScrollIntoView = 0b00010010;
-        const ScrollToPoint = 0b00010011;
-        const SetScrollOffset = 0b00010100;
-        const SetTextSelection = 0b00010101;
-        const SetValue = 0b00010111;
+        const Default = 1;
+        const Focus = 1 << 1;
+        const Blur = 1 << 2;
+        const Collapse = 1 << 4;
+        const Expand = 1 << 5;
+        const CustomAction = 1 << 6;
+        const Decrement = 1 << 7;
+        const Increment = 1 << 8;
+        const ReplaceSelectedText = 1 << 9;
+        const ScrollBackward = 1 << 10;
+        const ScrollDown = 1 << 11;
+        const ScrollForward = 1 << 12;
+        const ScrollLeft = 1 << 13;
+        const ScrollRight = 1 << 14;
+        const ScrollUp = 1 << 15;
+        const ScrollIntoView = 1 << 16;
+        const ScrollToPoint = 1 << 17;
+        const SetScrollOffset = 1 << 18;
+        const SetTextSelection = 1 << 19;
+        const SetValue = 1 << 20;
     }
 }
 
