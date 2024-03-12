@@ -101,9 +101,7 @@ fn find_drop_location(
         let last_token = crate::util::last_non_ws_token(node)?;
 
         let url = lsp_types::Url::from_file_path(node.source_file.path()).ok()?;
-        let Some((version, _)) = preview::get_url_from_cache(&url) else {
-            return None;
-        };
+        let (version, _) = preview::get_url_from_cache(&url)?;
 
         Some(common::VersionedPosition::new(
             crate::common::VersionedUrl::new(url, version),

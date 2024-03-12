@@ -369,10 +369,8 @@ impl PublicComponent {
             for e in sc.accessible_prop.values() {
                 visitor(e, ctx);
             }
-            for i in &sc.geometries {
-                if let Some(e) = i {
-                    visitor(e, ctx);
-                }
+            for i in sc.geometries.iter().flatten() {
+                visitor(i, ctx);
             }
         });
         for g in &self.globals {

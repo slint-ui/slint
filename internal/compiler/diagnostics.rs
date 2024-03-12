@@ -156,7 +156,7 @@ impl SourceFileInner {
     }
 
     pub fn version(&self) -> SourceFileVersion {
-        self.version.clone()
+        self.version
     }
 }
 

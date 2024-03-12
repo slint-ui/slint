@@ -2526,8 +2526,8 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
             "layoutinfo-h",
             crate::layout::layout_info_type(),
         );
-        let expr_h = crate::layout::implicit_layout_info_call(&old_root, Orientation::Horizontal);
-        let expr_v = crate::layout::implicit_layout_info_call(&old_root, Orientation::Vertical);
+        let expr_h = crate::layout::implicit_layout_info_call(old_root, Orientation::Horizontal);
+        let expr_v = crate::layout::implicit_layout_info_call(old_root, Orientation::Vertical);
         let expr_v =
             BindingExpression::new_with_span(expr_v, old_root.borrow().to_source_location());
         li_v.element().borrow_mut().bindings.insert(li_v.name().into(), expr_v.into());
@@ -2563,7 +2563,7 @@ pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem
     let mut injected_parent_mut = injected_parent.borrow_mut();
     injected_parent_mut.bindings.insert(
         "z".into(),
-        RefCell::new(BindingExpression::new_two_way(NamedReference::new(old_elem, "z".into()))),
+        RefCell::new(BindingExpression::new_two_way(NamedReference::new(old_elem, "z"))),
     );
     // (should be removed by const propagation in the llr)
     injected_parent_mut.property_declarations.insert(

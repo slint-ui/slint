@@ -314,12 +314,10 @@ impl TypeLoader {
                         .as_ref()
                         .and_then(|tok| tok.source_file().map(|s| s.path()))
                         .map_or(PathBuf::new(), |p| p.into());
-                    let Some(path) = crate::pathutils::join(
+                    let path = crate::pathutils::join(
                         &crate::pathutils::dirname(&base_path),
                         Path::new(file_to_import),
-                    ) else {
-                        return None;
-                    };
+                    )?;
                     (path, None)
                 }
             }
@@ -346,7 +344,7 @@ impl TypeLoader {
                     core::task::Poll::Pending
                 }
                 std::collections::hash_map::Entry::Vacant(v) => {
-                    if all_documents.docs.get(path_canon.as_path()).is_some() {
+                    if all_documents.docs.contains_key(path_canon.as_path()) {
                         core::task::Poll::Ready(true)
                     } else {
                         v.insert(Default::default());

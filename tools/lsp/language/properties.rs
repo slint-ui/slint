@@ -753,7 +753,7 @@ pub fn update_element_properties(
     let element = element_at_source_code_position(&mut ctx.document_cache.borrow_mut(), &position)?;
 
     let (_, e) = set_bindings(
-        &mut ctx.document_cache.borrow_mut(),
+        &ctx.document_cache.borrow_mut(),
         position.url().clone(),
         *position.version(),
         &element,

@@ -1005,7 +1005,7 @@ pub fn parse(
 ) -> SyntaxNode {
     let mut p = DefaultParser::new(&source, build_diagnostics);
     p.source_file = std::rc::Rc::new(crate::diagnostics::SourceFileInner::new(
-        path.map(|p| crate::pathutils::clean_path(p)).unwrap_or_default(),
+        path.map(crate::pathutils::clean_path).unwrap_or_default(),
         source,
         version,
     ));

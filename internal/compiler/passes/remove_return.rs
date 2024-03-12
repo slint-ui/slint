@@ -268,7 +268,7 @@ impl ExpressionResult {
                 let load =
                     Box::new(Expression::ReadLocalVariable { name: name.clone(), ty: value.ty() });
                 Expression::CodeBlock(vec![
-                    Expression::StoreLocalVariable { name: name.into(), value: value.into() },
+                    Expression::StoreLocalVariable { name, value: value.into() },
                     Expression::Condition {
                         condition: Expression::StructFieldAccess {
                             base: load.clone(),
@@ -305,11 +305,7 @@ impl ExpressionResult {
                 [
                     (FIELD_CONDITION, Type::Bool, Expression::BoolLiteral(true)),
                     (FIELD_ACTUAL, e.ty(), e),
-                    (
-                        FIELD_RETURNED.into(),
-                        ret_ty.clone(),
-                        Expression::default_value_for_type(ret_ty),
-                    ),
+                    (FIELD_RETURNED, ret_ty.clone(), Expression::default_value_for_type(ret_ty)),
                 ]
                 .into_iter(),
             ),
@@ -347,11 +343,11 @@ impl ExpressionResult {
                 codeblock_with_expr(pre_statements, o)
             }
             ExpressionResult::Return(r) => make_struct(
-                [(FIELD_CONDITION.into(), Type::Bool, Expression::BoolLiteral(false))]
+                [(FIELD_CONDITION, Type::Bool, Expression::BoolLiteral(false))]
                     .into_iter()
                     .chain(r.map(|r| (FIELD_RETURNED, ret_ty.clone(), r)))
                     .chain((!matches!(ty, Type::Void | Type::Invalid)).then(|| {
-                        (FIELD_ACTUAL.into(), ty.clone(), Expression::default_value_for_type(ty))
+                        (FIELD_ACTUAL, ty.clone(), Expression::default_value_for_type(ty))
                     })),
             ),
             ExpressionResult::ReturnObject { value, .. } => value,
@@ -403,7 +399,7 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
         for (key, ty) in fields {
             let (key, expression) = values
                 .remove_entry(key)
-                .unwrap_or_else(|| (key.clone(), Expression::default_value_for_type(&ty)));
+                .unwrap_or_else(|| (key.clone(), Expression::default_value_for_type(ty)));
             new_values.insert(key, expression);
         }
         return Expression::Struct { values: new_values, ty: to };
@@ -425,7 +421,7 @@ fn convert_struct(from: Expression, to: Type) -> Expression {
                 name: key.clone(),
             }
         } else {
-            Expression::default_value_for_type(&ty)
+            Expression::default_value_for_type(ty)
         };
         new_values.insert(key.clone(), expression);
     }

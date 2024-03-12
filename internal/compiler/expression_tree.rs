@@ -411,7 +411,7 @@ macro_rules! declare_units {
 declare_units! {
     /// No unit was given
     None = "" -> Float32,
-    ///
+    /// Percent value
     Percent = "%" -> Percent,
 
     // Lengths or Coord
@@ -475,7 +475,7 @@ pub enum Expression {
     StringLiteral(String),
     /// Number
     NumberLiteral(f64, Unit),
-    ///
+    /// Bool
     BoolLiteral(bool),
 
     /// Reference to the callback `<name>` in the `<element>`

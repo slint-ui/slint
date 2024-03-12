@@ -307,11 +307,7 @@ impl<'a> Iterator for Components<'a> {
     type Item = PathComponent<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let Some((result, new_offset, separator)) =
-            components(self.path, self.offset, &self.separator)
-        else {
-            return None;
-        };
+        let (result, new_offset, separator) = components(self.path, self.offset, &self.separator)?;
         self.offset = new_offset;
         self.separator = Some(separator);
 

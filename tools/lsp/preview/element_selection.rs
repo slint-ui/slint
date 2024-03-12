@@ -33,7 +33,7 @@ impl ElementSelection {
         let debug_index = {
             let e = element.borrow();
             e.debug.iter().position(|(n, _)| {
-                n.source_file.path() == &self.path
+                n.source_file.path() == self.path
                     && u32::from(n.text_range().start()) == self.offset
             })
         };
@@ -190,7 +190,7 @@ impl SelectionCandidate {
         let Some((sf, r)) = self.text_range.as_ref() else {
             return false;
         };
-        sf.path() == &selection.path && u32::from(r.start()) == selection.offset
+        sf.path() == selection.path && u32::from(r.start()) == selection.offset
     }
 
     pub fn as_element_node(&self) -> Option<ElementRcNode> {
