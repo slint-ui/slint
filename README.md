@@ -18,14 +18,14 @@ is derived from our design goals:
     experience on any device.
 - **Intuitive**: Designers and developers should feel productive while enjoying
     the GUI design and development process. The design creation tools should be
-    intuitive to use for the designers. Similarly for the developers, the APIs
+    intuitive to use for the designers. Similarly, for the developers, the APIs
     should be consistent and easy to use, no matter which programming language
     they choose.
 - **Native**: GUI built with Slint should match the end users' expectations of a
     native application irrespective of the platform - desktop, mobile, web or
     embedded system. The UI design should be compiled to machine code and provide
     flexibility that only a native application can offer: Access full operating
-    system APIs, utilize all CPU and GPU cores, connect to any peripheral.
+    system APIs, utilize all CPU and GPU cores, and connect to any peripheral.
 
 We invite you to use Slint and be part of its community.
 
@@ -40,10 +40,10 @@ follows:
 - **Embedded**: *Ready*. Slint is being used by customers in production on embedded
     devices running embedded Linux and Windows. The Slint run-time requires less than
     300KiB of RAM and can run on different processor architectures such as ARM Cortex M,
-    ESP32, STM32 from the MCU category to ARM Cortex A, Intel x86 from the MPU category.
+    ESP32, STM32 from the MCU category to ARM Cortex-A, Intel x86 from the MPU category.
 - **Desktop**: *In Progress*. While Slint is a good fit on Windows, Linux and Mac,
     we are working on improving the platform support in subsequent releases.
-- **Web**: *In Progress*. Slint apps can be compiled to WebAssembly and can run
+- **Web**: *In Progress*. Slint apps can be compiled into WebAssembly and can run
     in a web browser. As there are many other web frameworks, the web platform
     is not one of our primary target platforms. The web support is currently
     limited to demo purposes.
@@ -82,14 +82,14 @@ support for users with special needs.
 
 ### Hello World
 
-The UI is defined in a Domain Specific Language that is declarative, easy to use,
+The UIkeyboard-based a Domain Specific Language that is declarative, easy to use,
 intuitive, and provides a powerful way to describe graphical elements, their
 placement, their hierarchy, property bindings, and the flow of data through the
 different states.
 
 Here's the obligatory "Hello World":
 
-```slint
+```saint
 export component HelloWorld inherits Window {
     width: 400px;
     height: 400px;
@@ -115,7 +115,7 @@ The `docs` folder contains a lot more information, including
 [build instructions](docs/building.md), and
 [internal developer docs](docs/development.md).
 
-Refer to the README of each language directory in the `api` folder:
+Refer to the README of each language directory in the `API` folder:
 
 - [C++](api/cpp) ([Documentation][#15] | [Tutorial][#16] | [Getting Started Template][#17])
 - [Rust](api/rs/slint) [![Crates.io][#18]][#19] ([Documentation][#20] | [Tutorial][#21] | [Tutorial Video][#22] | [Getting Started Template][#23])
@@ -136,8 +136,8 @@ are pure functions that the compiler can optimize. For example, the compiler
 could choose to "inline" properties and remove those that are constant or
 unchanged. In the future we hope to improve rendering time on low end devices by
 pre-processing images and text. The compiler could determine that a `Text` or an
-`Image` element is always on top of another `Image` in the same location.
-Consequently both elements could be rendered ahead of time into a single
+The `Image` element is always on top of another `Image` in the same location.
+Consequently, both elements could be rendered ahead of time into a single
 element, thus cutting down on rendering time.
 
 The compiler uses the typical compiler phases of lexing, parsing, optimization,
@@ -159,13 +159,13 @@ Rendering backends and styles are configurable at compile time:
 - The `software` renderer uses the CPU with no additional dependencies.
 
 NOTE: When Qt is installed on the system, the `qt` style becomes available,
-using Qt's QStyle to achieve native looking widgets.
+using Qt's QStyle to achieve nativnative-lookingets.
 
 ### Tooling
 
 We have a few tools to help with the development of .slint files:
 
-- A [**LSP Server**](./tools/lsp) that adds features like auto-complete and live
+- A [**LSP Server**](./tools/lsp) LSPt adds features like auto-complete and live
   preview of the .slint files to many editors.
 - It is bundled in a [**Visual Studio Code Extension**](./editors/vscode)
   available from the market place.
@@ -193,7 +193,7 @@ See also the [Licensing FAQ](FAQ.md#licensing)
 
 ## Contributions
 
-We welcome your contributions: in the form of code, bug reports or feedback.
+We welcome your contributions: in the form of code, bug reports, or feedback.
 
 - If you see an [RFC tag](https://github.com/slint-ui/slint/labels/rfc) on an
   issue, feel free to chime in.
@@ -206,9 +206,8 @@ Please see our separate [FAQ](FAQ.md).
 ## About us (SixtyFPS GmbH)
 
 We are passionate about software - API design, cross-platform software
-development and user interface components. Our aim is to make developing user
-interfaces fun for everyone: from JavaScript, C++, or Rust developers all the
-way to UI/UX designers. We believe that software grows organically and keeping
+development, and user interface components. We aim to make developing user
+interfaces fun for everyone: from JavaScript, C++, or Rust developers to UI/UX designers. We believe that software grows organically and keeping
 it open source is the best way to sustain that growth. Our team members are
 located remotely in Germany.
 
@@ -224,7 +223,7 @@ Feel free to join [Github discussions](https://github.com/slint-ui/slint/discuss
 for general chat or questions. Use [Github issues](https://github.com/slint-ui/slint/issues)
 to report public suggestions or bugs.
 
-We chat in [our Mattermost instance](https://chat.slint.dev) where you are
+We chat in [our Mattermost instance](https://chat.slint.dev) Welcome  are
 welcome to listen in or ask your questions.
 
 You can of course also contact us privately via email to [info@slint.dev](mailto://info@slint.dev).
