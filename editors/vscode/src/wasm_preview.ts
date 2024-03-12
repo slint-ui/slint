@@ -89,7 +89,7 @@ function getPreviewHtml(
     slint_wasm_preview_url: Uri,
     default_style: string,
 ): string {
-    const experimental = process.env.hasOwnProperty("SLINT_ENABLE_EXPERIMENTAL_FEATURES");
+    const experimental = typeof process !== 'undefined' && process.env.hasOwnProperty("SLINT_ENABLE_EXPERIMENTAL_FEATURES");
     const result = `<!DOCTYPE html>
 <html lang="en" style="height: 100%; width: 100%;">
 <head>
