@@ -12,7 +12,9 @@ import { MobileHeader } from "blocks/blocks.slint";
 import { MenuBackground } from "components/menu_background.slint";
 
 
-export component MobileMain {
+export component MobileMain inherits Window {
+    background: Theme.palette.pure-black;
+
     tab-widget := TabWidget {
         y: header.height + 16px;
         width: 100%;
