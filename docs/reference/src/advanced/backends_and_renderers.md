@@ -20,11 +20,11 @@ The backend is selected as follows:
 The following table provides an overview over the built-in backends. For more information about the backend's
 capabilities and their configuration options, see the respective sub-pages.
 
-| Backend Name | Description                                                                                             | Built-in by Default   |
-|--------------|---------------------------------------------------------------------------------------------------------|-----------------------|
-| qt           | The Qt library is used for windowing system integration, rendering, and native widget styling.          | Yes (if Qt installed) |
-| winit        | The [winit](https://docs.rs/winit/latest/winit/) library is used to interact with the windowing system. | Yes                   |
-| linuxkms     | Linux's KMS/DRI infrastructure is used for rendering. No windowing system or compositor is required.    | No                    |
+| Backend Name | Description                                                                                             | Built-in by Default         |
+|--------------|---------------------------------------------------------------------------------------------------------|-----------------------------|
+| qt           | The Qt library is used for windowing system integration, rendering, and native widget styling.          | On Linux if Qt is installed |
+| winit        | The [winit](https://docs.rs/winit/latest/winit/) library is used to interact with the windowing system. | Yes                         |
+| linuxkms     | Linux's KMS/DRI infrastructure is used for rendering. No windowing system or compositor is required.    | No                          |
 
 A backend is also responsible for selecting a renderer. See the [Renderers](#renderers) section
 for an overview. Override the choice of renderer by adding the name to the `SLINT_BACKEND` environment variable, separated by a dash.
