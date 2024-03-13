@@ -129,9 +129,17 @@ void EspPlatform::run_event_loop()
 
     esp_lcd_panel_disp_on_off(panel_handle, true);
 
+    TickType_t max_ticks_to_wait = portMAX_DELAY;
+
     if (touch_handle) {
-        esp_lcd_touch_register_interrupt_callback(
-                *touch_handle, [](auto) { vTaskNotifyGiveFromISR(task, nullptr); });
+        if (esp_lcd_touch_register_interrupt_callback(
+                    *touch_handle, [](auto) { vTaskNotifyGiveFromISR(task, nullptr); })
+            != ESP_OK) {
+
+            // No touch interrupt assigned or supported? Fall back to polling like esp_lvgl_port.
+            // LVGL polls in 5ms intervals, but FreeRTOS tick interval is 10ms, so go for that
+            max_ticks_to_wait = pdMS_TO_TICKS(10);
+        }
     }
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
     if (buffer2) {
@@ -251,11 +259,9 @@ void EspPlatform::run_event_loop()
             }
         }
 
-        TickType_t ticks_to_wait;
+        TickType_t ticks_to_wait = max_ticks_to_wait;
         if (auto wait_time = slint::platform::duration_until_next_timer_update()) {
-            ticks_to_wait = pdMS_TO_TICKS(wait_time->count());
-        } else {
-            ticks_to_wait = portMAX_DELAY;
+            ticks_to_wait = std::min(ticks_to_wait, pdMS_TO_TICKS(wait_time->count()));
         }
 
         ulTaskNotifyTake(/*reset to zero*/ pdTRUE, ticks_to_wait);

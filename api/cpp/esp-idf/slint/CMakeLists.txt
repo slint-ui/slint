@@ -4,8 +4,7 @@
 idf_component_register(
     SRCS "src/slint-esp.cpp"
     INCLUDE_DIRS "include"
-    REQUIRES "esp_lcd" "esp_lcd_touch"
-    PRIV_REQUIRES "esp_timer")
+    REQUIRES "esp_lcd" "esp_lcd_touch")
 
 if (CONFIG_IDF_TARGET_ARCH_XTENSA)
     set(Rust_CARGO_TARGET "xtensa-${IDF_TARGET}-none-elf")
