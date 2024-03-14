@@ -13,12 +13,16 @@ TestCase := Rectangle {
         source-clip-x: 20;
     }
 
+    img3 := Image {
+        source: @image-url("image.slint");
+    }
+
     out property <image> with-border: @image-url("dog.jpg", nine-slice(12 13 14 15));
 
     property <length> img_width: img.width;
     property <length> img_height: img.height;
     property <bool> test: img2.source-clip-height * 1px == img2.height && img2.source-clip-width * 1px == img2.width &&
-         img2.width/1px == img2.source.width - 20;
+         img2.width/1px == img2.source.width - 20 && img3.source.width == 0 && img3.source.height == 0;
 }
 
 /*
