@@ -77,6 +77,26 @@ component SelectionFrame {
             background: parent.resizing || parent.moving ? root.selection.border-color.with-alpha(0.5) : root.selection.border-color.with-alpha(0.0);
         }
     }
+
+    // Size label:
+    if selection.is-resizable: Rectangle {
+        x: 0;
+        y: root.height + 5px;
+        width: root.width;
+
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                background: root.selection.border-color;
+                width: label.width * 1.2;
+                height: label.height * 1.2;
+                label := Text {
+                    color: Colors.white;
+                    text: Math.round(root.selection.width/1px) + "x" + Math.round(root.selection.height/1px);
+                }
+            }
+        }
+    }
 }
 
 export enum DrawAreaMode {
