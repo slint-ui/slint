@@ -629,10 +629,12 @@ fn set_selections(
         .iter()
         .enumerate()
         .map(|(i, g)| ui::Selection {
-            width: g.size.width,
-            height: g.size.height,
-            x: g.origin.x,
-            y: g.origin.y,
+            geometry: ui::SelectionRectangle {
+                width: g.size.width,
+                height: g.size.height,
+                x: g.origin.x,
+                y: g.origin.y,
+            },
             border_color: if i == main_index { border_color } else { secondary_border_color },
             is_primary: i == main_index,
             is_moveable,
