@@ -951,7 +951,7 @@ fn format_states(
         }
         fold(n, writer, state)?;
     }
-    state.skip_all_whitespace = true;
+    state.new_line();
     Ok(())
 }
 
@@ -1475,7 +1475,7 @@ component ABC {
         is-not-selected when root.b!=root.b: {
             root.a: 1;
         }
-    ]
+    ]    foo := Rectangle { }
 }
 "#,
             r#"
@@ -1491,6 +1491,7 @@ component ABC {
             root.a: 1;
         }
     ]
+    foo := Rectangle { }
 }
 "#,
         );
