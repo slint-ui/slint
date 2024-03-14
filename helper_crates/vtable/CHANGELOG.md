@@ -3,7 +3,7 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
-## [0.2.0]
+## [0.2.0] - 2024-03-14
 
  - Make `Dyn` not Send or Sync, thereby fixing a soundness hole
 
