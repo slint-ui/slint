@@ -34,22 +34,9 @@ pub enum AccessibleStringProperty {
 pub enum AccessibilityAction {
     Default,
     Focus,
-    Blur,
-    Collapse,
-    Expand,
-    CustomAction,
     Decrement,
     Increment,
     ReplaceSelectedText(SharedString),
-    ScrollBackward,
-    ScrollDown,
-    ScrollForward,
-    ScrollLeft,
-    ScrollRight,
-    ScrollUp,
-    ScrollIntoView,
-    ScrollToPoint(LogicalPoint),
-    SetScrollOffset(LogicalVector),
     SetTextSelection(Option<core::ops::Range<i32>>),
     SetValue(f64),
 }
@@ -59,24 +46,11 @@ bitflags! {
     pub struct SupportedAccessibilityAction: u32 {
         const Default = 1;
         const Focus = 1 << 1;
-        const Blur = 1 << 2;
-        const Collapse = 1 << 4;
-        const Expand = 1 << 5;
-        const CustomAction = 1 << 6;
-        const Decrement = 1 << 7;
-        const Increment = 1 << 8;
-        const ReplaceSelectedText = 1 << 9;
-        const ScrollBackward = 1 << 10;
-        const ScrollDown = 1 << 11;
-        const ScrollForward = 1 << 12;
-        const ScrollLeft = 1 << 13;
-        const ScrollRight = 1 << 14;
-        const ScrollUp = 1 << 15;
-        const ScrollIntoView = 1 << 16;
-        const ScrollToPoint = 1 << 17;
-        const SetScrollOffset = 1 << 18;
-        const SetTextSelection = 1 << 19;
-        const SetValue = 1 << 20;
+        const Decrement = 1 << 2;
+        const Increment = 1 << 3;
+        const ReplaceSelectedText = 1 << 4;
+        const SetTextSelection = 1 << 5;
+        const SetValue = 1 << 6;
     }
 }
 
