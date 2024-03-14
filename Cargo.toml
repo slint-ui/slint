@@ -139,6 +139,7 @@ softbuffer = { version = "0.3.3", default-features = false }
 strum = { version = "0.26.1", default-features = false, features = ["derive"] }
 toml_edit = { version = "0.22.7" }
 cfg_aliases = { version = "0.2.0" }
+env_logger = { version = "0.10.0" }
 
 [profile.release]
 lto = true

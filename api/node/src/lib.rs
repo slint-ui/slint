@@ -13,6 +13,11 @@ use napi::{Env, JsFunction};
 extern crate napi_derive;
 
 #[napi]
+pub fn init_env_logger() {
+    env_logger::init();
+}
+
+#[napi]
 pub fn mock_elapsed_time(ms: f64) {
     i_slint_core::tests::slint_mock_elapsed_time(ms as _);
 }

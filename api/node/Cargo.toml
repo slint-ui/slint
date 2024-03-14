@@ -48,6 +48,7 @@ spin_on = "0.1"
 css-color-parser2 = { workspace = true }
 itertools = { workspace = true }
 send_wrapper = { workspace = true }
+env_logger = { workspace = true }
 
 [build-dependencies]
 napi-build = "2.1.0"
