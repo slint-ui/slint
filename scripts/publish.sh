@@ -13,6 +13,7 @@ cargo publish --manifest-path internal/backends/winit/Cargo.toml --features x11,
 cargo publish --manifest-path api/rs/build/Cargo.toml
 cargo publish --manifest-path internal/backends/qt/Cargo.toml
 cargo publish --manifest-path internal/backends/linuxkms/Cargo.toml
+cargo publish --manifest-path internal/backends/android-activity/Cargo.toml --features native-activity
 cargo publish --manifest-path internal/backends/selector/Cargo.toml --features backend-winit-x11,renderer-femtovg
 cargo publish --manifest-path internal/interpreter/Cargo.toml
 cargo publish --manifest-path api/rs/slint/Cargo.toml
@@ -20,5 +21,3 @@ cargo publish --manifest-path tools/lsp/Cargo.toml
 cargo publish --manifest-path tools/viewer/Cargo.toml
 cargo publish --manifest-path tools/updater/Cargo.toml
 cargo publish --manifest-path tools/tr-extractor/Cargo.toml
-cargo publish --manifest-path internal/backends/android-activity/Cargo.toml --features native-activity
-
