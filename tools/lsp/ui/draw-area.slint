@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-// cSpell: ignore Heade
+// cSpell: ignore resizer
 
 import { Button, ComboBox, HorizontalBox, ListView, ScrollView, Palette, VerticalBox } from "std-widgets.slint";
 import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
@@ -223,14 +223,14 @@ export component DrawArea {
                     }
                 }
             }
-
-            // Diagnostics overlay:
-            diagnostics := DiagnosticsOverlay {
-                width: 100%;
-                height: 100%;
-                diagnostics <=> root.diagnostics;
-                show-document(url, line, column) => { root.show-document(url, line, column); }
-            }
         }
+    }
+
+    // Diagnostics overlay:
+    diagnostics := DiagnosticsOverlay {
+        width: 100%;
+        height: 100%;
+        diagnostics <=> root.diagnostics;
+        show-document(url, line, column) => { root.show-document(url, line, column); }
     }
 }
