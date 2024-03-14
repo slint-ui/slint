@@ -8,7 +8,6 @@ use alloc::vec::Vec;
 
 use crate::{
     items::ItemRc,
-    lengths::{LogicalPoint, LogicalVector},
     SharedString,
 };
 
