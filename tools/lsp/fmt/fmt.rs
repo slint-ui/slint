@@ -129,6 +129,9 @@ fn format_node(
         SyntaxKind::StatePropertyChange => {
             return format_state_prop_change(node, writer, state);
         }
+        SyntaxKind::Transition => {
+            return format_transition(node, writer, state);
+        }
         SyntaxKind::PropertyAnimation => {
             return format_property_animation(node, writer, state);
         }
@@ -973,6 +976,35 @@ fn format_state_prop_change(
     Ok(())
 }
 
+fn format_transition(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    let ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
+
+    if !ok {
+        finish_node(sub, writer, state)?;
+        return Ok(());
+    }
+    state.indentation_level += 1;
+    state.new_line();
+    for n in sub {
+        if n.kind() == SyntaxKind::RBrace {
+            state.indentation_level -= 1;
+            state.whitespace_to_add = None;
+            state.new_line();
+            fold(n, writer, state)?;
+            state.new_line();
+        } else {
+            fold(n, writer, state)?;
+        }
+    }
+    Ok(())
+}
+
 fn format_property_animation(
     node: &SyntaxNode,
     writer: &mut impl TokenWriter,
@@ -1492,6 +1524,41 @@ component ABC {
         }
     ]
     foo := Rectangle { }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn states_transitions() {
+        assert_formatting(
+            r#"
+component FooBar {
+    states [
+        //comment
+        s1 when true: {
+    vv: 0;  in { animate vv {  duration: 400ms; }}  out { animate /*...*/  vv { duration:    400ms;   } animate dd { duration: 100ms+400ms ;  easing: ease-out; }   }  }
+    ]
+}
+"#,
+            r#"
+component FooBar {
+    states [
+        //comment
+        s1 when true: {
+            vv: 0;
+            in {
+                animate vv { duration: 400ms; }
+            }
+            out {
+                animate /*...*/  vv { duration: 400ms; }
+                animate dd {
+                    duration: 100ms + 400ms;
+                    easing: ease-out;
+                }
+            }
+        }
+    ]
 }
 "#,
         );
