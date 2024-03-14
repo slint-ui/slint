@@ -8,7 +8,7 @@ use crate::expression_tree::{Expression, NamedReference};
 use crate::object_tree::Component;
 use std::rc::Rc;
 
-const BORDER_RADIUS_PROPERTIES: [&str; 4] = [
+pub const BORDER_RADIUS_PROPERTIES: [&str; 4] = [
     "border-top-left-radius",
     "border-top-right-radius",
     "border-bottom-right-radius",
