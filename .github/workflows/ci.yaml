@@ -504,7 +504,6 @@ jobs:
 
             - name: Build todo demo
               run: |
-                  sed -i "s/#wasm# //" Cargo.toml
                   cargo apk build -p todo --target aarch64-linux-android --lib
               working-directory: examples/todo/rust
 
@@ -513,6 +512,11 @@ jobs:
                   sed -i "s/#wasm# //" Cargo.toml
                   cargo apk build -p printerdemo --target aarch64-linux-android --lib
               working-directory: examples/printerdemo/rust
+
+            - name: Build energy-monitor example
+              run: |
+                  cargo apk build -p energy-monitor --target aarch64-linux-android --lib
+              working-directory: examples/energy-monitor
 
     miri:
         runs-on: ubuntu-latest
