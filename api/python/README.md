@@ -130,7 +130,7 @@ print(main_window.counter)
 [Global Singletons](https://slint.dev/docs/slint/src/language/syntax/globals#global-singletons) are accessible in
 Python as properties in the component instance:
 
-```slint
+```slint,ignore
 export global PrinterJobQueue {
     in-out property <int> job-count;
 }
