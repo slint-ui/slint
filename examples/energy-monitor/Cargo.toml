@@ -10,9 +10,6 @@ build = "build.rs"
 publish = false
 license = "MIT"
 
-[[bin]]
-name = "energy-monitor"
-
 [lib]
 crate-type = ["cdylib", "lib"]
 
