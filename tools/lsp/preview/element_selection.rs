@@ -141,13 +141,7 @@ fn select_element_node(
         component_instance,
         path,
         offset,
-        selected_element
-            .element
-            .borrow()
-            .debug
-            .get(selected_element.debug_index)
-            .map(|(_, l)| l.is_some())
-            .unwrap_or(false),
+        selected_element.is_layout(),
         position,
         false, // We update directly;-)
     );
