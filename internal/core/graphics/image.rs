@@ -834,9 +834,7 @@ impl BorrowedOpenGLTextureBuilder {
 #[cfg(feature = "image-decoders")]
 pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_, u8>) -> Image {
     self::cache::IMAGE_CACHE.with(|global_cache| {
-        global_cache.borrow_mut().load_image_from_embedded_data(data, format).unwrap_or_else(|| {
-            panic!("internal error: embedded image data is not supported by run-time library",)
-        })
+        global_cache.borrow_mut().load_image_from_embedded_data(data, format).unwrap_or_default()
     })
 }
 
