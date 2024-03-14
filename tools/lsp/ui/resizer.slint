@@ -4,10 +4,12 @@
 // cSpell: ignore resizer
 
 global ResizeState {
-    out property <length> handle-size: 10px;
+    out property <length> handle-size: 8px;
 }
 
 component ResizeHandle inherits Rectangle {
+    in property <bool> show-handle: true;
+    in property <color> my-color: Colors.black;
     in property <MouseCursor> mouse-cursor;
     out property <bool> resizing <=> ta.pressed;
 
@@ -23,8 +25,9 @@ component ResizeHandle inherits Rectangle {
     width: ResizeState.handle-size;
     height: ResizeState.handle-size;
 
-    background: Colors.black;
-    border-color: Colors.white;
+    background: root.show-handle ? Colors.white : Colors.transparent;
+    border-color: root.show-handle ? root.my-color : Colors.transparent;
+
     border-width: 1px;
 
     ta := TouchArea {
@@ -105,7 +108,7 @@ export component Resizer {
         visible: is-resizable;
 
         n := ResizeHandle {
-            background: root.color;
+            show-handle: false;
             resize(x-offset, y-offset, done) => {
                 self.new-width = root.width;
                 self.new-height = Math.max(0px, y-offset * -1.0 + root.height);
@@ -115,12 +118,13 @@ export component Resizer {
             }
 
             mouse-cursor: MouseCursor.n-resize;
-            x: (root.width - root.handle-size) / 2.0;
-            y: -root.handle-size;
+            x: (root.handle-size / 2.0);
+            y: -(root.handle-size / 2.0);
+            width: root.width - root.handle-size;
         }
 
         ne := ResizeHandle {
-            background: root.color;
+            my-color: root.color;
             resize(x-offset, y-offset, done) => {
                 self.new-width = Math.max(0px, x-offset + root.width);
                 self.new-height = Math.max(0px, y-offset * -1.0 + root.height);
@@ -129,12 +133,12 @@ export component Resizer {
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.ne-resize;
-            x: root.width;
-            y: -root.handle-size;
+            x: root.width - (root.handle-size / 2.0);
+            y: -(root.handle-size / 2.0);
         }
 
         e := ResizeHandle {
-            background: root.color;
+            show-handle: false;
             resize(x-offset, y-offset, done) => {
                 self.new-width = Math.max(0px, x-offset + root.width);
                 self.new-height = root.height;
@@ -143,12 +147,13 @@ export component Resizer {
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.e-resize;
-            x: root.width;
-            y: (root.height - root.handle-size) / 2.0;
+            x: root.width - (root.handle-size / 2.0);
+            y: root.handle-size / 2.0;
+            height: root.height - root.handle-size;
         }
 
         se := ResizeHandle {
-            background: root.color;
+            my-color: root.color;
             resize(x-offset, y-offset, done) => {
                 self.new-width = Math.max(0px, x-offset + root.width);
                 self.new-height = Math.max(0px, y-offset + root.height);
@@ -157,12 +162,12 @@ export component Resizer {
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.se-resize;
-            x: root.width;
-            y: root.height;
+            x: root.width - (root.handle-size / 2.0);
+            y: root.height - (root.handle-size / 2.0);
         }
 
         s := ResizeHandle {
-            background: root.color;
+            show-handle: false;
             resize(x-offset, y-offset, done) => {
                 self.new-width = root.width;
                 self.new-height = Math.max(0px, y-offset + root.height);
@@ -171,12 +176,13 @@ export component Resizer {
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.s-resize;
-            x: (root.width - root.handle-size) / 2.0;
-            y: root.height;
+            x: root.handle-size / 2.0;
+            y: root.height - (root.handle-size / 2.0);
+            width: root.width - root.handle-size;
         }
 
         sw := ResizeHandle {
-            background: root.color;
+            my-color: root.color;
             resize(x-offset, y-offset, done) => {
                 self.new-width = Math.max(0px, x-offset * -1.0 + root.width);
                 self.new-height = Math.max(0px, y-offset + root.height);
@@ -185,12 +191,12 @@ export component Resizer {
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.sw-resize;
-            x: -root.handle-size;
-            y: root.height;
+            x: -(root.handle-size / 2.0);
+            y: root.height - (root.handle-size / 2.0);
         }
 
         w := ResizeHandle {
-            background: root.color;
+            show-handle: false;
             resize(x-offset, y-offset, done) => {
                 self.new-width = Math.max(0px, x-offset * -1.0 + root.width);
                 self.new-height = root.height;
@@ -199,12 +205,13 @@ export component Resizer {
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.w-resize;
-            x: -root.handle-size;
-            y: (root.height - root.handle-size) / 2.0;
+            x: -(root.handle-size / 2.0);
+            y: (root.handle-size / 2.0);
+            height: root.height - root.handle-size;
         }
 
         nw := ResizeHandle {
-            background: root.color;
+            my-color: root.color;
             resize(x-offset, y-offset, done) => {
                 self.new-width = Math.max(0px, x-offset * -1.0 + root.width);
                 self.new-height = Math.max(0px, y-offset * -1.0 + root.height);
@@ -213,8 +220,8 @@ export component Resizer {
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.nw-resize;
-            x: -root.handle-size;
-            y: -root.handle-size;
+            x: -(root.handle-size / 2.0);
+            y: -(root.handle-size / 2.0);
         }
     }
 }
