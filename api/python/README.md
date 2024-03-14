@@ -40,7 +40,7 @@ pipenv run python main.py
 1. Add Slint from the Git development branch to your Python project: `pipenv install "git+https://github.com/slint-ui/slint#subdirectory=api/python&egg=slint"`
 2. Create a file called `appwindow.slint`:
 
-```
+```slint
 import { Button, VerticalBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
@@ -85,7 +85,7 @@ The following example shows how to instantiate a Slint component in Python:
 
 **`ui.slint`**
 
-```
+```slint
 export component MainWindow inherits Window {
     callback clicked <=> i-touch-area.clicked;
 
@@ -130,7 +130,7 @@ print(main_window.counter)
 [Global Singletons](https://slint.dev/docs/slint/src/language/syntax/globals#global-singletons) are accessible in
 Python as properties in the component instance:
 
-```
+```slint
 export global PrinterJobQueue {
     in-out property <int> job-count;
 }
