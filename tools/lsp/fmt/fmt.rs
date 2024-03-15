@@ -896,7 +896,7 @@ fn format_state(
     let mut first = true;
 
     for n in sub {
-        if n.kind() == SyntaxKind::StatePropertyChange {
+        if matches!(n.kind(), SyntaxKind::StatePropertyChange | SyntaxKind::Transition) {
             if first {
                 // add new line after brace + increase indent
                 state.indentation_level += 1;
@@ -1157,6 +1157,7 @@ mod tests {
     use i_slint_compiler::diagnostics::BuildDiagnostics;
 
     // FIXME more descriptive errors when an assertion fails
+    #[track_caller]
     fn assert_formatting(unformatted: &str, formatted: &str) {
         // Parse the unformatted string
         let syntax_node = i_slint_compiler::parser::parse(
@@ -1572,6 +1573,21 @@ component FooBar {
     ]
 }
 "#,
+        );
+
+        assert_formatting(
+            "component FooBar {states[foo:{in{animate x{duration:1ms;}}x:0;}]}",
+            r"component FooBar {
+    states [
+        foo: {
+            in {
+                animate x { duration: 1ms; }
+            }
+            x: 0;
+        }
+    ]
+}
+",
         );
     }
 
