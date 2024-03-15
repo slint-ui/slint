@@ -6,7 +6,9 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-use crate::items::ItemRc;
+use crate::{items::ItemRc, SharedString};
+
+use bitflags::bitflags;
 
 // The property names of the accessible-properties
 #[repr(u32)]
@@ -22,6 +24,30 @@ pub enum AccessibleStringProperty {
     ValueMaximum,
     ValueMinimum,
     ValueStep,
+}
+
+// Defines an accessibility action.
+pub enum AccessibilityAction {
+    Default,
+    Focus,
+    Decrement,
+    Increment,
+    ReplaceSelectedText(SharedString),
+    SetTextSelection(Option<core::ops::Range<i32>>),
+    SetValue(f64),
+}
+
+bitflags! {
+    // Define a accessibility actions that currently supported by Slint.
+    pub struct SupportedAccessibilityAction: u32 {
+        const Default = 1;
+        const Focus = 1 << 1;
+        const Decrement = 1 << 2;
+        const Increment = 1 << 3;
+        const ReplaceSelectedText = 1 << 4;
+        const SetTextSelection = 1 << 5;
+        const SetValue = 1 << 6;
+    }
 }
 
 /// Find accessible descendents of `root_item`.
