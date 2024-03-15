@@ -6,10 +6,7 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-use crate::{
-    items::ItemRc,
-    SharedString,
-};
+use crate::{items::ItemRc, SharedString};
 
 use bitflags::bitflags;
 
