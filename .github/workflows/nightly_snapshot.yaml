@@ -471,7 +471,7 @@ jobs:
 
     android:
         env:
-            CARGO_APK_RELEASE_KEYSTORE: ~/.android/release.keystore
+            CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
             CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         runs-on: ubuntu-latest
         steps:
@@ -497,7 +497,7 @@ jobs:
 
             - name: dump keystore
               run: |
-                  mkdir -p ~/.android
+                  mkdir -p /home/runner/.android
                   echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
 
             - name: Build energy-monitor example
