@@ -90,6 +90,9 @@ fn format_node(
         SyntaxKind::CallbackDeclaration => {
             return format_callback_declaration(node, writer, state);
         }
+        SyntaxKind::Function => {
+            return format_function(node, writer, state);
+        }
         SyntaxKind::QualifiedName => {
             return format_qualified_name(node, writer, state);
         }
@@ -484,6 +487,43 @@ fn format_callback_declaration(
     Ok(())
 }
 
+fn format_function(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    while whitespace_to_one_of(
+        &mut sub,
+        &[SyntaxKind::Identifier, SyntaxKind::DeclaredIdentifier],
+        writer,
+        state,
+        " ",
+    )? == SyntaxMatch::Found(SyntaxKind::Identifier)
+    {}
+
+    while let Some(n) = sub.next() {
+        state.skip_all_whitespace = true;
+        match n.kind() {
+            SyntaxKind::Comma => {
+                fold(n, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            SyntaxKind::Arrow => {
+                state.insert_whitespace(" ");
+                fold(n, writer, state)?;
+                whitespace_to(&mut sub, SyntaxKind::ReturnType, writer, state, " ")?;
+            }
+            _ => {
+                fold(n, writer, state)?;
+            }
+        }
+    }
+    state.new_line();
+    Ok(())
+}
+
 fn format_callback_connection(
     node: &SyntaxNode,
     writer: &mut impl TokenWriter,
@@ -678,7 +718,12 @@ fn format_codeblock(
     state.new_line();
     for n in sub {
         state.skip_all_whitespace = true;
-        if n.kind() == SyntaxKind::RBrace {
+        if n.kind() == SyntaxKind::Whitespace {
+            let is_empty_line = n.as_token().map(|n| n.text().contains("\n\n")).unwrap_or(false);
+            if is_empty_line {
+                state.new_line();
+            }
+        } else if n.kind() == SyntaxKind::RBrace {
             state.indentation_level -= 1;
             state.whitespace_to_add = None;
             state.new_line();
@@ -1882,6 +1927,26 @@ export component MainWindow2 inherits Rectangle {
     property <int> xx <=> ff.mm;
     callback doo <=> moo;
     property e-e <=> f-f;
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn function() {
+        assert_formatting(
+            "export component Foo-bar{ pure\nfunction\n(x  :  int,y:string)->int{ self.y=0;\n\nif(true){return(45);} return x;  } function a(){/* ddd */}}",
+            r#"export component Foo-bar {
+    pure function (x  :  int,y:string) -> int {
+        self.y = 0;
+
+        if (true) {
+            return(45);
+        }
+        return x;
+    }
+    function a(){
+        /* ddd */}
 }
 "#,
         );
