@@ -508,7 +508,9 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: android-demo
-                  path: target/release/apk
+                  path: |
+                    target/release/apk/energy-monitor.apk
+                    target/release/apk/todo_lib.apk
 
 # Purely quality-assurance related jobs, not relevant for release artefacts
     qa-esp-idf:
