@@ -37,7 +37,7 @@ ENV PKG_CONFIG_ALLOW_CROSS=1
 COPY . /slint
 WORKDIR /slint
 RUN mkdir demos \
-    && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo energy-monitor; do \
+    && for demo in printerdemo-bin slide_puzzle gallery opengl_underlay carousel todo-bin energy-monitor; do \
     cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-skia,slint/backend-linuxkms-noseat -p $demo || exit 1; \
     cp target/$RUST_TOOLCHAIN_ARCH/release/$demo ./demos/; \
     done
@@ -46,7 +46,7 @@ RUN mkdir demos \
 FROM --platform=$IMAGE_ARCH torizon/$BASE_NAME:3
 
 LABEL org.opencontainers.image.source=https://github.com/slint-ui/slint
-LABEL org.opencontainers.image.description="Container image providing Slint demos for use on Torizon. Run with docker run  --user=torizon -v /run/udev:/run/udev -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' --device-cgroup-rule='c 13:* rmw' --device-cgroup-rule='c 4:* rmw'. Available demos: printerdemo slide_puzzle gallery opengl_underlay carousel todo"
+LABEL org.opencontainers.image.description="Container image providing Slint demos for use on Torizon. Run with docker run  --user=torizon -v /run/udev:/run/udev -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' --device-cgroup-rule='c 13:* rmw' --device-cgroup-rule='c 4:* rmw'. Available demos: printerdemo-bin slide_puzzle gallery opengl_underlay carousel todo-bin"
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install libfontconfig1 libxkbcommon0 libinput10 fonts-noto-core fonts-noto-cjk fonts-noto-cjk-extra fonts-noto-color-emoji fonts-noto-ui-core fonts-noto-ui-extra \
