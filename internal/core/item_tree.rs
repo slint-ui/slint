@@ -5,7 +5,9 @@
 
 //! This module contains the ItemTree and code that helps navigating it
 
-use crate::accessibility::AccessibleStringProperty;
+use crate::accessibility::{
+    AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
+};
 use crate::items::{AccessibleRole, ItemRef, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalPoint, LogicalRect};
@@ -122,8 +124,20 @@ pub struct ItemTreeVTable {
 
     /// in-place destructor (for VRc)
     pub drop_in_place: unsafe fn(VRefMut<ItemTreeVTable>) -> vtable::Layout,
+
     /// dealloc function (for VRc)
     pub dealloc: unsafe fn(&ItemTreeVTable, ptr: *mut u8, layout: vtable::Layout),
+
+    /// Executes an accessibility action.
+    pub accessibility_action: extern "C" fn(
+        core::pin::Pin<VRef<ItemTreeVTable>>,
+        item_index: u32,
+        action: AccessibilityAction,
+    ),
+
+    /// Returns the supported accessibility actions.
+    pub supported_accessibility_actions:
+        extern "C" fn(core::pin::Pin<VRef<ItemTreeVTable>>, item_index: u32) -> u32,
 }
 
 #[cfg(test)]
@@ -1134,6 +1148,14 @@ mod tests {
         }
 
         fn item_geometry(self: Pin<&Self>, _: u32) -> LogicalRect {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn accessibility_action(self: core::pin::Pin<&Self>, _1: u32, _2: AccessibilityAction) {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn supported_accessibility_actions(self: core::pin::Pin<&Self>, _1: u32) -> u32 {
             unimplemented!("Not needed for this test")
         }
     }

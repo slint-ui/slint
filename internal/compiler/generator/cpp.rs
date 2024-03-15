@@ -1390,6 +1390,38 @@ fn generate_item_tree(
         }),
     ));
 
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "accessibility_action".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::cbindgen_private::AccessibilityAction what) -> void"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![format!(
+                "*result = reinterpret_cast<const {}*>(component.instance)->accessibility_action(index, what);",
+                item_tree_class_name
+            )]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "supported_accessibility_actions".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index,) -> uint32_t"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![format!(
+                "*result = reinterpret_cast<const {}*>(component.instance)->supported_accessibility_actions(index);",
+                item_tree_class_name
+            )]),
+            ..Default::default()
+        }),
+    ));
+
     file.definitions.push(Declaration::Var(Var {
         ty: "inline const slint::private_api::ItemTreeVTable".to_owned(),
         name: format!("{}::static_vtable", item_tree_class_name),
@@ -1397,6 +1429,7 @@ fn generate_item_tree(
             "{{ visit_children, get_item_ref, get_subtree_range, get_subtree, \
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
                 item_geometry, accessible_role, accessible_string_property, window_adapter, \
+                accessibility_action, supported_accessibility_actions \
                 slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
             item_tree_class_name
         )),
@@ -1919,8 +1952,8 @@ fn generate_sub_component(
         accessible_role_cases,
     );
     dispatch_item_function(
-        "accessible_string_property",
-        "(uint32_t index, slint::cbindgen_private::AccessibleStringProperty what) const -> slint::SharedString",
+        "accessibility_action",
+        "(uint32_t index, slint::cbindgen_private::AccessibilityAction what) const -> void",
         ", what",
         accessible_string_cases,
     );
