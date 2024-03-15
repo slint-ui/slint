@@ -502,12 +502,15 @@ jobs:
 
             - name: Build energy-monitor example
               run: cargo apk build -p energy-monitor --target aarch64-linux-android --lib --release
+            - name: Build todo demo
+              run: cargo apk build -p todo --target aarch64-linux-android --lib --release
             - name: "upload APK artifact"
               uses: actions/upload-artifact@v4
               with:
                   name: android-demo.zip
                   path: |
-                    tarket/release/apk/energy-monitor.apk
+                    target/release/apk/energy-monitor.apk
+                    target/release/apk/todo.apk
 
 # Purely quality-assurance related jobs, not relevant for release artefacts
     qa-esp-idf:
