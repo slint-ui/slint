@@ -59,6 +59,8 @@
 //! Please ensure that you have the Android NDK and SDK installed and properly set up in your development environment for the above command to work as expected.
 //! For detailed instructions on how to set up the Android NDK and SDK, please refer to the [Android Developer's guide](https://developer.android.com/studio/projects/install-ndk).
 //! The `ANDROID_HOME` and `ANDROID_NDK_ROOT` environment variable need to be set to the right path.
+//!
+//! Note Slint does not require a specific build tool and can work with others, such as [xbuild](https://github.com/rust-mobile/xbuild).
 
 /// Re-export of the android-activity crate.
 #[cfg(all(target_os = "android", feature = "backend-android-activity-05"))]
