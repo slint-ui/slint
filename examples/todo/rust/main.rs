@@ -5,5 +5,5 @@
 // Just forward to the library in main
 
 fn main() {
-    todo_lib::main();
+    todo::main();
 }

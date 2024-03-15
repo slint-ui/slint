@@ -77,8 +77,8 @@ jobs:
               with:
                   name: printerdemo-${{ matrix.target }}
                   path: |
-                      target/${{ matrix.target }}/release/printerdemo
-                      target/${{ matrix.target }}/release/todo
+                      target/${{ matrix.target }}/release/printerdemo-bin
+                      target/${{ matrix.target }}/release/todo-bin
                       target/${{ matrix.target }}/release/gallery
                       target/${{ matrix.target }}/release/viewer
                       target/${{ matrix.target }}/release/energy-monitor

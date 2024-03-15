@@ -5,5 +5,5 @@
 // Just forward to the library in main
 
 fn main() {
-    printerdemo_lib::main();
+    printerdemo::main();
 }

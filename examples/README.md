@@ -188,7 +188,7 @@ cargo run --release
 or you can run them from anywhere in the Cargo workspace by name:
 
 ```sh
-cargo run --release --bin printerdemo
+cargo run --release --bin printerdemo-bin
 ```
 
 ### Wasm builds

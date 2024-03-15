@@ -59,5 +59,5 @@ You can quickly try out the [examples](/examples) by cloning this repo and runni
 
 ```sh
 # Runs the "printerdemo" example
-cargo run --release --bin printerdemo
+cargo run --release --bin printerdemo-bin
 ```

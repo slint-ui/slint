@@ -12,12 +12,11 @@ license = "MIT"
 
 [[bin]]
 path = "main.rs"
-name = "printerdemo"
+name = "printerdemo-bin"
 
 [lib]
 path = "lib.rs"
 crate-type = ["lib", "cdylib"]
-name = "printerdemo_lib"
 
 [dependencies]
 slint = { path = "../../../api/rs/slint", features = ["backend-android-activity-05"] }
