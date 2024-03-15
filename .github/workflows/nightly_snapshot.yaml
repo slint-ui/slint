@@ -507,10 +507,8 @@ jobs:
             - name: "upload APK artifact"
               uses: actions/upload-artifact@v4
               with:
-                  name: android-demo.zip
-                  path: |
-                    target/release/apk/energy-monitor.apk
-                    target/release/apk/todo.apk
+                  name: android-demo
+                  path: target/release/apk
 
 # Purely quality-assurance related jobs, not relevant for release artefacts
     qa-esp-idf:
