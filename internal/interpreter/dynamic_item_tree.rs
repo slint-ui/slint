@@ -239,6 +239,14 @@ impl ItemTree for ErasedItemTreeBox {
     fn window_adapter(self: Pin<&Self>, do_create: bool, result: &mut Option<WindowAdapterRc>) {
         self.borrow().as_ref().window_adapter(do_create, result);
     }
+
+    fn accessibility_action(self: core::pin::Pin<&Self>, index: u32, action: AccessibilityAction) {
+        self.borrow().as_ref().accessibility_action(index, action)
+    }
+
+    fn supported_accessibility_actions(self: core::pin::Pin<&Self>, index: u32) -> u32 {
+        self.borrow().as_ref().supported_accessibility_actions(index)
+    }
 }
 
 i_slint_core::ItemTreeVTable_static!(static COMPONENT_BOX_VT for ErasedItemTreeBox);
@@ -1165,6 +1173,8 @@ pub(crate) fn generate_item_tree<'id>(
         window_adapter,
         drop_in_place,
         dealloc,
+        accessibility_action: todo!(),
+        supported_accessibility_actions: todo!(),
     };
     let t = ItemTreeDescription {
         ct: t,
@@ -1892,6 +1902,17 @@ extern "C" fn window_adapter(
     } else {
         *result = instance_ref.maybe_window_adapter();
     }
+}
+
+extern "C" fn accessibility_action(
+    component: ItemTreeRefPin,
+    item_index: u32,
+    what: AccessibilityAction,
+) {
+}
+
+extern "C" fn supported_accessibility_actions(component: ItemTreeRefPin, item_index: u32) -> u32 {
+    0
 }
 
 unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ItemTreeVTable>) -> vtable::Layout {
