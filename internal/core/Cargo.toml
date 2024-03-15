@@ -89,6 +89,7 @@ fontdb = { workspace = true, optional = true }
 serde = { version = "1.0.163", features = ["derive"], optional = true }
 
 raw-window-handle-06 = { workspace = true, optional = true }
+bitflags = { version = "2.4.2" }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7", optional = true, features = ["gettext-system"] }
