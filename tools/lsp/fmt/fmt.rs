@@ -891,11 +891,6 @@ fn format_state(
         return Ok(());
     }
 
-    let prev_is_state = node.prev_sibling().map(|p| p.kind() == SyntaxKind::State).unwrap_or(false);
-    if !prev_is_state {
-        state.indentation_level += 1;
-    }
-
     state.new_line();
     let ins_ctn = state.insertion_count;
     let mut first = true;
@@ -911,7 +906,9 @@ fn format_state(
             first = false;
             fold(n, writer, state)?;
         } else if n.kind() == SyntaxKind::RBrace {
-            state.indentation_level -= 1;
+            if !first {
+                state.indentation_level -= 1;
+            }
             state.whitespace_to_add = None;
             if ins_ctn == state.insertion_count {
                 state.insert_whitespace("");
@@ -933,7 +930,6 @@ fn format_states(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    let start_indent = state.indentation_level;
     let mut sub = node.children_with_tokens();
     let ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
         && whitespace_to(&mut sub, SyntaxKind::LBracket, writer, state, " ")?;
@@ -943,13 +939,13 @@ fn format_states(
         return Ok(());
     }
 
+    state.indentation_level += 1;
+    state.new_line();
+
     for n in sub {
         if n.kind() == SyntaxKind::RBracket {
             state.whitespace_to_add = None;
-            // indent level may not have changed
-            while start_indent < state.indentation_level {
-                state.indentation_level -= 1;
-            }
+            state.indentation_level -= 1;
             state.new_line();
         }
         fold(n, writer, state)?;
@@ -1524,6 +1520,21 @@ component ABC {
         }
     ]
     foo := Rectangle { }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn state_issue_4850() {
+        // #4850
+        assert_formatting(
+            "export component LspCrashMvp { states [ active: { } inactive: { } ] }",
+            r#"export component LspCrashMvp {
+    states [
+        active: {}
+        inactive: {}
+    ]
 }
 "#,
         );
