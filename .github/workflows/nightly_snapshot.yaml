@@ -470,6 +470,9 @@ jobs:
                   commit: ${{ github.sha }}
 
     android:
+        env:
+            CARGO_APK_RELEASE_KEYSTORE: ~/.android/release.keystore
+            CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -492,10 +495,13 @@ jobs:
               with:
                   target: aarch64-linux-android
 
-            - name: Build energy-monitor example
+            - name: dump keystore
               run: |
-                  cargo apk build -p energy-monitor --target aarch64-linux-android --lib --release
-              working-directory: examples/energy-monitor
+                  mkdir -p ~/.android
+                  echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
+
+            - name: Build energy-monitor example
+              run: cargo apk build -p energy-monitor --target aarch64-linux-android --lib --release
             - name: "upload APK artifact"
               uses: actions/upload-artifact@v4
               with:
