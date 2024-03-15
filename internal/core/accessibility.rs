@@ -27,13 +27,15 @@ pub enum AccessibleStringProperty {
 }
 
 // Defines an accessibility action.
+#[repr(u32)]
+#[derive(PartialEq, Clone, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 pub enum AccessibilityAction {
     Default,
     Focus,
     Decrement,
     Increment,
     ReplaceSelectedText(SharedString),
-    SetTextSelection(Option<core::ops::Range<i32>>),
     SetValue(f64),
 }
 
@@ -45,8 +47,7 @@ bitflags! {
         const Decrement = 1 << 2;
         const Increment = 1 << 3;
         const ReplaceSelectedText = 1 << 4;
-        const SetTextSelection = 1 << 5;
-        const SetValue = 1 << 6;
+        const SetValue = 1 << 5;
     }
 }
 
