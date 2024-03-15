@@ -503,16 +503,13 @@ jobs:
                   target: aarch64-linux-android
 
             - name: Build todo demo
-              run: |
-                  sed -i "s/#wasm# //" Cargo.toml
-                  cargo apk build -p todo --target aarch64-linux-android --lib
-              working-directory: examples/todo/rust
+              run: cargo apk build -p todo --target aarch64-linux-android --lib
+
+            - name: Build energy-monitor example
+              run: cargo apk build -p energy-monitor --target aarch64-linux-android --lib
 
             - name: Build printerdemo example
-              run: |
-                  sed -i "s/#wasm# //" Cargo.toml
-                  cargo apk build -p printerdemo --target aarch64-linux-android --lib
-              working-directory: examples/printerdemo/rust
+              run: cargo apk build -p printerdemo --target aarch64-linux-android --lib
 
     miri:
         runs-on: ubuntu-latest

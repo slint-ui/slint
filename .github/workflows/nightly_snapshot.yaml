@@ -469,6 +469,49 @@ jobs:
                   tag: v${{ steps.version.outputs.VERSION }}
                   commit: ${{ github.sha }}
 
+    android:
+        env:
+            CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
+            CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Install Android API level 30
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - name: Cache cargo-apk
+              id: cargo-apk-cache
+              uses: actions/cache@v4
+              with:
+                  path: ~/.cargo/bin/cargo-apk
+                  key: cargo-apk-cache
+            # Only build cargo-apk if not cached
+            - uses: dtolnay/rust-toolchain@stable
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk
+              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
+              run: cargo install cargo-apk
+
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
+
+            - name: dump keystore
+              run: |
+                  mkdir -p /home/runner/.android
+                  echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
+
+            - name: Build energy-monitor example
+              run: cargo apk build -p energy-monitor --target aarch64-linux-android --lib --release
+            - name: Build todo demo
+              run: cargo apk build -p todo --target aarch64-linux-android --lib --release
+            - name: "upload APK artifact"
+              uses: actions/upload-artifact@v4
+              with:
+                  name: android-demo
+                  path: |
+                    target/release/apk/energy-monitor.apk
+                    target/release/apk/todo_lib.apk
+
 # Purely quality-assurance related jobs, not relevant for release artefacts
     qa-esp-idf:
         strategy:
