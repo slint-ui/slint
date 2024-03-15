@@ -119,11 +119,13 @@ impl ModelTracker for () {
 /// }
 /// ```
 pub trait Model {
-    /// The model data: A model is a set of row and each row has this data
+    /// The model data: A model is a set of rows and each row has this data
     type Data;
-    /// The amount of row in the model
+    /// The number of rows in the model
     fn row_count(&self) -> usize;
-    /// Returns the data for a particular row. This function should be called with `row < row_count()`.
+    /// Returns the data for a particular row.
+    ///
+    /// This function should normally be called with `row < row_count()` and should return None otherwise.
     ///
     /// This function does not register dependencies on the current binding. For an equivalent
     /// function that tracks dependencies, see [`ModelExt::row_data_tracked`]
@@ -774,7 +776,9 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
             if !self.model.is_dirty() {
                 if let Some(comp) = c.1.as_ref() {
                     let model = self.project_ref().model.get_untracked();
-                    comp.update(row, model.row_data(row).unwrap());
+                    if let Some(data) = model.row_data(row) {
+                        comp.update(row, data);
+                    }
                     c.0 = RepeatedInstanceState::Clean;
                 }
             } else {
@@ -909,7 +913,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                 } else {
                     false
                 };
-                c.1.as_ref().unwrap().update(i + offset, model.row_data(i + offset).unwrap());
+                if let Some(data) = model.row_data(i + offset) {
+                    c.1.as_ref().unwrap().update(i + offset, data);
+                }
                 if created {
                     c.1.as_ref().unwrap().init();
                 }
@@ -1014,7 +1020,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                     if c.1.is_none() {
                         c.1 = Some(init());
                     }
-                    c.1.as_ref().unwrap().update(new_offset, model.row_data(new_offset).unwrap());
+                    if let Some(data) = model.row_data(new_offset) {
+                        c.1.as_ref().unwrap().update(new_offset, data);
+                    }
                     c.0 = RepeatedInstanceState::Clean;
                 }
                 let h = c.1.as_ref().unwrap().as_pin_ref().item_geometry(0).height_length();
@@ -1049,7 +1057,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             while new_offset > 0 && new_offset_y > -vp_y {
                 new_offset -= 1;
                 let new_instance = init();
-                new_instance.update(new_offset, model.row_data(new_offset).unwrap());
+                if let Some(data) = model.row_data(new_offset) {
+                    new_instance.update(new_offset, data);
+                }
                 new_offset_y -= new_instance.as_pin_ref().item_geometry(0).height_length();
                 new_instances.push(new_instance);
             }
@@ -1079,7 +1089,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
                     if c.1.is_none() {
                         c.1 = Some(init());
                     }
-                    c.1.as_ref().unwrap().update(idx, model.row_data(idx).unwrap());
+                    if let Some(data) = model.row_data(idx) {
+                        c.1.as_ref().unwrap().update(idx, data);
+                    }
                     c.0 = RepeatedInstanceState::Clean;
                 }
                 if let Some(x) = c.1.as_ref() {
@@ -1094,7 +1106,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             // create more items until there is no more room.
             while y < -vp_y + listview_height && idx < row_count {
                 let new_instance = init();
-                new_instance.update(idx, model.row_data(idx).unwrap());
+                if let Some(data) = model.row_data(idx) {
+                    new_instance.update(idx, data);
+                }
                 new_instance.as_pin_ref().listview_layout(&mut y, viewport_width);
                 inner.instances.push((RepeatedInstanceState::Clean, Some(new_instance)));
                 idx += 1;
