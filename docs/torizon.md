@@ -40,7 +40,7 @@ By default, the printer demo from /usr/bin is run. The containers however packag
  * todo
  * energy-monitor
 
-Run then by specifying them as paramter to `docker run`, for example:
+Run then by specifying them as parameter to `docker run`, for example:
 
 ```
 docker run --user=torizon -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw ghcr.io/slint-ui/slint/torizon-demos-arm64-vivante opengl_underlay
