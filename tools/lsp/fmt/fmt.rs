@@ -108,6 +108,9 @@ fn format_node(
         SyntaxKind::CodeBlock => {
             return format_codeblock(node, writer, state);
         }
+        SyntaxKind::ReturnStatement => {
+            return format_return_statement(node, writer, state);
+        }
         SyntaxKind::AtGradient => {
             return format_at_gradient(node, writer, state);
         }
@@ -721,6 +724,22 @@ fn format_codeblock(
         }
     }
     state.skip_all_whitespace = true;
+    Ok(())
+}
+
+fn format_return_statement(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    if node.child_node(SyntaxKind::Expression).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
+    }
+    whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    state.new_line();
+    finish_node(sub, writer, state)?;
     Ok(())
 }
 
@@ -1687,9 +1706,10 @@ A := B {
 component ABC {
     in-out property <bool> logged_in: false;
     function clicked() -> bool {
-        if (logged_in) {
+        if (logged_in) { foo();
             logged_in = false;
-        return true;
+        return
+        true;
         } else {
             logged_in = false; return false;
         }
@@ -1701,6 +1721,7 @@ component ABC {
     in-out property <bool> logged_in: false;
     function clicked() -> bool {
         if (logged_in) {
+            foo();
             logged_in = false;
             return true;
         } else {
@@ -1935,13 +1956,14 @@ export component MainWindow2 inherits Rectangle {
     #[test]
     fn function() {
         assert_formatting(
-            "export component Foo-bar{ pure\nfunction\n(x  :  int,y:string)->int{ self.y=0;\n\nif(true){return(45);} return x;  } function a(){/* ddd */}}",
+            "export component Foo-bar{ pure\nfunction\n(x  :  int,y:string)->int{ self.y=0;\n\nif(true){return(45); a=0;} return x;  } function a(){/* ddd */}}",
             r#"export component Foo-bar {
     pure function (x  :  int,y:string) -> int {
         self.y = 0;
 
         if (true) {
-            return(45);
+            return (45);
+            a = 0;
         }
         return x;
     }
