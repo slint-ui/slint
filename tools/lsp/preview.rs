@@ -235,25 +235,25 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
     let (properties, op) = {
         let mut p = Vec::with_capacity(4);
         let mut op = "";
-        if geometry.origin.x != x {
+        if geometry.origin.x != x && x.is_finite() {
             p.push(crate::common::PropertyChange::new(
                 "x",
                 format!("{}px", (x - parent_x).round()),
             ));
             op = "Moving";
         }
-        if geometry.origin.y != y {
+        if geometry.origin.y != y && y.is_finite() {
             p.push(crate::common::PropertyChange::new(
                 "y",
                 format!("{}px", (y - parent_y).round()),
             ));
             op = "Moving";
         }
-        if geometry.size.width != width {
+        if geometry.size.width != width && width.is_finite() {
             p.push(crate::common::PropertyChange::new("width", format!("{}px", width.round())));
             op = "Resizing";
         }
-        if geometry.size.height != height {
+        if geometry.size.height != height && height.is_finite() {
             p.push(crate::common::PropertyChange::new("height", format!("{}px", height.round())));
             op = "Resizing";
         }
