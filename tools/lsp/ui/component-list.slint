@@ -16,8 +16,8 @@ export component ComponentList {
     in property <length> preview-area-width;
     in property <length> preview-area-height;
 
-    pure callback can-drop(string /* component_type */, length /* x */, length /* y */) -> bool;
-    callback drop(string /* component_type */, length /* x */, length /* y */);
+    pure callback can-drop(string/* component_type */, length/* x */, length/* y */) -> bool;
+    callback drop(string/* component_type */, length/* x */, length/* y */);
 
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
 
@@ -51,7 +51,9 @@ export component ComponentList {
                         enabled: root.preview-visible;
                         height: name.preferred-height + 10px;
                         width: 100%;
-                        name := Text { text: ci; }
+                        name := Text {
+                            text: ci;
+                        }
 
                         pointer-event(event) => {
                             if (self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {

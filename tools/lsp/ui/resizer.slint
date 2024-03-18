@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+// cSpell: ignore resizer
+
 global ResizeState {
     out property <length> handle-size: 10px;
 }
@@ -36,7 +38,7 @@ component ResizeHandle inherits Rectangle {
         }
 
         pointer-event(event) => {
-            if event.button == PointerEventButton.left &&  event.kind == PointerEventKind.up {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
                 root.resize(x-offset, y-offset, true);
             }
         }
@@ -91,7 +93,6 @@ export component Resizer {
             pointer-event(event) => {
                 resize-area.moving = self.pressed;
                 self.modifiers = event.modifiers;
-
                 if self.has-moved && event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
                     root.update-geometry(root.x-position + x-offset, root.y-position + y-offset, root.width, root.height, true);
                     self.has-moved = false;
@@ -110,7 +111,6 @@ export component Resizer {
                 self.new-height = Math.max(0px, y-offset * -1.0 + root.height);
                 self.new-x = root.left;
                 self.new-y = root.bottom - self.new-height;
-
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
 
@@ -118,6 +118,7 @@ export component Resizer {
             x: (root.width - root.handle-size) / 2.0;
             y: -root.handle-size;
         }
+
         ne := ResizeHandle {
             background: root.color;
             resize(x-offset, y-offset, done) => {
@@ -125,13 +126,13 @@ export component Resizer {
                 self.new-height = Math.max(0px, y-offset * -1.0 + root.height);
                 self.new-x = root.left;
                 self.new-y = root.bottom - self.new-height;
-
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.ne-resize;
             x: root.width;
             y: -root.handle-size;
         }
+
         e := ResizeHandle {
             background: root.color;
             resize(x-offset, y-offset, done) => {
@@ -139,13 +140,13 @@ export component Resizer {
                 self.new-height = root.height;
                 self.new-x = root.left;
                 self.new-y = root.top;
-
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.e-resize;
             x: root.width;
             y: (root.height - root.handle-size) / 2.0;
         }
+
         se := ResizeHandle {
             background: root.color;
             resize(x-offset, y-offset, done) => {
@@ -153,13 +154,13 @@ export component Resizer {
                 self.new-height = Math.max(0px, y-offset + root.height);
                 self.new-x = root.left;
                 self.new-y = root.top;
-
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.se-resize;
             x: root.width;
             y: root.height;
         }
+
         s := ResizeHandle {
             background: root.color;
             resize(x-offset, y-offset, done) => {
@@ -167,13 +168,13 @@ export component Resizer {
                 self.new-height = Math.max(0px, y-offset + root.height);
                 self.new-x = root.left;
                 self.new-y = root.top;
-
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.s-resize;
             x: (root.width - root.handle-size) / 2.0;
             y: root.height;
         }
+
         sw := ResizeHandle {
             background: root.color;
             resize(x-offset, y-offset, done) => {
@@ -181,13 +182,13 @@ export component Resizer {
                 self.new-height = Math.max(0px, y-offset + root.height);
                 self.new-x = root.right - self.new-width;
                 self.new-y = root.top;
-
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.sw-resize;
             x: -root.handle-size;
             y: root.height;
         }
+
         w := ResizeHandle {
             background: root.color;
             resize(x-offset, y-offset, done) => {
@@ -195,13 +196,13 @@ export component Resizer {
                 self.new-height = root.height;
                 self.new-x = root.right - self.new-width;
                 self.new-y = root.top;
-
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.w-resize;
             x: -root.handle-size;
             y: (root.height - root.handle-size) / 2.0;
         }
+
         nw := ResizeHandle {
             background: root.color;
             resize(x-offset, y-offset, done) => {
@@ -209,7 +210,6 @@ export component Resizer {
                 self.new-height = Math.max(0px, y-offset * -1.0 + root.height);
                 self.new-x = root.right - self.new-width;
                 self.new-y = root.bottom - self.new-height;
-
                 root.update-geometry(self.new-x, self.new-y, self.new-width, self.new-height, done);
             }
             mouse-cursor: MouseCursor.nw-resize;
