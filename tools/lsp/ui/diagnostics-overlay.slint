@@ -14,8 +14,8 @@ export struct Diagnostics {
 }
 
 export component DiagnosticsOverlay {
-    in property<[Diagnostics]> diagnostics;
-    out property<bool> diagnostics-open: diagnostics.length != 0;
+    in property <[Diagnostics]> diagnostics;
+    out property <bool> diagnostics-open: diagnostics.length != 0;
 
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
 
@@ -37,7 +37,9 @@ export component DiagnosticsOverlay {
                 for diag in root.diagnostics: Rectangle {
                     TouchArea {
                         mouse-cursor: pointer;
-                        clicked => { root.show_document(diag.url, diag.line, diag.column); }
+                        clicked => {
+                            root.show_document(diag.url, diag.line, diag.column);
+                        }
 
                         Text {
                             width: 100%;

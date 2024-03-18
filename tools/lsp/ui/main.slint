@@ -5,7 +5,7 @@
 
 import { Button, ComboBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
 import { ComponentList, ComponentListItem } from "component-list.slint";
-import { DrawArea, Selection } from "draw-area.slint";
+import { DrawArea, DrawAreaMode, Selection } from "draw-area.slint";
 import { HeaderBar } from "header-bar.slint";
 import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
 
@@ -53,96 +53,124 @@ export component PreviewUi inherits Window {
                 width: 100%;
                 height: 100%;
                 diagnostics <=> root.diagnostics;
-                show-document(url, line, column) => { root.show-document(url, line, column); }
+                show-document(url, line, column) => {
+                    root.show-document(url, line, column);
+                }
             }
         }
-        if (show-preview-ui): VerticalLayout {
-            HeaderBar {
-                vertical-stretch: 0.0;
+        if (show-preview-ui): Rectangle {
+            VerticalLayout {
+                HeaderBar {
+                    vertical-stretch: 0.0;
 
-                height: self.preferred-height;
+                    height: self.preferred-height;
 
-                pick-button := Button {
-                    text: @tr("Design Mode");
-                    checkable: true;
-                    checked <=> root.design-mode;
-                    clicked() => {
-                        key-handler.focus();
-                    }
-                }
-
-                Text {
-                    text: @tr("Style:");
-                    vertical-alignment: center;
-                }
-                style-select := ComboBox {
-                    model: root.known-styles;
-                    current-value <=> current-style;
-                    selected(value) => {
-                        root.style-changed();
-                    }
-                }
-
-                Text {
-                    text: root.status-text;
-                    vertical-alignment: center;
-                }
-            }
-
-            HorizontalLayout {
-                left-sidebar := Rectangle {
-                    VerticalBox {
-                        ComponentList {
-                            known-components <=> root.known-components;
-                            preview-area-position-x: draw-area.preview-area-position-x;
-                            preview-area-position-y: draw-area.preview-area-position-y;
-                            preview-area-width: draw-area.preview-area-width;
-                            preview-area-height: draw-area.preview-area-height;
-
-                            can-drop(c, x, y) => { return root.can-drop(c, x, y); }
-                            drop(c, x, y) => { root.drop(c, x, y); }
+                    pick-button := Button {
+                        text: @tr("Design Mode");
+                        checkable: true;
+                        checked <=> root.design-mode;
+                        clicked() => {
+                            key-handler.focus();
                         }
                     }
 
-                    states [
+                    Text {
+                        text: @tr("Style:");
+                        vertical-alignment: center;
+                    }
+
+                    style-select := ComboBox {
+                        model: root.known-styles;
+                        current-value <=> current-style;
+                        selected(value) => {
+                            root.style-changed();
+                        }
+                    }
+
+                    Text {
+                        text: root.status-text;
+                        vertical-alignment: center;
+                    }
+                }
+
+                HorizontalLayout {
+                    left-sidebar := Rectangle {
+                        VerticalBox {
+                            ComponentList {
+                                known-components <=> root.known-components;
+                                preview-area-position-x: draw-area.preview-area-position-x;
+                                preview-area-position-y: draw-area.preview-area-position-y;
+                                preview-area-width: draw-area.preview-area-width;
+                                preview-area-height: draw-area.preview-area-height;
+
+                                can-drop(c, x, y) => {
+                                    return root.can-drop(c, x, y);
+                                }
+                                drop(c, x, y) => {
+                                    root.drop(c, x, y);
+                                }
+                            }
+                        }
+
+                        states [
                         visible when !pick-button.checked: {
-                            width: 0px;
+                                width: 0px;
+                            }
+                            hidden when pick-button.checked: {
+                                width: root.side-bar-width;
+                            }
+                        ]
+                    }
+
+                    draw-area := DrawArea {
+                        design-mode <=> root.design-mode;
+                        diagnostics <=> root.diagnostics;
+                        preview-area <=> root.preview-area;
+                        selections <=> root.selections;
+
+                        select-at(x, y, enter_component) => {
+                            root.select-at(x, y, enter_component);
                         }
-                        hidden when pick-button.checked: {
-                            width: root.side-bar-width;
+                        selected-element-update-geometry(x, y, w, h) => {
+                            root.selected-element-update-geometry(x, y, w, h);
                         }
-                    ]
+                        selected-element-delete() => {
+                            root.selected-element-delete();
+                        }
+                        select-behind(x, y, stay_in_file, reverse) => {
+                            root.select-behind(x, y, stay_in_file, reverse);
+                        }
+                        show-document(url, line, column) => {
+                            root.show-document(url, line, column);
+                        }
+                        unselect() => {
+                            root.unselect();
+                        }
+                        reselect() => {
+                            root.reselect();
+                        }
+                    }
+
+                    preferred-width: draw-area.preferred-width + root.side-bar-width/* for left-side-bar */;
                 }
+            }
 
-                draw-area := DrawArea {
-                    design-mode <=> root.design-mode;
-                    diagnostics <=> root.diagnostics;
-                    preview-area <=> root.preview-area;
-                    selections <=> root.selections;
+            key-handler := FocusScope {
+                enabled: draw-area.mode == DrawAreaMode.designing;
 
-                    select-at(x, y, enter_component) => { root.select-at(x, y, enter_component); }
-                    selected-element-update-geometry(x, y, w, h) => { root.selected-element-update-geometry(x, y, w, h); }
-                    selected-element-delete() => { root.selected-element-delete(); }
-                    select-behind(x, y, stay_in_file, reverse) => { root.select-behind(x, y, stay_in_file, reverse); }
-                    show-document(url, line, column) => { root.show-document(url, line, column); }
-                    unselect() => { root.unselect(); }
-                    reselect() => { root.reselect(); }
+                key-released(event) => {
+                    if event.text == Key.Delete {
+                        // This `if` should not be necessary, but without it
+                        // we do trigger deletion of Elements while errors
+                        // are on screen.
+                        if draw-area.mode == DrawAreaMode.designing {
+                            root.selected-element-delete();
+                        }
+                        return accept;
+                    }
+                    reject
                 }
-
-                preferred-width: draw-area.preferred-width + root.side-bar-width /* for left-side-bar */;
             }
-        }
-    }
-
-    key-handler := FocusScope {
-        enabled: root.design-mode;
-
-        key-released(event) => {
-            if event.text == Key.Delete {
-                root.selected-element-delete();
-                return accept;
-            }
-            reject
         }
     }
 }
