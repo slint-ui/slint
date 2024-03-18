@@ -6,6 +6,7 @@
 #include "slint.h"
 
 #include <cassert>
+#include <cstdint>
 #include <utility>
 
 struct xcb_connection_t;
@@ -627,6 +628,55 @@ public:
     {
         auto r = cbindgen_private::slint_software_renderer_render_rgb565(
                 inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size(), pixel_stride);
+        return PhysicalRegion { r };
+    }
+
+    /// Render the window scene, line by line. The provided Callback will be invoked for each line
+    /// that needs to rendered.
+    ///
+    /// The renderer uses a cache internally and will only render the part of the window
+    /// which are dirty.
+    ///
+    /// This function returns the physical region that was rendered considering the rotation.
+    ///
+    /// The callback is invoked with the line number as first parameter, and the start x and end x
+    /// coordinates of the line as second and third parameter. The implementation must provide a
+    /// line buffer (as std::span) and invoke the provided fourth function pointer (render_fn) with
+    /// it, to fill it with pixels. The last parameter of Callback is a private data pointer that
+    /// must be provided as first argument to render_fn.
+    /// After the line buffer is filled with pixels, your implementation is free to flush that line
+    /// to the screen for display.
+    template<std::invocable<std::size_t, std::size_t, std::size_t,
+                            void (*)(void *, std::span<Rgb565Pixel> &), void *>
+                     Callback>
+    PhysicalRegion render_by_line(Callback process_line_callback) const
+    {
+        auto r = cbindgen_private::slint_software_renderer_render_by_line_rgb565(
+                inner,
+                [](void *process_line_callback_ptr, uintptr_t line, uintptr_t line_start,
+                   uintptr_t line_end, void (*render_fn)(const void *, uint16_t *, std::size_t),
+                   const void *render_fn_data) {
+                    struct RenderFnAndData
+                    {
+                        void (*render_fn)(const void *, uint16_t *, std::size_t);
+                        const void *render_fn_data;
+                    };
+                    RenderFnAndData rfad;
+                    rfad.render_fn = render_fn;
+                    rfad.render_fn_data = render_fn_data;
+
+                    (*reinterpret_cast<Callback *>(process_line_callback_ptr))(
+                            std::size_t(line), std::size_t(line_start), std::size_t(line_end),
+                            [](void *rfad_ptr, std::span<Rgb565Pixel> &line_span) {
+                                RenderFnAndData *rfad =
+                                        reinterpret_cast<RenderFnAndData *>(rfad_ptr);
+                                rfad->render_fn(rfad->render_fn_data,
+                                                reinterpret_cast<uint16_t *>(line_span.data()),
+                                                line_span.size());
+                            },
+                            &rfad);
+                },
+                &process_line_callback);
         return PhysicalRegion { r };
     }
 

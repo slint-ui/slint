@@ -22,7 +22,7 @@ struct EspPlatform : public slint::platform::Platform
 {
     EspPlatform(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                 std::optional<esp_lcd_touch_handle_t> touch,
-                std::span<slint::platform::Rgb565Pixel> buffer1,
+                std::optional<std::span<slint::platform::Rgb565Pixel>> buffer1,
                 std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2 = {}
 #ifdef SLINT_FEATURE_EXPERIMENTAL
                 ,
@@ -52,7 +52,7 @@ private:
     slint::PhysicalSize size;
     esp_lcd_panel_handle_t panel_handle;
     std::optional<esp_lcd_touch_handle_t> touch_handle;
-    std::span<slint::platform::Rgb565Pixel> buffer1;
+    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer1;
     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2;
 #ifdef SLINT_FEATURE_EXPERIMENTAL
     slint::platform::SoftwareRenderer::RenderingRotation rotation;
@@ -214,43 +214,71 @@ void EspPlatform::run_event_loop()
             }
 
             if (std::exchange(m_window->needs_redraw, false)) {
-                auto rotated = false
+                if (buffer1) {
+                    auto buffer1 = *this->buffer1;
+                    auto rotated = false
 #ifdef SLINT_FEATURE_EXPERIMENTAL
-                        || rotation
-                                == slint::platform::SoftwareRenderer::RenderingRotation::Rotate90
-                        || rotation
-                                == slint::platform::SoftwareRenderer::RenderingRotation::Rotate270
+                            || rotation
+                                    == slint::platform::SoftwareRenderer::RenderingRotation::
+                                            Rotate90
+                            || rotation
+                                    == slint::platform::SoftwareRenderer::RenderingRotation::
+                                            Rotate270
 #endif
-                        ;
-                auto region =
-                        m_window->m_renderer.render(buffer1, rotated ? size.height : size.width);
-                auto o = region.bounding_box_origin();
-                auto s = region.bounding_box_size();
-                if (s.width > 0 && s.height > 0) {
-                    if (buffer2) {
+                            ;
+                    auto region = m_window->m_renderer.render(buffer1,
+                                                              rotated ? size.height : size.width);
+                    auto o = region.bounding_box_origin();
+                    auto s = region.bounding_box_size();
+                    if (s.width > 0 && s.height > 0) {
+                        if (buffer2) {
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-                        xSemaphoreGive(sem_gui_ready);
-                        xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
+                            xSemaphoreGive(sem_gui_ready);
+                            xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
 #endif
 
-                        // Assuming that using double buffer means that the buffer comes from the
-                        // driver and we need to pass the exact pointer.
-                        // https://github.com/espressif/esp-idf/blob/53ff7d43dbff642d831a937b066ea0735a6aca24/components/esp_lcd/src/esp_lcd_panel_rgb.c#L681
-                        esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, size.width, size.height,
-                                                  buffer1.data());
-                        std::swap(buffer1, buffer2.value());
-                    } else {
-                        for (int y = o.y; y < o.y + s.height; y++) {
-                            for (int x = o.x; x < o.x + s.width; x++) {
-                                // Swap endianess to big endian
-                                auto px =
-                                        reinterpret_cast<uint16_t *>(&buffer1[y * size.width + x]);
-                                *px = (*px << 8) | (*px >> 8);
+                            // Assuming that using double buffer means that the buffer comes from
+                            // the driver and we need to pass the exact pointer.
+                            // https://github.com/espressif/esp-idf/blob/53ff7d43dbff642d831a937b066ea0735a6aca24/components/esp_lcd/src/esp_lcd_panel_rgb.c#L681
+                            esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, size.width, size.height,
+                                                      buffer1.data());
+
+                            std::swap(buffer1, buffer2.value());
+                        } else {
+                            for (int y = o.y; y < o.y + s.height; y++) {
+                                for (int x = o.x; x < o.x + s.width; x++) {
+                                    // Swap endianess to big endian
+                                    auto px = reinterpret_cast<uint16_t *>(
+                                            &buffer1[y * size.width + x]);
+                                    *px = (*px << 8) | (*px >> 8);
+                                }
+                                esp_lcd_panel_draw_bitmap(panel_handle, o.x, y, o.x + s.width,
+                                                          y + 1,
+                                                          buffer1.data() + y * size.width + o.x);
                             }
-                            esp_lcd_panel_draw_bitmap(panel_handle, o.x, y, o.x + s.width, y + 1,
-                                                      buffer1.data() + y * size.width + o.x);
                         }
                     }
+                } else {
+                    slint::platform::Rgb565Pixel *lb =
+                            (slint::platform::Rgb565Pixel *)heap_caps_malloc(
+                                    size.width * 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+
+                    m_window->m_renderer.render_by_line([this,
+                                                         &lb](std::size_t line_y,
+                                                              std::size_t line_start,
+                                                              std::size_t line_end,
+                                                              void (*render_fn)(
+                                                                      void *,
+                                                                      std::span<slint::platform::
+                                                                                        Rgb565Pixel>
+                                                                              &),
+                                                              void *render_fn_data) {
+                        std::span<slint::platform::Rgb565Pixel> view { lb, line_end - line_start };
+                        render_fn(render_fn_data, view);
+                        esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y, line_end,
+                                                  line_y + 1, lb);
+                    });
+                    free(lb);
                 }
             }
 
@@ -292,7 +320,7 @@ TaskHandle_t EspPlatform::task = {};
 
 void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                     std::optional<esp_lcd_touch_handle_t> touch,
-                    std::span<slint::platform::Rgb565Pixel> buffer1,
+                    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer1,
                     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2
 #ifdef SLINT_FEATURE_EXPERIMENTAL
                     ,
