@@ -639,34 +639,16 @@ fn format_conditional_expression(
         }
         while let Some(n) = sub.next() {
             state.skip_all_whitespace = true;
-            // else
+            // `else`
             if n.kind() == SyntaxKind::Identifier {
                 state.insert_whitespace(" ");
                 fold(n, writer, state)?;
-                let x = whitespace_to_one_of(
-                    &mut sub,
-                    &[SyntaxKind::Identifier, SyntaxKind::Expression],
-                    writer,
-                    state,
-                    " ",
-                )?;
-                let ok = match x {
-                    SyntaxMatch::NotFound => false,
-                    // "if"
-                    SyntaxMatch::Found(SyntaxKind::Identifier) => {
-                        whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?
-                            && whitespace_to(&mut sub, SyntaxKind::CodeBlock, writer, state, " ")?
-                    }
-                    SyntaxMatch::Found(_) => true,
-                };
-                if !ok {
-                    finish_node(sub, writer, state)?;
-                    return Ok(());
-                }
+                whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
                 continue;
             }
             fold(n, writer, state)?;
         }
+        state.whitespace_to_add = None;
         state.new_line();
     } else {
         let _ok = whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
@@ -1678,6 +1660,24 @@ A := B {
 }
 "#,
         );
+
+        assert_formatting(
+            "component A { c => { if( a == 1 ){b+=1;} else if (a==2)\n{b+=2;} else if a==3{\nb+=3;\n} else\n if(a==4){ a+=4} return 0;  } }",
+            r"component A {
+    c => {
+        if (a == 1) {
+            b += 1;
+        } else if (a == 2) {
+            b += 2;
+        } else if a == 3 {
+            b += 3;
+        } else if (a == 4) {
+            a += 4
+        }
+        return 0;
+    }
+}
+");
     }
 
     #[test]
