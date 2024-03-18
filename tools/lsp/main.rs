@@ -95,9 +95,19 @@ type OutgoingRequestQueue = Arc<Mutex<HashMap<RequestId, OutgoingRequest>>>;
 pub struct ServerNotifier {
     sender: crossbeam_channel::Sender<Message>,
     queue: OutgoingRequestQueue,
-    use_external_preview: std::cell::Cell<bool>,
+    use_external_preview: Arc<atomic::AtomicBool>,
     #[cfg(feature = "preview-engine")]
     preview_to_lsp_sender: crossbeam_channel::Sender<crate::common::PreviewToLspMessage>,
+}
+
+impl ServerNotifier {
+    pub fn use_external_preview(&self) -> bool {
+        self.use_external_preview.load(atomic::Ordering::Relaxed)
+    }
+
+    pub fn set_use_external_preview(&self, is_external: bool) {
+        self.use_external_preview.store(is_external, atomic::Ordering::Release);
+    }
 }
 
 impl ServerNotifier {
@@ -139,7 +149,7 @@ impl ServerNotifier {
     }
 
     pub fn send_message_to_preview(&self, message: common::LspToPreviewMessage) {
-        if self.use_external_preview.get() {
+        if self.use_external_preview() {
             let _ = self.send_notification("slint/lsp_to_preview".to_string(), message);
         } else {
             #[cfg(feature = "preview-builtin")]
@@ -460,7 +470,7 @@ async fn handle_preview_to_lsp_message(
             .await;
         }
         M::PreviewTypeChanged { is_external } => {
-            ctx.server_notifier.use_external_preview.set(is_external);
+            ctx.server_notifier.set_use_external_preview(is_external);
         }
         M::RequestState { .. } => {
             crate::language::request_state(ctx);
