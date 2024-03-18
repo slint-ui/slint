@@ -62,7 +62,7 @@ export component PreviewUi inherits Window {
 
                 height: self.preferred-height;
 
-                i-pick-button := Button {
+                pick-button := Button {
                     text: @tr("Design Mode");
                     checkable: true;
                     checked <=> root.design-mode;
@@ -75,7 +75,7 @@ export component PreviewUi inherits Window {
                     text: @tr("Style:");
                     vertical-alignment: center;
                 }
-                i-style-select := ComboBox {
+                style-select := ComboBox {
                     model: root.known-styles;
                     current-value <=> current-style;
                     selected(value) => {
@@ -105,10 +105,10 @@ export component PreviewUi inherits Window {
                     }
 
                     states [
-                        visible when !i-pick-button.checked: {
+                        visible when !pick-button.checked: {
                             width: 0px;
                         }
-                        hidden when i-pick-button.checked: {
+                        hidden when pick-button.checked: {
                             width: root.side-bar-width;
                         }
                     ]

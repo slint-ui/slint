@@ -86,12 +86,12 @@ export component DrawArea {
     in property <component-factory> preview-area;
     in property <bool> design-mode;
 
-    out property <bool> preview-visible: i-preview-area-container.has-component && !diagnostics.diagnostics-open;
+    out property <bool> preview-visible: preview-area-container.has-component && !diagnostics.diagnostics-open;
 
-    out property <length> preview-area-position-x: i-preview-area-container.absolute-position.x;
-    out property <length> preview-area-position-y: i-preview-area-container.absolute-position.y;
-    out property <length> preview-area-width: preview-visible ? i-preview-area-container.width : 0px;
-    out property <length> preview-area-height: preview-visible ? i-preview-area-container.height : 0px;
+    out property <length> preview-area-position-x: preview-area-container.absolute-position.x;
+    out property <length> preview-area-position-y: preview-area-container.absolute-position.y;
+    out property <length> preview-area-width: preview-visible ? preview-area-container.width : 0px;
+    out property <length> preview-area-height: preview-visible ? preview-area-container.height : 0px;
 
     callback select-at(/* x */ length, /* y */ length, /* enter_component? */ bool);
     callback select-behind(/* x */ length, /* y */ length, /* enter_component? */ bool, /* reverse */ bool);
@@ -101,20 +101,20 @@ export component DrawArea {
     callback selected-element-update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
     callback selected-element-delete();
 
-    preferred-height: max(i-preview-area-container.preferred-height, i-preview-area-container.min-height) + 2 * i-scroll-view.border;
-    preferred-width: max(i-preview-area-container.preferred-width, i-preview-area-container.min-width) + 2 * i-scroll-view.border;
+    preferred-height: max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border;
+    preferred-width: max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border;
 
-    i-scroll-view := ScrollView {
+    scroll-view := ScrollView {
         out property <length> border: 60px;
 
-        viewport-width: i-drawing-rect.width;
-        viewport-height: i-drawing-rect.height;
+        viewport-width: drawing-rect.width;
+        viewport-height: drawing-rect.height;
 
-        i-drawing-rect := Rectangle {
+        drawing-rect := Rectangle {
             background: Palette.alternate-background;
 
-            width: max(i-scroll-view.visible-width, main-resizer.width + i-scroll-view.border);
-            height: max(i-scroll-view.visible-height, main-resizer.height + i-scroll-view.border);
+            width: max(scroll-view.visible-width, main-resizer.width + scroll-view.border);
+            height: max(scroll-view.visible-height, main-resizer.height + scroll-view.border);
 
             unselect-area := TouchArea {
                 clicked => { root.unselect(); }
@@ -122,7 +122,7 @@ export component DrawArea {
                 enabled <=> root.design-mode;
             }
 
-            i-content-border := Rectangle {
+            content-border := Rectangle {
                 x: main-resizer.x + (main-resizer.width - self.width) / 2;
                 y: main-resizer.y + (main-resizer.height - self.height) / 2;
                 width: main-resizer.width + 2 * self.border-width;
@@ -133,33 +133,33 @@ export component DrawArea {
 
             main-resizer := Resizer {
                 is-moveable: false;
-                is-resizable <=> i-preview-area-container.is-resizable;
+                is-resizable <=> preview-area-container.is-resizable;
 
                 x-position: parent.x;
                 y-position: parent.y;
 
                 update-geometry(_, _, w, h) => {
-                    i-preview-area-container.width = clamp(w, i-preview-area-container.min-width, i-preview-area-container.max-width);
-                    i-preview-area-container.height = clamp(h, i-preview-area-container.min-height, i-preview-area-container.max-height);
+                    preview-area-container.width = clamp(w, preview-area-container.min-width, preview-area-container.max-width);
+                    preview-area-container.height = clamp(h, preview-area-container.min-height, preview-area-container.max-height);
                     reselect();
                 }
 
-                width: i-preview-area-container.width;
-                height: i-preview-area-container.height;
+                width: preview-area-container.width;
+                height: preview-area-container.height;
 
 
                 // Also make a condition that abuses the fact that the init callback
                 // is called every time the condition is dirty, to make sure that the size
                 // is within the bounds.
                 // Query the preview-area to make sure this is evaluated when it changes
-                if i-preview-area-container.has-component && root.preview-area == i-preview-area-container.component-factory : Rectangle {
+                if preview-area-container.has-component && root.preview-area == preview-area-container.component-factory : Rectangle {
                     init => {
-                        i-preview-area-container.width = clamp(i-preview-area-container.width, max(i-preview-area-container.min-width, 16px), max(i-preview-area-container.max-width, 16px));
-                        i-preview-area-container.height = clamp(i-preview-area-container.height, max(i-preview-area-container.min-height, 16px),  max(i-preview-area-container.max-height, 16px));
+                        preview-area-container.width = clamp(preview-area-container.width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
+                        preview-area-container.height = clamp(preview-area-container.height, max(preview-area-container.min-height, 16px),  max(preview-area-container.max-height, 16px));
                     }
                 }
 
-                i-preview-area-container := ComponentContainer {
+                preview-area-container := ComponentContainer {
                     property <bool> is-resizable: (self.min-width != self.max-width && self.min-height != self.max-height) && self.has-component;
 
                     component-factory <=> root.preview-area;
@@ -176,7 +176,7 @@ export component DrawArea {
                     }
                 }
 
-                i-selection-area := TouchArea {
+                selection-area := TouchArea {
                     private property <length> selection-x: 0px;
                     private property <length> selection-y: 0px;
                     private property <SelectionKind> selection-kind: SelectionKind.none;
@@ -207,7 +207,7 @@ export component DrawArea {
                     enabled <=> root.design-mode;
                 }
 
-                i-selection-display-area := Rectangle {
+                selection-display-area := Rectangle {
                     for s in root.selections: SelectionFrame {
                         interactive: root.design-mode;
                         selection: s;
