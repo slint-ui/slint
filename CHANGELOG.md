@@ -3,6 +3,13 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.5.1] - Unreleased
+
+ - Fix clipping with a border-radius (#4854)
+ - Fix panic when loading unsupported images
+ - LSP: fixed formatting of states, transitions, and functions
+ - LSP: Avoid double scroll bar in the preview when showing errors
+
 ## [1.5.0] - 2024-03-14
 
 ## General
