@@ -70,12 +70,19 @@ impl super::Presenter for GbmDisplay {
             gbm_rs_workaround::GbmBo { bo, surface }
         };
 
-        // TODO: support modifiers
+        let flags = if drm::buffer::PlanarBuffer::modifier(&front_buffer)
+            .map_or(false, |modifier| !matches!(modifier, drm::buffer::DrmModifier::Invalid))
+        {
+            drm::control::FbCmd2Flags::MODIFIERS
+        } else {
+            drm::control::FbCmd2Flags::empty()
+        };
+
         // TODO: consider falling back to the old non-planar API
         let fb = self
             .drm_output
             .drm_device
-            .add_planar_framebuffer(&front_buffer, &[None, None, None, None], 0)
+            .add_planar_framebuffer(&front_buffer, flags)
             .map_err(|e| format!("Error adding gbm buffer as framebuffer: {e}"))?;
 
         front_buffer
@@ -250,6 +257,10 @@ mod gbm_rs_workaround {
             }
 
             offsets
+        }
+
+        fn modifier(&self) -> Option<drm::buffer::DrmModifier> {
+            Some(unsafe { gbm_sys::gbm_bo_get_modifier(self.bo) }.into())
         }
     }
 }

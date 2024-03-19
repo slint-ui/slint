@@ -38,8 +38,8 @@ calloop = { version = "0.12.3" }
 libseat = { version = "0.2.1", optional = true, default-features = false }
 nix = { version = "0.27.0", features=["fs"] }
 vulkano = { version = "0.34.0", optional = true, default-features = false }
-drm = { version = "0.9.0", optional = true }
-gbm = { version = "0.12.0", optional = true, default-features = false, features = ["drm-support"] }
+drm = { version = "0.11.1", optional = true }
+gbm = { version = "0.14.2", optional = true, default-features = false, features = ["drm-support"] }
 gbm-sys = { version = "0.2.2", optional = true }
 glutin = { workspace = true, optional = true, default-features = false, features = ["libloading", "egl"] }
 raw-window-handle = { version = "0.5.2", optional = true }

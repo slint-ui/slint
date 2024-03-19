@@ -259,7 +259,7 @@ impl DrmOutput {
             return Ok(());
         }
 
-        let source = calloop::generic::Generic::new_with_error::<drm::SystemError>(
+        let source = calloop::generic::Generic::new_with_error::<std::io::Error>(
             self.drm_device.0.clone(),
             calloop::Interest::READ,
             calloop::Mode::Level,
