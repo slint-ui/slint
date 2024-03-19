@@ -168,9 +168,8 @@ impl<'a> LocalFocusForwards<'a> {
             ) = function.as_ref()
             {
                 if arguments.len() != 1 {
-                    panic!(
-                        "internal compiler error: Invalid argument generated for SetFocusItem call"
-                    );
+                    assert!(self.diag.has_error(), "Invalid argument generated for SetFocusItem call");
+                    return
                 }
                 if let Expression::ElementReference(weak_focus_target) = &arguments[0] {
                     let mut focus_target = weak_focus_target.upgrade().expect(
