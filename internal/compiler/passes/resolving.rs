@@ -896,6 +896,8 @@ impl Expression {
             (Self::from_expression_node(n.clone(), ctx), Some(NodeOrToken::from((*n).clone())))
         });
 
+        let mut adjust_arg_count = 0;
+
         let function = match function {
             Expression::BuiltinMacroReference(mac, n) => {
                 arguments.extend(sub_expr);
@@ -903,6 +905,7 @@ impl Expression {
             }
             Expression::MemberFunction { base, base_node, member } => {
                 arguments.push((*base, base_node));
+                adjust_arg_count = 1;
                 member
             }
             _ => Box::new(function),
@@ -915,8 +918,8 @@ impl Expression {
                     ctx.diag.push_error(
                         format!(
                             "The callback or function expects {} arguments, but {} are provided",
-                            args.len(),
-                            arguments.len()
+                            args.len() - adjust_arg_count,
+                            arguments.len() - adjust_arg_count,
                         ),
                         &node,
                     );

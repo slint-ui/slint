@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+
+
+export component WrongFocus {
+
+    fs := FocusScope {}
+
+    ta := TouchArea {
+        clicked => {
+            fs.focus(0);
+//          ^error{The callback or function expects 0 arguments, but 1 are provided}
+            ta.focus();
+//             ^error{focus\(\) can only be called on focusable elements}
+            ta.focus(0);
+//          ^error{The callback or function expects 0 arguments, but 1 are provided}
+        }
+    }
+
+
+}
