@@ -15,6 +15,10 @@ path = "main.rs"
 name = "gallery"
 
 [dependencies]
+slint = { path = "../../api/rs/slint" }
+
+# Disable gettext on macOS due to https://github.com/Koka/gettext-rs/issues/114
+[target.'cfg(not(target_os = "macos"))'.dependencies]
 slint = { path = "../../api/rs/slint", features=["gettext"] }
 
 [build-dependencies]
