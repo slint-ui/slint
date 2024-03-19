@@ -372,7 +372,7 @@ pub struct WindowInner {
     mouse_input_state: Cell<MouseInputState>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
 
-    /// itemRC will retrieve on wasms
+    /// ItemRC that currently have the focus. (possibly a, instance of TextInput)
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
     /// The last text that was sent to the input method
     pub(crate) last_ime_text: RefCell<SharedString>,
@@ -1006,12 +1006,12 @@ impl WindowInner {
         self.pinned_fields.scale_factor.set(factor)
     }
 
-    /// Returns the scale factor set on the window, as provided by the windowing system.
+    /// Reads the global property `TextInputInterface.text-input-focused`
     pub fn text_input_focused(&self) -> bool {
         self.pinned_fields.as_ref().project_ref().text_input_focused.get()
     }
 
-    /// Sets the scale factor for the window. This is set by the backend or for testing.
+    /// Sets the global property `TextInputInterface.text-input-focused`
     pub fn set_text_input_focused(&self, value: bool) {
         self.pinned_fields.text_input_focused.set(value)
     }

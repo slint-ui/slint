@@ -3,19 +3,15 @@
 
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.content.Context;
 import android.content.res.Configuration;
-import android.content.res.Resources;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.text.Editable;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
-import android.util.DisplayMetrics;
-import android.util.TypedValue;
 import android.view.inputmethod.InputMethodManager;
 import android.app.Activity;
 import android.widget.FrameLayout;
@@ -28,6 +24,8 @@ class InputHandle extends ImageView {
     private float mPressedX;
     private float mPressedY;
     private SlintInputView mRootView;
+    private int cursorX;
+    private int cursorY;
 
     public InputHandle(SlintInputView rootView, int attr) {
         super(rootView.getContext());
@@ -57,14 +55,14 @@ class InputHandle extends ImageView {
     public boolean onTouchEvent(MotionEvent ev) {
         switch (ev.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: {
-                mPressedX = ev.getRawX();
-                mPressedY = ev.getRawY();
+                mPressedX = ev.getRawX() - cursorX;
+                mPressedY = ev.getRawY() - cursorY;
                 break;
             }
 
             case MotionEvent.ACTION_MOVE: {
-                // setSelectionAt
-                // (Math.round(ev.getRawX() - mPressedX), Math.round(ev.getRawY() - mPressedY));
+                SlintAndroidJavaHelper.moveCursorHandle(0, Math.round(ev.getRawX() - mPressedX),
+                        Math.round(ev.getRawY() - mPressedY));
                 break;
             }
             case MotionEvent.ACTION_UP:
@@ -75,7 +73,9 @@ class InputHandle extends ImageView {
     }
 
     public void setPosition(int x, int y) {
-        DisplayMetrics metrics = Resources.getSystem().getDisplayMetrics();
+        cursorX = x;
+        cursorY = y;
+
         y += mPopupWindow.getHeight();
         x -= mPopupWindow.getWidth() / 2;
         mPopupWindow.showAtLocation(mRootView, 0, x, y);
@@ -253,6 +253,8 @@ public class SlintAndroidJavaHelper {
             int preeditOffset);
 
     static public native void setDarkMode(boolean dark);
+
+    static public native void moveCursorHandle(int id, int pos_x, int pos_y);
 
     public void set_imm_data(String text, int cursor_position, int anchor_position, int preedit_start, int preedit_end,
             int rect_x, int rect_y, int rect_w, int rect_h, int input_type) {

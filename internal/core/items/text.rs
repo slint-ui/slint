@@ -1001,7 +1001,7 @@ impl TextInput {
         new_cursor_pos != last_cursor_pos
     }
 
-    fn set_cursor_position(
+    pub fn set_cursor_position(
         self: Pin<&Self>,
         new_position: i32,
         reset_preferred_x_pos: bool,
@@ -1426,7 +1426,7 @@ impl TextInput {
         )
     }
 
-    fn byte_offset_for_position(
+    pub fn byte_offset_for_position(
         self: Pin<&Self>,
         pos: LogicalPoint,
         window_adapter: &Rc<dyn WindowAdapter>,
