@@ -3,7 +3,9 @@
 
 use super::*;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
+use i_slint_core::graphics::euclid;
 use i_slint_core::items::InputType;
+use i_slint_core::platform::WindowAdapter;
 use i_slint_core::SharedString;
 use jni::objects::{JClass, JObject, JString, JValue};
 use jni::sys::{jboolean, jint};
@@ -60,6 +62,11 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
             sig: "(Z)V".into(),
             fn_ptr: Java_SlintAndroidJavaHelper_setDarkMode as *mut _,
         },
+        jni::NativeMethod {
+            name: "moveCursorHandle".into(),
+            sig: "(III)V".into(),
+            fn_ptr: Java_SlintAndroidJavaHelper_moveCursorHandle as *mut _,
+        },
     ];
     env.register_native_methods(&helper_class, &methods)?;
 
@@ -103,7 +110,7 @@ impl JavaHelper {
     pub fn set_imm_data(
         &self,
         data: &i_slint_core::window::InputMethodProperties,
-        scale_factor: f32
+        scale_factor: f32,
     ) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let mut text = data.text.to_string();
@@ -262,6 +269,43 @@ extern "system" fn Java_SlintAndroidJavaHelper_setDarkMode(
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
             w.dark_color_scheme.as_ref().set(dark == jni::sys::JNI_TRUE);
+        }
+    })
+    .unwrap()
+}
+
+#[no_mangle]
+extern "system" fn Java_SlintAndroidJavaHelper_moveCursorHandle(
+    _env: JNIEnv,
+    _class: JClass,
+    _id: jint,
+    pos_x: jint,
+    pos_y: jint,
+) {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            if let Some(focus_item) = i_slint_core::window::WindowInner::from_pub(&adaptor.window)
+                .focus_item
+                .borrow()
+                .upgrade()
+            {
+                if let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>() {
+                    let scale_factor = adaptor.window.scale_factor();
+                    let pos =
+                        euclid::point2(pos_x as f32 / scale_factor, pos_y as f32 / scale_factor)
+                            - focus_item.map_to_window(focus_item.geometry().origin).to_vector();
+                    let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
+                    let text_pos = text_input.as_pin_ref().byte_offset_for_position(pos, &adaptor);
+                    text_input.anchor_position_byte_offset.set(text_pos as i32);
+                    text_input.as_pin_ref().set_cursor_position(
+                        text_pos as i32,
+                        true,
+                        i_slint_core::items::TextChangeNotify::TriggerCallbacks,
+                        &adaptor,
+                        &focus_item,
+                    );
+                }
+            }
         }
     })
     .unwrap()
