@@ -111,6 +111,7 @@ impl JavaHelper {
         &self,
         data: &i_slint_core::window::InputMethodProperties,
         scale_factor: f32,
+        show_cursor_handles: bool,
     ) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let mut text = data.text.to_string();
@@ -153,7 +154,7 @@ impl JavaHelper {
             env.call_method(
                 helper,
                 "set_imm_data",
-                "(Ljava/lang/String;IIIIIIIII)V",
+                "(Ljava/lang/String;IIIIIIIIIZ)V",
                 &[
                     JValue::Object(&text),
                     JValue::from(to_utf16(cursor_position) as jint),
@@ -165,6 +166,7 @@ impl JavaHelper {
                     JValue::from(cur_size.width as jint),
                     JValue::from(cur_size.height as jint),
                     JValue::from(input_type),
+                    JValue::from(show_cursor_handles as jboolean),
                 ],
             )?;
 
@@ -215,6 +217,7 @@ extern "system" fn Java_SlintAndroidJavaHelper_updateText(
 
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            adaptor.show_cursor_handles.set(false);
             let runtime_window = i_slint_core::window::WindowInner::from_pub(&adaptor.window);
             let event = if preedit_start != preedit_end {
                 let adjust = |pos| if pos <= preedit_start { pos } else if pos >= preedit_end { pos - preedit_end + preedit_start } else { preedit_start } as i32;

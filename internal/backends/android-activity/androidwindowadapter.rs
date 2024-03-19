@@ -26,6 +26,10 @@ pub struct AndroidWindowAdapter {
     pub(crate) fullscreen: Cell<bool>,
     /// The offset at which the Slint view is drawn in the native window (account for status bar)
     pub offset: Cell<PhysicalPosition>,
+
+    /// Whether the cursor handle should be shown.
+    /// They are shown when taping, but hidden whenever keys are pressed
+    pub(crate) show_cursor_handles: Cell<bool>,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -71,7 +75,11 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         match request {
             i_slint_core::window::InputMethodRequest::Enable(props) => {
                 self.java_helper
-                    .set_imm_data(&props, self.window.scale_factor())
+                    .set_imm_data(
+                        &props,
+                        self.window.scale_factor(),
+                        self.show_cursor_handles.get(),
+                    )
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 self.java_helper
                     .show_or_hide_soft_input(true)
@@ -79,7 +87,11 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
             }
             i_slint_core::window::InputMethodRequest::Update(props) => {
                 self.java_helper
-                    .set_imm_data(&props, self.window.scale_factor())
+                    .set_imm_data(
+                        &props,
+                        self.window.scale_factor(),
+                        self.show_cursor_handles.get(),
+                    )
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
             }
             i_slint_core::window::InputMethodRequest::Disable => {
@@ -145,6 +157,7 @@ impl AndroidWindowAdapter {
             java_helper,
             fullscreen: Cell::new(false),
             offset: Default::default(),
+            show_cursor_handles: Cell::new(false),
         })
     }
 
@@ -236,6 +249,7 @@ impl AndroidWindowAdapter {
                 },
                 InputEvent::MotionEvent(motion_event) => match motion_event.action() {
                     MotionAction::Down | MotionAction::ButtonPress | MotionAction::PointerDown => {
+                        self.show_cursor_handles.set(true);
                         self.window.dispatch_event(WindowEvent::PointerPressed {
                             position: position_for_event(motion_event, self.offset.get())
                                 .to_logical(self.window.scale_factor()),
@@ -277,6 +291,7 @@ impl AndroidWindowAdapter {
                     _ => InputStatus::Unhandled,
                 },
                 InputEvent::TextEvent(state) => {
+                    self.show_cursor_handles.set(false);
                     let runtime_window = i_slint_core::window::WindowInner::from_pub(&self.window);
                     // remove the pre_edit
                     let event = if let Some(r) = state.compose_region {
