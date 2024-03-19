@@ -203,11 +203,15 @@ class SlintInputView extends View {
 
     private InputHandle mHandle;
 
-    public void setCursorPos(int rect_x, int rect_y, int rect_w, int rect_h) {
-        if (mHandle == null) {
-            mHandle = new InputHandle(this, android.R.attr.textSelectHandle);
+    public void setCursorPos(int rect_x, int rect_y, int rect_w, int rect_h, boolean show) {
+        if (show) {
+            if (mHandle == null) {
+                mHandle = new InputHandle(this, android.R.attr.textSelectHandle);
+            }
+            mHandle.setPosition(rect_x + rect_w / 2, rect_y + rect_h + 2 * rect_w);
+        } else if (mHandle != null) {
+            mHandle.hide();
         }
-        mHandle.setPosition(rect_x + rect_w / 2, rect_y + rect_h + 2 * rect_w);
     }
 }
 
@@ -257,7 +261,7 @@ public class SlintAndroidJavaHelper {
     static public native void moveCursorHandle(int id, int pos_x, int pos_y);
 
     public void set_imm_data(String text, int cursor_position, int anchor_position, int preedit_start, int preedit_end,
-            int rect_x, int rect_y, int rect_w, int rect_h, int input_type) {
+            int rect_x, int rect_y, int rect_w, int rect_h, int input_type, boolean show_cursor_handles) {
 
         mActivity.runOnUiThread(new Runnable() {
             @Override
@@ -265,7 +269,7 @@ public class SlintAndroidJavaHelper {
                 int selStart = Math.min(cursor_position, anchor_position);
                 int selEnd = Math.max(cursor_position, anchor_position);
                 mInputView.setText(text, selStart, selEnd, preedit_start, preedit_end, input_type);
-                mInputView.setCursorPos(rect_x, rect_y, rect_w, rect_h);
+                mInputView.setCursorPos(rect_x, rect_y, rect_w, rect_h, show_cursor_handles);
             }
         });
     }
