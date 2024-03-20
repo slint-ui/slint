@@ -459,6 +459,10 @@ impl WindowAdapter for WinitWindowAdapter {
         self.size.get()
     }
 
+    fn set_blur(&self, blur: bool) {
+        self.winit_window().set_blur(blur);
+    }
+
     fn request_redraw(&self) {
         if !self.pending_redraw.replace(true) {
             self.winit_window.request_redraw()

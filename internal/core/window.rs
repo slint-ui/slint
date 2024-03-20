@@ -105,6 +105,11 @@ pub trait WindowAdapter {
     /// Return the size of the Window on the screen
     fn size(&self) -> PhysicalSize;
 
+    /// Request blur effect for the window.
+    fn set_blur(&self, _blur: bool) {
+
+    }
+
     /// Issues a request to the windowing system to re-render the contents of the window.
     ///
     /// This request is typically asynchronous.

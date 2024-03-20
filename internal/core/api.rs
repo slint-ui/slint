@@ -441,6 +441,11 @@ impl Window {
         self.0.window_adapter().size()
     }
 
+    /// Sets the blur of the window on the screen.
+    pub fn set_blur(&self, blur: bool) {
+        self.0.window_adapter().set_blur(blur);
+    }
+
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
     pub fn set_size(&self, size: impl Into<WindowSize>) {
