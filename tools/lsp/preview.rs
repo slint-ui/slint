@@ -210,7 +210,7 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
     };
 
     let Some(geometry) = component_instance
-        .element_position(&selected_element_node.element)
+        .element_positions(&selected_element_node.element)
         .get(selected.instance_index)
         .cloned()
     else {
@@ -224,7 +224,7 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
         search_for_parent_element(&root_element, &selected_element_node.element)
             .and_then(|parent_element| {
                 component_instance
-                    .element_position(&parent_element)
+                    .element_positions(&parent_element)
                     .iter()
                     .find(|g| g.contains(click_position))
                     .map(|g| (g.origin.x, g.origin.y))

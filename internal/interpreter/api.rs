@@ -1210,11 +1210,11 @@ impl ComponentInstance {
     ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "highlight")]
-    pub fn element_position(
+    pub fn element_positions(
         &self,
         element: &i_slint_compiler::object_tree::ElementRc,
     ) -> Vec<i_slint_core::lengths::LogicalRect> {
-        crate::highlight::element_position(&self.inner, element)
+        crate::highlight::element_positions(&self.inner, element)
     }
 
     /// Find the the `element` that was defined at the text position.

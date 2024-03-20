@@ -80,7 +80,10 @@ fn element_covers_point(
 ) -> bool {
     let click_position = LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
 
-    component_instance.element_position(selected_element).iter().any(|p| p.contains(click_position))
+    component_instance
+        .element_positions(selected_element)
+        .iter()
+        .any(|p| p.contains(click_position))
 }
 
 pub fn unselect_element() {
@@ -118,9 +121,7 @@ fn select_element_at_source_code_position_impl(
     let positions = component_instance.component_positions(&path, offset);
 
     let instance_index = position
-        .and_then(|p| {
-            positions.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i))
-        })
+        .and_then(|p| positions.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i)))
         .unwrap_or_default();
 
     super::set_selected_element(

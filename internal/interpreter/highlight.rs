@@ -44,7 +44,7 @@ pub(crate) fn component_positions(
     )
 }
 
-pub(crate) fn element_position(
+pub(crate) fn element_positions(
     component_instance: &DynamicComponentVRc,
     element: &ElementRc,
 ) -> Vec<LogicalRect> {
