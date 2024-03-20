@@ -23,8 +23,9 @@ impl ElementSelection {
     pub fn as_element(&self) -> Option<ElementRc> {
         let component_instance = super::component_instance()?;
 
-        let elements = component_instance.element_at_source_code_position(&self.path, self.offset);
-        elements.get(self.instance_index).or_else(|| elements.first()).cloned()
+        let elements =
+            component_instance.element_node_at_source_code_position(&self.path, self.offset);
+        elements.get(self.instance_index).or_else(|| elements.first()).map(|(e, _)| e.clone())
     }
 
     pub fn as_element_node(&self) -> Option<ElementRcNode> {

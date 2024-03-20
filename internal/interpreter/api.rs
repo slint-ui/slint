@@ -1221,12 +1221,12 @@ impl ComponentInstance {
     ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "highlight")]
-    pub fn element_at_source_code_position(
+    pub fn element_node_at_source_code_position(
         &self,
         path: &Path,
         offset: u32,
-    ) -> Vec<i_slint_compiler::object_tree::ElementRc> {
-        crate::highlight::element_at_source_code_position(&self.inner, path, offset)
+    ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
+        crate::highlight::element_node_at_source_code_position(&self.inner, path, offset)
     }
 }
 

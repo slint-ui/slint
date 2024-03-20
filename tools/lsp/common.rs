@@ -30,6 +30,12 @@ impl std::fmt::Debug for ElementRcNode {
 }
 
 impl ElementRcNode {
+    pub fn new(element: ElementRc, debug_index: usize) -> Option<Self> {
+        let _ = element.borrow().debug.get(debug_index)?;
+
+        Some(Self { element, debug_index })
+    }
+
     pub fn find_in(element: ElementRc, path: &std::path::Path, offset: u32) -> Option<Self> {
         let debug_index = element.borrow().debug.iter().position(|(n, _)| {
             u32::from(n.text_range().start()) == offset && n.source_file.path() == path

@@ -37,10 +37,11 @@ pub(crate) fn component_positions(
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
-    let elements = find_element_at_offset(&c.description().original, path, offset);
+    let elements =
+        find_element_node_at_source_code_position(&c.description().original, path, offset);
     collect_highlight_data(
         component_instance,
-        &elements.into_iter().map(|e| Rc::downgrade(&e)).collect::<Vec<_>>(),
+        &elements.into_iter().map(|(e, _)| Rc::downgrade(&e)).collect::<Vec<_>>(),
     )
 }
 
@@ -58,15 +59,15 @@ pub(crate) fn element_positions(
     values
 }
 
-pub(crate) fn element_at_source_code_position(
+pub(crate) fn element_node_at_source_code_position(
     component_instance: &DynamicComponentVRc,
     path: &Path,
     offset: u32,
-) -> Vec<ElementRc> {
+) -> Vec<(ElementRc, usize)> {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
-    find_element_at_offset(&c.description().original, path, offset)
+    find_element_node_at_source_code_position(&c.description().original, path, offset)
 }
 
 fn fill_highlight_data(
@@ -113,8 +114,12 @@ fn fill_highlight_data(
 }
 
 // Go over all elements in original to find the one that is highlighted
-fn find_element_at_offset(component: &Rc<Component>, path: &Path, offset: u32) -> Vec<ElementRc> {
-    let mut result = Vec::<ElementRc>::new();
+fn find_element_node_at_source_code_position(
+    component: &Rc<Component>,
+    path: &Path,
+    offset: u32,
+) -> Vec<(ElementRc, usize)> {
+    let mut result = Vec::new();
     i_slint_compiler::object_tree::recurse_elem_including_sub_components(
         component,
         &(),
@@ -122,9 +127,15 @@ fn find_element_at_offset(component: &Rc<Component>, path: &Path, offset: u32) -
             if elem.borrow().repeated.is_some() {
                 return;
             }
-            for node in elem.borrow().debug.iter().filter_map(|n| n.0.QualifiedName()) {
+            for (index, node) in elem
+                .borrow()
+                .debug
+                .iter()
+                .enumerate()
+                .filter_map(|(i, n)| n.0.QualifiedName().map(|n| (i, n)))
+            {
                 if node.source_file.path() == path && node.text_range().contains(offset.into()) {
-                    result.push(elem.clone());
+                    result.push((elem.clone(), index));
                 }
             }
         },
