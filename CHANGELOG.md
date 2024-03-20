@@ -3,12 +3,17 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## [1.5.1] - Unreleased
+## [1.5.1] - 2024-03-20
 
- - Fix clipping with a border-radius (#4854)
- - Fix panic when loading unsupported images
- - LSP: fixed formatting of states, transitions, and functions
- - LSP: Avoid double scroll bar in the preview when showing errors
+ - Fix clipping with a border-radius. (#4854)
+ - Fix panic in the preview when showing a PopupWindow whose parent is optimized out. (#4884)
+ - Fix compiler panic when the `focus` function is called with arguments. (#4883)
+ - Fix panic when loading unsupported images.
+ - LSP: Fixed formatting of states, transitions, and functions.
+ - LSP preview: Avoid double scroll bar in the preview when showing errors.
+ - LSP preview: Don't handle delete shortcut when showing errors.
+ - LSP preview: Improved appearence of the element selection in the design mode.
+ - LSP preview: Never set the with or height to NaN. (#4848)
 
 ## [1.5.0] - 2024-03-14
 
@@ -1249,3 +1254,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.4.0]: https://github.com/slint-ui/slint/releases/tag/v1.4.0
 [1.4.1]: https://github.com/slint-ui/slint/releases/tag/v1.4.1
 [1.5.0]: https://github.com/slint-ui/slint/releases/tag/v1.5.0
+[1.5.1]: https://github.com/slint-ui/slint/releases/tag/v1.5.1
