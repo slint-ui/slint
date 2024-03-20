@@ -81,94 +81,12 @@
             Section blocks on this page:
             - one-column
             -->
-
             <script type="text/javascript">
-
-                async function* makeTextFileLineIterator(fileURL) {
-                    const utf8Decoder = new TextDecoder("utf-8");
-                    const response = await fetch(fileURL);
-
-                    if (response.status != 200)
-                        return null;
-
-                    const reader = response.body.getReader();
-                    let { value: chunk, done: readerDone } = await reader.read();
-                    chunk = chunk ? utf8Decoder.decode(chunk) : "";
-
-                    const newline = /\r?\n/gm;
-                    let startIndex = 0;
-                    let result;
-
-                    while (true) {
-                        const result = newline.exec(chunk);
-                        if (!result) {
-                            if (readerDone) break;
-                            const remainder = chunk.substr(startIndex);
-                            ({ value: chunk, done: readerDone } = await reader.read());
-                            chunk = remainder + (chunk ? utf8Decoder.decode(chunk) : "");
-                            startIndex = newline.lastIndex = 0;
-                            continue;
-                        }
-                        yield chunk.substring(startIndex, result.index);
-                        startIndex = newline.lastIndex;
-                    }
-
-                    if (startIndex < chunk.length) {
-                        // Last line didn't end in a newline char
-                        yield chunk.substr(startIndex);
-                    }
-                }
-
-                function updateButtonHrefs(actualVersion) {
-                    const buttons = document.querySelectorAll('a.doc');
-                    buttons.forEach(button => {
-                        const prevVersion = button.href.match("/([^/]*/[^/]*)/docs/")[1];
-                        button.href = button.href.replace(prevVersion, actualVersion);
-                    });
-                }
-
-                async function fetchReadFile(url) {
-                    const optionMenu = document.querySelector(".select-menu"),
-                        sel = optionMenu.querySelector(".options"),
-                        sBtn_text = optionMenu.querySelector(".sBtn-text");
+                window.addEventListener('load', () => {
 
                     let actualVersionValue = null;
                     let actualVersionText = null;
-
-                    for await (const version of makeTextFileLineIterator(url)) {
-                        const opt = document.createElement("li");
-                        opt.classList.add("option");
-                        opt.innerHTML = version;
-                        opt.setAttribute("value", "releases/" + version);
-                        opt.addEventListener("click", () => {
-                            sBtn_text.innerText = version;
-                            optionMenu.classList.remove("active");
-                            updateButtonHrefs("releases/" + version);
-                        });
-                        sel.appendChild(opt);
-                        if (!actualVersionValue) {
-                            actualVersionValue = "releases/" + version;
-                            actualVersionText = version;
-                        }
-                    }
-
-                    if (!actualVersionValue) {
-                        // add some known version
-                        actualVersionValue = "releases/latest";
-                        actualVersionText = "latest";
-                        const opt = document.createElement("li");
-                        opt.classList.add("option");
-                        opt.innerHTML = actualVersionText;
-                        opt.setAttribute("value", actualVersionValue);
-                        opt.addEventListener("click", () => {
-                            sBtn_text.innerText = actualVersionText;
-                            optionMenu.classList.remove("active");
-                            updateButtonHrefs(actualVersionValue);
-                        });
-                        sel.appendChild(opt);
-                    }
-
-                    const version = document.location.pathname.match(/releases\/([0-9]*.[0-9]*.[0-9]*)|snapshots\/(master)|releases\/(latest)/);
+                    const version = document.location.pathname.match(/releases\/([0-9]*.[0-9]*.[0-9]*)|snapshots\/(master)/);
                     if (version) {
                         actualVersionValue = version[0];
                         actualVersionText = version[1];
@@ -176,34 +94,9 @@
                             actualVersionText = "development snapshot";
                         }
                     }
-                    sBtn_text.innerText = actualVersionText;
-                    updateButtonHrefs(actualVersionValue);
-                }
+                    document.getElementById("version").innerHTML = "Version: " + actualVersionText;
 
-                window.addEventListener('load', () => {
-                    // Select menu
-                    const optionMenu = document.querySelector(".select-menu"),
-                        selectBtn = optionMenu.querySelector(".select-btn"),
-                        sel = optionMenu.querySelector(".options"),
-                        sBtn_text = optionMenu.querySelector(".sBtn-text");
-
-                    selectBtn.addEventListener("click", () => optionMenu.classList.toggle("active"));
-
-                    const opt = document.createElement("li");
-                    opt.classList.add("option");
-                    opt.innerHTML = "development snapshot";
-                    opt.setAttribute("value", "snapshots/master");
-                    opt.addEventListener("click", () => {
-                        sBtn_text.innerText = "development snapshot";
-                        optionMenu.classList.remove("active");
-                        updateButtonHrefs("snapshots/master");
-                    });
-                    sel.appendChild(opt);
-                    // / Select menu
-
-                    fetchReadFile("/releases/versions.txt");
                 }, false);
-
             </script>
 
             <section class="one-column">
@@ -211,106 +104,12 @@
             </section>
 
             <!-- Custom drop down select menu-->
-            <style>
-                .select-menu {
-                    border: 1px solid var(--color_light_purple);
-                    border-radius: 2px;
-                    box-sizing: border-box;
-                    font-family: 'Archivo';
-                    font-size: 1rem;
-                    color: #000;
-                    line-height: 1.56;
-                    width: 100%;
-                    margin-bottom: 0.7em;
-                    position: relative;
-                }
-
-                .select-menu .select-btn {
-                    display: flex;
-                    background: #fff;
-                    padding: 12px 16px;
-                    align-items: center;
-                    cursor: pointer;
-                    justify-content: space-between;
-                }
-
-                .select-btn i {
-                    font-size: 25px;
-                    transition: 0.3s;
-                }
-
-                .select-menu.active {
-                    outline: 2px solid var(--color_light_purple);
-                }
-
-                .select-menu.active .select-btn i {
-                    transform: rotate(-180deg);
-                }
-
-                .select-menu .options {
-                    position: relative;
-                    padding: 20px;
-                    margin-top: 10px;
-                    border-radius: 8px;
-                    background: #fff;
-                    box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
-                    display: none;
-                    border: 1px solid var(--color_light_purple);
-                    max-height: 200px;
-                    overflow-y: auto;
-                }
-
-                .select-menu.active .options {
-                    display: block;
-                    position: absolute;
-                    z-index: 2;
-                    right: 0px;
-                    left: 0px;
-                }
-
-                .options .option {
-                    display: flex;
-                    cursor: pointer;
-                    padding: 12px 16px;
-                    border-radius: 8px;
-                    align-items: center;
-                    background: #fff;
-                }
-
-                .options .option:hover {
-                    background: #F2F2F2;
-                }
-
-                .sx {
-                    font-weight: 400;
-                    font-style: normal;
-                    font-variant: normal;
-                    line-height: 1;
-                    text-rendering: auto;
-                    display: inline-block;
-                    text-transform: none;
-                    -webkit-font-smoothing: antialiased;
-                    -moz-osx-font-smoothing: grayscale;
-                }
-
-                .sx-chevron-down:before {
-                    content: url('https://slint.dev/assets/img/down-arrow-dark.svg');
-                }
-            </style>
 
             <section class="select-filters">
                 <div class="select-wrap">
-                    <label for="version">Version</label>
-                    <div class="select-menu">
-                        <div class="select-btn">
-                            <span class="sBtn-text">Select your option</span>
-                            <i class="sx sx-chevron-down"></i>
-                        </div>
-                        <ul class="options" id="version">
-                        </ul>
-                    </div>
+                    <label for="version" id="version">Version:</label>
                     <label style="font-size: 1rem;
-                    font-weight: 400; margin-bottom: 1em;">Visit <a href="https://archive.slint.dev">Documentation Archives</a> for older versions.</label>
+                    font-weight: 400; margin-bottom: 1em;">Visit <a href="https://docs.slint.dev">Slint Documentation</a> for other versions.</label>
                 </div>
             </section>
 
@@ -327,7 +126,7 @@
                             <h5>DSL</h5>
                             <h4>Slint</h4>
                             <p><img src="https://slint.dev/assets/img/slint-favicon.svg"></p>
-                            <p><a href="https://slint.dev/releases/latest/docs/slint/index.html" class="btn doc">Language</a></p>
+                            <p><a href="slint/index.html" class="btn doc">Language</a></p>
                         </div><!-- .price-box -->
                     </div><!-- .col-2 -->
                     <div class="col-2">
@@ -336,8 +135,8 @@
                                 <h5>APIs</h5>
                                 <h4>Using Rust</h4>
                                 <p><img src="https://slint.dev/assets/img/rust-logo.svg"></p>
-                                <p><a href="https://slint.dev/releases/latest/docs/rust/slint" class="btn doc">API</a></p>
-                                <p><a href="https://slint.dev/releases/latest/docs/tutorial/rust" class="btn doc">Tutorial</a></p>
+                                <p><a href="rust/slint/index.html" class="btn doc">API</a></p>
+                                <p><a href="tutorial/rust/index.html" class="btn doc">Tutorial</a></p>
                                 <p><a href="https://youtu.be/WBcv4V-whHk" class="btn" target="_blank">Video Tutorial</a></p>
                                 <p><a href="https://github.com/slint-ui/slint-rust-template" class="btn" target="_blank">Project Template</a></p>
                             </div><!-- .price-box -->
@@ -345,16 +144,16 @@
                                 <h5>APIs</h5>
                                 <h4>Using C++</h4>
                                 <p><img src="https://slint.dev/assets/img/cpp_logo.svg"></p>
-                                <p><a href="https://slint.dev/releases/latest/docs/cpp" class="btn doc">API</a></p>
-                                <p><a href="https://slint.dev/releases/latest/docs/tutorial/cpp" class="btn doc">Tutorial</a></p>
+                                <p><a href="cpp/index.html" class="btn doc">API</a></p>
+                                <p><a href="tutorial/cpp/index.html" class="btn doc">Tutorial</a></p>
                                 <p><a href="https://github.com/slint-ui/slint-cpp-template" class="btn" target="_blank">Project Template</a></p>
                             </div><!-- .price-box -->
                             <div class="price-box">
                                 <h5>APIs</h5>
                                 <h4>Using NodeJS (beta)</h4>
                                 <p><img src="https://slint.dev/assets/img/nodejs_logo.svg"></p>
-                                <p><a href="https://slint.dev/releases/latest/docs/node" class="btn doc">API</a></p>
-                                <p><a href="https://slint.dev/releases/latest/docs/tutorial/node" class="btn doc">Tutorial</a></p>
+                                <p><a href="node/index.html" class="btn doc">API</a></p>
+                                <p><a href="tutorial/node/index.html" class="btn doc">Tutorial</a></p>
                                 <p><a href="https://github.com/slint-ui/slint-nodejs-template" class="btn" target="_blank">Project Template</a></p>
                             </div><!-- .price-box -->
                         </div><!-- .col-wrap -->
