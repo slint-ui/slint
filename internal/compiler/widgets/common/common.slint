@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { StyleMetrics, ScrollView } from "std-widgets-impl.slint";
+import { StyleMetrics, ScrollView, Palette } from "std-widgets-impl.slint";
 
 export component TextEdit inherits ScrollView {
     in property <TextWrap> wrap <=> i-text-input.wrap;
@@ -53,6 +53,8 @@ export component TextEdit inherits ScrollView {
         color: self.enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
         single-line: false;
         wrap: word-wrap;
+        selection-background-color: Palette.selection-background;
+        selection-foreground-color: Palette.selection-foreground;
 
         edited => {
             root.edited(self.text);
