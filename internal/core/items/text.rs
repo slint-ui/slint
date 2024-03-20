@@ -1397,7 +1397,11 @@ impl TextInput {
             let selection_range = selection_anchor_pos..selection_cursor_pos;
             let cursor_position = self.cursor_position(&text);
             let cursor_visible = self.cursor_visible() && self.enabled() && !self.read_only();
-            let cursor_position = if cursor_visible { Some(cursor_position) } else { None };
+            let cursor_position = if cursor_visible && selection_range.is_empty() {
+                Some(cursor_position)
+            } else {
+                None
+            };
             (preedit_range, selection_range, cursor_position)
         };
 
@@ -1582,6 +1586,12 @@ impl TextInput {
         let mut undo_items = self.undo_items.take();
         undo_items.push(last);
         self.undo_items.set(undo_items);
+    }
+
+    /// Returns true if the cursor color is based on he selection background color.
+    /// If it returns false, the cursor color is the same as the text color.
+    pub const fn is_cursor_color_same_as_selection() -> bool {
+        cfg!(any(target_os = "android", target_os = "macos", target_os = "ios"))
     }
 }
 

@@ -525,7 +525,16 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                 (text_input.text_cursor_width() * self.scale_factor).get(),
                 font_height.get(),
             );
-            canvas.fill_path(&cursor_rect, &paint);
+            canvas.fill_path(
+                &cursor_rect,
+                &if items::TextInput::is_cursor_color_same_as_selection() {
+                    femtovg::Paint::color(to_femtovg_color(
+                        &text_input.selection_background_color().with_alpha(1.),
+                    ))
+                } else {
+                    paint
+                },
+            );
         }
     }
 
