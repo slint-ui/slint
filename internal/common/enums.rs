@@ -345,6 +345,8 @@ macro_rules! for_each_enums {
                 Text,
                 /// The element is a [`ProgressIndicator`](../widgets/progressindicator.md) or behaves like one.
                 ProgressIndicator,
+                /// The role for a [`TextInput`](elements.md#TextInput) element.
+                TextInput,
             }
 
             /// This enum represents the different values of the `sort-order` property.
