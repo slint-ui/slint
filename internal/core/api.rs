@@ -442,6 +442,8 @@ impl Window {
     }
 
     /// Sets the blur of the window on the screen.
+    /// If `true`, this will make the transparent window background blurry.
+    /// Note that this functionality is currently only available on Linux (Wayland KDE) and macOS.
     pub fn set_blur(&self, blur: bool) {
         self.0.window_adapter().set_blur(blur);
     }
