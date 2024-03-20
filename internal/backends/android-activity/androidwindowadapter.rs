@@ -9,6 +9,7 @@ use i_slint_core::api::{PhysicalPosition, PhysicalSize, PlatformError, Window};
 use i_slint_core::platform::{
     Key, PointerEventButton, WindowAdapter, WindowEvent, WindowProperties,
 };
+use i_slint_core::window::{InputMethodRequest, WindowInner};
 use i_slint_core::{Property, SharedString};
 use i_slint_renderer_skia::SkiaRenderer;
 use raw_window_handle::HasRawWindowHandle;
@@ -71,9 +72,9 @@ impl WindowAdapter for AndroidWindowAdapter {
 
 impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     #[cfg(feature = "native-activity")]
-    fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
+    fn input_method_request(&self, request: InputMethodRequest) {
         match request {
-            i_slint_core::window::InputMethodRequest::Enable(props) => {
+            InputMethodRequest::Enable(props) => {
                 self.java_helper
                     .set_imm_data(
                         &props,
@@ -84,8 +85,21 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
                 self.java_helper
                     .show_or_hide_soft_input(true)
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
+
+                if let Some(focus_item) =
+                    WindowInner::from_pub(&self.window).focus_item.borrow().upgrade()
+                {
+                    if let Some(text_input) =
+                        focus_item.downcast::<i_slint_core::items::TextInput>()
+                    {
+                        let color = text_input.as_pin_ref().selection_background_color();
+                        self.java_helper
+                            .set_handle_color(color.with_alpha(1.))
+                            .unwrap_or_else(|e| print_jni_error(&self.app, e));
+                    }
+                }
             }
-            i_slint_core::window::InputMethodRequest::Update(props) => {
+            InputMethodRequest::Update(props) => {
                 self.java_helper
                     .set_imm_data(
                         &props,
@@ -94,7 +108,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
                     )
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
             }
-            i_slint_core::window::InputMethodRequest::Disable => {
+            InputMethodRequest::Disable => {
                 self.java_helper
                     .show_or_hide_soft_input(false)
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
@@ -104,16 +118,16 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     }
 
     #[cfg(not(feature = "native-activity"))]
-    fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
+    fn input_method_request(&self, request: InputMethodRequest) {
         use android_activity::input::{TextInputState, TextSpan};
 
         let props = match request {
-            i_slint_core::window::InputMethodRequest::Enable(props) => {
+            InputMethodRequest::Enable(props) => {
                 self.app.show_soft_input(true);
                 props
             }
-            i_slint_core::window::InputMethodRequest::Update(props) => props,
-            i_slint_core::window::InputMethodRequest::Disable => {
+            InputMethodRequest::Update(props) => props,
+            InputMethodRequest::Disable => {
                 self.app.hide_soft_input(true);
                 return;
             }
@@ -292,7 +306,7 @@ impl AndroidWindowAdapter {
                 },
                 InputEvent::TextEvent(state) => {
                     self.show_cursor_handles.set(false);
-                    let runtime_window = i_slint_core::window::WindowInner::from_pub(&self.window);
+                    let runtime_window = WindowInner::from_pub(&self.window);
                     // remove the pre_edit
                     let event = if let Some(r) = state.compose_region {
                         let adjust =

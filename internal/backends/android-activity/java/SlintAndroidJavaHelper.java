@@ -7,6 +7,8 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.BlendMode;
+import android.graphics.BlendModeColorFilter;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.text.Editable;
@@ -84,6 +86,14 @@ class InputHandle extends ImageView {
 
     public void hide() {
         mPopupWindow.dismiss();
+    }
+
+    public void setHandleColor(int color) {
+        Drawable drawable = getDrawable();
+        if (drawable != null) {
+            drawable.setColorFilter(new BlendModeColorFilter(color, BlendMode.SRC_IN));
+            setImageDrawable(drawable);
+        }
     }
 }
 
@@ -213,6 +223,12 @@ class SlintInputView extends View {
             mHandle.hide();
         }
     }
+
+    public void setHandleColor(int color) {
+        if (mHandle != null) {
+            mHandle.setHandleColor(color);
+        }
+    }
 }
 
 public class SlintAndroidJavaHelper {
@@ -270,6 +286,16 @@ public class SlintAndroidJavaHelper {
                 int selEnd = Math.max(cursor_position, anchor_position);
                 mInputView.setText(text, selStart, selEnd, preedit_start, preedit_end, input_type);
                 mInputView.setCursorPos(rect_x, rect_y, rect_w, rect_h, show_cursor_handles);
+
+            }
+        });
+    }
+
+    public void set_handle_color(int color) {
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mInputView.setHandleColor(color);
             }
         });
     }

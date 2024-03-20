@@ -489,7 +489,8 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
         let font_request =
             text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter());
 
-        let paint = match self.brush_to_paint(text_input.color(), max_width, max_height) {
+        let text_color = text_input.color();
+        let paint = match self.brush_to_paint(text_color.clone(), max_width, max_height) {
             Some(paint) => paint,
             None => return,
         };
@@ -544,7 +545,10 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             .translate(layout_top_left.to_vector());
 
             let cursor_paint = match self.brush_to_paint(
-                text_input.color(),
+                #[cfg(not(target_os = "android"))]
+                text_color,
+                #[cfg(target_os = "android")]
+                Brush::SolidColor(text_input.selection_background_color().with_alpha(1.)),
                 cursor_rect.width_length(),
                 cursor_rect.height_length(),
             ) {
