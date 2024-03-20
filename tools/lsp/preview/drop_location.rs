@@ -152,7 +152,7 @@ pub fn drop_at(
 
         if !drop_info.target_element_node.is_layout() && !component.fills_parent {
             if let Some(area) = component_instance
-                .element_position(&drop_info.target_element_node.element)
+                .element_positions(&drop_info.target_element_node.element)
                 .iter()
                 .find(|p| p.contains(click_position))
             {
