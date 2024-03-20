@@ -7,6 +7,13 @@ import { Button, ComboBox, HorizontalBox, ListView, ScrollView, Palette, Vertica
 import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
 import { Resizer } from "resizer.slint";
 
+export enum LayoutKind {
+    None,
+    Horizontal,
+    Vertical,
+    Grid,
+}
+
 enum SelectionKind {
     none,
     select_at,
@@ -22,7 +29,7 @@ struct SelectionRectangle {
 
 export struct Selection {
     geometry: SelectionRectangle,
-    border-color: color,
+    layout-data: LayoutKind,
     is-primary: bool,
     is-moveable: bool,
     is-resizable: bool,
@@ -31,6 +38,24 @@ export struct Selection {
 component SelectionFrame {
     in property <Selection> selection;
     in property <bool> interactive: true;
+
+    function pick-selection-color(layout-kind: LayoutKind, is-primary: bool) -> color {
+        if layout-kind == LayoutKind.None {
+            if is-primary {
+                return #2379f4ff;
+            } else {
+                return #2379f480;  
+            }
+        } else {
+            if is-primary {
+                return #ff0000ff;
+            } else {
+                return #ff000080;
+            }
+        }
+    }
+
+    private property <color> selection-color: pick-selection-color(root.selection.layout-data, root.selection.is-primary);
 
     x: root.selection.geometry.x;
     y: root.selection.geometry.y;
@@ -44,7 +69,7 @@ component SelectionFrame {
     if !root.interactive || !selection.is-primary: Rectangle {
         x: 0;
         y: 0;
-        border-color: root.selection.border-color;
+        border-color: root.selection-color;
         border-width: 1px;
     }
 
@@ -59,7 +84,7 @@ component SelectionFrame {
         x-position: root.x;
         y-position: root.y;
 
-        color: root.selection.border-color;
+        color: root.selection-color;
         x: 0;
         y: 0;
         width: root.width;
@@ -76,9 +101,9 @@ component SelectionFrame {
         }
 
         inner := Rectangle {
-            border-color: root.selection.border-color;
+            border-color: root.selection-color;
             border-width: 1px;
-            background: parent.resizing || parent.moving ? root.selection.border-color.with-alpha(0.5) : root.selection.border-color.with-alpha(0.0);
+            background: parent.resizing || parent.moving ? root.selection-color.with-alpha(0.5) : root.selection-color.with-alpha(0.0);
         }
     }
 
@@ -90,7 +115,7 @@ component SelectionFrame {
         height: label.height;
 
         label := Rectangle {
-            background: root.selection.border-color;
+            background: root.selection-color;
             width: label-text.width * 1.2;
             height: label-text.height * 1.2;
             label-text := Text {

@@ -5,11 +5,11 @@
 
 import { Button, ComboBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
 import { ComponentList, ComponentListItem } from "component-list.slint";
-import { DrawArea, DrawAreaMode, Selection } from "draw-area.slint";
+import { DrawArea, DrawAreaMode, LayoutKind, Selection } from "draw-area.slint";
 import { HeaderBar } from "header-bar.slint";
 import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
 
-export { Diagnostics }
+export { Diagnostics, LayoutKind }
 
 export component PreviewUi inherits Window {
     in property <[ComponentListItem]> known-components;

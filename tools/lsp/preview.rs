@@ -24,7 +24,9 @@ use crate::wasm_prelude::*;
 mod debug;
 mod drop_location;
 mod element_selection;
-mod ui;
+mod ext;
+use ext::ElementRcNodeExt;
+pub mod ui;
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 mod wasm;
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
@@ -593,24 +595,13 @@ fn reset_selections(ui: &ui::PreviewUi) {
 fn set_selections(
     ui: Option<&ui::PreviewUi>,
     main_index: usize,
-    is_layout: bool,
+    layout_kind: ui::LayoutKind,
     is_moveable: bool,
     is_resizable: bool,
     positions: &[i_slint_core::lengths::LogicalRect],
 ) {
     let Some(ui) = ui else {
         return;
-    };
-
-    let border_color = if is_layout {
-        i_slint_core::Color::from_argb_encoded(0xffff0000)
-    } else {
-        i_slint_core::Color::from_argb_encoded(0xff0000ff)
-    };
-    let secondary_border_color = if is_layout {
-        i_slint_core::Color::from_argb_encoded(0x80ff0000)
-    } else {
-        i_slint_core::Color::from_argb_encoded(0x800000ff)
     };
 
     let values = positions
@@ -623,7 +614,7 @@ fn set_selections(
                 x: g.origin.x,
                 y: g.origin.y,
             },
-            border_color: if i == main_index { border_color } else { secondary_border_color },
+            layout_data: layout_kind,
             is_primary: i == main_index,
             is_moveable,
             is_resizable,
@@ -638,19 +629,20 @@ fn set_selected_element(
     positions: &[i_slint_core::lengths::LogicalRect],
     notify_editor_about_selection_after_update: bool,
 ) {
-    let (is_layout, is_in_layout) = selection
+    let (layout_kind, is_in_layout) = selection
         .as_ref()
         .and_then(|s| s.as_element_node())
-        .map(|en| (en.is_layout(), element_selection::is_element_node_in_layout(&en)))
-        .unwrap_or((false, false));
+        .map(|en| (en.layout_kind(), element_selection::is_element_node_in_layout(&en)))
+        .unwrap_or((ui::LayoutKind::None, false));
 
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
 
+        let is_layout = layout_kind != ui::LayoutKind::None;
         set_selections(
             preview_state.ui.as_ref(),
             selection.as_ref().map(|s| s.instance_index).unwrap_or_default(),
-            is_layout,
+            layout_kind,
             !is_in_layout && !is_layout,
             !is_in_layout && !is_layout,
             positions,

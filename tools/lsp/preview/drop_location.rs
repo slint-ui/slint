@@ -6,8 +6,10 @@ use slint_interpreter::ComponentInstance;
 
 use crate::common;
 use crate::language::completion;
-use crate::preview::{self, element_selection};
+use crate::preview::{self, element_selection, ui};
 use crate::util;
+
+use crate::preview::ext::ElementRcNodeExt;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -78,7 +80,7 @@ fn find_drop_location(
             if let Some(element_type) = en.with_element_node(|node| {
                 util::lookup_current_element_type((node.clone()).into(), &doc.local_registry)
             }) {
-                if !en.is_layout()
+                if en.layout_kind() == ui::LayoutKind::None
                     && element_type
                         .accepts_child_element(component_type, &doc.local_registry)
                         .is_err()
@@ -150,7 +152,9 @@ pub fn drop_at(
         let click_position =
             LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
 
-        if !drop_info.target_element_node.is_layout() && !component.fills_parent {
+        if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None
+            && !component.fills_parent
+        {
             if let Some(area) = component_instance
                 .element_positions(&drop_info.target_element_node.element)
                 .iter()

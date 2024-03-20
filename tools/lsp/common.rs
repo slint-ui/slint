@@ -69,10 +69,6 @@ impl ElementRcNode {
             (n.source_file.path().to_owned(), u32::from(n.text_range().start()))
         })
     }
-
-    pub fn is_layout(&self) -> bool {
-        self.with_element_debug(|_, l| l.is_some())
-    }
 }
 
 pub fn create_workspace_edit(
