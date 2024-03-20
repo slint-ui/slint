@@ -13,6 +13,7 @@ a widget able to handle several lines of text.
 -   **`input-type`** (_in_ _enum [`InputType`](../builtins/enums.md#inputtype)_): The way to allow special input viewing properties such as password fields (default value: `text`).
 -   **`placeholder-text`**: (_in_ _string_): A placeholder text being shown when there is no text in the edit field
 -   **`read-only`** (_in_ _bool_): When set to true, text editing via keyboard and mouse is disabled but
+    selecting text is still enabled as well as editing text programatically (default value: `false`)
 -   **`text`** (_in-out_ _string_): The text being edited
 
 ### Functions
