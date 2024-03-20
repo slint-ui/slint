@@ -12,19 +12,9 @@ use std::path::Path;
 use std::rc::Rc;
 use vtable::VRc;
 
-/// The kind of Element examined.
-pub enum ComponentKind {
-    /// The component is actually a layout
-    Layout,
-    /// The component is actually an element
-    Element,
-}
-
 /// Positions of the Element in the UI
 #[derive(Default)]
 pub struct ComponentPositions {
-    /// The kind of element looked at
-    pub kind: Option<ComponentKind>,
     /// The geometry information of all occurrences of this element in the UI
     pub geometries: Vec<i_slint_core::lengths::LogicalRect>,
 }
@@ -124,18 +114,6 @@ fn fill_highlight_data(
         let geometry = item_rc.geometry();
         let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
         let size = geometry.size;
-
-        if values.kind.is_none() {
-            // FIXME: this visualization is misleading because it will highlight as a layout any
-            // optimized rectangle within a layout or parent of a layout.
-            // Example: `foo := Rectangle { lay := SomeLayout { ... } } ` lay will be optimized into foo
-            // and so both foo and lay will be considered as layout (assuming SomeLayout inherits from a layout)
-            values.kind = if element.borrow().debug.iter().any(|d| d.1.is_some()) {
-                Some(ComponentKind::Layout)
-            } else {
-                Some(ComponentKind::Element)
-            };
-        }
 
         values.geometries.push(LogicalRect { origin, size });
     }
