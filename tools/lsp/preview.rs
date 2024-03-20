@@ -11,7 +11,6 @@ use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use i_slint_core::model::VecModel;
 use lsp_types::Url;
-use slint_interpreter::highlight::ComponentPositions;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -607,7 +606,7 @@ fn set_selections(
     is_layout: bool,
     is_moveable: bool,
     is_resizable: bool,
-    positions: ComponentPositions,
+    positions: &[i_slint_core::lengths::LogicalRect],
 ) {
     let Some(ui) = ui else {
         return;
@@ -625,7 +624,6 @@ fn set_selections(
     };
 
     let values = positions
-        .geometries
         .iter()
         .enumerate()
         .map(|(i, g)| ui::Selection {
@@ -647,7 +645,7 @@ fn set_selections(
 
 fn set_selected_element(
     selection: Option<element_selection::ElementSelection>,
-    positions: slint_interpreter::highlight::ComponentPositions,
+    positions: &[i_slint_core::lengths::LogicalRect],
     notify_editor_about_selection_after_update: bool,
 ) {
     let (is_layout, is_in_layout) = selection

@@ -12,22 +12,15 @@ use std::path::Path;
 use std::rc::Rc;
 use vtable::VRc;
 
-/// Positions of the Element in the UI
-#[derive(Default)]
-pub struct ComponentPositions {
-    /// The geometry information of all occurrences of this element in the UI
-    pub geometries: Vec<i_slint_core::lengths::LogicalRect>,
-}
-
 fn collect_highlight_data(
     component: &DynamicComponentVRc,
     elements: &[std::rc::Weak<RefCell<Element>>],
-) -> ComponentPositions {
+) -> Vec<i_slint_core::lengths::LogicalRect> {
     let component_instance = VRc::downgrade(component);
     let component_instance = component_instance.upgrade().unwrap();
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
-    let mut values = ComponentPositions::default();
+    let mut values = Vec::new();
     for element in elements.iter().filter_map(|e| e.upgrade()) {
         if let Some(repeater_path) = repeater_path(&element) {
             fill_highlight_data(&repeater_path, &element, &c, &c, &mut values);
@@ -40,7 +33,7 @@ pub(crate) fn component_positions(
     component_instance: &DynamicComponentVRc,
     path: &Path,
     offset: u32,
-) -> ComponentPositions {
+) -> Vec<i_slint_core::lengths::LogicalRect> {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
@@ -58,11 +51,11 @@ pub(crate) fn element_position(
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
-    let mut values = ComponentPositions::default();
+    let mut values = Vec::new();
     if let Some(repeater_path) = repeater_path(element) {
         fill_highlight_data(&repeater_path, element, &c, &c, &mut values);
     }
-    values.geometries
+    values
 }
 
 pub(crate) fn element_at_source_code_position(
@@ -81,7 +74,7 @@ fn fill_highlight_data(
     element: &ElementRc,
     component_instance: &ItemTreeBox,
     root_component_instance: &ItemTreeBox,
-    values: &mut ComponentPositions,
+    values: &mut Vec<i_slint_core::lengths::LogicalRect>,
 ) {
     if let [first, rest @ ..] = repeater_path {
         generativity::make_guard!(guard);
@@ -115,7 +108,7 @@ fn fill_highlight_data(
         let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
         let size = geometry.size;
 
-        values.geometries.push(LogicalRect { origin, size });
+        values.push(LogicalRect { origin, size });
     }
 }
 

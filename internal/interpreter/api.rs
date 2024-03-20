@@ -1202,7 +1202,7 @@ impl ComponentInstance {
         &self,
         path: &Path,
         offset: u32,
-    ) -> crate::highlight::ComponentPositions {
+    ) -> Vec<i_slint_core::lengths::LogicalRect> {
         crate::highlight::component_positions(&self.inner, path, offset)
     }
 
