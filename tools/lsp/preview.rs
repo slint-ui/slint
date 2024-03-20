@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use crate::common::{self, ComponentInformation, PreviewComponent, PreviewConfig};
+use crate::common::{self, ComponentInformation, ElementRcNode, PreviewComponent, PreviewConfig};
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
@@ -423,20 +423,22 @@ pub fn load_preview(preview_component: PreviewComponent) {
 
             if notify_editor {
                 if let Some(component_instance) = component_instance() {
-                    if let Some(element) = component_instance
-                        .element_at_source_code_position(&se.path, se.offset)
+                    if let Some((element, debug_index)) = component_instance
+                        .element_node_at_source_code_position(&se.path, se.offset)
                         .first()
                     {
-                        if let Some((node, _)) =
-                            element.borrow().debug.iter().find(|n| !is_element_node_ignored(&n.0))
-                        {
+                        let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index)
+                        else {
+                            return;
+                        };
+                        let (path, pos) = element_node.with_element_node(|node| {
                             let sf = &node.source_file;
-                            let pos = util::map_position(sf, se.offset.into());
-                            ask_editor_to_show_document(
-                                &se.path.to_string_lossy(),
-                                lsp_types::Range::new(pos, pos),
-                            );
-                        }
+                            (sf.path().to_owned(), util::map_position(sf, se.offset.into()))
+                        });
+                        ask_editor_to_show_document(
+                            &path.to_string_lossy(),
+                            lsp_types::Range::new(pos, pos),
+                        );
                     }
                 }
             }
@@ -534,29 +536,22 @@ pub fn highlight(url: Option<Url>, offset: u32) {
     }
     cache.highlight = highlight;
 
+    let selected = selected_element();
+
     if cache.highlight.as_ref().map_or(true, |(url, _)| cache.dependency.contains(url)) {
         run_in_ui_thread(move || async move {
-            let Some(component_instance) = component_instance() else {
-                return;
-            };
             let Some(path) = url.and_then(|u| Url::to_file_path(&u).ok()) else {
                 return;
             };
-            let elements = component_instance.element_at_source_code_position(&path, offset);
-            if let Some(e) = elements.first() {
-                let Some(debug_index) = e.borrow().debug.iter().position(|(n, _)| {
-                    n.text_range().contains(offset.into()) && n.source_file.path() == path
-                }) else {
-                    return;
-                };
-                let is_layout =
-                    e.borrow().debug.get(debug_index).map_or(false, |(_, l)| l.is_some());
-                element_selection::select_element_at_source_code_position(
-                    path, offset, is_layout, None, false,
-                );
-            } else {
-                element_selection::unselect_element();
+
+            if Some((path.clone(), offset)) == selected.map(|s| (s.path, s.offset)) {
+                // Already selected!
+                return;
             }
+            // TODO: false is wrong for is_layout here, but we will replace that soon anyway!
+            element_selection::select_element_at_source_code_position(
+                path, offset, false, None, false,
+            );
         })
     }
 }
