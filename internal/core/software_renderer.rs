@@ -2138,7 +2138,15 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
             if let Some(clipped_src) = cursor_rect.intersection(&physical_clip.cast()) {
                 let geometry = clipped_src.translate(offset.cast()).transformed(self.rotation);
-                self.processor.process_rectangle(geometry, color.into());
+                self.processor.process_rectangle(
+                    geometry,
+                    if crate::items::TextInput::is_cursor_color_same_as_selection() {
+                        self.alpha_color(text_input.selection_background_color().with_alpha(1.))
+                    } else {
+                        color
+                    }
+                    .into(),
+                );
             }
         }
     }
