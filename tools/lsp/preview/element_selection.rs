@@ -16,7 +16,6 @@ pub struct ElementSelection {
     pub path: PathBuf,
     pub offset: u32,
     pub instance_index: usize,
-    pub is_layout: bool,
 }
 
 impl ElementSelection {
@@ -94,7 +93,6 @@ pub fn unselect_element() {
 pub fn select_element_at_source_code_position(
     path: PathBuf,
     offset: u32,
-    is_layout: bool,
     position: Option<LogicalPoint>,
     notify_editor_about_selection_after_update: bool,
 ) {
@@ -105,7 +103,6 @@ pub fn select_element_at_source_code_position(
         &component_instance,
         path,
         offset,
-        is_layout,
         position,
         notify_editor_about_selection_after_update,
     )
@@ -115,7 +112,6 @@ fn select_element_at_source_code_position_impl(
     component_instance: &ComponentInstance,
     path: PathBuf,
     offset: u32,
-    is_layout: bool,
     position: Option<LogicalPoint>,
     notify_editor_about_selection_after_update: bool,
 ) {
@@ -126,7 +122,7 @@ fn select_element_at_source_code_position_impl(
         .unwrap_or_default();
 
     super::set_selected_element(
-        Some(ElementSelection { path, offset, instance_index, is_layout }),
+        Some(ElementSelection { path, offset, instance_index }),
         &positions,
         notify_editor_about_selection_after_update,
     );
@@ -143,7 +139,6 @@ fn select_element_node(
         component_instance,
         path,
         offset,
-        selected_element.is_layout(),
         position,
         false, // We update directly;-)
     );

@@ -145,7 +145,6 @@ fn drop_component(component_type: slint::SharedString, x: f32, y: f32) {
         element_selection::select_element_at_source_code_position(
             drop_data.path,
             drop_data.selection_offset,
-            drop_data.is_layout,
             None,
             true,
         );
@@ -416,7 +415,6 @@ pub fn load_preview(preview_component: PreviewComponent) {
             element_selection::select_element_at_source_code_position(
                 se.path.clone(),
                 se.offset,
-                se.is_layout,
                 None,
                 false,
             );
@@ -548,10 +546,7 @@ pub fn highlight(url: Option<Url>, offset: u32) {
                 // Already selected!
                 return;
             }
-            // TODO: false is wrong for is_layout here, but we will replace that soon anyway!
-            element_selection::select_element_at_source_code_position(
-                path, offset, false, None, false,
-            );
+            element_selection::select_element_at_source_code_position(path, offset, None, false);
         })
     }
 }
