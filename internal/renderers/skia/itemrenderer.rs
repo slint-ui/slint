@@ -489,16 +489,15 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
         let font_request =
             text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter());
 
-        let text_color = text_input.color();
-        let paint = match self.brush_to_paint(text_color.clone(), max_width, max_height) {
-            Some(paint) => paint,
-            None => return,
-        };
+        let visual_representation = text_input.visual_representation(None);
+        let paint =
+            match self.brush_to_paint(visual_representation.text_color, max_width, max_height) {
+                Some(paint) => paint,
+                None => return,
+            };
 
         let mut text_style = skia_safe::textlayout::TextStyle::new();
         text_style.set_foreground_paint(&paint);
-
-        let visual_representation = text_input.visual_representation(None);
 
         let selection = if !visual_representation.preedit_range.is_empty() {
             Some(super::textlayout::Selection {
@@ -545,11 +544,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             .translate(layout_top_left.to_vector());
 
             let cursor_paint = match self.brush_to_paint(
-                if i_slint_core::items::TextInput::is_cursor_color_same_as_selection() {
-                    Brush::SolidColor(text_input.selection_background_color().with_alpha(1.))
-                } else {
-                    text_color
-                },
+                Brush::SolidColor(visual_representation.cursor_color),
                 cursor_rect.width_length(),
                 cursor_rect.height_length(),
             ) {

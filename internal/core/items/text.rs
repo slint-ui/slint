@@ -822,6 +822,10 @@ pub struct TextInputVisualRepresentation {
     pub selection_range: core::ops::Range<usize>,
     /// The position where to draw the cursor, as byte offset within the text.
     pub cursor_position: Option<usize>,
+    /// The color of the (unselected) text
+    pub text_color: Brush,
+    /// The color of the blinking cursor
+    pub cursor_color: Color,
     text_without_password: Option<String>,
     password_character: char,
 }
@@ -1405,6 +1409,19 @@ impl TextInput {
             (preedit_range, selection_range, cursor_position)
         };
 
+        let text_color = self.color();
+
+        let cursor_color =
+            if cfg!(any(target_os = "android", target_os = "macos", target_os = "ios")) {
+                if cursor_position.is_some() {
+                    self.selection_background_color().with_alpha(1.)
+                } else {
+                    Default::default()
+                }
+            } else {
+                text_color.color()
+            };
+
         let mut repr = TextInputVisualRepresentation {
             text,
             preedit_range,
@@ -1412,6 +1429,8 @@ impl TextInput {
             cursor_position,
             text_without_password: None,
             password_character: Default::default(),
+            text_color,
+            cursor_color,
         };
         repr.apply_password_character_substitution(self, password_character_fn);
         repr
@@ -1586,12 +1605,6 @@ impl TextInput {
         let mut undo_items = self.undo_items.take();
         undo_items.push(last);
         self.undo_items.set(undo_items);
-    }
-
-    /// Returns true if the cursor color is based on he selection background color.
-    /// If it returns false, the cursor color is the same as the text color.
-    pub const fn is_cursor_color_same_as_selection() -> bool {
-        cfg!(any(target_os = "android", target_os = "macos", target_os = "ios"))
     }
 }
 
