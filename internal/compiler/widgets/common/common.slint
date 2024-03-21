@@ -10,6 +10,9 @@ export component TextEdit inherits ScrollView {
     in property <length> font-size <=> i-text-input.font-size;
     in-out property <string> text <=> i-text-input.text;
 
+    accessible-role: AccessibleRole.text-input;
+    accessible-value <=> text;
+
     callback edited(/* text */ string);
 
     public function set-selection-offsets(start: int, end: int) {
