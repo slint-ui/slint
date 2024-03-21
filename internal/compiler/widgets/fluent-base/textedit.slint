@@ -20,7 +20,7 @@ export component TextEdit {
     in-out property <length> viewport-height <=> i-scroll-view.viewport-height;
 
     callback edited(/* text */ string);
-    accessible-role: text-input;
+    accessible-role: AccessibleRole.text-input;
 
     public function set-selection-offsets(start: int, end: int) {
         i-text-input.set-selection-offsets(start, end);
