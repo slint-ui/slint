@@ -335,6 +335,8 @@ macro_rules! for_each_enums {
                 Checkbox,
                 /// The element is a [`ComboBox`](../widgets/combobox.md) or behaves like one.
                 Combobox,
+                /// The element is a [`ListView`](../widgets/listview.md) or behaves like one.
+                List,
                 /// The element is a [`Slider`](../widgets/slider.md) or behaves like one.
                 Slider,
                 /// The element is a [`SpinBox`](../widgets/spinbox.md) or behaves like one.
