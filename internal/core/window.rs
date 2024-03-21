@@ -103,7 +103,7 @@ pub trait WindowAdapter {
     fn size(&self) -> PhysicalSize;
 
     /// Return whether the window is blurred.
-    fn blurred(&self) -> bool { false }
+    fn is_window_background_blurred(&self) -> bool { false }
 
     /// Request blur effect for the window.
     fn set_window_background_blurred(&self, _blur: bool) {}

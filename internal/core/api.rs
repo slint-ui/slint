@@ -445,8 +445,8 @@ impl Window {
     /// A `false` will be returned if target platform is unsupported.
     ///
     /// See also [`Window::set_window_background_blurred`]
-    pub fn blurred(&self) -> bool {
-        self.0.window_adapter().blurred()
+    pub fn is_window_background_blurred(&self) -> bool {
+        self.0.window_adapter().is_window_background_blurred()
     }
 
     /// Sets the blur of the window on the screen.

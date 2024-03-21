@@ -461,7 +461,7 @@ impl WindowAdapter for WinitWindowAdapter {
         self.size.get()
     }
 
-    fn blurred(&self) -> bool {
+    fn is_window_background_blurred(&self) -> bool {
         self.blurred.get()
     }
 
