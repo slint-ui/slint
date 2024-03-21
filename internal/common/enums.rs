@@ -345,7 +345,8 @@ macro_rules! for_each_enums {
                 Text,
                 /// The element is a [`ProgressIndicator`](../widgets/progressindicator.md) or behaves like one.
                 ProgressIndicator,
-                /// The role for a [`TextInput`](elements.md#TextInput) element.
+                /// The role for widget with editable text such as a
+                /// [`LineEdit`](../widgets/lineedit.md) or a [`TextEdit`](../widgets/textedit.md)
                 TextInput,
             }
 
