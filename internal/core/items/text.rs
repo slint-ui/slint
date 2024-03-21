@@ -1126,10 +1126,15 @@ impl TextInput {
         let anchor_position = self.anchor_position(&text);
         let cursor_relative = self.cursor_rect_for_byte_offset(cursor_position, window_adapter);
         let geometry = self_rc.geometry();
-        let cursor_rect_origin = crate::api::LogicalPosition::from_euclid(
-            self_rc.map_to_window(cursor_relative.origin + geometry.origin.to_vector()),
-        );
+        let origin = self_rc.map_to_window(geometry.origin).to_vector();
+        let cursor_rect_origin =
+            crate::api::LogicalPosition::from_euclid(cursor_relative.origin + origin);
         let cursor_rect_size = crate::api::LogicalSize::from_euclid(cursor_relative.size);
+        let anchor_point = crate::api::LogicalPosition::from_euclid(
+            self.cursor_rect_for_byte_offset(anchor_position, window_adapter).origin
+                + origin
+                + cursor_relative.size,
+        );
 
         InputMethodProperties {
             text,
@@ -1139,6 +1144,7 @@ impl TextInput {
             preedit_offset: cursor_position,
             cursor_rect_origin,
             cursor_rect_size,
+            anchor_point,
             input_type: self.input_type(),
         }
     }

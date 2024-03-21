@@ -28,13 +28,13 @@ class InputHandle extends ImageView {
     private SlintInputView mRootView;
     private int cursorX;
     private int cursorY;
+    private int attr;
 
     public InputHandle(SlintInputView rootView, int attr) {
         super(rootView.getContext());
+        this.attr = attr;
         mRootView = rootView;
         Context ctx = rootView.getContext();
-        // this.mInputView = mInputView;
-
         mPopupWindow = new PopupWindow(ctx, null, android.R.attr.textSelectHandleWindowStyle);
         mPopupWindow.setSplitTouchEnabled(true);
         mPopupWindow.setClippingEnabled(false);
@@ -43,13 +43,6 @@ class InputHandle extends ImageView {
         mPopupWindow.setWidth(drawable.getIntrinsicWidth());
         mPopupWindow.setHeight(drawable.getIntrinsicHeight());
         this.setImageDrawable(drawable);
-
-        // mPopupWindow.setBackgroundDrawable(null);
-        // mPopupWindow.setAnimationStyle(0);
-        // mPopupWindow.setWindowLayoutType(WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL);
-        // mPopupWindow.setEnterTransition(null);
-        // mPopupWindow.setExitTransition(null);
-
         mPopupWindow.setContentView(this);
     }
 
@@ -63,7 +56,9 @@ class InputHandle extends ImageView {
             }
 
             case MotionEvent.ACTION_MOVE: {
-                SlintAndroidJavaHelper.moveCursorHandle(0, Math.round(ev.getRawX() - mPressedX),
+                int id = attr == android.R.attr.textSelectHandleLeft ? 1
+                        : attr == android.R.attr.textSelectHandleRight ? 2 : 0;
+                SlintAndroidJavaHelper.moveCursorHandle(id, Math.round(ev.getRawX() - mPressedX),
                         Math.round(ev.getRawY() - mPressedY));
                 break;
             }
@@ -79,7 +74,14 @@ class InputHandle extends ImageView {
         cursorY = y;
 
         y += mPopupWindow.getHeight();
-        x -= mPopupWindow.getWidth() / 2;
+        if (attr == android.R.attr.textSelectHandleLeft) {
+            x -= 3 * mPopupWindow.getWidth() / 4;
+        } else if (attr == android.R.attr.textSelectHandleRight) {
+            x -= mPopupWindow.getWidth() / 4;
+        } else {
+            x -= mPopupWindow.getWidth() / 2;
+        }
+
         mPopupWindow.showAtLocation(mRootView, 0, x, y);
         mPopupWindow.update(x, y, -1, -1);
     }
@@ -116,7 +118,7 @@ class SlintInputView extends View {
         @Override
         public SpannableStringBuilder replace(int start, int end, CharSequence tb, int tbstart, int tbend) {
             super.replace(start, end, tb, tbstart, tbend);
-            mHandle.hide();
+            setCursorPos(0, 0, 0, 0, 0);
             if (mInBatch == 0) {
                 update();
             } else {
@@ -211,22 +213,57 @@ class SlintInputView extends View {
         }
     }
 
-    private InputHandle mHandle;
+    private InputHandle mCursorHandle;
+    private InputHandle mLeftHandle;
+    private InputHandle mRightHandle;
 
-    public void setCursorPos(int rect_x, int rect_y, int rect_w, int rect_h, boolean show) {
-        if (show) {
-            if (mHandle == null) {
-                mHandle = new InputHandle(this, android.R.attr.textSelectHandle);
+    // num_handles: 0=hidden, 1=cursor handle, 2=selection handles
+    public void setCursorPos(int left_x, int left_y, int right_x, int right_y, int num_handles) {
+        if (num_handles == 1) {
+            if (mLeftHandle != null) {
+                mLeftHandle.hide();
             }
-            mHandle.setPosition(rect_x + rect_w / 2, rect_y + rect_h + 2 * rect_w);
-        } else if (mHandle != null) {
-            mHandle.hide();
+            if (mRightHandle != null) {
+                mRightHandle.hide();
+            }
+            if (mCursorHandle == null) {
+                mCursorHandle = new InputHandle(this, android.R.attr.textSelectHandle);
+            }
+            mCursorHandle.setPosition(left_x, left_y);
+        } else if (num_handles == 2) {
+            if (mLeftHandle == null) {
+                mLeftHandle = new InputHandle(this, android.R.attr.textSelectHandleLeft);
+            }
+            if (mRightHandle == null) {
+                mRightHandle = new InputHandle(this, android.R.attr.textSelectHandleRight);
+            }
+            if (mCursorHandle != null) {
+                mCursorHandle.hide();
+            }
+            mLeftHandle.setPosition(right_x, right_y);
+            mRightHandle.setPosition(left_x, left_y);
+        } else {
+            if (mCursorHandle != null) {
+                mCursorHandle.hide();
+            }
+            if (mLeftHandle != null) {
+                mLeftHandle.hide();
+            }
+            if (mRightHandle != null) {
+                mRightHandle.hide();
+            }
         }
     }
 
     public void setHandleColor(int color) {
-        if (mHandle != null) {
-            mHandle.setHandleColor(color);
+        if (mCursorHandle != null) {
+            mCursorHandle.setHandleColor(color);
+        }
+        if (mLeftHandle != null) {
+            mLeftHandle.setHandleColor(color);
+        }
+        if (mRightHandle != null) {
+            mRightHandle.setHandleColor(color);
         }
     }
 }
@@ -277,7 +314,7 @@ public class SlintAndroidJavaHelper {
     static public native void moveCursorHandle(int id, int pos_x, int pos_y);
 
     public void set_imm_data(String text, int cursor_position, int anchor_position, int preedit_start, int preedit_end,
-            int rect_x, int rect_y, int rect_w, int rect_h, int input_type, boolean show_cursor_handles) {
+            int cur_x, int cur_y, int anchor_x, int anchor_y, int input_type, boolean show_cursor_handles) {
 
         mActivity.runOnUiThread(new Runnable() {
             @Override
@@ -285,7 +322,15 @@ public class SlintAndroidJavaHelper {
                 int selStart = Math.min(cursor_position, anchor_position);
                 int selEnd = Math.max(cursor_position, anchor_position);
                 mInputView.setText(text, selStart, selEnd, preedit_start, preedit_end, input_type);
-                mInputView.setCursorPos(rect_x, rect_y, rect_w, rect_h, show_cursor_handles);
+                int num_handles = 0;
+                if (show_cursor_handles) {
+                    num_handles = cursor_position == anchor_position ? 1 : 2;
+                }
+                if (cursor_position < anchor_position) {
+                    mInputView.setCursorPos(anchor_x, anchor_y, cur_x, cur_y, num_handles);
+                } else {
+                    mInputView.setCursorPos(cur_x, cur_y, anchor_x, anchor_y, num_handles);
+                }
 
             }
         });
