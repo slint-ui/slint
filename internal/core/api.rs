@@ -224,7 +224,7 @@ impl WindowSize {
 }
 
 /// The effect of the window's background would apply on
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Copy, Clone, Default)]
 pub enum WindowEffect {
     /// Applies default effect for all platforms
     /// Works only on Windows, macOS and Linux (Wayland KDE)
