@@ -542,14 +542,12 @@ impl WindowAdapter for WinitWindowAdapter {
         {
             let window = self.winit_window();
 
-            if apply {
-                for effect in iter {
-                    match effect {
-                        WindowEffect::General => {
-                            window.set_blur(true);
-                            break;
-                        }
+            if let Some(e) = effect {
+                match e {
+                    WindowEffect::General => {
+                        window.set_blur(true);
                     }
+                    _ => {}
                 }
             } else {
                 window.set_blur(false);
