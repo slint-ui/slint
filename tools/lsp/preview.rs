@@ -109,7 +109,17 @@ fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<Elem
 }
 
 // triggered from the UI, running in UI thread
-fn can_drop_component(component_type: slint::SharedString, x: f32, y: f32) -> bool {
+fn can_drop_component(
+    component_type: slint::SharedString,
+    x: f32,
+    y: f32,
+    on_drop_area: bool,
+) -> bool {
+    if !on_drop_area {
+        set_drop_mark(&None);
+        return false;
+    }
+
     let component_type = component_type.to_string();
 
     PREVIEW_STATE.with(move |preview_state| {
@@ -642,6 +652,27 @@ fn set_selections(
     ui.set_selections(slint::ModelRc::from(model));
 }
 
+fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
+    PREVIEW_STATE.with(move |preview_state| {
+        let preview_state = preview_state.borrow();
+
+        let Some(ui) = &preview_state.ui else {
+            return;
+        };
+
+        if let Some(m) = mark {
+            ui.set_drop_mark(ui::DropMark {
+                x1: m.start.x,
+                y1: m.start.y,
+                x2: m.end.x,
+                y2: m.end.y,
+            });
+        } else {
+            ui.set_drop_mark(ui::DropMark { x1: -1.0, y1: -1.0, x2: -1.0, y2: -1.0 });
+        }
+    })
+}
+
 fn set_selected_element(
     selection: Option<element_selection::ElementSelection>,
     positions: &[i_slint_core::lengths::LogicalRect],
@@ -652,6 +683,8 @@ fn set_selected_element(
         .and_then(|s| s.as_element_node())
         .map(|en| (en.layout_kind(), element_selection::is_element_node_in_layout(&en)))
         .unwrap_or((ui::LayoutKind::None, false));
+
+    set_drop_mark(&None);
 
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();

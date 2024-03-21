@@ -62,6 +62,13 @@ pub struct DropInformation {
     pub insertion_position: common::VersionedPosition,
     pub replacement_range: u32,
     pub indent: Indentation,
+    pub drop_mark: Option<DropMark>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DropMark {
+    pub start: i_slint_core::lengths::LogicalPoint,
+    pub end: i_slint_core::lengths::LogicalPoint,
 }
 
 fn find_drop_location(
@@ -169,15 +176,30 @@ fn find_drop_location(
             ))
         })?;
 
-    Some(DropInformation { target_element_node, insertion_position, indent, replacement_range })
+    Some(DropInformation {
+        target_element_node,
+        insertion_position,
+        indent,
+        replacement_range,
+        drop_mark: Some(DropMark {
+            start: LogicalPoint::new(x - 10.0, y - 10.0),
+            end: LogicalPoint::new(x + 10.0, y + 10.0),
+        }),
+    })
 }
 
 /// Find the Element to insert into. None means we can not insert at this point.
 pub fn can_drop_at(x: f32, y: f32, component: &common::ComponentInformation) -> bool {
     let component_type = component.name.to_string();
-    super::component_instance()
-        .and_then(|ci| find_drop_location(&ci, x, y, &component_type))
-        .is_some()
+    if let Some(dm) =
+        &super::component_instance().and_then(|ci| find_drop_location(&ci, x, y, &component_type))
+    {
+        super::set_drop_mark(&dm.drop_mark);
+        true
+    } else {
+        super::set_drop_mark(&None);
+        false
+    }
 }
 
 /// Extra data on an added Element, relevant to the Preview side only.
@@ -187,7 +209,6 @@ pub struct DropData {
     /// due to indentation, etc.
     pub selection_offset: u32,
     pub path: std::path::PathBuf,
-    pub is_layout: bool,
 }
 
 /// Find a location in a file that would be a good place to insert the new component at
@@ -267,6 +288,6 @@ pub fn drop_at(
 
     Some((
         common::create_workspace_edit_from_source_file(&source_file, edits)?,
-        DropData { selection_offset, path, is_layout: component.is_layout },
+        DropData { selection_offset, path },
     ))
 }
