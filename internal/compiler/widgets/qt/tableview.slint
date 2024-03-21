@@ -11,6 +11,7 @@ export component StandardTableView {
     callback sort-descending(int);
     callback row-pointer-event(int /* row-index */, PointerEvent /* event */, Point /* absolute mouse position */);
     callback current-row-changed(int /* current-row */);
+    accessible-role: tree;
 
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
