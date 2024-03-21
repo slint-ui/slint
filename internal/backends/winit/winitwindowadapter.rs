@@ -36,6 +36,7 @@ use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use once_cell::unsync::OnceCell;
 use winit::window::WindowBuilder;
+use i_slint_core::api::{VibrancyMaterial, WindowEffect};
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -459,8 +460,101 @@ impl WindowAdapter for WinitWindowAdapter {
         self.size.get()
     }
 
-    fn set_blur(&self, blur: bool) {
-        self.winit_window().set_blur(blur);
+    fn set_window_background_effect(&self, effect: Option<WindowEffect>) {
+        #[cfg(target_os = "macos")]
+        {
+            use std::ptr::null;
+            use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+            use icrate::AppKit::{NSViewHeightSizable, NSViewWidthSizable, NSVisualEffectBlendingModeBehindWindow, NSVisualEffectStateFollowsWindowActiveState, NSWindowBelow};
+            use icrate::Foundation::NSRect;
+            use objc2::{class, msg_send};
+            use objc2::runtime::NSObject;
+
+            let handle = self.winit_window().raw_window_handle();
+            let handle = match handle {
+                RawWindowHandle::AppKit(h) => h,
+                _ => return,
+            };
+
+            //let window = handle.ns_window as *mut NSObject;
+            let view = handle.ns_view as *mut NSObject;
+
+            let theme_view: *mut NSObject = unsafe { msg_send![view, superview] };
+
+            static BLURRED_VIEW: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+
+            let blurred_view = *BLURRED_VIEW.get_or_init(|| {
+                unsafe {
+                    let blurred_view: *mut NSObject = msg_send![class!(NSVisualEffectView), alloc];
+                    let bounds: NSRect = msg_send![view, bounds];
+                    let blurred_view: *mut NSObject = msg_send![blurred_view, initWithFrame:bounds];
+
+                    let _: () = msg_send![blurred_view, setAutoresizingMask:NSViewHeightSizable | NSViewWidthSizable];
+                    let _: () = msg_send![blurred_view, setBlendingMode:NSVisualEffectBlendingModeBehindWindow];
+                    let _: () = msg_send![blurred_view, setState:NSVisualEffectStateFollowsWindowActiveState];
+
+                    blurred_view as usize
+                }
+            }) as *mut NSObject;
+
+            let material = match effect {
+                Some(WindowEffect::General) => VibrancyMaterial::FullScreenUI,
+                Some(WindowEffect::Vibrancy(mat)) => mat,
+                _ => {
+                    unsafe {
+                        let _: () = msg_send![blurred_view, removeFromSuperview];
+                    }
+                    return;
+                }
+            };
+
+            unsafe {
+                let _: () = msg_send![blurred_view, setMaterial:material as isize];
+                let _: () = msg_send![theme_view, addSubview: blurred_view positioned: NSWindowBelow relativeTo: null::<NSObject>()];
+            }
+        }
+        #[cfg(target_os = "windows")]
+        {
+            fn color_to_tuple(color: Color) -> (u8, u8, u8, u8) {
+                (color.red(), color.green(), color.blue(), color.alpha())
+            }
+
+            let window = self.winit_window();
+
+            if let Some(e) = effect {
+                let _ = match e {
+                    WindowEffect::General => window_vibrancy::apply_acrylic(&window, None),
+                    WindowEffect::Acrylic(color) => window_vibrancy::apply_acrylic(&window, color.map(color_to_tuple)),
+                    WindowEffect::Blur(color) => window_vibrancy::apply_blur(&window, color.map(color_to_tuple)),
+                    WindowEffect::Mica(dark) => window_vibrancy::apply_mica(&window, dark),
+                    WindowEffect::Tabbed(dark) => window_vibrancy::apply_tabbed(&window, dark),
+                    _ => return,
+                };
+            } else {
+                let _ = window_vibrancy::clear_acrylic(&window);
+                let _ = window_vibrancy::clear_blur(&window);
+                let _ = window_vibrancy::clear_mica(&window);
+                let _ = window_vibrancy::clear_tabbed(&window);
+            }
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            let window = self.winit_window();
+
+            if apply {
+                for effect in iter {
+                    match effect {
+                        WindowEffect::General => {
+                            window.set_blur(true);
+                            break;
+                        }
+                    }
+                }
+            } else {
+                window.set_blur(false);
+            }
+        }
     }
 
     fn request_redraw(&self) {

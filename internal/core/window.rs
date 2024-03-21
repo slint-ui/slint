@@ -6,10 +6,7 @@
 #![warn(missing_docs)]
 //! Exposed Window API
 
-use crate::api::{
-    CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window,
-    WindowPosition, WindowSize,
-};
+use crate::api::{CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window, WindowEffect, WindowPosition, WindowSize};
 use crate::graphics::Point;
 use crate::input::{
     key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, MouseEvent,
@@ -106,7 +103,7 @@ pub trait WindowAdapter {
     fn size(&self) -> PhysicalSize;
 
     /// Request blur effect for the window.
-    fn set_blur(&self, _blur: bool) {}
+    fn set_window_background_effect(&self, _effect: Option<WindowEffect>) {}
 
     /// Issues a request to the windowing system to re-render the contents of the window.
     ///
