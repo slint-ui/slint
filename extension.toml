@@ -4,6 +4,7 @@ description = "Slint support for Zed"
 version = "0.0.1"
 schema_version = 1
 authors = ["Luke. D Jones <luke@ljones.dev>"]
+repository = "https://gitlab.com/flukejones/zed-slint"
 
 [language_servers.slint]
 name = "Slint LSP"
