@@ -341,6 +341,8 @@ macro_rules! for_each_enums {
                 Spinbox,
                 /// The element is a [`Tab`](../widgets/tabwidget.md) or behaves like one.
                 Tab,
+                /// The element is a [`TabList`](../widgets/tabwidget.md) or behaves like one.
+                TabList,
                 /// The role for a [`Text`](elements.md#text) element. It's automatically applied.
                 Text,
                 /// The element is a [`ProgressIndicator`](../widgets/progressindicator.md) or behaves like one.

@@ -96,7 +96,7 @@ export component TabBarImpl {
     in-out property <int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1; // The currently focused tab
     in-out property <int> num-tabs; // The total number of tabs
 
-    accessible-role: tab;
+    accessible-role: tab-list;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
 
     HorizontalLayout {

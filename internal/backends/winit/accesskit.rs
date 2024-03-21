@@ -360,6 +360,7 @@ impl AccessKitAdapter {
                     i_slint_core::items::AccessibleRole::Slider => Role::Slider,
                     i_slint_core::items::AccessibleRole::Spinbox => Role::SpinButton,
                     i_slint_core::items::AccessibleRole::Tab => Role::Tab,
+                    i_slint_core::items::AccessibleRole::TabList => Role::TabList,
                     i_slint_core::items::AccessibleRole::Text => Role::StaticText,
                     i_slint_core::items::AccessibleRole::ProgressIndicator => {
                         Role::ProgressIndicator
