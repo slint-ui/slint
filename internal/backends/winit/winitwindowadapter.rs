@@ -36,7 +36,6 @@ use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use once_cell::unsync::OnceCell;
 use winit::window::WindowBuilder;
-use i_slint_core::api::WindowEffect;
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -125,6 +124,7 @@ pub struct WinitWindowAdapter {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
     fullscreen: Cell<bool>,
+    blurred: Cell<bool>,
 
     pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
     /// We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
@@ -161,6 +161,7 @@ impl WinitWindowAdapter {
             maximized: Cell::default(),
             minimized: Cell::default(),
             fullscreen: Cell::default(),
+            blurred: Cell::default(),
             winit_window: winit_window.clone(),
             size: Default::default(),
             has_explicit_size: Default::default(),
@@ -460,16 +461,21 @@ impl WindowAdapter for WinitWindowAdapter {
         self.size.get()
     }
 
-    fn set_window_background_effect(&self, effect: Option<WindowEffect>) {
+    fn blurred(&self) -> bool {
+        self.blurred.get()
+    }
+
+    fn set_window_background_blurred(&self, blur: bool) {
+        let old = self.blurred.replace(blur);
+
         #[cfg(target_os = "macos")]
         {
             use std::ptr::null;
             use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-            use icrate::AppKit::{NSViewHeightSizable, NSViewWidthSizable, NSVisualEffectBlendingModeBehindWindow, NSVisualEffectStateFollowsWindowActiveState, NSWindowBelow};
+            use icrate::AppKit::{NSViewHeightSizable, NSViewWidthSizable, NSVisualEffectBlendingModeBehindWindow, NSVisualEffectMaterialFullScreenUI, NSVisualEffectStateFollowsWindowActiveState, NSWindowBelow};
             use icrate::Foundation::NSRect;
             use objc2::{class, msg_send};
             use objc2::runtime::NSObject;
-            use i_slint_core::api::VibrancyMaterial;
 
             let handle = self.winit_window().raw_window_handle();
             let handle = match handle {
@@ -493,66 +499,51 @@ impl WindowAdapter for WinitWindowAdapter {
                     let _: () = msg_send![blurred_view, setAutoresizingMask:NSViewHeightSizable | NSViewWidthSizable];
                     let _: () = msg_send![blurred_view, setBlendingMode:NSVisualEffectBlendingModeBehindWindow];
                     let _: () = msg_send![blurred_view, setState:NSVisualEffectStateFollowsWindowActiveState];
+                    let _: () = msg_send![blurred_view, setMaterial:NSVisualEffectMaterialFullScreenUI];
 
                     blurred_view as usize
                 }
             }) as *mut NSObject;
 
-            let material = match effect {
-                Some(WindowEffect::General) => VibrancyMaterial::FullScreenUI,
-                Some(WindowEffect::Vibrancy(mat)) => mat,
-                _ => {
-                    unsafe {
-                        let _: () = msg_send![blurred_view, removeFromSuperview];
-                    }
-                    return;
+            if old && blur {
+                unsafe {
+                    let _: () = msg_send![blurred_view, removeFromSuperview];
                 }
-            };
+            }
 
             unsafe {
-                let _: () = msg_send![blurred_view, setMaterial:material as isize];
-                let _: () = msg_send![theme_view, addSubview: blurred_view positioned: NSWindowBelow relativeTo: null::<NSObject>()];
+                if blur {
+                    let _: () = msg_send![theme_view, addSubview: blurred_view positioned: NSWindowBelow relativeTo: null::<NSObject>()];
+                } else {
+                    let _: () = msg_send![blurred_view, removeFromSuperview];
+                }
             }
+            return;
         }
         #[cfg(target_os = "windows")]
         {
-            fn color_to_tuple(color: Color) -> (u8, u8, u8, u8) {
-                (color.red(), color.green(), color.blue(), color.alpha())
-            }
-
             let window = self.winit_window();
 
-            if let Some(e) = effect {
-                let _ = match e {
-                    WindowEffect::General => window_vibrancy::apply_acrylic(&window, None),
-                    WindowEffect::Acrylic(color) => window_vibrancy::apply_acrylic(&window, color.map(color_to_tuple)),
-                    WindowEffect::Blur(color) => window_vibrancy::apply_blur(&window, color.map(color_to_tuple)),
-                    WindowEffect::Mica(dark) => window_vibrancy::apply_mica(&window, dark),
-                    WindowEffect::Tabbed(dark) => window_vibrancy::apply_tabbed(&window, dark),
-                    _ => return,
-                };
+            if blur {
+                let _ = window_vibrancy::apply_acrylic(&window, None);
             } else {
                 let _ = window_vibrancy::clear_acrylic(&window);
-                let _ = window_vibrancy::clear_blur(&window);
-                let _ = window_vibrancy::clear_mica(&window);
-                let _ = window_vibrancy::clear_tabbed(&window);
             }
+            return;
         }
 
         #[cfg(target_os = "linux")]
         {
             let window = self.winit_window();
 
-            if let Some(e) = effect {
-                match e {
-                    WindowEffect::General => {
-                        window.set_blur(true);
-                    }
-                    _ => {}
-                }
-            } else {
-                window.set_blur(false);
-            }
+            window.set_blur(blur);
+            return;
+        }
+
+        // unsupported
+        #[allow(unreachable_code)]
+        {
+            self.blurred.replace(false);
         }
     }
 

@@ -223,68 +223,6 @@ impl WindowSize {
     }
 }
 
-/// The effect of the window's background would apply on
-#[derive(Debug, Copy, Clone, Default)]
-pub enum WindowEffect {
-    /// Applies default effect for all platforms
-    /// Works only on Windows, macOS and Linux (Wayland KDE)
-    #[default]
-    General,
-    /// Applies Acrylic effect
-    /// https://learn.microsoft.com/en-us/windows/apps/design/style/acrylic
-    /// Works only on Windows 10 v1809 or newer.
-    Acrylic(Option<Color>),
-    /// Applies Blur effect
-    /// Works only on Windows 7, Windows 10 v1809 or newer.
-    Blur(Option<Color>),
-    /// Applies mica effect
-    /// https://learn.microsoft.com/en-us/windows/apps/design/style/mica
-    /// Works only on Windows 11.
-    Mica(Option<bool>),
-    /// Applies mica tabbed effect
-    ///
-    /// Works only on Windows 11.
-    Tabbed(Option<bool>),
-    /// Applies macOS vibrancy effect
-    /// Works only on macOS 10.10 or newer.
-    Vibrancy(VibrancyMaterial),
-}
-
-/// The specific material for vibrancy
-#[repr(isize)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
-pub enum VibrancyMaterial {
-    /// The material for a window’s titlebar.
-    Titlebar = 3,
-    /// The material used to indicate a selection.
-    Selection = 4,
-    /// The material for menus.
-    Menu = 5,
-    /// The material for the background of popover windows.
-    Popover = 6,
-    /// The material for the background of window sidebars.
-    Sidebar = 7,
-    /// The material for in-line header or footer views.
-    HeaderView = 10,
-    /// The material for the background of sheet windows.
-    Sheet = 11,
-    /// The material for the background of opaque windows.
-    WindowBackground = 12,
-    /// The material for the background of heads-up display (HUD) windows.
-    HUDWindow = 13,
-    /// The material for the background of a full-screen modal interface.
-    #[default]
-    FullScreenUI = 15,
-    /// The material for the background of a tool tip.
-    ToolTip = 17,
-    /// The material for the background of opaque content.
-    ContentBackground = 18,
-    /// The material to show under a window's background.
-    UnderWindowBackground = 21,
-    /// The material for the area behind the pages of a document.
-    UnderPageBackground = 22,
-}
-
 #[test]
 fn logical_physical_pos() {
     use crate::graphics::euclid::approxeq::ApproxEq;
@@ -503,11 +441,19 @@ impl Window {
         self.0.window_adapter().size()
     }
 
+    /// Returns whether the window on the screen is blurred.
+    /// A `false` will be returned if target platform is unsupported.
+    ///
+    /// See also [`Window::set_window_background_blurred`]
+    pub fn blurred(&self) -> bool {
+        self.0.window_adapter().blurred()
+    }
+
     /// Sets the blur of the window on the screen.
     /// If `true`, this will make the transparent window background blurry.
     /// Note that this functionality is currently only available on Linux (Wayland KDE) and macOS.
-    pub fn set_window_background_effect(&self, effect: Option<WindowEffect>) {
-        self.0.window_adapter().set_window_background_effect(effect);
+    pub fn set_window_background_blurred(&self, blur: bool) {
+        self.0.window_adapter().set_window_background_blurred(blur);
     }
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
@@ -874,7 +820,6 @@ mod weak_handle {
 }
 
 pub use weak_handle::*;
-use crate::Color;
 
 /// Adds the specified function to an internal queue, notifies the event loop to wake up.
 /// Once woken up, any queued up functors will be invoked.
