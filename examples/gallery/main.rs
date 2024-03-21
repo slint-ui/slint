@@ -19,6 +19,8 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
+    // Disable gettext on macOS due to https://github.com/Koka/gettext-rs/issues/114
+    #[cfg(not(target_os = "macos"))]
     slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
 
     let app = App::new().unwrap();
