@@ -39,21 +39,40 @@ fn main() {
         Err(_) => String::from("javac"),
     };
 
+    let handle_java_err = |err: std::io::Error| {
+        if err.kind() == std::io::ErrorKind::NotFound {
+            panic!("Could not locate the java compiler. Please ensure that the JAVA_HOME environment variable is set correctly.")
+        } else {
+            panic!("Could not run {javac_path}: {err}")
+        }
+    };
+
+    // Check version
+    let o = Command::new(&javac_path).arg("-version").output().unwrap_or_else(handle_java_err);
+    if !o.status.success() {
+        panic!("Failed to get javac version: {}", String::from_utf8_lossy(&o.stderr));
+    }
+    let version_output = String::from_utf8_lossy(&o.stdout);
+    let version = version_output.split_whitespace().nth(1).unwrap_or_default();
+    let mut java_ver: i32 = version.split('.').next().unwrap_or("0").parse().unwrap_or(0);
+    if java_ver == 1 {
+        // Before java 9, the version was something like javac 1.8
+        java_ver = version.split('.').nth(1).unwrap_or("0").parse().unwrap_or(0);
+    }
+    if java_ver < 8 {
+        panic!("The detected Java version is too old. The minimum required version is Java 8. Your Java version: {version_output:?} (parsed as {java_ver})")
+    }
+
     // Compile the Java file into a .class file
     let o = Command::new(&javac_path)
         .arg(format!("java/{java_class}"))
         .arg("-d")
         .arg(out_class.as_os_str())
-        .arg("-classpath").arg(&classpath)
-        .args(&["--release", "8"])
+        .arg("-classpath")
+        .arg(&classpath)
+        .args(if java_ver != 8 { &["--release", "8"] } else { &[] as &[&str] })
         .output()
-        .unwrap_or_else(|err| {
-            if err.kind() == std::io::ErrorKind::NotFound {
-                panic!("Could not locate the java compiler. Please ensure that the JAVA_HOME environment variable is set correctly.")
-            } else {
-                panic!("Could not run {javac_path}: {err}")
-            }
-        });
+        .unwrap_or_else(handle_java_err);
 
     if !o.status.success() {
         panic!("Java compilation failed: {}", String::from_utf8_lossy(&o.stderr));
