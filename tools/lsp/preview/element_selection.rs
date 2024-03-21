@@ -182,8 +182,7 @@ impl SelectionCandidate {
     }
 
     pub fn as_element_node(&self) -> Option<ElementRcNode> {
-        let (sf, range) = self.text_range.as_ref()?;
-        ElementRcNode::find_in(self.element.clone(), sf.path(), u32::from(range.start()))
+        ElementRcNode::new(self.element.clone(), self.debug_index)
     }
 }
 
@@ -368,11 +367,11 @@ fn filter_nodes_for_selection(
         return None;
     }
 
-    if !enter_component && !is_same_file_as_root_node(&component_instance, &en) {
+    if !enter_component && !is_same_file_as_root_node(component_instance, &en) {
         return None;
     }
 
-    if is_root_element_node(&component_instance, &en) {
+    if is_root_element_node(component_instance, &en) {
         return None;
     }
 
@@ -387,9 +386,9 @@ pub fn select_element_behind_impl(
     enter_component: bool,
     reverse: bool,
 ) -> Option<ElementRcNode> {
-    let elements = collect_all_element_nodes_covering(x, y, &component_instance);
+    let elements = collect_all_element_nodes_covering(x, y, component_instance);
     let current_selection_position =
-        elements.iter().position(|sc| sc.is_selected_element_node(&selected_element_node))?;
+        elements.iter().position(|sc| sc.is_selected_element_node(selected_element_node))?;
 
     let (start_position, iterations) = if reverse {
         let start_position = current_selection_position.saturating_sub(1);
