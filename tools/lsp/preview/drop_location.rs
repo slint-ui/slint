@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use i_slint_compiler::parser::SyntaxKind;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use slint_interpreter::ComponentInstance;
 
@@ -50,9 +51,17 @@ impl TextOffsetAdjustment {
     }
 }
 
+pub struct Indentation {
+    pub pre_indent: String,
+    pub indent: String,
+    pub post_indent: String,
+}
+
 pub struct DropInformation {
     pub target_element_node: common::ElementRcNode,
     pub insertion_position: common::VersionedPosition,
+    pub replacement_range: u32,
+    pub indent: Indentation,
 }
 
 fn find_drop_location(
@@ -99,19 +108,68 @@ fn find_drop_location(
         result
     }?;
 
-    let insertion_position = target_element_node.with_element_node(|node| {
-        let last_token = crate::util::last_non_ws_token(node)?;
+    let (insertion_position, indent, replacement_range) =
+        target_element_node.with_element_node(|node| {
+            let closing_brace = crate::util::last_non_ws_token(node)?;
+            let closing_brace_offset = Into::<u32>::into(closing_brace.text_range().start());
 
-        let url = lsp_types::Url::from_file_path(node.source_file.path()).ok()?;
-        let (version, _) = preview::get_url_from_cache(&url)?;
+            let before_closing = closing_brace.prev_token()?;
 
-        Some(common::VersionedPosition::new(
-            crate::common::VersionedUrl::new(url, version),
-            Into::<u32>::into(last_token.text_range().end()).saturating_sub(1),
-        ))
-    })?;
+            let (indent, offset, replacement_range) = if before_closing.kind()
+                == SyntaxKind::Whitespace
+                && before_closing.text().contains('\n')
+            {
+                let bracket_indent = before_closing.text().split('\n').last().unwrap(); // must exist in this branch
+                (
+                    Indentation {
+                        pre_indent: "    ".to_string(),
+                        indent: format!("{bracket_indent}    "),
+                        post_indent: bracket_indent.to_string(),
+                    },
+                    closing_brace_offset,
+                    0,
+                )
+            } else if before_closing.kind() == SyntaxKind::Whitespace
+                && !before_closing.text().contains('\n')
+            {
+                let indent = util::find_element_indent(&target_element_node).unwrap_or_default();
+                let ws_len = before_closing.text().len() as u32;
+                (
+                    Indentation {
+                        pre_indent: format!("\n{indent}    "),
+                        indent: format!("{indent}    "),
+                        post_indent: indent,
+                    },
+                    closing_brace_offset - ws_len,
+                    ws_len,
+                )
+            } else {
+                let indent = util::find_element_indent(&target_element_node).unwrap_or_default();
+                (
+                    Indentation {
+                        pre_indent: format!("\n{indent}    "),
+                        indent: format!("{indent}    "),
+                        post_indent: indent,
+                    },
+                    closing_brace_offset,
+                    0,
+                )
+            };
 
-    Some(DropInformation { target_element_node, insertion_position })
+            let url = lsp_types::Url::from_file_path(node.source_file.path()).ok()?;
+            let (version, _) = preview::get_url_from_cache(&url)?;
+
+            Some((
+                common::VersionedPosition::new(
+                    crate::common::VersionedUrl::new(url, version),
+                    offset,
+                ),
+                indent,
+                replacement_range,
+            ))
+        })?;
+
+    Some(DropInformation { target_element_node, insertion_position, indent, replacement_range })
 }
 
 /// Find the Element to insert into. None means we can not insert at this point.
@@ -168,19 +226,17 @@ pub fn drop_at(
         props
     };
 
-    let indentation = format!(
-        "{}    ",
-        crate::util::find_element_indent(&drop_info.target_element_node).unwrap_or_default()
-    );
-
     let new_text = if properties.is_empty() {
-        format!("{}{} {{ }}\n", indentation, component_type)
+        format!(
+            "{}{} {{ }}\n{}",
+            drop_info.indent.pre_indent, component_type, drop_info.indent.post_indent
+        )
     } else {
-        let mut to_insert = format!("{}{} {{\n", indentation, component_type);
+        let mut to_insert = format!("{}{} {{\n", drop_info.indent.pre_indent, component_type);
         for p in &properties {
-            to_insert += &format!("{}    {}: {};\n", indentation, p.name, p.value);
+            to_insert += &format!("{}    {}: {};\n", drop_info.indent.indent, p.name, p.value);
         }
-        to_insert += &format!("{}}}\n", indentation);
+        to_insert += &format!("{}}}\n{}", drop_info.indent.indent, drop_info.indent.post_indent);
         to_insert
     };
 
@@ -202,8 +258,12 @@ pub fn drop_at(
 
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
 
-    let ip = util::map_position(&source_file, drop_info.insertion_position.offset().into());
-    edits.push(lsp_types::TextEdit { range: lsp_types::Range::new(ip, ip), new_text });
+    let start_pos = util::map_position(&source_file, drop_info.insertion_position.offset().into());
+    let end_pos = util::map_position(
+        &source_file,
+        (drop_info.insertion_position.offset() + drop_info.replacement_range).into(),
+    );
+    edits.push(lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text });
 
     Some((
         common::create_workspace_edit_from_source_file(&source_file, edits)?,
