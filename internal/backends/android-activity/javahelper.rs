@@ -148,8 +148,15 @@ impl JavaHelper {
                 _ => 0 as jint,
             };
 
-            let cur_origin = data.cursor_rect_origin.to_physical(scale_factor);
+            let cur_origin = dbg!(data.cursor_rect_origin.to_physical(scale_factor));
+            let anchor_origin = dbg!(data.anchor_point.to_physical(scale_factor));
             let cur_size = data.cursor_rect_size.to_physical(scale_factor);
+
+            // Add 2*cur_size.width to the y position to be a bit under the cursor
+            let cur_x = cur_origin.x + cur_size.width as i32 / 2;
+            let cur_y = cur_origin.y + cur_size.height as i32 + 2 * cur_size.width as i32;
+            let anchor_x = anchor_origin.x;
+            let anchor_y = anchor_origin.y + 2 * cur_size.width as i32;
 
             env.call_method(
                 helper,
@@ -161,10 +168,10 @@ impl JavaHelper {
                     JValue::from(to_utf16(anchor_position) as jint),
                     JValue::from(to_utf16(data.preedit_offset) as jint),
                     JValue::from(to_utf16(data.preedit_offset + data.preedit_text.len()) as jint),
-                    JValue::from(cur_origin.x as jint),
-                    JValue::from(cur_origin.y as jint),
-                    JValue::from(cur_size.width as jint),
-                    JValue::from(cur_size.height as jint),
+                    JValue::from(cur_x as jint),
+                    JValue::from(cur_y as jint),
+                    JValue::from(anchor_x as jint),
+                    JValue::from(anchor_y as jint),
                     JValue::from(input_type),
                     JValue::from(show_cursor_handles as jboolean),
                 ],
@@ -293,7 +300,7 @@ extern "system" fn Java_SlintAndroidJavaHelper_setDarkMode(
 extern "system" fn Java_SlintAndroidJavaHelper_moveCursorHandle(
     _env: JNIEnv,
     _class: JClass,
-    _id: jint,
+    id: jint,
     pos_x: jint,
     pos_y: jint,
 ) {
@@ -306,14 +313,44 @@ extern "system" fn Java_SlintAndroidJavaHelper_moveCursorHandle(
             {
                 if let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>() {
                     let scale_factor = adaptor.window.scale_factor();
-                    let pos =
-                        euclid::point2(pos_x as f32 / scale_factor, pos_y as f32 / scale_factor)
-                            - focus_item.map_to_window(focus_item.geometry().origin).to_vector();
                     let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
+                    let size = text_input
+                        .as_pin_ref()
+                        .font_request(&adaptor)
+                        .pixel_size
+                        .unwrap_or_default()
+                        .get();
+                    let pos =
+                        euclid::point2(
+                            pos_x as f32 / scale_factor,
+                            pos_y as f32 / scale_factor - size / 2.,
+                        ) - focus_item.map_to_window(focus_item.geometry().origin).to_vector();
                     let text_pos = text_input.as_pin_ref().byte_offset_for_position(pos, &adaptor);
-                    text_input.anchor_position_byte_offset.set(text_pos as i32);
+
+                    let cur_pos = if id == 0 {
+                        text_input.anchor_position_byte_offset.set(text_pos as i32);
+                        text_pos as i32
+                    } else {
+                        let current_cursor = text_input.as_pin_ref().cursor_position_byte_offset();
+                        let current_anchor = text_input.as_pin_ref().anchor_position_byte_offset();
+                        if (id == 1 && current_anchor < current_cursor)
+                            || (id == 2 && current_anchor > current_cursor)
+                        {
+                            if current_cursor == text_pos as i32 {
+                                return;
+                            }
+                            text_input.anchor_position_byte_offset.set(text_pos as i32);
+                            current_cursor
+                        } else {
+                            if current_anchor == text_pos as i32 {
+                                return;
+                            }
+                            text_pos as i32
+                        }
+                    };
+
                     text_input.as_pin_ref().set_cursor_position(
-                        text_pos as i32,
+                        cur_pos,
                         true,
                         i_slint_core::items::TextChangeNotify::TriggerCallbacks,
                         &adaptor,

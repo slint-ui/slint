@@ -226,6 +226,8 @@ pub struct InputMethodProperties {
     pub cursor_rect_origin: LogicalPosition,
     /// The size of the cursor rectangle.
     pub cursor_rect_size: crate::api::LogicalSize,
+    /// The position of the anchor (bottom). Only meaningful if anchor_position is Some
+    pub anchor_point: LogicalPosition,
     /// The type of input for the text edit.
     pub input_type: InputType,
 }
