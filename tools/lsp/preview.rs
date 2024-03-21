@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use crate::common::{self, ComponentInformation, PreviewComponent, PreviewConfig};
+use crate::common::{self, ComponentInformation, ElementRcNode, PreviewComponent, PreviewConfig};
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
@@ -11,7 +11,6 @@ use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use i_slint_core::model::VecModel;
 use lsp_types::Url;
-use slint_interpreter::highlight::ComponentPositions;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -211,7 +210,7 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
     };
 
     let Some(geometry) = component_instance
-        .element_position(&selected_element_node.element)
+        .element_positions(&selected_element_node.element)
         .get(selected.instance_index)
         .cloned()
     else {
@@ -225,7 +224,7 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
         search_for_parent_element(&root_element, &selected_element_node.element)
             .and_then(|parent_element| {
                 component_instance
-                    .element_position(&parent_element)
+                    .element_positions(&parent_element)
                     .iter()
                     .find(|g| g.contains(click_position))
                     .map(|g| (g.origin.x, g.origin.y))
@@ -424,20 +423,22 @@ pub fn load_preview(preview_component: PreviewComponent) {
 
             if notify_editor {
                 if let Some(component_instance) = component_instance() {
-                    if let Some(element) = component_instance
-                        .element_at_source_code_position(&se.path, se.offset)
+                    if let Some((element, debug_index)) = component_instance
+                        .element_node_at_source_code_position(&se.path, se.offset)
                         .first()
                     {
-                        if let Some((node, _)) =
-                            element.borrow().debug.iter().find(|n| !is_element_node_ignored(&n.0))
-                        {
+                        let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index)
+                        else {
+                            return;
+                        };
+                        let (path, pos) = element_node.with_element_node(|node| {
                             let sf = &node.source_file;
-                            let pos = util::map_position(sf, se.offset.into());
-                            ask_editor_to_show_document(
-                                &se.path.to_string_lossy(),
-                                lsp_types::Range::new(pos, pos),
-                            );
-                        }
+                            (sf.path().to_owned(), util::map_position(sf, se.offset.into()))
+                        });
+                        ask_editor_to_show_document(
+                            &path.to_string_lossy(),
+                            lsp_types::Range::new(pos, pos),
+                        );
                     }
                 }
             }
@@ -535,29 +536,22 @@ pub fn highlight(url: Option<Url>, offset: u32) {
     }
     cache.highlight = highlight;
 
+    let selected = selected_element();
+
     if cache.highlight.as_ref().map_or(true, |(url, _)| cache.dependency.contains(url)) {
         run_in_ui_thread(move || async move {
-            let Some(component_instance) = component_instance() else {
-                return;
-            };
             let Some(path) = url.and_then(|u| Url::to_file_path(&u).ok()) else {
                 return;
             };
-            let elements = component_instance.element_at_source_code_position(&path, offset);
-            if let Some(e) = elements.first() {
-                let Some(debug_index) = e.borrow().debug.iter().position(|(n, _)| {
-                    n.text_range().contains(offset.into()) && n.source_file.path() == path
-                }) else {
-                    return;
-                };
-                let is_layout =
-                    e.borrow().debug.get(debug_index).map_or(false, |(_, l)| l.is_some());
-                element_selection::select_element_at_source_code_position(
-                    path, offset, is_layout, None, false,
-                );
-            } else {
-                element_selection::unselect_element();
+
+            if Some((path.clone(), offset)) == selected.map(|s| (s.path, s.offset)) {
+                // Already selected!
+                return;
             }
+            // TODO: false is wrong for is_layout here, but we will replace that soon anyway!
+            element_selection::select_element_at_source_code_position(
+                path, offset, false, None, false,
+            );
         })
     }
 }
@@ -607,7 +601,7 @@ fn set_selections(
     is_layout: bool,
     is_moveable: bool,
     is_resizable: bool,
-    positions: ComponentPositions,
+    positions: &[i_slint_core::lengths::LogicalRect],
 ) {
     let Some(ui) = ui else {
         return;
@@ -625,7 +619,6 @@ fn set_selections(
     };
 
     let values = positions
-        .geometries
         .iter()
         .enumerate()
         .map(|(i, g)| ui::Selection {
@@ -647,7 +640,7 @@ fn set_selections(
 
 fn set_selected_element(
     selection: Option<element_selection::ElementSelection>,
-    positions: slint_interpreter::highlight::ComponentPositions,
+    positions: &[i_slint_core::lengths::LogicalRect],
     notify_editor_about_selection_after_update: bool,
 ) {
     let (is_layout, is_in_layout) = selection

@@ -16,6 +16,8 @@ export component LineEdit {
 
     callback accepted <=> base.accepted;
     callback edited <=> base.edited;
+    accessible-role: text-input;
+    accessible-value <=> text;
 
     public function set-selection-offsets(start: int, end: int) {
         base.set-selection-offsets(start, end);

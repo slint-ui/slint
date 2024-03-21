@@ -7,7 +7,7 @@ use i_slint_compiler::diagnostics::SourceFile;
 use i_slint_compiler::object_tree::{Component, ElementRc};
 use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use rowan::TextRange;
-use slint_interpreter::{highlight::ComponentPositions, ComponentInstance};
+use slint_interpreter::ComponentInstance;
 
 use crate::common::ElementRcNode;
 
@@ -23,8 +23,9 @@ impl ElementSelection {
     pub fn as_element(&self) -> Option<ElementRc> {
         let component_instance = super::component_instance()?;
 
-        let elements = component_instance.element_at_source_code_position(&self.path, self.offset);
-        elements.get(self.instance_index).or_else(|| elements.first()).cloned()
+        let elements =
+            component_instance.element_node_at_source_code_position(&self.path, self.offset);
+        elements.get(self.instance_index).or_else(|| elements.first()).map(|(e, _)| e.clone())
     }
 
     pub fn as_element_node(&self) -> Option<ElementRcNode> {
@@ -80,11 +81,14 @@ fn element_covers_point(
 ) -> bool {
     let click_position = LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
 
-    component_instance.element_position(selected_element).iter().any(|p| p.contains(click_position))
+    component_instance
+        .element_positions(selected_element)
+        .iter()
+        .any(|p| p.contains(click_position))
 }
 
 pub fn unselect_element() {
-    super::set_selected_element(None, ComponentPositions::default(), false);
+    super::set_selected_element(None, &[], false);
 }
 
 pub fn select_element_at_source_code_position(
@@ -118,14 +122,12 @@ fn select_element_at_source_code_position_impl(
     let positions = component_instance.component_positions(&path, offset);
 
     let instance_index = position
-        .and_then(|p| {
-            positions.geometries.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i))
-        })
+        .and_then(|p| positions.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i)))
         .unwrap_or_default();
 
     super::set_selected_element(
         Some(ElementSelection { path, offset, instance_index, is_layout }),
-        positions,
+        &positions,
         notify_editor_about_selection_after_update,
     );
 }
@@ -423,5 +425,5 @@ pub fn reselect_element() {
     };
     let positions = component_instance.component_positions(&selected.path, selected.offset);
 
-    super::set_selected_element(Some(selected), positions, false);
+    super::set_selected_element(Some(selected), &positions, false);
 }

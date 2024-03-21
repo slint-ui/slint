@@ -3,7 +3,7 @@
 
 use super::*;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
-use i_slint_core::graphics::euclid;
+use i_slint_core::graphics::{euclid, Color};
 use i_slint_core::items::InputType;
 use i_slint_core::platform::WindowAdapter;
 use i_slint_core::SharedString;
@@ -189,6 +189,18 @@ impl JavaHelper {
             let width = env.get_field(&rect, "right", "I")?.i()? - x;
             let height = env.get_field(&rect, "bottom", "I")?.i()? - y;
             Ok((PhysicalPosition::new(x as _, y as _), PhysicalSize::new(width as _, height as _)))
+        })
+    }
+
+    pub fn set_handle_color(&self, color: Color) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            env.call_method(
+                helper,
+                "set_handle_color",
+                "(I)V",
+                &[JValue::from(color.as_argb_encoded() as jint)],
+            )?;
+            Ok(())
         })
     }
 }

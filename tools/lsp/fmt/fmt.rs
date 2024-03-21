@@ -93,6 +93,9 @@ fn format_node(
         SyntaxKind::Function => {
             return format_function(node, writer, state);
         }
+        SyntaxKind::ArgumentDeclaration => {
+            return format_argument_declaration(node, writer, state);
+        }
         SyntaxKind::QualifiedName => {
             return format_qualified_name(node, writer, state);
         }
@@ -186,7 +189,7 @@ fn fold(
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum SyntaxMatch {
     NotFound,
     Found(SyntaxKind),
@@ -524,6 +527,27 @@ fn format_function(
         }
     }
     state.new_line();
+    Ok(())
+}
+
+fn format_argument_declaration(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    while let Some(n) = sub.next() {
+        state.skip_all_whitespace = true;
+        match n.kind() {
+            SyntaxKind::Colon => {
+                fold(n, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            _ => {
+                fold(n, writer, state)?;
+            }
+        }
+    }
     Ok(())
 }
 
@@ -1958,7 +1982,7 @@ export component MainWindow2 inherits Rectangle {
         assert_formatting(
             "export component Foo-bar{ pure\nfunction\n(x  :  int,y:string)->int{ self.y=0;\n\nif(true){return(45); a=0;} return x;  } function a(){/* ddd */}}",
             r#"export component Foo-bar {
-    pure function (x  :  int,y:string) -> int {
+    pure function (x: int, y: string) -> int {
         self.y = 0;
 
         if (true) {

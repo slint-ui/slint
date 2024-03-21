@@ -357,10 +357,14 @@ impl AccessKitAdapter {
                     i_slint_core::items::AccessibleRole::Button => Role::Button,
                     i_slint_core::items::AccessibleRole::Checkbox => Role::CheckBox,
                     i_slint_core::items::AccessibleRole::Combobox => Role::ComboBox,
+                    i_slint_core::items::AccessibleRole::List => Role::List,
                     i_slint_core::items::AccessibleRole::Slider => Role::Slider,
                     i_slint_core::items::AccessibleRole::Spinbox => Role::SpinButton,
                     i_slint_core::items::AccessibleRole::Tab => Role::Tab,
                     i_slint_core::items::AccessibleRole::Text => Role::StaticText,
+                    i_slint_core::items::AccessibleRole::Table => Role::Table,
+                    i_slint_core::items::AccessibleRole::Tree => Role::Tree,
+                    i_slint_core::items::AccessibleRole::TextInput => Role::TextInput,
                     i_slint_core::items::AccessibleRole::ProgressIndicator => {
                         Role::ProgressIndicator
                     }

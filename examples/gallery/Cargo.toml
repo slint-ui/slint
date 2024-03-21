@@ -9,6 +9,7 @@ edition = "2021"
 build = "build.rs"
 license = "MIT"
 publish = false
+description = "Slint Widgets Gallery Example"
 
 [[bin]]
 path = "main.rs"
@@ -36,3 +37,6 @@ slint-build = { path = "../../api/rs/build" }
 #wasm# wasm-bindgen = { version = "0.2" }
 #wasm# web-sys = { version = "0.3", features=["console"] }
 #wasm# console_error_panic_hook = "0.1.5"
+
+[package.metadata.bundle]
+identifier = "com.slint.examples.gallery"

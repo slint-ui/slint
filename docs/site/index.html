@@ -12,13 +12,13 @@
         <link rel="icon" type="image/x-icon" href="https://slint.dev/assets/img/favicon.svg">
 
         <!-- ===== All CSS files ===== -->
-        <link rel="stylesheet" href="https://slint.dev/assets/css/style.css?v=1.11.14" />
+        <link rel="stylesheet" href="https://slint.dev/assets/css/style.css?v=1.11.51" />
 
         <!-- ===== Header from individual pages ===== -->
-         
-    <title>Slint Developer Documentation</title>
-    <meta name="description" content="The developer documentation page of Slint." />
-
+        
+        <title>Slint Developer Documentation</title>
+        <meta name="description" content="The developer documentation page of Slint." />
+    
     </head>
 
     <body>
@@ -81,99 +81,35 @@
             Section blocks on this page:
             - one-column
             -->
-
             <script type="text/javascript">
-
-                async function* makeTextFileLineIterator(fileURL) {
-                    const utf8Decoder = new TextDecoder("utf-8");
-                    const response = await fetch(fileURL);
-
-                    if (response.status != 200)
-                        return null;
-
-                    const reader = response.body.getReader();
-                    let { value: chunk, done: readerDone } = await reader.read();
-                    chunk = chunk ? utf8Decoder.decode(chunk) : "";
-
-                    const newline = /\r?\n/gm;
-                    let startIndex = 0;
-                    let result;
-
-                    while (true) {
-                        const result = newline.exec(chunk);
-                        if (!result) {
-                            if (readerDone) break;
-                            const remainder = chunk.substr(startIndex);
-                            ({ value: chunk, done: readerDone } = await reader.read());
-                            chunk = remainder + (chunk ? utf8Decoder.decode(chunk) : "");
-                            startIndex = newline.lastIndex = 0;
-                            continue;
-                        }
-                        yield chunk.substring(startIndex, result.index);
-                        startIndex = newline.lastIndex;
-                    }
-
-                    if (startIndex < chunk.length) {
-                        // Last line didn't end in a newline char
-                        yield chunk.substr(startIndex);
-                    }
-                }
-
-                function updateButtonHrefs() {
-                    const buttons = document.querySelectorAll('a.doc');
-                    const sel = document.getElementById('version');
-                    buttons.forEach(button => {
-                        let prevVersion = button.href.match("/([^/]*/[^/]*)/docs/")[1];
-                        button.href = button.href.replace(prevVersion, sel.value);
-                    });
-                }
-
-                async function fetchReadFile(url) {
-                    const sel = document.getElementById('version');
-                    for await (const version of makeTextFileLineIterator(url)) {
-                        const opt = document.createElement("option");
-                        opt.value = "releases/" + version;
-                        opt.text = version;
-                        sel.add(opt)
-                    }
-                    if (!sel.length) {
-                        // add some known version
-                        const opt = document.createElement("option");
-                        opt.value = "releases/1.1.1";
-                        opt.text = "1.1.1";
-                        sel.add(opt)
-                    }
-                    const opt = document.createElement("option");
-                    opt.value = "snapshots/master";
-                    opt.text = "development snapshot";
-                    sel.add(opt);
-                    
-                    const version = document.location.pathname.match(/releases\/([0-9]*.[0-9]*.[0-9]*)|snapshots\/master|releases\/latest/);
-                    console.log(version);
-                    if (version) {
-                        sel.value = version[0];
-                    }
-
-                    updateButtonHrefs();
-                }
-
                 window.addEventListener('load', () => {
-                    fetchReadFile("/releases/versions.txt");
-                    const sel = document.getElementById('version');
-                    sel.addEventListener('change', updateButtonHrefs);
-                }, false);
 
+                    let actualVersionValue = null;
+                    let actualVersionText = null;
+                    const version = document.location.pathname.match(/releases\/([0-9]*.[0-9]*.[0-9]*)|snapshots\/(master)/);
+                    if (version) {
+                        actualVersionValue = version[0];
+                        actualVersionText = version[1];
+                        if (actualVersionValue == "snapshots\/master") {
+                            actualVersionText = "development snapshot";
+                        }
+                    }
+                    document.getElementById("version").innerHTML = "Version: " + actualVersionText;
+
+                }, false);
             </script>
 
             <section class="one-column">
                 <h1>Documentation</h1>
             </section>
 
+            <!-- Custom drop down select menu-->
+
             <section class="select-filters">
                 <div class="select-wrap">
-                    <label for="version">Version</label>
-                    <select id="version">
-                    </select>
+                    <label for="version" id="version">Version:</label>
+                    <label style="font-size: 1rem;
+                    font-weight: 400; margin-bottom: 1em;">Visit <a href="https://docs.slint.dev">Slint Documentation</a> for other versions.</label>
                 </div>
             </section>
 
@@ -190,7 +126,7 @@
                             <h5>DSL</h5>
                             <h4>Slint</h4>
                             <p><img src="https://slint.dev/assets/img/slint-favicon.svg"></p>
-                            <p><a href="https://slint.dev/releases/1.1.1/docs/slint/index.html" class="btn doc">Language</a></p>
+                            <p><a href="slint/index.html" class="btn doc">Language</a></p>
                         </div><!-- .price-box -->
                     </div><!-- .col-2 -->
                     <div class="col-2">
@@ -199,8 +135,8 @@
                                 <h5>APIs</h5>
                                 <h4>Using Rust</h4>
                                 <p><img src="https://slint.dev/assets/img/rust-logo.svg"></p>
-                                <p><a href="https://slint.dev/releases/1.1.1/docs/rust/slint" class="btn doc">API</a></p>
-                                <p><a href="https://slint.dev/releases/1.1.1/docs/tutorial/rust" class="btn doc">Tutorial</a></p>
+                                <p><a href="rust/slint/index.html" class="btn doc">API</a></p>
+                                <p><a href="tutorial/rust/index.html" class="btn doc">Tutorial</a></p>
                                 <p><a href="https://youtu.be/WBcv4V-whHk" class="btn" target="_blank">Video Tutorial</a></p>
                                 <p><a href="https://github.com/slint-ui/slint-rust-template" class="btn" target="_blank">Project Template</a></p>
                             </div><!-- .price-box -->
@@ -208,16 +144,16 @@
                                 <h5>APIs</h5>
                                 <h4>Using C++</h4>
                                 <p><img src="https://slint.dev/assets/img/cpp_logo.svg"></p>
-                                <p><a href="https://slint.dev/releases/1.1.1/docs/cpp" class="btn doc">API</a></p>
-                                <p><a href="https://slint.dev/releases/1.1.1/docs/tutorial/cpp" class="btn doc">Tutorial</a></p>
+                                <p><a href="cpp/index.html" class="btn doc">API</a></p>
+                                <p><a href="tutorial/cpp/index.html" class="btn doc">Tutorial</a></p>
                                 <p><a href="https://github.com/slint-ui/slint-cpp-template" class="btn" target="_blank">Project Template</a></p>
                             </div><!-- .price-box -->
                             <div class="price-box">
                                 <h5>APIs</h5>
                                 <h4>Using NodeJS (beta)</h4>
                                 <p><img src="https://slint.dev/assets/img/nodejs_logo.svg"></p>
-                                <p><a href="https://slint.dev/releases/1.1.1/docs/node" class="btn doc">API</a></p>
-                                <p><a href="https://slint.dev/releases/1.1.1/docs/tutorial/node" class="btn doc">Tutorial</a></p>
+                                <p><a href="node/index.html" class="btn doc">API</a></p>
+                                <p><a href="tutorial/node/index.html" class="btn doc">Tutorial</a></p>
                                 <p><a href="https://github.com/slint-ui/slint-nodejs-template" class="btn" target="_blank">Project Template</a></p>
                             </div><!-- .price-box -->
                         </div><!-- .col-wrap -->
@@ -242,38 +178,38 @@
                             <a href="https://www.linkedin.com/company/slint-ui/" target="_blank"><img src="https://slint.dev/assets/img/icon-linkedin.svg" alt="Linkedin" width="40" height="40"></a>
                             <a rel="me" href="https://fosstodon.org/@slint" target="_blank"><img src="https://slint.dev/assets/img/icon-mastodon.svg" alt="Mastodon" width="40" height="40"></a>
                             <!-- <a href="https://github.com/slint-ui/slint/discussions" target="_blank"><img src="https://slint.dev/assets/img/icon-github.svg" alt="Github Discussions" width="40" height="40"></a> -->
-                            <!-- <a href="https://chat.slint.dev/" target="_blank"><img src="https://slint.devassets/img/icon-some.svg" alt="" width="40" height="40"></a> -->
+                            <!-- <a href="https://chat.slint.dev/" target="_blank"><img src="https://slint.dev/assets/img/icon-some.svg" alt="" width="40" height="40"></a> -->
                         </p>
-                        <p><img src="https://slint.dev/assets/img/annual-ross-index.svg" data-darkimg="/assets/img/annual-ross-index-light.svg" data-lightimg="/assets/img/annual-ross-index.svg" alt="Annual Ross index" width="260" height="52" class="annual-ross"></p>
+                        <p><img src="https://slint.dev/assets/img/annual-ross-index.svg" data-darkimg="https://slint.dev/assets/img/annual-ross-index-light.svg" data-lightimg="https://slint.dev/assets/img/annual-ross-index.svg" alt="Annual Ross index" width="260" height="52" class="annual-ross"></p>
                     </div><!-- .col-6 -->
                     <div class="col-6">
                         <dl>
                             <dt style="color: var(--light, var(--color_dark_gray)) var(--dark, var(--color_light_gray_2));">About</dt>
                             <dd><a href="https://slint.dev/about-us.html">Us</a></dd>
-                            <dd><a href="https://slint.dev/investors.html">Investors</a></dd>
                             <dd><a href="https://slint.dev/events.html">Events</a></dd>
                             <dd><a href="https://slint.dev/careers.html">Careers</a></dd>
+                            <dd><a href="https://slint.dev/investors.html">Investors</a></dd>
                             <dd><a href="https://slint.dev/imprint.html">Imprint &amp; Privacy</a></dd>
                         </dl>
                     </div><!-- .col-6 -->
                     <div class="col-6">
                         <dl>
                             <dt style="color: var(--light, var(--color_dark_gray)) var(--dark, var(--color_light_gray_2));">Explore</dt>
-                            <dd><a href="https://slint.dev/docs.html">Docs</a></dd>
-                            <dd><a href="https://slint.dev/pricing.html">Pricing</a></dd>
-                            <dd><a href="https://slint.dev/pricing.html#support">Support</a></dd>
-                            <dd><a href="https://slint.dev/service-partners.html">Service Partners</a></dd>
-                            <dd><a href="https://slint.dev/silicon-partners.html">Silicon Partners</a></dd>
+                            <dd><a href="https://slint.dev/use-cases.html#embedded-applications">Embedded</a></dd>
+                            <dd><a href="https://slint.dev/use-cases.html#desktop-applications">Desktop</a></dd>
+                            <dd><a href="https://slint.dev/demos.html">Demos</a></dd>
+                            <dd><a href="https://slint.dev/partners.html">Partners</a></dd>
+                            <dd><a href="https://slint.dev/brand-guidelines.html">Brand Guidelines</a></dd>
                         </dl>
                     </div><!-- .col-6 -->
                     <div class="col-6">
                         <dl>
-                            <dt style="color: var(--light, var(--color_dark_gray)) var(--dark, var(--color_light_gray_2));">Resources</dt>
-                            <dd><a href="https://slint.dev/demos.html">Demos</a></dd>
-                            <dd><a href="https://slint.dev/videos.html">Videos</a></dd>
-                            <dd><a href="https://slint.dev/community.html">Community</a></dd>
-                            <dd><a href="https://slint.dev/supported-boards.html">Supported Boards</a></dd>
-                            <dd><a href="https://slint.dev/brand-guidelines.html">Brand Guidelines</a></dd>
+                            <dt style="color: var(--light, var(--color_dark_gray)) var(--dark, var(--color_light_gray_2));">Markets</dt>
+                            <dd><a href="https://slint.dev/use-cases.html#automotive-applications">Automotive</a></dd>
+                            <dd><a href="https://slint.dev/use-cases.html#consumer-applications">Consumer</a></dd>
+                            <dd><a href="https://slint.dev/use-cases.html#industrial-applications">Industrial</a></dd>
+                            <dd><a href="https://slint.dev/use-cases.html#medical-applications">Medical</a></dd>
+                            <dd><a href="https://slint.dev/success">Success Stories</a></dd>
                         </dl>
                     </div><!-- .col-6 -->
                     <div class="col-6">
@@ -283,7 +219,7 @@
                             <dd><a href="https://slint.dev/alternative-to-lvgl.html">LVGL</a></dd>
                             <dd><a href="https://slint.dev/alternative-to-flutter.html">Flutter</a></dd>
                             <dd><a href="https://slint.dev/alternative-to-electron.html">Electron</a></dd>
-                            <dd><a href="https://slint.dev/declarative-rust-gui.html">Other Rust GUI Toolkits</a></dd>
+                            <dd><a href="https://slint.dev/declarative-rust-gui.html">Rust GUI Toolkits</a></dd>
                         </dl>
                     </div><!-- .col-6 -->
                     <div class="col-6">
@@ -310,7 +246,7 @@
         </div><!-- .wrap -->
 
         <!-- ====== All Javascript Files ====== -->
-        <script src="https://slint.dev/assets/js/script.js?ver=1.2.14"></script>
+        <script src="https://slint.dev/assets/js/script.js?ver=1.2.16"></script>
     </body>
 
 </html>

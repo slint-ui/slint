@@ -12,32 +12,15 @@ use std::path::Path;
 use std::rc::Rc;
 use vtable::VRc;
 
-/// The kind of Element examined.
-pub enum ComponentKind {
-    /// The component is actually a layout
-    Layout,
-    /// The component is actually an element
-    Element,
-}
-
-/// Positions of the Element in the UI
-#[derive(Default)]
-pub struct ComponentPositions {
-    /// The kind of element looked at
-    pub kind: Option<ComponentKind>,
-    /// The geometry information of all occurrences of this element in the UI
-    pub geometries: Vec<i_slint_core::lengths::LogicalRect>,
-}
-
 fn collect_highlight_data(
     component: &DynamicComponentVRc,
     elements: &[std::rc::Weak<RefCell<Element>>],
-) -> ComponentPositions {
+) -> Vec<i_slint_core::lengths::LogicalRect> {
     let component_instance = VRc::downgrade(component);
     let component_instance = component_instance.upgrade().unwrap();
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
-    let mut values = ComponentPositions::default();
+    let mut values = Vec::new();
     for element in elements.iter().filter_map(|e| e.upgrade()) {
         if let Some(repeater_path) = repeater_path(&element) {
             fill_highlight_data(&repeater_path, &element, &c, &c, &mut values);
@@ -50,40 +33,41 @@ pub(crate) fn component_positions(
     component_instance: &DynamicComponentVRc,
     path: &Path,
     offset: u32,
-) -> ComponentPositions {
+) -> Vec<i_slint_core::lengths::LogicalRect> {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
-    let elements = find_element_at_offset(&c.description().original, path, offset);
+    let elements =
+        find_element_node_at_source_code_position(&c.description().original, path, offset);
     collect_highlight_data(
         component_instance,
-        &elements.into_iter().map(|e| Rc::downgrade(&e)).collect::<Vec<_>>(),
+        &elements.into_iter().map(|(e, _)| Rc::downgrade(&e)).collect::<Vec<_>>(),
     )
 }
 
-pub(crate) fn element_position(
+pub(crate) fn element_positions(
     component_instance: &DynamicComponentVRc,
     element: &ElementRc,
 ) -> Vec<LogicalRect> {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
-    let mut values = ComponentPositions::default();
+    let mut values = Vec::new();
     if let Some(repeater_path) = repeater_path(element) {
         fill_highlight_data(&repeater_path, element, &c, &c, &mut values);
     }
-    values.geometries
+    values
 }
 
-pub(crate) fn element_at_source_code_position(
+pub(crate) fn element_node_at_source_code_position(
     component_instance: &DynamicComponentVRc,
     path: &Path,
     offset: u32,
-) -> Vec<ElementRc> {
+) -> Vec<(ElementRc, usize)> {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
-    find_element_at_offset(&c.description().original, path, offset)
+    find_element_node_at_source_code_position(&c.description().original, path, offset)
 }
 
 fn fill_highlight_data(
@@ -91,7 +75,7 @@ fn fill_highlight_data(
     element: &ElementRc,
     component_instance: &ItemTreeBox,
     root_component_instance: &ItemTreeBox,
-    values: &mut ComponentPositions,
+    values: &mut Vec<i_slint_core::lengths::LogicalRect>,
 ) {
     if let [first, rest @ ..] = repeater_path {
         generativity::make_guard!(guard);
@@ -125,25 +109,17 @@ fn fill_highlight_data(
         let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
         let size = geometry.size;
 
-        if values.kind.is_none() {
-            // FIXME: this visualization is misleading because it will highlight as a layout any
-            // optimized rectangle within a layout or parent of a layout.
-            // Example: `foo := Rectangle { lay := SomeLayout { ... } } ` lay will be optimized into foo
-            // and so both foo and lay will be considered as layout (assuming SomeLayout inherits from a layout)
-            values.kind = if element.borrow().debug.iter().any(|d| d.1.is_some()) {
-                Some(ComponentKind::Layout)
-            } else {
-                Some(ComponentKind::Element)
-            };
-        }
-
-        values.geometries.push(LogicalRect { origin, size });
+        values.push(LogicalRect { origin, size });
     }
 }
 
 // Go over all elements in original to find the one that is highlighted
-fn find_element_at_offset(component: &Rc<Component>, path: &Path, offset: u32) -> Vec<ElementRc> {
-    let mut result = Vec::<ElementRc>::new();
+fn find_element_node_at_source_code_position(
+    component: &Rc<Component>,
+    path: &Path,
+    offset: u32,
+) -> Vec<(ElementRc, usize)> {
+    let mut result = Vec::new();
     i_slint_compiler::object_tree::recurse_elem_including_sub_components(
         component,
         &(),
@@ -151,9 +127,15 @@ fn find_element_at_offset(component: &Rc<Component>, path: &Path, offset: u32) -
             if elem.borrow().repeated.is_some() {
                 return;
             }
-            for node in elem.borrow().debug.iter().filter_map(|n| n.0.QualifiedName()) {
+            for (index, node) in elem
+                .borrow()
+                .debug
+                .iter()
+                .enumerate()
+                .filter_map(|(i, n)| n.0.QualifiedName().map(|n| (i, n)))
+            {
                 if node.source_file.path() == path && node.text_range().contains(offset.into()) {
-                    result.push(elem.clone());
+                    result.push((elem.clone(), index));
                 }
             }
         },
