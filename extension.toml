@@ -1,0 +1,14 @@
+id = "slint"
+name = "Slint"
+description = "Slint support for Zed"
+version = "0.0.1"
+schema_version = 1
+authors = ["Luke. D Jones <luke@ljones.dev>"]
+
+[language_servers.slint]
+name = "Slint LSP"
+language = "Slint"
+
+[grammars.slint]
+repository = "https://github.com/slint-ui/tree-sitter-slint.git"
+commit = "cdb307898345cb0465922be447a063b9c294afca"

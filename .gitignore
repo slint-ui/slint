@@ -1,0 +1,4 @@
+target
+/zed.xcworkspace
+**/*.wasm
+grammars
