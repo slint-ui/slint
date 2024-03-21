@@ -466,7 +466,7 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 
     fn set_window_background_blurred(&self, blur: bool) {
-        let old = self.blurred.replace(blur);
+        let _old = self.blurred.replace(blur);
 
         #[cfg(target_os = "macos")]
         {
@@ -505,7 +505,7 @@ impl WindowAdapter for WinitWindowAdapter {
                 }
             }) as *mut NSObject;
 
-            if old && blur {
+            if _old && blur {
                 unsafe {
                     let _: () = msg_send![blurred_view, removeFromSuperview];
                 }
