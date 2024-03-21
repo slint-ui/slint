@@ -363,14 +363,15 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             )
         });
 
-        let paint = match self
-            .brush_to_paint(text_input.color(), &rect_to_path((size * self.scale_factor).into()))
-        {
+        let visual_representation = text_input.visual_representation(None);
+
+        let paint = match self.brush_to_paint(
+            visual_representation.text_color,
+            &rect_to_path((size * self.scale_factor).into()),
+        ) {
             Some(paint) => font.init_paint(text_input.letter_spacing() * self.scale_factor, paint),
             None => return,
         };
-
-        let visual_representation = text_input.visual_representation(None);
 
         let (min_select, max_select) = if !visual_representation.preedit_range.is_empty() {
             (visual_representation.preedit_range.start, visual_representation.preedit_range.end)
@@ -525,7 +526,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                 (text_input.text_cursor_width() * self.scale_factor).get(),
                 font_height.get(),
             );
-            canvas.fill_path(&cursor_rect, &paint);
+            canvas.fill_path(
+                &cursor_rect,
+                &femtovg::Paint::color(to_femtovg_color(&visual_representation.cursor_color)),
+            );
         }
     }
 
