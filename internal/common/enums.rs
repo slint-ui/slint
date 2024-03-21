@@ -343,6 +343,8 @@ macro_rules! for_each_enums {
                 Spinbox,
                 /// The element is a [`Tab`](../widgets/tabwidget.md) or behaves like one.
                 Tab,
+                /// The element is similar to the tab bar in a [`TabWidget`](../widgets/tabwidget.md).
+                TabList,
                 /// The role for a [`Text`](elements.md#text) element. It's automatically applied.
                 Text,
                 /// The role for a [`TableView`](../widgets/standardtableview.md ) or behaves like one.

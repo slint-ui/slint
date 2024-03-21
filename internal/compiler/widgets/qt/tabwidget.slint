@@ -14,7 +14,7 @@ export component TabBarImpl {
     in-out property <int> current-focused: i-focus-scope.has-focus ? root.current : -1; // The currently focused tab
     in-out property <int> num-tabs; // The total number of tabs
 
-    accessible-role: tab;
+    accessible-role: tab-list;
     accessible-delegate-focus: root.current;
 
     Rectangle {
