@@ -36,7 +36,7 @@ use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use once_cell::unsync::OnceCell;
 use winit::window::WindowBuilder;
-use i_slint_core::api::{VibrancyMaterial, WindowEffect};
+use i_slint_core::api::WindowEffect;
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -469,6 +469,7 @@ impl WindowAdapter for WinitWindowAdapter {
             use icrate::Foundation::NSRect;
             use objc2::{class, msg_send};
             use objc2::runtime::NSObject;
+            use i_slint_core::api::VibrancyMaterial;
 
             let handle = self.winit_window().raw_window_handle();
             let handle = match handle {
