@@ -343,6 +343,10 @@ macro_rules! for_each_enums {
                 Tab,
                 /// The role for a [`Text`](elements.md#text) element. It's automatically applied.
                 Text,
+                /// The role for a [`TableView`](../widgets/standardtableview.md ) or behaves like one.
+                Table,
+                /// The role for a TreeView or behaves like one. (Not provided yet)
+                Tree,
                 /// The element is a [`ProgressIndicator`](../widgets/progressindicator.md) or behaves like one.
                 ProgressIndicator,
                 /// The role for widget with editable text such as a
