@@ -307,6 +307,7 @@ cpp! {{
                     i_slint_core::items::AccessibleRole::Button => QAccessible_Role_Button,
                     i_slint_core::items::AccessibleRole::Checkbox => QAccessible_Role_CheckBox,
                     i_slint_core::items::AccessibleRole::Combobox => QAccessible_Role_ComboBox,
+                    i_slint_core::items::AccessibleRole::List => QAccessible_Role_List,
                     i_slint_core::items::AccessibleRole::Slider => QAccessible_Role_Slider,
                     i_slint_core::items::AccessibleRole::Spinbox => QAccessible_Role_SpinBox,
                     i_slint_core::items::AccessibleRole::Tab => QAccessible_Role_PageTab,
