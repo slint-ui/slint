@@ -617,6 +617,20 @@ impl WindowAdapter for WinitWindowAdapter {
     fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }
+
+    #[cfg(feature = "raw-window-handle-06")]
+    fn window_handle_06(
+        &self,
+    ) -> Result<raw_window_handle_06::WindowHandle<'_>, raw_window_handle_06::HandleError> {
+        raw_window_handle_06::HasWindowHandle::window_handle(&self.winit_window)
+    }
+
+    #[cfg(feature = "raw-window-handle-06")]
+    fn display_handle_06(
+        &self,
+    ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
+        raw_window_handle_06::HasDisplayHandle::display_handle(&self.winit_window)
+    }
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {

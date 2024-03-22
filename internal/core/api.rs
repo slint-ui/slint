@@ -324,6 +324,34 @@ pub enum SetRenderingNotifierError {
     AlreadySet,
 }
 
+/// This struct represents a persistent handle to a window and implements the
+/// [`raw_window_handle_06::HasWindowHandle`] and [`raw_window_handle_06::HasDisplayHandle`]
+/// traits for accessing exposing raw window and display handles.
+/// Obtain an instance of this by calling [`Window::window_handle()`].
+#[cfg(feature = "raw-window-handle-06")]
+#[derive(Clone)]
+pub struct WindowHandle {
+    adapter: alloc::rc::Rc<dyn WindowAdapter>,
+}
+
+#[cfg(feature = "raw-window-handle-06")]
+impl raw_window_handle_06::HasWindowHandle for WindowHandle {
+    fn window_handle<'a>(
+        &'a self,
+    ) -> Result<raw_window_handle_06::WindowHandle<'a>, raw_window_handle_06::HandleError> {
+        self.adapter.window_handle_06()
+    }
+}
+
+#[cfg(feature = "raw-window-handle-06")]
+impl raw_window_handle_06::HasDisplayHandle for WindowHandle {
+    fn display_handle<'a>(
+        &'a self,
+    ) -> Result<raw_window_handle_06::DisplayHandle<'a>, raw_window_handle_06::HandleError> {
+        self.adapter.display_handle_06()
+    }
+}
+
 /// This type represents a window towards the windowing system, that's used to render the
 /// scene of a component. It provides API to control windowing system specific aspects such
 /// as the position on the screen.
@@ -570,6 +598,13 @@ impl Window {
     /// on it, for example if the user minimized the window.
     pub fn is_visible(&self) -> bool {
         self.0.is_visible()
+    }
+
+    /// Returns a struct that implements the raw window handle traits to access the windowing system specific window
+    /// and display handles. This function is only accessible if you enable the `raw-window-handle-06` crate feature.
+    #[cfg(feature = "raw-window-handle-06")]
+    pub fn window_handle(&self) -> WindowHandle {
+        WindowHandle { adapter: self.0.window_adapter() }
     }
 }
 
