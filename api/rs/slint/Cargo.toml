@@ -79,8 +79,9 @@ unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 
 ## Enable integration with [raw-window-handle](raw_window_handle_06) version 0.6. This provides a
+## [`Window::window_handle()`] function that returns a struct that implements
 ## [HasWindowHandle](raw_window_handle_06::HasWindowHandle) and
-## [HasDisplayHandle](raw_window_handle_06::HasDisplayHandle) implementation for slint::Window.
+## [HasDisplayHandle](raw_window_handle_06::HasDisplayHandle) implementation.
 raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/raw-window-handle-06"]
 
 #! ### Backends

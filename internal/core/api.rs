@@ -324,6 +324,31 @@ pub enum SetRenderingNotifierError {
     AlreadySet,
 }
 
+/// This struct represents a persistent handle to a window and implements the traits
+/// for exposing raw window handles.
+#[cfg(feature = "raw-window-handle-06")]
+pub struct WindowHandle {
+    adapter: alloc::rc::Rc<dyn WindowAdapter>,
+}
+
+#[cfg(feature = "raw-window-handle-06")]
+impl raw_window_handle_06::HasWindowHandle for WindowHandle {
+    fn window_handle<'a>(
+        &'a self,
+    ) -> Result<raw_window_handle_06::WindowHandle<'a>, raw_window_handle_06::HandleError> {
+        self.adapter.window_handle_06()
+    }
+}
+
+#[cfg(feature = "raw-window-handle-06")]
+impl raw_window_handle_06::HasDisplayHandle for WindowHandle {
+    fn display_handle<'a>(
+        &'a self,
+    ) -> Result<raw_window_handle_06::DisplayHandle<'a>, raw_window_handle_06::HandleError> {
+        self.adapter.display_handle_06()
+    }
+}
+
 /// This type represents a window towards the windowing system, that's used to render the
 /// scene of a component. It provides API to control windowing system specific aspects such
 /// as the position on the screen.
@@ -571,45 +596,13 @@ impl Window {
     pub fn is_visible(&self) -> bool {
         self.0.is_visible()
     }
-}
 
-#[cfg(feature = "raw-window-handle-06")]
-impl raw_window_handle_06::HasWindowHandle for Window {
-    fn window_handle<'a>(
-        &'a self,
-    ) -> Result<raw_window_handle_06::WindowHandle<'a>, raw_window_handle_06::HandleError> {
-        let adapter = self.0.window_adapter();
-        let wh = adapter.window_handle_06()?;
-        // Safety: The Rc<dyn WindowAdapter> owns this slint::Window (&self). Therefore the caller of
-        // this function must also have a strong reference to the window adapter. The adapter above
-        // was created from a self weak and is the same as the Rc<dyn WindowAdapter> of the caller.
-        #[allow(unsafe_code)]
-        Ok(unsafe {
-            core::mem::transmute::<
-                raw_window_handle_06::WindowHandle<'_>,
-                raw_window_handle_06::WindowHandle<'a>,
-            >(wh)
-        })
-    }
-}
+    /// Returns a struct that implements the raw window handle traits to access the windowing system specific window
+    /// and display handles.
+    #[cfg(feature = "raw-window-handle-06")]
 
-#[cfg(feature = "raw-window-handle-06")]
-impl raw_window_handle_06::HasDisplayHandle for Window {
-    fn display_handle<'a>(
-        &'a self,
-    ) -> Result<raw_window_handle_06::DisplayHandle<'a>, raw_window_handle_06::HandleError> {
-        let adapter = self.0.window_adapter();
-        let wh = adapter.display_handle_06()?;
-        // Safety: The Rc<dyn WindowAdapter> owns this slint::Window (&self). Therefore the caller of
-        // this function must also have a strong reference to the window adapter. The adapter above
-        // was created from a self weak and is the same as the Rc<dyn WindowAdapter> of the caller.
-        #[allow(unsafe_code)]
-        Ok(unsafe {
-            core::mem::transmute::<
-                raw_window_handle_06::DisplayHandle<'_>,
-                raw_window_handle_06::DisplayHandle<'a>,
-            >(wh)
-        })
+    pub fn window_handle(&self) -> WindowHandle {
+        WindowHandle { adapter: self.0.window_adapter() }
     }
 }
 
