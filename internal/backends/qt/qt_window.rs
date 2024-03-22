@@ -1923,6 +1923,7 @@ impl WindowAdapter for QtWindow {
                                 native->nativeResourceForWindow(QByteArray("nsview"), window));
                         return nsview;
                     #else
+                        Q_UNUSED(widget_ptr);
                         return nullptr;
                     #endif
                 }};
@@ -1933,6 +1934,34 @@ impl WindowAdapter for QtWindow {
                             raw_window_handle_06::WindowHandle::borrow_raw(
                                 raw_window_handle_06::RawWindowHandle::AppKit(
                                     raw_window_handle_06::AppKitWindowHandle::new(ptr),
+                                ),
+                            )
+                        })
+                    },
+                )
+            } else if #[cfg(target_os = "windows")] {
+                let widget_ptr = self.widget_ptr();
+                let hwnd = cpp! {unsafe [widget_ptr as "QWidget*"] -> isize as "void*" {
+                    #if defined(_WIN32) || defined(_WIN64)
+                        // Ensure the window surface exists
+                        auto *window = widget_ptr->windowHandle();
+                        if (!window)
+                            return nullptr;
+                        window->create();
+                        auto wid = Qt::HANDLE(window->winId());
+                        return wid;
+                    #else
+                        Q_UNUSED(widget_ptr);
+                        return nullptr;
+                    #endif
+                }};
+                std::num::NonZeroIsize::new(hwnd).map_or_else(
+                    || Err(raw_window_handle_06::HandleError::Unavailable), // Not available yet
+                    |ptr| {
+                        Ok(unsafe {
+                            raw_window_handle_06::WindowHandle::borrow_raw(
+                                raw_window_handle_06::RawWindowHandle::Win32(
+                                    raw_window_handle_06::Win32WindowHandle::new(ptr),
                                 ),
                             )
                         })
@@ -1955,6 +1984,14 @@ impl WindowAdapter for QtWindow {
                     raw_window_handle_06::DisplayHandle::borrow_raw(
                         raw_window_handle_06::RawDisplayHandle::AppKit(
                             raw_window_handle_06::AppKitDisplayHandle::new()
+                        )
+                    )
+                })
+            } else if #[cfg(target_os = "windows")] {
+                Ok(unsafe {
+                    raw_window_handle_06::DisplayHandle::borrow_raw(
+                        raw_window_handle_06::RawDisplayHandle::Windows(
+                            raw_window_handle_06::WindowsDisplayHandle::new()
                         )
                     )
                 })
