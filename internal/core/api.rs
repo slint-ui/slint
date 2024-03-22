@@ -324,9 +324,12 @@ pub enum SetRenderingNotifierError {
     AlreadySet,
 }
 
-/// This struct represents a persistent handle to a window and implements the traits
-/// for exposing raw window handles.
+/// This struct represents a persistent handle to a window and implements the
+/// [`raw_window_handle_06::HasWindowHandle`] and [`raw_window_handle_06::HasDisplayHandle`]
+/// traits for accessing exposing raw window and display handles.
+/// Obtain an instance of this by calling [`Window::window_handle()`].
 #[cfg(feature = "raw-window-handle-06")]
+#[derive(Clone)]
 pub struct WindowHandle {
     adapter: alloc::rc::Rc<dyn WindowAdapter>,
 }
@@ -598,9 +601,8 @@ impl Window {
     }
 
     /// Returns a struct that implements the raw window handle traits to access the windowing system specific window
-    /// and display handles.
+    /// and display handles. This function is only accessible if you enable the `raw-window-handle-06` crate feature.
     #[cfg(feature = "raw-window-handle-06")]
-
     pub fn window_handle(&self) -> WindowHandle {
         WindowHandle { adapter: self.0.window_adapter() }
     }

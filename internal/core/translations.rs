@@ -221,7 +221,7 @@ fn translate_gettext(string: &str, ctx: &str, domain: &str, n: i32, plural: &str
 }
 
 #[cfg(feature = "gettext-rs")]
-/// Initialize the translation by calling the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext
+/// Initialize the translation by calling the [`bindtextdomain`](https://man7.org/unix/man-pages/man3/bindtextdomain.3.html) function from gettext
 pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> std::io::Result<()> {
     #[cfg(target_family = "unix")]
     {
