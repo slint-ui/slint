@@ -52,7 +52,11 @@ fn main() {
     if !o.status.success() {
         panic!("Failed to get javac version: {}", String::from_utf8_lossy(&o.stderr));
     }
-    let version_output = String::from_utf8_lossy(&o.stdout);
+    let mut version_output = String::from_utf8_lossy(&o.stdout);
+    if version_output.is_empty() {
+        // old version of java used stderr
+        version_output = String::from_utf8_lossy(&o.stderr);
+    }
     let version = version_output.split_whitespace().nth(1).unwrap_or_default();
     let mut java_ver: i32 = version.split('.').next().unwrap_or("0").parse().unwrap_or(0);
     if java_ver == 1 {
