@@ -446,16 +446,18 @@ pub fn load_preview(preview_component: PreviewComponent) {
     });
 }
 
-// Most be inside the thread running the slint event loop
-async fn reload_preview_impl(
-    preview_component: PreviewComponent,
+async fn parse_source(
+    include_paths: Vec<PathBuf>,
+    library_paths: HashMap<String, PathBuf>,
+    path: PathBuf,
+    source_code: String,
     style: String,
-    config: PreviewConfig,
-) {
-    let component = PreviewComponent { style: String::new(), ..preview_component };
-
-    start_parsing();
-
+    file_loader_fallback: impl Fn(
+            &Path,
+        ) -> core::pin::Pin<
+            Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
+        > + 'static,
+) -> (Vec<i_slint_compiler::diagnostics::Diagnostic>, Option<ComponentDefinition>) {
     let mut builder = slint_interpreter::ComponentCompiler::default();
 
     #[cfg(target_arch = "wasm32")]
@@ -465,31 +467,47 @@ async fn reload_preview_impl(
     }
 
     if !style.is_empty() {
-        builder.set_style(style.clone());
+        builder.set_style(style);
     }
-    builder.set_include_paths(config.include_paths);
-    builder.set_library_paths(config.library_paths);
+    builder.set_include_paths(include_paths);
+    builder.set_library_paths(library_paths);
+    builder.set_file_loader(file_loader_fallback);
 
-    builder.set_file_loader(|path| {
-        let path = path.to_owned();
-        Box::pin(async move { get_path_from_cache(&path).map(|(_, c)| Result::Ok(c)) })
-    });
+    let compiled = builder.build_from_source(source_code, path).await;
 
-    // to_file_path on a WASM Url just returns the URL as the path!
+    (builder.diagnostics().clone(), compiled)
+}
+
+// Must be inside the thread running the slint event loop
+async fn reload_preview_impl(
+    preview_component: PreviewComponent,
+    style: String,
+    config: PreviewConfig,
+) {
+    let component = PreviewComponent { style: String::new(), ..preview_component };
+
+    start_parsing();
+
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
-
-    let compiled = if let Some((_, mut from_cache)) = get_url_from_cache(&component.url) {
+    let source = {
+        let (_, from_cache) = get_url_from_cache(&component.url).unwrap_or_default();
         if let Some(component_name) = &component.component {
-            from_cache = format!(
+            format!(
                 "{from_cache}\nexport component _SLINT_LivePreview inherits {component_name} {{ /* {NODE_IGNORE_COMMENT} */ }}\n",
-            );
+            )
+        } else {
+            from_cache
         }
-        builder.build_from_source(from_cache, path).await
-    } else {
-        builder.build_from_path(path).await
     };
 
-    notify_diagnostics(builder.diagnostics());
+    let (diagnostics, compiled) =
+        parse_source(config.include_paths, config.library_paths, path, source, style, |path| {
+            let path = path.to_owned();
+            Box::pin(async move { get_path_from_cache(&path).map(|(_, c)| Result::Ok(c)) })
+        })
+        .await;
+
+    notify_diagnostics(&diagnostics);
 
     let success = compiled.is_some();
     update_preview_area(compiled);
@@ -792,4 +810,36 @@ fn is_element_node_ignored(node: &Element) -> bool {
             .map(|t| t.kind() == SyntaxKind::Comment && t.text().contains(NODE_IGNORE_COMMENT))
             .unwrap_or(false)
     })
+}
+
+#[cfg(test)]
+mod test {
+    use slint_interpreter::ComponentInstance;
+
+    #[track_caller]
+    pub fn compile_test(style: &str, source_code: &str) -> ComponentInstance {
+        i_slint_backend_testing::init();
+
+        let path = std::path::PathBuf::from("/test_data.slint");
+        let (diagnostics, component_definition) = spin_on::spin_on(super::parse_source(
+            vec![],
+            std::collections::HashMap::new(),
+            path,
+            source_code.to_string(),
+            style.to_string(),
+            |_path| {
+                Box::pin(async move {
+                    Some(Result::Err(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "Not supported in tests",
+                    )))
+                })
+            },
+        ));
+
+        i_slint_core::debug_log!("Test source diagnostics:\n{diagnostics:?}");
+        assert!(diagnostics.is_empty());
+
+        component_definition.unwrap().create().unwrap()
+    }
 }
