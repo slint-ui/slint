@@ -139,15 +139,19 @@ pub trait WindowAdapter {
     }
 
     /// Re-implement this to support exposing raw window handles (version 0.6).
-    #[cfg(feature = "rwh_06")]
-    fn window_handle_06(&self) -> Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
-        Err(rwh_06::HandleError::NotSupported)
+    #[cfg(feature = "raw-window-handle-06")]
+    fn window_handle_06(
+        &self,
+    ) -> Result<raw_window_handle_06::WindowHandle<'_>, raw_window_handle_06::HandleError> {
+        Err(raw_window_handle_06::HandleError::NotSupported)
     }
 
     /// Re-implement this to support exposing raw display handles (version 0.6).
-    #[cfg(feature = "rwh_06")]
-    fn display_handle_06(&self) -> Result<rwh_06::DisplayHandle<'_>, rwh_06::HandleError> {
-        Err(rwh_06::HandleError::NotSupported)
+    #[cfg(feature = "raw-window-handle-06")]
+    fn display_handle_06(
+        &self,
+    ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
+        Err(raw_window_handle_06::HandleError::NotSupported)
     }
 }
 

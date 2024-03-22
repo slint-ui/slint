@@ -415,7 +415,7 @@ fn test_window_accessor_and_rwh() {
     let app = App::new().unwrap();
     let slint_window = app.window();
     assert!(slint_window.has_winit_window());
-    use rwh_06::{HasDisplayHandle, HasWindowHandle};
+    use raw_window_handle_06::{HasDisplayHandle, HasWindowHandle};
     assert!(slint_window.window_handle().is_ok());
     assert!(slint_window.display_handle().is_ok());
 }

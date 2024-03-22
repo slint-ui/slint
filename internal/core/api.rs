@@ -573,9 +573,11 @@ impl Window {
     }
 }
 
-#[cfg(feature = "rwh_06")]
-impl rwh_06::HasWindowHandle for Window {
-    fn window_handle<'a>(&'a self) -> Result<rwh_06::WindowHandle<'a>, rwh_06::HandleError> {
+#[cfg(feature = "raw-window-handle-06")]
+impl raw_window_handle_06::HasWindowHandle for Window {
+    fn window_handle<'a>(
+        &'a self,
+    ) -> Result<raw_window_handle_06::WindowHandle<'a>, raw_window_handle_06::HandleError> {
         let adapter = self.0.window_adapter();
         let wh = adapter.window_handle_06()?;
         // Safety: The Rc<dyn WindowAdapter> owns this slint::Window (&self). Therefore the caller of
@@ -583,14 +585,19 @@ impl rwh_06::HasWindowHandle for Window {
         // was created from a self weak and is the same as the Rc<dyn WindowAdapter> of the caller.
         #[allow(unsafe_code)]
         Ok(unsafe {
-            core::mem::transmute::<rwh_06::WindowHandle<'_>, rwh_06::WindowHandle<'a>>(wh)
+            core::mem::transmute::<
+                raw_window_handle_06::WindowHandle<'_>,
+                raw_window_handle_06::WindowHandle<'a>,
+            >(wh)
         })
     }
 }
 
-#[cfg(feature = "rwh_06")]
-impl rwh_06::HasDisplayHandle for Window {
-    fn display_handle<'a>(&'a self) -> Result<rwh_06::DisplayHandle<'a>, rwh_06::HandleError> {
+#[cfg(feature = "raw-window-handle-06")]
+impl raw_window_handle_06::HasDisplayHandle for Window {
+    fn display_handle<'a>(
+        &'a self,
+    ) -> Result<raw_window_handle_06::DisplayHandle<'a>, raw_window_handle_06::HandleError> {
         let adapter = self.0.window_adapter();
         let wh = adapter.display_handle_06()?;
         // Safety: The Rc<dyn WindowAdapter> owns this slint::Window (&self). Therefore the caller of
@@ -598,7 +605,10 @@ impl rwh_06::HasDisplayHandle for Window {
         // was created from a self weak and is the same as the Rc<dyn WindowAdapter> of the caller.
         #[allow(unsafe_code)]
         Ok(unsafe {
-            core::mem::transmute::<rwh_06::DisplayHandle<'_>, rwh_06::DisplayHandle<'a>>(wh)
+            core::mem::transmute::<
+                raw_window_handle_06::DisplayHandle<'_>,
+                raw_window_handle_06::DisplayHandle<'a>,
+            >(wh)
         })
     }
 }

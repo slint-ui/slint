@@ -109,7 +109,7 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 
 ### Enable integration with raw-window-handle version 0.6. This provides a HasWindowHandle and
 ### HasDisplayHandle implementation for slint::Window.
-rwh_06 = ["i-slint-core/rwh_06", "i-slint-backend-selector/rwh_06"]
+raw-window-handle-06 = ["i-slint-backend-selector/raw-window-handle-06"]
 
 ## Features used internally by Slint tooling that are not stable and come without
 ## any stability guarantees whatsoever.

@@ -618,14 +618,18 @@ impl WindowAdapter for WinitWindowAdapter {
         Some(self)
     }
 
-    #[cfg(feature = "rwh_06")]
-    fn window_handle_06(&self) -> Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
-        rwh_06::HasWindowHandle::window_handle(&self.winit_window)
+    #[cfg(feature = "raw-window-handle-06")]
+    fn window_handle_06(
+        &self,
+    ) -> Result<raw_window_handle_06::WindowHandle<'_>, raw_window_handle_06::HandleError> {
+        raw_window_handle_06::HasWindowHandle::window_handle(&self.winit_window)
     }
 
-    #[cfg(feature = "rwh_06")]
-    fn display_handle_06(&self) -> Result<rwh_06::DisplayHandle<'_>, rwh_06::HandleError> {
-        rwh_06::HasDisplayHandle::display_handle(&self.winit_window)
+    #[cfg(feature = "raw-window-handle-06")]
+    fn display_handle_06(
+        &self,
+    ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
+        raw_window_handle_06::HasDisplayHandle::display_handle(&self.winit_window)
     }
 }
 
