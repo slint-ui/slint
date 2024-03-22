@@ -16,7 +16,8 @@ path = "main.rs"
 name = "gallery"
 
 [dependencies]
-slint = { path = "../../api/rs/slint" }
+slint = { path = "../../api/rs/slint", features = ["raw-window-handle-06"] }
+raw-window-handle = "0.6"
 
 # Disable gettext on macOS due to https://github.com/Koka/gettext-rs/issues/114
 [target.'cfg(not(target_os = "macos"))'.dependencies]

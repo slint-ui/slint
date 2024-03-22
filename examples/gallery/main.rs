@@ -25,6 +25,16 @@ pub fn main() {
 
     let app = App::new().unwrap();
 
+    use raw_window_handle::HasDisplayHandle;
+    use raw_window_handle::HasWindowHandle;
+    eprintln!("RWH before show: {:#?}", app.window().window_handle().window_handle());
+    eprintln!("RDH before show: {:#?}", app.window().window_handle().display_handle());
+
+    app.show().unwrap();
+
+    eprintln!("RWH after show: {:#?}", app.window().window_handle().window_handle());
+    eprintln!("RDH after show: {:#?}", app.window().window_handle().display_handle());
+
     let row_data: Rc<VecModel<slint::ModelRc<StandardListViewItem>>> = Rc::new(VecModel::default());
 
     for r in 1..101 {
