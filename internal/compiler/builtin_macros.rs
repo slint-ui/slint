@@ -187,8 +187,11 @@ fn rgb_macro(
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
-    if args.len() < 3 {
-        diag.push_error("Needs 3 or 4 argument".into(), &node);
+    if args.len() < 3 || args.len() > 4 {
+        diag.push_error(
+            format!("This function needs 3 or 4 arguments, but {} were provided", args.len()),
+            &node,
+        );
         return Expression::Invalid;
     }
     let mut arguments: Vec<_> = args
