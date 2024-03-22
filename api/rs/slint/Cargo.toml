@@ -208,4 +208,4 @@ rustdoc-args = [
   "--html-in-header",
   "docs/resources/slint-docs-highlight.html",
 ]
-features = ["document-features", "log", "gettext", "renderer-software", "renderer-femtovg"]
+features = ["document-features", "log", "gettext", "renderer-software", "renderer-femtovg", "raw-window-handle-06"]

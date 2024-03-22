@@ -147,4 +147,4 @@ i-slint-backend-testing = { path = "../../internal/backends/testing" }
 spin_on = "0.1"
 
 [package.metadata.docs.rs]
-features = ["display-diagnostics", "document-features"]
+features = ["display-diagnostics", "document-features", "raw-window-handle-06"]
