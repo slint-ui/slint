@@ -39,6 +39,16 @@ use i_slint_core::renderer::Renderer;
 use once_cell::unsync::OnceCell;
 
 cpp! {{
+    #if defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
+    #    ifdef __OBJC__
+    @class NSView;
+    @class NSWindow;
+    #    else
+    typedef struct objc_object NSView;
+    typedef struct objc_object NSWindow;
+    #    endif
+    #endif
+
     #include <QtWidgets/QtWidgets>
     #include <QtWidgets/QGraphicsScene>
     #include <QtWidgets/QGraphicsBlurEffect>
@@ -58,6 +68,11 @@ cpp! {{
     #include <QtCore/QBuffer>
     #include <QtCore/QEvent>
     #include <QtCore/QFileInfo>
+
+    #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    #define QPA_HEADER <QtGui/QT_VERSION_MAJOR.QT_VERSION_MINOR.QT_VERSION_PATCH/QtGui/qpa/qplatformnativeinterface.h>
+    #include QPA_HEADER
+    #endif
 
     #include <memory>
 
@@ -1886,6 +1901,67 @@ impl WindowAdapter for QtWindow {
 
     fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
+    }
+
+    #[cfg(feature = "raw-window-handle-06")]
+    fn window_handle_06(
+        &self,
+    ) -> Result<raw_window_handle_06::WindowHandle<'_>, raw_window_handle_06::HandleError> {
+        cfg_if::cfg_if! {
+            if #[cfg(target_os = "macos")]
+            {
+                let widget_ptr = self.widget_ptr();
+                let nsview = cpp! {unsafe [widget_ptr as "QWidget*"] -> *mut std::ffi::c_void as "void*" {
+                    #if defined(__APPLE__)
+                        // Ensure the window surface exists
+                        auto *window = widget_ptr->windowHandle();
+                        if (!window)
+                            return nullptr;
+                        window->create();
+                        QPlatformNativeInterface *native = qApp->platformNativeInterface();
+                        NSView *nsview = reinterpret_cast<NSView *>(
+                                native->nativeResourceForWindow(QByteArray("nsview"), window));
+                        return nsview;
+                    #else
+                        return nullptr;
+                    #endif
+                }};
+                std::ptr::NonNull::new(nsview).map_or_else(
+                    || Err(raw_window_handle_06::HandleError::Unavailable), // Not available yet
+                    |ptr| {
+                        Ok(unsafe {
+                            raw_window_handle_06::WindowHandle::borrow_raw(
+                                raw_window_handle_06::RawWindowHandle::AppKit(
+                                    raw_window_handle_06::AppKitWindowHandle::new(ptr),
+                                ),
+                            )
+                        })
+                    },
+                )
+            } else {
+                Err(raw_window_handle_06::HandleError::NotSupported)
+            }
+        }
+    }
+
+    #[cfg(feature = "raw-window-handle-06")]
+    fn display_handle_06(
+        &self,
+    ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
+        cfg_if::cfg_if! {
+            if #[cfg(target_os = "macos")]
+            {
+                Ok(unsafe {
+                    raw_window_handle_06::DisplayHandle::borrow_raw(
+                        raw_window_handle_06::RawDisplayHandle::AppKit(
+                            raw_window_handle_06::AppKitDisplayHandle::new()
+                        )
+                    )
+                })
+            } else {
+                Err(raw_window_handle_06::HandleError::NotSupported)
+            }
+        }
     }
 }
 

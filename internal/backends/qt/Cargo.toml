@@ -17,6 +17,7 @@ links = "i_slint_backend_qt" # just so we can pass metadata to the dependee's bu
 rtti = ["i-slint-core/rtti"]
 default = ["enable"]
 enable = ["dep:cpp", "dep:lyon_path", "dep:once_cell", "dep:pin-project", "dep:pin-weak", "dep:qttypes", "dep:cpp_build"]
+raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
 [lib]
 path = "lib.rs"
@@ -35,6 +36,8 @@ once_cell = { version = "1", optional = true }
 pin-project = { version = "1", optional = true }
 pin-weak = { version = "1", optional = true }
 qttypes = { version = "0.2.7", default-features = false, optional = true }
+cfg-if = "1"
+raw-window-handle-06 = { workspace = true, optional = true }
 
 [build-dependencies]
 cpp_build = { version =  "0.5.5", optional = true }
