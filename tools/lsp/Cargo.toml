@@ -114,6 +114,7 @@ wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"
 
 [dev-dependencies]
+i-slint-backend-testing = { path = "../../internal/backends/testing" }
 spin_on = "0.1"
 
 [build-dependencies]
