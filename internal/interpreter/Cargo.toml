@@ -107,6 +107,10 @@ renderer-winit-software = ["renderer-software"]
 ## APIs to support screen readers and other assistive technologies.
 accessibility = ["i-slint-backend-selector/accessibility"]
 
+### Enable integration with raw-window-handle version 0.6. This provides a HasWindowHandle and
+### HasDisplayHandle implementation for slint::Window.
+rwh_06 = ["i-slint-core/rwh_06", "i-slint-backend-selector/rwh_06"]
+
 ## Features used internally by Slint tooling that are not stable and come without
 ## any stability guarantees whatsoever.
 internal = []

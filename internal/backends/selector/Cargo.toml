@@ -32,6 +32,8 @@ renderer-software = ["i-slint-backend-winit?/renderer-software", "i-slint-core/s
 rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]
 
+rwh_06 = ["i-slint-backend-winit?/rwh_06"]
+
 # note that default enable the i-slint-backend-qt, but not its enable feature
 default = ["i-slint-backend-qt", "backend-winit"]
 

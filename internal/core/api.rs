@@ -573,6 +573,36 @@ impl Window {
     }
 }
 
+#[cfg(feature = "rwh_06")]
+impl rwh_06::HasWindowHandle for Window {
+    fn window_handle<'a>(&'a self) -> Result<rwh_06::WindowHandle<'a>, rwh_06::HandleError> {
+        let adapter = self.0.window_adapter();
+        let wh = adapter.window_handle_06()?;
+        // Safety: The Rc<dyn WindowAdapter> owns this slint::Window (&self). Therefore the caller of
+        // this function must also have a strong reference to the window adapter. The adapter above
+        // was created from a self weak and is the same as the Rc<dyn WindowAdapter> of the caller.
+        #[allow(unsafe_code)]
+        Ok(unsafe {
+            core::mem::transmute::<rwh_06::WindowHandle<'_>, rwh_06::WindowHandle<'a>>(wh)
+        })
+    }
+}
+
+#[cfg(feature = "rwh_06")]
+impl rwh_06::HasDisplayHandle for Window {
+    fn display_handle<'a>(&'a self) -> Result<rwh_06::DisplayHandle<'a>, rwh_06::HandleError> {
+        let adapter = self.0.window_adapter();
+        let wh = adapter.display_handle_06()?;
+        // Safety: The Rc<dyn WindowAdapter> owns this slint::Window (&self). Therefore the caller of
+        // this function must also have a strong reference to the window adapter. The adapter above
+        // was created from a self weak and is the same as the Rc<dyn WindowAdapter> of the caller.
+        #[allow(unsafe_code)]
+        Ok(unsafe {
+            core::mem::transmute::<rwh_06::DisplayHandle<'_>, rwh_06::DisplayHandle<'a>>(wh)
+        })
+    }
+}
+
 pub use crate::SharedString;
 
 /// This trait is used to obtain references to global singletons exported in `.slint`

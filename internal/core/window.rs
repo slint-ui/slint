@@ -137,6 +137,18 @@ pub trait WindowAdapter {
     fn internal(&self, _: crate::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         None
     }
+
+    /// Re-implement this to support exposing raw window handles (version 0.6).
+    #[cfg(feature = "rwh_06")]
+    fn window_handle_06(&self) -> Result<rwh_06::WindowHandle<'_>, rwh_06::HandleError> {
+        Err(rwh_06::HandleError::NotSupported)
+    }
+
+    /// Re-implement this to support exposing raw display handles (version 0.6).
+    #[cfg(feature = "rwh_06")]
+    fn display_handle_06(&self) -> Result<rwh_06::DisplayHandle<'_>, rwh_06::HandleError> {
+        Err(rwh_06::HandleError::NotSupported)
+    }
 }
 
 /// Implementation details behind [`WindowAdapter`], but since this

@@ -408,11 +408,14 @@ mod testui {
 // Sorry, can't test with rust test harness and multiple threads.
 #[cfg(not(any(target_arch = "wasm32", target_os = "macos", target_os = "ios")))]
 #[test]
-fn test_window_accessor() {
+fn test_window_accessor_and_rwh() {
     slint::platform::set_platform(Box::new(crate::Backend::new().unwrap())).unwrap();
 
     use testui::*;
     let app = App::new().unwrap();
     let slint_window = app.window();
     assert!(slint_window.has_winit_window());
+    use rwh_06::{HasDisplayHandle, HasWindowHandle};
+    assert!(slint_window.window_handle().is_ok());
+    assert!(slint_window.display_handle().is_ok());
 }
