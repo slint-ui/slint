@@ -107,9 +107,10 @@ renderer-winit-software = ["renderer-software"]
 ## APIs to support screen readers and other assistive technologies.
 accessibility = ["i-slint-backend-selector/accessibility"]
 
-### Enable integration with raw-window-handle version 0.6. This provides a HasWindowHandle and
-### HasDisplayHandle implementation for slint::Window.
-raw-window-handle-06 = ["i-slint-backend-selector/raw-window-handle-06"]
+## Enable integration with [raw-window-handle](raw_window_handle_06) version 0.6. This provides a
+## [HasWindowHandle](raw_window_handle_06::HasWindowHandle) and
+## [HasDisplayHandle](raw_window_handle_06::HasDisplayHandle) implementation for slint::Window.
+raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/raw-window-handle-06"]
 
 ## Features used internally by Slint tooling that are not stable and come without
 ## any stability guarantees whatsoever.
@@ -130,6 +131,7 @@ once_cell = "1.5"
 thiserror = "1"
 document-features = { version = "0.2.0", optional = true }
 spin_on = { version = "0.1", optional = true }
+raw-window-handle-06 = { workspace = true, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 i-slint-backend-winit = { workspace = true }

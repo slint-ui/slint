@@ -78,9 +78,10 @@ unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
 ## APIs to support screen readers and other assistive technologies.
 accessibility = ["i-slint-backend-selector/accessibility"]
 
-### Enable integration with raw-window-handle version 0.6. This provides a HasWindowHandle and
-### HasDisplayHandle implementation for slint::Window.
-raw-window-handle-06 = ["i-slint-backend-selector/raw-window-handle-06"]
+## Enable integration with [raw-window-handle](raw_window_handle_06) version 0.6. This provides a
+## [HasWindowHandle](raw_window_handle_06::HasWindowHandle) and
+## [HasDisplayHandle](raw_window_handle_06::HasDisplayHandle) implementation for slint::Window.
+raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/raw-window-handle-06"]
 
 #! ### Backends
 
@@ -178,6 +179,8 @@ pin-weak = { version = "1.1", default-features = false }
 num-traits = { version = "0.2", default-features = false }
 
 log = { version = "0.4.17", optional = true }
+
+raw-window-handle-06 = { workspace = true, optional = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 # FemtoVG is disabled on android because it doesn't compile without setting RUST_FONTCONFIG_DLOPEN=on
