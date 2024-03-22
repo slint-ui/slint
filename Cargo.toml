@@ -4,6 +4,7 @@
 [workspace]
 members = [
     'api/cpp',
+    'api/dotnet',
     'api/node',
     'api/rs/build',
     'api/rs/macros',
