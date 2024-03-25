@@ -10,6 +10,7 @@ use i_slint_core::SharedString;
 use jni::objects::{JClass, JObject, JString, JValue};
 use jni::sys::{jboolean, jint};
 use jni::JNIEnv;
+use std::time::Duration;
 
 #[track_caller]
 pub fn print_jni_error(app: &AndroidApp, e: jni::errors::Error) -> ! {
@@ -148,8 +149,8 @@ impl JavaHelper {
                 _ => 0 as jint,
             };
 
-            let cur_origin = dbg!(data.cursor_rect_origin.to_physical(scale_factor));
-            let anchor_origin = dbg!(data.anchor_point.to_physical(scale_factor));
+            let cur_origin = data.cursor_rect_origin.to_physical(scale_factor);
+            let anchor_origin = data.anchor_point.to_physical(scale_factor);
             let cur_size = data.cursor_rect_size.to_physical(scale_factor);
 
             // Add 2*cur_size.width to the y position to be a bit under the cursor
@@ -208,6 +209,17 @@ impl JavaHelper {
                 &[JValue::from(color.as_argb_encoded() as jint)],
             )?;
             Ok(())
+        })
+    }
+
+    pub fn long_press_timeout(&self) -> Result<Duration, jni::errors::Error> {
+        self.with_jni_env(|env, _helper| {
+            let view_configuration = env.find_class("android/view/ViewConfiguration")?;
+            let view_configuration = JClass::from(view_configuration);
+            let long_press_timeout = env
+                .call_static_method(view_configuration, "getLongPressTimeout", "()I", &[])?
+                .i()?;
+            Ok(Duration::from_millis(long_press_timeout as _))
         })
     }
 }
