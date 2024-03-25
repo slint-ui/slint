@@ -278,10 +278,10 @@ fn fix_percent_size(
     }
     let mut b = binding.borrow_mut();
     if let Some(parent) = parent {
-        debug_assert_eq!(
+        debug_assert!(matches!(
             parent.borrow().lookup_property(property).property_type,
-            Type::LogicalLength
-        );
+            Type::LogicalLength | Type::Invalid
+        ));
         let fill =
             matches!(b.expression, Expression::NumberLiteral(x, _) if (x - 100.).abs() < 0.001);
         b.expression = Expression::BinaryExpression {
