@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette, ListView, HorizontalBox } from "std-widgets.slint";
+import { CosmicPalette } from "styling.slint";
+
+export component NavigationListItem {
+    private property <brush> foreground: Palette.foreground;
+
+    callback select <=> touch-area.clicked;
+
+    in property <bool> selected;
+    in property <string> title <=> text.text;
+    in property <string> message <=> message.text;
+    in property <image> icon <=> icon.source;
+
+    min-height: max(41px, layout.min-height);
+
+    layout :=  HorizontalLayout {
+        padding-bottom: 8px;
+
+        background := Rectangle {
+            border-radius: 16px;
+
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+
+                spacing: 8px;
+
+                icon := Image {
+                    y: (parent.height - self.height) / 2;
+                    width: 16px;
+                    colorize: root.foreground;
+                }
+
+                text := Text {
+                    color: root.foreground;
+                    horizontal-stretch: 1;
+                    vertical-alignment: center;
+                    font-size: 14px;
+                    font-weight: 600;
+                }
+
+                message := Text {
+                    color: root.foreground;
+                    horizontal-stretch: 0;
+                    vertical-alignment: center;
+                    font-size: 14px;
+                    font-weight: 600;
+                }
+            }
+
+            touch-area := TouchArea {}
+        }
+    }
+
+    states [
+        selected when root.selected : {
+            background.background: CosmicPalette.state-selected;
+            foreground: CosmicPalette.accent-text;
+        }
+    ]
+}
+
+export struct NavigationListViewItem {
+    icon: image,
+    text: string,
+    message: string,
+}
+
+export component NavigationListView inherits ListView {
+    in property <[NavigationListViewItem]> model;
+    in-out property <int> current-item: -1;
+
+    callback selected(/* current-item */ int);
+
+    for item[index] in root.model : NavigationListItem {
+        height: self.min-height;
+        title: item.text;
+        icon: item.icon;
+        message: item.message;
+        selected: index == root.current-item;
+
+        select => {
+            root.current-item = index;
+            selected(root.current-item);
+        }
+    }
+}

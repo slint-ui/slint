@@ -1,10 +1,113 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { GroupBox, ComboBox, VerticalBox, GridBox, Palette } from "std-widgets.slint";
+import { NavigationListView, NavigationListViewItem, Container } from "../widgets.slint";
+import { Icons } from "../assets.slint";
+
 export global MailViewAdapter {
 
 }
 
-export component MailView {
+export global MailSideBarViewAdapter {
+    out property <[string]> accounts: [
+        "jon.doe@slint.dev",
+        "jon.doe@my-mail.com",
+        "jon.doe@gmail.com"
+    ];
 
+    out property <[NavigationListViewItem]> boxes: [
+        {
+            text: "Inbox",
+            message: "128",
+            icon: Icons.inbox
+        },
+        {
+            text: "Drafts",
+            message: "9",
+            icon: Icons.document
+        },
+        {
+            text: "Sent",
+            icon: Icons.send
+        },
+        {
+            text: "Junk",
+            icon: Icons.junk,
+            message: "23",
+        },
+        {
+            text: "Trash",
+            icon: Icons.trash
+        },
+        {
+            text: "Archive",
+            icon: Icons.archive
+        }
+    ];
+
+    out property <[NavigationListViewItem]> custom-boxes: [
+        {
+            text: "Social",
+            message: "3972",
+            icon: Icons.useres
+        },
+        {
+            text: "Updates",
+            message: "342",
+            icon: Icons.updates
+        },
+        {
+            text: "Forums",
+            message: "128",
+            icon: Icons.message
+        }
+    ];
+    in-out property <int> current-box;
+    in-out property <int> current-custom-box: -1;
+}
+
+export component MailSideBarView {
+    horizontal-stretch: 0;
+    min-width: 264px;
+
+    VerticalBox {
+        ComboBox {
+            model: MailSideBarViewAdapter.accounts;
+        }
+
+        Container {
+            NavigationListView {
+                model: MailSideBarViewAdapter.boxes;
+                current-item  <=> MailSideBarViewAdapter.current-box;
+                min-height: 248px;
+                vertical-stretch: 0;
+
+                selected(index) => {
+                    MailSideBarViewAdapter.current-custom-box = -1;
+                }
+            }
+
+            Rectangle {
+                background: Palette.border;
+                height: 1px;
+            }
+
+            NavigationListView {
+                model: MailSideBarViewAdapter.custom-boxes;
+                current-item <=> MailSideBarViewAdapter.current-custom-box;
+
+                selected(index) => {
+                    MailSideBarViewAdapter.current-box = -1;
+                }
+            }
+        }
+    }
+}
+
+export component MailView {
+    HorizontalLayout {
+        MailSideBarView {}
+        Rectangle {}
+    }
 }
