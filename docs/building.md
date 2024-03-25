@@ -241,19 +241,19 @@ There are three tutorials built with mdbook, one for each of the three languages
 #### Rust tutorial
 
 ```shell
-mdbook build docs/tutorial/rust
+mdbook build docs/quickstart/rust
 ```
 
 #### C++ tutorial
 
 ```shell
-mdbook build docs/tutorial/cpp
+mdbook build docs/quickstart/cpp
 ```
 
 #### NodeJS tutorial
 
 ```shell
-mdbook build docs/tutorial/node
+mdbook build docs/quickstart/node
 ```
 
 ### Slint DSL docs

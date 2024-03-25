@@ -70,8 +70,8 @@ Puzzle game based on a Flutter example. See [Readme](./slide_puzzle)
 
 A basic memory game used as an example the tutorial:
 
-* [Memory Game Tutorial (Rust)](https://slint.dev/docs/tutorial/rust)
-* [Memory Game Tutorial (C++)](https://slint.dev/docs/tutorial/cpp)
+* [Memory Game Tutorial (Rust)](https://slint.dev/docs/quickstart/rust)
+* [Memory Game Tutorial (C++)](https://slint.dev/docs/quickstart/cpp)
 
 | `.slint` Design | Rust Source | C++ Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- | --- |
