@@ -33,7 +33,7 @@ impl SlintExtension {
         let asset_name = format!(
             "slint-lsp-{os}.tar.gz",
             os = match platform {
-                zed::Os::Mac => "darwin",
+                zed::Os::Mac => "macos",
                 zed::Os::Linux => "linux",
                 zed::Os::Windows => "windows",
             },
