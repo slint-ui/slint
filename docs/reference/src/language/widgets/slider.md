@@ -9,6 +9,7 @@
 -   **`minimum`** (_in_ _float_): The minimum value (default: 0)
 -   **`maximum`** (_in_ _float_): The maximum value (default: 100)
 -   **`orientation`** (_in_ _enum [`Orientation`](../builtins/enums.md#orientation)_): If set to true the Slider is displayed vertical (default: horizontal).
+-   **`inverted`**: (_in_ _bool_): Defaults to false. If set to true, the slider changes it's direction.
 
 ### Callbacks
 

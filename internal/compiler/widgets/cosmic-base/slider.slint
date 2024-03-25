@@ -7,6 +7,7 @@ import { SliderBase } from "../common/slider-base.slint";
 
 export component Slider {
     in property <Orientation> orientation <=> base.orientation;
+    in property <bool> inverted <=> base.inverted;
     in property <float> maximum <=> base.maximum;
     in property <float> minimum <=> base.minimum;
     in property <bool> enabled <=> base.enabled;
@@ -49,8 +50,13 @@ export component Slider {
     }
 
     thumb := Rectangle {
-        x: base.vertical ? (parent.width - self.width) / 2 : (parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
-        y: base.vertical ? (parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum) : (parent.height - self.height) / 2;
+        x: base.vertical ? (parent.width - self.width) / 2 
+            : inverted ? (parent.width - self.width) * (root.maximum - root.value) / (root.maximum - root.minimum)
+                : (parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
+        y: base.vertical ? (inverted ?
+            (parent.height - self.height) * (root.maximum - root.value) / (root.maximum - root.minimum)
+                : (parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum))
+            : (parent.height - self.height) / 2;
         width: 20px;
         height: self.width;
         border-radius: 10px;
