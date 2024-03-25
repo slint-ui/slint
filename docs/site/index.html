@@ -81,23 +81,6 @@
             Section blocks on this page:
             - one-column
             -->
-            <script type="text/javascript">
-                window.addEventListener('load', () => {
-
-                    let actualVersionValue = null;
-                    let actualVersionText = null;
-                    const version = document.location.pathname.match(/releases\/([0-9]*.[0-9]*.[0-9]*)|snapshots\/(master)/);
-                    if (version) {
-                        actualVersionValue = version[0];
-                        actualVersionText = version[1];
-                        if (actualVersionValue == "snapshots\/master") {
-                            actualVersionText = "development snapshot";
-                        }
-                    }
-                    document.getElementById("version").innerHTML = "Version: " + actualVersionText;
-
-                }, false);
-            </script>
 
             <section class="one-column">
                 <h1>Documentation</h1>
@@ -107,7 +90,7 @@
 
             <section class="select-filters">
                 <div class="select-wrap">
-                    <label for="version" id="version">Version:</label>
+                    <label for="version" id="version">Version: VERSION</label>
                     <label style="font-size: 1rem;
                     font-weight: 400; margin-bottom: 1em;">Visit <a href="https://docs.slint.dev">Slint Documentation</a> for other versions.</label>
                 </div>

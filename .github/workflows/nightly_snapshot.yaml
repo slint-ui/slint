@@ -359,6 +359,13 @@ jobs:
                   mkdir -p $output_path/editor
                   cp -a ../slintpad/* $output_path/editor/
 
+                  if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
+                    version="${{ steps.version.outputs.VERSION }}"
+                  else
+                    version="development snapshot"
+                  fi
+                  sed -i 's/VERSION/$version/g' ../docs/site/index.html
+
                   rm -rf $output_path/docs
                   mkdir -p $output_path/docs
                   cp -a ../docs/site/* $output_path/docs
