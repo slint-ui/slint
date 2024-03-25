@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { TabWidget, HorizontalBox } from "std-widgets.slint";
+
+import { MailView } from "mail_view.slint";
+
+export global MainViewAdapter {
+
+}
+
+export component MainView {
+
+    TabWidget {
+        Tab {
+            title: "Mail";
+
+            HorizontalBox {
+                MailView {}
+            }
+        }
+
+        Tab {
+            title: "Dashboard";
+        }
+
+        Tab {
+            title: "Music";
+        }
+
+        Tab {
+            title: "Settings";
+        }
+    }
+}

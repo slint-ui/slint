@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MainView, MainViewAdapter, MailViewAdapter } from "views.slint";
+export { MainViewAdapter, MailViewAdapter }
+
+export component App inherits Window {
+    width: 800px;
+    height: 1280px;
+    title: "Slint usecases";
+
+    MainView {
+        width: 100%;
+        height: 100%;
+    }
+}
