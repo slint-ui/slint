@@ -33,3 +33,36 @@ there is no change, a low frame rate is reported. Use this option to verify that
 Use these options in combination, separated by a comma. You must select a combination of one frame rate measurement method and a reporting method. For example, `SLINT_DEBUG_PERFORMANCE=refresh_full_speed,overlay` repeatedly re-renders the entire user interface in each window and prints the achieved frame rate in the top-left corner. In comparison, `SLINT_DEBUG_PERFORMANCE=refresh_lazy,console,overlay` measures the frame rate only when something in the user interface changes and the measured value is printed to `stderr` as well as rendered as an overlay text label.
 
 The environment variable must be set before running the program. If the application runs on a microcontroller without the standard library, the environment variable must be set during compilation.
+
+## Tuning Rendering Performance
+
+If you're not satisfied with the performance, it might be worthwhile to descend into a low-level investigation. Tools such as [RenderDoc](https://renderdoc.org) permit recording the rendering output
+of your application and can give you detailed insight into the OpenGL/Vulkan commands Slint's renderers produce for your user interface.
+
+As a general rule of thumb, it's best to minimize the number of commands per frame. With OpenGL you'll see `glDrawArrays()` and `glDrawElementsInstanced*` calls filling the color buffers. Reducing
+the number of calls tends to improve performance.
+
+For example, if you draw a series of bar charts by filling rectangles with a gradient, you'll observe that each rectangle is a draw call on its own:
+
+```slint
+component BarChart inherits Rectangle {
+    background: black;
+    height: 150px;
+    HorizontalLayout {
+        spacing: 10px;
+        for i in 5: Rectangle {
+            height: 10px + i * 20px;
+            width: 20px;
+            background: @linear-gradient(180deg, #f00 0%, #0f0);
+        }
+    }
+}
+```
+
+For example when using the Skia renderer, if you replace the gradient with a plain color, the calls will all be batched together into one call. But when the
+UI design requires the use of a gradient, that's not possible. But there might be another way. If the underlying data for your bar chart rarely changes, it
+might be worthwhile to render the entire chart once into a texture and therefore replace multiple calls with just one. This can be done by setting the
+[cache-rendering-hint](../language/builtins/elements.md#miscellaneous) to `true` on the `BarChar` itself, which surrounds and captures the individual bar charts.
+
+Note that extensive use of this technique comes at the expense of increased GPU memory usage and memory throughput.
+
