@@ -3,7 +3,7 @@
 
 // cSpell: ignore deinit
 
-use i_slint_core::items::{ColorScheme, LayoutAlignment};
+use i_slint_core::items::LayoutAlignment;
 
 use super::*;
 
@@ -44,7 +44,7 @@ pub struct NativeStyleMetrics {
     pub placeholder_color: Property<Color>,
     pub placeholder_color_disabled: Property<Color>,
 
-    pub color_scheme: Property<ColorScheme>,
+    pub dark_color_scheme: Property<bool>,
 
     // Tab Bar metrics:
     pub tab_bar_alignment: Property<LayoutAlignment>,
@@ -73,7 +73,7 @@ impl NativeStyleMetrics {
             textedit_text_color_disabled: Default::default(),
             placeholder_color: Default::default(),
             placeholder_color_disabled: Default::default(),
-            color_scheme: Default::default(),
+            dark_color_scheme: Default::default(),
             tab_bar_alignment: Default::default(),
             style_change_listener: core::cell::Cell::new(core::ptr::null()),
         })
@@ -155,17 +155,15 @@ impl NativeStyleMetrics {
         });
         self.placeholder_color_disabled.set(Color::from_argb_encoded(placeholder_color_disabled));
 
-        self.color_scheme.set(
-            if (window_background.red() as u32
+        // This is sub-optimal: It should really be a binding to Palette.color-scheme == ColorScheme.dark, so that
+        // writes to Palette.color-scheme are reflected, but we can't access the other global singleton here and
+        // this is just a backwards-compat property that was never documented to be public.
+        self.dark_color_scheme.set(
+            (window_background.red() as u32
                 + window_background.green() as u32
                 + window_background.blue() as u32)
                 / 3
-                < 128
-            {
-                ColorScheme::Dark
-            } else {
-                ColorScheme::Light
-            },
+                < 128,
         );
 
         let tab_bar_alignment = cpp!(unsafe[] -> u32 as "uint32_t" {
