@@ -371,8 +371,8 @@ jobs:
                   sed -i "s!https://slint.dev/releases/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
 
                   for lang in rust cpp node; do
-                      mkdir -p $output_path/docs/tutorial/$lang
-                      cp -a ../docs/tutorial/$lang/book/html/* $output_path/docs/tutorial/$lang
+                      mkdir -p $output_path/docs/quickstart/$lang
+                      cp -a ../docs/quickstart/$lang/book/html/* $output_path/docs/quickstart/$lang
                   done
                   mkdir -p $output_path/docs/node
                   cp -a ../api/node/docs/* $output_path/docs/node/
