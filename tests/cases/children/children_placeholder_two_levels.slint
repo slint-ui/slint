@@ -7,18 +7,32 @@ Container := Rectangle {
         spacing: 0phx;
         Row {
             Rectangle {
+                width: 50phx;
                 background: green;
             }
             @children
+            Rectangle {
+                width: 2phx;
+                background: yellow;
+            }
         }
     }
 }
 
 MegaContainer := Rectangle {
     Container {
+        Rectangle {
+            background: violet;
+            width: 100phx;
+        }
         @children
+        Rectangle {
+            background: purple;
+            width: 4phx;
+        }
         width: parent.width;
         height: parent.height;
+
     }
 }
 
@@ -32,6 +46,7 @@ TestCase := MegaContainer {
 
 
     property <bool> rect1_pos_ok: rect1.x == 150phx;
+    out property <bool> test: rect1_pos_ok;
 }
 /*
 ```cpp

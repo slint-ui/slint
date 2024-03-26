@@ -110,17 +110,17 @@ fn inline_element(
         }),
     );
 
-    match inlined_component
-        .child_insertion_point
-        .borrow()
-        .as_ref()
-        .and_then(|(elem, node)| Some((mapping.get(&element_key(elem.clone()))?, node)))
-    {
-        Some((insertion_element, cip_node)) if !Rc::ptr_eq(elem, insertion_element) => {
-            insertion_element.borrow_mut().children.append(&mut elem_mut.children);
+    match inlined_component.child_insertion_point.borrow().as_ref().and_then(
+        |(elem, index, node)| Some((mapping.get(&element_key(elem.clone()))?, index, node)),
+    ) {
+        Some((insertion_element, index, cip_node)) if !Rc::ptr_eq(elem, insertion_element) => {
+            insertion_element
+                .borrow_mut()
+                .children
+                .splice(index..index, std::mem::take(&mut elem_mut.children));
             if let Some(cip) = root_component.child_insertion_point.borrow_mut().as_mut() {
                 if Rc::ptr_eq(&cip.0, elem) {
-                    *cip = (insertion_element.clone(), cip_node.clone());
+                    *cip = (insertion_element.clone(), index + cip.1, cip_node.clone());
                 }
             };
         }

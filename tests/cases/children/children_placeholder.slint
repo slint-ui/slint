@@ -7,9 +7,14 @@ Container := Rectangle {
         spacing: 0phx;
         Row {
             Rectangle {
+                width: 150phx;
                 background: green;
             }
             @children
+            Rectangle {
+                width: 30phx;
+                background: yellow;
+            }
         }
     }
 }
@@ -22,8 +27,9 @@ TestCase := Container {
         background: black;
     }
 
-
     property <bool> rect1_pos_ok: rect1.x == 150phx;
+
+    out property <bool> test: rect1_pos_ok;
 }
 /*
 ```cpp
