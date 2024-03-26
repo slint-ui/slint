@@ -1,7 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use i_slint_core::{input::FocusEventResult, items::PointerEventButton};
+use i_slint_core::{
+    input::key_codes,
+    input::{FocusEventResult, KeyEventType},
+    items::PointerEventButton,
+};
 
 use super::*;
 
@@ -24,12 +28,14 @@ type FloatArg = (f32,);
 pub struct NativeSlider {
     pub orientation: Property<Orientation>,
     pub enabled: Property<bool>,
+    pub has_focus: Property<bool>,
     pub value: Property<f32>,
     pub minimum: Property<f32>,
     pub maximum: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
     data: Property<NativeSliderData>,
     pub changed: Callback<FloatArg>,
+    pub released: Callback<FloatArg>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
 }
@@ -153,7 +159,7 @@ impl Item for NativeSlider {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self_rc);
@@ -202,6 +208,9 @@ impl Item for NativeSlider {
                 button: PointerEventButton::Left,
                 click_count: _,
             } => {
+                if !self.has_focus() {
+                    WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
+                }
                 data.pressed_x = if vertical { pos.y as f32 } else { pos.x as f32 };
                 data.pressed = 1;
                 data.pressed_val = self.value();
@@ -209,6 +218,7 @@ impl Item for NativeSlider {
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 data.pressed = 0;
+                Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
                 InputEventResult::EventAccepted
             }
             MouseEvent::Moved { position: pos } => {
@@ -219,9 +229,7 @@ impl Item for NativeSlider {
                     let new_val = data.pressed_val
                         + ((coord as f32) - data.pressed_x) * (self.maximum() - self.minimum())
                             / size as f32;
-                    let new_val = new_val.max(self.minimum()).min(self.maximum());
-                    self.value.set(new_val);
-                    Self::FIELD_OFFSETS.changed.apply_pin(self).call(&(new_val,));
+                    self.set_value(new_val);
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventIgnored
@@ -229,9 +237,7 @@ impl Item for NativeSlider {
             }
             MouseEvent::Wheel { delta_x, delta_y, .. } => {
                 let new_val = self.value() + delta_x + delta_y;
-                let new_val = new_val.max(self.minimum()).min(self.maximum());
-                self.value.set(new_val);
-                Self::FIELD_OFFSETS.changed.apply_pin(self).call(&(new_val,));
+                self.set_value(new_val);
                 InputEventResult::EventAccepted
             }
             MouseEvent::Pressed { button, .. } | MouseEvent::Released { button, .. } => {
@@ -247,24 +253,60 @@ impl Item for NativeSlider {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &KeyEvent,
+        event: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
+        if self.enabled() {
+            let Some(keycode) = event.text.chars().next() else {
+                return KeyEventResult::EventIgnored;
+            };
+            let vertical = self.orientation() == Orientation::Vertical;
+
+            if (!vertical && keycode == key_codes::RightArrow)
+                || (vertical && keycode == key_codes::DownArrow)
+            {
+                if event.event_type == KeyEventType::KeyPressed {
+                    self.set_value(self.value() + 1.);
+                } else if event.event_type == KeyEventType::KeyReleased {
+                    Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
+                }
+                return KeyEventResult::EventAccepted;
+            }
+            if (!vertical && keycode == key_codes::LeftArrow)
+                || (vertical && keycode == key_codes::UpArrow)
+            {
+                if event.event_type == KeyEventType::KeyPressed {
+                    self.set_value(self.value() - 1.);
+                } else if event.event_type == KeyEventType::KeyReleased {
+                    Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
+                }
+                return KeyEventResult::EventAccepted;
+            }
+        }
         KeyEventResult::EventIgnored
     }
 
     fn focus_event(
         self: Pin<&Self>,
-        _: &FocusEvent,
+        event: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> FocusEventResult {
-        FocusEventResult::FocusIgnored
+        if self.enabled() {
+            Self::FIELD_OFFSETS
+                .has_focus
+                .apply_pin(self)
+                .set(event == &FocusEvent::FocusIn || event == &FocusEvent::WindowReceivedFocus);
+            FocusEventResult::FocusAccepted
+        } else {
+            FocusEventResult::FocusIgnored
+        }
     }
 
     fn_render! { this dpr size painter widget initial_state =>
         let enabled = this.enabled();
+        let has_focus = this.has_focus();
         // Slint slider supports floating point ranges, while Qt uses integer. To support (0..1) ranges
         // of values, scale up a little, before truncating to integer values.
         let value = (this.value() * 1024.0) as i32;
@@ -279,6 +321,7 @@ impl Item for NativeSlider {
             painter as "QPainterPtr*",
             widget as "QWidget*",
             enabled as "bool",
+            has_focus as "bool",
             value as "int",
             min as "int",
             max as "int",
@@ -292,11 +335,22 @@ impl Item for NativeSlider {
             QStyleOptionSlider option;
             option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
+            if (has_focus) {
+                option.state |= QStyle::State_HasFocus | QStyle::State_KeyboardFocusChange | QStyle::State_Item;
+            }
             option.rect = QRect(QPoint(), size / dpr);
             initQSliderOptions(option, pressed, enabled, active_controls, min, max, value, vertical);
             auto style = qApp->style();
             style->drawComplexControl(QStyle::CC_Slider, &option, painter->get(), widget);
         });
+    }
+}
+
+impl NativeSlider {
+    fn set_value(self: Pin<&Self>, new_val: f32) {
+        let new_val = new_val.max(self.minimum()).min(self.maximum());
+        self.value.set(new_val);
+        Self::FIELD_OFFSETS.changed.apply_pin(self).call(&(new_val,));
     }
 }
 

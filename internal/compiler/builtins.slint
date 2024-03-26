@@ -423,12 +423,15 @@ export component NativeSpinBox {
 
 export component NativeSlider {
     in property <bool> enabled: true;
+    out property <bool> has-focus;
     in-out property <float> value;
     in property <float> minimum;
     in property <float> maximum: 100;
     in property <Orientation> orientation: Orientation.horizontal;
     callback changed(float);
+    callback released(float);
     //-is_internal
+    //-accepts_focus
 }
 
 export component NativeProgressIndicator {
