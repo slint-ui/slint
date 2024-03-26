@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Switch, GridBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
+import { Switch, GridBox, ListView, ScrollView, HorizontalBox, VerticalBox, Palette } from "std-widgets.slint";
 
 import { GallerySettings } from "../gallery_settings.slint";
 
@@ -10,9 +10,7 @@ export component Page inherits VerticalBox {
     in property<string> description: "description";
     in property<bool> show-enable-switch: true;
 
-    HorizontalLayout {
-        height: 24px;
-
+    HorizontalBox {
         Text {
             font-size: 20px;
             text <=> root.title;
@@ -26,6 +24,15 @@ export component Page inherits VerticalBox {
             text: @tr("Widgets enabled");
             checked <=> GallerySettings.widgets-enabled;
             enabled: true;
+        }
+
+        Switch {
+            horizontal-stretch: 0;
+            text: @tr("Dark Mode");
+            checked: Palette.color-scheme == ColorScheme.dark;
+            toggled => {                
+                Palette.color-scheme = self.checked ? ColorScheme.dark : ColorScheme.light;
+            }
         }
     }
 

@@ -155,6 +155,9 @@ impl NativeStyleMetrics {
         });
         self.placeholder_color_disabled.set(Color::from_argb_encoded(placeholder_color_disabled));
 
+        // This is sub-optimal: It should really be a binding to Palette.color-scheme == ColorScheme.dark, so that
+        // writes to Palette.color-scheme are reflected, but we can't access the other global singleton here and
+        // this is just a backwards-compat property that was never documented to be public.
         self.dark_color_scheme.set(
             (window_background.red() as u32
                 + window_background.green() as u32

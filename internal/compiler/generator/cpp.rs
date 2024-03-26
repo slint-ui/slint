@@ -3080,8 +3080,8 @@ fn compile_builtin_function_call(
                 a = a.next().unwrap(),
             )
         }
-        BuiltinFunction::DarkColorScheme => {
-            format!("{}.dark_color_scheme()", access_window_field(ctx))
+        BuiltinFunction::ColorScheme => {
+            format!("{}.color_scheme()", access_window_field(ctx))
         }
         BuiltinFunction::SetTextInputFocused => {
             format!("{}.set_text_input_focused({})", access_window_field(ctx), a.next().unwrap())

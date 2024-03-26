@@ -211,14 +211,7 @@ class SlintInputView extends View {
     protected void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         int currentNightMode = newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        switch (currentNightMode) {
-            case Configuration.UI_MODE_NIGHT_NO:
-                SlintAndroidJavaHelper.setDarkMode(false);
-                break;
-            case Configuration.UI_MODE_NIGHT_YES:
-                SlintAndroidJavaHelper.setDarkMode(true);
-                break;
-        }
+        SlintAndroidJavaHelper.setNightMode(currentNightMode);
     }
 
     private InputHandle mCursorHandle;
@@ -423,7 +416,7 @@ public class SlintAndroidJavaHelper {
     static public native void updateText(String text, int cursorPosition, int anchorPosition, int preeditStart,
             int preeditOffset);
 
-    static public native void setDarkMode(boolean dark);
+    static public native void setNightMode(int nightMode);
 
     static public native void moveCursorHandle(int id, int pos_x, int pos_y);
 
@@ -462,9 +455,9 @@ public class SlintAndroidJavaHelper {
         });
     }
 
-    public boolean dark_color_scheme() {
+    public int color_scheme() {
         int nightModeFlags = mActivity.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
+        return nightModeFlags;
     }
 
     // Get the geometry of the view minus the system bars and the keyboard

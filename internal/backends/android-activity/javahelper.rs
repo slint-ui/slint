@@ -4,7 +4,7 @@
 use super::*;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{euclid, Color};
-use i_slint_core::items::InputType;
+use i_slint_core::items::{ColorScheme, InputType};
 use i_slint_core::platform::WindowAdapter;
 use i_slint_core::SharedString;
 use jni::objects::{JClass, JObject, JString, JValue};
@@ -59,9 +59,9 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
             fn_ptr: Java_SlintAndroidJavaHelper_updateText as *mut _,
         },
         jni::NativeMethod {
-            name: "setDarkMode".into(),
-            sig: "(Z)V".into(),
-            fn_ptr: Java_SlintAndroidJavaHelper_setDarkMode as *mut _,
+            name: "setNightMode".into(),
+            sig: "(I)V".into(),
+            fn_ptr: Java_SlintAndroidJavaHelper_setNightMode as *mut _,
         },
         jni::NativeMethod {
             name: "moveCursorHandle".into(),
@@ -189,9 +189,9 @@ impl JavaHelper {
         })
     }
 
-    pub fn dark_color_scheme(&self) -> Result<bool, jni::errors::Error> {
+    pub fn color_scheme(&self) -> Result<i32, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
-            Ok(env.call_method(helper, "dark_color_scheme", "()Z", &[])?.z()?)
+            Ok(env.call_method(helper, "color_scheme", "()I", &[])?.i()?)
         })
     }
 
@@ -331,14 +331,19 @@ fn convert_utf8_index_to_utf16(in_str: &str, utf8_index: usize) -> usize {
 }
 
 #[no_mangle]
-extern "system" fn Java_SlintAndroidJavaHelper_setDarkMode(
+extern "system" fn Java_SlintAndroidJavaHelper_setNightMode(
     _env: JNIEnv,
     _class: JClass,
-    dark: jboolean,
+    night_mode: jint,
 ) {
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
-            w.dark_color_scheme.as_ref().set(dark == jni::sys::JNI_TRUE);
+            w.color_scheme.as_ref().set(match night_mode {
+                0x10 => ColorScheme::Light,  // UI_MODE_NIGHT_NO(0x10)
+                0x20 => ColorScheme::Dark,   // UI_MODE_NIGHT_YES(0x20)
+                0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
+                _ => ColorScheme::Unknown,
+            });
         }
     })
     .unwrap()

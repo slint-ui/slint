@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { Button, StyleMetrics } from "std-widgets.slint";
+import { Button, Palette } from "std-widgets.slint";
 
 import { Icons } from "icons.slint";
 
@@ -23,14 +23,14 @@ component VirtualKeyboardButton {
 
     i-container := Rectangle {
         border-radius: 4px;
-        background: StyleMetrics.dark-color-scheme ? #373737 : #ffffff;
+        background: Palette.color-scheme == ColorScheme.dark ? #373737 : #ffffff;
 
         HorizontalLayout {
             padding: 8px;
 
             if (root.key != "") : Text {
                 text: root.key;
-                color: StyleMetrics.dark-color-scheme ? #ffffff : #000000;
+                color: Palette.color-scheme == ColorScheme.dark ? #ffffff : #000000;
                 font-size: 12px;
                 vertical-alignment: center;
                 horizontal-alignment: center;
@@ -40,7 +40,7 @@ component VirtualKeyboardButton {
                 y: (parent.height - self.height) / 2;
                 source: root.icon;
                 height: 18px;
-                colorize: StyleMetrics.dark-color-scheme ? #ffffff : #000000;
+                colorize: Palette.color-scheme == ColorScheme.dark ? #ffffff : #000000;
             }
         }
     }
@@ -164,7 +164,7 @@ export component VirtualKeyboard  {
     preferred-width: 100%;
 
     Rectangle {
-        background: StyleMetrics.dark-color-scheme ? #1c1c1c : #d4d4d4;
+        background: Palette.color-scheme == ColorScheme.dark ? #1c1c1c : #d4d4d4;
         height: 100%;
     }
 

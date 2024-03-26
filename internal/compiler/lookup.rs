@@ -804,13 +804,10 @@ impl LookupObject for SlintInternal {
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         f(
-            "dark-color-scheme",
+            "color-scheme",
             Expression::FunctionCall {
-                function: Expression::BuiltinFunctionReference(
-                    BuiltinFunction::DarkColorScheme,
-                    None,
-                )
-                .into(),
+                function: Expression::BuiltinFunctionReference(BuiltinFunction::ColorScheme, None)
+                    .into(),
                 arguments: vec![],
                 source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
             }

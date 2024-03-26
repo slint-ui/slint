@@ -24,7 +24,7 @@ export global StyleMetrics  {
     out property <color> textedit-text-color: FluentPalette.foreground;
     out property <color> textedit-background-disabled: FluentPalette.control-disabled;
     out property <color> textedit-text-color-disabled: FluentPalette.text-disabled;
-    out property <bool> dark-color-scheme: FluentPalette.dark-color-scheme;
+    out property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
 }
 
 export global Palette {
@@ -39,4 +39,5 @@ export global Palette {
     out property <brush> selection-background: FluentPalette.selection-background;
     out property <brush> selection-foreground: FluentPalette.selection-foreground;
     out property <brush> border: FluentPalette.border;
+    in-out property <ColorScheme> color-scheme <=> FluentPalette.color-scheme;
 }
