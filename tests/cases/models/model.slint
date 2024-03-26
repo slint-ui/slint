@@ -97,6 +97,52 @@ assert_eq!(instance.get_clicked_index(), 1);
 
 ```
 
+
+```rust
+// Test a broken model
+// The behavior is not really defined, but at least it shouldn't panic
+
+let instance = TestCase::new().unwrap();
+
+type ModelData = (slint::SharedString, slint::SharedString, f32);
+struct BrokenModel;
+
+impl slint::Model for BrokenModel {
+    type Data = ModelData;
+    fn row_count(&self) -> usize { 3 }
+
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        // The model is "broken" because it doesn't return anything for when row == 1
+        if row == 0 || row == 2 {
+            Some(("Hello".into(), "World".into(), row as f32 + 42.))
+        } else {
+            None
+        }
+    }
+    fn model_tracker(&self) -> &dyn slint::ModelTracker {
+        &()
+    }
+}
+
+slint_testing::send_mouse_click(&instance, 15., 5.);
+assert_eq!(instance.get_clicked_score(), 789000);
+assert_eq!(instance.get_clicked_internal_state(), 1);
+
+instance.set_model(slint::ModelRc::new(BrokenModel));
+
+slint_testing::send_mouse_click(&instance, 25., 5.);
+assert_eq!(instance.get_clicked_index(), 2);
+assert_eq!(instance.get_clicked_score(), 44000);
+
+// At position 0 there is the invalid item
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_clicked_score(), 0);
+assert_eq!(instance.get_clicked_index(), 0);
+
+```
+
+
+
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
