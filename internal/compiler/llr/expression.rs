@@ -288,7 +288,7 @@ impl Expression {
             }
             Self::UnaryOp { sub, .. } => sub.ty(ctx),
             Self::ImageReference { .. } => Type::Image,
-            Self::Condition { true_expr, .. } => true_expr.ty(ctx),
+            Self::Condition { false_expr, .. } => false_expr.ty(ctx),
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
             Self::Struct { ty, .. } => ty.clone(),
             Self::EasingCurve(_) => Type::Easing,
