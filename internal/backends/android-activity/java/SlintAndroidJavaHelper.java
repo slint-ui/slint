@@ -1,12 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+import android.view.ActionMode;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.content.res.TypedArray;
 import android.graphics.BlendMode;
 import android.graphics.BlendModeColorFilter;
 import android.graphics.Rect;
@@ -14,6 +20,7 @@ import android.graphics.drawable.Drawable;
 import android.text.Editable;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
+import android.util.TypedValue;
 import android.view.inputmethod.InputMethodManager;
 import android.app.Activity;
 import android.widget.FrameLayout;
@@ -56,6 +63,7 @@ class InputHandle extends ImageView {
             }
 
             case MotionEvent.ACTION_MOVE: {
+                mRootView.hideActionMenu(ActionMode.DEFAULT_HIDE_DURATION);
                 int id = attr == android.R.attr.textSelectHandleLeft ? 1
                         : attr == android.R.attr.textSelectHandleRight ? 2 : 0;
                 SlintAndroidJavaHelper.moveCursorHandle(id, Math.round(ev.getRawX() - mPressedX),
@@ -118,7 +126,7 @@ class SlintInputView extends View {
         @Override
         public SpannableStringBuilder replace(int start, int end, CharSequence tb, int tbstart, int tbend) {
             super.replace(start, end, tb, tbstart, tbend);
-            setCursorPos(0, 0, 0, 0, 0);
+            setCursorPos(0, 0, 0, 0, 0, 0);
             if (mInBatch == 0) {
                 update();
             } else {
@@ -216,9 +224,11 @@ class SlintInputView extends View {
     private InputHandle mCursorHandle;
     private InputHandle mLeftHandle;
     private InputHandle mRightHandle;
+    public Rect selectionRect = new Rect();
 
     // num_handles: 0=hidden, 1=cursor handle, 2=selection handles
-    public void setCursorPos(int left_x, int left_y, int right_x, int right_y, int num_handles) {
+    public void setCursorPos(int left_x, int left_y, int right_x, int right_y, int cursor_height, int num_handles) {
+        int handleHeight = 0;
         if (num_handles == 1) {
             if (mLeftHandle != null) {
                 mLeftHandle.hide();
@@ -230,6 +240,7 @@ class SlintInputView extends View {
                 mCursorHandle = new InputHandle(this, android.R.attr.textSelectHandle);
             }
             mCursorHandle.setPosition(left_x, left_y);
+            handleHeight = mCursorHandle.getHeight();
         } else if (num_handles == 2) {
             if (mLeftHandle == null) {
                 mLeftHandle = new InputHandle(this, android.R.attr.textSelectHandleLeft);
@@ -242,8 +253,11 @@ class SlintInputView extends View {
             }
             mLeftHandle.setPosition(right_x, right_y);
             mRightHandle.setPosition(left_x, left_y);
+            handleHeight = mLeftHandle.getHeight();
+            showActionMenu();
         } else {
             if (mCursorHandle != null) {
+                handleHeight = mCursorHandle.getHeight();
                 mCursorHandle.hide();
             }
             if (mLeftHandle != null) {
@@ -252,6 +266,13 @@ class SlintInputView extends View {
             if (mRightHandle != null) {
                 mRightHandle.hide();
             }
+            hideActionMenu(-1);
+        }
+
+        selectionRect.set(Math.min(left_x, right_x), Math.min(left_y, right_y) - cursor_height,
+                Math.max(left_x, right_x), Math.max(left_y, right_y) + handleHeight);
+        if (mCurrentActionMode != null) {
+            mCurrentActionMode.invalidateContentRect();
         }
     }
 
@@ -266,6 +287,98 @@ class SlintInputView extends View {
             mRightHandle.setHandleColor(color);
         }
     }
+
+    private ActionMode mCurrentActionMode;
+
+    public void showActionMenu() {
+        if (mCurrentActionMode != null) {
+            mCurrentActionMode.hide(0);
+            return;
+        }
+        ActionMode.Callback2 action = new ActionMode.Callback2() {
+            @Override
+            public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+                mode.setTitle(null);
+                mode.setSubtitle(null);
+                mode.setTitleOptionalHint(true);
+
+                menu.setGroupDividerEnabled(true);
+
+                final TypedArray a = getContext().obtainStyledAttributes(new int[] {
+                        android.R.attr.actionModeCutDrawable,
+                        android.R.attr.actionModeCopyDrawable,
+                        android.R.attr.actionModePasteDrawable,
+                        android.R.attr.actionModeSelectAllDrawable,
+                });
+
+                // Note: the ids are used in Java_SlintAndroidJavaHelper_popupMenuAction
+                menu.add(Menu.FIRST, 0, 0, android.R.string.cut)
+                        .setAlphabeticShortcut('x')
+                        .setIcon(a.getDrawable(0));
+                menu.add(Menu.FIRST, 1, 1, android.R.string.copy)
+                        .setAlphabeticShortcut('c')
+                        .setIcon(a.getDrawable(1));
+                menu.add(Menu.FIRST, 2, 2, android.R.string.paste)
+                        .setAlphabeticShortcut('v')
+                        .setIcon(a.getDrawable(2));
+                menu.add(Menu.FIRST, 3, 3, android.R.string.selectAll)
+                        .setAlphabeticShortcut('a')
+                        .setIcon(a.getDrawable(3));
+
+                a.recycle();
+
+                return true;
+            }
+
+            @Override
+            public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+                return true;
+            }
+
+            @Override
+            public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+                SlintAndroidJavaHelper.popupMenuAction(item.getItemId());
+                mode.finish();
+                return true;
+            }
+
+            @Override
+            public void onDestroyActionMode(ActionMode action) {
+            }
+
+            @Override
+            public void onGetContentRect(ActionMode mode, View view, Rect outRect) {
+                outRect.set(selectionRect);
+                int actionBarHeight = 0;
+                TypedValue tv = new TypedValue();
+                if (getContext().getTheme().resolveAttribute(android.R.attr.actionBarSize, tv, true)) {
+                    actionBarHeight = TypedValue.complexToDimensionPixelSize(tv.data,
+                            getContext().getResources().getDisplayMetrics());
+                }
+                outRect.top -= actionBarHeight;
+                if (outRect.top < 0) {
+                    // FIXME: I don't know why this is the case, but without that, the menu doesn't
+                    // show at the right position when there is no room on top.
+                    // Looks like the menu is always shown at outRect.top.
+                    outRect.top = outRect.bottom;
+                }
+            }
+
+        };
+        mCurrentActionMode = startActionMode(action, ActionMode.TYPE_FLOATING);
+
+    }
+
+    public void hideActionMenu(int duration) {
+        if (mCurrentActionMode != null) {
+            if (duration < 0) {
+                mCurrentActionMode.finish();
+                mCurrentActionMode = null;
+            } else {
+                mCurrentActionMode.hide(duration);
+            }
+        }
+    }
 }
 
 public class SlintAndroidJavaHelper {
@@ -278,7 +391,8 @@ public class SlintAndroidJavaHelper {
         this.mActivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(10, 10);
+                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT);
                 mActivity.addContentView(mInputView, params);
                 mInputView.setVisibility(View.VISIBLE);
             }
@@ -313,8 +427,11 @@ public class SlintAndroidJavaHelper {
 
     static public native void moveCursorHandle(int id, int pos_x, int pos_y);
 
+    static public native void popupMenuAction(int id);
+
     public void set_imm_data(String text, int cursor_position, int anchor_position, int preedit_start, int preedit_end,
-            int cur_x, int cur_y, int anchor_x, int anchor_y, int input_type, boolean show_cursor_handles) {
+            int cur_x, int cur_y, int anchor_x, int anchor_y, int cursor_height, int input_type,
+            boolean show_cursor_handles) {
 
         mActivity.runOnUiThread(new Runnable() {
             @Override
@@ -327,9 +444,9 @@ public class SlintAndroidJavaHelper {
                     num_handles = cursor_position == anchor_position ? 1 : 2;
                 }
                 if (cursor_position < anchor_position) {
-                    mInputView.setCursorPos(anchor_x, anchor_y, cur_x, cur_y, num_handles);
+                    mInputView.setCursorPos(anchor_x, anchor_y, cur_x, cur_y, cursor_height, num_handles);
                 } else {
-                    mInputView.setCursorPos(cur_x, cur_y, anchor_x, anchor_y, num_handles);
+                    mInputView.setCursorPos(cur_x, cur_y, anchor_x, anchor_y, cursor_height, num_handles);
                 }
 
             }
@@ -355,5 +472,29 @@ public class SlintAndroidJavaHelper {
         Rect rect = new Rect();
         mActivity.getWindow().getDecorView().getWindowVisibleDisplayFrame(rect);
         return rect;
+    }
+
+    public void show_action_menu() {
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mInputView.showActionMenu();
+            }
+        });
+    }
+
+    public String get_clipboard() {
+        ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard.hasPrimaryClip()) {
+            ClipData.Item item = clipboard.getPrimaryClip().getItemAt(0);
+            return item.getText().toString();
+        }
+        return "";
+    }
+
+    public void set_clipboard(String text) {
+        ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText(null, text);
+        clipboard.setPrimaryClip(clip);
     }
 }

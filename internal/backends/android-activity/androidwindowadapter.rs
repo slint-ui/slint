@@ -28,7 +28,7 @@ pub struct AndroidWindowAdapter {
     pub(crate) renderer: i_slint_renderer_skia::SkiaRenderer,
     pub(crate) event_queue: EventQueue,
     pub(crate) pending_redraw: Cell<bool>,
-    java_helper: JavaHelper,
+    pub(super) java_helper: JavaHelper,
     pub(crate) dark_color_scheme: core::pin::Pin<Box<Property<bool>>>,
     pub(crate) fullscreen: Cell<bool>,
     /// The offset at which the Slint view is drawn in the native window (account for status bar)
@@ -435,6 +435,10 @@ fn long_press_timeout() {
                     text_input.select_word(&adaptor, &focus_item);
                 }
             }
+            adaptor
+                .java_helper
+                .show_action_menu()
+                .unwrap_or_else(|e| print_jni_error(&adaptor.app, e))
         }
     };
 }

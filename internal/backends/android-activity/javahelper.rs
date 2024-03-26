@@ -68,6 +68,11 @@ fn load_java_helper(app: &AndroidApp) -> Result<jni::objects::GlobalRef, jni::er
             sig: "(III)V".into(),
             fn_ptr: Java_SlintAndroidJavaHelper_moveCursorHandle as *mut _,
         },
+        jni::NativeMethod {
+            name: "popupMenuAction".into(),
+            sig: "(I)V".into(),
+            fn_ptr: Java_SlintAndroidJavaHelper_popupMenuAction as *mut _,
+        },
     ];
     env.register_native_methods(&helper_class, &methods)?;
 
@@ -154,15 +159,16 @@ impl JavaHelper {
             let cur_size = data.cursor_rect_size.to_physical(scale_factor);
 
             // Add 2*cur_size.width to the y position to be a bit under the cursor
+            let cursor_height = cur_size.height as i32 + 2 * cur_size.width as i32;
             let cur_x = cur_origin.x + cur_size.width as i32 / 2;
-            let cur_y = cur_origin.y + cur_size.height as i32 + 2 * cur_size.width as i32;
+            let cur_y = cur_origin.y + cursor_height;
             let anchor_x = anchor_origin.x;
             let anchor_y = anchor_origin.y + 2 * cur_size.width as i32;
 
             env.call_method(
                 helper,
                 "set_imm_data",
-                "(Ljava/lang/String;IIIIIIIIIZ)V",
+                "(Ljava/lang/String;IIIIIIIIIIZ)V",
                 &[
                     JValue::Object(&text),
                     JValue::from(to_utf16(cursor_position) as jint),
@@ -173,6 +179,7 @@ impl JavaHelper {
                     JValue::from(cur_y as jint),
                     JValue::from(anchor_x as jint),
                     JValue::from(anchor_y as jint),
+                    JValue::from(cursor_height as jint),
                     JValue::from(input_type),
                     JValue::from(show_cursor_handles as jboolean),
                 ],
@@ -220,6 +227,35 @@ impl JavaHelper {
                 .call_static_method(view_configuration, "getLongPressTimeout", "()I", &[])?
                 .i()?;
             Ok(Duration::from_millis(long_press_timeout as _))
+        })
+    }
+
+    pub fn show_action_menu(&self) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            env.call_method(helper, "show_action_menu", "()V", &[])?;
+            Ok(())
+        })
+    }
+
+    pub fn set_clipboard(&self, text: &str) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            let text = &env.new_string(text)?;
+            env.call_method(
+                helper,
+                "set_clipboard",
+                "(Ljava/lang/String;)V",
+                &[JValue::Object(&text)],
+            )?;
+            Ok(())
+        })
+    }
+
+    pub fn get_clipboard(&self) -> Result<String, jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            let j_string =
+                env.call_method(helper, "get_clipboard", "()Ljava/lang/String;", &[])?.l()?;
+            let string = env.get_string(&j_string.into())?.into();
+            Ok(string)
         })
     }
 }
@@ -368,6 +404,36 @@ extern "system" fn Java_SlintAndroidJavaHelper_moveCursorHandle(
                         &adaptor,
                         &focus_item,
                     );
+                }
+            }
+        }
+    })
+    .unwrap()
+}
+
+#[no_mangle]
+extern "system" fn Java_SlintAndroidJavaHelper_popupMenuAction(
+    _env: JNIEnv,
+    _class: JClass,
+    id: jint,
+) {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            if let Some(focus_item) = i_slint_core::window::WindowInner::from_pub(&adaptor.window)
+                .focus_item
+                .borrow()
+                .upgrade()
+            {
+                if let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>() {
+                    let text_input = text_input.as_pin_ref();
+                    let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
+                    match id {
+                        0 => text_input.cut(&adaptor, &focus_item),
+                        1 => text_input.copy(&adaptor, &focus_item),
+                        2 => text_input.paste(&adaptor, &focus_item),
+                        3 => text_input.select_all(&adaptor, &focus_item),
+                        _ => (),
+                    }
                 }
             }
         }
