@@ -90,11 +90,14 @@ export component SliderBase {
             reject
         }
 
-        key-released => {
+        key-released(event) => {
             if (!self.enabled) {
                 return reject;
             }
-            root.released(root.value);
+            if (!vertical && event.text == Key.RightArrow) || (vertical && event.text == Key.DownArrow)
+               || (!vertical && event.text == Key.LeftArrow) || (vertical && event.text == Key.UpArrow) {
+                root.released(root.value);
+            }
             return accept;
         }
     }

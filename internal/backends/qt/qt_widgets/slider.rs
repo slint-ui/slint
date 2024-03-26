@@ -258,26 +258,29 @@ impl Item for NativeSlider {
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
         if self.enabled() {
-            if event.event_type == KeyEventType::KeyPressed {
-                let vertical = self.orientation() == Orientation::Vertical;
-                let Some(keycode) = event.text.chars().next() else {
-                    return KeyEventResult::EventIgnored;
-                };
+            let Some(keycode) = event.text.chars().next() else {
+                return KeyEventResult::EventIgnored;
+            };
+            let vertical = self.orientation() == Orientation::Vertical;
 
-                if (!vertical && keycode == key_codes::RightArrow)
-                    || (vertical && keycode == key_codes::DownArrow)
-                {
+            if (!vertical && keycode == key_codes::RightArrow)
+                || (vertical && keycode == key_codes::DownArrow)
+            {
+                if event.event_type == KeyEventType::KeyPressed {
                     self.set_value(self.value() + 1.);
-                    return KeyEventResult::EventAccepted;
+                } else if event.event_type == KeyEventType::KeyReleased {
+                    Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
                 }
-                if (!vertical && keycode == key_codes::LeftArrow)
-                    || (vertical && keycode == key_codes::UpArrow)
-                {
+                return KeyEventResult::EventAccepted;
+            }
+            if (!vertical && keycode == key_codes::LeftArrow)
+                || (vertical && keycode == key_codes::UpArrow)
+            {
+                if event.event_type == KeyEventType::KeyPressed {
                     self.set_value(self.value() - 1.);
-                    return KeyEventResult::EventAccepted;
+                } else if event.event_type == KeyEventType::KeyReleased {
+                    Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
                 }
-            } else if event.event_type == KeyEventType::KeyReleased {
-                Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
                 return KeyEventResult::EventAccepted;
             }
         }
