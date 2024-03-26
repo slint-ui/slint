@@ -55,6 +55,7 @@ export component BalanceChart {
         y: 0px;
         count: x-axis-model.length;
         height: root.zero;
+        cache-rendering-hint: true;
     }
 
     ChartPattern {
@@ -63,6 +64,7 @@ export component BalanceChart {
         y: i-zero-pattern.height;
         count: x-axis-model.length;
         height: root.height - i_zero_pattern.height;
+        cache-rendering-hint: true;
     }
 
     ChartAxis {
@@ -76,35 +78,38 @@ export component BalanceChart {
         y-unit: root.y-unit;
     }
 
-    HorizontalLayout {
-        padding-left: 6px;
-        padding-right: 6px;
-        spacing: 10px;
+    Rectangle {
+        cache-rendering-hint: true;
+        HorizontalLayout {
+            padding-left: 6px;
+            padding-right: 6px;
+            spacing: 10px;
 
-        for value[index] in model : Rectangle {
-            private property <float> display-value;
+            for value[index] in model : Rectangle {
+                private property <float> display-value;
 
-            if(value > 0.0) : UpBar {
-                width: 100%;
-                y: zero - self.height;
-                height: parent.height * (display-value / (root.max - root.min));
-            }
-
-            if(value < 0.0) : DownBar {
-                y: zero;
-                width: 100%;
-                height: parent.height * (-1 * value / (root.max - root.min));
-            }
-
-            states [
-                active when active : {
-                    display-value: value;
-
-                    in {
-                        animate display-value { duration: Theme.durations.slow; easing: ease-in-out; }
-                    }
+                if(value > 0.0) : UpBar {
+                    width: 100%;
+                    y: zero - self.height;
+                    height: parent.height * (display-value / (root.max - root.min));
                 }
-            ]
+
+                if(value < 0.0) : DownBar {
+                    y: zero;
+                    width: 100%;
+                    height: parent.height * (-1 * value / (root.max - root.min));
+                }
+
+                states [
+                    active when active : {
+                        display-value: value;
+
+                        in {
+                            animate display-value { duration: Theme.durations.slow; easing: ease-in-out; }
+                        }
+                    }
+                ]
+            }
         }
     }
 }
