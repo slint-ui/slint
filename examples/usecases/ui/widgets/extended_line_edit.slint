@@ -1,0 +1,178 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { Palette } from "std-widgets.slint";
+import { CosmicPalette } from "styling.slint";
+
+// copied from common that is not public now
+component LineEditBase inherits Rectangle {
+    in-out property <string> placeholder-text;
+    in-out property <length> font-size <=> i-text-input.font-size;
+    in-out property <string> text <=> i-text-input.text;
+    in-out property <brush> placeholder-color;
+    in-out property <bool> enabled <=> i-text-input.enabled;
+    in-out property <bool> has-focus: i-text-input.has-focus;
+    in-out property <InputType> input-type <=> i-text-input.input-type;
+    in-out property <TextHorizontalAlignment> horizontal-alignment <=> i-text-input.horizontal-alignment;
+    in-out property <bool> read-only <=> i-text-input.read-only;
+    in property <int> font-weight <=> i-text-input.font-weight;
+    in property <brush> text-color;
+    in property <color> selection-background-color <=> i-text-input.selection-background-color;
+    in property <color> selection-foreground-color <=> i-text-input.selection-foreground-color;
+    in property <length> margin;
+
+    callback accepted( /* text */ string);
+    callback edited(/* text */ string);
+
+    public function set-selection-offsets(start: int, end: int) {
+        i-text-input.set-selection-offsets(start, end);
+    }
+
+    public function select-all() {
+        i-text-input.select-all();
+    }
+
+    public function clear-selection() {
+        i-text-input.clear-selection();
+    }
+
+    public function cut() {
+        i-text-input.cut();
+    }
+
+    public function copy() {
+        i-text-input.copy();
+    }
+
+    public function paste() {
+        i-text-input.paste();
+    }
+
+    min-height: i-text-input.preferred-height;
+    min-width: max(50px, i-placeholder.min-width);
+    clip: true;
+    forward-focus: i-text-input;
+
+    i-placeholder := Text {
+        width: 100%;
+        height: 100%;
+        vertical-alignment: center;
+        text: (root.text == "" && i-text-input.preedit-text == "") ? root.placeholder-text : "";
+        font-size:  i-text-input.font-size;
+        font-italic: i-text-input.font-italic;
+        font-weight: i-text-input.font-weight;
+        font-family: i-text-input.font-family;
+        color: root.placeholder-color;
+        horizontal-alignment: root.horizontal-alignment;
+    }
+
+    i-text-input := TextInput {
+        property <length> computed-x;
+
+        x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.computed-x));
+        width: max(parent.width - self.text-cursor-width, self.preferred-width);
+        height: 100%;
+        vertical-alignment: center;
+        single-line: true;
+        color: root.text-color;
+
+        cursor-position-changed(cpos) => {
+            if (cpos.x + self.computed_x < root.margin) {
+                self.computed_x = - cpos.x + root.margin;
+            } else if (cpos.x + self.computed_x > parent.width - root.margin - self.text-cursor-width) {
+                self.computed_x = parent.width - cpos.x - root.margin - self.text-cursor-width;
+            }
+        }
+
+        accepted => { root.accepted(self.text); }
+
+        edited => { root.edited(self.text); }
+    }
+}
+
+export component ExtendedLineEdit {
+    in property <bool> enabled <=> base.enabled;
+    in property <InputType> input-type <=> base.input-type;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
+    in property <bool> read-only <=> base.read-only;
+    in property <length> font-size <=> base.font-size;
+    in property <string> placeholder-text <=> base.placeholder-text;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <string> text <=> base.text;
+
+    callback accepted <=> base.accepted;
+    callback edited <=> base.edited;
+    accessible-role: text-input;
+    accessible-value <=> text;
+
+    public function set-selection-offsets(start: int, end: int) {
+        base.set-selection-offsets(start, end);
+    }
+
+    public function select-all() {
+        base.select-all();
+    }
+
+    public function clear-selection() {
+        base.clear-selection();
+    }
+
+    public function cut() {
+        base.cut();
+    }
+
+    public function copy() {
+        base.copy();
+    }
+
+    public function paste() {
+        base.paste();
+    }
+
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+    min-width: max(160px, layout.min-width);
+    min-height: max(32px, layout.min-height);
+    forward-focus: base;
+
+    states [
+        disabled when !root.enabled : {
+            root.opacity: 0.5;
+        }
+    ]
+
+    background := Rectangle {
+        border-radius: 8px;
+        background: Palette.control-background;
+        border-width: 1px;
+        border-color: CosmicPalette.control-divider;
+
+        layout := HorizontalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            spacing: 8px;
+
+            HorizontalLayout {
+                @children
+            }
+
+            base := LineEditBase {
+                font-size: 15 * 0.0769rem;
+                font-weight: 400;
+                selection-background-color: Palette.selection-background;
+                selection-foreground-color: Palette.accent-foreground;
+                text-color: Palette.foreground;
+                placeholder-color: CosmicPalette.placeholder-foreground;
+                margin: layout.padding-left + layout.padding-right;
+            }
+        }
+
+         if (root.has-focus && root.enabled) : Rectangle {
+            width: parent.width + 2px;
+            height: parent.height + 2px;
+            border-radius: parent.border-radius + 2px;
+            border-color: CosmicPalette.state-focus;
+            border-width: 1px;
+        }
+    }
+}

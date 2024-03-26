@@ -1,9 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { StyleMetrics } from "std-widgets.slint";
+import { Palette } from "std-widgets.slint";
 
 export global CosmicPalette {
-    out property <brush> state-selected: StyleMetrics.dark-color-scheme ? #4D4D4D4D : #98989833;
-    out property <brush> accent-text: StyleMetrics.dark-color-scheme ? #63D0DF : #00525A;
+    out property <brush> state-selected: Palette.color-scheme == ColorScheme.dark ? #4D4D4D4D : #98989833;
+    out property <brush> accent-text: Palette.color-scheme == ColorScheme.dark ? #63D0DF : #00525A;
+    out property <brush> control-divider: Palette.color-scheme == ColorScheme.dark ? #DEDEDE33 : #3D3D3D33;
+    out property <brush> state-focus: Palette.color-scheme == ColorScheme.dark ? #63D0DF : #00525A;
+    out property <brush> placeholder-foreground: Palette.color-scheme == ColorScheme.dark ? #959595 : #585858;
+    out property <brush> state-hover: #63636333;
+    out property <brush> state-pressed: Palette.color-scheme == ColorScheme.dark ? #16161680 : #BEBEBE80;
 }

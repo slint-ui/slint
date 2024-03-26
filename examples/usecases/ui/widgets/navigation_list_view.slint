@@ -3,6 +3,7 @@
 
 import { Palette, ListView, HorizontalBox } from "std-widgets.slint";
 import { CosmicPalette } from "styling.slint";
+import { Icon } from "icon.slint";
 
 export component NavigationListItem {
     private property <brush> foreground: Palette.foreground;
@@ -28,9 +29,8 @@ export component NavigationListItem {
 
                 spacing: 8px;
 
-                icon := Image {
+                icon := Icon {
                     y: (parent.height - self.height) / 2;
-                    width: 16px;
                     colorize: root.foreground;
                 }
 

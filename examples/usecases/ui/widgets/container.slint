@@ -2,6 +2,38 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import { Palette, VerticalBox } from "std-widgets.slint";
+import { CosmicPalette } from "styling.slint";
+
+export component StateContainer inherits Rectangle {
+    callback clicked <=> touch-area.clicked;
+
+    in property <bool> checked;
+
+    background: Palette.alternate-background;
+    border-radius: 8px;
+
+    touch-area := TouchArea {}
+
+    state-layer := Rectangle {
+        border-radius: root.border-radius;
+
+        states [
+            pressed when touch-area.pressed : {
+                state-layer.background: CosmicPalette.state-pressed;
+            }
+            hover when touch-area.has-hover : {
+                state-layer.background: CosmicPalette.state-hover;
+            }
+            checked when root.checked : {
+                state-layer.background: CosmicPalette.state-selected;
+            }
+        ]
+    }
+
+    VerticalBox {
+        @children
+    }
+}
 
 export component Container inherits Rectangle {
     background: Palette.alternate-background;

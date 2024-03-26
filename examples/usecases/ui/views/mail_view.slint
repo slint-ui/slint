@@ -1,77 +1,54 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { GroupBox, ComboBox, VerticalBox, GridBox, Palette } from "std-widgets.slint";
-import { NavigationListView, NavigationListViewItem, Container } from "../widgets.slint";
+import { GroupBox, ComboBox, VerticalBox, GroupBox, Palette } from "std-widgets.slint";
+import { NavigationListView, NavigationListViewItem, Container, ExtendedLineEdit, Icon, CardListView, CardListViewItem } from "../widgets.slint";
 import { Icons } from "../assets.slint";
 
-export global MailViewAdapter {
-
-}
+export global MailViewAdapter { }
 
 export global MailSideBarViewAdapter {
-    out property <[string]> accounts: [
-        "jon.doe@slint.dev",
-        "jon.doe@my-mail.com",
-        "jon.doe@gmail.com"
-    ];
+    out property <[string]> accounts: ["jon.doe@slint.dev", "jon.doe@my-mail.com", "jon.doe@gmail.com"];
 
     out property <[NavigationListViewItem]> boxes: [
-        {
-            text: "Inbox",
-            message: "128",
-            icon: Icons.inbox
-        },
-        {
-            text: "Drafts",
-            message: "9",
-            icon: Icons.document
-        },
-        {
-            text: "Sent",
-            icon: Icons.send
-        },
+        { text: "Inbox", message: "128", icon: Icons.inbox },
+        { text: "Drafts", message: "9", icon: Icons.document },
+        { text: "Sent", icon: Icons.send },
         {
             text: "Junk",
             icon: Icons.junk,
             message: "23",
         },
-        {
-            text: "Trash",
-            icon: Icons.trash
-        },
-        {
-            text: "Archive",
-            icon: Icons.archive
-        }
+        { text: "Trash", icon: Icons.trash },
+        { text: "Archive", icon: Icons.archive }
     ];
 
     out property <[NavigationListViewItem]> custom-boxes: [
-        {
-            text: "Social",
-            message: "3972",
-            icon: Icons.useres
-        },
-        {
-            text: "Updates",
-            message: "342",
-            icon: Icons.updates
-        },
-        {
-            text: "Forums",
-            message: "128",
-            icon: Icons.message
-        }
+        { text: "Social", message: "3972", icon: Icons.useres },
+        { text: "Updates", message: "342", icon: Icons.updates },
+        { text: "Forums", message: "128", icon: Icons.message }
     ];
     in-out property <int> current-box;
     in-out property <int> current-custom-box: -1;
+
+    public pure function current-title() -> string {
+        if current-box > -1 && current-box < boxes.length {
+            return boxes[current-box].text;
+        }
+        if current-custom-box > -1 && current-custom-box < custom-boxes.length {
+            return custom-boxes[current-custom-box].text;
+        }
+        ""
+    }
 }
 
 export component MailSideBarView {
     horizontal-stretch: 0;
     min-width: 264px;
 
-    VerticalBox {
+    VerticalLayout {
+        spacing: 4px;
+
         ComboBox {
             model: MailSideBarViewAdapter.accounts;
         }
@@ -79,7 +56,7 @@ export component MailSideBarView {
         Container {
             NavigationListView {
                 model: MailSideBarViewAdapter.boxes;
-                current-item  <=> MailSideBarViewAdapter.current-box;
+                current-item <=> MailSideBarViewAdapter.current-box;
                 min-height: 248px;
                 vertical-stretch: 0;
 
@@ -105,9 +82,62 @@ export component MailSideBarView {
     }
 }
 
+export global MailBoxViewAdapter {
+    in property <string> title: MailSideBarViewAdapter.current-title();
+    in property <[CardListViewItem]> mails: [
+        {
+            title: "Simon Hausmann",
+            note: "1 hour ago",
+            sub-title: "Meeting tomorrow",
+            caption: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+        },
+        { title: "Tobias Hunger", note: "1 day ago", sub-title: "Meeting tomorrow",  caption: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat." }
+    ];
+}
+
+export component MailBoxView {
+    horizontal-stretch: 1;
+
+    VerticalLayout {
+        spacing: 4px;
+
+        Text {
+            font-size: 28px;
+            font-weight: 400;
+            color: Palette.foreground;
+            text: MailBoxViewAdapter.title;
+            min-height: 32px;
+        }
+
+        Container {
+            background: Palette.control-background;
+
+            VerticalLayout {
+                spacing: 8px;
+
+                ExtendedLineEdit {
+                    vertical-stretch: 0;
+                    placeholder-text: "Search";
+
+                    Icon {
+                        source: Icons.search;
+                    }
+                }
+
+                CardListView {
+                    model: MailBoxViewAdapter.mails;
+                }
+            }
+        }
+    }
+}
+
 export component MailView {
     HorizontalLayout {
-        MailSideBarView {}
-        Rectangle {}
+        spacing: 16px;
+
+        MailSideBarView { }
+
+        MailBoxView { }
     }
 }
