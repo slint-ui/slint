@@ -443,22 +443,29 @@ fn lower_sub_component(
     sub_component.accessible_prop = accessible_prop
         .into_iter()
         .map(|(idx, key, nr)| {
-            let mut expr = super::Expression::PropertyReference(ctx.map_property_reference(&nr));
-            match nr.ty() {
-                Type::Bool => {
-                    expr = super::Expression::Condition {
-                        condition: expr.into(),
-                        true_expr: super::Expression::StringLiteral("true".into()).into(),
-                        false_expr: super::Expression::StringLiteral("false".into()).into(),
-                    };
+            let prop = ctx.map_property_reference(&nr);
+            let expr = match nr.ty() {
+                Type::Bool => super::Expression::Condition {
+                    condition: super::Expression::PropertyReference(prop).into(),
+                    true_expr: super::Expression::StringLiteral("true".into()).into(),
+                    false_expr: super::Expression::StringLiteral("false".into()).into(),
+                },
+                Type::Int32 | Type::Float32 => super::Expression::Cast {
+                    from: super::Expression::PropertyReference(prop).into(),
+                    to: Type::String,
+                },
+                Type::String => super::Expression::PropertyReference(prop),
+                Type::Enumeration(e) if e.name == "AccessibleRole" => {
+                    super::Expression::PropertyReference(prop)
                 }
-                Type::Int32 | Type::Float32 => {
-                    expr = super::Expression::Cast { from: expr.into(), to: Type::String };
-                }
-                Type::String => {}
-                Type::Enumeration(e) if e.name == "AccessibleRole" => {}
+                Type::Callback { return_type: None, args } => super::Expression::CallBackCall {
+                    callback: prop,
+                    arguments: (0..args.len())
+                        .map(|index| super::Expression::FunctionParameterReference { index })
+                        .collect(),
+                },
                 _ => panic!("Invalid type for accessible property"),
-            }
+            };
 
             ((idx, key), expr.into())
         })

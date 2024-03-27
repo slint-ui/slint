@@ -23,7 +23,7 @@ use crate::object_tree::Document;
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
@@ -788,16 +788,31 @@ fn generate_sub_component(
 
     let mut accessible_role_branch = vec![];
     let mut accessible_string_property_branch = vec![];
+    let mut accessibility_action_branch = vec![];
+    let mut supported_accessibility_actions = BTreeMap::<u32, BTreeSet<_>>::new();
     for ((index, what), expr) in &component.accessible_prop {
-        let expr = compile_expression(&expr.borrow(), &ctx);
+        let e = compile_expression(&expr.borrow(), &ctx);
         if what == "Role" {
-            accessible_role_branch.push(quote!(#index => #expr,));
+            accessible_role_branch.push(quote!(#index => #e,));
+        } else if let Some(what) = what.strip_prefix("Action") {
+            let what = ident(what);
+            let has_args = matches!(&*expr.borrow(), Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
+            accessibility_action_branch.push(if has_args {
+                quote!((#index, sp::AccessibilityAction::#what(args)) => { let args = (args,); #e })
+            } else {
+                quote!((#index, sp::AccessibilityAction::#what) => { #e })
+            });
+            supported_accessibility_actions.entry(*index).or_default().insert(what);
         } else {
             let what = ident(what);
             accessible_string_property_branch
-                .push(quote!((#index, sp::AccessibleStringProperty::#what) => #expr,));
+                .push(quote!((#index, sp::AccessibleStringProperty::#what) => #e,));
         }
     }
+    let mut supported_accessibility_actions_branch = supported_accessibility_actions
+        .into_iter()
+        .map(|(index, values)| quote!(#index => #(sp::SupportedAccessibilityAction::#values)|*,))
+        .collect::<Vec<_>>();
 
     let mut item_geometry_branch = component
         .geometries
@@ -875,6 +890,12 @@ fn generate_sub_component(
         accessible_string_property_branch.push(quote!(
             (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(0, what),
         ));
+        accessibility_action_branch.push(quote!(
+            (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessibility_action(0, action),
+        ));
+        supported_accessibility_actions_branch.push(quote!(
+            #local_tree_index => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(0),
+        ));
         if sub_items_count > 1 {
             let range_begin = local_index_of_first_child;
             let range_end = range_begin + sub_items_count - 2 + sub.ty.repeater_count();
@@ -886,6 +907,12 @@ fn generate_sub_component(
             ));
             item_geometry_branch.push(quote!(
                 #range_begin..=#range_end => return #sub_compo_field.apply_pin(_self).item_geometry(index - #range_begin + 1),
+            ));
+            accessibility_action_branch.push(quote!(
+                (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessibility_action(index - #range_begin + 1, action),
+            ));
+            supported_accessibility_actions_branch.push(quote!(
+                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(index - #range_begin + 1),
             ));
         }
 
@@ -1071,6 +1098,25 @@ fn generate_sub_component(
                     _ => ::core::default::Default::default(),
                 }
             }
+
+            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
+                #![allow(unused)]
+                let _self = self;
+                match (index, action) {
+                    #(#accessibility_action_branch)*
+                    _ => (),
+                }
+            }
+
+            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
+                #![allow(unused)]
+                let _self = self;
+                match index {
+                    #(#supported_accessibility_actions_branch)*
+                    _ => ::core::default::Default::default(),
+                }
+            }
+
 
             #(#declared_functions)*
         }
@@ -1514,6 +1560,14 @@ fn generate_item_tree(
                 result: &mut sp::SharedString,
             ) {
                 *result = self.accessible_string_property(index, what);
+            }
+
+            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
+                self.accessibility_action(index, action);
+            }
+
+            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
+                self.supported_accessibility_actions(index)
             }
 
             fn window_adapter(

@@ -115,6 +115,19 @@ pub struct ItemTreeVTable {
         result: &mut SharedString,
     ),
 
+    /// Executes an accessibility action.
+    pub accessibility_action: extern "C" fn(
+        core::pin::Pin<VRef<ItemTreeVTable>>,
+        item_index: u32,
+        action: &AccessibilityAction,
+    ),
+
+    /// Returns the supported accessibility actions.
+    pub supported_accessibility_actions: extern "C" fn(
+        core::pin::Pin<VRef<ItemTreeVTable>>,
+        item_index: u32,
+    ) -> SupportedAccessibilityAction,
+
     /// Returns a Window, creating a fresh one if `do_create` is true.
     pub window_adapter: extern "C" fn(
         core::pin::Pin<VRef<ItemTreeVTable>>,
@@ -127,17 +140,6 @@ pub struct ItemTreeVTable {
 
     /// dealloc function (for VRc)
     pub dealloc: unsafe fn(&ItemTreeVTable, ptr: *mut u8, layout: vtable::Layout),
-
-    /// Executes an accessibility action.
-    pub accessibility_action: extern "C" fn(
-        core::pin::Pin<VRef<ItemTreeVTable>>,
-        item_index: u32,
-        action: AccessibilityAction,
-    ),
-
-    /// Returns the supported accessibility actions.
-    pub supported_accessibility_actions:
-        extern "C" fn(core::pin::Pin<VRef<ItemTreeVTable>>, item_index: u32) -> u32,
 }
 
 #[cfg(test)]
@@ -1151,11 +1153,14 @@ mod tests {
             unimplemented!("Not needed for this test")
         }
 
-        fn accessibility_action(self: core::pin::Pin<&Self>, _1: u32, _2: AccessibilityAction) {
+        fn accessibility_action(self: core::pin::Pin<&Self>, _: u32, _: &AccessibilityAction) {
             unimplemented!("Not needed for this test")
         }
 
-        fn supported_accessibility_actions(self: core::pin::Pin<&Self>, _1: u32) -> u32 {
+        fn supported_accessibility_actions(
+            self: core::pin::Pin<&Self>,
+            _: u32,
+        ) -> SupportedAccessibilityAction {
             unimplemented!("Not needed for this test")
         }
     }

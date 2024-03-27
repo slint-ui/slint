@@ -67,11 +67,11 @@ pub struct SetBindingResponse {
 // This gets defined accessibility properties...
 fn get_reserved_properties<'a>(
     group: &'a str,
-    properties: &'a [(&'a str, Type)],
+    properties: impl Iterator<Item = (&'static str, Type)> + 'a,
 ) -> impl Iterator<Item = PropertyInformation> + 'a {
-    properties.iter().map(|p| PropertyInformation {
+    properties.map(|p| PropertyInformation {
         name: p.0.to_string(),
-        type_name: format!("{}", p.1),
+        type_name: p.1.to_string(),
         declared_at: None,
         defined_at: None,
         group: group.to_string(),
@@ -337,14 +337,18 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
                 if b.name == "Image" {
                     result.extend(get_reserved_properties(
                         "rotation",
-                        i_slint_compiler::typeregister::RESERVED_ROTATION_PROPERTIES,
+                        i_slint_compiler::typeregister::RESERVED_ROTATION_PROPERTIES
+                            .iter()
+                            .cloned(),
                     ));
                 }
 
                 if b.name == "Rectangle" {
                     result.extend(get_reserved_properties(
                         "drop-shadow",
-                        i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES,
+                        i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES
+                            .iter()
+                            .cloned(),
                     ));
                 }
             }
@@ -357,12 +361,12 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
 
         result.extend(get_reserved_properties(
             "geometry",
-            i_slint_compiler::typeregister::RESERVED_GEOMETRY_PROPERTIES,
+            i_slint_compiler::typeregister::RESERVED_GEOMETRY_PROPERTIES.iter().cloned(),
         ));
         result.extend(
             get_reserved_properties(
                 "layout",
-                i_slint_compiler::typeregister::RESERVED_LAYOUT_PROPERTIES,
+                i_slint_compiler::typeregister::RESERVED_LAYOUT_PROPERTIES.iter().cloned(),
             )
             // padding arbitrary items is not yet implemented
             .filter(|x| !x.name.starts_with("padding")),
@@ -370,7 +374,7 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
         // FIXME: ideally only if parent is a grid layout
         result.extend(get_reserved_properties(
             "layout",
-            i_slint_compiler::typeregister::RESERVED_GRIDLAYOUT_PROPERTIES,
+            i_slint_compiler::typeregister::RESERVED_GRIDLAYOUT_PROPERTIES.iter().cloned(),
         ));
         result.push(PropertyInformation {
             name: "accessible-role".into(),
@@ -385,7 +389,7 @@ fn get_properties(element: &common::ElementRcNode) -> Vec<PropertyInformation> {
         if current_element.borrow().is_binding_set("accessible-role", true) {
             result.extend(get_reserved_properties(
                 "accessibility",
-                i_slint_compiler::typeregister::RESERVED_ACCESSIBILITY_PROPERTIES,
+                i_slint_compiler::typeregister::reserved_accessibility_properties(),
             ));
         }
         break;

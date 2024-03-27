@@ -10,7 +10,7 @@ use crate::{items::ItemRc, SharedString};
 
 use bitflags::bitflags;
 
-// The property names of the accessible-properties
+/// The property names of the accessible-properties
 #[repr(u32)]
 #[derive(PartialEq, Eq, Copy, Clone, strum::Display)]
 #[strum(serialize_all = "kebab-case")]
@@ -26,13 +26,11 @@ pub enum AccessibleStringProperty {
     ValueStep,
 }
 
-// Defines an accessibility action.
+/// The argument of an accessible action.
 #[repr(u32)]
-#[derive(PartialEq, Clone, strum::Display)]
-#[strum(serialize_all = "kebab-case")]
+#[derive(PartialEq, Clone)]
 pub enum AccessibilityAction {
     Default,
-    Focus,
     Decrement,
     Increment,
     ReplaceSelectedText(SharedString),
@@ -40,14 +38,15 @@ pub enum AccessibilityAction {
 }
 
 bitflags! {
-    // Define a accessibility actions that currently supported by Slint.
+    /// Define a accessibility actions that supported by an item.
+    #[repr(transparent)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
     pub struct SupportedAccessibilityAction: u32 {
         const Default = 1;
-        const Focus = 1 << 1;
-        const Decrement = 1 << 2;
-        const Increment = 1 << 3;
-        const ReplaceSelectedText = 1 << 4;
-        const SetValue = 1 << 5;
+        const Decrement = 1 << 1;
+        const Increment = 1 << 2;
+        const ReplaceSelectedText = 1 << 3;
+        const SetValue = 1 << 4;
     }
 }
 
