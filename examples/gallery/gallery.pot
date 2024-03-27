@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2024-03-13 03:04+0000\n"
+"POT-Creation-Date: 2024-03-27 03:03+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -321,9 +321,14 @@ msgctxt "TextEditPage"
 msgid "No-Wrap"
 msgstr ""
 
-#: ui/pages/page.slint:26
+#: ui/pages/page.slint:24
 msgctxt "Page"
 msgid "Widgets enabled"
+msgstr ""
+
+#: ui/pages/page.slint:31
+msgctxt "Page"
+msgid "Dark Mode"
 msgstr ""
 
 #: gallery.slint:14 gallery.slint:19

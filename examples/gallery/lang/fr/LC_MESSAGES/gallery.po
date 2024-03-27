@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-13 03:04+0000\n"
+"POT-Creation-Date: 2024-03-27 03:03+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: French (https://app.transifex.com/slint/teams/170022/fr/)\n"
@@ -367,10 +367,15 @@ msgctxt "TextEditPage"
 msgid "No-Wrap"
 msgstr "Pas de retour à la ligne"
 
-#: ui/pages/page.slint:26
+#: ui/pages/page.slint:24
 msgctxt "Page"
 msgid "Widgets enabled"
 msgstr "Widgets activés"
+
+#: ui/pages/page.slint:31
+msgctxt "Page"
+msgid "Dark Mode"
+msgstr ""
 
 #: gallery.slint:14 gallery.slint:19
 msgctxt "App"
