@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { ListView, Palette } from "std-widgets.slint";
+import { ListView, Palette, VerticalBox } from "std-widgets.slint";
 import { StateContainer } from "container.slint";
 
 export component CardListItem {
@@ -19,40 +19,44 @@ export component CardListItem {
         padding-bottom: 8px;
 
         state-container := StateContainer {
-            HorizontalLayout {
-                spacing: 4px;
+            VerticalBox {
+                padding: 16px;
 
-                title := Text {
+                HorizontalLayout {
+                    spacing: 4px;
+
+                    title := Text {
+                        horizontal-stretch: 1;
+                        color: Palette.foreground;
+                        font-size: 10px;
+                        font-weight: 400;
+                        overflow: elide;
+                    }
+
+                    note := Text {
+                        horizontal-stretch: 0;
+                        color: Palette.foreground;
+                        font-size: 10px;
+                        font-weight: 400;
+                    }
+                }
+
+                sub-title := Text {
                     horizontal-stretch: 1;
                     color: Palette.foreground;
-                    font-size: 10px;
-                    font-weight: 400;
+                    font-size: 14px;
+                    font-weight: 600;
                     overflow: elide;
                 }
 
-                note := Text {
-                    horizontal-stretch: 0;
+                caption := Text {
+                    height: 40px;
+                    wrap: word-wrap;
+                    overflow: elide;
                     color: Palette.foreground;
-                    font-size: 10px;
+                    font-size: 14px;
                     font-weight: 400;
                 }
-            }
-
-            sub-title := Text {
-                horizontal-stretch: 1;
-                color: Palette.foreground;
-                font-size: 14px;
-                font-weight: 600;
-                overflow: elide;
-            }
-
-            caption := Text {
-                height: 40px;
-                wrap: word-wrap;
-                overflow: elide;
-                color: Palette.foreground;
-                font-size: 14px;
-                font-weight: 400;
             }
         }
     }

@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { GroupBox, ComboBox, VerticalBox, GroupBox, Palette } from "std-widgets.slint";
-import { NavigationListView, NavigationListViewItem, Container, ExtendedLineEdit, Icon, CardListView, CardListViewItem } from "../widgets.slint";
+import { GroupBox, ComboBox, VerticalBox, GroupBox, GridBox, Palette, TextEdit, Button, Switch, ScrollView } from "std-widgets.slint";
+import { NavigationListView, NavigationListViewItem, Container, ExtendedLineEdit, Icon, CardListView, CardListViewItem, IconButton } from "../widgets.slint";
 import { Icons } from "../assets.slint";
 
 export global MailViewAdapter { }
@@ -91,7 +91,38 @@ export global MailBoxViewAdapter {
             sub-title: "Meeting tomorrow",
             caption: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
         },
-        { title: "Tobias Hunger", note: "1 day ago", sub-title: "Meeting tomorrow",  caption: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat." }
+        { title: "Tobias Hunger", note: "1 day ago", sub-title: "Meeting tomorrow",  caption: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat." },
+        {
+            title: "Olivier Goffart",
+            note: "2 hour ago",
+            sub-title: "Meeting tomorrow",
+            caption: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+        },
+        {
+            title: "Aurindam Jana",
+            note: "5 hour ago",
+            sub-title: "Meeting tomorrow",
+            caption: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+        },
+        {
+            title: "Simon Hausmann",
+            note: "7 hour ago",
+            sub-title: "Meeting tomorrow",
+            caption: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+        },
+        { title: "Tobias Hunger", note: "1 day ago", sub-title: "Meeting tomorrow",  caption: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat." },
+        {
+            title: "Olivier Goffart",
+            note: "8 hour ago",
+            sub-title: "Meeting tomorrow",
+            caption: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+        },
+        {
+            title: "Aurindam Jana",
+            note: "9 hour ago",
+            sub-title: "Meeting tomorrow",
+            caption: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+        },
     ];
 }
 
@@ -132,12 +163,123 @@ export component MailBoxView {
     }
 }
 
+export global MailMessageViewAdapter {
+    callback move-to-archive();
+    callback move-to-junk();
+    callback move-to-trash();
+    callback reply();
+    callback forward();
+    callback send();
+
+    in property <string> message: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.";
+    in-out property <bool> mute-this-thread: false;
+}
+
+export component MailMessageView {
+    horizontal-stretch: 1;
+
+    Container {
+        background: Palette.control-background;
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            IconButton {
+                icon: Icons.archive;
+
+                clicked => {
+                    MailMessageViewAdapter.move-to-archive();
+                }
+            }
+
+            IconButton {
+                icon: Icons.junk;
+
+                clicked => {
+                    MailMessageViewAdapter.move-to-junk();
+                }
+            }
+
+            IconButton {
+                icon: Icons.trash;
+
+                clicked => {
+                    MailMessageViewAdapter.move-to-trash();
+                }
+            }
+
+            Rectangle {}
+
+            IconButton {
+                icon: Icons.reply;
+
+                clicked => {
+                    MailMessageViewAdapter.reply();
+                }
+            }
+
+            IconButton {
+                icon: Icons.forward;
+
+                clicked => {
+                    MailMessageViewAdapter.forward();
+                }
+            }
+        }
+
+
+
+
+        VerticalBox {
+            ScrollView {
+                Text {
+                    y: 0;
+                    vertical-alignment: top;
+                    width: parent.width;
+                    font-size: 14px;
+                    font-weight: 400;
+                    color: Palette.foreground;
+                    text: MailMessageViewAdapter.message;
+                    wrap: word-wrap;
+                }
+            }
+
+            TextEdit {
+                max-height: 64px;
+                wrap: word-wrap;
+            }
+
+            HorizontalLayout {
+                Switch {
+                    text: "Mute this thread";
+                    checked <=> MailMessageViewAdapter.mute-this-thread;
+                }
+
+                Button {
+                    text: "Send";
+                    primary: true;
+
+                    clicked => {
+                        MailMessageViewAdapter.send();
+                    }
+                }
+            }
+        }
+    }
+}
+
 export component MailView {
     HorizontalLayout {
         spacing: 16px;
 
         MailSideBarView { }
 
-        MailBoxView { }
+        VerticalLayout {
+            spacing: 16px;
+
+            MailBoxView { }
+            MailMessageView {}
+        }
+
     }
 }
