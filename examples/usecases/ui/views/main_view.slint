@@ -5,30 +5,37 @@ import { TabWidget, HorizontalBox } from "std-widgets.slint";
 
 import { MailView } from "mail_view.slint";
 
+import { HeaderView } from "header_view.slint";
+
 export global MainViewAdapter { }
 
 export component MainView {
-    HorizontalBox {
-        TabWidget {
-            Tab {
-                title: "Mail";
+    VerticalLayout {
+        HeaderView {}
 
-                HorizontalBox {
-                    MailView { }
+        HorizontalBox {
+            TabWidget {
+                Tab {
+                    title: "Mail";
+
+                    HorizontalBox {
+                        MailView { }
+                    }
                 }
-            }
 
-            Tab {
-                title: "Dashboard";
-            }
+                Tab {
+                    title: "Dashboard";
+                }
 
-            Tab {
-                title: "Music";
-            }
+                Tab {
+                    title: "Music";
+                }
 
-            Tab {
-                title: "Settings";
+                Tab {
+                    title: "Settings";
+                }
             }
         }
     }
+
 }

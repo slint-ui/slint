@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette, HorizontalBox, Switch } from "std-widgets.slint";
+import { Icons } from "../assets.slint";
+
+export component HeaderView {
+    min-height: 48px;
+
+    HorizontalBox {
+        Image {
+            height: 32px;
+            source: Icons.slint-logo;
+        }
+
+        // spaceer
+        Rectangle {}
+
+        Switch {
+            text: "Dark Mode";
+            toggled => {
+                Palette.color-scheme = self.checked ? ColorScheme.dark : ColorScheme.light;
+            }
+        }
+    }
+}

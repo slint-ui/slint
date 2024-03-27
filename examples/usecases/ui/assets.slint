@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+import { Palette } from "std-widgets.slint";
+
 export global Icons {
     out property <image> archive: @image-url("assets/archive.svg");
     out property <image> inbox: @image-url("assets/inbox.svg");
@@ -12,4 +14,5 @@ export global Icons {
     out property <image> trash: @image-url("assets/trash.svg");
     out property <image> updates: @image-url("assets/updates.svg");
     out property <image> useres: @image-url("assets/users.svg");
+    out property <image> slint-logo: Palette.color-scheme == ColorScheme.dark ? @image-url("../../../logo/slint-logo-simple-dark.svg") : @image-url("../../../logo/slint-logo-simple-light.svg");
 }
