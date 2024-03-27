@@ -38,33 +38,73 @@ export component TabImpl inherits Rectangle {
     private property <bool> show-left-border: root.tab-index == 0 || root.is-current;
     private property <bool> show-right-border: root.current != root.tab-index + 1;
     private property <bool> is-current: root.tab-index == root.current;
+    private property <length> inner-border-radius: 8px;
 
     min-width: max(160px, text.min-width);
-    min-height: max(24px, text.min-height);
+    min-height: max(44px, text.min-height);
     horizontal-stretch: 0;
     vertical-stretch: 1;
     accessible-role: tab;
     accessible-label: root.title;
 
     Rectangle {
+        y: 0;
+        height: root.height - root.inner-border-radius;
         clip: true;
-        width: 100%;
-        height: 100%;
 
-        background := Rectangle {
-            y: 1px;
+        state-layer := StateLayerBase {
+            y: 0;
             width: 100%;
-            height: parent.height + self.border-radius;
-            background: CosmicPalette.control-background;
+            height: root.height;
+            has-hover: touch-area.has-hover;
+            pressed: touch-area.pressed;
+            checked: root.is-current;
+            border-radius: root.inner-border-radius;
         }
     }
 
-    StateLayerBase {
-        width: 100%;
-        height: 100%;
-        has-hover: touch-area.has-hover;
-        pressed: touch-area.pressed;
-        checked: root.is-current;
+    Rectangle {
+        y: root.height - self.height;
+        height: root.inner-border-radius;
+        background: state-layer.background;
+    }
+
+    if root.has-focus : Rectangle {
+        Rectangle {
+            y: 0;
+            height: root.height - root.inner-border-radius;
+            clip: true;
+
+            Rectangle {
+                y: 0;
+                height: root.height;
+                border-width: 1px;
+                border-radius: root.inner-border-radius;
+                border-color: CosmicPalette.accent-background;
+            }
+        }
+
+        Rectangle {
+            x: 0;
+            y: root.height - self.height;
+            width: 1px;
+            height: root.inner-border-radius;
+            background: CosmicPalette.accent-background;
+        }
+
+        Rectangle {
+            x: root.width - self.width;
+            y: root.height - self.height;
+            width: 1px;
+            height: root.inner-border-radius;
+            background: CosmicPalette.accent-background;
+        }
+    }
+
+    Rectangle {
+        y: parent.height - self.height;
+        background: CosmicPalette.accent-background;
+        height: root.is-current ? 4px : 1px;
     }
 
     touch-area := TouchArea {
@@ -76,32 +116,13 @@ export component TabImpl inherits Rectangle {
     }
 
     layout := HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 8px;
-
         text := Text {
             vertical-alignment: center;
-            horizontal-alignment: left;
+            horizontal-alignment: center;
             font-size: CosmicFontSettings.body.font-size;
-            font-weight:CosmicFontSettings.body.font-weight;
+            font-weight: root.is-current ? CosmicFontSettings.body-strong.font-weight : CosmicFontSettings.body.font-weight;
             color: root.is-current ? CosmicPalette.accent-background : CosmicPalette.control-foreground;
         }
-    }
-
-    if (root.show-left-border) : Rectangle {
-        x: 0;
-        width: 4px;
-        height: root.is-current ? root.height : 16px;
-        background: root.is-current ? CosmicPalette.accent-background : CosmicPalette.border;
-        border-radius: root.is-current ? 0 : 2px;
-    }
-
-    if (root.show-right-border) : Rectangle {
-        x: parent.width - self.width;
-        width: 4px;
-        height: root.is-current ? root.height : 16px;
-        background: root.is-current ? CosmicPalette.accent-background : CosmicPalette.border;
-        border-radius: root.is-current ? 0 : 2px;
     }
 }
 
@@ -113,34 +134,13 @@ export component TabBarImpl {
 
     accessible-role: tab-list;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
-    preferred-height: 24px;
+    preferred-height: 44px;
 
-    background := Rectangle {
-        border-radius: 8px;
-        background: focus-scope.has-focus ? CosmicPalette.accent-background : CosmicPalette.control-background;
-
-        Rectangle {
-            y: background.height - self.height;
-            height: background.border-radius;
-            background: parent.background;
-        }
+    HorizontalLayout {
+        @children
     }
 
-    Rectangle {
-        clip: true;
-
-        HorizontalLayout {
-            // fix for gap between top and bottom
-            padding-top: -1px;
-            padding-bottom: -1px;
-            padding-left: 64px;
-            padding-right: 64px;
-
-            @children
-        }
-    }
-
-    if (focus-scope.has-focus) : Rectangle {
+    if focus-scope.has-focus : Rectangle {
         y: root.height - self.height;
         height: 1px;
         background: CosmicPalette.accent-background;
