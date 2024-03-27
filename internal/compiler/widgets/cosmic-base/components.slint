@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { CosmicPalette, CosmicFontSettings } from "styling.slint";
+import { Icons, CosmicPalette, CosmicFontSettings } from "styling.slint";
 
 export component StateLayerBase {
     in property <length> border-radius <=> overlay.border-radius;
@@ -135,14 +135,13 @@ export component ListItem {
             overflow: elide;
         }
 
-        Path {
+        Image {
             width: 16px;
             height: 16px;
             y: (root.height - self.height) / 2;
             visible: root.is-selected;
-            stroke: text.color;
-            stroke-width: 2px;
-            commands: "M 3 8 L 6 12 L 13 5";
+            colorize: text.color;
+            source: Icons.check-mark;
         }
     }
 
