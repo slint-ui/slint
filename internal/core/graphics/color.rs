@@ -145,6 +145,31 @@ impl Color {
         RgbaColor::from(*self)
     }
 
+    /// Converts this color to a tuple of `(hue, saturation, value)`
+    pub fn to_hsv(&mut self) -> (f32, f32, f32) {
+        let hsva = self.hsva();
+        (hsva.h, hsva.s, hsva.v)
+    }
+
+    /// Converts this color to a tuple of `(hue, saturation, value, alpha)`
+    pub fn to_hsva(&mut self) -> (f32, f32, f32, f32) {
+        let hsva = self.hsva();
+        (hsva.h, hsva.s, hsva.v, hsva.alpha)
+    }
+
+    /// Construct a color from the hue, saturation, and value HSV color parameters. The alpha
+    /// channel will have the value 1.0.
+    pub fn from_hsv(hue: f32, saturation: f32, value: f32) -> Self {
+        let hsva = HsvaColor { h: hue, s: saturation, v: value, alpha: 1.0 };
+        <RgbaColor<f32>>::from(hsva).into()
+    }
+
+    /// Construct a color from the hue, saturation, and value HSV color parameters.
+    pub fn from_hsva(hue: f32, saturation: f32, value: f32, alpha: f32) -> Self {
+        let hsva = HsvaColor { h: hue, s: saturation, v: value, alpha };
+        <RgbaColor<f32>>::from(hsva).into()
+    }
+
     /// Returns the red channel of the color as u8 in the range 0..255.
     #[inline(always)]
     pub fn red(self) -> u8 {
@@ -167,6 +192,29 @@ impl Color {
     #[inline(always)]
     pub fn alpha(self) -> u8 {
         self.alpha
+    }
+
+    fn hsva(&mut self) -> HsvaColor {
+        let rgba: RgbaColor<f32> = (*self).into();
+        rgba.into()
+    }
+
+    /// Returns the hue channel of the color as f32 in degrees 0..PI.
+    #[inline(always)]
+    pub fn hue(mut self) -> f32 {
+        self.hsva().h
+    }
+
+    /// Returns the saturation of the color as u8 in the range 0..255.
+    #[inline(always)]
+    pub fn saturation(mut self) -> f32 {
+        self.hsva().s
+    }
+
+    /// Returns the brightness of the color as u8 in the range 0..255.
+    #[inline(always)]
+    pub fn brightness(mut self) -> f32 {
+        self.hsva().v
     }
 
     /// Returns a new version of this color that has the brightness increased
