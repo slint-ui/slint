@@ -2,12 +2,36 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use i_slint_compiler::layout;
+use i_slint_core::lengths::{LogicalPoint, LogicalRect};
 
 use crate::common;
 use crate::preview::ui;
 
+use slint_interpreter::ComponentInstance;
+
 pub trait ElementRcNodeExt {
     fn layout_kind(&self) -> crate::preview::ui::LayoutKind;
+
+    /// Find all geometries for the given `ElementRcNode`
+    fn geometries(
+        &self,
+        component_instance: &ComponentInstance,
+    ) -> Vec<i_slint_core::lengths::LogicalRect>;
+
+    /// Find the first geometry of `ElementRcNode` that includes the point `x`, `y`
+    fn geometry_at(
+        &self,
+        component_instance: &ComponentInstance,
+        x: f32,
+        y: f32,
+    ) -> Option<i_slint_core::lengths::LogicalRect>;
+
+    /// Find the first geometry of ElementRcNode in `rect`
+    fn geometry_in(
+        &self,
+        component_instance: &ComponentInstance,
+        rect: &LogicalRect,
+    ) -> Vec<i_slint_core::lengths::LogicalRect>;
 }
 
 impl ElementRcNodeExt for common::ElementRcNode {
@@ -24,5 +48,34 @@ impl ElementRcNodeExt for common::ElementRcNode {
             })) => ui::LayoutKind::Vertical,
             _ => ui::LayoutKind::None,
         })
+    }
+
+    fn geometries(
+        &self,
+        component_instance: &ComponentInstance,
+    ) -> Vec<i_slint_core::lengths::LogicalRect> {
+        component_instance.element_positions(&self.as_element())
+    }
+
+    fn geometry_at(
+        &self,
+        component_instance: &ComponentInstance,
+        x: f32,
+        y: f32,
+    ) -> Option<i_slint_core::lengths::LogicalRect> {
+        let click_position = LogicalPoint::new(x, y);
+        self.geometries(component_instance).iter().find(|g| g.contains(click_position)).cloned()
+    }
+
+    fn geometry_in(
+        &self,
+        component_instance: &ComponentInstance,
+        rect: &LogicalRect,
+    ) -> Vec<i_slint_core::lengths::LogicalRect> {
+        self.geometries(component_instance)
+            .iter()
+            .filter(|g| rect.contains_rect(g))
+            .cloned()
+            .collect()
     }
 }

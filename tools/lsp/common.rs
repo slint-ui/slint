@@ -75,6 +75,10 @@ impl ElementRcNode {
             (n.source_file.path().to_owned(), u32::from(n.text_range().start()))
         })
     }
+
+    pub fn as_element(&self) -> &ElementRc {
+        &self.element
+    }
 }
 
 pub fn create_workspace_edit(

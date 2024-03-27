@@ -220,10 +220,8 @@ fn change_geometry_of_selected_element(x: f32, y: f32, width: f32, height: f32) 
         return;
     };
 
-    let Some(geometry) = component_instance
-        .element_positions(&selected_element_node.element)
-        .get(selected.instance_index)
-        .cloned()
+    let Some(geometry) =
+        selected_element_node.geometries(&component_instance).get(selected.instance_index).cloned()
     else {
         return;
     };
