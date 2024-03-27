@@ -55,7 +55,7 @@ url = "2.2.1"
 linked_hash_set = "0.1.4"
 
 # for processing and embedding the rendered image (texture)
-image = { version = "0.24", optional = true }
+image = { workspace = true, optional = true, features = ["default"] }
 resvg = { workspace = true, optional = true }
 # font embedding
 fontdue = { workspace = true, optional = true }
