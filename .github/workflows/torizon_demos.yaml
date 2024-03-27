@@ -51,12 +51,13 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.CR_PAT }}
             - name: Build and push
-              uses: docker/build-push-action@v3
+              uses: docker/build-push-action@v5
               with:
                   context: .
                   file: ./docker/Dockerfile.torizon-demos
                   push: ${{ github.event.inputs.push || inputs.push }}
                   tags: ghcr.io/slint-ui/slint/torizon-demos-${{matrix.target}}${{matrix.base_image_suffix}}:latest
+                  platforms: ${{matrix.image_arch}}
                   build-args: |
                       TOOLCHAIN_ARCH=${{matrix.target}}
                       IMAGE_ARCH=${{matrix.image_arch}}
