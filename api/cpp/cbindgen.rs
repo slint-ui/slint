@@ -181,6 +181,7 @@ fn ensure_cargo_rerun_for_crate(
 
 fn default_config() -> cbindgen::Config {
     let mut config = cbindgen::Config::default();
+    config.macro_expansion.bitflags = true;
     config.pragma_once = true;
     config.include_version = true;
     config.namespaces = Some(vec!["slint".into(), "cbindgen_private".into()]);
