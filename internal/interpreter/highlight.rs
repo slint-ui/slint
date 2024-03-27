@@ -77,6 +77,11 @@ fn fill_highlight_data(
     root_component_instance: &ItemTreeBox,
     values: &mut Vec<i_slint_core::lengths::LogicalRect>,
 ) {
+    if element.borrow().repeated.is_some() {
+        // avoid a panic
+        return;
+    }
+
     if let [first, rest @ ..] = repeater_path {
         generativity::make_guard!(guard);
         let rep = crate::dynamic_item_tree::get_repeater_by_name(
