@@ -25,7 +25,7 @@ jobs:
         strategy:
             matrix:
                 os: [ubuntu-22.04, macos-11, windows-2022]
-                rust_version: [stable, "1.70"]
+                rust_version: [stable, "1.73"]
                 include:
                     - os: windows-2022
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
@@ -36,7 +36,7 @@ jobs:
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
                 exclude:
                     - os: macos-11
-                      rust_version: "1.70"
+                      rust_version: "1.73"
 
         runs-on: ${{ matrix.os }}
 
@@ -63,13 +63,11 @@ jobs:
                   toolchain: ${{ matrix.rust_version }}
                   key: x-v2
             - name: Pin dependencies to make it build with our MSRV
-              if: matrix.rust_version == '1.70'
+              if: matrix.rust_version == '1.73'
               shell: bash
               run: |
                   if [ ! -f ./Cargo.lock ]; then
                     cargo update -p clap --precise 4.4.18
-                    cargo update -p ahash --precise 0.8.7
-                    cargo update -p bumpalo --precise 3.14.0
                   fi
             - name: Run tests
               run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp

@@ -18,7 +18,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Corrosion)
 
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
-find_package(Rust 1.70 REQUIRED MODULE)
+find_package(Rust 1.73 REQUIRED MODULE)
 
 option(BUILD_SHARED_LIBS "Build Slint as shared library" ON)
 option(SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ ahead of time" ON)
