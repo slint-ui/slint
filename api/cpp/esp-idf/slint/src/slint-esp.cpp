@@ -214,19 +214,16 @@ void EspPlatform::run_event_loop()
             }
 
             if (std::exchange(m_window->needs_redraw, false)) {
-                if (buffer1) {
-                    auto buffer1 = *this->buffer1;
-                    auto rotated = false
+                auto rotated = false
 #ifdef SLINT_FEATURE_EXPERIMENTAL
-                            || rotation
-                                    == slint::platform::SoftwareRenderer::RenderingRotation::
-                                            Rotate90
-                            || rotation
-                                    == slint::platform::SoftwareRenderer::RenderingRotation::
-                                            Rotate270
+                        || rotation
+                                == slint::platform::SoftwareRenderer::RenderingRotation::Rotate90
+                        || rotation
+                                == slint::platform::SoftwareRenderer::RenderingRotation::Rotate270
 #endif
-                            ;
-                    auto region = m_window->m_renderer.render(buffer1,
+                        ;
+                if (buffer1) {
+                    auto region = m_window->m_renderer.render(buffer1.value(),
                                                               rotated ? size.height : size.width);
                     auto o = region.bounding_box_origin();
                     auto s = region.bounding_box_size();
@@ -241,44 +238,40 @@ void EspPlatform::run_event_loop()
                             // the driver and we need to pass the exact pointer.
                             // https://github.com/espressif/esp-idf/blob/53ff7d43dbff642d831a937b066ea0735a6aca24/components/esp_lcd/src/esp_lcd_panel_rgb.c#L681
                             esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, size.width, size.height,
-                                                      buffer1.data());
+                                                      buffer1->data());
 
-                            std::swap(buffer1, buffer2.value());
+                            std::swap(buffer1, buffer2);
                         } else {
                             for (int y = o.y; y < o.y + s.height; y++) {
                                 for (int x = o.x; x < o.x + s.width; x++) {
                                     // Swap endianess to big endian
                                     auto px = reinterpret_cast<uint16_t *>(
-                                            &buffer1[y * size.width + x]);
+                                            &buffer1.value()[y * size.width + x]);
                                     *px = (*px << 8) | (*px >> 8);
                                 }
                                 esp_lcd_panel_draw_bitmap(panel_handle, o.x, y, o.x + s.width,
                                                           y + 1,
-                                                          buffer1.data() + y * size.width + o.x);
+                                                          buffer1->data() + y * size.width + o.x);
                             }
                         }
                     }
                 } else {
-                    slint::platform::Rgb565Pixel *lb =
-                            (slint::platform::Rgb565Pixel *)heap_caps_malloc(
-                                    size.width * 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-
-                    m_window->m_renderer.render_by_line([this,
-                                                         &lb](std::size_t line_y,
-                                                              std::size_t line_start,
-                                                              std::size_t line_end,
-                                                              void (*render_fn)(
-                                                                      void *,
-                                                                      std::span<slint::platform::
-                                                                                        Rgb565Pixel>
-                                                                              &),
-                                                              void *render_fn_data) {
-                        std::span<slint::platform::Rgb565Pixel> view { lb, line_end - line_start };
-                        render_fn(render_fn_data, view);
+                    std::unique_ptr<slint::platform::Rgb565Pixel, void (*)(void *)> lb(
+                            static_cast<slint::platform::Rgb565Pixel *>(
+                                    heap_caps_malloc((rotated ? size.height : size.width)
+                                                             * sizeof(slint::platform::Rgb565Pixel),
+                                                     MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+                            heap_caps_free);
+                    m_window->m_renderer.render_by_line([this, &lb](std::size_t line_y,
+                                                                    std::size_t line_start,
+                                                                    std::size_t line_end,
+                                                                    auto &&render_fn) {
+                        std::span<slint::platform::Rgb565Pixel> view { lb.get(),
+                                                                       line_end - line_start };
+                        render_fn(view);
                         esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y, line_end,
-                                                  line_y + 1, lb);
+                                                  line_y + 1, lb.get());
                     });
-                    free(lb);
                 }
             }
 
