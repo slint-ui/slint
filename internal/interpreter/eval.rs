@@ -153,12 +153,12 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::RepeaterIndexReference { element } => load_property_helper(local_context.component_instance,
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
-            "index",
+            crate::dynamic_item_tree::SPECIAL_PROPERTY_INDEX,
         )
         .unwrap(),
         Expression::RepeaterModelReference { element } => load_property_helper(local_context.component_instance,
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
-            "model_data",
+            crate::dynamic_item_tree::SPECIAL_PROPERTY_MODEL_DATA,
         )
         .unwrap(),
         Expression::FunctionParameterReference { index, .. } => {
