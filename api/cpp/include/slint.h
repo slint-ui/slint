@@ -632,7 +632,7 @@ struct FilterModelInner : private_api::ModelChangeListener
     void reset() override
     {
         update_mapping();
-        target_model.reset();
+        target_model.Model<ModelData>::reset();
     }
 
     void update_mapping()
@@ -721,7 +721,7 @@ struct MapModelInner : private_api::ModelChangeListener
     {
         target_model.row_removed(index, count);
     }
-    void reset() override { target_model.reset(); }
+    void reset() override { target_model.Model<SourceModelData>::reset(); }
 
     slint::MapModel<SourceModelData, MappedModelData> &target_model;
 };
@@ -766,6 +766,10 @@ public:
 
     /// Returns the source model of this filter model.
     std::shared_ptr<Model<SourceModelData>> source_model() const { return model; }
+
+    /// Re-applies the model's mapping function on each row of the source model. Use this if state
+    /// external to the mapping function has changed.
+    void reset() { inner->reset(); }
 
 private:
     std::shared_ptr<private_api::MapModelInner<SourceModelData, MappedModelData>> inner;
@@ -874,7 +878,7 @@ struct SortModelInner : private_api::ModelChangeListener
     void reset() override
     {
         sorted_rows_dirty = true;
-        target_model.reset();
+        target_model.Model<ModelData>::reset();
     }
 
     void ensure_sorted()
@@ -987,7 +991,7 @@ struct ReverseModelInner : private_api::ModelChangeListener
         target_model.row_removed(source_model->row_count() - first_removed_row, count);
     }
 
-    void reset() override { source_model.reset(); }
+    void reset() override { target_model.reset(); }
 
     std::shared_ptr<slint::Model<ModelData>> source_model;
     slint::ReverseModel<ModelData> &target_model;
