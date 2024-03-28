@@ -36,6 +36,9 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::{pin::Pin, rc::Rc};
 
+pub const SPECIAL_PROPERTY_INDEX: &str = "$index";
+pub const SPECIAL_PROPERTY_MODEL_DATA: &str = "$model_data";
+
 pub struct ItemTreeBox<'id> {
     instance: InstanceBox<'id>,
     description: Rc<ItemTreeDescription<'id>>,
@@ -112,8 +115,8 @@ impl RepeatedItemTree for ErasedItemTreeBox {
     fn update(&self, index: usize, data: Self::Data) {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
-        s.description.set_property(s.borrow(), "index", index.into()).unwrap();
-        s.description.set_property(s.borrow(), "model_data", data).unwrap();
+        s.description.set_property(s.borrow(), SPECIAL_PROPERTY_INDEX, index.into()).unwrap();
+        s.description.set_property(s.borrow(), SPECIAL_PROPERTY_MODEL_DATA, data).unwrap();
     }
 
     fn init(&self) {
@@ -1089,19 +1092,13 @@ pub(crate) fn generate_item_tree<'id>(
     if component.parent_element.upgrade().is_some() {
         let (prop, type_info) = property_info::<u32>();
         custom_properties.insert(
-            "index".into(),
+            SPECIAL_PROPERTY_INDEX.into(),
             PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
         // FIXME: make it a property for the correct type instead of being generic
         let (prop, type_info) = property_info::<Value>();
         custom_properties.insert(
-            "model_data".into(),
-            PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
-        );
-    } else {
-        let (prop, type_info) = property_info::<f32>();
-        custom_properties.insert(
-            "scale_factor".into(),
+            SPECIAL_PROPERTY_MODEL_DATA.into(),
             PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
     }
@@ -1740,7 +1737,7 @@ extern "C" fn get_item_tree(component: ItemTreeRefPin) -> Slice<ItemTreeNode> {
 extern "C" fn subtree_index(component: ItemTreeRefPin) -> usize {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    if let Ok(value) = instance_ref.description.get_property(component, "index") {
+    if let Ok(value) = instance_ref.description.get_property(component, SPECIAL_PROPERTY_INDEX) {
         value.try_into().unwrap()
     } else {
         core::usize::MAX
