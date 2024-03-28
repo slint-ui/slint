@@ -101,7 +101,7 @@ Copyright: Material Icons <https://github.com/material-icons/material-icons/blob
 License: Apache-2.0
 
 Files: internal/compiler/widgets/cosmic-base/_*.svg
-Copyright: Cosmic Icons <https://github.com/pop-os/cosmic-icons>
+Copyright: "Cosmic Icons" by System76 <https://github.com/pop-os/cosmic-icons>
 License: CC-BY-SA-4.0
 
 Files: internal/backends/linuxkms/mouse-pointer.svg examples/virtual_keyboard/ui/assets/*.svg examples/ffmpeg/pause.svg examples/ffmpeg/play.svg examples/gstreamer-player/*.svg
