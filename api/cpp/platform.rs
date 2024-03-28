@@ -351,7 +351,9 @@ mod software_renderer {
     use super::*;
     type SoftwareRendererOpaque = *const c_void;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
-    use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
+    use i_slint_core::software_renderer::{
+        LineBufferProvider, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
+    };
 
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_new(
@@ -396,6 +398,87 @@ mod software_renderer {
         let buffer = core::slice::from_raw_parts_mut(buffer as *mut Rgb565Pixel, buffer_len);
         let renderer = &*(r as *const SoftwareRenderer);
         let r = renderer.render(buffer, pixel_stride);
+        let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
+        i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_software_renderer_render_by_line_rgb565(
+        r: SoftwareRendererOpaque,
+        process_line_fn: extern "C" fn(
+            *mut core::ffi::c_void,
+            usize,
+            usize,
+            usize,
+            extern "C" fn(*const core::ffi::c_void, *mut u16, usize),
+            *const core::ffi::c_void,
+        ),
+        user_data: *mut core::ffi::c_void,
+    ) -> IntRect {
+        struct Rgb565Processor {
+            process_line_fn: extern "C" fn(
+                *mut core::ffi::c_void,
+                usize,
+                usize,
+                usize,
+                extern "C" fn(*const core::ffi::c_void, *mut u16, usize),
+                *const core::ffi::c_void,
+            ),
+            user_data: *mut core::ffi::c_void,
+        }
+
+        impl LineBufferProvider for Rgb565Processor {
+            type TargetPixel = Rgb565Pixel;
+            fn process_line(
+                &mut self,
+                line: usize,
+                range: core::ops::Range<usize>,
+                render_fn: impl FnOnce(&mut [Rgb565Pixel]),
+            ) {
+                self.cpp_process_line(line, range, render_fn);
+            }
+        }
+
+        impl Rgb565Processor {
+            fn cpp_process_line<RenderFn: FnOnce(&mut [Rgb565Pixel])>(
+                &mut self,
+                line: usize,
+                range: core::ops::Range<usize>,
+                render_fn: RenderFn,
+            ) {
+                let mut render_fn = Some(render_fn);
+                let render_fn_ptr =
+                    &mut render_fn as *mut Option<RenderFn> as *const core::ffi::c_void;
+
+                extern "C" fn cpp_render_line_callback<RenderFn: FnOnce(&mut [Rgb565Pixel])>(
+                    render_fn_ptr: *const core::ffi::c_void,
+                    line_start: *mut u16,
+                    len: usize,
+                ) {
+                    let line_slice = unsafe {
+                        core::slice::from_raw_parts_mut(line_start as *mut Rgb565Pixel, len)
+                    };
+                    let render_fn =
+                        unsafe { (*(render_fn_ptr as *mut Option<RenderFn>)).take().unwrap() };
+                    render_fn(line_slice);
+                }
+
+                (self.process_line_fn)(
+                    self.user_data,
+                    line,
+                    range.start,
+                    range.end,
+                    cpp_render_line_callback::<RenderFn>,
+                    render_fn_ptr,
+                );
+            }
+        }
+
+        let renderer = &*(r as *const SoftwareRenderer);
+
+        let processor = Rgb565Processor { process_line_fn, user_data };
+
+        let r = renderer.render_by_line(processor);
         let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
         i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
     }
