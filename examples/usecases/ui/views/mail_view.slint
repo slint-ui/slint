@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { GroupBox, ComboBox, VerticalBox, GroupBox, GridBox, Palette, TextEdit, Button, Switch, ScrollView } from "std-widgets.slint";
-import { NavigationListView, NavigationListViewItem, Container, ExtendedLineEdit, Icon, CardListView, CardListViewItem, IconButton } from "../widgets.slint";
+import { NavigationListView, NavigationListViewItem, Container, ExtendedLineEdit, Icon, CardListView, CardListViewItem, IconButton, TitleText } from "../widgets.slint";
 import { Icons } from "../assets.slint";
 
 export global MailViewAdapter { }
@@ -132,10 +132,7 @@ export component MailBoxView {
     VerticalLayout {
         spacing: 4px;
 
-        Text {
-            font-size: 28px;
-            font-weight: 400;
-            color: Palette.foreground;
+        TitleText {
             text: MailBoxViewAdapter.title;
             min-height: 32px;
         }
@@ -226,9 +223,6 @@ export component MailMessageView {
                 }
             }
         }
-
-
-
 
         VerticalBox {
             ScrollView {

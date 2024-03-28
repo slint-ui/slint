@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ScrollView, GroupBox, Palette, VerticalBox } from "std-widgets.slint";
+import { TitleText } from "../widgets.slint";
+
+export global DashboardViewAdapter {
+
+}
+
+export component DashboardView {
+    ScrollView {
+        width: 100%;
+        height: 100%;
+
+        VerticalBox {
+            TitleText {
+                horizontal-alignment: left;
+                text: "Dashboard";
+            }
+
+            GroupBox {
+                title: "Weather";
+            }
+        }
+    }
+}

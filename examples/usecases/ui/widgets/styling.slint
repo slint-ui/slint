@@ -12,3 +12,27 @@ export global CosmicPalette {
     out property <brush> state-hover: #63636333;
     out property <brush> state-pressed: Palette.color-scheme == ColorScheme.dark ? #16161680 : #BEBEBE80;
 }
+
+export struct TextStyle {
+    font-size: relative-font-size,
+    font-weight: int,
+}
+
+export global CosmicFontSettings {
+    out property <int> light-font-weight: 300;
+    out property <int> regular-font-weight: 400;
+    out property <int> semibold-font-weight: 600;
+    out property <TextStyle> body: {
+        font-size: 14 * 0.0769rem,
+        font-weight: regular-font-weight
+    };
+    out property <TextStyle> body-strong: {
+        font-size: 14 * 0.0769rem,
+        font-weight: semibold-font-weight
+    };
+
+    out property <TextStyle> title-2: {
+        font-size: 28 * 0.0769rem,
+        font-weight: regular-font-weight
+    };
+}

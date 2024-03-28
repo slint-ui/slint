@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 import { TabWidget, HorizontalBox } from "std-widgets.slint";
-
 import { MailView } from "mail_view.slint";
-
 import { HeaderView } from "header_view.slint";
+import { DashboardView } from "dashboard_view.slint";
 
 export global MainViewAdapter { }
 
@@ -25,6 +24,10 @@ export component MainView {
 
                 Tab {
                     title: "Dashboard";
+
+                    HorizontalBox {
+                        DashboardView { }
+                    }
                 }
 
                 Tab {
@@ -37,5 +40,4 @@ export component MainView {
             }
         }
     }
-
 }
