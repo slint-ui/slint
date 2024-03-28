@@ -852,7 +852,7 @@ SideBar expands again. Use the blue Splitter to resize the container and
 test the responsive behavior.
 
 ```slint,no-auto-preview
-import { Button, StyleMetrics } from "std-widgets.slint";
+import { Button, Palette } from "std-widgets.slint";
 
 export component SideBar inherits Rectangle {
     private property <bool> collapsed: root.reference-width < root.break-point;
@@ -872,7 +872,7 @@ export component SideBar inherits Rectangle {
         private property <bool> expaned;
 
         width: parent.width;
-        background: StyleMetrics.window-background.darker(0.2);
+        background: Palette.background.darker(0.2);
 
         VerticalLayout {
             padding: 2px;
