@@ -5,7 +5,7 @@ use std::{path::PathBuf, rc::Rc};
 
 use i_slint_compiler::diagnostics::SourceFile;
 use i_slint_compiler::object_tree::{Component, ElementRc};
-use i_slint_core::lengths::{LogicalLength, LogicalPoint};
+use i_slint_core::lengths::LogicalPoint;
 use rowan::TextRange;
 use slint_interpreter::ComponentInstance;
 
@@ -73,17 +73,11 @@ fn lsp_element_node_position(element: &ElementRcNode) -> Option<(String, lsp_typ
 }
 
 fn element_covers_point(
-    x: f32,
-    y: f32,
+    position: LogicalPoint,
     component_instance: &ComponentInstance,
     selected_element: &ElementRc,
 ) -> bool {
-    let click_position = LogicalPoint::from_lengths(LogicalLength::new(x), LogicalLength::new(y));
-
-    component_instance
-        .element_positions(selected_element)
-        .iter()
-        .any(|p| p.contains(click_position))
+    component_instance.element_positions(selected_element).iter().any(|p| p.contains(position))
 }
 
 pub fn unselect_element() {
@@ -197,8 +191,7 @@ impl std::fmt::Debug for SelectionCandidate {
 // Traverse the element tree in reverse render order and collect information on
 // all elements that "render" at the given x and y coordinates
 fn collect_all_element_nodes_covering_impl(
-    x: f32,
-    y: f32,
+    position: LogicalPoint,
     component_instance: &ComponentInstance,
     current_element: &ElementRc,
     component_stack: &Vec<Rc<Component>>,
@@ -223,8 +216,7 @@ fn collect_all_element_nodes_covering_impl(
 
     for c in ce.borrow().children.iter().rev() {
         collect_all_element_nodes_covering_impl(
-            x,
-            y,
+            position,
             component_instance,
             c,
             children_component_stack,
@@ -232,7 +224,7 @@ fn collect_all_element_nodes_covering_impl(
         );
     }
 
-    if element_covers_point(x, y, component_instance, &ce) {
+    if element_covers_point(position, component_instance, &ce) {
         for (i, _) in ce.borrow().debug.iter().enumerate().rev() {
             // All nodes have the same geometry
             let text_range = element_node_source_range(&ce, i);
@@ -247,15 +239,13 @@ fn collect_all_element_nodes_covering_impl(
 }
 
 pub fn collect_all_element_nodes_covering(
-    x: f32,
-    y: f32,
+    position: LogicalPoint,
     component_instance: &ComponentInstance,
 ) -> Vec<SelectionCandidate> {
     let root_element = root_element(component_instance);
     let mut elements = Vec::new();
     collect_all_element_nodes_covering_impl(
-        x,
-        y,
+        position,
         component_instance,
         &root_element,
         &vec![],
@@ -300,11 +290,10 @@ pub fn is_same_file_as_root_node(
 
 fn select_element_at_impl(
     component_instance: &ComponentInstance,
-    x: f32,
-    y: f32,
+    position: LogicalPoint,
     enter_component: bool,
 ) -> Option<ElementRcNode> {
-    for sc in &collect_all_element_nodes_covering(x, y, component_instance) {
+    for sc in &collect_all_element_nodes_covering(position, component_instance) {
         if let Some(en) = filter_nodes_for_selection(component_instance, sc, enter_component) {
             return Some(en);
         }
@@ -317,20 +306,22 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
         return;
     };
 
+    let position = LogicalPoint::new(x, y);
+
     if let Some(se) = super::selected_element() {
         if let Some(element) = se.as_element() {
-            if element_covers_point(x, y, &component_instance, &element) {
+            if element_covers_point(position, &component_instance, &element) {
                 // We clicked on the already selected element: Do nothing!
                 return;
             }
         }
     }
 
-    let Some(en) = select_element_at_impl(&component_instance, x, y, enter_component) else {
+    let Some(en) = select_element_at_impl(&component_instance, position, enter_component) else {
         return;
     };
 
-    select_element_node(&component_instance, &en, Some(LogicalPoint::new(x, y)));
+    select_element_node(&component_instance, &en, Some(position));
 }
 
 pub fn is_element_node_in_layout(element: &ElementRcNode) -> bool {
@@ -381,12 +372,11 @@ fn filter_nodes_for_selection(
 pub fn select_element_behind_impl(
     component_instance: &ComponentInstance,
     selected_element_node: &ElementRcNode,
-    x: f32,
-    y: f32,
+    position: LogicalPoint,
     enter_component: bool,
     reverse: bool,
 ) -> Option<ElementRcNode> {
-    let elements = collect_all_element_nodes_covering(x, y, component_instance);
+    let elements = collect_all_element_nodes_covering(position, component_instance);
     let current_selection_position =
         elements.iter().position(|sc| sc.is_selected_element_node(selected_element_node))?;
 
@@ -422,6 +412,7 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
     let Some(component_instance) = super::component_instance() else {
         return;
     };
+    let position = LogicalPoint::new(x, y);
     let Some(selected_element_node) =
         super::selected_element().and_then(|sel| sel.as_element_node())
     else {
@@ -431,15 +422,14 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
     let Some(en) = select_element_behind_impl(
         &component_instance,
         &selected_element_node,
-        x,
-        y,
+        position,
         enter_component,
         reverse,
     ) else {
         return;
     };
 
-    select_element_node(&component_instance, &en, Some(LogicalPoint::new(x, y)));
+    select_element_node(&component_instance, &en, Some(position));
 }
 
 // Called from UI thread!
@@ -459,6 +449,7 @@ pub fn reselect_element() {
 mod tests {
     use std::path::PathBuf;
 
+    use i_slint_core::lengths::LogicalPoint;
     use slint_interpreter::ComponentInstance;
 
     fn demo_app() -> ComponentInstance {
@@ -494,8 +485,10 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
     fn test_find_covering_elements() {
         let component_instance = demo_app();
 
-        let mut covers_center =
-            super::collect_all_element_nodes_covering(100.0, 100.0, &component_instance);
+        let mut covers_center = super::collect_all_element_nodes_covering(
+            LogicalPoint::new(100.0, 100.0),
+            &component_instance,
+        );
 
         // Remove the "button" implenmentation details. They must be at the start:
         let button_path = PathBuf::from("builtin:/fluent-base/button.slint");
@@ -518,8 +511,10 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             assert_eq!(offset, *expected_offset);
         }
 
-        let covers_below =
-            super::collect_all_element_nodes_covering(100.0, 180.0, &component_instance);
+        let covers_below = super::collect_all_element_nodes_covering(
+            LogicalPoint::new(100.0, 180.0),
+            &component_instance,
+        );
 
         // All but the button itself as well as the SomeComponent (impl and use)
         assert_eq!(covers_below.len(), covers_center.len() - 3);
@@ -537,26 +532,31 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let component_instance = demo_app();
 
         let button_path = PathBuf::from("builtin:/fluent-base/button.slint");
-        let mut covers_center =
-            super::collect_all_element_nodes_covering(100.0, 100.0, &component_instance)
-                .iter()
-                .flat_map(|sc| sc.as_element_node())
-                .map(|en| en.path_and_offset())
-                .collect::<Vec<_>>();
+        let mut covers_center = super::collect_all_element_nodes_covering(
+            LogicalPoint::new(100.0, 100.0),
+            &component_instance,
+        )
+        .iter()
+        .flat_map(|sc| sc.as_element_node())
+        .map(|en| en.path_and_offset())
+        .collect::<Vec<_>>();
         let first_non_button = covers_center.iter().position(|(p, _)| p != &button_path).unwrap();
         covers_center.drain(1..(first_non_button - 1)); // strip all but first/last of button
 
         // Select without crossing file boundries
-        let select =
-            super::select_element_at_impl(&component_instance, 100.0, 100.0, false).unwrap();
+        let select = super::select_element_at_impl(
+            &component_instance,
+            LogicalPoint::new(100.0, 100.0),
+            false,
+        )
+        .unwrap();
         assert_eq!(&select.path_and_offset(), covers_center.get(2).unwrap());
 
         // Move deeper into the image:
         let next = super::select_element_behind_impl(
             &component_instance,
             &select,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             false,
             false,
         )
@@ -565,8 +565,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let next = super::select_element_behind_impl(
             &component_instance,
             &next,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             false,
             false,
         )
@@ -575,8 +574,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let next = super::select_element_behind_impl(
             &component_instance,
             &next,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             false,
             false,
         )
@@ -585,8 +583,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let next = super::select_element_behind_impl(
             &component_instance,
             &next,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             false,
             false,
         )
@@ -595,8 +592,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         assert!(super::select_element_behind_impl(
             &component_instance,
             &next,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             false,
             false
         )
@@ -606,8 +602,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let prev = super::select_element_behind_impl(
             &component_instance,
             &next,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             false,
             true,
         )
@@ -616,8 +611,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let prev = super::select_element_behind_impl(
             &component_instance,
             &prev,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             false,
             true,
         )
@@ -626,8 +620,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let prev = super::select_element_behind_impl(
             &component_instance,
             &prev,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             false,
             true,
         )
@@ -636,8 +629,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let prev = super::select_element_behind_impl(
             &component_instance,
             &prev,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             false,
             true,
         )
@@ -646,8 +638,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         assert!(super::select_element_behind_impl(
             &component_instance,
             &prev,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             false,
             true
         )
@@ -657,8 +648,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             super::select_element_behind_impl(
                 &component_instance,
                 &select,
-                100.0,
-                100.0,
+                LogicalPoint::new(100.0, 100.0),
                 false,
                 true
             ),
@@ -666,8 +656,12 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         );
 
         // Select with crossing file boundries
-        let select =
-            super::select_element_at_impl(&component_instance, 100.0, 100.0, true).unwrap();
+        let select = super::select_element_at_impl(
+            &component_instance,
+            LogicalPoint::new(100.0, 100.0),
+            true,
+        )
+        .unwrap();
         assert_eq!(&select.path_and_offset(), covers_center.get(0).unwrap());
 
         // move to the last in the button definition:
@@ -676,8 +670,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             button = super::select_element_behind_impl(
                 &component_instance,
                 &button,
-                100.0,
-                100.0,
+                LogicalPoint::new(100.0, 100.0),
                 true,
                 false,
             )
@@ -691,8 +684,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let next = super::select_element_behind_impl(
             &component_instance,
             &button,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             true,
             false,
         )
@@ -701,8 +693,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let next = super::select_element_behind_impl(
             &component_instance,
             &next,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             true,
             false,
         )
@@ -711,8 +702,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let next = super::select_element_behind_impl(
             &component_instance,
             &next,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             true,
             false,
         )
@@ -721,8 +711,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let next = super::select_element_behind_impl(
             &component_instance,
             &next,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             true,
             false,
         )
@@ -731,8 +720,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let next = super::select_element_behind_impl(
             &component_instance,
             &next,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             true,
             false,
         )
@@ -741,33 +729,57 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         assert!(super::select_element_behind_impl(
             &component_instance,
             &next,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             false,
             false
         )
         .is_none());
 
         // Move towards the viewer:
-        let prev =
-            super::select_element_behind_impl(&component_instance, &next, 100.0, 100.0, true, true)
-                .unwrap();
+        let prev = super::select_element_behind_impl(
+            &component_instance,
+            &next,
+            LogicalPoint::new(100.0, 100.0),
+            true,
+            true,
+        )
+        .unwrap();
         assert_eq!(&prev.path_and_offset(), covers_center.get(5).unwrap());
-        let prev =
-            super::select_element_behind_impl(&component_instance, &prev, 100.0, 100.0, true, true)
-                .unwrap();
+        let prev = super::select_element_behind_impl(
+            &component_instance,
+            &prev,
+            LogicalPoint::new(100.0, 100.0),
+            true,
+            true,
+        )
+        .unwrap();
         assert_eq!(&prev.path_and_offset(), covers_center.get(4).unwrap());
-        let prev =
-            super::select_element_behind_impl(&component_instance, &prev, 100.0, 100.0, true, true)
-                .unwrap();
+        let prev = super::select_element_behind_impl(
+            &component_instance,
+            &prev,
+            LogicalPoint::new(100.0, 100.0),
+            true,
+            true,
+        )
+        .unwrap();
         assert_eq!(&prev.path_and_offset(), covers_center.get(3).unwrap());
-        let prev =
-            super::select_element_behind_impl(&component_instance, &prev, 100.0, 100.0, true, true)
-                .unwrap();
+        let prev = super::select_element_behind_impl(
+            &component_instance,
+            &prev,
+            LogicalPoint::new(100.0, 100.0),
+            true,
+            true,
+        )
+        .unwrap();
         assert_eq!(&prev.path_and_offset(), covers_center.get(2).unwrap());
-        let prev =
-            super::select_element_behind_impl(&component_instance, &prev, 100.0, 100.0, true, true)
-                .unwrap();
+        let prev = super::select_element_behind_impl(
+            &component_instance,
+            &prev,
+            LogicalPoint::new(100.0, 100.0),
+            true,
+            true,
+        )
+        .unwrap();
         assert_eq!(&prev.path_and_offset(), covers_center.get(1).unwrap());
 
         button = prev;
@@ -775,8 +787,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             button = super::select_element_behind_impl(
                 &component_instance,
                 &button,
-                100.0,
-                100.0,
+                LogicalPoint::new(100.0, 100.0),
                 true,
                 true,
             )
@@ -789,8 +800,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         assert!(super::select_element_behind_impl(
             &component_instance,
             &button,
-            100.0,
-            100.0,
+            LogicalPoint::new(100.0, 100.0),
             true,
             true
         )

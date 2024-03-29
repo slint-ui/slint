@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode};
-use i_slint_core::lengths::{LogicalPoint, LogicalRect};
+use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
 use crate::common;
@@ -75,16 +75,15 @@ impl DropMarkDirection {
     }
 
     fn border_size(dimension: f32) -> f32 {
-        match dimension {
-            d if d >= 16.0 => 4.0,
-            d if d >= 14.0 => 3.0,
-            d if d >= 12.0 => 2.0,
-            d if d >= 6.0 => 1.0,
-            _ => 0.0,
+        let bs = (dimension / 4.0).floor();
+        if bs > 8.0 {
+            8.0
+        } else {
+            bs
         }
     }
 
-    // Does this hit the center of an element that accepty drops?
+    // Does this hit the center area of an element that accept drops?
     fn element_accepts(
         element_geometry: &LogicalRect,
         position: LogicalPoint,
@@ -171,7 +170,6 @@ impl DropMarkDirection {
 
                 let ne_half = y <= ascend * x;
                 let nw_half = y <= (x * -ascend) + element_geometry.size.height;
-                eprintln!("GRID: {position:?} in {element_geometry:?}: x: {x}, y: {y}, ascend: {ascend} => NE-half: {} => {ne_half}, NW-half: {} => {nw_half}", -ascend * x, (x * ascend) - element_geometry.size.height);
 
                 match (ne_half, nw_half) {
                     (false, false) => DropMarkDirection::S,
@@ -260,14 +258,13 @@ fn insert_position_at_end(
 
 fn drop_target_element_node(
     component_instance: &ComponentInstance,
-    x: f32,
-    y: f32,
+    position: LogicalPoint,
     component_type: &str,
 ) -> (Option<common::ElementRcNode>, Option<common::ElementRcNode>) {
     let mut self_node = None;
     let mut surrounding_node = None;
     let tl = component_instance.definition().type_loader();
-    for sc in &element_selection::collect_all_element_nodes_covering(x, y, component_instance) {
+    for sc in &element_selection::collect_all_element_nodes_covering(position, component_instance) {
         let Some(en) = sc.as_element_node() else {
             continue;
         };
@@ -318,34 +315,15 @@ fn extract_element(node: SyntaxNode) -> Option<i_slint_compiler::parser::syntax_
 fn examine_target_element_node(
     context: &str,
     component_instance: &ComponentInstance,
-    x: f32,
-    y: f32,
+    position: LogicalPoint,
     target_element_node: &common::ElementRcNode,
 ) {
-    let geometry = target_element_node.geometry_at(component_instance, x, y);
-    eprintln!(
-        "{context} :: {target_element_node:?}<{:?}> [{:?}] @ {x}, {y}",
-        target_element_node.with_element_node(|n| n.kind()),
-        target_element_node.layout_kind()
-    );
+    let geometry = target_element_node.geometry_at(component_instance, position);
     // let mut result = Vec::new();
     if let Some(geometry) = geometry {
-        eprintln!(
-            "    Element : children count: {}, Geometry: {geometry:?}",
-            target_element_node.element.borrow().children.len()
-        );
         for (i, c) in target_element_node.element.borrow().children.iter().enumerate() {
             let c = common::ElementRcNode::new(c.clone(), 0).unwrap();
-            eprintln!(
-                "      {i}: {c:?}<{:?}>, Geometry: {:?}",
-                c.with_element_node(|n| n.kind()),
-                c.geometry_in(component_instance, &geometry)
-            );
         }
-        eprintln!(
-            "    Node    : children count: {}",
-            target_element_node.with_element_node(|node| node.children().count())
-        );
         target_element_node.with_element_node(|node| {
             for (i, c) in node.children().enumerate() {
                 let element_data = if let Some(c_element) = extract_element(c.clone()) {
@@ -357,46 +335,90 @@ fn examine_target_element_node(
                 } else {
                     String::new()
                 };
-
-                eprintln!("      {i}: {:?}<{:?}>{element_data}", c.text_range(), c.kind());
             }
         });
     }
 }
 
+fn drop_into_layout(
+    component_instance: &ComponentInstance,
+    element_node: common::ElementRcNode,
+    insert_position: Option<(DropMarkDirection, common::ElementRcNode)>,
+    position: LogicalPoint,
+) -> Option<DropInformation> {
+    let geometry = element_node.geometry_at(component_instance, position)?;
+    let insert_info = insert_position_at_end(&element_node)?;
+
+    Some(DropInformation {
+        target_element_node: element_node,
+        insert_info,
+        drop_mark: Some(DropMark {
+            start: geometry.origin + LogicalSize::new(0.0, geometry.size.height - 1.0),
+            end: geometry.origin + geometry.size,
+        }),
+    })
+}
+
+fn drop_into_element(
+    component_instance: &ComponentInstance,
+    element_node: common::ElementRcNode,
+    surround_node: Option<common::ElementRcNode>,
+    position: LogicalPoint,
+) -> Option<DropInformation> {
+    let geometry = element_node.geometry_at(component_instance, position)?;
+    let drop_mark_direction = DropMarkDirection::for_element(
+        &geometry,
+        position,
+        surround_node.as_ref().map(|n| n.layout_kind()).unwrap_or(ui::LayoutKind::None),
+    );
+
+    if drop_mark_direction == DropMarkDirection::None {
+        let insert_info = insert_position_at_end(&element_node)?;
+
+        Some(DropInformation { target_element_node: element_node, insert_info, drop_mark: None })
+    } else {
+        drop_into_layout(
+            component_instance,
+            surround_node.unwrap(),
+            Some((drop_mark_direction, element_node)),
+            position,
+        )
+    }
+}
+
 fn find_drop_location(
     component_instance: &ComponentInstance,
-    x: f32,
-    y: f32,
+    position: LogicalPoint,
     component_type: &str,
 ) -> Option<DropInformation> {
     let (drop_element_node, drop_surrounding_element_node) =
-        drop_target_element_node(component_instance, x, y, component_type);
+        drop_target_element_node(component_instance, position, component_type);
 
     let drop_element_node = drop_element_node?;
 
-    examine_target_element_node("Drop target", component_instance, x, y, &drop_element_node);
+    examine_target_element_node("Drop target", component_instance, position, &drop_element_node);
     if let Some(sn) = &drop_surrounding_element_node {
-        examine_target_element_node("Surrounding", component_instance, x, y, sn);
+        examine_target_element_node("Surrounding", component_instance, position, sn);
     }
 
-    let insert_info = insert_position_at_end(&drop_element_node)?;
-
-    Some(DropInformation {
-        target_element_node: drop_element_node,
-        insert_info,
-        drop_mark: Some(DropMark {
-            start: LogicalPoint::new(x - 10.0, y - 10.0),
-            end: LogicalPoint::new(x + 10.0, y + 10.0),
-        }),
-    })
+    if drop_element_node.layout_kind() != ui::LayoutKind::None {
+        drop_into_layout(component_instance, drop_element_node, None, position)
+    } else {
+        drop_into_element(
+            component_instance,
+            drop_element_node,
+            drop_surrounding_element_node,
+            position,
+        )
+    }
 }
 
 /// Find the Element to insert into. None means we can not insert at this point.
 pub fn can_drop_at(x: f32, y: f32, component: &common::ComponentInformation) -> bool {
     let component_type = component.name.to_string();
-    if let Some(dm) =
-        &super::component_instance().and_then(|ci| find_drop_location(&ci, x, y, &component_type))
+    let position = LogicalPoint::new(x, y);
+    if let Some(dm) = &super::component_instance()
+        .and_then(|ci| find_drop_location(&ci, position, &component_type))
     {
         super::set_drop_mark(&dm.drop_mark);
         true
@@ -424,10 +446,11 @@ pub fn drop_at(
     y: f32,
     component: &common::ComponentInformation,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+    let position = LogicalPoint::new(x, y);
     let component_type = &component.name;
     let component_instance = preview::component_instance()?;
     let tl = component_instance.definition().type_loader();
-    let drop_info = find_drop_location(&component_instance, x, y, component_type)?;
+    let drop_info = find_drop_location(&component_instance, position, component_type)?;
 
     let properties = {
         let mut props = component.default_properties.clone();
@@ -435,7 +458,8 @@ pub fn drop_at(
         if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None
             && !component.fills_parent
         {
-            if let Some(area) = drop_info.target_element_node.geometry_at(&component_instance, x, y)
+            if let Some(area) =
+                drop_info.target_element_node.geometry_at(&component_instance, position)
             {
                 props.push(common::PropertyChange::new("x", format!("{}px", x - area.origin.x)));
                 props.push(common::PropertyChange::new("y", format!("{}px", y - area.origin.y)));
@@ -508,13 +532,15 @@ mod tests {
         for i in 0_u16..100 {
             let dimension = f32::from(i) / 10.0;
             let bs = DropMarkDirection::border_size(dimension);
-            assert!(bs >= (expected - 0.05));
-            assert!(bs <= (expected + 1.05));
-            assert!((bs * 2.0) <= dimension); // this makes sure the first bs is 0.0
-            expected = bs;
+            assert!(
+                bs >= (expected - 0.05) && bs < (expected + 0.05)
+                    || (bs >= (expected + 0.95) && bs < (expected + 1.05))
+            );
+            assert!((bs * 3.0) <= dimension); // this makes sure the first bs is 0.0
+            expected = bs.round();
         }
         // The maximum border size is 4px:
-        assert!(expected <= 4.05);
+        assert!(expected <= 8.05);
     }
 
     #[test]
@@ -666,342 +692,218 @@ mod tests {
                 );
                 let bs_h = DropMarkDirection::border_size(rect.size.width);
                 let bs_v = DropMarkDirection::border_size(rect.size.height);
-                eprintln!("width: {width}, height: {height} => border-h: {bs_h}, border-v: {bs_v}");
 
                 // Center: Drop into self, no drop mark ever:
-                let pos = 
-                        LogicalPoint::new(50.0 + (width / 2.0), 50.0 + (height / 2.0));
-                eprintln!("    Testing: {pos:?}");
+                let pos = LogicalPoint::new(50.0 + (width / 2.0), 50.0 + (height / 2.0));
 
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::None
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::None),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Horizontal
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Horizontal),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Vertical
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Vertical),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Grid
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Grid),
                     DropMarkDirection::None
                 );
 
                 // N-side (in border):
                 let pos = LogicalPoint::new(50.0 + (width / 2.0), 49.0 + bs_v);
-                eprintln!("    Testing: {pos:?}");
 
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::None
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::None),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Horizontal
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Horizontal),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Vertical
-                    ),
-                    if bs_h > 0.9 && bs_v > 0.9 { DropMarkDirection::N } else { DropMarkDirection::None }
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Vertical),
+                    if bs_h > 0.9 && bs_v > 0.9 {
+                        DropMarkDirection::N
+                    } else {
+                        DropMarkDirection::None
+                    }
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Grid
-                    ),
-                    if bs_h > 0.9 && bs_v > 0.9 { DropMarkDirection::N } else { DropMarkDirection::None }
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Grid),
+                    if bs_h > 0.9 && bs_v > 0.9 {
+                        DropMarkDirection::N
+                    } else {
+                        DropMarkDirection::None
+                    }
                 );
-                
+
                 // N-side (outside border):
                 let pos = LogicalPoint::new(50.0 + (width / 2.0), 50.0 + bs_v);
-                eprintln!("    Testing: {pos:?}");
 
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::None
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::None),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Horizontal
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Horizontal),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Vertical
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Vertical),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Grid
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Grid),
                     DropMarkDirection::None
                 );
 
                 // E-side (inside border):
                 let pos = LogicalPoint::new(50.0 + width - bs_h, 50.0 + (height / 2.0));
-                eprintln!("    Testing: {pos:?}");
 
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::None
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::None),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Horizontal
-                    ),
-                    if bs_h > 0.9 && bs_v > 0.9 { DropMarkDirection::E } else { DropMarkDirection::None }
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Horizontal),
+                    if bs_h > 0.9 && bs_v > 0.9 {
+                        DropMarkDirection::E
+                    } else {
+                        DropMarkDirection::None
+                    }
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Vertical
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Vertical),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Grid
-                    ),
-                    if bs_h > 0.9 && bs_v > 0.9 { DropMarkDirection::E } else { DropMarkDirection::None }
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Grid),
+                    if bs_h > 0.9 && bs_v > 0.9 {
+                        DropMarkDirection::E
+                    } else {
+                        DropMarkDirection::None
+                    }
                 );
 
                 // E-side (outside border):
                 let pos = LogicalPoint::new(49.0 + width - bs_h, 50.0 + (height / 2.0));
-                eprintln!("    Testing: {pos:?}");
 
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::None
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::None),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Horizontal
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Horizontal),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Vertical
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Vertical),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Grid
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Grid),
                     DropMarkDirection::None
                 );
 
                 // S-side (in border):
                 let pos = LogicalPoint::new(50.0 + (width / 2.0), 50.0 + height - bs_v);
-                eprintln!("    Testing: {pos:?}");
 
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::None
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::None),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Horizontal
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Horizontal),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Vertical
-                    ),
-                    if bs_h > 0.9 && bs_v > 0.9 { DropMarkDirection::S } else { DropMarkDirection::None }
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Vertical),
+                    if bs_h > 0.9 && bs_v > 0.9 {
+                        DropMarkDirection::S
+                    } else {
+                        DropMarkDirection::None
+                    }
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Grid
-                    ),
-                    if bs_h > 0.9 && bs_v > 0.9 { DropMarkDirection::S } else { DropMarkDirection::None }
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Grid),
+                    if bs_h > 0.9 && bs_v > 0.9 {
+                        DropMarkDirection::S
+                    } else {
+                        DropMarkDirection::None
+                    }
                 );
-                
+
                 // S-side (outside border):
                 let pos = LogicalPoint::new(50.0 + (width / 2.0), 49.0 + height - bs_v);
-                eprintln!("    Testing: {pos:?}");
 
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::None
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::None),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Horizontal
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Horizontal),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Vertical
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Vertical),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Grid
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Grid),
                     DropMarkDirection::None
                 );
 
                 // W-side (inside border):
                 let pos = LogicalPoint::new(49.0 + bs_h, 50.0 + (height / 2.0));
-                eprintln!("    Testing: {pos:?}");
 
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::None
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::None),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Horizontal
-                    ),
-                    if bs_h > 0.9 && bs_v > 0.9 { DropMarkDirection::W } else { DropMarkDirection::None }
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Horizontal),
+                    if bs_h > 0.9 && bs_v > 0.9 {
+                        DropMarkDirection::W
+                    } else {
+                        DropMarkDirection::None
+                    }
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Vertical
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Vertical),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Grid
-                    ),
-                    if bs_h > 0.9 && bs_v > 0.9 { DropMarkDirection::W } else { DropMarkDirection::None }
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Grid),
+                    if bs_h > 0.9 && bs_v > 0.9 {
+                        DropMarkDirection::W
+                    } else {
+                        DropMarkDirection::None
+                    }
                 );
 
                 // W-side (outside border):
                 let pos = LogicalPoint::new(50.0 + bs_h, 50.0 + (height / 2.0));
-                eprintln!("    Testing: {pos:?}");
 
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::None
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::None),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Horizontal
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Horizontal),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Vertical
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Vertical),
                     DropMarkDirection::None
                 );
                 assert_eq!(
-                    DropMarkDirection::for_element(
-                        &rect,
-                        pos,
-                        ui::LayoutKind::Grid
-                    ),
+                    DropMarkDirection::for_element(&rect, pos, ui::LayoutKind::Grid),
                     DropMarkDirection::None
                 );
-
             }
         }
     }
