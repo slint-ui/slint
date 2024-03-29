@@ -22,8 +22,7 @@ pub trait ElementRcNodeExt {
     fn geometry_at(
         &self,
         component_instance: &ComponentInstance,
-        x: f32,
-        y: f32,
+        position: LogicalPoint,
     ) -> Option<i_slint_core::lengths::LogicalRect>;
 
     /// Find the first geometry of ElementRcNode in `rect`
@@ -60,11 +59,9 @@ impl ElementRcNodeExt for common::ElementRcNode {
     fn geometry_at(
         &self,
         component_instance: &ComponentInstance,
-        x: f32,
-        y: f32,
+        position: LogicalPoint,
     ) -> Option<i_slint_core::lengths::LogicalRect> {
-        let click_position = LogicalPoint::new(x, y);
-        self.geometries(component_instance).iter().find(|g| g.contains(click_position)).cloned()
+        self.geometries(component_instance).iter().find(|g| g.contains(position)).cloned()
     }
 
     fn geometry_in(
