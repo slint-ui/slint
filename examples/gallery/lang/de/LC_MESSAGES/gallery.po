@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-27 03:03+0000\n"
+"POT-Creation-Date: 2024-03-29 03:03+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: German (https://app.transifex.com/slint/teams/170022/de/)\n"
@@ -327,13 +327,13 @@ msgid ""
 "widget can be imported from \"std-widgets.slint\"."
 msgstr ""
 
-#: ui/pages/text_edit_page.slint:15
+#: ui/pages/text_edit_page.slint:14
 msgctxt "TextEditPage"
 msgid "Word-Wrap"
 msgstr ""
 
 #. min-width: 200px;
-#: ui/pages/text_edit_page.slint:19
+#: ui/pages/text_edit_page.slint:18
 msgctxt "TextEditPage"
 msgid ""
 "This is our TextEdit widget, which allows for editing text that spans over "
@@ -346,7 +346,7 @@ msgid ""
 "You may want to enter a bit of text here then in order to make them visible."
 msgstr ""
 
-#: ui/pages/text_edit_page.slint:26
+#: ui/pages/text_edit_page.slint:25
 msgctxt "TextEditPage"
 msgid "No-Wrap"
 msgstr ""

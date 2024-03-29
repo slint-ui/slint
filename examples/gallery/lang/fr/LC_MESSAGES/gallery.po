@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-27 03:03+0000\n"
+"POT-Creation-Date: 2024-03-29 03:03+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: French (https://app.transifex.com/slint/teams/170022/fr/)\n"
@@ -335,13 +335,13 @@ msgid ""
 "widget can be imported from \"std-widgets.slint\"."
 msgstr "Silimaire à LineEdit mais utilisé pour entrer plusieurs ligne de texte"
 
-#: ui/pages/text_edit_page.slint:15
+#: ui/pages/text_edit_page.slint:14
 msgctxt "TextEditPage"
 msgid "Word-Wrap"
 msgstr "Retour à la ligne"
 
 #. min-width: 200px;
-#: ui/pages/text_edit_page.slint:19
+#: ui/pages/text_edit_page.slint:18
 msgctxt "TextEditPage"
 msgid ""
 "This is our TextEdit widget, which allows for editing text that spans over "
@@ -362,7 +362,7 @@ msgstr ""
 "\n"
 "Vous pouver entrer du texte ici et voir ce qui se passe"
 
-#: ui/pages/text_edit_page.slint:26
+#: ui/pages/text_edit_page.slint:25
 msgctxt "TextEditPage"
 msgid "No-Wrap"
 msgstr "Pas de retour à la ligne"
