@@ -7,7 +7,7 @@ import * as slint from "slint-ui";
 let ui = slint.loadFile("./ui/appwindow.slint");
 let mainWindow = new ui.MainWindow();
 
-let initial_tiles = mainWindow.memory_tiles;
+let initial_tiles = [...mainWindow.memory_tiles];
 let tiles = initial_tiles.concat(initial_tiles.map((tile) => Object.assign({}, tile)));
 
 for (let i = tiles.length - 1; i > 0; i--) {
