@@ -555,7 +555,9 @@ struct FilterModelInner : private_api::ModelChangeListener
     FilterModelInner(std::shared_ptr<slint::Model<ModelData>> source_model,
                      std::function<bool(const ModelData &)> filter_fn,
                      slint::FilterModel<ModelData> &target_model)
-        : source_model(source_model), filter_fn(filter_fn), target_model(target_model) { }
+        : source_model(source_model), filter_fn(filter_fn), target_model(target_model)
+    {
+    }
 
     void row_added(size_t index, size_t count) override
     {
