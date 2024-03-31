@@ -518,6 +518,41 @@ SCENARIO("Sorted Model Reset")
     REQUIRE(observer->model_reset);
 }
 
+template<typename ModelData>
+class TestDeferredSortModel : public slint::SortModel<ModelData>
+{
+public:
+    TestDeferredSortModel(bool &initialized, bool &sorted,
+                          std::shared_ptr<slint::Model<ModelData>> source_model)
+        : slint::SortModel<ModelData> { std::move(source_model),
+                                        [&sorted](const ModelData &first, const ModelData &second) {
+                                            if (!sorted) {
+                                                sorted = true;
+                                            }
+                                            return first > second;
+                                        } }
+    {
+        initialized = true;
+    }
+};
+
+SCENARIO("Sorted Model Ensure Deferred")
+{
+    auto source_model =
+            std::make_shared<slint::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
+
+    bool initialized = false;
+    bool sorted = false;
+
+    auto sort_model =
+            std::make_shared<TestDeferredSortModel<int>>(initialized, sorted, source_model);
+    REQUIRE(initialized);
+    REQUIRE_FALSE(sorted);
+
+    sort_model->row_data(0);
+    REQUIRE(sorted);
+}
+
 SCENARIO("Reverse Model Insert")
 {
     auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 3, 4, 1, 2 });
