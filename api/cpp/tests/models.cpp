@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 #include <chrono>
+#include <memory>
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
 
@@ -252,6 +253,41 @@ SCENARIO("Filtering Model Reset")
     REQUIRE(even_rows->row_data(0) == 1);
     REQUIRE(even_rows->row_data(1) == 3);
     REQUIRE(even_rows->row_data(2) == 5);
+}
+
+template<typename ModelData>
+class TestDeferredFilterModel : public slint::FilterModel<ModelData>
+{
+public:
+    TestDeferredFilterModel(bool &initialized, bool &filtered,
+                            std::shared_ptr<slint::Model<ModelData>> source_model)
+        : slint::FilterModel<ModelData> { std::move(source_model),
+                                          [&filtered]([[maybe_unused]] const ModelData &) {
+                                              if (!filtered) {
+                                                  filtered = true;
+                                              }
+                                              return true;
+                                          } }
+    {
+        initialized = true;
+    }
+};
+
+SCENARIO("Filtering Model Ensure Deferred")
+{
+    auto source_model =
+            std::make_shared<slint::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
+
+    bool initialized = false;
+    bool filtered = false;
+
+    auto filter_model =
+            std::make_shared<TestDeferredFilterModel<int>>(initialized, filtered, source_model);
+    REQUIRE(initialized);
+    REQUIRE_FALSE(filtered);
+
+    filter_model->row_data(0);
+    REQUIRE(filtered);
 }
 
 SCENARIO("Mapped Model")
