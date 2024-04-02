@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+import { TabBarBase } from "../common/tabwidget-base.slint";
+
 export component TabWidgetImpl inherits NativeTabWidget { }
 
 export component TabImpl inherits NativeTab {
@@ -8,41 +10,43 @@ export component TabImpl inherits NativeTab {
     accessible-label <=> root.title;
 }
 
-export component TabBarImpl {
+export component TabBarImpl inherits TabBarBase {
     // injected properties:
-    in-out property <int> current; // The currently selected tab
-    in-out property <int> current-focused: i-focus-scope.has-focus ? root.current : -1; // The currently focused tab
-    in-out property <int> num-tabs; // The total number of tabs
+    // The currently focused tab
+    in-out property <int> current-focused: i-focus-scope.has-focus ? root.current : -1;
 
     accessible-role: tab-list;
     accessible-delegate-focus: root.current;
 
     Rectangle {
-        clip: true; // The breeze style draws outside of the tab bar, which is clip by default with Qt
+        // The breeze style draws outside of the tab bar, which is clip by default with Qt
+        clip: true;
 
         HorizontalLayout {
-            spacing: 0px; // Qt renders Tabs next to each other and renders "spacing" as part of the tab itself
+            // Qt renders Tabs next to each other and renders "spacing" as part of the tab itself
+            spacing: 0px;
             alignment: NativeStyleMetrics.tab-bar-alignment;
             @children
         }
     }
 
     i-focus-scope := FocusScope {
-        x:0;
-        width: 0px; // Do not react on clicks
+        x: 0;
+        // Do not react on clicks
+        width: 0px;
 
         key-pressed(event) => {
             if (event.text == Key.LeftArrow) {
-                 root.current = Math.max(root.current - 1,  0);
-                 return accept;
+                root.current = root.previous-tab();
+                return accept;
             }
             if (event.text == Key.RightArrow) {
-                 root.current = Math.min(root.current + 1, root.num-tabs - 1);
-                 return accept;
+                root.current = root.next-tab();
+                return accept;
             }
             return reject;
         }
     }
 }
 
-export component TabWidget inherits TabWidget {}
+export component TabWidget inherits TabWidget { }
