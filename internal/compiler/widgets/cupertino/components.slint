@@ -12,10 +12,10 @@ export component FocusBorder inherits Rectangle {
     animate opacity { duration: 150ms; }
 
     states [
-        focused when root.has-focus : {
+        focused when root.has-focus: {
             opacity: 0.5;
         }
-     ]
+    ]
 }
 
 export component MenuBorder inherits Rectangle {
@@ -65,14 +65,14 @@ export component ListItem {
     accessible-item-index: root.index;
 
     states [
-        has-focus when root.has-focus : {
+        has-focus when root.has-focus: {
             i-background.background: CupertinoPalette.tertiary-accent-background;
         }
-        hover when root.has-hover : {
+        /*hover when root.has-hover : {
             i-background.background: CupertinoPalette.accent-background;
             i-text.color: CupertinoPalette.accent-foreground;
             i-icon.colorize: CupertinoPalette.accent-foreground;
-        }
+        }*/
     ]
 
     i-layout := VerticalLayout {

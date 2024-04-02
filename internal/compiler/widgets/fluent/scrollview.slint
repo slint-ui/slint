@@ -19,18 +19,21 @@ component ScrollViewButton inherits TouchArea {
         accessible-role: none;
 
         animate colorize, opacity { duration: 150ms; }
-        animate width, height { duration: 150ms; easing: ease-out; }
+        animate width, height {
+            duration: 150ms;
+            easing: ease-out;
+        }
     }
 
     states [
-        pressed when root.pressed : {
+        pressed when root.pressed: {
             opacity: 1;
             icon.width: root.width - 2px;
         }
-        hover when root.has-hover : {
+        /*hover when root.has-hover : {
             opacity: 1;
             icon.colorize: FluentPalette.text-secondary;
-        }
+        }*/
     ]
 }
 
@@ -52,16 +55,19 @@ component ScrollBar inherits Rectangle {
     visible: (self.policy == ScrollBarPolicy.always-on) || (self.policy == ScrollBarPolicy.as-needed && self.maximum > 0);
     clip: true;
 
-    states [
+    /*states [
         hover when touch-area.has-hover || down-scroll-button.has-hover || up-scroll-button.has-hover : {
             root.background: FluentPalette.alternate-background;
             root.size: 6px;
             up-scroll-button.opacity: 1;
             down-scroll-button.opacity: 1;
         }
-    ]
+    ]*/
 
-    animate size { duration: 150ms; easing: ease-out; }
+    animate size {
+        duration: 150ms;
+        easing: ease-out;
+    }
 
     thumb := Rectangle {
         width: !root.horizontal ? root.size : root.maximum <= 0phx ? 0phx : max(min(16px, root.width), root.track-size * root.page-size / (root.maximum + root.page-size));
@@ -71,7 +77,10 @@ component ScrollBar inherits Rectangle {
         border-radius: (root.horizontal ? self.height : self.width) / 2;
         background: FluentPalette.border;
 
-        animate width, height { duration: 150ms; easing: ease-out; }
+        animate width, height {
+            duration: 150ms;
+            easing: ease-out;
+        }
     }
 
     touch-area := TouchArea {
@@ -88,10 +97,7 @@ component ScrollBar inherits Rectangle {
 
         moved => {
             if (self.enabled && self.pressed) {
-                root.value = -max(0px, min(root.maximum, self.pressed-value + (
-                    root.horizontal ? (touch-area.mouse-x - touch-area.pressed-x) * (root.maximum / (root.track-size - thumb.width))
-                               : (touch-area.mouse-y - touch-area.pressed-y) * (root.maximum / (root.track-size - thumb.height))
-                )));
+                root.value = -max(0px, min(root.maximum, self.pressed-value + (root.horizontal ? (touch-area.mouse-x - touch-area.pressed-x) * (root.maximum / (root.track-size - thumb.width)) : (touch-area.mouse-y - touch-area.pressed-y) * (root.maximum / (root.track-size - thumb.height)))));
             }
         }
 
@@ -156,7 +162,7 @@ export component ScrollView {
     preferred-width: 100%;
 
     flickable := Flickable {
-        interactive: false;
+        //interactive: false;
         viewport-y <=> vertical-bar.value;
         viewport-x <=> horizontal-bar.value;
         width: parent.width;
@@ -170,20 +176,20 @@ export component ScrollView {
         width: 14px;
         x: flickable.width + flickable.x - self.width;
         y: flickable.y;
-        height:  flickable.height - horizontal-bar.height;
+        height: flickable.height - horizontal-bar.height;
         horizontal: false;
-        maximum:  flickable.viewport-height - flickable.height;
-        page-size:  flickable.height;
+        maximum: flickable.viewport-height - flickable.height;
+        page-size: flickable.height;
     }
 
     horizontal-bar := ScrollBar {
         enabled: root.enabled;
-        width:  flickable.width - vertical-bar.width;
+        width: flickable.width - vertical-bar.width;
         height: 14px;
         y: flickable.height + flickable.y - self.height;
         x: flickable.x;
         horizontal: true;
-        maximum:  flickable.viewport-width - flickable.width;
-        page-size:  flickable.width;
+        maximum: flickable.viewport-width - flickable.width;
+        page-size: flickable.width;
     }
 }
