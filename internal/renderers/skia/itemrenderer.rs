@@ -10,7 +10,7 @@ use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::item_rendering::{CachedRenderingData, ItemCache, ItemRenderer, RenderImage};
-use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
+use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult, TextStrokeStyle};
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
     LogicalVector, PhysicalPx, RectLengths, ScaleFactor, SizeLengths,
@@ -456,6 +456,43 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
         let mut text_style = skia_safe::textlayout::TextStyle::new();
         text_style.set_foreground_paint(&paint);
 
+        let stroke_style = text.stroke_style();
+        let stroke_width = match stroke_style {
+            TextStrokeStyle::Outside => (text.stroke_width() * self.scale_factor).get() * 2.0,
+            TextStrokeStyle::Center => (text.stroke_width() * self.scale_factor).get(),
+        };
+
+        let mut text_stroke_style = skia_safe::textlayout::TextStyle::new();
+        let stroke_layout = match self.brush_to_paint(text.stroke(), max_width, max_height) {
+            Some(mut stroke_paint) => {
+                if stroke_width == 0.0 {
+                    None
+                } else {
+                    stroke_paint.set_style(skia_safe::PaintStyle::Stroke);
+                    stroke_paint.set_stroke_width(stroke_width);
+                    // Set stroke cap/join/miter to match FemtoVG
+                    stroke_paint.set_stroke_cap(skia_safe::PaintCap::Butt);
+                    stroke_paint.set_stroke_join(skia_safe::PaintJoin::Miter);
+                    stroke_paint.set_stroke_miter(10.0);
+                    text_stroke_style.set_foreground_paint(&stroke_paint);
+                    Some(super::textlayout::create_layout(
+                        font_request.clone(),
+                        self.scale_factor,
+                        string,
+                        Some(text_stroke_style),
+                        Some(max_width),
+                        max_height,
+                        text.horizontal_alignment(),
+                        text.vertical_alignment(),
+                        text.wrap(),
+                        text.overflow(),
+                        None
+                    ))
+                }
+            },
+            None => None,
+        };
+
         let (layout, layout_top_left) = super::textlayout::create_layout(
             font_request,
             self.scale_factor,
@@ -470,7 +507,19 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             None,
         );
 
-        layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
+        match (stroke_style, stroke_layout) {
+            (TextStrokeStyle::Outside, Some((stroke_layout, stroke_layout_top_left))) => {
+                stroke_layout.paint(&mut self.canvas, to_skia_point(stroke_layout_top_left));
+                layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
+            },
+            (TextStrokeStyle::Center, Some((stroke_layout, stroke_layout_top_left))) => {
+                layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
+                stroke_layout.paint(&mut self.canvas, to_skia_point(stroke_layout_top_left));
+            },
+            _ => {
+                layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
+            }
+        };
     }
 
     fn draw_text_input(
