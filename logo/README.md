@@ -1,4 +1,4 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial -->
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Community OR LicenseRef-Slint-commercial -->
 
 # Branding Guidelines
 
@@ -32,7 +32,7 @@ It is (manually) copied into the website under <https://slint.dev/logo/>.
 
    ![Slint logo small light](./slint-logo-small-light.svg#gh-light-mode-only)![Slint logo small dark](./slint-logo-small-dark.svg#gh-dark-mode-only)
 
-* Use the #MadeWithSlint logo for attributions to Slint (e.g. when using Slint under the [Royalty-Free License](../LICENSES/LicenseRef-Slint-Royalty-free-1.1.md)).
+* Use the #MadeWithSlint logo for attributions to Slint (e.g. when using Slint under the [Royalty-Free License](../LICENSES/LicenseRef-Slint-Community.md)).
 
    ![#MadeWithSlint logo light](./MadeWithSlint-logo-light.svg#gh-light-mode-only)![#MadeWithSlint logo dark](./MadeWithSlint-logo-dark.svg#gh-dark-mode-only)
 

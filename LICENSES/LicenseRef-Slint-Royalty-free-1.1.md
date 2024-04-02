@@ -1,5 +1,7 @@
 # Slint Royalty-free Desktop and Web Applications License, version 1.1
 
+[NOTE: This license has been replaced with a newer version](https://github.com/slint-ui/slint/edit/master/LICENSES/LicenseRef-Slint-Community.md)
+
 ## Preamble
 
 Slint is a toolkit that can be used to build user interfaces for applications. Slint (hereafter referred to as "Software") is made available under different licenses by SixtyFPS GmbH incorporated at Oranienburger Str. 44, 16540 Hohen Neuendorf, Germany ("SixtyFPS"). The "Slint Royalty-free Desktop and Web Applications License" is suitable for those who develop desktop or web applications and do not want to use open source components under copyleft licenses.
