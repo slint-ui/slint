@@ -1324,11 +1324,13 @@ fn generate_item_tree(
         (
             quote!(
                 #[allow(unused)]
+                #code_link_section
                 fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
                     self.root.get().unwrap().upgrade().unwrap().window_adapter_impl()
                 }
 
                 #[allow(unused)]
+                #code_link_section
                 fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
                     self.root
                         .get()
@@ -1349,11 +1351,13 @@ fn generate_item_tree(
     } else {
         (
             quote!(
+                #code_link_section
                 #[allow(unused)]
                 fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
                     sp::Rc::clone(self.window_adapter_ref().unwrap())
                 }
 
+                #code_link_section
                 fn window_adapter_ref(
                     &self,
                 ) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
@@ -1369,6 +1373,7 @@ fn generate_item_tree(
                 }
 
                 #[allow(unused)]
+                #code_link_section
                 fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
                     self.window_adapter_.get().cloned()
                 }
@@ -1470,6 +1475,7 @@ fn generate_item_tree(
             #code_link_section
             fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
                 // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
+                #code_link_section
                 static ITEM_ARRAY : sp::OnceBox<
                     [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
                 > = sp::OnceBox::new();
@@ -1481,7 +1487,7 @@ fn generate_item_tree(
 
         const _ : () = {
             use slint::private_unstable_api::re_exports::*;
-            ItemTreeVTable_static!(static VT for self::#inner_component_id);
+            ItemTreeVTable_static!(#code_link_section static VT for self::#inner_component_id);
         };
 
         impl sp::PinnedDrop for #inner_component_id {
