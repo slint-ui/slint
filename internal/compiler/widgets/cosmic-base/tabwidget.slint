@@ -3,6 +3,7 @@
 
 import { CosmicPalette, CosmicFontSettings } from "styling.slint";
 import { StateLayerBase } from "components.slint";
+import { TabBarBase } from "../common/tabwidget-base.slint";
 
 export component TabWidgetImpl inherits Rectangle {
     in property <length> tabbar-preferred-height;
@@ -27,13 +28,17 @@ export component TabWidgetImpl inherits Rectangle {
 }
 
 export component TabImpl inherits Rectangle {
-    in property <int> current-focused; // The currently focused tab
-    in property <int> tab-index; // The index of this tab
-    in property <int> num-tabs; // The total number of tabs
+    // The currently focused tab
+    in property <int> current-focused;
+    // The index of this tab
+    in property <int> tab-index;
+    // The total number of tabs
+    in property <int> num-tabs;
     in property <string> title <=> text.text;
     in property <bool> enabled: true;
     out property <bool> has-focus: root.current-focused == root.tab-index;
-    in-out property <int> current; // The currently selected tab
+    // The currently selected tab
+    in-out property <int> current;
 
     private property <bool> show-left-border: root.tab-index == 0 || root.is-current;
     private property <bool> show-right-border: root.current != root.tab-index + 1;
@@ -69,7 +74,7 @@ export component TabImpl inherits Rectangle {
         background: state-layer.background;
     }
 
-    if root.has-focus : Rectangle {
+    if root.has-focus: Rectangle {
         Rectangle {
             y: 0;
             height: root.height - root.inner-border-radius;
@@ -126,11 +131,10 @@ export component TabImpl inherits Rectangle {
     }
 }
 
-export component TabBarImpl {
+export component TabBarImpl inherits TabBarBase {
     // injected properties:
-    in-out property <int> current; // The currently selected tab
-    in-out property <int> current-focused: focus-scope.has-focus ? focus-scope.focused-tab : -1; // The currently focused tab
-    in-out property <int> num-tabs; // The total number of tabs
+    // The currently focused tab
+    in-out property <int> current-focused: focus-scope.has-focus ? focus-scope.focused-tab : -1;
 
     accessible-role: tab-list;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
@@ -140,7 +144,7 @@ export component TabBarImpl {
         @children
     }
 
-    if focus-scope.has-focus : Rectangle {
+    if focus-scope.has-focus: Rectangle {
         y: root.height - self.height;
         height: 1px;
         background: CosmicPalette.accent-background;
@@ -150,12 +154,13 @@ export component TabBarImpl {
         property <int> focused-tab: 0;
 
         x: 0;
-        width: 0px; // Do not react on clicks
+        // Do not react on clicks
+        width: 0px;
 
         key-pressed(event) => {
             if (event.text == "\n") {
-                 root.current = root.current-focused;
-                 return accept;
+                root.current = root.current-focused;
+                return accept;
             }
             if (event.text == Key.LeftArrow) {
                  self.focused-tab = Math.max(self.focused-tab - 1,  0);
@@ -170,12 +175,12 @@ export component TabBarImpl {
 
         key-released(event) => {
             if (event.text == " ") {
-                 root.current = root.current-focused;
-                 return accept;
+                root.current = root.current-focused;
+                return accept;
             }
             return reject;
         }
     }
 }
 
-export component TabWidget inherits TabWidget {}
+export component TabWidget inherits TabWidget { }
