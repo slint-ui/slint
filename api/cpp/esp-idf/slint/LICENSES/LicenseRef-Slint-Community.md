@@ -1,0 +1,1 @@
+../../../../../LICENSES/LicenseRef-Slint-Community.md
