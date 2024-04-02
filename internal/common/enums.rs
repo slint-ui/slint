@@ -56,6 +56,14 @@ macro_rules! for_each_enums {
                 Elide,
             }
 
+            /// This enum describes the positioning of a text stroke relative to the border of the glyphs in a [`Text`](elements.md#text).
+            enum TextStrokeStyle {
+                /// The inside edge of the stroke is at the outer edge of the text.
+                Outside,
+                /// The center line of the stroke is at the outer edge of the text, like in Adobe Illustrator.
+                Center,
+            }
+
             /// This enum describes whether an event was rejected or accepted by an event handler.
             enum EventResult {
                 /// The event is rejected by this event handler and may then be handled by the parent item
