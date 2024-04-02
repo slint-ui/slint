@@ -11,7 +11,7 @@ impl SlintExtension {
             if fs::metadata(path).map_or(false, |stat| stat.is_file()) {
                 zed::set_language_server_installation_status(
                     &config.name,
-                    &zed::LanguageServerInstallationStatus::Cached,
+                    &zed::LanguageServerInstallationStatus::None,
                 );
                 return Ok(path.clone());
             }
@@ -45,7 +45,7 @@ impl SlintExtension {
             .find(|asset| asset.name == asset_name)
             .ok_or_else(|| format!("no asset found matching {:?}", asset_name))?;
 
-        let version_dir = format!("slint-lsp");
+        let version_dir = "slint-lsp".to_string();
         let binary_path = format!("{version_dir}/{version_dir}/slint-lsp");
 
         if !fs::metadata(&binary_path).map_or(false, |stat| stat.is_file()) {
@@ -72,7 +72,7 @@ impl SlintExtension {
 
             zed::set_language_server_installation_status(
                 &config.name,
-                &zed::LanguageServerInstallationStatus::Downloaded,
+                &zed::LanguageServerInstallationStatus::None,
             );
         }
 

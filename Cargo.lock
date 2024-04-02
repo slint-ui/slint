@@ -177,18 +177,18 @@ checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
 
 [[package]]
 name = "wasm-encoder"
-version = "0.41.2"
+version = "0.201.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "972f97a5d8318f908dded23594188a90bcd09365986b1163e66d70170e5287ae"
+checksum = "b9c7d2731df60006819b013f64ccc2019691deccf6e11a1804bc850cd6748f1a"
 dependencies = [
  "leb128",
 ]
 
 [[package]]
 name = "wasm-metadata"
-version = "0.10.20"
+version = "0.201.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18ebaa7bd0f9e7a5e5dd29b9a998acf21c4abed74265524dd7e85934597bfb10"
+checksum = "0fd83062c17b9f4985d438603cde0a5e8c5c8198201a6937f778b607924c7da2"
 dependencies = [
  "anyhow",
  "indexmap",
@@ -202,9 +202,9 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.121.2"
+version = "0.201.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dbe55c8f9d0dbd25d9447a5a889ff90c0cc3feaa7395310d3d826b2c703eaab"
+checksum = "84e5df6dba6c0d7fafc63a450f1738451ed7a0b52295d83e868218fa286bf708"
 dependencies = [
  "bitflags",
  "indexmap",
@@ -213,32 +213,40 @@ dependencies = [
 
 [[package]]
 name = "wit-bindgen"
-version = "0.18.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5408d742fcdf418b766f23b2393f0f4d9b10b72b7cd96d9525626943593e8cc0"
+checksum = "288f992ea30e6b5c531b52cdd5f3be81c148554b09ea416f058d16556ba92c27"
 dependencies = [
  "bitflags",
+ "wit-bindgen-rt",
  "wit-bindgen-rust-macro",
 ]
 
 [[package]]
 name = "wit-bindgen-core"
-version = "0.18.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7146725463d08ccf9c6c5357a7a6c1fff96185d95d6e84e7c75c92e5b1273c93"
+checksum = "e85e72719ffbccf279359ad071497e47eb0675fe22106dea4ed2d8a7fcb60ba4"
 dependencies = [
  "anyhow",
  "wit-parser",
 ]
 
 [[package]]
-name = "wit-bindgen-rust"
-version = "0.18.0"
+name = "wit-bindgen-rt"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb5fefcf93ff2ea03c8fe9b9db2caee3096103c0e3cd62ed54f6f9493aa6b405"
+checksum = "fcb8738270f32a2d6739973cbbb7c1b6dd8959ce515578a6e19165853272ee64"
+
+[[package]]
+name = "wit-bindgen-rust"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8a39a15d1ae2077688213611209849cad40e9e5cccf6e61951a425850677ff3"
 dependencies = [
  "anyhow",
  "heck",
+ "indexmap",
  "wasm-metadata",
  "wit-bindgen-core",
  "wit-component",
@@ -246,9 +254,9 @@ dependencies = [
 
 [[package]]
 name = "wit-bindgen-rust-macro"
-version = "0.18.1"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce4059a1adc671e4457f457cb638ed2f766a1a462bb7daa3b638c6fb1fda156e"
+checksum = "d376d3ae5850526dfd00d937faea0d81a06fa18f7ac1e26f386d760f241a8f4b"
 dependencies = [
  "anyhow",
  "proc-macro2",
@@ -260,9 +268,9 @@ dependencies = [
 
 [[package]]
 name = "wit-component"
-version = "0.21.0"
+version = "0.201.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be60cd1b2ff7919305301d0c27528d4867bd793afe890ba3837743da9655d91b"
+checksum = "421c0c848a0660a8c22e2fd217929a0191f14476b68962afd2af89fd22e39825"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -279,9 +287,9 @@ dependencies = [
 
 [[package]]
 name = "wit-parser"
-version = "0.14.0"
+version = "0.201.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ee4ad7310367bf272507c0c8e0c74a80b4ed586b833f7c7ca0b7588f686f11a"
+checksum = "196d3ecfc4b759a8573bf86a9b3f8996b304b3732e4c7de81655f875f6efdca6"
 dependencies = [
  "anyhow",
  "id-arena",
@@ -297,16 +305,16 @@ dependencies = [
 
 [[package]]
 name = "zed_extension_api"
-version = "0.0.1"
+version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2108a9f19975a6e701d0fd92d9c9bf0cfb4a8def6b28cce6b60b6839c93c954e"
+checksum = "a5f4ae4e302a80591635ef9a236b35fde6fcc26cfd060e66fde4ba9f9fd394a1"
 dependencies = [
  "wit-bindgen",
 ]
 
 [[package]]
 name = "zed_slint"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "zed_extension_api",
 ]
