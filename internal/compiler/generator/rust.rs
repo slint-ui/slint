@@ -1688,12 +1688,12 @@ fn generate_item_tree(
         }
 
         const _ : () = {
-            #code_link_section
             use slint::private_unstable_api::re_exports::*;
             ItemTreeVTable_static!(static VT for self::#inner_component_id);
         };
 
         impl sp::PinnedDrop for #inner_component_id {
+            #code_link_section
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
                 sp::vtable::new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
                 if let Some(wa) = self.globals.get().unwrap().maybe_window_adapter_impl() {
@@ -1808,6 +1808,7 @@ fn generate_item_tree(
                 #element_info_body
             }
 
+            #code_link_section
             fn window_adapter(
                 self: ::core::pin::Pin<&Self>,
                 do_create: bool,

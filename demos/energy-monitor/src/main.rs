@@ -8,10 +8,7 @@ pub fn main() {
     energy_monitor::main();
 }
 
-#[cfg(all(
-    any(feature = "mcu-board-support", feature = "simulator"),
-    not(feature = "from_launcher")
-))]
+#[cfg(feature = "mcu-board-support")]
 #[mcu_board_support::entry]
 fn main() -> ! {
     mcu_board_support::init();
@@ -19,12 +16,3 @@ fn main() -> ! {
     panic!("The MCU demo should not quit")
 }
 
-#[cfg(feature = "from_launcher")]
-pub fn main() -> ! {
-    let window = MainWindow::new().unwrap();
-
-    let _kiosk_mode_timer = kiosk_timer(&window);
-
-    window.run().unwrap();
-    panic!("The MCU demo should not quit")
-}
