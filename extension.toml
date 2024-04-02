@@ -1,7 +1,7 @@
 id = "slint"
 name = "Slint"
 description = "Slint support for Zed"
-version = "0.0.1"
+version = "0.0.2"
 schema_version = 1
 authors = ["Luke. D Jones <luke@ljones.dev>"]
 repository = "https://gitlab.com/flukejones/zed-slint"
@@ -12,4 +12,4 @@ language = "Slint"
 
 [grammars.slint]
 repository = "https://github.com/slint-ui/tree-sitter-slint.git"
-commit = "cdb307898345cb0465922be447a063b9c294afca"
+commit = "acc77c93ef4b73ba8c3a581b8c99d95b55f7178b"
