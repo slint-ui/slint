@@ -16,7 +16,7 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ItemRc, Layer, Opacity, RenderingResult,
-    TextHorizontalAlignment,
+    TextHorizontalAlignment, TextStrokeStyle
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -323,6 +323,25 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             None => return,
         };
 
+        let stroke_style = text.stroke_style();
+        let stroke_width = match stroke_style {
+            TextStrokeStyle::Outside => (text.stroke_width() * self.scale_factor).get() * 2.0,
+            TextStrokeStyle::Center => (text.stroke_width() * self.scale_factor).get(),
+        };
+        let stroke_paint = match self
+            .brush_to_paint(text.stroke(), &rect_to_path((size * self.scale_factor).into()))
+        {
+            Some(mut paint) => {
+                if stroke_width == 0.0 {
+                    None
+                } else {
+                    paint.set_line_width(stroke_width);
+                    Some(font.init_paint(text.letter_spacing() * self.scale_factor, paint))
+                }
+            },
+            None => None,
+        };
+
         let mut canvas = self.canvas.borrow_mut();
         fonts::layout_text_lines(
             string,
@@ -334,7 +353,19 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             false,
             &paint,
             |to_draw, pos, _, _| {
-                canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
+                match (stroke_style, &stroke_paint) {
+                    (TextStrokeStyle::Outside, Some(stroke_paint)) => {
+                        canvas.stroke_text(pos.x, pos.y, to_draw.trim_end(), stroke_paint).unwrap();
+                        canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
+                    },
+                    (TextStrokeStyle::Center, Some(stroke_paint)) => {
+                        canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
+                        canvas.stroke_text(pos.x, pos.y, to_draw.trim_end(), stroke_paint).unwrap();
+                    },
+                    _ => {
+                        canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
+                    },
+                };
             },
         );
     }
