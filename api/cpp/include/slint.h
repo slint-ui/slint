@@ -557,11 +557,15 @@ struct FilterModelInner : private_api::ModelChangeListener
                      slint::FilterModel<ModelData> &target_model)
         : source_model(source_model), filter_fn(filter_fn), target_model(target_model)
     {
-        update_mapping();
     }
 
     void row_added(size_t index, size_t count) override
     {
+        if (filtered_rows_dirty) {
+            reset();
+            return;
+        }
+
         if (count == 0) {
             return;
         }
@@ -592,6 +596,11 @@ struct FilterModelInner : private_api::ModelChangeListener
     }
     void row_changed(size_t index) override
     {
+        if (filtered_rows_dirty) {
+            reset();
+            return;
+        }
+
         auto existing_row = std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index);
         auto existing_row_index = std::distance(accepted_rows.begin(), existing_row);
         bool is_contained = existing_row != accepted_rows.end() && *existing_row == index;
@@ -609,6 +618,11 @@ struct FilterModelInner : private_api::ModelChangeListener
     }
     void row_removed(size_t index, size_t count) override
     {
+        if (filtered_rows_dirty) {
+            reset();
+            return;
+        }
+
         auto mapped_row_start = std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index);
         auto mapped_row_end =
                 std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index + count);
@@ -631,12 +645,17 @@ struct FilterModelInner : private_api::ModelChangeListener
     }
     void reset() override
     {
+        filtered_rows_dirty = true;
         update_mapping();
         target_model.Model<ModelData>::reset();
     }
 
     void update_mapping()
     {
+        if (!filtered_rows_dirty) {
+            return;
+        }
+
         accepted_rows.clear();
         for (size_t i = 0, count = source_model->row_count(); i < count; ++i) {
             if (auto data = source_model->row_data(i)) {
@@ -645,8 +664,11 @@ struct FilterModelInner : private_api::ModelChangeListener
                 }
             }
         }
+
+        filtered_rows_dirty = false;
     }
 
+    bool filtered_rows_dirty = true;
     std::shared_ptr<slint::Model<ModelData>> source_model;
     std::function<bool(const ModelData &)> filter_fn;
     std::vector<size_t> accepted_rows;
@@ -674,10 +696,15 @@ public:
         inner->source_model->attach_peer(inner);
     }
 
-    size_t row_count() const override { return inner->accepted_rows.size(); }
+    size_t row_count() const override
+    {
+        inner->update_mapping();
+        return inner->accepted_rows.size();
+    }
 
     std::optional<ModelData> row_data(size_t i) const override
     {
+        inner->update_mapping();
         if (i >= inner->accepted_rows.size())
             return {};
         return inner->source_model->row_data(inner->accepted_rows[i]);
@@ -685,6 +712,7 @@ public:
 
     void set_row_data(size_t i, const ModelData &value) override
     {
+        inner->update_mapping();
         inner->source_model->set_row_data(inner->accepted_rows[i], value);
     }
 
@@ -694,7 +722,11 @@ public:
 
     /// Given the \a filtered_row index, this function returns the corresponding row index in the
     /// source model.
-    int unfiltered_row(int filtered_row) const { return inner->accepted_rows[filtered_row]; }
+    int unfiltered_row(int filtered_row) const
+    {
+        inner->update_mapping();
+        return inner->accepted_rows[filtered_row];
+    }
 
     /// Returns the source model of this filter model.
     std::shared_ptr<Model<ModelData>> source_model() const { return inner->source_model; }
