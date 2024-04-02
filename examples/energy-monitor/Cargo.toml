@@ -13,9 +13,6 @@ license = "MIT"
 [lib]
 crate-type = ["cdylib", "lib"]
 
-[lib]
-path = "src/main.rs"
-
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
 mcu-board-support = { path = "../mcu-board-support", optional = true }
