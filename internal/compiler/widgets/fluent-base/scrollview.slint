@@ -25,10 +25,10 @@ component ScrollViewButton inherits TouchArea {
             opacity: 1;
             i-icon.width: 6px;
         }
-        hover when root.has-hover : {
+        /*hover when root.has-hover : {
             opacity: 1;
             i-icon.colorize: FluentPalette.text-secondary;
-        }
+        }*/
     ]
 }
 
@@ -47,14 +47,14 @@ component ScrollBar inherits Rectangle {
     border-width: 1px;
     border-radius: 7px;
 
-    states [
+    /*states [
         hover when i-touch-area.has-hover || i-down-scroll-button.has-hover || i-up-scroll-button.has-hover : {
             root.background: FluentPalette.alternate-background;
             root.size: 6px;
             i-up-scroll-button.opacity: 1;
             i-down-scroll-button.opacity: 1;
         }
-    ]
+    ]*/
 
     animate size { duration: 150ms; easing: ease-out; }
 
@@ -144,7 +144,7 @@ export component ScrollView {
     preferred-width: 100%;
 
     i-flickable := Flickable {
-        interactive: false;
+        //interactive: false;
         viewport-y <=> i-vertical-bar.value;
         viewport-x <=> i-horizontal-bar.value;
         width: parent.width;
