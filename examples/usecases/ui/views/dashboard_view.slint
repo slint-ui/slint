@@ -2,7 +2,45 @@
 // SPDX-License-Identifier: MIT
 
 import { ScrollView, GroupBox, Palette, VerticalBox } from "std-widgets.slint";
-import { TitleText } from "../widgets.slint";
+import { TitleText, Tile, BarTileModel, BarTiles } from "../widgets.slint";
+import { Icons } from "../assets.slint";
+
+export global WeatherViewAdapter {
+    in property <image> current-temperature-icon: Icons.cloud;
+    in property <string> current-temperature: "22°";
+    in property <string> current-day: "May 6th 2023";
+    in property <string> current-weather-description: "Very cloudy";
+    in property <[BarTileModel]> week-model: [
+        {
+            title: "Thu",
+            icon: Icons.cloud,
+            max: 21,
+            min: 18,
+            absolute-max: 21,
+            absolute-min: 15,
+            unit: "°"
+        },
+        {
+            title: "Fri",
+            icon: Icons.cloud,
+            max: 20,
+            min: 17,
+            absolute-max: 21,
+            absolute-min: 15,
+            unit: "°"
+        },
+        {
+            title: "Sat",
+            icon: Icons.cloud,
+            max: 18,
+            min: 15,
+            absolute-max: 21,
+            absolute-min: 15,
+            unit: "°"
+        }
+    ];
+}
+
 
 export global DashboardViewAdapter {
 
@@ -21,6 +59,29 @@ export component DashboardView {
 
             GroupBox {
                 title: "Weather";
+
+                HorizontalLayout {
+                    Tile {
+                        value: WeatherViewAdapter.current-temperature;
+                        text: WeatherViewAdapter.current-day;
+                        sub-text: WeatherViewAdapter.current-weather-description;
+                        icon: WeatherViewAdapter.current-temperature-icon;
+                    }
+
+                    BarTiles {
+                        model: WeatherViewAdapter.week-model;
+                        active: true;
+                    }
+
+                    // stretches the empty element
+                    if WeatherViewAdapter.week-model.length == 0 : Rectangle {}
+                }
+            }
+
+            GroupBox {
+                title: "Usage";
+
+                Rectangle {}
             }
         }
     }
