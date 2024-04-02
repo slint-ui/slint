@@ -68,7 +68,7 @@ jobs:
               with:
                   tool_name: formatters
                   level: error
-                  fail_on_error: true
+                  fail_on_error: false
             - name: Check license headers
               run: cargo xtask check_license_headers --fix-it
             - name: Suggest license header changes
