@@ -11,6 +11,7 @@ use super::*;
 pub struct NativeComboBox {
     pub enabled: Property<bool>,
     pub pressed: Property<bool>,
+    pub has_hover: Property<bool>,
     pub is_open: Property<bool>,
     pub current_value: Property<SharedString>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
@@ -49,19 +50,23 @@ impl Item for NativeComboBox {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        event: MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
+        Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(!matches!(event, MouseEvent::Exit));
         InputEventFilterResult::ForwardAndIgnore
     }
 
     fn input_event(
         self: Pin<&Self>,
-        _event: MouseEvent,
+        event: MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
+        if matches!(event, MouseEvent::Exit) {
+            Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
+        }
         InputEventResult::EventIgnored
     }
 
@@ -89,6 +94,7 @@ impl Item for NativeComboBox {
         let text: qttypes::QString =
             this.current_value().as_str().into();
         let enabled = this.enabled();
+        let has_hover = this.has_hover();
         cpp!(unsafe [
             painter as "QPainterPtr*",
             widget as "QWidget*",
@@ -97,6 +103,7 @@ impl Item for NativeComboBox {
             size as "QSize",
             down as "bool",
             is_open as "bool",
+            has_hover as "bool",
             dpr as "float",
             initial_state as "int"
         ] {
@@ -114,6 +121,9 @@ impl Item for NativeComboBox {
                 option.state |= QStyle::State_Enabled;
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
+            }
+            if (has_hover) {
+                option.state |= QStyle::State_MouseOver;
             }
             // FIXME: This is commented out to workaround #456
             if (is_open) {
