@@ -402,7 +402,7 @@ jobs:
 
             - name: commit and push
               run: |
-                  cd www
+                  cd www-releases
                   git add .
                   git add -u .
                   git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
