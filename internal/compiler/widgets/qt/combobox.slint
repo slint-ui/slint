@@ -6,11 +6,11 @@ import { ComboBoxBase } from "../common/combobox-base.slint";
 export component ComboBox inherits NativeComboBox {
     in property <[string]> model <=> i-base.model;
     in-out property <int> current-index <=> i-base.current-index;
-    out property has-focus <=> i-base.has-focus;
 
     callback selected <=> i-base.selected;
 
     enabled: true;
+    has-focus: i-base.has-focus;
     accessible-role: combobox;
     accessible-value <=> root.current-value;
     current-value: root.model[root.current-index];
@@ -54,3 +54,4 @@ export component ComboBox inherits NativeComboBox {
         }
     }
 }
+
