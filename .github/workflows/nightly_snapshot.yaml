@@ -336,7 +336,7 @@ jobs:
                   cd www
 
                   if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
-                    output_path="${{ steps.version.outputs.VERSION }}"
+                    output_path="releases/${{ steps.version.outputs.VERSION }}"
                   else
                     output_path="snapshots/${GITHUB_REF##*/}"
                   fi
@@ -368,7 +368,7 @@ jobs:
                   cp -a ../target/doc/* $output_path/docs/rust/
 
                   # Fix up link to Slint language documentation
-                  sed -i "s!https://releases.slint.dev/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
+                  sed -i "s!https://slint.dev/releases/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
 
                   for lang in rust cpp node; do
                       mkdir -p $output_path/docs/tutorial/$lang
@@ -382,7 +382,7 @@ jobs:
             - name: Adjust redirections
               if: github.event.inputs.release == 'true'
               run: |
-                  sed -i "/1.0.2/! s,[0-9]*\.[0-9]*\.[0-9]*/\(.*\),${{ steps.version.outputs.VERSION }}/\1," www-releases/_redirects
+                  sed -i "/1.0.2/! s,releases/[0-9]*\.[0-9]*\.[0-9]*/\(.*\),releases/${{ steps.version.outputs.VERSION }}/\1," www-releases/_redirects
 
             - name: Adjust slintpad default tag
               if: github.event.inputs.release == 'true'
