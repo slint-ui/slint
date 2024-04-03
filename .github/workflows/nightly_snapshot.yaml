@@ -332,7 +332,7 @@ jobs:
               run: |
                   git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
                   git config --global user.name "${GITHUB_ACTOR}"
-                  ssh-agent sh -c 'echo "${{ secrets.WWW_PUBLISH_SSH_KEY }}" | ssh-add - && git clone git@github.com:slint-ui/www.git  --depth 1'
+                  ssh-agent sh -c 'echo "${{ secrets.WWW_PUBLISH_SSH_KEY }}" | ssh-add - && git clone git@github.com:slint-ui/www-releases.git  --depth 1'
                   cd www
 
                   if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
@@ -389,16 +389,16 @@ jobs:
             - name: Adjust redirections
               if: github.event.inputs.release == 'true'
               run: |
-                  sed -i "/1.0.2/! s,releases/[0-9]*\.[0-9]*\.[0-9]*/\(.*\),releases/${{ steps.version.outputs.VERSION }}/\1," www/data/_redirects
+                  sed -i "/1.0.2/! s,releases/[0-9]*\.[0-9]*\.[0-9]*/\(.*\),releases/${{ steps.version.outputs.VERSION }}/\1," www-releases/releases/_redirects
 
             - name: Adjust slintpad default tag
               if: github.event.inputs.release == 'true'
-              run: sed -i "s,XXXX_DEFAULT_TAG_XXXX,v${{ steps.version.outputs.VERSION }}," www/releases/${{ steps.version.outputs.VERSION }}/editor/assets/*.js
+              run: sed -i "s,XXXX_DEFAULT_TAG_XXXX,v${{ steps.version.outputs.VERSION }}," www-releases/releases/${{ steps.version.outputs.VERSION }}/editor/assets/*.js
 
             - name: Update versions.txt
               if: github.event.inputs.release == 'true'
               run: ls -1 | grep -v versions.txt | sort --version-sort -r > versions.txt
-              working-directory: www/releases
+              working-directory: www-releases/releases
 
             - name: commit and push
               run: |
