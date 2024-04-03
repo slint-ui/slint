@@ -3,7 +3,7 @@
 
 // cSpell: ignore hframe qreal tabbar vframe
 
-use i_slint_core::input::FocusEventResult;
+use i_slint_core::{input::FocusEventResult, platform::PointerEventButton};
 
 use super::*;
 
@@ -423,7 +423,7 @@ impl Item for NativeTab {
         }
 
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
-            MouseEvent::Pressed { .. } => true,
+            MouseEvent::Pressed { button, .. } => button == PointerEventButton::Left,
             MouseEvent::Exit | MouseEvent::Released { .. } => false,
             MouseEvent::Moved { .. } => {
                 return if self.pressed() {
@@ -437,8 +437,8 @@ impl Item for NativeTab {
         let click_on_press = cpp!(unsafe [] -> bool as "bool" {
             return qApp->style()->styleHint(QStyle::SH_TabBar_SelectMouseType, nullptr, nullptr) == QEvent::MouseButtonPress;
         });
-        if matches!(event, MouseEvent::Released { .. } if !click_on_press)
-            || matches!(event, MouseEvent::Pressed { .. } if click_on_press)
+        if matches!(event, MouseEvent::Released { button, .. } if !click_on_press && button == PointerEventButton::Left)
+            || matches!(event, MouseEvent::Pressed { button, .. } if click_on_press && button == PointerEventButton::Left)
         {
             WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
             self.current.set(self.tab_index());

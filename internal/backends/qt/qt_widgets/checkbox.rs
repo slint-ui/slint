@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use i_slint_core::input::{FocusEventResult, KeyEventType};
+use i_slint_core::{
+    input::{FocusEventResult, KeyEventType},
+    platform::PointerEventButton,
+};
 
 use super::*;
 
@@ -83,9 +86,11 @@ impl Item for NativeCheckBox {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        if let MouseEvent::Released { position, .. } = event {
+        if let MouseEvent::Released { position, button, .. } = event {
             let geo = self_rc.geometry();
-            if LogicalRect::new(LogicalPoint::default(), geo.size).contains(position) {
+            if button == PointerEventButton::Left
+                && LogicalRect::new(LogicalPoint::default(), geo.size).contains(position)
+            {
                 Self::FIELD_OFFSETS.checked.apply_pin(self).set(!self.checked());
                 Self::FIELD_OFFSETS.toggled.apply_pin(self).call(&())
             }
