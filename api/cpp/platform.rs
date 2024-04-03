@@ -402,6 +402,7 @@ mod software_renderer {
         i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
     }
 
+    #[cfg(feature = "experimental")]
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_render_by_line_rgb565(
         r: SoftwareRendererOpaque,
