@@ -192,13 +192,13 @@ impl Item for NativeSpinBox {
                 }
                 MouseEvent::Moved { .. } => false,
                 MouseEvent::Wheel { delta_y, .. } => {
-                    if delta_y < 0. {
+                    if delta_y > 0. {
                         let v = self.value();
                         if v < self.maximum() {
                             self.value.set(v + 1);
                             Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(v + 1,));
                         }
-                    } else if delta_y > 0. {
+                    } else if delta_y < 0. {
                         let v = self.value();
                         if v > self.minimum() {
                             self.value.set(v - 1);
