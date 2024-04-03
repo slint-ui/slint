@@ -400,6 +400,12 @@ jobs:
               run: ls -1 | grep -v versions.txt | sort --version-sort -r > versions.txt
               working-directory: www-releases/releases
 
+            - name: Update SlintPad
+              if: github.event.inputs.release == 'true'
+              run: |
+                  cp -r www-releases/releases/${{ steps.version.outputs.VERSION }}/editor www-releases/slintpad
+                  echo "${{ steps.version.outputs.VERSION }}" > www-releases/slintpad/versions.txt
+
             - name: commit and push
               run: |
                   cd www-releases
