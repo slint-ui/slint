@@ -391,7 +391,7 @@ jobs:
             - name: Update versions.txt
               if: github.event.inputs.release == 'true'
               run: ls -1 | grep -v versions.txt | sort --version-sort -r > versions.txt
-              working-directory: www-releases
+              working-directory: www-releases/releases
 
             - name: commit and push
               run: |
