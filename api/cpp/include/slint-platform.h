@@ -631,6 +631,7 @@ public:
         return PhysicalRegion { r };
     }
 
+#    ifdef SLINT_FEATURE_EXPERIMENTAL
     /// Render the window scene, line by line. The provided Callback will be invoked for each line
     /// that needs to rendered.
     ///
@@ -669,7 +670,6 @@ public:
         return PhysicalRegion { r };
     }
 
-#    ifdef SLINT_FEATURE_EXPERIMENTAL
     /// This enum describes the rotation that is applied to the buffer when rendering.
     /// To be used in set_rendering_rotation()
     enum class RenderingRotation {

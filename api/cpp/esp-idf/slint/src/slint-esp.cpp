@@ -255,6 +255,7 @@ void EspPlatform::run_event_loop()
                             }
                         }
                     }
+#ifdef SLINT_FEATURE_EXPERIMENTAL
                 } else {
                     std::unique_ptr<slint::platform::Rgb565Pixel, void (*)(void *)> lb(
                             static_cast<slint::platform::Rgb565Pixel *>(
@@ -272,6 +273,7 @@ void EspPlatform::run_event_loop()
                         esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y, line_end,
                                                   line_y + 1, lb.get());
                     });
+#endif
                 }
             }
 
@@ -313,7 +315,7 @@ TaskHandle_t EspPlatform::task = {};
 
 void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                     std::optional<esp_lcd_touch_handle_t> touch,
-                    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer1,
+                    std::span<slint::platform::Rgb565Pixel> buffer1,
                     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2
 #ifdef SLINT_FEATURE_EXPERIMENTAL
                     ,
@@ -328,3 +330,13 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
 #endif
                                                                 ));
 }
+
+#ifdef SLINT_FEATURE_EXPERIMENTAL
+void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
+                    std::optional<esp_lcd_touch_handle_t> touch,
+                    slint::platform::SoftwareRenderer::RenderingRotation rotation)
+{
+    slint::platform::set_platform(std::make_unique<EspPlatform>(size, panel, touch, std::nullopt,
+                                                                std::nullopt, rotation));
+}
+#endif
