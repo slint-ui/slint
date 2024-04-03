@@ -333,7 +333,7 @@ jobs:
                   git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
                   git config --global user.name "${GITHUB_ACTOR}"
                   ssh-agent sh -c 'echo "${{ secrets.WWW_PUBLISH_SSH_KEY }}" | ssh-add - && git clone git@github.com:slint-ui/www-releases.git  --depth 1'
-                  cd www
+                  cd www-releases
 
                   if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
                     output_path="releases/${{ steps.version.outputs.VERSION }}"
