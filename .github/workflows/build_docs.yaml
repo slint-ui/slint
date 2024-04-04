@@ -63,12 +63,12 @@ jobs:
               run: cargo fmt --
             - name: C++ format
               run: find -iname \*.h -o -iname \*.cpp | xargs clang-format -i
-            # - name: Suggest format changes
-            #   uses: reviewdog/action-suggester@v1
-            #   with:
-            #       tool_name: formatters
-            #       level: error
-            #       fail_on_error: false
+            - name: Suggest format changes
+              uses: reviewdog/action-suggester@v1
+              with:
+                  tool_name: formatters
+                  level: error
+                  fail_on_error: false
             - name: Check license headers
               run: cargo xtask check_license_headers --fix-it
             - name: Suggest license header changes
