@@ -351,9 +351,7 @@ mod software_renderer {
     use super::*;
     type SoftwareRendererOpaque = *const c_void;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
-    use i_slint_core::software_renderer::{
-        LineBufferProvider, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
-    };
+    use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
 
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_new(
@@ -428,7 +426,7 @@ mod software_renderer {
             user_data: *mut core::ffi::c_void,
         }
 
-        impl LineBufferProvider for Rgb565Processor {
+        impl i_slint_core::software_renderer::LineBufferProvider for Rgb565Processor {
             type TargetPixel = Rgb565Pixel;
             fn process_line(
                 &mut self,
