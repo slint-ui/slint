@@ -5,8 +5,13 @@ multilingual = false
 src = "src"
 title = "Slint Memory Game QuickStart (node)"
 
+[preprocessor.tabs]
+command = "mdbook-tabs"
+assets_version = "3.0.2" # do not edit: managed by `mdbook-tabs install`
+
 [output.html]
 theme = "../theme"
+additional-css = ["./mdbook-tabs.css"]
 
 [output.linkcheck]  # enable the "mdbook-linkcheck" renderer
 optional = true
