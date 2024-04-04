@@ -17,7 +17,7 @@ use i_slint_core::item_rendering::{
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
     self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
-    PointerEventButton, RenderingResult, TextOverflow, TextWrap,
+    PointerEventButton, RenderingResult, TextOverflow, TextStrokeStyle, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -664,9 +664,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_text(&mut self, text: std::pin::Pin<&items::Text>, _: &ItemRc, size: LogicalSize) {
         let rect: qttypes::QRectF = check_geometry!(size);
         let fill_brush: qttypes::QBrush = into_qbrush(text.color(), rect.width, rect.height);
+        let stroke_brush: qttypes::QBrush = into_qbrush(text.stroke(), rect.width, rect.height);
         let mut string: qttypes::QString = text.text().as_str().into();
         let font: QFont = get_font(text.font_request(WindowInner::from_pub(self.window)));
-        let flags = match text.horizontal_alignment() {
+        let alignment = match text.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
             TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
@@ -674,20 +675,20 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
             TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
             TextVerticalAlignment::Bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
-        } | match text.wrap() {
-            TextWrap::NoWrap => 0,
-            TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
+        let wrap = text.wrap() == TextWrap::WordWrap;
         let elide = text.overflow() == TextOverflow::Elide;
+        let stroke_outside = text.stroke_style() == TextStrokeStyle::Outside;
+        let stroke_width = match text.stroke_style() {
+            TextStrokeStyle::Outside => text.stroke_width().get() * 2.0,
+            TextStrokeStyle::Center => text.stroke_width().get(),
+        };
         let painter: &mut QPainterPtr = &mut self.painter;
-        cpp! { unsafe [painter as "QPainterPtr*", rect as "QRectF", fill_brush as "QBrush", mut string as "QString", flags as "int", font as "QFont", elide as "bool"] {
-            (*painter)->setFont(font);
-            (*painter)->setPen(QPen(fill_brush, 0));
-            (*painter)->setBrush(Qt::NoBrush);
+        cpp! { unsafe [painter as "QPainterPtr*", rect as "QRectF", fill_brush as "QBrush", stroke_brush as "QBrush", mut string as "QString", font as "QFont", elide as "bool", alignment as "Qt::Alignment", wrap as "bool", stroke_outside as "bool", stroke_width as "float"] {
+            QString elided;
             if (!elide) {
-                (*painter)->drawText(rect, flags, string);
-            } else if (!(flags & Qt::TextWordWrap)) {
-                QString elided;
+                elided = string;
+            } else if (!wrap) {
                 QFontMetrics fm(font);
                 while (!string.isEmpty()) {
                     int pos = string.indexOf('\n');
@@ -700,11 +701,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     elided += '\n';
                     string = string.mid(pos + 1);
                 }
-                (*painter)->drawText(rect, flags, elided);
             } else {
                 // elide and word wrap: we need to add the ellipsis manually on the last line
                 string.replace(QChar('\n'), QChar::LineSeparator);
-                QString elided = string;
+                elided = string;
                 QFontMetrics fm(font);
                 QTextLayout layout(string, font);
                 QTextOption options;
@@ -734,7 +734,74 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     QString to_elide = QStringView(string).mid(last_line_begin, last_line_size).trimmed() % QStringView(QT_UNICODE_LITERAL("…"));
                     elided += fm.elidedText(to_elide, Qt::ElideRight, rect.width());
                 }
+            }
+
+            if (stroke_width == 0) {
+                int flags = alignment;
+                if (wrap)
+                    flags |= Qt::TextWordWrap;
+                
+                (*painter)->setFont(font);
+                (*painter)->setBrush(Qt::NoBrush);
+                (*painter)->setPen(QPen(fill_brush, 0));
                 (*painter)->drawText(rect, flags, elided);
+            } else {
+                QTextDocument document(elided);
+                document.setDocumentMargin(0);
+                document.setPageSize(rect.size());
+                document.setDefaultFont(font);
+
+                QTextOption options = document.defaultTextOption();
+                options.setAlignment(alignment);
+                if (wrap)
+                    options.setWrapMode(QTextOption::WordWrap);
+                document.setDefaultTextOption(options);
+
+                // Workaround for https://bugreports.qt.io/browse/QTBUG-13467
+                float dy = 0;
+                if (!(alignment & Qt::AlignTop)) {
+                    QRectF bounding_rect;
+                    for (QTextBlock it = document.begin(); it != document.end(); it = it.next()) {
+                        bounding_rect = bounding_rect.united(document.documentLayout()->blockBoundingRect(it));
+                    }
+                    if (alignment & Qt::AlignVCenter) {
+                        dy = (rect.height() - bounding_rect.height()) / 2.0;
+                    } else if (alignment & Qt::AlignBottom) {
+                        dy = (rect.height() - bounding_rect.height());
+                    }
+                }
+
+                QTextCharFormat format;
+                format.setFont(font);
+                
+                QPen stroke_pen(stroke_brush, stroke_width, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin);
+                stroke_pen.setMiterLimit(10.0);
+
+                QTextCursor cursor(&document);
+                cursor.select(QTextCursor::Document);
+
+                (*painter)->save();
+                (*painter)->translate(0, dy);
+
+                if (stroke_outside) {
+                    format.setForeground(Qt::NoBrush);
+                    format.setTextOutline(stroke_pen);
+                    cursor.mergeCharFormat(format);
+                    document.drawContents((*painter).get(), rect);
+                }
+
+                format.setForeground(fill_brush);
+                if (!stroke_outside) {
+                    format.setTextOutline(stroke_pen);
+                } else {
+                    // Use a transparent pen instead of Qt::NoPen so the
+                    // fill is aligned properly to the outside stroke
+                    format.setTextOutline(QPen(QColor(Qt::transparent), stroke_width));
+                }
+                cursor.mergeCharFormat(format);
+                document.drawContents((*painter).get(), rect);
+
+                (*painter)->restore();
             }
         }}
     }
