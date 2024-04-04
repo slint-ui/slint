@@ -1,5 +1,3 @@
-Community License, version 1.2
-
 # Slint Royalty-free Desktop, Mobile, and Web Applications License
 
 ## Preamble
@@ -8,7 +6,7 @@ Slint is a toolkit that can be used to build user interfaces for applications. S
 
 ### 1. Grant of Rights
 
-SixtyFPS hereby grants You a world-wide, royalty-free, non-exclusive license to use, reproduce, make available, modify, display, perform, distribute the Software as part of a Desktop or Web Application.
+SixtyFPS hereby grants You a world-wide, royalty-free, non-exclusive license to use, reproduce, make available, modify, display, perform, distribute the Software as part of a Desktop, Mobile, or Web Application.
 
 A Desktop Application is a computer program that is designed to run on a general-purpose computer (PC or notebook), typically installed and executed locally on the computer's operating system.
 
