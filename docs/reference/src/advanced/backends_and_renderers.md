@@ -67,6 +67,7 @@ The Qt renderer comes with the [Qt backend](backend_qt.md) and renders using QPa
   * No support for `drop-shadow-*` properties.
   * No support for `border-radius` in combination with `clip: true`.
   * No circular gradients.
+  * No text stroking/outlining.
 - Text rendering currently limited to western scripts.
 - Available in the [Winit backend](backend_winit.md).
 - Public [Rust](slint-rust:platform/software_renderer/) and [C++](slint-cpp:api/classslint_1_1platform_1_1SoftwareRenderer) API.
