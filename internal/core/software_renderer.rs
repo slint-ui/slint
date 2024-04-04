@@ -1402,7 +1402,19 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
         match image_inner {
             ImageInner::None => (),
-            ImageInner::StaticTextures(StaticTextures { data, textures, .. }) => {
+            ImageInner::StaticTextures(StaticTextures {
+                data,
+                textures,
+                size,
+                original_size,
+                ..
+            }) => {
+                let adjust_x = size.width as f32 / original_size.width as f32;
+                let adjust_y = size.height as f32 / original_size.height as f32;
+                let source_to_target_x = source_to_target_x / adjust_x;
+                let source_to_target_y = source_to_target_y / adjust_y;
+                let source_rect =
+                    source_rect.cast::<f32>().scale(adjust_x, adjust_y).round().cast();
                 let dx = Fixed::from_f32(1. / source_to_target_x).unwrap();
                 let dy = Fixed::from_f32(1. / source_to_target_y).unwrap();
 

@@ -78,7 +78,7 @@ fn main() -> std::io::Result<()> {
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
         let needle = "SLINT_SCALE_FACTOR=";
-        let scale_factor = if let Some(p) = source.find(needle) {
+        let scale_factor = source.find(needle).map(|p| {
             let source = &source[p + needle.len()..];
             let scale_factor: f32 = source
                 .find(char::is_whitespace)
@@ -86,10 +86,8 @@ fn main() -> std::io::Result<()> {
                 .unwrap_or_else(|| {
                     panic!("Cannot parse {needle} for {}", testcase.relative_path.display())
                 });
-            format!("slint::platform::WindowAdapter::window(&*window).dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {{ scale_factor: {scale_factor}f32 }});")
-        } else {
-            String::new()
-        };
+            scale_factor
+        });
 
         let needle = "ROTATION_THRESHOLD=";
         let rotation_threshold = source.find(needle).map_or(0., |p| {
@@ -106,7 +104,12 @@ fn main() -> std::io::Result<()> {
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
         )?);
 
-        generate_source(source.as_str(), &mut output, testcase).unwrap();
+        generate_source(source.as_str(), &mut output, testcase, scale_factor.unwrap_or(1.))
+            .unwrap();
+
+        let scale_factor = scale_factor.map_or(String::new(), |scale_factor| {
+            format!("slint::platform::WindowAdapter::window(&*window).dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {{ scale_factor: {scale_factor}f32 }});")
+        });
 
         write!(
             output,
@@ -143,6 +146,7 @@ fn generate_source(
     source: &str,
     output: &mut impl Write,
     testcase: test_driver_lib::TestCase,
+    scale_factor: f32,
 ) -> Result<(), std::io::Error> {
     use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 
@@ -158,6 +162,7 @@ fn generate_source(
     compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
     compiler_config.enable_component_containers = true;
     compiler_config.style = Some("fluent".to_string());
+    compiler_config.scale_factor = scale_factor.into();
     let (root_component, diag, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
