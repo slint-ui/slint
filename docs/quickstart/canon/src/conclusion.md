@@ -2,7 +2,7 @@
 
 # Conclusion
 
-This tutorial showed you how to combine built-in Slint elements with C++ code to build a
+This tutorial showed you how to combine built-in Slint elements with C++, Rust, or NodeJS code to build a
 game. There is much more to Slint, such as layouts, widgets, or styling.
 
 We recommend the following links to continue:

@@ -2,11 +2,7 @@
 
 # Introduction
 
-This tutorial introduces you to the Slint UI framework in a playful way by implementing a memory game. It combines the Slint language for the graphics with the game rules implemented in JavaScript.
-
-```tab info
-A plain note.
-```
+This tutorial introduces you to the Slint UI framework in a playful way by implementing a memory game. It combines the Slint language for the graphics with the game rules implemented in C++, Rust, or NodeJS.
 
 The game consists of a grid of 16 rectangular tiles. Clicking on a tile uncovers an icon underneath.
 There are 8 different icons in total, so each tile has a sibling somewhere in the grid with the

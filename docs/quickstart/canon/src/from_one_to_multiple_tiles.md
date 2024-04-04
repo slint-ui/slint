@@ -4,7 +4,7 @@
 
 After modeling a single tile, this step creates a grid of them. For the grid to be a game board, you need two features:
 
-1. **A data model**: An array created as a JavaScript model, where each element describes the tile data structure, such as:
+1. **A data model**: An array created as a model in code, where each element describes the tile data structure, such as:
 
     - URL of the image
     - Whether the image is visible
@@ -19,13 +19,32 @@ The <span class="hljs-keyword">for</span> loop is declarative and automatically 
 the model changes. The loop instantiates all the <span class="hljs-title">MemoryTile</span> elements and places them on a grid based on their
 index with spacing between the tiles.
 
-First, add the tile data structure definition at the top of the `memory.slint` file:
+<!-- C++ -->
+First, add the tile data structure definition at the top of the `ui/appwindow.slint` file:
+<!-- C++ -->
 
+<!-- Node -->
+First, add the tile data structure definition at the top of the `memory.slint` file:
+<!-- Node -->
+
+<!-- Rust -->
+First, add the tile data structure definition at the top of the `slint!` macro:
+<!-- Rust -->
 ```slint
 {{#include ../../rust/src/main_multiple_tiles.rs:tile_data}}
 ```
 
+<!-- C++ -->
+Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `ui/appwindow.slint` file with the following:
+<!-- C++ -->
+
+<!-- Node -->
 Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `memory.slint` file with the following:
+<!-- Node -->
+
+<!-- Rust -->
+Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `slint!` macro with the following:
+<!-- Rust -->
 
 ```slint
 {{#include ../../rust/src/main_multiple_tiles.rs:main_window}}
