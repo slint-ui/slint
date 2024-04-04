@@ -34,9 +34,8 @@ extern "C" void app_main(void)
     bsp_i2c_init();
 
     /* Initialize display  */
-    esp_lcd_panel_io_handle_t io_handle = NULL;
     esp_lcd_panel_handle_t panel_handle = NULL;
-    bsp_lcd_handles_t handles = { 0 };
+    bsp_lcd_handles_t handles{};
 
     bsp_display_new_with_handles(nullptr, &handles);
 
