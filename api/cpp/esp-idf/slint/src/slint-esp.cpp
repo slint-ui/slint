@@ -151,8 +151,8 @@ void EspPlatform::run_event_loop()
     }
 #endif
 
-    int last_touch_x = 0;
-    int last_touch_y = 0;
+    float last_touch_x = 0;
+    float last_touch_y = 0;
     bool touch_down = false;
 
     while (true) {
@@ -192,21 +192,21 @@ void EspPlatform::run_event_loop()
                         *touch_handle, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
 
                 if (touchpad_pressed && touchpad_cnt > 0) {
+                    auto scale_factor = m_window->window().scale_factor();
                     // ESP_LOGI(TAG, "x: %i, y: %i", touchpad_x[0], touchpad_y[0]);
-                    last_touch_x = touchpad_x[0];
-                    last_touch_y = touchpad_y[0];
+                    last_touch_x = float(touchpad_x[0]) / scale_factor;
+                    last_touch_y = float(touchpad_y[0]) / scale_factor;
                     m_window->window().dispatch_pointer_move_event(
-                            slint::LogicalPosition({ float(last_touch_x), float(last_touch_y) }));
+                            slint::LogicalPosition({ last_touch_x, last_touch_y }));
                     if (!touch_down) {
                         m_window->window().dispatch_pointer_press_event(
-                                slint::LogicalPosition(
-                                        { float(last_touch_x), float(last_touch_y) }),
+                                slint::LogicalPosition({ last_touch_x, last_touch_y }),
                                 slint::PointerEventButton::Left);
                     }
                     touch_down = true;
                 } else if (touch_down) {
                     m_window->window().dispatch_pointer_release_event(
-                            slint::LogicalPosition({ float(last_touch_x), float(last_touch_y) }),
+                            slint::LogicalPosition({last_touch_x, last_touch_y }),
                             slint::PointerEventButton::Left);
                     m_window->window().dispatch_pointer_exit_event();
                     touch_down = false;
