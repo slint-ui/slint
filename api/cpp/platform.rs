@@ -185,6 +185,14 @@ pub unsafe extern "C" fn slint_window_adapter_new(
         set_position,
     });
 
+    if let Some(scale_factor) =
+        option_env!("SLINT_SCALE_FACTOR").and_then(|x| x.parse::<f32>().ok()).filter(|f| *f > 0.)
+    {
+        window.window().dispatch_event(i_slint_core::platform::WindowEvent::ScaleFactorChanged {
+            scale_factor,
+        });
+    }
+
     core::ptr::write(target as *mut Rc<dyn WindowAdapter>, window);
 }
 
