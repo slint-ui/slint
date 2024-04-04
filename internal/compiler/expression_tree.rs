@@ -56,7 +56,7 @@ pub enum BuiltinFunction {
     ImageSize,
     ArrayLength,
     Rgb,
-    DarkColorScheme,
+    ColorScheme,
     TextInputFocused,
     SetTextInputFocused,
     ImplicitLayoutInfo(Orientation),
@@ -209,9 +209,12 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Color),
                 args: vec![Type::Int32, Type::Int32, Type::Int32, Type::Float32],
             },
-            BuiltinFunction::DarkColorScheme => {
-                Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
-            }
+            BuiltinFunction::ColorScheme => Type::Function {
+                return_type: Box::new(Type::Enumeration(
+                    crate::typeregister::BUILTIN_ENUMS.with(|e| e.ColorScheme.clone()),
+                )),
+                args: vec![],
+            },
             BuiltinFunction::TextInputFocused => {
                 Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
             }
@@ -250,7 +253,7 @@ impl BuiltinFunction {
             BuiltinFunction::GetWindowScaleFactor => false,
             BuiltinFunction::GetWindowDefaultFontSize => false,
             BuiltinFunction::AnimationTick => false,
-            BuiltinFunction::DarkColorScheme => false,
+            BuiltinFunction::ColorScheme => false,
             // Even if it is not pure, we optimize it away anyway
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod
@@ -305,7 +308,7 @@ impl BuiltinFunction {
             BuiltinFunction::GetWindowScaleFactor => true,
             BuiltinFunction::GetWindowDefaultFontSize => true,
             BuiltinFunction::AnimationTick => true,
-            BuiltinFunction::DarkColorScheme => true,
+            BuiltinFunction::ColorScheme => true,
             // Even if it has technically side effect, we still consider it as pure for our purpose
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod

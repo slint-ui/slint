@@ -35,6 +35,13 @@ export struct Selection {
     is-resizable: bool,
 }
 
+export struct DropMark {
+    x1: length,
+    y1: length,
+    x2: length,
+    y2: length,
+}
+
 component SelectionFrame {
     in property <Selection> selection;
     in property <bool> interactive: true;
@@ -136,6 +143,7 @@ export enum DrawAreaMode {
 export component DrawArea {
     in property <[Diagnostics]> diagnostics;
     in property <[Selection]> selections;
+    in property <DropMark> drop-mark;
     in property <component-factory> preview-area;
     in property <bool> design-mode;
 
@@ -280,6 +288,15 @@ export component DrawArea {
                         }
                     }
                 }
+
+                if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
+                    x: drop-mark.x1;
+                    y: drop-mark.y1;
+                    width: drop-mark.x2 - drop-mark.x1;
+                    height: drop-mark.y2 - drop-mark.y1;
+
+                    background: #00ff00;
+                }
             }
         }
     }
@@ -288,7 +305,7 @@ export component DrawArea {
     diagnostics := DiagnosticsOverlay {
         width: 100%;
         height: 100%;
-        diagnostics <=> root.diagnostics;
+       diagnostics <=> root.diagnostics;
         show-document(url, line, column) => {
             root.show-document(url, line, column);
         }

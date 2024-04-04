@@ -220,7 +220,7 @@ pub async fn compile_syntax_node(
         &type_registry,
     );
 
-    if let Some((_, node)) = &*doc.root_component.child_insertion_point.borrow() {
+    if let Some((_, _, node)) = &*doc.root_component.child_insertion_point.borrow() {
         diagnostics
             .push_error("@children placeholder not allowed in the final component".into(), node)
     }

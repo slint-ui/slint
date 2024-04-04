@@ -258,7 +258,7 @@ pub struct PopupWindow {
     pub parent_element: ElementRc,
 }
 
-type ChildrenInsertionPoint = (ElementRc, syntax_nodes::ChildrenPlaceholder);
+type ChildrenInsertionPoint = (ElementRc, usize, syntax_nodes::ChildrenPlaceholder);
 
 /// Used sub types for a root component
 #[derive(Debug, Default)]
@@ -1307,7 +1307,7 @@ impl Element {
                     diag,
                     tr,
                 );
-                if let Some((_, se)) = sub_child_insertion_point {
+                if let Some((_, _, se)) = sub_child_insertion_point {
                     diag.push_error(
                         "The @children placeholder cannot appear in a repeated element".into(),
                         &se,
@@ -1324,7 +1324,7 @@ impl Element {
                     diag,
                     tr,
                 );
-                if let Some((_, se)) = sub_child_insertion_point {
+                if let Some((_, _, se)) = sub_child_insertion_point {
                     diag.push_error(
                         "The @children placeholder cannot appear in a conditional element".into(),
                         &se,
@@ -1338,19 +1338,19 @@ impl Element {
                         &se,
                     )
                 } else {
-                    children_placeholder = Some(se.clone().into());
+                    children_placeholder = Some((se.clone().into(), r.borrow().children.len()));
                 }
             }
         }
 
-        if let Some(children_placeholder) = children_placeholder {
+        if let Some((children_placeholder, index)) = children_placeholder {
             if component_child_insertion_point.is_some() {
                 diag.push_error(
                     "The @children placeholder can only appear once in an element hierarchy".into(),
                     &children_placeholder,
                 )
             } else {
-                *component_child_insertion_point = Some((r.clone(), children_placeholder));
+                *component_child_insertion_point = Some((r.clone(), index, children_placeholder));
             }
         }
 

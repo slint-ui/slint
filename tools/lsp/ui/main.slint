@@ -5,16 +5,17 @@
 
 import { Button, ComboBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
 import { ComponentList, ComponentListItem } from "component-list.slint";
-import { DrawArea, DrawAreaMode, LayoutKind, Selection } from "draw-area.slint";
+import { DrawArea, DrawAreaMode, DropMark, LayoutKind, Selection } from "draw-area.slint";
 import { HeaderBar } from "header-bar.slint";
 import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
 
-export { Diagnostics, LayoutKind }
+export { Diagnostics, DropMark, LayoutKind }
 
 export component PreviewUi inherits Window {
     in property <[ComponentListItem]> known-components;
     in property <[Diagnostics]> diagnostics;
     in property <[Selection]> selections;
+    in-out property <DropMark> drop-mark;
     in property <[string]> known-styles;
     in property <bool> experimental: false;
     in property <bool> show-preview-ui: true;
@@ -23,7 +24,7 @@ export component PreviewUi inherits Window {
     in-out property <string> current-style;
     out property <bool> design-mode;
 
-    pure callback can-drop(/* component_type */ string, /* x */ length, /* y */ length) -> bool;
+    pure callback can-drop(/* component_type */ string, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
     callback drop(/* component_type */ string, /* x */ length, /* y */ length);
     callback selected-element-update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
     callback selected-element-delete();
@@ -103,8 +104,8 @@ export component PreviewUi inherits Window {
                                 preview-area-width: draw-area.preview-area-width;
                                 preview-area-height: draw-area.preview-area-height;
 
-                                can-drop(c, x, y) => {
-                                    return root.can-drop(c, x, y);
+                                can-drop(c, x, y, oda) => {
+                                    return root.can-drop(c, x, y, oda);
                                 }
                                 drop(c, x, y) => {
                                     root.drop(c, x, y);
@@ -127,6 +128,7 @@ export component PreviewUi inherits Window {
                         diagnostics <=> root.diagnostics;
                         preview-area <=> root.preview-area;
                         selections <=> root.selections;
+                        drop-mark <=> root.drop-mark;
 
                         select-at(x, y, enter_component) => {
                             root.select-at(x, y, enter_component);

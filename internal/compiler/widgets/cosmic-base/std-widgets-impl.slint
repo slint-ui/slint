@@ -24,7 +24,7 @@ export global StyleMetrics  {
     out property <color> textedit-text-color: CosmicPalette.foreground;
     out property <color> textedit-background-disabled: CosmicPalette.control-disabled;
     out property <color> textedit-text-color-disabled: CosmicPalette.text-disabled;
-    out property <bool> dark-color-scheme: CosmicPalette.dark-color-scheme;
+    out property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
 }
 
 export global Palette {
@@ -39,4 +39,5 @@ export global Palette {
     out property <brush> selection-background: CosmicPalette.selection-background;
     out property <brush> selection-foreground: CosmicPalette.selection-foreground;
     out property <brush> border: CosmicPalette.border;
+    in-out property <ColorScheme> color-scheme <=> CosmicPalette.color-scheme;
 }

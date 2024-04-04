@@ -36,6 +36,8 @@ export component BarChart {
     in property <float> max;
     in property <bool> active;
 
+    cache-rendering-hint: true;
+
     ChartPattern {
         count: model.length / 2;
     }

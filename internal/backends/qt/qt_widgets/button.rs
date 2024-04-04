@@ -95,6 +95,7 @@ mod standard_button {
 use i_slint_core::{
     input::{FocusEventResult, KeyEventType},
     items::StandardButtonKind,
+    platform::PointerEventButton,
 };
 use standard_button::*;
 
@@ -260,7 +261,7 @@ impl Item for NativeButton {
         let was_pressed = self.pressed();
 
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
-            MouseEvent::Pressed { .. } => true,
+            MouseEvent::Pressed { button, .. } => button == PointerEventButton::Left,
             MouseEvent::Exit | MouseEvent::Released { .. } => false,
             MouseEvent::Moved { .. } => {
                 return if was_pressed {

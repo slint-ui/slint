@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-13 03:04+0000\n"
+"POT-Creation-Date: 2024-04-04 03:04+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: French (https://app.transifex.com/slint/teams/170022/fr/)\n"
@@ -20,114 +20,6 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % "
 "1000000 == 0 ? 1 : 2;\n"
 "X-Generator: Lokalize 22.12.3\n"
-
-#: ui/pages/easings_page.slint:55
-msgctxt "EasingsPage"
-msgid "Easings"
-msgstr ""
-
-#: ui/pages/easings_page.slint:56
-msgctxt "EasingsPage"
-msgid "Easing demos"
-msgstr ""
-
-#: ui/pages/easings_page.slint:66
-msgctxt "EasingsPage"
-msgid "Animate All"
-msgstr ""
-
-#: ui/pages/easings_page.slint:102
-msgctxt "EasingsPage"
-msgid "Duration:"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:9 ui/pages/list_view_page.slint:16
-msgctxt "ListViewPage"
-msgid "ListView"
-msgstr "ListView"
-
-#: ui/pages/list_view_page.slint:11
-msgctxt "ListViewPage"
-msgid ""
-"ListViews can be used to display a list of elements. The StandardListBox is "
-"like the default ListView just with a default text based definition of the "
-"visual items. Both can be imported from \"std-widgets.slint\""
-msgstr ""
-"Les ListView peuvent être utilisées pour montrer une liste d'élémment.  "
-"StandardListBx est comme une ListView par dafaut mes basé sur une définition "
-"des items visuels"
-
-#: ui/pages/list_view_page.slint:26
-msgctxt "ListViewPage"
-msgid "Item {}"
-msgstr "Élement {}"
-
-#: ui/pages/list_view_page.slint:33
-#, fuzzy
-msgctxt "ListViewPage"
-msgid "StandardListView"
-msgstr "StandardTableView"
-
-#: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
-#: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
-#: ui/pages/list_view_page.slint:42 ui/pages/list_view_page.slint:43
-#: ui/pages/list_view_page.slint:44
-msgctxt "ListViewPage"
-msgid "Lorem"
-msgstr "Lorem"
-
-#: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
-#: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
-#: ui/pages/list_view_page.slint:42 ui/pages/list_view_page.slint:43
-#: ui/pages/list_view_page.slint:44
-msgctxt "ListViewPage"
-msgid "ipsum"
-msgstr "ipsum"
-
-#: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
-#: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
-#: ui/pages/list_view_page.slint:42 ui/pages/list_view_page.slint:43
-#: ui/pages/list_view_page.slint:44
-msgctxt "ListViewPage"
-msgid "dolor"
-msgstr "dolor"
-
-#: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
-#: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
-#: ui/pages/list_view_page.slint:42 ui/pages/list_view_page.slint:43
-#: ui/pages/list_view_page.slint:44
-msgctxt "ListViewPage"
-msgid "sit"
-msgstr "sit"
-
-#: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
-#: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
-#: ui/pages/list_view_page.slint:42 ui/pages/list_view_page.slint:43
-#: ui/pages/list_view_page.slint:44
-msgctxt "ListViewPage"
-msgid "amet"
-msgstr "amet"
-
-#: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
-#: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
-#: ui/pages/list_view_page.slint:42 ui/pages/list_view_page.slint:43
-#: ui/pages/list_view_page.slint:44
-msgctxt "ListViewPage"
-msgid "consetetur"
-msgstr "consetetur"
-
-#: ui/pages/about_page.slint:9
-#, fuzzy
-msgctxt "AboutPage"
-msgid "About"
-msgstr "À Propos"
-
-#: ui/pages/about_page.slint:11
-msgctxt "AboutPage"
-msgid ""
-"Are you curious now? Check out the docs and getting starteds from the Github "
-"repository and the website https://slint.dev and try it yourself."
-msgstr ""
 
 #: ui/pages/controls_page.slint:10
 msgctxt "ControlsPage"
@@ -335,13 +227,13 @@ msgid ""
 "widget can be imported from \"std-widgets.slint\"."
 msgstr "Silimaire à LineEdit mais utilisé pour entrer plusieurs ligne de texte"
 
-#: ui/pages/text_edit_page.slint:15
+#: ui/pages/text_edit_page.slint:14
 msgctxt "TextEditPage"
 msgid "Word-Wrap"
 msgstr "Retour à la ligne"
 
 #. min-width: 200px;
-#: ui/pages/text_edit_page.slint:19
+#: ui/pages/text_edit_page.slint:18
 msgctxt "TextEditPage"
 msgid ""
 "This is our TextEdit widget, which allows for editing text that spans over "
@@ -362,15 +254,128 @@ msgstr ""
 "\n"
 "Vous pouver entrer du texte ici et voir ce qui se passe"
 
-#: ui/pages/text_edit_page.slint:26
+#: ui/pages/text_edit_page.slint:25
 msgctxt "TextEditPage"
 msgid "No-Wrap"
 msgstr "Pas de retour à la ligne"
 
-#: ui/pages/page.slint:26
+#: ui/pages/easings_page.slint:55
+msgctxt "EasingsPage"
+msgid "Easings"
+msgstr ""
+
+#: ui/pages/easings_page.slint:56
+msgctxt "EasingsPage"
+msgid "Easing demos"
+msgstr ""
+
+#: ui/pages/easings_page.slint:66
+msgctxt "EasingsPage"
+msgid "Animate All"
+msgstr ""
+
+#: ui/pages/easings_page.slint:102
+msgctxt "EasingsPage"
+msgid "Duration:"
+msgstr ""
+
+#: ui/pages/about_page.slint:9
+#, fuzzy
+msgctxt "AboutPage"
+msgid "About"
+msgstr "À Propos"
+
+#: ui/pages/about_page.slint:11
+msgctxt "AboutPage"
+msgid ""
+"Are you curious now? Check out the docs and getting starteds from the Github "
+"repository and the website https://slint.dev and try it yourself."
+msgstr ""
+
+#: ui/pages/list_view_page.slint:9 ui/pages/list_view_page.slint:16
+msgctxt "ListViewPage"
+msgid "ListView"
+msgstr "ListView"
+
+#: ui/pages/list_view_page.slint:11
+msgctxt "ListViewPage"
+msgid ""
+"ListViews can be used to display a list of elements. The StandardListBox is "
+"like the default ListView just with a default text based definition of the "
+"visual items. Both can be imported from \"std-widgets.slint\""
+msgstr ""
+"Les ListView peuvent être utilisées pour montrer une liste d'élémment.  "
+"StandardListBx est comme une ListView par dafaut mes basé sur une définition "
+"des items visuels"
+
+#: ui/pages/list_view_page.slint:26
+msgctxt "ListViewPage"
+msgid "Item {}"
+msgstr "Élement {}"
+
+#: ui/pages/list_view_page.slint:33
+#, fuzzy
+msgctxt "ListViewPage"
+msgid "StandardListView"
+msgstr "StandardTableView"
+
+#: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
+#: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
+#: ui/pages/list_view_page.slint:42 ui/pages/list_view_page.slint:43
+#: ui/pages/list_view_page.slint:44
+msgctxt "ListViewPage"
+msgid "Lorem"
+msgstr "Lorem"
+
+#: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
+#: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
+#: ui/pages/list_view_page.slint:42 ui/pages/list_view_page.slint:43
+#: ui/pages/list_view_page.slint:44
+msgctxt "ListViewPage"
+msgid "ipsum"
+msgstr "ipsum"
+
+#: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
+#: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
+#: ui/pages/list_view_page.slint:42 ui/pages/list_view_page.slint:43
+#: ui/pages/list_view_page.slint:44
+msgctxt "ListViewPage"
+msgid "dolor"
+msgstr "dolor"
+
+#: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
+#: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
+#: ui/pages/list_view_page.slint:42 ui/pages/list_view_page.slint:43
+#: ui/pages/list_view_page.slint:44
+msgctxt "ListViewPage"
+msgid "sit"
+msgstr "sit"
+
+#: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
+#: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
+#: ui/pages/list_view_page.slint:42 ui/pages/list_view_page.slint:43
+#: ui/pages/list_view_page.slint:44
+msgctxt "ListViewPage"
+msgid "amet"
+msgstr "amet"
+
+#: ui/pages/list_view_page.slint:38 ui/pages/list_view_page.slint:39
+#: ui/pages/list_view_page.slint:40 ui/pages/list_view_page.slint:41
+#: ui/pages/list_view_page.slint:42 ui/pages/list_view_page.slint:43
+#: ui/pages/list_view_page.slint:44
+msgctxt "ListViewPage"
+msgid "consetetur"
+msgstr "consetetur"
+
+#: ui/pages/page.slint:24
 msgctxt "Page"
 msgid "Widgets enabled"
 msgstr "Widgets activés"
+
+#: ui/pages/page.slint:31
+msgctxt "Page"
+msgid "Dark Mode"
+msgstr ""
 
 #: gallery.slint:14 gallery.slint:19
 msgctxt "App"

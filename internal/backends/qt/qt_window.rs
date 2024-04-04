@@ -16,7 +16,7 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef};
 use i_slint_core::items::{
-    self, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
+    self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
     PointerEventButton, RenderingResult, TextOverflow, TextWrap,
 };
 use i_slint_core::layout::Orientation;
@@ -247,8 +247,12 @@ cpp! {{
             } else if (event->type() == QEvent::PaletteChange || event->type() == QEvent::StyleChange) {
                 bool dark_color_scheme = qApp->palette().color(QPalette::Window).valueF() < 0.5;
                 rust!(Slint_updateWindowDarkColorScheme [rust_window: &QtWindow as "void*", dark_color_scheme: bool as "bool"] {
-                    if let Some(ds) = rust_window.dark_color_scheme.get() {
-                        ds.as_ref().set(dark_color_scheme);
+                    if let Some(ds) = rust_window.color_scheme.get() {
+                        ds.as_ref().set(if dark_color_scheme {
+                            ColorScheme::Dark
+                        } else {
+                            ColorScheme::Light
+                        });
                     }
                 });
             }
@@ -1513,7 +1517,7 @@ pub struct QtWindow {
 
     tree_structure_changed: RefCell<bool>,
 
-    dark_color_scheme: OnceCell<Pin<Box<Property<bool>>>>,
+    color_scheme: OnceCell<Pin<Box<Property<ColorScheme>>>>,
 }
 
 impl Drop for QtWindow {
@@ -1547,7 +1551,7 @@ impl QtWindow {
                 rendering_metrics_collector: Default::default(),
                 cache: Default::default(),
                 tree_structure_changed: RefCell::new(false),
-                dark_color_scheme: Default::default(),
+                color_scheme: Default::default(),
             }
         });
         let widget_ptr = rc.widget_ptr();
@@ -2023,11 +2027,17 @@ impl WindowAdapterInternal for QtWindow {
         }
     }
 
-    fn dark_color_scheme(&self) -> bool {
-        let ds = self.dark_color_scheme.get_or_init(|| {
-            Box::pin(Property::new(cpp! {unsafe [] -> bool as "bool" {
-                return qApp->palette().color(QPalette::Window).valueF() < 0.5;
-            }}))
+    fn color_scheme(&self) -> ColorScheme {
+        let ds = self.color_scheme.get_or_init(|| {
+            Box::pin(Property::new(
+                if cpp! {unsafe [] -> bool as "bool" {
+                    return qApp->palette().color(QPalette::Window).valueF() < 0.5;
+                }} {
+                    ColorScheme::Dark
+                } else {
+                    ColorScheme::Light
+                },
+            ))
         });
         ds.as_ref().get()
     }
