@@ -89,15 +89,15 @@ jobs:
                   cargo doc -p i-slint-backend-android-activity -p i-slint-backend-winit --no-deps --target aarch64-linux-android --features=i-slint-backend-android-activity/native-activity,i-slint-backend-winit/renderer-femtovg
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_android_activity/ target/doc/
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_winit/ target/doc/
-            - name: "Rust Tutorial Docs"
+            - name: "Rust QuickStart"
               run: mdbook build
-              working-directory: docs/tutorial/rust
-            - name: "C++ Tutorial Docs"
+              working-directory: docs/quickstart/rust
+            - name: "C++ QuickStart"
               run: mdbook build
-              working-directory: docs/tutorial/cpp
-            - name: "NodeJS Tutorial Docs"
+              working-directory: docs/quickstart/cpp
+            - name: "NodeJS QuickStart"
               run: mdbook build
-              working-directory: docs/tutorial/node
+              working-directory: docs/quickstart/node
             - name: "Slint Language Documentation"
               run: cargo xtask slintdocs --show-warnings
             - name: "Node docs"
@@ -115,11 +115,11 @@ jobs:
                       target/slintdocs/html
                       api/node/docs
                       docs/site
-                      docs/tutorial/rust/book/html
-                      docs/tutorial/cpp/book/html
-                      docs/tutorial/node/book/html
+                      docs/quickstart/rust/book/html
+                      docs/quickstart/cpp/book/html
+                      docs/quickstart/node/book/html
             - name: "Check for docs warnings in internal crates"
               run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp
             - name: Clean cache # Don't cache docs to avoid them including removed classes being published
               run: |
-                  rm -rf target/doc target/cppdocs target/slintdocs api/node/docs docs/tutorial/rust/book docs/tutorial/cpp/book docs/tutorial/node/book
+                  rm -rf target/doc target/cppdocs target/slintdocs api/node/docs docs/quickstart/rust/book docs/quickstart/cpp/book docs/quickstart/node/book

@@ -10,7 +10,7 @@ members = [
     'api/rs/slint',
     'api/python',
     'api/wasm-interpreter',
-    'docs/tutorial/rust/src',
+    'docs/quickstart/rust/src',
     'examples/7guis',
     'examples/gallery',
     'examples/imagefilter/rust',

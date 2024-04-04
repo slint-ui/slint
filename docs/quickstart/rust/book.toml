@@ -3,7 +3,7 @@ authors = ["Slint Developers <info@slint.dev>"]
 language = "en"
 multilingual = false
 src = "src"
-title = "Slint Memory Game Tutorial (C++)"
+title = "Slint Memory Game QuickStart (Rust)"
 
 [output.html]
 theme = "../theme"

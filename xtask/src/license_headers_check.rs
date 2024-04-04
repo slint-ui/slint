@@ -432,7 +432,7 @@ lazy_static! {
         ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
         ("^api/cpp/docs/_static/", LicenseLocation::NoLicense),
         ("^api/cpp/docs/_templates/", LicenseLocation::NoLicense),
-        ("^docs/tutorial/theme/", LicenseLocation::NoLicense),
+        ("^docs/quickstart/theme/", LicenseLocation::NoLicense),
         ("^editors/tree-sitter-slint/queries/", LicenseLocation::NoLicense), // liberal license
 
         // directory based matches
