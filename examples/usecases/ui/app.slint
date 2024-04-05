@@ -14,12 +14,16 @@ export component App inherits Window {
     preferred-height: 1280px;
     title: "Slint usecases";
 
-    MainView {
+    main-view := MainView {
         width: 100%;
         height: 100%;
     }
 
     VirtualKeyboard {
         y: TextInputInterface.text-input-focused ? parent.height - self.height : parent.height;
+
+        close => {
+            main-view.focus();
+        }
     }
 }

@@ -9,6 +9,9 @@ import { DashboardView } from "dashboard_view.slint";
 export global MainViewAdapter { }
 
 export component MainView {
+    forward-focus: focus-scope;
+    focus-scope := FocusScope {}
+
     VerticalLayout {
         HeaderView {}
 

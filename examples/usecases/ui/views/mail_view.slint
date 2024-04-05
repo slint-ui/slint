@@ -225,6 +225,11 @@ export component MailMessageView {
         }
 
         VerticalBox {
+            TextEdit {
+                max-height: 94px;
+                wrap: word-wrap;
+            }
+
             ScrollView {
                 Text {
                     y: 0;
@@ -236,11 +241,6 @@ export component MailMessageView {
                     text: MailMessageViewAdapter.message;
                     wrap: word-wrap;
                 }
-            }
-
-            TextEdit {
-                max-height: 64px;
-                wrap: word-wrap;
             }
 
             HorizontalLayout {
@@ -274,6 +274,5 @@ export component MailView {
             MailBoxView { }
             MailMessageView {}
         }
-
     }
 }
