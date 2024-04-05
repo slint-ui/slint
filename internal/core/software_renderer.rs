@@ -26,7 +26,7 @@ use crate::lengths::{
 use crate::renderer::{Renderer, RendererSealed};
 use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
-use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
+use crate::{debug_log, Brush, Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
@@ -701,10 +701,14 @@ fn render_window_frame_by_line(
     mut line_buffer: impl LineBufferProvider,
 ) -> PhysicalRegion {
     let rotation = RotationInfo { orientation: renderer.rotation.get(), screen_size: size };
+
+    debug_log!("{:?} PREPARE_SCENE ------------------------", crate::animations::Instant::now());
     let mut scene = prepare_scene(window, size, renderer);
 
     let dirty_region = scene.dirty_region;
     let to_draw_tr = dirty_region.transformed(rotation);
+
+    debug_log!("{:?} STARTING RENDERING {}", crate::animations::Instant::now(), scene.items.len());
 
     scene.current_line = to_draw_tr.origin.y_length();
 
@@ -795,6 +799,7 @@ fn render_window_frame_by_line(
             scene.next_line();
         }
     }
+    debug_log!("{:?} DONE RENDERING {to_draw_tr:?}", crate::animations::Instant::now());
     PhysicalRegion(to_draw_tr)
 }
 
@@ -1178,6 +1183,8 @@ fn prepare_scene(
                     .cast();
 
         dirty_region = software_renderer.apply_dirty_region(dirty_region, size);
+
+        debug_log!("{:?} COMPUTED DIRTY REGION {dirty_region:?}", crate::animations::Instant::now());
 
         renderer.combine_clip(
             (dirty_region.cast() / factor).cast(),
