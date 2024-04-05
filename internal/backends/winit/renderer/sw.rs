@@ -154,6 +154,9 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                     }
                 }
             }
+            for x in &mut *target_buffer {
+                *x /= 2;
+            }
             self.renderer.render_by_line(FrameBuffer {
                 buffer: &mut target_buffer,
                 line: vec![Default::default(); width.get() as usize],
@@ -165,7 +168,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         let size = region.bounding_box_size();
         if let Some((w, h)) = Option::zip(NonZeroU32::new(size.width), NonZeroU32::new(size.height))
         {
-            let pos = region.bounding_box_origin();
+            /*let pos = region.bounding_box_origin();
             target_buffer
                 .present_with_damage(&[softbuffer::Rect {
                     width: w,
@@ -173,7 +176,8 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                     x: pos.x as u32,
                     y: pos.y as u32,
                 }])
-                .map_err(|e| format!("Error presenting softbuffer buffer: {e}"))?;
+                .map_err(|e| format!("Error presenting softbuffer buffer: {e}"))?;*/
+            target_buffer.present().map_err(|e| format!("Error presenting softbuffer buffer: {e}"))?;
         }
         Ok(())
     }
