@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { ScrollView, GroupBox, Palette, VerticalBox } from "std-widgets.slint";
-import { TitleText, Tile, BarTileModel, BarTiles } from "../widgets.slint";
+import { TitleText, Tile, BarTileModel, BarTiles, BarChart, Value, ValueDisplay } from "../widgets.slint";
 import { Icons } from "../assets.slint";
 
 export global WeatherViewAdapter {
@@ -41,6 +41,41 @@ export global WeatherViewAdapter {
     ];
 }
 
+export global UsageViewAdapter {
+    in property <string> title: "Usage";
+    in property <[Value]> overview-model: [
+        {
+            value: 16.41,
+            title: "Daily",
+            unit: "kWh",
+        },
+        {
+            value: 15.23,
+            title: "Weekly",
+            unit: "kWh",
+        }
+    ];
+    in property <[float]> model: [
+        10.0,
+        9.0,
+        11.0,
+        12.0,
+        8.0,
+        14.0,
+        9.0,
+        16.0,
+        18.0,
+        12.0,
+        11.0,
+        14.0,
+        12.0,
+        16.0
+    ];
+    in property <float> min: 0.0;
+    in property <float> max: 24.0;
+}
+
+
 
 export global DashboardViewAdapter {
 
@@ -51,7 +86,10 @@ export component DashboardView {
         width: 100%;
         height: 100%;
 
-        VerticalBox {
+        VerticalLayout {
+            padding: 4px;
+            spacing: 4px;
+
             TitleText {
                 horizontal-alignment: left;
                 text: "Dashboard";
@@ -81,7 +119,27 @@ export component DashboardView {
             GroupBox {
                 title: "Usage";
 
-                Rectangle {}
+                Rectangle {
+                    BarChart {
+                        preferred-width: 100%;
+                        preferred-height: 100%;
+                        model: UsageViewAdapter.model;
+                        min: UsageViewAdapter.min;
+                        max: UsageViewAdapter.max;
+                        active: true;
+                    }
+
+                    VerticalLayout {
+                        alignment: start;
+
+                        ValueDisplay {
+                            model: UsageViewAdapter.overview-model;
+                            transparent-background: true;
+                            alternative-colors: true;
+                            active: true;
+                        }
+                    }
+                }
             }
         }
     }

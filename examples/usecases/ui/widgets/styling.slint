@@ -11,6 +11,7 @@ export global CosmicPalette {
     out property <brush> placeholder-foreground: Palette.color-scheme == ColorScheme.dark ? #959595 : #585858;
     out property <brush> state-hover: #63636333;
     out property <brush> state-pressed: Palette.color-scheme == ColorScheme.dark ? #16161680 : #BEBEBE80;
+    out property <brush> bar-gradient: Palette.color-scheme == ColorScheme.dark ? @linear-gradient(180deg, #63D0DF 0%, #00525A 100%) : @linear-gradient(180deg, #00525A 0%, #63D0DF 100%);
 }
 
 export struct TextStyle {
