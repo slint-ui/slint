@@ -252,6 +252,11 @@ impl Platform for CppPlatform {
         let status = unsafe { (self.clipboard_text)(self.user_data, &mut out_text, clipboard) };
         status.then(|| out_text.into())
     }
+
+    #[cfg(feature = "esp-println")]
+    fn debug_log(&self, arguments: core::fmt::Arguments) {
+        esp_println::println!("{}", arguments);
+    }
 }
 
 struct CppEventLoopProxy {
