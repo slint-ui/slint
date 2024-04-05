@@ -10,4 +10,4 @@ endif()
 
 add_executable(usecases main.cpp)
 target_link_libraries(usecases PRIVATE Slint::Slint)
-slint_target_sources(usecases ../ui/app.slint NAMESPACE usecases_ui)
+slint_target_sources(usecases ../ui/app.slint)
