@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 #include "app.h"
+#include <cctype>
+#include <string_view>
+#include <iostream>
 
 void init_virtual_keyboard(slint::ComponentHandle<App> app)
 {
@@ -9,6 +12,12 @@ void init_virtual_keyboard(slint::ComponentHandle<App> app)
         app->window().dispatch_key_press_event(key);
         app->window().dispatch_key_release_event(key);
     });
+}
+
+std::string toLower(std::string s)
+{
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return std::tolower(c); });
+    return s;
 }
 
 int main()
@@ -66,13 +75,12 @@ int main()
             [mails, app = slint::ComponentWeakHandle(app)](const slint::SharedString &text) {
                 auto app_lock = app.lock();
 
-                std::string text_str(text.data());
+                std::string text_str = toLower(std::string(text.data()));
 
                 (*app_lock)->global<MailBoxViewAdapter>().set_mails(
                         std::make_shared<slint::FilterModel<CardListViewItem>>(
-                                mails,
-                                [text_str](auto e) {
-                                    std::string title_str(e.title.data());
+                                mails, [text_str](auto e) {
+                                    std::string title_str = toLower(std::string(e.title.data()));
                                     return title_str.find(text_str) != std::string::npos;
                                 }));
             });
