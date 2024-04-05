@@ -83,6 +83,8 @@ export component MailSideBarView {
 }
 
 export global MailBoxViewAdapter {
+    callback search-text-changed(/* search-text */ string);
+
     in property <string> title: MailSideBarViewAdapter.current-title();
     in property <[CardListViewItem]> mails: [
         {
@@ -135,6 +137,7 @@ export component MailBoxView {
         TitleText {
             text: MailBoxViewAdapter.title;
             min-height: 32px;
+
         }
 
         Container {
@@ -149,6 +152,10 @@ export component MailBoxView {
 
                     Icon {
                         source: Icons.search;
+                    }
+
+                    edited => {
+                        MailBoxViewAdapter.search-text-changed(self.text);
                     }
                 }
 
@@ -225,7 +232,7 @@ export component MailMessageView {
         }
 
         VerticalBox {
-            TextEdit {
+            text-edit := TextEdit {
                 max-height: 94px;
                 wrap: word-wrap;
             }
@@ -252,6 +259,7 @@ export component MailMessageView {
                 Button {
                     text: "Send";
                     primary: true;
+                    enabled: text-edit.text != "";
 
                     clicked => {
                         MailMessageViewAdapter.send();

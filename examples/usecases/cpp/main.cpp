@@ -62,5 +62,9 @@ int main()
 
     app->global<MailBoxViewAdapter>().set_mails(mails);
 
+    app->global<MailBoxViewAdapter>().on_search_text_changed([mails](const slint::SharedString &text) {
+    //    mails->clear();
+    });
+
     app->run();
 }
