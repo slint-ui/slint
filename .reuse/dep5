@@ -88,6 +88,10 @@ Files: examples/*/esp-idf/*/partitions.csv examples/*/esp-idf/partitions.csv
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
+Files: examples/usecases/assets/*.svg
+Copyright: "Cosmic Icons" by System76 <https://github.com/pop-os/cosmic-icons>
+License: CC-BY-SA-4.0
+
 Files: internal/compiler/widgets/fluent-base/_*.svg
 Copyright: Copyright © Microsoft Corporation <https://github.com/microsoft/fluentui-system-icons/blob/main/LICENSE>
 License: MIT

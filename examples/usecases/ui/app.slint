@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { MainView, MainViewAdapter, MailViewAdapter, MailBoxViewAdapter, DashboardViewAdapter } from "views.slint";
+export { MainViewAdapter, MailViewAdapter, MailBoxViewAdapter, DashboardViewAdapter }
+
+import { CardListViewItem } from "widgets.slint";
+export { CardListViewItem }
+
+import { VirtualKeyboardHandler, VirtualKeyboard } from "../../virtual_keyboard/ui/virtual_keyboard.slint";
+
+
+export { VirtualKeyboardHandler }
+
+
+export component App inherits Window {
+    preferred-width: 800px;
+    preferred-height: 1280px;
+    title: "Slint usecases";
+
+    main-view := MainView {
+        width: 100%;
+        height: 100%;
+    }
+
+    VirtualKeyboard {
+        y: TextInputInterface.text-input-focused ? parent.height - self.height : parent.height;
+
+        close => {
+            main-view.focus();
+        }
+    }
+}
