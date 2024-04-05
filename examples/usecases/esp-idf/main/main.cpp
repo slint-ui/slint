@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+#include "../../cpp/main.cpp"
+
 #include "slint-esp.h"
-#include "app.h"
 #include <ctime>
 #include <memory>
 #include "esp_log.h"
@@ -19,13 +20,7 @@
 #undef BSP_LCD_V_RES
 #define BSP_LCD_V_RES 1280
 
-void init_virtual_keyboard(slint::ComponentHandle<App> app)
-{
-    app->global<VirtualKeyboardHandler>().on_key_pressed([=](auto key) {
-        app->window().dispatch_key_press_event(key);
-        app->window().dispatch_key_release_event(key);
-    });
-}
+
 
 extern "C" void app_main(void)
 {
@@ -51,8 +46,5 @@ extern "C" void app_main(void)
     slint_esp_init(slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }), panel_handle,
                    touch_handle);
 
-    auto app = App::create();
-    init_virtual_keyboard(app);
-
-    app->run();
+    main();
 }
