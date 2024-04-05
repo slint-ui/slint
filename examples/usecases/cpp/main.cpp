@@ -62,9 +62,20 @@ int main()
 
     app->global<MailBoxViewAdapter>().set_mails(mails);
 
-    app->global<MailBoxViewAdapter>().on_search_text_changed([mails](const slint::SharedString &text) {
-    //    mails->clear();
-    });
+    app->global<MailBoxViewAdapter>().on_search_text_changed(
+            [mails, app = slint::ComponentWeakHandle(app)](const slint::SharedString &text) {
+                auto app_lock = app.lock();
+
+                std::string text_str(text.data());
+
+                (*app_lock)->global<MailBoxViewAdapter>().set_mails(
+                        std::make_shared<slint::FilterModel<CardListViewItem>>(
+                                mails,
+                                [text_str](auto e) {
+                                    std::string title_str(e.title.data());
+                                    return title_str.find(text_str) != std::string::npos;
+                                }));
+            });
 
     app->run();
 }
