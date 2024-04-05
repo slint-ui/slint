@@ -19,6 +19,8 @@ export component HeaderView {
 
         Switch {
             text: "Dark Mode";
+            checked: Palette.color-scheme == ColorScheme.dark;
+
             toggled => {
                 Palette.color-scheme = self.checked ? ColorScheme.dark : ColorScheme.light;
             }
