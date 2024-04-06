@@ -846,7 +846,7 @@ mod space_partition {
     use crate::lengths::{LogicalPoint, LogicalPx, LogicalRect, LogicalSize};
     use crate::Coord;
     #[cfg(not(feature = "std"))]
-    use alloc::{vec, vec::Vec};
+    use alloc::boxed::Box;
 
     type Box2D = euclid::Box2D<Coord, LogicalPx>;
 
@@ -878,7 +878,7 @@ mod space_partition {
         }
     }
 
-    #[derive(Debug, Copy, Clone)]
+    #[derive(Debug)]
     pub enum Node {
         Leaf {
             opacity: Option<usize>,
@@ -887,24 +887,22 @@ mod space_partition {
         Division {
             horizontal: bool,
             split: Coord,
-            left: usize,
-            right: usize,
+            left: Box<Node>,
+            right: Box<Node>,
             has_dirty: TriState,
             has_opaque: TriState,
         },
-        FreeSlot(Option<usize>),
     }
 
     #[derive(Debug)]
     pub struct SpacePartition {
-        nodes: Vec<Node>,
-        next_free: Option<usize>,
+        root: Node,
         size: LogicalSize,
     }
 
     impl SpacePartition {
         pub fn new(size: LogicalSize) -> Self {
-            Self { nodes: vec![Node::Leaf { opacity: None, dirty: false }], next_free: None, size }
+            Self { root: Node::Leaf { opacity: None, dirty: false }, size }
         }
 
         pub fn add_region(&mut self, region: Box2D, dirty: bool, opacity_index: Option<usize>) {
@@ -918,13 +916,12 @@ mod space_partition {
                 return;
             }
 
-            self.add_region_impl(0, node_geometry, region, dirty, opacity_index);
+            Self::add_region_impl(&mut self.root, node_geometry, region, dirty, opacity_index);
         }
 
         /// returns Some(has_dirty, has_opaque) if changed
         fn add_region_impl(
-            &mut self,
-            node: usize,
+            node: &mut Node,
             node_geometry: Box2D,
             b: Box2D,
             is_dirty: bool,
@@ -934,37 +931,36 @@ mod space_partition {
             if intersection.is_empty() {
                 return None;
             };
-            match self.nodes[node] {
-                Node::FreeSlot(..) => unreachable!(),
+            match node {
                 Node::Leaf { opacity, dirty } => {
                     if opacity.is_some() {
                         // We are already covered by another node, we don't care
                         return None;
                     }
-                    if (dirty || !is_dirty) && opacity_index.is_none() {
+                    if (*dirty || !is_dirty) && opacity_index.is_none() {
                         // Already marked dirty and no opacity, nothing to add
                         return None;
                     }
 
                     if b.contains_box(&node_geometry) {
                         // The node is entirely contained, no need to split
-                        self.nodes[node] =
-                            Node::Leaf { opacity: opacity_index, dirty: dirty | is_dirty };
-                        Some(((dirty | is_dirty).into(), opacity_index.is_some().into()))
+                        *dirty |= is_dirty;
+                        *opacity = opacity_index;
+                        Some(((*dirty).into(), opacity.is_some().into()))
                     } else {
                         // We need to split further
-                        let old_leaf = Node::Leaf { opacity, dirty };
-                        let has_dirty = TriState::from(dirty) | TriState::from(is_dirty);
+                        let old_leaf = || Box::new(Node::Leaf { opacity: *opacity, dirty: *dirty });
+                        let has_dirty = TriState::from(*dirty) | TriState::from(is_dirty);
                         let has_opaque =
                             if opacity_index.is_some() { TriState::Some } else { TriState::None };
                         let mut new_node =
-                            Node::Leaf { opacity: opacity_index, dirty: dirty | is_dirty };
+                            Node::Leaf { opacity: opacity_index, dirty: *dirty | is_dirty };
                         if b.min.x > node_geometry.min.x {
                             new_node = Node::Division {
                                 horizontal: true,
                                 split: b.min.x,
-                                left: self.alloc_node(old_leaf),
-                                right: self.alloc_node(new_node),
+                                left: old_leaf(),
+                                right: new_node.into(),
                                 has_dirty,
                                 has_opaque,
                             };
@@ -973,8 +969,8 @@ mod space_partition {
                             new_node = Node::Division {
                                 horizontal: true,
                                 split: b.max.x,
-                                left: self.alloc_node(new_node),
-                                right: self.alloc_node(old_leaf),
+                                left: new_node.into(),
+                                right: old_leaf(),
                                 has_dirty,
                                 has_opaque,
                             };
@@ -983,8 +979,8 @@ mod space_partition {
                             new_node = Node::Division {
                                 horizontal: false,
                                 split: b.min.y,
-                                left: self.alloc_node(old_leaf),
-                                right: self.alloc_node(new_node),
+                                left: old_leaf(),
+                                right: new_node.into(),
                                 has_dirty,
                                 has_opaque,
                             };
@@ -993,88 +989,74 @@ mod space_partition {
                             new_node = Node::Division {
                                 horizontal: false,
                                 split: b.max.y,
-                                left: self.alloc_node(new_node),
-                                right: self.alloc_node(old_leaf),
+                                left: new_node.into(),
+                                right: old_leaf(),
                                 has_dirty,
                                 has_opaque,
                             };
                         }
-                        self.nodes[node] = new_node;
+                        *node = new_node;
                         Some((has_dirty, has_opaque))
                     }
                 }
-                Node::Division {
-                    horizontal,
-                    split,
-                    left,
-                    right,
-                    mut has_dirty,
-                    mut has_opaque,
-                } => {
-                    #[cfg(debug_assertions)]
-                    compile_error!("ddd");
-                    if horizontal {
-                        debug_assert!(split < node_geometry.max.x, "{split} in {node_geometry:?}");
-                        debug_assert!(split > node_geometry.min.x, "{split} in {node_geometry:?}");
+                Node::Division { horizontal, split, left, right, has_dirty, has_opaque } => {
+                    if *horizontal {
+                        debug_assert!(*split < node_geometry.max.x, "{split} in {node_geometry:?}");
+                        debug_assert!(*split > node_geometry.min.x, "{split} in {node_geometry:?}");
                     } else {
-                        debug_assert!(split < node_geometry.max.y, "{split} in {node_geometry:?}");
-                        debug_assert!(split > node_geometry.min.y, "{split} in {node_geometry:?}");
+                        debug_assert!(*split < node_geometry.max.y, "{split} in {node_geometry:?}");
+                        debug_assert!(*split > node_geometry.min.y, "{split} in {node_geometry:?}");
                     }
-                    if has_opaque == TriState::All {
+                    if *has_opaque == TriState::All {
                         return None;
                     }
-                    if (has_dirty == TriState::All || !is_dirty) && opacity_index.is_none() {
+                    if (*has_dirty == TriState::All || !is_dirty) && opacity_index.is_none() {
                         // Already marked dirty and no opacity, nothing to add
                         return None;
                     }
                     if b.contains_box(&node_geometry) {
                         // in these case, we can replace the node.
-                        if is_dirty && has_opaque == TriState::None {
-                            self.nodes[node] = Node::Leaf { opacity: opacity_index, dirty: true };
-                            self.free_node(left);
-                            self.free_node(right);
+                        if is_dirty && *has_opaque == TriState::None {
+                            *node = Node::Leaf { opacity: opacity_index, dirty: true };
                             return Some((TriState::All, opacity_index.is_some().into()));
                         }
                     }
 
                     let set_coord = |point: &mut LogicalPoint, val| {
-                        if horizontal {
+                        if *horizontal {
                             point.x = val
                         } else {
                             point.y = val
                         }
                     };
                     let mut sub = node_geometry;
-                    set_coord(&mut sub.max, split);
-                    if let (Some(r)) = self.add_region_impl(left, sub, b, is_dirty, opacity_index) {
-                        has_dirty = has_dirty | r.0;
-                        has_opaque = has_opaque | r.1;
+                    set_coord(&mut sub.max, *split);
+                    if let (Some(r)) =
+                        Self::add_region_impl(&mut *left, sub, b, is_dirty, opacity_index)
+                    {
+                        *has_dirty = *has_dirty | r.0;
+                        *has_opaque = *has_opaque | r.1;
                     }
                     let mut sub = node_geometry;
-                    set_coord(&mut sub.min, split);
-                    if let Some(r) = self.add_region_impl(right, sub, b, is_dirty, opacity_index) {
-                        has_dirty = has_dirty | r.0;
-                        has_opaque = has_opaque | r.1;
+                    set_coord(&mut sub.min, *split);
+                    if let Some(r) =
+                        Self::add_region_impl(&mut *right, sub, b, is_dirty, opacity_index)
+                    {
+                        *has_dirty = *has_dirty | r.0;
+                        *has_opaque = *has_opaque | r.1;
                     }
-                    let Node::Division { has_dirty: d, has_opaque: o, .. } = &mut self.nodes[node]
-                    else {
-                        unreachable!()
-                    };
-                    *d = has_dirty;
-                    *o = has_opaque;
-                    Some((has_dirty, has_opaque))
+                    Some((*has_dirty, *has_opaque))
                 }
             }
         }
 
         /// return true if part of the region should be drawn
         pub fn draw_intersects(&self, region: Box2D, z_index: usize) -> bool {
-            self.draw_intersects_impl(0, Box2D::from_size(self.size), region, z_index)
+            Self::draw_intersects_impl(&self.root, Box2D::from_size(self.size), region, z_index)
         }
 
         fn draw_intersects_impl(
-            &self,
-            node: usize,
+            node: &Node,
             node_geometry: Box2D,
             b: Box2D,
             z_index: usize,
@@ -1083,7 +1065,7 @@ mod space_partition {
             if intersection.is_empty() {
                 return false;
             };
-            match &self.nodes[node] {
+            match node {
                 Node::Leaf { opacity, dirty } => {
                     if !dirty {
                         return false;
@@ -1113,26 +1095,25 @@ mod space_partition {
                     ({
                         let mut sub = node_geometry;
                         set_coord(&mut sub.max, *split);
-                        self.draw_intersects_impl(*left, sub, b, z_index)
+                        Self::draw_intersects_impl(&left, sub, b, z_index)
                     } || {
                         let mut sub = node_geometry;
                         set_coord(&mut sub.min, *split);
-                        self.draw_intersects_impl(*right, sub, b, z_index)
+                        Self::draw_intersects_impl(&right, sub, b, z_index)
                     })
                 }
-                Node::FreeSlot(..) => unreachable!(),
             }
         }
 
         pub fn bounding_box(&self) -> Box2D {
-            self.bounding_box_impl(0, Box2D::from_size(self.size))
+            Self::bounding_box_impl(&self.root, Box2D::from_size(self.size))
         }
 
-        fn bounding_box_impl(&self, node: usize, node_geometry: Box2D) -> Box2D {
+        fn bounding_box_impl(node: &Node, node_geometry: Box2D) -> Box2D {
             if node_geometry.is_empty() {
                 return node_geometry;
             };
-            match &self.nodes[node] {
+            match node {
                 Node::Leaf { dirty, .. } if *dirty => node_geometry,
                 Node::Leaf { dirty, .. } => Box2D::zero(),
                 Node::Division { has_dirty: TriState::None, .. } => Box2D::zero(),
@@ -1156,55 +1137,28 @@ mod space_partition {
 
                     let mut sub = node_geometry;
                     set_coord(&mut sub.max, *split);
-                    let a = self.bounding_box_impl(*left, sub);
+                    let a = Self::bounding_box_impl(&left, sub);
 
                     let mut sub = node_geometry;
                     set_coord(&mut sub.min, *split);
-                    let b = self.bounding_box_impl(*right, sub);
+                    let b = Self::bounding_box_impl(&right, sub);
                     a.union(&b)
                 }
-                Node::FreeSlot(..) => unreachable!(),
             }
         }
 
         pub fn debug(&self) -> impl core::fmt::Debug {
-            self.debug_impl(0)
+            Self::debug_impl(&self.root)
         }
 
-        fn debug_impl(&self, node: usize) -> (usize, usize) {
-            match &self.nodes[node] {
+        fn debug_impl(node: &Node) -> (usize, usize) {
+            match node {
                 Node::Leaf { opacity, dirty } => (1, 1),
                 Node::Division { left, right, .. } => {
-                    let a = self.debug_impl(*left);
-                    let b = self.debug_impl(*right);
+                    let a = Self::debug_impl(&left);
+                    let b = Self::debug_impl(&right);
                     (a.0.max(b.0) + 1, a.1 + b.1)
                 }
-                Node::FreeSlot(..) => unreachable!(),
-            }
-        }
-
-        fn alloc_node(&mut self, node: Node) -> usize {
-            if let Some(index) = self.next_free.take() {
-                let Node::FreeSlot(next_free) = core::mem::replace(&mut self.nodes[index], node)
-                else {
-                    unreachable!()
-                };
-                self.next_free = next_free;
-                index
-            } else {
-                self.nodes.push(node);
-                self.nodes.len() - 1
-            }
-        }
-
-        fn free_node(&mut self, index: usize) {
-            let old = core::mem::replace(
-                &mut self.nodes[index],
-                Node::FreeSlot(self.next_free.replace(index)),
-            );
-            if let Node::Division { left, right, .. } = old {
-                self.free_node(left);
-                self.free_node(right);
             }
         }
     }
