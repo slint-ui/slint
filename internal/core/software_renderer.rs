@@ -351,7 +351,8 @@ impl SoftwareRenderer {
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
     /// in the window frame of reference. It affected by the screen rotation.
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
-        let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
+        todo!("Port to the new dirty region thing")
+        /*let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
         else {
             return Default::default();
         };
@@ -390,19 +391,23 @@ impl SoftwareRenderer {
             RenderToBuffer { buffer, stride: pixel_stride },
             rotation,
         );
+
+        let logical_size = (size.cast() / factor).cast();
         let mut renderer = crate::item_rendering::PartialRenderer::new(
             &self.partial_cache,
             self.force_dirty.take(),
             buffer_renderer,
+            logical_size,
         );
 
         window_inner
             .draw_contents(|components| {
                 for (component, origin) in components {
-                    renderer.compute_dirty_regions(component, *origin);
+                    renderer.compute_dirty_regions(component, *origin, logical_size);
                 }
 
-                let dirty_region = (renderer.dirty_region.to_rect().cast() * factor)
+                let dirty_region = (renderer.space_partition.bounding_box().cast() * factor)
+                    .to_rect()
                     .round_out()
                     .intersection(&euclid::rect(0., 0., i16::MAX as f32, i16::MAX as f32))
                     .unwrap_or_default()
@@ -444,7 +449,7 @@ impl SoftwareRenderer {
 
                 PhysicalRegion(to_draw_tr)
             })
-            .unwrap_or_default()
+            .unwrap_or_default()*/
     }
 
     /// Render the window, line by line, into the line buffer provided by the [`LineBufferProvider`].
@@ -1164,27 +1169,26 @@ fn prepare_scene(
         PrepareScene::default(),
         software_renderer.rotation.get(),
     );
+    let logical_size = (size.cast() / factor).cast();
     let mut renderer = crate::item_rendering::PartialRenderer::new(
         &software_renderer.partial_cache,
         software_renderer.force_dirty.take(),
         prepare_scene,
+        logical_size,
     );
 
     let mut dirty_region = PhysicalRect::default();
     window.draw_contents(|components| {
-        for (component, origin) in components {
-            renderer.compute_dirty_regions(component, *origin);
+        for (component, origin) in components.iter().rev() {
+            renderer.compute_dirty_regions(component, *origin, logical_size);
         }
 
-        dirty_region = (renderer.dirty_region.to_rect().cast() * factor)
-                    .round_out()
-                    .intersection(&euclid::rect(0., 0., i16::MAX as f32, i16::MAX as f32))
-                    .unwrap_or_default()
-                    .cast();
+        dirty_region = (renderer.space_partition.bounding_box().to_rect().cast() * factor).cast();
+        // TODO FIXME! Support other type than  RepaintBufferType::ReusedBuffer
+        // dirty_region = software_renderer.apply_dirty_region(dirty_region, size);
 
-        dirty_region = software_renderer.apply_dirty_region(dirty_region, size);
 
-        debug_log!("{:?} COMPUTED DIRTY REGION {dirty_region:?}", crate::animations::Instant::now());
+        debug_log!("{:?} COMPUTED DIRTY REGION {dirty_region:?}  -- {:?}", crate::animations::Instant::now(), renderer.space_partition.debug());
 
         renderer.combine_clip(
             (dirty_region.cast() / factor).cast(),
@@ -2220,6 +2224,10 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     fn translate(&mut self, distance: LogicalVector) {
         self.current_state.offset += distance;
         self.current_state.clip = self.current_state.clip.translate(-distance)
+    }
+
+    fn translation(&self) -> LogicalVector {
+        self.current_state.offset.to_vector()
     }
 
     fn rotate(&mut self, _angle_in_degrees: f32) {

@@ -7,8 +7,8 @@
 use super::graphics::RenderingCache;
 use super::items::*;
 use crate::graphics::{CachedGraphicsData, Image, IntRect};
-use crate::item_tree::ItemTreeRc;
-use crate::item_tree::{ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult};
+use crate::item_tree::{self, ItemTreeRc};
+use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
     LogicalVector,
@@ -180,6 +180,13 @@ pub(crate) fn is_clipping_item(item: Pin<ItemRef>) -> bool {
     //(FIXME: there should be some flag in the vtable instead of down-casting)
     ItemRef::downcast_pin::<Flickable>(item).is_some()
         || ItemRef::downcast_pin::<Clip>(item).map_or(false, |clip_item| clip_item.as_ref().clip())
+}
+
+fn is_opaque_item(item: Pin<ItemRef>) -> bool {
+    //(FIXME: should be a function in the item vtable)
+    ItemRef::downcast_pin::<Rectangle>(item).map_or(false, |r| r.as_ref().background().is_opaque())
+        || ItemRef::downcast_pin::<BasicBorderRectangle>(item)
+            .map_or(false, |r| r.as_ref().background().is_opaque())
 }
 
 /// Renders the children of the item with the specified index into the renderer.
@@ -396,6 +403,9 @@ pub trait ItemRenderer {
     fn get_current_clip(&self) -> LogicalRect;
 
     fn translate(&mut self, distance: LogicalVector);
+    fn translation(&self) -> LogicalVector {
+        unimplemented!()
+    }
     fn rotate(&mut self, angle_in_degrees: f32);
     /// Apply the opacity (between 0 and 1) for all following items until the next call to restore_state.
     fn apply_opacity(&mut self, opacity: f32);
@@ -444,7 +454,12 @@ pub trait ItemRenderer {
 }
 
 /// The cache that needs to be held by the Window for the partial rendering
-pub type PartialRenderingCache = RenderingCache<LogicalRect>;
+pub type PartialRenderingCache = RenderingCache<PartialRenderingCacheData>;
+#[derive(Clone, Copy)]
+pub struct PartialRenderingCacheData {
+    geometry: LogicalRect,
+    z_index_for_opacity: usize,
+}
 
 /// FIXME: Should actually be a region and not just a rectangle
 pub type DirtyRegion = euclid::Box2D<Coord, LogicalPx>;
@@ -453,9 +468,20 @@ pub type DirtyRegion = euclid::Box2D<Coord, LogicalPx>;
 pub struct PartialRenderer<'a, T> {
     cache: &'a RefCell<PartialRenderingCache>,
     /// The region of the screen which is considered dirty and that should be repainted
-    pub dirty_region: DirtyRegion,
+    pub space_partition: space_partition::SpacePartition,
+    /// Basicaly increment for each item. Note that this is backwards as it increase back to front
+    z_index_for_opacity: usize,
     /// The actual renderer which the drawing call will be forwarded to
     pub actual_renderer: T,
+}
+
+#[derive(Clone, Copy)]
+struct ComputeDirtyRegionState {
+    offset: euclid::Vector2D<Coord, LogicalPx>,
+    old_offset: euclid::Vector2D<Coord, LogicalPx>,
+    clipped: euclid::Box2D<Coord, LogicalPx>,
+    must_refresh_children: bool,
+    has_opacity: bool,
 }
 
 impl<'a, T> PartialRenderer<'a, T> {
@@ -464,121 +490,172 @@ impl<'a, T> PartialRenderer<'a, T> {
         cache: &'a RefCell<PartialRenderingCache>,
         initial_dirty_region: DirtyRegion,
         actual_renderer: T,
+        size: LogicalSize,
     ) -> Self {
-        Self { cache, dirty_region: initial_dirty_region, actual_renderer }
+        let mut space_partition = space_partition::SpacePartition::new(size);
+        space_partition.add_region(initial_dirty_region, true, None);
+        Self { cache, actual_renderer, z_index_for_opacity: 0, space_partition }
+    }
+
+    /// Visit item and its children recursively back to front
+    fn compute_dirty_regions_visit_item(
+        &mut self,
+        item_rc: ItemRc,
+        state: &ComputeDirtyRegionState,
+    ) {
+        let mut new_state = *state;
+        let mut borrowed = self.cache.borrow_mut();
+        let item = item_rc.borrow();
+
+        let actual_rect = |rect: LogicalRect, offset| {
+            rect.translate(offset).to_box2d().intersection(&state.clipped)
+        };
+
+        let dirty_rects = match item.cached_rendering_data_offset().get_entry(&mut borrowed) {
+            Some(CachedGraphicsData {
+                data: PartialRenderingCacheData { geometry: cached_geom, .. },
+                dependency_tracker: Some(tr),
+            }) => {
+                if tr.is_dirty() {
+                    let old_geom = *cached_geom;
+                    drop(borrowed);
+                    let geom = crate::properties::evaluate_no_tracking(|| item_rc.geometry());
+
+                    let dirty_rects = (
+                        actual_rect(geom, state.offset),
+                        actual_rect(old_geom, state.old_offset),
+                        true,
+                    );
+
+                    new_state.offset += geom.origin.to_vector();
+                    new_state.old_offset += old_geom.origin.to_vector();
+                    if ItemRef::downcast_pin::<Clip>(item).is_some()
+                        || ItemRef::downcast_pin::<Opacity>(item).is_some()
+                    {
+                        // When the opacity or the clip change, this will impact all the children, including
+                        // the ones outside the element, regardless if they are themselves dirty or not.
+                        new_state.must_refresh_children = true;
+                    }
+
+                    dirty_rects
+                } else {
+                    tr.as_ref().register_as_dependency_to_current_binding();
+
+                    let dirty_rects = if state.must_refresh_children
+                        || new_state.offset != new_state.old_offset
+                    {
+                        (
+                            actual_rect(*cached_geom, state.offset),
+                            actual_rect(*cached_geom, state.old_offset),
+                            true,
+                        )
+                    } else {
+                        (actual_rect(*cached_geom, state.offset), None, false)
+                    };
+
+                    new_state.offset += cached_geom.origin.to_vector();
+                    new_state.old_offset += cached_geom.origin.to_vector();
+                    drop(borrowed);
+                    dirty_rects
+                }
+            }
+            _ => {
+                drop(borrowed);
+                let geom = crate::properties::evaluate_no_tracking(|| {
+                    let geom = item_rc.geometry();
+                    new_state.offset += geom.origin.to_vector();
+                    new_state.old_offset += geom.origin.to_vector();
+                    geom
+                });
+                (actual_rect(geom, state.offset), None, true)
+            }
+        };
+
+        let opaque = crate::properties::evaluate_no_tracking(|| {
+            if is_clipping_item(item) {
+                new_state.clipped = dirty_rects.0.unwrap_or_default();
+            }
+            if !new_state.has_opacity {
+                new_state.has_opacity = ItemRef::downcast_pin::<Opacity>(item).map_or(false, |r| r.as_ref().opacity() < 1.);
+                !new_state.has_opacity && is_opaque_item(item)
+            } else {
+                false
+            }
+        });
+
+
+
+        if !new_state.clipped.is_empty() {
+            let mut actual_visitor =
+                |item_tree: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
+                    self.compute_dirty_regions_visit_item(
+                        ItemRc::new(item_tree.clone(), index),
+                        &new_state,
+                    );
+                    VisitChildrenResult::CONTINUE
+                };
+            vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
+            let item_tree = item_rc.item_tree();
+            VRc::borrow_pin(item_tree).as_ref().visit_children_item(
+                item_rc.index() as isize,
+                item_tree::TraversalOrder::FrontToBack,
+                actual_visitor,
+            );
+        }
+
+        self.z_index_for_opacity += 1;
+
+        let rendering_data = item.cached_rendering_data_offset();
+        let mut cache = self.cache.borrow_mut();
+        match rendering_data.get_entry(&mut cache) {
+            Some(CachedGraphicsData { data, .. }) => {
+                data.z_index_for_opacity = self.z_index_for_opacity;
+            }
+            None => {
+                if let Some(geometry) = dirty_rects.0 {
+                    let cache_entry = crate::graphics::CachedGraphicsData {
+                        data: PartialRenderingCacheData {
+                            geometry: geometry.to_rect(),
+                            z_index_for_opacity: self.z_index_for_opacity,
+                        },
+                        dependency_tracker: None,
+                    };
+                    rendering_data.cache_index.set(cache.insert(cache_entry));
+                    rendering_data.cache_generation.set(cache.generation());
+                }
+            }
+        };
+
+        let opacity_index = opaque.then_some(self.z_index_for_opacity);
+
+        if let Some(r) = dirty_rects.0 {
+            self.space_partition.add_region(r, dirty_rects.2, opacity_index)
+        }
+        if dirty_rects.0 != dirty_rects.1 {
+            if let Some(r) = dirty_rects.1 {
+                self.space_partition.add_region(r, true, None)
+            }
+        }
     }
 
     /// Visit the tree of item and compute what are the dirty regions
-    pub fn compute_dirty_regions(&mut self, component: &ItemTreeRc, origin: LogicalPoint) {
-        #[derive(Clone, Copy)]
-        struct ComputeDirtyRegionState {
-            offset: euclid::Vector2D<Coord, LogicalPx>,
-            old_offset: euclid::Vector2D<Coord, LogicalPx>,
-            clipped: LogicalRect,
-            must_refresh_children: bool,
-        }
-
-        crate::item_tree::visit_items(
-            component,
-            crate::item_tree::TraversalOrder::BackToFront,
-            |component, item, index, state| {
-                let mut new_state = *state;
-                let mut borrowed = self.cache.borrow_mut();
-                let item_rc = ItemRc::new(component.clone(), index);
-
-                match item.cached_rendering_data_offset().get_entry(&mut borrowed) {
-                    Some(CachedGraphicsData {
-                        data: cached_geom,
-                        dependency_tracker: Some(tr),
-                    }) => {
-                        if tr.is_dirty() {
-                            let old_geom = *cached_geom;
-                            drop(borrowed);
-                            let geom =
-                                crate::properties::evaluate_no_tracking(|| item_rc.geometry());
-
-                            self.mark_dirty_rect(old_geom, state.old_offset, &state.clipped);
-                            self.mark_dirty_rect(geom, state.offset, &state.clipped);
-
-                            new_state.offset += geom.origin.to_vector();
-                            new_state.old_offset += old_geom.origin.to_vector();
-                            if ItemRef::downcast_pin::<Clip>(item).is_some()
-                                || ItemRef::downcast_pin::<Opacity>(item).is_some()
-                            {
-                                // When the opacity or the clip change, this will impact all the children, including
-                                // the ones outside the element, regardless if they are themselves dirty or not.
-                                new_state.must_refresh_children = true;
-                            }
-
-                            ItemVisitorResult::Continue(new_state)
-                        } else {
-                            tr.as_ref().register_as_dependency_to_current_binding();
-
-                            if state.must_refresh_children
-                                || new_state.offset != new_state.old_offset
-                            {
-                                self.mark_dirty_rect(
-                                    *cached_geom,
-                                    state.old_offset,
-                                    &state.clipped,
-                                );
-                                self.mark_dirty_rect(*cached_geom, state.offset, &state.clipped);
-                            }
-
-                            new_state.offset += cached_geom.origin.to_vector();
-                            new_state.old_offset += cached_geom.origin.to_vector();
-                            if crate::properties::evaluate_no_tracking(|| is_clipping_item(item)) {
-                                new_state.clipped = new_state
-                                    .clipped
-                                    .intersection(
-                                        &cached_geom
-                                            .translate(state.offset)
-                                            .union(&cached_geom.translate(state.old_offset)),
-                                    )
-                                    .unwrap_or_default();
-                            }
-                            ItemVisitorResult::Continue(new_state)
-                        }
-                    }
-                    _ => {
-                        drop(borrowed);
-                        let geom = crate::properties::evaluate_no_tracking(|| {
-                            let geom = item_rc.geometry();
-                            new_state.offset += geom.origin.to_vector();
-                            new_state.old_offset += geom.origin.to_vector();
-                            if is_clipping_item(item) {
-                                new_state.clipped = new_state
-                                    .clipped
-                                    .intersection(&geom.translate(state.offset))
-                                    .unwrap_or_default();
-                            }
-                            geom
-                        });
-                        self.mark_dirty_rect(geom, state.offset, &state.clipped);
-                        ItemVisitorResult::Continue(new_state)
-                    }
-                }
-            },
-            ComputeDirtyRegionState {
+    pub fn compute_dirty_regions(
+        &mut self,
+        component: &ItemTreeRc,
+        origin: LogicalPoint,
+        size: LogicalSize,
+    ) {
+        self.z_index_for_opacity = 0;
+        self.compute_dirty_regions_visit_item(
+            ItemRc::new(component.clone(), 0),
+            &ComputeDirtyRegionState {
                 offset: origin.to_vector(),
                 old_offset: origin.to_vector(),
-                clipped: euclid::rect(0 as Coord, 0 as Coord, Coord::MAX, Coord::MAX),
+                clipped: euclid::Box2D::from_size(size),
                 must_refresh_children: false,
+                has_opacity: true,
             },
         );
-    }
-
-    fn mark_dirty_rect(
-        &mut self,
-        rect: LogicalRect,
-        offset: euclid::Vector2D<Coord, LogicalPx>,
-        clip_rect: &LogicalRect,
-    ) {
-        if !rect.is_empty() {
-            if let Some(rect) = rect.translate(offset).intersection(clip_rect) {
-                self.dirty_region = self.dirty_region.union(&rect.to_box2d());
-            }
-        }
     }
 
     fn do_rendering(
@@ -594,7 +671,9 @@ impl<'a, T> PartialRenderer<'a, T> {
                 .as_ref()
                 .evaluate(render_fn);
         } else {
-            let cache_entry = crate::graphics::CachedGraphicsData::new(render_fn);
+            let cache_entry = crate::graphics::CachedGraphicsData::new(|| {
+                PartialRenderingCacheData { geometry: render_fn(), z_index_for_opacity: 0 }
+            });
             rendering_data.cache_index.set(cache.insert(cache_entry));
             rendering_data.cache_generation.set(cache.generation());
         }
@@ -645,28 +724,35 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
 
         let rendering_data = item.cached_rendering_data_offset();
         let mut cache = self.cache.borrow_mut();
-        let item_geometry = match rendering_data.get_entry(&mut cache) {
+        let data = match rendering_data.get_entry(&mut cache) {
             Some(CachedGraphicsData { data, dependency_tracker }) => {
+                self.z_index_for_opacity = data.z_index_for_opacity;
                 dependency_tracker
                     .get_or_insert_with(|| Box::pin(PropertyTracker::default()))
                     .as_ref()
-                    .evaluate_if_dirty(|| *data = eval());
+                    .evaluate_if_dirty(|| data.geometry = eval());
                 *data
             }
             None => {
-                let cache_entry = crate::graphics::CachedGraphicsData::new(eval);
-                let geom = cache_entry.data;
+                let cache_entry =
+                    crate::graphics::CachedGraphicsData::new(|| PartialRenderingCacheData {
+                        geometry: eval(),
+                        z_index_for_opacity: self.z_index_for_opacity,
+                    });
+                let data = cache_entry.data;
                 rendering_data.cache_index.set(cache.insert(cache_entry));
                 rendering_data.cache_generation.set(cache.generation());
-                geom
+                data
             }
         };
 
-        //let clip = self.get_current_clip().intersection(&self.dirty_region.to_rect());
-        //let draw = clip.map_or(false, |r| r.intersects(&item_geometry));
-        //FIXME: the dirty_region is in global coordinate but item_geometry and current_clip is not
-        let draw = self.get_current_clip().intersects(&item_geometry);
-        (draw, item_geometry)
+        let clipped_geom = self.get_current_clip().intersection(&data.geometry);
+        let mut draw = clipped_geom.map_or(false, |clipped_geom| {
+            let clipped_geom = clipped_geom.translate(self.translation());
+            self.space_partition.draw_intersects(clipped_geom.to_box2d(), data.z_index_for_opacity)
+        });
+
+        (draw, data.geometry)
     }
 
     forward_rendering_call!(fn draw_rectangle(Rectangle));
@@ -696,6 +782,10 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
 
     fn translate(&mut self, distance: LogicalVector) {
         self.actual_renderer.translate(distance)
+    }
+
+    fn translation(&self) -> LogicalVector {
+        self.actual_renderer.translation()
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
@@ -740,5 +830,277 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
 
     fn as_any(&mut self) -> Option<&mut dyn core::any::Any> {
         self.actual_renderer.as_any()
+    }
+}
+
+#[allow(unused)]
+mod space_partition {
+
+    /*
+        A region can be either:
+          1. Opaque non-dirty. (the region cannot be split further, this is not going to be drawn)
+          2. Opaque dirty (the region cannot be split further, but there is a opacity value to it)
+          3. dirty not opaque the region can still be marked opaque
+          4. not dirty, but may become dirty if items under are dirty
+    */
+
+    use crate::lengths::{LogicalPoint, LogicalPx, LogicalRect, LogicalSize};
+    use crate::Coord;
+    #[cfg(not(feature = "std"))]
+    use alloc::boxed::Box;
+
+    type Box2D = euclid::Box2D<Coord, LogicalPx>;
+
+    #[derive(Debug)]
+    pub enum Node {
+        Leaf {
+            opacity: Option<usize>,
+            dirty: bool,
+        },
+        Division {
+            horizontal: bool,
+            split: Coord,
+            left: Box<Node>,
+            right: Box<Node>,
+            has_dirty: bool,
+        },
+    }
+
+    #[derive(Debug)]
+    pub struct SpacePartition {
+        root: Node,
+        size: LogicalSize,
+    }
+
+    impl SpacePartition {
+        pub fn new(size: LogicalSize) -> Self {
+            Self { root: Node::Leaf { opacity: None, dirty: false }, size }
+        }
+
+        pub fn add_region(&mut self, region: Box2D, dirty: bool, opacity_index: Option<usize>) {
+            let node_geometry = Box2D::from_size(self.size);
+            let Some(region) = region.intersection(&node_geometry) else { return };
+            if !dirty
+                && (opacity_index.is_none()
+                    || region.width() < self.size.width / (15 as Coord)
+                    || region.height() < self.size.height / (15 as Coord))
+            {
+                return;
+            }
+
+            Self::add_region_impl(&mut self.root, node_geometry, region, dirty, opacity_index);
+        }
+
+        /// returns true if something in the subtree is becoming dirty
+        fn add_region_impl(
+            node: &mut Node,
+            node_geometry: Box2D,
+            b: Box2D,
+            is_dirty: bool,
+            opacity_index: Option<usize>,
+        ) -> bool {
+            let Some(intersection) = node_geometry.intersection(&b) else { return false };
+            if intersection.is_empty() {
+                return false;
+            };
+            match node {
+                Node::Leaf { opacity, dirty } => {
+                    if opacity.is_some() {
+                        // We are already covered by another node, we don't care
+                        return false;
+                    }
+                    if (*dirty || !is_dirty) && opacity_index.is_none() {
+                        // Already marked dirty and no opacity, nothing to add
+                        return false;
+                    }
+
+                    if b.contains_box(&node_geometry) {
+                        // The node is entirely contained, no need to split
+                        *dirty |= is_dirty;
+                        *opacity = opacity_index;
+                    } else {
+                        // We need to split further
+                        let old_leaf = || Box::new(Node::Leaf { opacity: *opacity, dirty: *dirty });
+                        let has_dirty = *dirty | is_dirty;
+                        let mut new_node = Node::Leaf { opacity: opacity_index, dirty: has_dirty };
+                        if b.max.x < node_geometry.max.x {
+                            new_node = Node::Division {
+                                horizontal: true,
+                                split: b.max.x,
+                                left: new_node.into(),
+                                right: old_leaf(),
+                                has_dirty,
+                            };
+                        }
+                        if b.min.x > node_geometry.min.x {
+                            new_node = Node::Division {
+                                horizontal: true,
+                                split: b.min.x,
+                                left: old_leaf(),
+                                right: new_node.into(),
+                                has_dirty,
+                            };
+                        }
+                        if b.max.y < node_geometry.max.y {
+                            new_node = Node::Division {
+                                horizontal: false,
+                                split: b.max.y,
+                                left: new_node.into(),
+                                right: old_leaf(),
+                                has_dirty,
+                            };
+                        }
+                        if b.min.y > node_geometry.min.y {
+                            new_node = Node::Division {
+                                horizontal: false,
+                                split: b.min.y,
+                                left: old_leaf(),
+                                right: new_node.into(),
+                                has_dirty,
+                            };
+                        }
+                        *node = new_node;
+                    }
+                    is_dirty
+                }
+                Node::Division { horizontal, split, left, right, has_dirty } => {
+                    if *horizontal {
+                        debug_assert!(*split < node_geometry.max.x, "{split} in {node_geometry:?}");
+                        debug_assert!(*split > node_geometry.min.x, "{split} in {node_geometry:?}");
+                    } else {
+                        debug_assert!(*split < node_geometry.max.y, "{split} in {node_geometry:?}");
+                        debug_assert!(*split > node_geometry.min.y, "{split} in {node_geometry:?}");
+                    }
+
+                    let set_coord = |point: &mut LogicalPoint, val| {
+                        if *horizontal {
+                            point.x = val
+                        } else {
+                            point.y = val
+                        }
+                    };
+                    let mut sub = node_geometry;
+                    set_coord(&mut sub.max, *split);
+                    *has_dirty |=
+                        Self::add_region_impl(&mut *left, sub, b, is_dirty, opacity_index);
+                    let mut sub = node_geometry;
+                    set_coord(&mut sub.min, *split);
+                    *has_dirty |=
+                        Self::add_region_impl(&mut *right, sub, b, is_dirty, opacity_index);
+                    *has_dirty
+                }
+            }
+        }
+
+        /// return true if part of the region should be drawn
+        pub fn draw_intersects(&self, region: Box2D, z_index: usize) -> bool {
+            Self::draw_intersects_impl(&self.root, Box2D::from_size(self.size), region, z_index)
+        }
+
+        fn draw_intersects_impl(
+            node: &Node,
+            node_geometry: Box2D,
+            b: Box2D,
+            z_index: usize,
+        ) -> bool {
+            let Some(intersection) = node_geometry.intersection(&b) else { return false };
+            if intersection.is_empty() {
+                return false;
+            };
+            match node {
+                Node::Leaf { opacity, dirty } => {
+                    if !dirty {
+                        return false;
+                    }
+                    opacity.map_or(true, |v| v >= z_index)
+                }
+                Node::Division { horizontal, split, left, right, has_dirty } => {
+                    if *horizontal {
+                        debug_assert!(*split < node_geometry.max.x, "{split} in {node_geometry:?}");
+                        debug_assert!(*split > node_geometry.min.x, "{split} in {node_geometry:?}");
+                    } else {
+                        debug_assert!(*split < node_geometry.max.y, "{split} in {node_geometry:?}");
+                        debug_assert!(*split > node_geometry.min.y, "{split} in {node_geometry:?}");
+                    }
+
+                    if !has_dirty {
+                        return false;
+                    }
+
+                    let set_coord = |point: &mut LogicalPoint, val| {
+                        if *horizontal {
+                            point.x = val
+                        } else {
+                            point.y = val
+                        }
+                    };
+                    ({
+                        let mut sub = node_geometry;
+                        set_coord(&mut sub.max, *split);
+                        Self::draw_intersects_impl(&left, sub, b, z_index)
+                    } || {
+                        let mut sub = node_geometry;
+                        set_coord(&mut sub.min, *split);
+                        Self::draw_intersects_impl(&right, sub, b, z_index)
+                    })
+                }
+            }
+        }
+
+        pub fn bounding_box(&self) -> Box2D {
+            Self::bounding_box_impl(&self.root, Box2D::from_size(self.size))
+        }
+
+        fn bounding_box_impl(node: &Node, node_geometry: Box2D) -> Box2D {
+            if node_geometry.is_empty() {
+                return node_geometry;
+            };
+            match node {
+                Node::Leaf { dirty, .. } if *dirty => node_geometry,
+                Node::Leaf { dirty, .. } => Box2D::zero(),
+                Node::Division { has_dirty, .. } if !*has_dirty => Box2D::zero(),
+                Node::Division { horizontal, split, left, right, .. } => {
+                    if *horizontal {
+                        debug_assert!(*split < node_geometry.max.x, "{split} in {node_geometry:?}");
+                        debug_assert!(*split > node_geometry.min.x, "{split} in {node_geometry:?}");
+                    } else {
+                        debug_assert!(*split < node_geometry.max.y, "{split} in {node_geometry:?}");
+                        debug_assert!(*split > node_geometry.min.y, "{split} in {node_geometry:?}");
+                    }
+
+                    let set_coord = |point: &mut LogicalPoint, val| {
+                        if *horizontal {
+                            point.x = val
+                        } else {
+                            point.y = val
+                        }
+                    };
+
+                    let mut sub = node_geometry;
+                    set_coord(&mut sub.max, *split);
+                    let a = Self::bounding_box_impl(&left, sub);
+
+                    let mut sub = node_geometry;
+                    set_coord(&mut sub.min, *split);
+                    let b = Self::bounding_box_impl(&right, sub);
+                    a.union(&b)
+                }
+            }
+        }
+
+        pub fn debug(&self) -> impl core::fmt::Debug {
+            Self::debug_impl(&self.root)
+        }
+
+        fn debug_impl(node: &Node) -> (usize, usize) {
+            match node {
+                Node::Leaf { opacity, dirty } => (1, 1),
+                Node::Division { left, right, .. } => {
+                    let a = Self::debug_impl(&left);
+                    let b = Self::debug_impl(&right);
+                    (a.0.max(b.0) + 1, a.1 + b.1)
+                }
+            }
+        }
     }
 }

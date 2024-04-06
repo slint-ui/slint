@@ -880,45 +880,6 @@ impl<T: FnMut(&ItemTreeRc, u32, Pin<ItemRef>) -> VisitChildrenResult> ItemVisito
         self(item_tree, index, item)
     }
 }
-pub enum ItemVisitorResult<State> {
-    Continue(State),
-    Abort,
-}
-
-/// Visit each items recursively
-///
-/// The state parameter returned by the visitor is passed to each child.
-///
-/// Returns the index of the item that cancelled, or -1 if nobody cancelled
-pub fn visit_items<State>(
-    item_tree: &ItemTreeRc,
-    order: TraversalOrder,
-    mut visitor: impl FnMut(&ItemTreeRc, Pin<ItemRef>, u32, &State) -> ItemVisitorResult<State>,
-    state: State,
-) -> VisitChildrenResult {
-    visit_internal(item_tree, order, &mut visitor, -1, &state)
-}
-
-fn visit_internal<State>(
-    item_tree: &ItemTreeRc,
-    order: TraversalOrder,
-    visitor: &mut impl FnMut(&ItemTreeRc, Pin<ItemRef>, u32, &State) -> ItemVisitorResult<State>,
-    index: isize,
-    state: &State,
-) -> VisitChildrenResult {
-    let mut actual_visitor =
-        |item_tree: &ItemTreeRc, index: u32, item: Pin<ItemRef>| -> VisitChildrenResult {
-            match visitor(item_tree, item, index, state) {
-                ItemVisitorResult::Continue(state) => {
-                    visit_internal(item_tree, order, visitor, index as isize, &state)
-                }
-
-                ItemVisitorResult::Abort => VisitChildrenResult::abort(index, 0),
-            }
-        };
-    vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
-    VRc::borrow_pin(item_tree).as_ref().visit_children_item(index, order, actual_visitor)
-}
 
 /// Visit the children within an array of ItemTreeNode
 ///
