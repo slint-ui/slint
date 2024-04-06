@@ -998,7 +998,7 @@ impl WindowInner {
 
                     if !popup_region.is_empty() {
                         let window_adapter = self.window_adapter();
-                        window_adapter.renderer().mark_dirty_region(popup_region.to_box2d());
+                        window_adapter.renderer().mark_dirty_region(popup_region.into());
                         window_adapter.request_redraw();
                     }
                 }

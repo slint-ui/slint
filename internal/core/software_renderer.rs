@@ -15,9 +15,7 @@ use self::fonts::GlyphRenderer;
 use crate::api::Window;
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use crate::graphics::{BorderRadius, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
-use crate::item_rendering::{
-    CachedRenderingData, ItemRenderer, RenderBorderRectangle, RenderImage,
-};
+use crate::item_rendering::{CachedRenderingData, DirtyRegion, RenderBorderRectangle, RenderImage};
 use crate::items::{ItemRc, TextOverflow};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -32,7 +30,6 @@ use alloc::rc::{Rc, Weak};
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
-use euclid::num::Zero;
 use euclid::Length;
 use fixed::Fixed;
 #[allow(unused)]
@@ -46,8 +43,6 @@ type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 type PhysicalBorderRadius = BorderRadius<i16, PhysicalPx>;
-
-type DirtyRegion = PhysicalRect;
 
 /// This enum describes which parts of the buffer passed to the [`SoftwareRenderer`] may be re-used to speed up painting.
 // FIXME: #[non_exhaustive] #3023
@@ -216,17 +211,104 @@ pub trait LineBufferProvider {
 ///
 /// The region may be composed of multiple sub-regions.
 #[derive(Clone, Debug, Default)]
-pub struct PhysicalRegion(PhysicalRect);
+pub struct PhysicalRegion {
+    rectangles: [euclid::Box2D<i16, PhysicalPx>; DirtyRegion::MAX_COUNT],
+    count: usize,
+}
 
 impl PhysicalRegion {
+    fn iter(&self) -> impl Iterator<Item = euclid::Box2D<i16, PhysicalPx>> + '_ {
+        (0..self.count).map(|x| self.rectangles[x])
+    }
+
+    fn bounding_rect(&self) -> PhysicalRect {
+        if self.count == 0 {
+            return Default::default();
+        }
+        let mut r = self.rectangles[0];
+        for i in 1..self.count {
+            r = r.union(&self.rectangles[i]);
+        }
+        r.to_rect()
+    }
+
     /// Returns the size of the bounding box of this region.
     pub fn bounding_box_size(&self) -> crate::api::PhysicalSize {
-        crate::api::PhysicalSize { width: self.0.width() as _, height: self.0.height() as _ }
+        let bb = self.bounding_rect();
+        crate::api::PhysicalSize { width: bb.width() as _, height: bb.height() as _ }
     }
     /// Returns the origin of the bounding box of this region.
     pub fn bounding_box_origin(&self) -> crate::api::PhysicalPosition {
-        crate::api::PhysicalPosition { x: self.0.origin.x as _, y: self.0.origin.y as _ }
+        let bb = self.bounding_rect();
+        crate::api::PhysicalPosition { x: bb.origin.x as _, y: bb.origin.y as _ }
     }
+}
+
+/// Computes what are the x ranges that intersects the region for specified y line.
+///
+/// This uses a mutable reference to a Vec so that the memory is re-used between calls.
+///
+/// Returns the y position until which this range is valid
+fn region_line_ranges(
+    region: &PhysicalRegion,
+    line: i16,
+    line_ranges: &mut Vec<core::ops::Range<i16>>,
+) -> Option<i16> {
+    line_ranges.clear();
+    let mut next_validity = None::<i16>;
+    for geom in region.iter() {
+        if geom.is_empty() {
+            continue;
+        }
+        if geom.y_range().contains(&line) {
+            match &mut next_validity {
+                Some(val) => *val = geom.max.y.min(*val),
+                None => next_validity = Some(geom.max.y),
+            }
+            let mut tmp = Some(geom.x_range());
+            line_ranges.retain_mut(|it| {
+                if let Some(r) = &mut tmp {
+                    if it.end < r.start {
+                        return true;
+                    } else if it.start <= r.start {
+                        if it.end >= r.end {
+                            tmp = None;
+                            return true;
+                        }
+                        r.start = it.start;
+                        return false;
+                    } else if it.start <= r.end {
+                        if it.end <= r.end {
+                            return false;
+                        } else {
+                            it.start = r.start;
+                            tmp = None;
+                            return true;
+                        }
+                    } else {
+                        core::mem::swap(it, r);
+                        return true;
+                    }
+                } else {
+                    return true;
+                }
+            });
+            if let Some(r) = tmp {
+                line_ranges.push(r);
+            }
+            continue;
+        } else {
+            if geom.min.y >= line {
+                match &mut next_validity {
+                    Some(val) => *val = geom.min.y.min(*val),
+                    None => next_validity = Some(geom.min.y),
+                }
+            }
+        }
+    }
+    // check that current items are properly sorted
+    debug_assert!(line_ranges.windows(2).all(|x| x[0].end < x[1].start));
+    next_validity
 }
 
 /// A Renderer that do the rendering in software
@@ -242,7 +324,7 @@ pub struct SoftwareRenderer {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
     repaint_buffer_type: Cell<RepaintBufferType>,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
-    force_dirty: Cell<crate::item_rendering::DirtyRegion>,
+    force_dirty: RefCell<DirtyRegion>,
     /// Force a redraw in the next frame, no matter what's dirty. Use only as a last resort.
     force_screen_refresh: Cell<bool>,
     /// This is the area which was dirty on the previous frame.
@@ -313,28 +395,21 @@ impl SoftwareRenderer {
 
     /// Internal function to apply a dirty region depending on the dirty_tracking_policy.
     /// Returns the region to actually draw.
-    fn apply_dirty_region(
-        &self,
-        mut dirty_region: DirtyRegion,
-        screen_size: PhysicalSize,
-    ) -> DirtyRegion {
-        let screen_region = PhysicalRect { origin: euclid::point2(0, 0), size: screen_size };
+    fn apply_dirty_region(&self, dirty_region: &mut DirtyRegion, screen_size: LogicalSize) {
+        let screen_region = LogicalRect::from_size(screen_size);
 
         if self.force_screen_refresh.take() {
-            dirty_region = screen_region;
+            *dirty_region = screen_region.into();
         }
 
-        match self.repaint_buffer_type() {
-            RepaintBufferType::NewBuffer => {
-                PhysicalRect { origin: euclid::point2(0, 0), size: screen_size }
-            }
-            RepaintBufferType::ReusedBuffer => dirty_region,
+        *dirty_region = match self.repaint_buffer_type() {
+            RepaintBufferType::NewBuffer => screen_region.into(),
+            RepaintBufferType::ReusedBuffer => dirty_region.clone(),
             RepaintBufferType::SwappedBuffers => {
-                dirty_region.union(&self.prev_frame_dirty.replace(dirty_region))
+                dirty_region.union(&self.prev_frame_dirty.replace(dirty_region.clone()))
             }
         }
-        .intersection(&screen_region)
-        .unwrap_or_default()
+        .intersection(screen_region)
     }
 
     /// Render the window to the given frame buffer.
@@ -387,7 +462,12 @@ impl SoftwareRenderer {
             size,
             factor,
             window_inner,
-            RenderToBuffer { buffer, stride: pixel_stride },
+            RenderToBuffer {
+                buffer,
+                stride: pixel_stride,
+                dirty_range_cache: vec![],
+                dirty_region: Default::default(),
+            },
             rotation,
         );
         let mut renderer = crate::item_rendering::PartialRenderer::new(
@@ -398,34 +478,41 @@ impl SoftwareRenderer {
 
         window_inner
             .draw_contents(|components| {
+                let logical_size = (size.cast() / factor).cast();
                 for (component, origin) in components {
-                    renderer.compute_dirty_regions(component, *origin);
+                    renderer.compute_dirty_regions(component, *origin, logical_size);
                 }
-
-                let dirty_region = (renderer.dirty_region.to_rect().cast() * factor)
-                    .round_out()
-                    .intersection(&euclid::rect(0., 0., i16::MAX as f32, i16::MAX as f32))
-                    .unwrap_or_default()
-                    .cast();
-
-                let to_draw = self.apply_dirty_region(dirty_region, size);
-
-                renderer.combine_clip(
-                    (to_draw.cast() / factor).cast(),
-                    LogicalBorderRadius::zero(),
-                    LogicalLength::zero(),
-                );
+                self.apply_dirty_region(&mut renderer.dirty_region, logical_size);
+                let rotation = RotationInfo { orientation: rotation, screen_size: size };
+                let mut i = renderer.dirty_region.iter().map(|r| {
+                    (r.cast() * factor).to_rect().round_out().cast().transformed(rotation)
+                });
+                let dirty_region = PhysicalRegion {
+                    rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
+                    count: renderer.dirty_region.iter().count(),
+                };
+                drop(i);
 
                 let mut bg = TargetPixel::background();
                 // TODO: gradient background
                 TargetPixel::blend(&mut bg, background.color().into());
-                let to_draw_tr = to_draw.transformed(renderer.actual_renderer.rotation);
-                for line in to_draw_tr.min_y()..to_draw_tr.max_y() {
-                    let begin = line as usize * pixel_stride + to_draw_tr.origin.x as usize;
-                    renderer.actual_renderer.processor.buffer[begin..]
-                        [..to_draw_tr.width() as usize]
-                        .fill(bg);
+                let mut line = 0;
+                while let Some(next) = region_line_ranges(
+                    &dirty_region,
+                    line,
+                    &mut renderer.actual_renderer.processor.dirty_range_cache,
+                ) {
+                    for l in line..next {
+                        for r in &renderer.actual_renderer.processor.dirty_range_cache {
+                            renderer.actual_renderer.processor.buffer[l as usize * pixel_stride..]
+                                [r.start as usize..r.end as usize]
+                                .fill(bg);
+                        }
+                    }
+                    line = next;
                 }
+
+                renderer.actual_renderer.processor.dirty_region = dirty_region.clone();
 
                 for (component, origin) in components {
                     crate::item_rendering::render_component_items(
@@ -442,7 +529,7 @@ impl SoftwareRenderer {
                     }
                 }
 
-                PhysicalRegion(to_draw_tr)
+                dirty_region
             })
             .unwrap_or_default()
     }
@@ -503,7 +590,7 @@ impl SoftwareRenderer {
                 line_buffer,
             )
         } else {
-            PhysicalRegion(Default::default())
+            PhysicalRegion { ..Default::default() }
         }
     }
 }
@@ -660,7 +747,7 @@ impl RendererSealed for SoftwareRenderer {
     }
 
     fn mark_dirty_region(&self, region: crate::item_rendering::DirtyRegion) {
-        self.force_dirty.set(self.force_dirty.get().union(&region))
+        self.force_dirty.replace_with(|r| r.union(&region));
     }
 
     fn register_bitmap_font(&self, font_data: &'static crate::graphics::BitmapFont) {
@@ -700,102 +787,102 @@ fn render_window_frame_by_line(
     renderer: &SoftwareRenderer,
     mut line_buffer: impl LineBufferProvider,
 ) -> PhysicalRegion {
-    let rotation = RotationInfo { orientation: renderer.rotation.get(), screen_size: size };
     let mut scene = prepare_scene(window, size, renderer);
 
-    let dirty_region = scene.dirty_region;
-    let to_draw_tr = dirty_region.transformed(rotation);
-
-    scene.current_line = to_draw_tr.origin.y_length();
+    let to_draw_tr = scene.dirty_region.bounding_rect();
 
     let mut background_color = TargetPixel::background();
     // FIXME gradient
     TargetPixel::blend(&mut background_color, background.color().into());
 
     while scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
-        line_buffer.process_line(
-            scene.current_line.get() as usize,
-            to_draw_tr.min_x() as usize..to_draw_tr.max_x() as usize,
-            |line_buffer| {
-                let offset = to_draw_tr.min_x() as usize;
+        for r in &scene.current_line_ranges {
+            line_buffer.process_line(
+                scene.current_line.get() as usize,
+                r.start as usize..r.end as usize,
+                |line_buffer| {
+                    let offset = r.start;
 
-                line_buffer.fill(background_color);
-                for span in scene.items[0..scene.current_items_index].iter().rev() {
-                    debug_assert!(scene.current_line >= span.pos.y_length());
-                    debug_assert!(
-                        scene.current_line < span.pos.y_length() + span.size.height_length(),
-                    );
-                    match span.command {
-                        SceneCommand::Rectangle { color } => {
-                            TargetPixel::blend_slice(
-                                &mut line_buffer[span.pos.x as usize - offset
-                                    ..(span.pos.x_length() + span.size.width_length()).get()
-                                        as usize
-                                        - offset],
-                                color,
-                            );
+                    line_buffer.fill(background_color);
+                    for span in scene.items[0..scene.current_items_index].iter().rev() {
+                        debug_assert!(scene.current_line >= span.pos.y_length());
+                        debug_assert!(
+                            scene.current_line < span.pos.y_length() + span.size.height_length(),
+                        );
+                        if span.pos.x >= r.end {
+                            continue;
                         }
-                        SceneCommand::Texture { texture_index } => {
-                            let texture = &scene.vectors.textures[texture_index as usize];
-                            draw_functions::draw_texture_line(
-                                &PhysicalRect {
-                                    origin: span.pos - euclid::vec2(offset as i16, 0),
-                                    size: span.size,
-                                },
-                                scene.current_line,
-                                texture,
-                                line_buffer,
-                            );
+                        let begin = r.start.max(span.pos.x);
+                        let end = r.end.min(span.pos.x + span.size.width);
+                        if begin >= end {
+                            continue;
                         }
-                        SceneCommand::SharedBuffer { shared_buffer_index } => {
-                            let texture = scene.vectors.shared_buffers
-                                [shared_buffer_index as usize]
-                                .as_texture();
-                            draw_functions::draw_texture_line(
-                                &PhysicalRect {
-                                    origin: span.pos - euclid::vec2(offset as i16, 0),
-                                    size: span.size,
-                                },
-                                scene.current_line,
-                                &texture,
-                                line_buffer,
-                            );
-                        }
-                        SceneCommand::RoundedRectangle { rectangle_index } => {
-                            let rr = &scene.vectors.rounded_rectangles[rectangle_index as usize];
-                            draw_functions::draw_rounded_rectangle_line(
-                                &PhysicalRect {
-                                    origin: span.pos - euclid::vec2(offset as i16, 0),
-                                    size: span.size,
-                                },
-                                scene.current_line,
-                                rr,
-                                line_buffer,
-                            );
-                        }
-                        SceneCommand::Gradient { gradient_index } => {
-                            let g = &scene.vectors.gradients[gradient_index as usize];
 
-                            draw_functions::draw_gradient_line(
-                                &PhysicalRect {
-                                    origin: span.pos - euclid::vec2(offset as i16, 0),
-                                    size: span.size,
-                                },
-                                scene.current_line,
-                                g,
-                                line_buffer,
-                            );
+                        let extra_left_clip = begin - span.pos.x;
+                        let extra_right_clip = span.pos.x + span.size.width - end;
+                        let range_buffer =
+                            &mut line_buffer[(begin - offset) as usize..(end - offset) as usize];
+
+                        match span.command {
+                            SceneCommand::Rectangle { color } => {
+                                TargetPixel::blend_slice(range_buffer, color);
+                            }
+                            SceneCommand::Texture { texture_index } => {
+                                let texture = &scene.vectors.textures[texture_index as usize];
+                                draw_functions::draw_texture_line(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    texture,
+                                    range_buffer,
+                                    extra_left_clip,
+                                );
+                            }
+                            SceneCommand::SharedBuffer { shared_buffer_index } => {
+                                let texture = scene.vectors.shared_buffers
+                                    [shared_buffer_index as usize]
+                                    .as_texture();
+                                draw_functions::draw_texture_line(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    &texture,
+                                    range_buffer,
+                                    extra_left_clip,
+                                );
+                            }
+                            SceneCommand::RoundedRectangle { rectangle_index } => {
+                                let rr =
+                                    &scene.vectors.rounded_rectangles[rectangle_index as usize];
+                                draw_functions::draw_rounded_rectangle_line(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    rr,
+                                    range_buffer,
+                                    extra_left_clip,
+                                    extra_right_clip,
+                                );
+                            }
+                            SceneCommand::Gradient { gradient_index } => {
+                                let g = &scene.vectors.gradients[gradient_index as usize];
+
+                                draw_functions::draw_gradient_line(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    g,
+                                    range_buffer,
+                                    extra_left_clip,
+                                );
+                            }
                         }
                     }
-                }
-            },
-        );
+                },
+            );
+        }
 
         if scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
             scene.next_line();
         }
     }
-    PhysicalRegion(to_draw_tr)
+    scene.dirty_region
 }
 
 #[derive(Default)]
@@ -822,33 +909,43 @@ struct Scene {
     future_items_index: usize,
     current_items_index: usize,
 
-    dirty_region: DirtyRegion,
+    dirty_region: PhysicalRegion,
+
+    current_line_ranges: Vec<core::ops::Range<i16>>,
+    range_valid_until_line: PhysicalLength,
 }
 
 impl Scene {
     pub fn new(
         mut items: Vec<SceneItem>,
         vectors: SceneVectors,
-        dirty_region: DirtyRegion,
+        dirty_region: PhysicalRegion,
     ) -> Self {
-        let current_line = dirty_region.origin.y_length();
+        let current_line = dirty_region.iter().map(|x| x.min.y_length()).min().unwrap_or_default();
         items.retain(|i| i.pos.y_length() + i.size.height_length() > current_line);
         items.sort_unstable_by(compare_scene_item);
         let current_items_index = items.partition_point(|i| i.pos.y_length() <= current_line);
         items[..current_items_index].sort_unstable_by(|a, b| b.z.cmp(&a.z));
-        Self {
+        let mut r = Self {
             items,
             current_line,
             current_items_index,
             future_items_index: current_items_index,
             vectors,
             dirty_region,
-        }
+            current_line_ranges: Default::default(),
+            range_valid_until_line: Default::default(),
+        };
+        r.recompute_ranges();
+        debug_assert_eq!(r.current_line, r.dirty_region.bounding_rect().origin.y_length());
+        r
     }
 
     /// Updates `current_items_index` and `future_items_index` to match the invariant
     pub fn next_line(&mut self) {
         self.current_line += PhysicalLength::new(1);
+
+        let skipped = self.current_line >= self.range_valid_until_line && self.recompute_ranges();
 
         // The items array is split in part:
         // 1. [0..i] are the items that have already been processed, that are on this line
@@ -864,6 +961,33 @@ impl Scene {
 
         let (mut i, mut j, mut tmp1, mut tmp2) =
             (0, 0, self.current_items_index, self.current_items_index);
+
+        if skipped {
+            // Merge sort doesn't work in that case.
+            while j < self.current_items_index {
+                let item = self.items[j];
+                if item.pos.y_length() + item.size.height_length() > self.current_line {
+                    self.items[i] = item;
+                    i += 1;
+                }
+                j += 1;
+            }
+            while self.future_items_index < self.items.len() {
+                let item = self.items[self.future_items_index];
+                if item.pos.y_length() > self.current_line {
+                    break;
+                }
+                self.future_items_index += 1;
+                if item.pos.y_length() + item.size.height_length() < self.current_line {
+                    continue;
+                }
+                self.items[i] = item;
+                i += 1;
+            }
+            self.items[0..i].sort_unstable_by(|a, b| b.z.cmp(&a.z));
+            self.current_items_index = i;
+            return;
+        }
 
         'outer: loop {
             let future_next_z = self
@@ -937,9 +1061,9 @@ impl Scene {
                     if item.pos.y_length() > self.current_line {
                         break;
                     }
+                    self.future_items_index += 1;
                     self.items[i] = item;
                     i += 1;
-                    self.future_items_index += 1;
                 }
                 self.items[sort_begin..i].sort_unstable_by(|a, b| b.z.cmp(&a.z));
                 break;
@@ -950,6 +1074,31 @@ impl Scene {
         self.current_items_index = i;
         // check that current items are properly sorted
         debug_assert!(self.items[0..self.current_items_index].windows(2).all(|x| x[0].z >= x[1].z));
+    }
+
+    // return true if lines were skipped
+    fn recompute_ranges(&mut self) -> bool {
+        let validity = region_line_ranges(
+            &self.dirty_region,
+            self.current_line.get(),
+            &mut self.current_line_ranges,
+        );
+        if self.current_line_ranges.is_empty() {
+            if let Some(next) = validity {
+                self.current_line = Length::new(next);
+                self.range_valid_until_line = Length::new(
+                    region_line_ranges(
+                        &self.dirty_region,
+                        self.current_line.get(),
+                        &mut self.current_line_ranges,
+                    )
+                    .unwrap_or_default(),
+                );
+                return true;
+            }
+        }
+        self.range_valid_until_line = Length::new(validity.unwrap_or_default());
+        false
     }
 }
 
@@ -1165,25 +1314,26 @@ fn prepare_scene(
         prepare_scene,
     );
 
-    let mut dirty_region = PhysicalRect::default();
+    let mut dirty_region = PhysicalRegion::default();
     window.draw_contents(|components| {
+        let logical_size = (size.cast() / factor).cast();
         for (component, origin) in components {
-            renderer.compute_dirty_regions(component, *origin);
+            renderer.compute_dirty_regions(component, *origin, logical_size);
         }
 
-        dirty_region = (renderer.dirty_region.to_rect().cast() * factor)
-            .round_out()
-            .intersection(&euclid::rect(0., 0., i16::MAX as f32, i16::MAX as f32))
-            .unwrap_or_default()
-            .cast();
+        software_renderer.apply_dirty_region(&mut renderer.dirty_region, logical_size);
+        let rotation =
+            RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
+        let mut i = renderer
+            .dirty_region
+            .iter()
+            .map(|r| (r.cast() * factor).to_rect().round_out().cast().transformed(rotation));
+        dirty_region = PhysicalRegion {
+            rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
+            count: renderer.dirty_region.iter().count(),
+        };
+        drop(i);
 
-        dirty_region = software_renderer.apply_dirty_region(dirty_region, size);
-
-        renderer.combine_clip(
-            (dirty_region.cast() / factor).cast(),
-            LogicalBorderRadius::zero(),
-            LogicalLength::zero(),
-        );
         for (component, origin) in components {
             crate::item_rendering::render_component_items(component, &mut renderer, *origin);
         }
@@ -1197,6 +1347,24 @@ fn prepare_scene(
     }
 
     let prepare_scene = renderer.into_inner();
+
+    /* // visualize dirty regions
+    let mut prepare_scene = prepare_scene;
+    for rect in dirty_region.iter() {
+        prepare_scene.processor.process_rounded_rectangle(
+            rect.to_rect(),
+            RoundedRectangle {
+                radius: BorderRadius::default(),
+                width: Length::new(1),
+                border_color: Color::from_argb_u8(128, 255, 0, 0).into(),
+                inner_color: PremultipliedRgbaColor::default(),
+                left_clip: Length::default(),
+                right_clip: Length::default(),
+                top_clip: Length::default(),
+                bottom_clip: Length::default(),
+            },
+        )
+    } // */
 
     Scene::new(prepare_scene.processor.items, prepare_scene.processor.vectors, dirty_region)
 }
@@ -1212,18 +1380,59 @@ trait ProcessScene {
 struct RenderToBuffer<'a, TargetPixel> {
     buffer: &'a mut [TargetPixel],
     stride: usize,
+    dirty_range_cache: Vec<core::ops::Range<i16>>,
+    dirty_region: PhysicalRegion,
 }
 
 impl<'a, T: TargetPixel> RenderToBuffer<'a, T> {
+    fn foreach_ranges(
+        &mut self,
+        geometry: &PhysicalRect,
+        mut f: impl FnMut(i16, &mut [T], i16, i16),
+    ) {
+        let mut line = geometry.min_y();
+        while let Some(mut next) =
+            region_line_ranges(&self.dirty_region, line, &mut self.dirty_range_cache)
+        {
+            next = next.min(geometry.max_y());
+            for r in &self.dirty_range_cache {
+                if geometry.origin.x >= r.end {
+                    continue;
+                }
+                let begin = r.start.max(geometry.origin.x);
+                let end = r.end.min(geometry.origin.x + geometry.size.width);
+                if begin >= end {
+                    continue;
+                }
+                let extra_left_clip = begin - geometry.origin.x;
+                let extra_right_clip = geometry.origin.x + geometry.size.width - end;
+
+                for l in line..next {
+                    f(
+                        l,
+                        &mut self.buffer[l as usize * self.stride..][begin as usize..end as usize],
+                        extra_left_clip,
+                        extra_right_clip,
+                    );
+                }
+            }
+            if next == geometry.max_y() {
+                break;
+            }
+            line = next;
+        }
+    }
+
     fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
-        for line in geometry.min_y()..geometry.max_y() {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, _extra_right_clip| {
             draw_functions::draw_texture_line(
                 &geometry,
                 PhysicalLength::new(line),
                 &texture,
-                &mut self.buffer[line as usize * self.stride..],
+                buffer,
+                extra_left_clip,
             );
-        }
+        });
     }
 }
 
@@ -1238,32 +1447,34 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
     }
 
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
-        for line in geometry.min_y()..geometry.max_y() {
-            let begin = line as usize * self.stride + geometry.origin.x as usize;
-            TargetPixel::blend_slice(&mut self.buffer[begin..][..geometry.width() as usize], color);
-        }
+        self.foreach_ranges(&geometry, |_line, buffer, _extra_left_clip, _extra_right_clip| {
+            TargetPixel::blend_slice(buffer, color);
+        });
     }
 
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, rr: RoundedRectangle) {
-        for line in geometry.min_y()..geometry.max_y() {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
             draw_functions::draw_rounded_rectangle_line(
                 &geometry,
                 PhysicalLength::new(line),
                 &rr,
-                &mut self.buffer[line as usize * self.stride..],
+                buffer,
+                extra_left_clip,
+                extra_right_clip,
             );
-        }
+        });
     }
 
     fn process_gradient(&mut self, geometry: PhysicalRect, g: GradientCommand) {
-        for line in geometry.min_y()..geometry.max_y() {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, _extra_right_clip| {
             draw_functions::draw_gradient_line(
                 &geometry,
                 PhysicalLength::new(line),
                 &g,
-                &mut self.buffer[line as usize * self.stride..],
+                buffer,
+                extra_left_clip,
             );
-        }
+        });
     }
 }
 
@@ -2213,6 +2424,10 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     fn translate(&mut self, distance: LogicalVector) {
         self.current_state.offset += distance;
         self.current_state.clip = self.current_state.clip.translate(-distance)
+    }
+
+    fn translation(&self) -> LogicalVector {
+        self.current_state.offset.to_vector()
     }
 
     fn rotate(&mut self, _angle_in_degrees: f32) {
