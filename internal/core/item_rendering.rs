@@ -576,14 +576,13 @@ impl<'a, T> PartialRenderer<'a, T> {
                 new_state.clipped = dirty_rects.0.unwrap_or_default();
             }
             if !new_state.has_opacity {
-                new_state.has_opacity = ItemRef::downcast_pin::<Opacity>(item).map_or(false, |r| r.as_ref().opacity() < 1.);
+                new_state.has_opacity = ItemRef::downcast_pin::<Opacity>(item)
+                    .map_or(false, |r| r.as_ref().opacity() < 1.);
                 !new_state.has_opacity && is_opaque_item(item)
             } else {
                 false
             }
         });
-
-
 
         if !new_state.clipped.is_empty() {
             let mut actual_visitor =
@@ -851,6 +850,34 @@ mod space_partition {
 
     type Box2D = euclid::Box2D<Coord, LogicalPx>;
 
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    pub enum TriState {
+        All,
+        None,
+        Some,
+    }
+
+    impl From<bool> for TriState {
+        fn from(value: bool) -> Self {
+            if value {
+                TriState::All
+            } else {
+                TriState::None
+            }
+        }
+    }
+
+    impl core::ops::BitOr for TriState {
+        type Output = TriState;
+        fn bitor(self, rhs: Self) -> Self::Output {
+            match (self, rhs) {
+                (TriState::All, TriState::All) => TriState::All,
+                (TriState::None, TriState::None) => TriState::None,
+                _ => TriState::Some,
+            }
+        }
+    }
+
     #[derive(Debug)]
     pub enum Node {
         Leaf {
@@ -862,7 +889,8 @@ mod space_partition {
             split: Coord,
             left: Box<Node>,
             right: Box<Node>,
-            has_dirty: bool,
+            has_dirty: TriState,
+            has_opaque: TriState,
         },
     }
 
@@ -882,8 +910,8 @@ mod space_partition {
             let Some(region) = region.intersection(&node_geometry) else { return };
             if !dirty
                 && (opacity_index.is_none()
-                    || region.width() < self.size.width / (15 as Coord)
-                    || region.height() < self.size.height / (15 as Coord))
+                    || region.width() < self.size.width / (10 as Coord)
+                    || region.height() < self.size.height / (10 as Coord))
             {
                 return;
             }
@@ -891,47 +919,42 @@ mod space_partition {
             Self::add_region_impl(&mut self.root, node_geometry, region, dirty, opacity_index);
         }
 
-        /// returns true if something in the subtree is becoming dirty
+        /// returns Some(has_dirty, has_opaque) if changed
         fn add_region_impl(
             node: &mut Node,
             node_geometry: Box2D,
             b: Box2D,
             is_dirty: bool,
             opacity_index: Option<usize>,
-        ) -> bool {
-            let Some(intersection) = node_geometry.intersection(&b) else { return false };
+        ) -> Option<(TriState, TriState)> {
+            let Some(intersection) = node_geometry.intersection(&b) else { return None };
             if intersection.is_empty() {
-                return false;
+                return None;
             };
             match node {
                 Node::Leaf { opacity, dirty } => {
                     if opacity.is_some() {
                         // We are already covered by another node, we don't care
-                        return false;
+                        return None;
                     }
                     if (*dirty || !is_dirty) && opacity_index.is_none() {
                         // Already marked dirty and no opacity, nothing to add
-                        return false;
+                        return None;
                     }
 
                     if b.contains_box(&node_geometry) {
                         // The node is entirely contained, no need to split
                         *dirty |= is_dirty;
                         *opacity = opacity_index;
+                        Some(((*dirty).into(), opacity.is_some().into()))
                     } else {
                         // We need to split further
                         let old_leaf = || Box::new(Node::Leaf { opacity: *opacity, dirty: *dirty });
-                        let has_dirty = *dirty | is_dirty;
-                        let mut new_node = Node::Leaf { opacity: opacity_index, dirty: has_dirty };
-                        if b.max.x < node_geometry.max.x {
-                            new_node = Node::Division {
-                                horizontal: true,
-                                split: b.max.x,
-                                left: new_node.into(),
-                                right: old_leaf(),
-                                has_dirty,
-                            };
-                        }
+                        let has_dirty = TriState::from(*dirty) | TriState::from(is_dirty);
+                        let has_opaque =
+                            if opacity_index.is_some() { TriState::Some } else { TriState::None };
+                        let mut new_node =
+                            Node::Leaf { opacity: opacity_index, dirty: *dirty | is_dirty };
                         if b.min.x > node_geometry.min.x {
                             new_node = Node::Division {
                                 horizontal: true,
@@ -939,15 +962,17 @@ mod space_partition {
                                 left: old_leaf(),
                                 right: new_node.into(),
                                 has_dirty,
+                                has_opaque,
                             };
                         }
-                        if b.max.y < node_geometry.max.y {
+                        if b.max.x < node_geometry.max.x {
                             new_node = Node::Division {
-                                horizontal: false,
-                                split: b.max.y,
+                                horizontal: true,
+                                split: b.max.x,
                                 left: new_node.into(),
                                 right: old_leaf(),
                                 has_dirty,
+                                has_opaque,
                             };
                         }
                         if b.min.y > node_geometry.min.y {
@@ -957,19 +982,44 @@ mod space_partition {
                                 left: old_leaf(),
                                 right: new_node.into(),
                                 has_dirty,
+                                has_opaque,
+                            };
+                        }
+                        if b.max.y < node_geometry.max.y {
+                            new_node = Node::Division {
+                                horizontal: false,
+                                split: b.max.y,
+                                left: new_node.into(),
+                                right: old_leaf(),
+                                has_dirty,
+                                has_opaque,
                             };
                         }
                         *node = new_node;
+                        Some((has_dirty, has_opaque))
                     }
-                    is_dirty
                 }
-                Node::Division { horizontal, split, left, right, has_dirty } => {
+                Node::Division { horizontal, split, left, right, has_dirty, has_opaque } => {
                     if *horizontal {
                         debug_assert!(*split < node_geometry.max.x, "{split} in {node_geometry:?}");
                         debug_assert!(*split > node_geometry.min.x, "{split} in {node_geometry:?}");
                     } else {
                         debug_assert!(*split < node_geometry.max.y, "{split} in {node_geometry:?}");
                         debug_assert!(*split > node_geometry.min.y, "{split} in {node_geometry:?}");
+                    }
+                    if *has_opaque == TriState::All {
+                        return None;
+                    }
+                    if (*has_dirty == TriState::All || !is_dirty) && opacity_index.is_none() {
+                        // Already marked dirty and no opacity, nothing to add
+                        return None;
+                    }
+                    if b.contains_box(&node_geometry) {
+                        // in these case, we can replace the node.
+                        if is_dirty && *has_opaque == TriState::None {
+                            *node = Node::Leaf { opacity: opacity_index, dirty: true };
+                            return Some((TriState::All, opacity_index.is_some().into()));
+                        }
                     }
 
                     let set_coord = |point: &mut LogicalPoint, val| {
@@ -981,13 +1031,21 @@ mod space_partition {
                     };
                     let mut sub = node_geometry;
                     set_coord(&mut sub.max, *split);
-                    *has_dirty |=
-                        Self::add_region_impl(&mut *left, sub, b, is_dirty, opacity_index);
+                    if let (Some(r)) =
+                        Self::add_region_impl(&mut *left, sub, b, is_dirty, opacity_index)
+                    {
+                        *has_dirty = *has_dirty | r.0;
+                        *has_opaque = *has_opaque | r.1;
+                    }
                     let mut sub = node_geometry;
                     set_coord(&mut sub.min, *split);
-                    *has_dirty |=
-                        Self::add_region_impl(&mut *right, sub, b, is_dirty, opacity_index);
-                    *has_dirty
+                    if let Some(r) =
+                        Self::add_region_impl(&mut *right, sub, b, is_dirty, opacity_index)
+                    {
+                        *has_dirty = *has_dirty | r.0;
+                        *has_opaque = *has_opaque | r.1;
+                    }
+                    Some((*has_dirty, *has_opaque))
                 }
             }
         }
@@ -1014,7 +1072,7 @@ mod space_partition {
                     }
                     opacity.map_or(true, |v| v >= z_index)
                 }
-                Node::Division { horizontal, split, left, right, has_dirty } => {
+                Node::Division { horizontal, split, left, right, has_dirty, .. } => {
                     if *horizontal {
                         debug_assert!(*split < node_geometry.max.x, "{split} in {node_geometry:?}");
                         debug_assert!(*split > node_geometry.min.x, "{split} in {node_geometry:?}");
@@ -1023,7 +1081,7 @@ mod space_partition {
                         debug_assert!(*split > node_geometry.min.y, "{split} in {node_geometry:?}");
                     }
 
-                    if !has_dirty {
+                    if *has_dirty == TriState::None {
                         return false;
                     }
 
@@ -1058,7 +1116,8 @@ mod space_partition {
             match node {
                 Node::Leaf { dirty, .. } if *dirty => node_geometry,
                 Node::Leaf { dirty, .. } => Box2D::zero(),
-                Node::Division { has_dirty, .. } if !*has_dirty => Box2D::zero(),
+                Node::Division { has_dirty: TriState::None, .. } => Box2D::zero(),
+                Node::Division { has_dirty: TriState::All, .. } => node_geometry,
                 Node::Division { horizontal, split, left, right, .. } => {
                     if *horizontal {
                         debug_assert!(*split < node_geometry.max.x, "{split} in {node_geometry:?}");
