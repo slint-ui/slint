@@ -16,7 +16,7 @@ use crate::api::Window;
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use crate::graphics::{BorderRadius, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::{
-    CachedRenderingData, ItemRenderer, RenderBorderRectangle, RenderImage,
+    CachedRenderingData, DirtyRegion, ItemRenderer, RenderBorderRectangle, RenderImage,
 };
 use crate::items::{ItemRc, TextOverflow};
 use crate::lengths::{
@@ -46,8 +46,6 @@ type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 type PhysicalBorderRadius = BorderRadius<i16, PhysicalPx>;
-
-type DirtyRegion = PhysicalRect;
 
 /// This enum describes which parts of the buffer passed to the [`SoftwareRenderer`] may be re-used to speed up painting.
 // FIXME: #[non_exhaustive] #3023
@@ -216,16 +214,36 @@ pub trait LineBufferProvider {
 ///
 /// The region may be composed of multiple sub-regions.
 #[derive(Clone, Debug, Default)]
-pub struct PhysicalRegion(PhysicalRect);
+pub struct PhysicalRegion {
+    rectangles: [PhysicalRect; DirtyRegion::MAX_COUNT],
+    count: usize,
+}
 
 impl PhysicalRegion {
+    pub fn iter(&self) -> impl Iterator<Item = PhysicalRect> + '_ {
+        (0..self.count).map(|x| self.rectangles[x])
+    }
+
+    fn bounding_rect(&self) -> PhysicalRect {
+        if self.count == 0 {
+            return Default::default();
+        }
+        let mut r = self.rectangles[0];
+        for i in 1..self.count {
+            r = r.union(&self.rectangles[i]);
+        }
+        r
+    }
+
     /// Returns the size of the bounding box of this region.
     pub fn bounding_box_size(&self) -> crate::api::PhysicalSize {
-        crate::api::PhysicalSize { width: self.0.width() as _, height: self.0.height() as _ }
+        let bb = self.bounding_rect();
+        crate::api::PhysicalSize { width: bb.width() as _, height: bb.height() as _ }
     }
     /// Returns the origin of the bounding box of this region.
     pub fn bounding_box_origin(&self) -> crate::api::PhysicalPosition {
-        crate::api::PhysicalPosition { x: self.0.origin.x as _, y: self.0.origin.y as _ }
+        let bb = self.bounding_rect();
+        crate::api::PhysicalPosition { x: bb.origin.x as _, y: bb.origin.y as _ }
     }
 }
 
@@ -242,7 +260,7 @@ pub struct SoftwareRenderer {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
     repaint_buffer_type: Cell<RepaintBufferType>,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
-    force_dirty: Cell<crate::item_rendering::DirtyRegion>,
+    force_dirty: RefCell<DirtyRegion>,
     /// Force a redraw in the next frame, no matter what's dirty. Use only as a last resort.
     force_screen_refresh: Cell<bool>,
     /// This is the area which was dirty on the previous frame.
@@ -316,25 +334,23 @@ impl SoftwareRenderer {
     fn apply_dirty_region(
         &self,
         mut dirty_region: DirtyRegion,
-        screen_size: PhysicalSize,
+        screen_size: LogicalSize,
     ) -> DirtyRegion {
-        let screen_region = PhysicalRect { origin: euclid::point2(0, 0), size: screen_size };
+        todo!()
+        /*let screen_region = LogicalRect::from_size(screen_size);
 
         if self.force_screen_refresh.take() {
-            dirty_region = screen_region;
+            dirty_region = screen_region.into();
         }
 
         match self.repaint_buffer_type() {
-            RepaintBufferType::NewBuffer => {
-                PhysicalRect { origin: euclid::point2(0, 0), size: screen_size }
-            }
+            RepaintBufferType::NewBuffer => screen_region.into(),
             RepaintBufferType::ReusedBuffer => dirty_region,
             RepaintBufferType::SwappedBuffers => {
                 dirty_region.union(&self.prev_frame_dirty.replace(dirty_region))
             }
         }
-        .intersection(&screen_region)
-        .unwrap_or_default()
+        .intersection(screen_region)*/
     }
 
     /// Render the window to the given frame buffer.
@@ -351,6 +367,8 @@ impl SoftwareRenderer {
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
     /// in the window frame of reference. It affected by the screen rotation.
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
+        todo!()
+        /*
         let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
         else {
             return Default::default();
@@ -402,13 +420,17 @@ impl SoftwareRenderer {
                     renderer.compute_dirty_regions(component, *origin);
                 }
 
-                let dirty_region = (renderer.dirty_region.to_rect().cast() * factor)
+                let to_draw =
+                    self.apply_dirty_region(renderer.dirty_region, (size.cast() / factor).cast());
+
+                // FIXME: support for non rectangular clip in the software renderer
+                let to_draw = to_draw.bounding_rect();
+
+                let to_draw = (to_draw.cast() * factor)
                     .round_out()
                     .intersection(&euclid::rect(0., 0., i16::MAX as f32, i16::MAX as f32))
                     .unwrap_or_default()
                     .cast();
-
-                let to_draw = self.apply_dirty_region(dirty_region, size);
 
                 renderer.combine_clip(
                     (to_draw.cast() / factor).cast(),
@@ -442,9 +464,10 @@ impl SoftwareRenderer {
                     }
                 }
 
-                PhysicalRegion(to_draw_tr)
+                PhysicalRegion { rectangles: [to_draw; DirtyRegion::MAX_COUNT], count: 1 }
             })
             .unwrap_or_default()
+            */
     }
 
     /// Render the window, line by line, into the line buffer provided by the [`LineBufferProvider`].
@@ -503,7 +526,7 @@ impl SoftwareRenderer {
                 line_buffer,
             )
         } else {
-            PhysicalRegion(Default::default())
+            PhysicalRegion { ..Default::default() }
         }
     }
 }
@@ -660,7 +683,7 @@ impl RendererSealed for SoftwareRenderer {
     }
 
     fn mark_dirty_region(&self, region: crate::item_rendering::DirtyRegion) {
-        self.force_dirty.set(self.force_dirty.get().union(&region))
+        self.force_dirty.replace_with(|r| r.union(&region));
     }
 
     fn register_bitmap_font(&self, font_data: &'static crate::graphics::BitmapFont) {
@@ -705,18 +728,18 @@ fn render_window_frame_by_line(
     debug_log!("{:?} PREPARE_SCENE ------------------------", crate::animations::Instant::now());
     let mut scene = prepare_scene(window, size, renderer);
 
-    let dirty_region = scene.dirty_region;
-    let to_draw_tr = dirty_region.transformed(rotation);
-
     debug_log!("{:?} STARTING RENDERING {}", crate::animations::Instant::now(), scene.items.len());
-
-    scene.current_line = to_draw_tr.origin.y_length();
 
     let mut background_color = TargetPixel::background();
     // FIXME gradient
     TargetPixel::blend(&mut background_color, background.color().into());
 
-    while scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
+    let to_draw_tr = scene.dirty_region.bounding_rect();
+
+    let max_line =
+            scene.dirty_region.iter().map(|x| x.origin.y_length() + x.height_length()).min().unwrap_or_default();
+
+    while scene.current_line < max_line {
         line_buffer.process_line(
             scene.current_line.get() as usize,
             to_draw_tr.min_x() as usize..to_draw_tr.max_x() as usize,
@@ -795,12 +818,12 @@ fn render_window_frame_by_line(
             },
         );
 
-        if scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
+        if scene.current_line < max_line {
             scene.next_line();
         }
     }
     debug_log!("{:?} DONE RENDERING {to_draw_tr:?}", crate::animations::Instant::now());
-    PhysicalRegion(to_draw_tr)
+    scene.dirty_region
 }
 
 #[derive(Default)]
@@ -827,16 +850,19 @@ struct Scene {
     future_items_index: usize,
     current_items_index: usize,
 
-    dirty_region: DirtyRegion,
+    dirty_region: PhysicalRegion,
+    //current_line_ranges: [core::ops::Range<i16>; DirtyRegion::MAX_COUNT],
+    //range_valid_until_line: i16,
 }
 
 impl Scene {
     pub fn new(
         mut items: Vec<SceneItem>,
         vectors: SceneVectors,
-        dirty_region: DirtyRegion,
+        dirty_region: PhysicalRegion,
     ) -> Self {
-        let current_line = dirty_region.origin.y_length();
+        let current_line =
+            dirty_region.iter().map(|x| x.origin.y_length()).min().unwrap_or_default();
         items.retain(|i| i.pos.y_length() + i.size.height_length() > current_line);
         items.sort_unstable_by(compare_scene_item);
         let current_items_index = items.partition_point(|i| i.pos.y_length() <= current_line);
@@ -1170,27 +1196,25 @@ fn prepare_scene(
         prepare_scene,
     );
 
-    let mut dirty_region = PhysicalRect::default();
+    let mut dirty_region = DirtyRegion::default();
     window.draw_contents(|components| {
         for (component, origin) in components {
             renderer.compute_dirty_regions(component, *origin);
         }
 
-        dirty_region = (renderer.dirty_region.to_rect().cast() * factor)
-                    .round_out()
-                    .intersection(&euclid::rect(0., 0., i16::MAX as f32, i16::MAX as f32))
-                    .unwrap_or_default()
-                    .cast();
-
-        dirty_region = software_renderer.apply_dirty_region(dirty_region, size);
+        // FIXME
+        //dirty_region = software_renderer
+        //    .apply_dirty_region(renderer.dirty_region, (size.cast() / factor).cast());
+        dirty_region = renderer.dirty_region.clone();
 
         debug_log!("{:?} COMPUTED DIRTY REGION {dirty_region:?}", crate::animations::Instant::now());
 
         renderer.combine_clip(
-            (dirty_region.cast() / factor).cast(),
+            dirty_region.bounding_rect(),
             LogicalBorderRadius::zero(),
             LogicalLength::zero(),
         );
+
         for (component, origin) in components {
             crate::item_rendering::render_component_items(component, &mut renderer, *origin);
         }
@@ -1205,6 +1229,15 @@ fn prepare_scene(
 
     let prepare_scene = renderer.into_inner();
 
+    let rotation =
+        RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
+    let mut i = dirty_region
+        .iter()
+        .map(|r| (r.cast() * factor).round_out().to_rect().cast().transformed(rotation));
+    let dirty_region = PhysicalRegion {
+        rectangles: core::array::from_fn(|_| i.next().unwrap_or_default()),
+        count: dirty_region.iter().count(),
+    };
     Scene::new(prepare_scene.processor.items, prepare_scene.processor.vectors, dirty_region)
 }
 

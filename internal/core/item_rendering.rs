@@ -446,8 +446,98 @@ pub trait ItemRenderer {
 /// The cache that needs to be held by the Window for the partial rendering
 pub type PartialRenderingCache = RenderingCache<LogicalRect>;
 
-/// FIXME: Should actually be a region and not just a rectangle
-pub type DirtyRegion = euclid::Box2D<Coord, LogicalPx>;
+#[derive(Default, Clone, Debug)]
+pub struct DirtyRegion {
+    rectangles: [euclid::Box2D<Coord, LogicalPx>; Self::MAX_COUNT],
+    count: usize,
+}
+
+impl DirtyRegion {
+    pub const MAX_COUNT: usize = 3;
+
+    pub fn iter(&self) -> impl Iterator<Item = euclid::Box2D<Coord, LogicalPx>> + '_ {
+        (0..self.count).map(|x| self.rectangles[x])
+    }
+
+    pub fn add_rect(&mut self, rect: LogicalRect) {
+        self.add_box(rect.to_box2d());
+    }
+
+    pub fn add_box(&mut self, b: euclid::Box2D<Coord, LogicalPx>) {
+        if b.is_empty() {
+            return;
+        }
+        let mut i = 0;
+        while i < self.count {
+            let r = &self.rectangles[i];
+            if r.contains_box(&b) {
+                // the rectangle is already in the union
+                return;
+            } else if b.contains_box(&r) {
+                self.rectangles.swap(i, self.count);
+                self.count -= 1;
+                continue;
+            }
+            i += 1;
+        }
+
+        if self.count < Self::MAX_COUNT {
+            self.rectangles[self.count] = b;
+            self.count += 1;
+            return;
+        } else {
+            let best_merge = (0..self.count)
+                .map(|i| (i, self.rectangles[i].union(&b).area() - self.rectangles[i].area()))
+                .min_by(|a, b| PartialOrd::partial_cmp(&a.1, &b.1).unwrap())
+                .expect("There should always be rectangles")
+                .0;
+            self.rectangles[best_merge] = self.rectangles[best_merge].union(&b);
+        }
+    }
+
+    pub fn union(&self, other: &Self) -> Self {
+        let mut s = self.clone();
+        for o in other.iter() {
+            s.add_box(o)
+        }
+        s
+    }
+
+    pub fn bounding_rect(&self) -> LogicalRect {
+        if self.count == 0 {
+            return Default::default();
+        }
+        let mut r = self.rectangles[0];
+        for i in 1..self.count {
+            r = r.union(&self.rectangles[i]);
+        }
+        r.to_rect()
+    }
+
+    pub fn intersection(&self, other: LogicalRect) -> DirtyRegion {
+        let mut ret = self.clone();
+        let other = other.to_box2d();
+        let mut i = 0;
+        while i < ret.count {
+            if let Some(x) = ret.rectangles[i].intersection(&other) {
+                ret.rectangles[i] = x;
+            } else {
+                ret.rectangles.swap(i, ret.count);
+                ret.count -= 1;
+                continue;
+            }
+        }
+        ret
+    }
+}
+
+impl From<LogicalRect> for DirtyRegion {
+    fn from(value: LogicalRect) -> Self {
+        let mut s = Self::default();
+        s.add_rect(value);
+        s
+    }
+}
 
 /// Put this structure in the renderer to help with partial rendering
 pub struct PartialRenderer<'a, T> {
@@ -576,7 +666,7 @@ impl<'a, T> PartialRenderer<'a, T> {
     ) {
         if !rect.is_empty() {
             if let Some(rect) = rect.translate(offset).intersection(clip_rect) {
-                self.dirty_region = self.dirty_region.union(&rect.to_box2d());
+                self.dirty_region.add_rect(rect);
             }
         }
     }
