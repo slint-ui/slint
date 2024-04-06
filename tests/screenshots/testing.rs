@@ -7,15 +7,12 @@ use std::rc::Rc;
 
 use crossterm::style::Stylize;
 
-use i_slint_core::{
-    graphics::{
-        euclid::{self, Box2D, Point2D},
-        IntRect, Rgb8Pixel, SharedPixelBuffer,
-    },
-    item_rendering::DirtyRegion,
-    platform::PlatformError,
-    renderer::RendererSealed,
-    software_renderer::{LineBufferProvider, MinimalSoftwareWindow, RenderingRotation},
+use i_slint_core::graphics::{euclid, IntRect, Rgb8Pixel, SharedPixelBuffer};
+use i_slint_core::lengths::LogicalRect;
+use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::RendererSealed;
+use i_slint_core::software_renderer::{
+    LineBufferProvider, MinimalSoftwareWindow, RenderingRotation,
 };
 
 pub struct SwrTestingBackend {
@@ -74,10 +71,9 @@ pub fn screenshot(
     // render to buffer
     window.request_redraw();
     window.draw_if_needed(|renderer| {
-        renderer.mark_dirty_region(Box2D::new(
-            Point2D::new(0., 0.),
-            Point2D::new(width as f32, height as f32),
-        ));
+        renderer.mark_dirty_region(
+            LogicalRect::from_size(euclid::size2(width as f32, height as f32).into()).into(),
+        );
         renderer.set_rendering_rotation(rotated);
         renderer.render(buffer.make_mut_slice(), width as usize);
         renderer.set_rendering_rotation(RenderingRotation::NoRotation);
@@ -308,12 +304,15 @@ pub fn screenshot_render_by_line(
 
     window.draw_if_needed(|renderer| {
         match region {
-            None => renderer.mark_dirty_region(Box2D::new(
-                euclid::point2(0., 0.),
-                euclid::point2(buffer.width() as f32, buffer.height() as f32),
-            )),
+            None => renderer.mark_dirty_region(
+                LogicalRect::from_size(euclid::size2(
+                    buffer.width() as f32,
+                    buffer.height() as f32,
+                ))
+                .into(),
+            ),
             Some(r) => renderer.mark_dirty_region(
-                DirtyRegion::from_untyped(&r.to_box2d().cast()) / window.scale_factor(),
+                (euclid::Rect::from_untyped(&r.cast()) / window.scale_factor()).into(),
             ),
         }
         renderer.render_by_line(TestingLineBuffer {
