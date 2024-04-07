@@ -1187,8 +1187,11 @@ fn prepare_scene(
         // TODO FIXME! Support other type than  RepaintBufferType::ReusedBuffer
         // dirty_region = software_renderer.apply_dirty_region(dirty_region, size);
 
-
-        debug_log!("{:?} COMPUTED DIRTY REGION {dirty_region:?}  -- {:?}", crate::animations::Instant::now(), renderer.space_partition.debug());
+        debug_log!(
+            "{:?} COMPUTED DIRTY REGION {dirty_region:?}  -- {:?}",
+            crate::animations::Instant::now(),
+            renderer.space_partition.debug()
+        );
 
         renderer.combine_clip(
             (dirty_region.cast() / factor).cast(),
@@ -1207,9 +1210,45 @@ fn prepare_scene(
         }
     }
 
-    let prepare_scene = renderer.into_inner();
+    /*renderer.space_partition.visit_regions(
+        &mut |geom, dirty, opacity| {
+            //eprintln!("visit {geom:?} {dirty:?} {opacity:?}");
+            let Some(rect) = (geom.to_rect().cast() * factor).cast().intersection(&dirty_region)
+            else {
+                return;
+            };
 
-    Scene::new(prepare_scene.processor.items, prepare_scene.processor.vectors, dirty_region)
+            renderer.actual_renderer.processor.process_rounded_rectangle(
+                rect,
+                RoundedRectangle {
+                    radius: BorderRadius::default(),
+                    width: Length::new(1),
+                    border_color: Color::from_rgb_u8(
+                        if opacity.is_some() { 255 } else { 0 },
+                        if dirty { 255 } else { 0 },
+                        0,
+                    )
+                    .into(),
+                    inner_color: PremultipliedRgbaColor::default(),
+                    left_clip: Length::default(),
+                    right_clip: Length::default(),
+                    top_clip: Length::default(),
+                    bottom_clip: Length::default(),
+                },
+            )
+        },
+        &mut |(), ()| (),
+    );*/
+
+    let prepare_scene = renderer.actual_renderer;
+
+    Scene::new(
+        prepare_scene.processor.items,
+        prepare_scene.processor.vectors,
+        dirty_region,
+        renderer.space_partition,
+        factor,
+    )
 }
 
 trait ProcessScene {
