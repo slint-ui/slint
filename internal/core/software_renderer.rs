@@ -734,91 +734,97 @@ fn render_window_frame_by_line(
     // FIXME gradient
     TargetPixel::blend(&mut background_color, background.color().into());
 
-    let to_draw_tr = scene.dirty_region.bounding_rect();
+    while scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
+        for r in &scene.current_line_ranges {
+            line_buffer.process_line(
+                scene.current_line.get() as usize,
+                r.start as usize..r.end as usize,
+                |line_buffer| {
+                    let offset = r.start;
 
-    let max_line =
-            scene.dirty_region.iter().map(|x| x.origin.y_length() + x.height_length()).min().unwrap_or_default();
+                    line_buffer.fill(background_color);
+                    for span in scene.items[0..scene.current_items_index].iter().rev() {
+                        debug_assert!(scene.current_line >= span.pos.y_length());
+                        debug_assert!(
+                            scene.current_line < span.pos.y_length() + span.size.height_length(),
+                        );
+                        if span.pos.x >= r.end {
+                            return;
+                        }
+                        let range_offset = r.start - to_draw_tr.min_x();
+                        let begin = r.start.max(span.pos.x);
+                        let end = r.end.min(span.pos.x + span.size.width);
+                        if begin >= end {
+                            return;
+                        }
 
-    while scene.current_line < max_line {
-        line_buffer.process_line(
-            scene.current_line.get() as usize,
-            to_draw_tr.min_x() as usize..to_draw_tr.max_x() as usize,
-            |line_buffer| {
-                let offset = to_draw_tr.min_x() as usize;
+                        match span.command {
+                            SceneCommand::Rectangle { color } => {
+                                TargetPixel::blend_slice(
+                                    &mut line_buffer
+                                        [(begin - offset) as usize..(end - offset) as usize],
+                                    color,
+                                );
+                            }
+                            SceneCommand::Texture { texture_index } => {
+                                let texture = &scene.vectors.textures[texture_index as usize];
+                                draw_functions::draw_texture_line(
+                                    &PhysicalRect {
+                                        origin: euclid::point2(begin - offset, span.pos.y),
+                                        size: euclid::size2(end - begin, span.size.height),
+                                    },
+                                    scene.current_line,
+                                    texture,
+                                    line_buffer,
+                                );
+                            }
+                            SceneCommand::SharedBuffer { shared_buffer_index } => {
+                                let texture = scene.vectors.shared_buffers
+                                    [shared_buffer_index as usize]
+                                    .as_texture();
+                                draw_functions::draw_texture_line(
+                                    &PhysicalRect {
+                                        origin: euclid::point2(begin - offset, span.pos.y),
+                                        size: euclid::size2(end - begin, span.size.height),
+                                    },
+                                    scene.current_line,
+                                    &texture,
+                                    line_buffer,
+                                );
+                            }
+                            SceneCommand::RoundedRectangle { rectangle_index } => {
+                                let rr =
+                                    &scene.vectors.rounded_rectangles[rectangle_index as usize];
+                                draw_functions::draw_rounded_rectangle_line(
+                                    &PhysicalRect {
+                                        origin: euclid::point2(begin - offset, span.pos.y),
+                                        size: euclid::size2(end - begin, span.size.height),
+                                    },
+                                    scene.current_line,
+                                    rr,
+                                    line_buffer,
+                                );
+                            }
+                            SceneCommand::Gradient { gradient_index } => {
+                                let g = &scene.vectors.gradients[gradient_index as usize];
 
-                line_buffer.fill(background_color);
-                for span in scene.items[0..scene.current_items_index].iter().rev() {
-                    debug_assert!(scene.current_line >= span.pos.y_length());
-                    debug_assert!(
-                        scene.current_line < span.pos.y_length() + span.size.height_length(),
-                    );
-                    match span.command {
-                        SceneCommand::Rectangle { color } => {
-                            TargetPixel::blend_slice(
-                                &mut line_buffer[span.pos.x as usize - offset
-                                    ..(span.pos.x_length() + span.size.width_length()).get()
-                                        as usize
-                                        - offset],
-                                color,
-                            );
-                        }
-                        SceneCommand::Texture { texture_index } => {
-                            let texture = &scene.vectors.textures[texture_index as usize];
-                            draw_functions::draw_texture_line(
-                                &PhysicalRect {
-                                    origin: span.pos - euclid::vec2(offset as i16, 0),
-                                    size: span.size,
-                                },
-                                scene.current_line,
-                                texture,
-                                line_buffer,
-                            );
-                        }
-                        SceneCommand::SharedBuffer { shared_buffer_index } => {
-                            let texture = scene.vectors.shared_buffers
-                                [shared_buffer_index as usize]
-                                .as_texture();
-                            draw_functions::draw_texture_line(
-                                &PhysicalRect {
-                                    origin: span.pos - euclid::vec2(offset as i16, 0),
-                                    size: span.size,
-                                },
-                                scene.current_line,
-                                &texture,
-                                line_buffer,
-                            );
-                        }
-                        SceneCommand::RoundedRectangle { rectangle_index } => {
-                            let rr = &scene.vectors.rounded_rectangles[rectangle_index as usize];
-                            draw_functions::draw_rounded_rectangle_line(
-                                &PhysicalRect {
-                                    origin: span.pos - euclid::vec2(offset as i16, 0),
-                                    size: span.size,
-                                },
-                                scene.current_line,
-                                rr,
-                                line_buffer,
-                            );
-                        }
-                        SceneCommand::Gradient { gradient_index } => {
-                            let g = &scene.vectors.gradients[gradient_index as usize];
-
-                            draw_functions::draw_gradient_line(
-                                &PhysicalRect {
-                                    origin: span.pos - euclid::vec2(offset as i16, 0),
-                                    size: span.size,
-                                },
-                                scene.current_line,
-                                g,
-                                line_buffer,
-                            );
+                                draw_functions::draw_gradient_line(
+                                    &PhysicalRect {
+                                        origin: euclid::point2(begin - offset, span.pos.y),
+                                        size: euclid::size2(end - begin, span.size.height),
+                                    },
+                                    scene.current_line,
+                                    g,
+                                    line_buffer,
+                                );
+                            }
                         }
                     }
-                }
-            },
-        );
+                },
+            );
+        }
 
-        if scene.current_line < max_line {
+        if scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
             scene.next_line();
         }
     }
@@ -851,8 +857,12 @@ struct Scene {
     current_items_index: usize,
 
     dirty_region: PhysicalRegion,
-    //current_line_ranges: [core::ops::Range<i16>; DirtyRegion::MAX_COUNT],
-    //range_valid_until_line: i16,
+
+    space_partition: crate::item_rendering::space_partition::SpacePartition,
+    current_line_ranges: Vec<core::ops::Range<i16>>,
+    range_valid_until_line: PhysicalLength,
+    // FIXME: should already be converted
+    scale_factor: ScaleFactor,
 }
 
 impl Scene {
@@ -860,6 +870,8 @@ impl Scene {
         mut items: Vec<SceneItem>,
         vectors: SceneVectors,
         dirty_region: PhysicalRegion,
+        space_partition: crate::item_rendering::space_partition::SpacePartition,
+        scale_factor: ScaleFactor,
     ) -> Self {
         let current_line =
             dirty_region.iter().map(|x| x.origin.y_length()).min().unwrap_or_default();
@@ -867,19 +879,30 @@ impl Scene {
         items.sort_unstable_by(compare_scene_item);
         let current_items_index = items.partition_point(|i| i.pos.y_length() <= current_line);
         items[..current_items_index].sort_unstable_by(|a, b| b.z.cmp(&a.z));
-        Self {
+        let mut r = Self {
             items,
             current_line,
             current_items_index,
             future_items_index: current_items_index,
             vectors,
             dirty_region,
-        }
+            space_partition,
+            current_line_ranges: Default::default(),
+            range_valid_until_line: Default::default(),
+            scale_factor,
+        };
+        r.recompute_ranges();
+        assert_eq!(r.current_line, dirty_region.origin.y_length());
+        r
     }
 
     /// Updates `current_items_index` and `future_items_index` to match the invariant
     pub fn next_line(&mut self) {
         self.current_line += PhysicalLength::new(1);
+
+        if self.current_line >= self.range_valid_until_line {
+            self.recompute_ranges()
+        }
 
         // The items array is split in part:
         // 1. [0..i] are the items that have already been processed, that are on this line
@@ -981,6 +1004,55 @@ impl Scene {
         self.current_items_index = i;
         // check that current items are properly sorted
         debug_assert!(self.items[0..self.current_items_index].windows(2).all(|x| x[0].z >= x[1].z));
+    }
+
+    fn recompute_ranges(&mut self) {
+        self.current_line_ranges.clear();
+        let mut next_line_candidate = None::<PhysicalLength>;
+        let mut next_validity = None::<PhysicalLength>;
+        self.space_partition.visit_regions(
+            &mut |geom, dirty, opacity| {
+                let geom = (geom.cast() * self.scale_factor).round().cast::<i16>();
+                if !dirty || geom.is_empty() {
+                    return;
+                }
+                if geom.min.y_length() >= self.current_line {
+                    match &mut next_line_candidate {
+                        Some(val) => *val = geom.min.y_length().min(*val),
+                        None => next_line_candidate = Some(geom.min.y_length()),
+                    }
+                    match &mut next_validity {
+                        Some(val) => *val = geom.max.y_length().min(*val),
+                        None => next_line_candidate = Some(geom.max.y_length()),
+                    }
+                }
+                if dirty && geom.y_range().contains(&(self.current_line.get())) {
+                    match &mut next_line_candidate {
+                        Some(val) => *val = geom.max.y_length().min(*val),
+                        None => next_line_candidate = Some(geom.min.y_length()),
+                    }
+                    let r = geom.x_range();
+                    if let Some(last) = self.current_line_ranges.last_mut() {
+                        if last.end == r.start {
+                            last.end = r.end;
+                        }
+                        return;
+                    }
+                    self.current_line_ranges.push(r);
+                    return;
+                }
+            },
+            &mut |(), ()| (),
+        );
+        // check that current items are properly sorted
+        debug_assert!(self.current_line_ranges.windows(2).all(|x| x[0].end < x[1].start));
+        self.range_valid_until_line = next_validity.unwrap_or_default();
+        /*if self.current_line_ranges.is_empty() {
+            if let Some(next) = next_line_candidate {
+                self.current_line = next;
+                self.recompute_ranges();
+            }
+        }*/
     }
 }
 
