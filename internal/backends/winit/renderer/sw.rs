@@ -155,7 +155,8 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                 }
             }
             for x in &mut *target_buffer {
-                *x /= 2;
+                *x |= 0xff0000ff;
+                *x &= 0xfffff0ff;
             }
             self.renderer.render_by_line(FrameBuffer {
                 buffer: &mut target_buffer,
