@@ -877,7 +877,6 @@ impl Scene {
         vectors: SceneVectors,
         dirty_region: PhysicalRegion,
     ) -> Self {
-
         let current_line = dirty_region.iter().map(|x| x.min.y_length()).min().unwrap_or_default();
         items.retain(|i| i.pos.y_length() + i.size.height_length() > current_line);
         items.sort_unstable_by(compare_scene_item);
@@ -1042,31 +1041,53 @@ impl Scene {
             if geom.is_empty() {
                 continue;
             }
-
-            if geom.min.y_length() >= self.current_line {
-                match &mut next_line_candidate {
-                    Some(val) => *val = geom.min.y_length().min(*val),
-                    None => next_line_candidate = Some(geom.min.y_length()),
-                }
+            if geom.y_range().contains(&(self.current_line.get())) {
                 match &mut next_validity {
                     Some(val) => *val = geom.max.y_length().min(*val),
                     None => next_validity = Some(geom.max.y_length()),
                 }
-            }
-            if geom.y_range().contains(&(self.current_line.get())) {
-                match &mut next_line_candidate {
-                    Some(val) => *val = geom.max.y_length().min(*val),
-                    None => next_line_candidate = Some(geom.min.y_length()),
-                }
-                let r = geom.x_range();
-                if let Some(last) = self.current_line_ranges.last_mut() {
-                    if last.end == r.start {
-                        last.end = r.end;
+                let mut tmp = Some(geom.x_range());
+                self.current_line_ranges.retain_mut(|it| {
+                    if let Some(r) = &mut tmp {
+                        if it.end < r.start {
+                            return true;
+                        } else if it.start <= r.start {
+                            if it.end >= r.end {
+                                tmp = None;
+                                return true;
+                            }
+                            r.start = it.start;
+                            return false;
+                        } else if it.start <= r.end {
+                            if it.end <= r.end {
+                                tmp = None;
+                                return true;
+                            } else {
+                                r.end = it.end;
+                                return false;
+                            }
+                        } else {
+                            return true;
+                        }
+                    } else {
+                        return true;
                     }
-                    continue;
+                });
+                if let Some(r) = tmp {
+                    self.current_line_ranges.push(r);
                 }
-                self.current_line_ranges.push(r);
                 continue;
+            } else {
+                if geom.min.y_length() >= self.current_line {
+                    match &mut next_line_candidate {
+                        Some(val) => *val = geom.min.y_length().min(*val),
+                        None => next_line_candidate = Some(geom.min.y_length()),
+                    }
+                    match &mut next_validity {
+                        Some(val) => *val = geom.min.y_length().min(*val),
+                        None => next_validity = Some(geom.min.y_length()),
+                    }
+                }
             }
         }
         // check that current items are properly sorted
