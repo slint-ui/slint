@@ -15,7 +15,7 @@ name = "slide_puzzle"
 
 [dependencies]
 rand = "0.8"
-slint = { path = "../../api/rs/slint" }
+slint = { path = "../../api/rs/slint", features=["backend-android-activity-06"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
@@ -24,9 +24,9 @@ slint-build = { path = "../../api/rs/build" }
 # This is commented out by default because we don't want to build it as a library by default
 # The CI has a script that does sed "s/#wasm# //" to generate the wasm build.
 
-#wasm# [lib]
-#wasm# path = "main.rs"
-#wasm# crate-type = ["cdylib"]
+[lib]
+path = "main.rs"
+crate-type = ["cdylib"]
 
 #wasm# [target.'cfg(target_arch = "wasm32")'.dependencies]
 #wasm# wasm-bindgen = { version = "0.2" }
