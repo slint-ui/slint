@@ -215,12 +215,12 @@ pub trait LineBufferProvider {
 /// The region may be composed of multiple sub-regions.
 #[derive(Clone, Debug, Default)]
 pub struct PhysicalRegion {
-    rectangles: [PhysicalRect; DirtyRegion::MAX_COUNT],
+    rectangles: [euclid::Box2D<i16, PhysicalPx>; DirtyRegion::MAX_COUNT],
     count: usize,
 }
 
 impl PhysicalRegion {
-    pub fn iter(&self) -> impl Iterator<Item = PhysicalRect> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = euclid::Box2D<i16, PhysicalPx>> + '_ {
         (0..self.count).map(|x| self.rectangles[x])
     }
 
@@ -232,7 +232,7 @@ impl PhysicalRegion {
         for i in 1..self.count {
             r = r.union(&self.rectangles[i]);
         }
-        r
+        r.to_rect()
     }
 
     /// Returns the size of the bounding box of this region.
@@ -730,6 +730,8 @@ fn render_window_frame_by_line(
 
     debug_log!("{:?} STARTING RENDERING {}", crate::animations::Instant::now(), scene.items.len());
 
+    let to_draw_tr = scene.dirty_region.bounding_rect();
+
     let mut background_color = TargetPixel::background();
     // FIXME gradient
     TargetPixel::blend(&mut background_color, background.color().into());
@@ -749,14 +751,16 @@ fn render_window_frame_by_line(
                             scene.current_line < span.pos.y_length() + span.size.height_length(),
                         );
                         if span.pos.x >= r.end {
-                            return;
+                            continue;
                         }
-                        let range_offset = r.start - to_draw_tr.min_x();
                         let begin = r.start.max(span.pos.x);
                         let end = r.end.min(span.pos.x + span.size.width);
                         if begin >= end {
-                            return;
+                            continue;
                         }
+
+                        let extra_left_clip = begin - span.pos.x;
+                        let extra_right_clip = span.pos.x + span.size.width - end;
 
                         match span.command {
                             SceneCommand::Rectangle { color } => {
@@ -776,6 +780,7 @@ fn render_window_frame_by_line(
                                     scene.current_line,
                                     texture,
                                     line_buffer,
+                                    extra_left_clip,
                                 );
                             }
                             SceneCommand::SharedBuffer { shared_buffer_index } => {
@@ -790,6 +795,7 @@ fn render_window_frame_by_line(
                                     scene.current_line,
                                     &texture,
                                     line_buffer,
+                                    extra_left_clip,
                                 );
                             }
                             SceneCommand::RoundedRectangle { rectangle_index } => {
@@ -803,6 +809,8 @@ fn render_window_frame_by_line(
                                     scene.current_line,
                                     rr,
                                     line_buffer,
+                                    extra_left_clip,
+                                    extra_right_clip,
                                 );
                             }
                             SceneCommand::Gradient { gradient_index } => {
@@ -816,6 +824,7 @@ fn render_window_frame_by_line(
                                     scene.current_line,
                                     g,
                                     line_buffer,
+                                    extra_left_clip,
                                 );
                             }
                         }
@@ -858,11 +867,8 @@ struct Scene {
 
     dirty_region: PhysicalRegion,
 
-    space_partition: crate::item_rendering::space_partition::SpacePartition,
     current_line_ranges: Vec<core::ops::Range<i16>>,
     range_valid_until_line: PhysicalLength,
-    // FIXME: should already be converted
-    scale_factor: ScaleFactor,
 }
 
 impl Scene {
@@ -870,11 +876,9 @@ impl Scene {
         mut items: Vec<SceneItem>,
         vectors: SceneVectors,
         dirty_region: PhysicalRegion,
-        space_partition: crate::item_rendering::space_partition::SpacePartition,
-        scale_factor: ScaleFactor,
     ) -> Self {
-        let current_line =
-            dirty_region.iter().map(|x| x.origin.y_length()).min().unwrap_or_default();
+
+        let current_line = dirty_region.iter().map(|x| x.min.y_length()).min().unwrap_or_default();
         items.retain(|i| i.pos.y_length() + i.size.height_length() > current_line);
         items.sort_unstable_by(compare_scene_item);
         let current_items_index = items.partition_point(|i| i.pos.y_length() <= current_line);
@@ -886,13 +890,11 @@ impl Scene {
             future_items_index: current_items_index,
             vectors,
             dirty_region,
-            space_partition,
             current_line_ranges: Default::default(),
             range_valid_until_line: Default::default(),
-            scale_factor,
         };
         r.recompute_ranges();
-        assert_eq!(r.current_line, dirty_region.origin.y_length());
+        debug_assert_eq!(r.current_line, r.dirty_region.bounding_rect().origin.y_length());
         r
     }
 
@@ -900,9 +902,7 @@ impl Scene {
     pub fn next_line(&mut self) {
         self.current_line += PhysicalLength::new(1);
 
-        if self.current_line >= self.range_valid_until_line {
-            self.recompute_ranges()
-        }
+        let skipped = self.current_line >= self.range_valid_until_line && self.recompute_ranges();
 
         // The items array is split in part:
         // 1. [0..i] are the items that have already been processed, that are on this line
@@ -918,6 +918,33 @@ impl Scene {
 
         let (mut i, mut j, mut tmp1, mut tmp2) =
             (0, 0, self.current_items_index, self.current_items_index);
+
+        if skipped {
+            // Merge sort doesn't work in that case.
+            while j < self.current_items_index {
+                let item = self.items[j];
+                if item.pos.y_length() + item.size.height_length() > self.current_line {
+                    self.items[i] = item;
+                    i += 1;
+                }
+                j += 1;
+            }
+            while self.future_items_index < self.items.len() {
+                let item = self.items[self.future_items_index];
+                if item.pos.y_length() > self.current_line {
+                    break;
+                }
+                self.future_items_index += 1;
+                if item.pos.y_length() + item.size.height_length() < self.current_line {
+                    continue;
+                }
+                self.items[i] = item;
+                i += 1;
+            }
+            self.items[0..i].sort_unstable_by(|a, b| b.z.cmp(&a.z));
+            self.current_items_index = i;
+            return;
+        }
 
         'outer: loop {
             let future_next_z = self
@@ -991,9 +1018,9 @@ impl Scene {
                     if item.pos.y_length() > self.current_line {
                         break;
                     }
+                    self.future_items_index += 1;
                     self.items[i] = item;
                     i += 1;
-                    self.future_items_index += 1;
                 }
                 self.items[sort_begin..i].sort_unstable_by(|a, b| b.z.cmp(&a.z));
                 break;
@@ -1006,53 +1033,54 @@ impl Scene {
         debug_assert!(self.items[0..self.current_items_index].windows(2).all(|x| x[0].z >= x[1].z));
     }
 
-    fn recompute_ranges(&mut self) {
+    // return true if lines were skipped
+    fn recompute_ranges(&mut self) -> bool {
         self.current_line_ranges.clear();
         let mut next_line_candidate = None::<PhysicalLength>;
         let mut next_validity = None::<PhysicalLength>;
-        self.space_partition.visit_regions(
-            &mut |geom, dirty, opacity| {
-                let geom = (geom.cast() * self.scale_factor).round().cast::<i16>();
-                if !dirty || geom.is_empty() {
-                    return;
+        for geom in self.dirty_region.iter() {
+            if geom.is_empty() {
+                continue;
+            }
+
+            if geom.min.y_length() >= self.current_line {
+                match &mut next_line_candidate {
+                    Some(val) => *val = geom.min.y_length().min(*val),
+                    None => next_line_candidate = Some(geom.min.y_length()),
                 }
-                if geom.min.y_length() >= self.current_line {
-                    match &mut next_line_candidate {
-                        Some(val) => *val = geom.min.y_length().min(*val),
-                        None => next_line_candidate = Some(geom.min.y_length()),
-                    }
-                    match &mut next_validity {
-                        Some(val) => *val = geom.max.y_length().min(*val),
-                        None => next_line_candidate = Some(geom.max.y_length()),
-                    }
+                match &mut next_validity {
+                    Some(val) => *val = geom.max.y_length().min(*val),
+                    None => next_validity = Some(geom.max.y_length()),
                 }
-                if dirty && geom.y_range().contains(&(self.current_line.get())) {
-                    match &mut next_line_candidate {
-                        Some(val) => *val = geom.max.y_length().min(*val),
-                        None => next_line_candidate = Some(geom.min.y_length()),
-                    }
-                    let r = geom.x_range();
-                    if let Some(last) = self.current_line_ranges.last_mut() {
-                        if last.end == r.start {
-                            last.end = r.end;
-                        }
-                        return;
-                    }
-                    self.current_line_ranges.push(r);
-                    return;
+            }
+            if geom.y_range().contains(&(self.current_line.get())) {
+                match &mut next_line_candidate {
+                    Some(val) => *val = geom.max.y_length().min(*val),
+                    None => next_line_candidate = Some(geom.min.y_length()),
                 }
-            },
-            &mut |(), ()| (),
-        );
+                let r = geom.x_range();
+                if let Some(last) = self.current_line_ranges.last_mut() {
+                    if last.end == r.start {
+                        last.end = r.end;
+                    }
+                    continue;
+                }
+                self.current_line_ranges.push(r);
+                continue;
+            }
+        }
         // check that current items are properly sorted
         debug_assert!(self.current_line_ranges.windows(2).all(|x| x[0].end < x[1].start));
         self.range_valid_until_line = next_validity.unwrap_or_default();
-        /*if self.current_line_ranges.is_empty() {
+
+        if self.current_line_ranges.is_empty() {
             if let Some(next) = next_line_candidate {
                 self.current_line = next;
                 self.recompute_ranges();
+                return true;
             }
-        }*/
+        }
+        false
     }
 }
 
@@ -1268,21 +1296,36 @@ fn prepare_scene(
         prepare_scene,
     );
 
-    let mut dirty_region = DirtyRegion::default();
+    let mut dirty_region = PhysicalRegion::default();
     window.draw_contents(|components| {
         for (component, origin) in components {
-            renderer.compute_dirty_regions(component, *origin);
+            renderer.compute_dirty_regions(component, *origin, size.cast() / factor);
         }
 
         // FIXME
         //dirty_region = software_renderer
         //    .apply_dirty_region(renderer.dirty_region, (size.cast() / factor).cast());
-        dirty_region = renderer.dirty_region.clone();
+        {
+            let rotation =
+                RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
+            let mut i = renderer
+                .dirty_region
+                .iter()
+                .map(|r| (r.cast() * factor).to_rect().round_out().cast().transformed(rotation));
+            dirty_region = PhysicalRegion {
+                rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
+                count: renderer.dirty_region.iter().count(),
+            };
+        }
 
-        debug_log!("{:?} COMPUTED DIRTY REGION {dirty_region:?}", crate::animations::Instant::now());
+        debug_log!(
+            "{:?} COMPUTED DIRTY REGION {dirty_region:?}  = {:?}",
+            crate::animations::Instant::now(),
+            dirty_region.bounding_rect()
+        );
 
         renderer.combine_clip(
-            dirty_region.bounding_rect(),
+            (dirty_region.bounding_rect().cast() / factor).cast(),
             LogicalBorderRadius::zero(),
             LogicalLength::zero(),
         );
@@ -1301,15 +1344,25 @@ fn prepare_scene(
 
     let prepare_scene = renderer.into_inner();
 
-    let rotation =
-        RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
-    let mut i = dirty_region
+    /* for rect in dirty_region
         .iter()
-        .map(|r| (r.cast() * factor).round_out().to_rect().cast().transformed(rotation));
-    let dirty_region = PhysicalRegion {
-        rectangles: core::array::from_fn(|_| i.next().unwrap_or_default()),
-        count: dirty_region.iter().count(),
-    };
+        .map(|r| (r.cast() * factor).round_out().to_rect().cast().transformed(rotation))
+    {
+        prepare_scene.processor.process_rounded_rectangle(
+            rect,
+            RoundedRectangle {
+                radius: BorderRadius::default(),
+                width: Length::new(1),
+                border_color: Color::from_argb_u8(128, 255, 0, 0).into(),
+                inner_color: PremultipliedRgbaColor::default(),
+                left_clip: Length::default(),
+                right_clip: Length::default(),
+                top_clip: Length::default(),
+                bottom_clip: Length::default(),
+            },
+        )
+    }*/
+
     Scene::new(prepare_scene.processor.items, prepare_scene.processor.vectors, dirty_region)
 }
 
@@ -1334,6 +1387,7 @@ impl<'a, T: TargetPixel> RenderToBuffer<'a, T> {
                 PhysicalLength::new(line),
                 &texture,
                 &mut self.buffer[line as usize * self.stride..],
+                0,
             );
         }
     }
@@ -1363,6 +1417,8 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
                 PhysicalLength::new(line),
                 &rr,
                 &mut self.buffer[line as usize * self.stride..],
+                0,
+                0,
             );
         }
     }
@@ -1374,6 +1430,7 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
                 PhysicalLength::new(line),
                 &g,
                 &mut self.buffer[line as usize * self.stride..],
+                0,
             );
         }
     }
@@ -2325,6 +2382,10 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     fn translate(&mut self, distance: LogicalVector) {
         self.current_state.offset += distance;
         self.current_state.clip = self.current_state.clip.translate(-distance)
+    }
+
+    fn translation(&self) -> LogicalVector {
+        self.current_state.offset.to_vector()
     }
 
     fn rotate(&mut self, _angle_in_degrees: f32) {

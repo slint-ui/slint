@@ -20,6 +20,7 @@ pub(super) fn draw_texture_line(
     line: PhysicalLength,
     texture: &super::SceneTexture,
     line_buffer: &mut [impl TargetPixel],
+    extra_clip: i16,
 ) {
     let super::SceneTexture {
         data,
@@ -36,10 +37,10 @@ pub(super) fn draw_texture_line(
     let y = (line - span.origin.y_length()).cast::<usize>();
     let y = if rotation.mirror_width() { span_size.height - y.get() - 1 } else { y.get() } as i32;
 
-    let off_x = Fixed::<i32, 8>::from_fixed(off_x);
     let off_y = Fixed::<i32, 8>::from_fixed(off_y);
     let dx = Fixed::<i32, 8>::from_fixed(dx);
     let dy = Fixed::<i32, 8>::from_fixed(dy);
+    let off_x = Fixed::<i32, 8>::from_fixed(off_x) + dx * extra_clip as i32;
 
     if !rotation.is_transpose() {
         let mut delta = dx;
@@ -283,6 +284,9 @@ pub(super) fn draw_rounded_rectangle_line(
     line: PhysicalLength,
     rr: &super::RoundedRectangle,
     line_buffer: &mut [impl TargetPixel],
+    extra_left_clip: i16,
+    extra_right_clip: i16,
+
 ) {
     /// This is an integer shifted by 4 bits.
     /// Note: this is not a "fixed point" because multiplication and sqrt operation operate to
@@ -334,7 +338,7 @@ pub(super) fn draw_rounded_rectangle_line(
         }
     };
     let rev = |x: Shifted| {
-        (Shifted::new(span.size.width) + Shifted::new(rr.right_clip.get())).saturating_sub(x)
+        (Shifted::new(span.size.width) + Shifted::new(rr.right_clip.get() + extra_right_clip)).saturating_sub(x)
     };
     let calculate_xxxx = |r: i16, y: i16| {
         let r = Shifted::new(r);
@@ -374,8 +378,8 @@ pub(super) fn draw_rounded_rectangle_line(
         (x1, x2, x3, x4, rev(x5), rev(x6), rev(x7), rev(x8))
     };
     anti_alias(
-        x1.saturating_sub(Shifted::new(rr.left_clip.get())),
-        x2.saturating_sub(Shifted::new(rr.left_clip.get())),
+        x1.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
+        x2.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
         &mut |x, cov| {
             if x >= span.size.width as usize {
                 return;
@@ -392,8 +396,10 @@ pub(super) fn draw_rounded_rectangle_line(
     );
     if y < rr.width {
         // up or down border (x2 .. x7)
-        let l = x2.ceil().saturating_sub(rr.left_clip.get() as u32).min(span.size.width as u32)
-            as usize;
+        let l = x2
+            .ceil()
+            .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
+            .min(span.size.width as u32) as usize;
         let r = x7.floor().min(span.size.width as u32) as usize;
         if l < r {
             TargetPixel::blend_slice(&mut line_buffer[pos_x + l..pos_x + r], rr.border_color)
@@ -405,7 +411,7 @@ pub(super) fn draw_rounded_rectangle_line(
                 TargetPixel::blend_slice(
                     &mut line_buffer[pos_x
                         + x2.ceil()
-                            .saturating_sub(rr.left_clip.get() as u32)
+                            .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
                             .min(span.size.width as u32) as usize
                         ..pos_x
                             + x3.floor()
@@ -417,8 +423,8 @@ pub(super) fn draw_rounded_rectangle_line(
             }
             // 4. anti-aliasing for the contents (x3 .. x4)
             anti_alias(
-                x3.saturating_sub(Shifted::new(rr.left_clip.get())),
-                x4.saturating_sub(Shifted::new(rr.left_clip.get())),
+                x3.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
+                x4.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
                 &mut |x, cov| {
                     if x >= span.size.width as usize {
                         return;
@@ -430,8 +436,10 @@ pub(super) fn draw_rounded_rectangle_line(
         }
         if rr.inner_color.alpha > 0 {
             // 5. inside (x4 .. x5)
-            let begin =
-                x4.ceil().saturating_sub(rr.left_clip.get() as u32).min(span.size.width as u32);
+            let begin = x4
+                .ceil()
+                .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
+                .min(span.size.width as u32);
             let end = x5.floor().min(span.size.width as u32);
             if begin < end {
                 TargetPixel::blend_slice(
@@ -506,6 +514,7 @@ pub(super) fn draw_gradient_line(
     line: PhysicalLength,
     g: &super::GradientCommand,
     line_buffer: &mut [impl TargetPixel],
+    extra_clip: i16,
 ) {
     let mut buffer = &mut line_buffer
         [rect.origin.x as usize..(rect.origin.x_length() + rect.width_length()).get() as usize];
@@ -533,13 +542,14 @@ pub(super) fn draw_gradient_line(
         return;
     }
 
-    let size_x = (rect.width() + g.left_clip.get() + g.right_clip.get()) as i32;
+    let size_x = (rect.width() + g.left_clip.get() + extra_clip + g.right_clip.get()) as i32;
 
     let mut x = if invert_slope {
         (y * size_x * (255 - start)) / (size_y * start)
     } else {
         (size_y - y) * size_x * (255 - start) / (size_y * start)
-    } + g.left_clip.get() as i32;
+    } + g.left_clip.get() as i32
+        + extra_clip as i32;
 
     let len = ((255 * size_x) / start) as usize;
 

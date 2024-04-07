@@ -396,6 +396,9 @@ pub trait ItemRenderer {
     fn get_current_clip(&self) -> LogicalRect;
 
     fn translate(&mut self, distance: LogicalVector);
+    fn translation(&self) -> LogicalVector {
+        unimplemented!()
+    }
     fn rotate(&mut self, angle_in_degrees: f32);
     /// Apply the opacity (between 0 and 1) for all following items until the next call to restore_state.
     fn apply_opacity(&mut self, opacity: f32);
@@ -453,7 +456,7 @@ pub struct DirtyRegion {
 }
 
 impl DirtyRegion {
-    pub const MAX_COUNT: usize = 3;
+    pub(crate) const MAX_COUNT: usize = 3;
 
     pub fn iter(&self) -> impl Iterator<Item = euclid::Box2D<Coord, LogicalPx>> + '_ {
         (0..self.count).map(|x| self.rectangles[x])
@@ -474,7 +477,7 @@ impl DirtyRegion {
                 // the rectangle is already in the union
                 return;
             } else if b.contains_box(&r) {
-                self.rectangles.swap(i, self.count);
+                self.rectangles.swap(i, self.count - 1);
                 self.count -= 1;
                 continue;
             }
@@ -529,6 +532,11 @@ impl DirtyRegion {
         }
         ret
     }
+
+    fn draw_intersects(&self, clipped_geom: LogicalRect) -> bool {
+        let b = clipped_geom.to_box2d();
+        self.iter().any(|r| r.intersects(&b))
+    }
 }
 
 impl From<LogicalRect> for DirtyRegion {
@@ -559,7 +567,12 @@ impl<'a, T> PartialRenderer<'a, T> {
     }
 
     /// Visit the tree of item and compute what are the dirty regions
-    pub fn compute_dirty_regions(&mut self, component: &ItemTreeRc, origin: LogicalPoint) {
+    pub fn compute_dirty_regions(
+        &mut self,
+        component: &ItemTreeRc,
+        origin: LogicalPoint,
+        size: LogicalSize,
+    ) {
         #[derive(Clone, Copy)]
         struct ComputeDirtyRegionState {
             offset: euclid::Vector2D<Coord, LogicalPx>,
@@ -652,7 +665,7 @@ impl<'a, T> PartialRenderer<'a, T> {
             ComputeDirtyRegionState {
                 offset: origin.to_vector(),
                 old_offset: origin.to_vector(),
-                clipped: euclid::rect(0 as Coord, 0 as Coord, Coord::MAX, Coord::MAX),
+                clipped: LogicalRect::from_size(size),
                 must_refresh_children: false,
             },
         );
@@ -755,7 +768,13 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
         //let clip = self.get_current_clip().intersection(&self.dirty_region.to_rect());
         //let draw = clip.map_or(false, |r| r.intersects(&item_geometry));
         //FIXME: the dirty_region is in global coordinate but item_geometry and current_clip is not
-        let draw = self.get_current_clip().intersects(&item_geometry);
+
+        let clipped_geom = self.get_current_clip().intersection(&item_geometry);
+        let mut draw = clipped_geom.map_or(false, |clipped_geom| {
+            let clipped_geom = clipped_geom.translate(self.translation());
+            self.dirty_region.draw_intersects(clipped_geom)
+        });
+
         (draw, item_geometry)
     }
 
@@ -786,6 +805,9 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
 
     fn translate(&mut self, distance: LogicalVector) {
         self.actual_renderer.translate(distance)
+    }
+    fn translation(&self) -> LogicalVector {
+        self.actual_renderer.translation()
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
