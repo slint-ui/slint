@@ -833,7 +833,7 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
 }
 
 #[allow(unused)]
-mod space_partition {
+pub mod space_partition {
 
     /*
         A region can be either:
@@ -887,10 +887,10 @@ mod space_partition {
         Division {
             horizontal: bool,
             split: Coord,
-            left: Box<Node>,
-            right: Box<Node>,
             has_dirty: TriState,
             has_opaque: TriState,
+            left: Box<Node>,
+            right: Box<Node>,
         },
     }
 
@@ -1031,17 +1031,18 @@ mod space_partition {
                     };
                     let mut sub = node_geometry;
                     set_coord(&mut sub.max, *split);
-                    if let (Some(r)) =
-                        Self::add_region_impl(&mut *left, sub, b, is_dirty, opacity_index)
-                    {
-                        *has_dirty = *has_dirty | r.0;
-                        *has_opaque = *has_opaque | r.1;
-                    }
+                    let r1 = Self::add_region_impl(&mut *left, sub, b, is_dirty, opacity_index);
                     let mut sub = node_geometry;
                     set_coord(&mut sub.min, *split);
-                    if let Some(r) =
-                        Self::add_region_impl(&mut *right, sub, b, is_dirty, opacity_index)
-                    {
+                    let r2 = Self::add_region_impl(&mut *right, sub, b, is_dirty, opacity_index);
+
+                    if let (Some(r1), Some(r2)) = (r1, r2) {
+                        *has_dirty = r1.0 | r2.0;
+                        *has_opaque = r1.1 | r2.1;
+                    } else if let Some(r) = r1 {
+                        *has_dirty = *has_dirty | r.0;
+                        *has_opaque = *has_opaque | r.1;
+                    } else if let Some(r) = r2 {
                         *has_dirty = *has_dirty | r.0;
                         *has_opaque = *has_opaque | r.1;
                     }
@@ -1158,6 +1159,43 @@ mod space_partition {
                     let a = Self::debug_impl(&left);
                     let b = Self::debug_impl(&right);
                     (a.0.max(b.0) + 1, a.1 + b.1)
+                }
+            }
+        }
+
+        pub fn visit_regions<R>(
+            &self,
+            visitor: &mut dyn FnMut(Box2D, bool, Option<usize>) -> R,
+            merge: &mut dyn FnMut(R, R) -> R,
+        ) -> R {
+            Self::visit_regions_impl(&self.root, Box2D::from_size(self.size), visitor, merge)
+        }
+
+        fn visit_regions_impl<R>(
+            node: &Node,
+            node_geometry: Box2D,
+            visitor: &mut dyn FnMut(Box2D, bool, Option<usize>) -> R,
+            merge: &mut dyn FnMut(R, R) -> R,
+        ) -> R {
+            match node {
+                Node::Leaf { opacity, dirty } => visitor(node_geometry, *dirty, *opacity),
+                Node::Division { horizontal, split, left, right, has_dirty, .. } => {
+                    let set_coord = |point: &mut LogicalPoint, val| {
+                        if *horizontal {
+                            point.x = val
+                        } else {
+                            point.y = val
+                        }
+                    };
+
+                    let mut sub = node_geometry;
+                    set_coord(&mut sub.max, *split);
+                    let a = Self::visit_regions_impl(&left, sub, visitor, merge);
+
+                    let mut sub = node_geometry;
+                    set_coord(&mut sub.min, *split);
+                    let b = Self::visit_regions_impl(&right, sub, visitor, merge);
+                    merge(a, b)
                 }
             }
         }
