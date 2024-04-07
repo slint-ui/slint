@@ -24,6 +24,8 @@ use std::cell::{RefCell, RefMut};
 use std::rc::{Rc, Weak};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopWindowTarget;
+use winit::window::ResizeDirection;
+use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
 
 #[cfg(not(target_arch = "wasm32"))]
 /// The Default, and the selection clippoard
@@ -247,6 +249,7 @@ pub struct EventLoopState {
     pressed: bool,
 
     loop_error: Option<PlatformError>,
+    current_resize_direction: Option<ResizeDirection>,
 }
 
 impl EventLoopState {
@@ -342,6 +345,7 @@ impl EventLoopState {
                 runtime_window.process_key_input(event);
             }
             WindowEvent::CursorMoved { position, .. } => {
+                self.current_resize_direction = handle_cursor_move_for_resize(window.winit_window().as_ref(), position, self.current_resize_direction);
                 let position = position.to_logical(runtime_window.scale_factor() as f64);
                 self.cursor_pos = euclid::point2(position.x, position.y);
                 runtime_window.process_mouse_input(MouseEvent::Moved { position: self.cursor_pos });
@@ -378,6 +382,10 @@ impl EventLoopState {
                 };
                 let ev = match state {
                     winit::event::ElementState::Pressed => {
+                        if button == PointerEventButton::Left && self.current_resize_direction.is_some() {
+                            handle_resize(window.winit_window().as_ref(), self.current_resize_direction)
+                        }
+
                         self.pressed = true;
                         MouseEvent::Pressed { position: self.cursor_pos, button, click_count: 0 }
                     }

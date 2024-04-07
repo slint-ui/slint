@@ -12,7 +12,9 @@ use i_slint_core::window::WindowAdapter;
 use renderer::WinitCompatibleRenderer;
 use std::rc::Rc;
 
+mod drag_resize_window;
 mod winitwindowadapter;
+
 use i_slint_core::platform::PlatformError;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
