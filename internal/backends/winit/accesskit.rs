@@ -369,6 +369,7 @@ impl AccessKitAdapter {
                     i_slint_core::items::AccessibleRole::ProgressIndicator => {
                         Role::ProgressIndicator
                     }
+                    i_slint_core::items::AccessibleRole::Switch => Role::Switch,
                 },
                 item.accessible_string_property(
                     i_slint_core::accessibility::AccessibleStringProperty::Label,
