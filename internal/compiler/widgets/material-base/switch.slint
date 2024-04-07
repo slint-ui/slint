@@ -27,7 +27,7 @@ export component Switch {
     accessible-label <=> i-label.text;
     accessible-checkable: true;
     accessible-checked <=> root.checked;
-    accessible-role: checkbox;
+    accessible-role: switch;
 
     states [
         disabled-selected when !root.enabled && root.checked  : {

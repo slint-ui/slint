@@ -356,6 +356,8 @@ macro_rules! for_each_enums {
                 /// The role for widget with editable text such as a
                 /// [`LineEdit`](../widgets/lineedit.md) or a [`TextEdit`](../widgets/textedit.md)
                 TextInput,
+                /// The element is a [`Switch`](../widgets/switch.md) or behaves like one.
+                Switch,
             }
 
             /// This enum represents the different values of the `sort-order` property.
