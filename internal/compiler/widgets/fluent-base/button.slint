@@ -23,6 +23,8 @@ export component Button {
     min-height: max(32px, i-layout.min-height);
     horizontal-stretch: 0;
     vertical-stretch: 0;
+    accessible-checkable: root.checkable;
+    accessible-checked <=> root.checked;
     accessible-label: text;
     accessible-role: button;
     forward-focus: i-focus-scope;
