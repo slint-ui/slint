@@ -736,7 +736,85 @@ fn render_window_frame_by_line(
     // FIXME gradient
     TargetPixel::blend(&mut background_color, background.color().into());
 
+    let mut z_buffer = vec![];
+
     while scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
+        z_buffer.clear();
+
+        for r in &scene.current_line_ranges {
+            z_buffer.push((r.start, 0));
+            z_buffer.push((r.end, u16::MAX));
+        }
+
+        // (front-to back opacity computation)
+        for span in scene.items[0..scene.current_items_index].iter() {
+            if span.size.width < 20 {
+                // don't bother with tiny items.
+                continue
+            }
+            let opaque = match &span.command {
+                SceneCommand::Rectangle { color } => color.alpha == 255,
+                // TODO!
+                SceneCommand::Texture { .. } => false,
+                SceneCommand::SharedBuffer { .. } => false,
+                SceneCommand::RoundedRectangle { rectangle_index } => {
+                    let r = &scene.vectors.rounded_rectangles[*rectangle_index as usize];
+                    r.border_color.alpha == 255
+                        && r.inner_color.alpha == 255
+                        && scene.current_line
+                            > span.pos.y_length() - r.top_clip
+                                + PhysicalLength::new(i16::max(
+                                    r.radius.top_left,
+                                    r.radius.top_right,
+                                ))
+                        && scene.current_line
+                            < span.pos.y_length() + span.size.height_length() - r.bottom_clip
+                                + PhysicalLength::new(i16::max(
+                                    r.radius.bottom_left,
+                                    r.radius.bottom_right,
+                                ))
+                }
+                // TODO!
+                SceneCommand::Gradient { .. } => false,
+            };
+            if opaque {
+                let (mut idx, mut old_value) =
+                    match z_buffer.binary_search_by_key(&span.pos.x, |i| i.0) {
+                        Ok(found) => {
+                            let old = z_buffer[found].1;
+                            if old < span.z {
+                                z_buffer[found].1 = span.z
+                            }
+                            (found + 1, old)
+                        }
+                        Err(idx) => {
+                            let old = if idx == 0 { u16::MAX } else { z_buffer[idx - 1].1 };
+                            if old < span.z {
+                                z_buffer.insert(idx, (span.pos.x, span.z));
+                            }
+                            (idx + 1, old)
+                        }
+                    };
+                let end = span.pos.x + span.size.width;
+                while idx < z_buffer.len() {
+                    let it = &mut z_buffer[idx];
+                    if it.0 == end {
+                        break;
+                    } else if it.0 > end {
+                        if old_value < span.z {
+                            z_buffer.insert(idx, (end, old_value));
+                        }
+                        break;
+                    } else if it.1 < span.z {
+                        old_value = core::mem::replace(&mut it.1, span.z)
+                    } else {
+                        old_value = it.1;
+                    }
+                    idx += 1;
+                }
+            }
+        }
+
         for r in &scene.current_line_ranges {
             line_buffer.process_line(
                 scene.current_line.get() as usize,
@@ -753,79 +831,102 @@ fn render_window_frame_by_line(
                         if span.pos.x >= r.end {
                             continue;
                         }
-                        let begin = r.start.max(span.pos.x);
+                        let mut begin = r.start.max(span.pos.x);
                         let end = r.end.min(span.pos.x + span.size.width);
                         if begin >= end {
                             continue;
                         }
 
-                        let extra_left_clip = begin - span.pos.x;
-                        let extra_right_clip = span.pos.x + span.size.width - end;
+                        let mut idx1 = z_buffer
+                            .binary_search_by_key(&begin, |i| i.0)
+                            .unwrap_or_else(|x| x.saturating_sub(1));
+                        let idx2 = z_buffer[idx1..]
+                            .binary_search_by_key(&end, |i| i.0)
+                            .unwrap_or_else(|x| x)
+                            + idx1;
 
-                        match span.command {
-                            SceneCommand::Rectangle { color } => {
-                                TargetPixel::blend_slice(
-                                    &mut line_buffer
-                                        [(begin - offset) as usize..(end - offset) as usize],
-                                    color,
-                                );
+                        while idx1 < idx2 {
+                            if z_buffer[idx1].1 > span.z {
+                                idx1 += 1;
+                                continue;
                             }
-                            SceneCommand::Texture { texture_index } => {
-                                let texture = &scene.vectors.textures[texture_index as usize];
-                                draw_functions::draw_texture_line(
-                                    &PhysicalRect {
-                                        origin: euclid::point2(begin - offset, span.pos.y),
-                                        size: euclid::size2(end - begin, span.size.height),
-                                    },
-                                    scene.current_line,
-                                    texture,
-                                    line_buffer,
-                                    extra_left_clip,
-                                );
+                            begin = begin.max(z_buffer[idx1].0);
+                            while idx1 < idx2 && z_buffer[idx1].1 <= span.z {
+                                idx1 += 1;
                             }
-                            SceneCommand::SharedBuffer { shared_buffer_index } => {
-                                let texture = scene.vectors.shared_buffers
-                                    [shared_buffer_index as usize]
-                                    .as_texture();
-                                draw_functions::draw_texture_line(
-                                    &PhysicalRect {
-                                        origin: euclid::point2(begin - offset, span.pos.y),
-                                        size: euclid::size2(end - begin, span.size.height),
-                                    },
-                                    scene.current_line,
-                                    &texture,
-                                    line_buffer,
-                                    extra_left_clip,
-                                );
+                            let end = z_buffer.get(idx1).map_or(end, |v| end.min(v.0));
+                            if begin >= end {
+                                break;
                             }
-                            SceneCommand::RoundedRectangle { rectangle_index } => {
-                                let rr =
-                                    &scene.vectors.rounded_rectangles[rectangle_index as usize];
-                                draw_functions::draw_rounded_rectangle_line(
-                                    &PhysicalRect {
-                                        origin: euclid::point2(begin - offset, span.pos.y),
-                                        size: euclid::size2(end - begin, span.size.height),
-                                    },
-                                    scene.current_line,
-                                    rr,
-                                    line_buffer,
-                                    extra_left_clip,
-                                    extra_right_clip,
-                                );
-                            }
-                            SceneCommand::Gradient { gradient_index } => {
-                                let g = &scene.vectors.gradients[gradient_index as usize];
 
-                                draw_functions::draw_gradient_line(
-                                    &PhysicalRect {
-                                        origin: euclid::point2(begin - offset, span.pos.y),
-                                        size: euclid::size2(end - begin, span.size.height),
-                                    },
-                                    scene.current_line,
-                                    g,
-                                    line_buffer,
-                                    extra_left_clip,
-                                );
+                            let extra_left_clip = begin - span.pos.x;
+                            let extra_right_clip = span.pos.x + span.size.width - end;
+
+                            match span.command {
+                                SceneCommand::Rectangle { color } => {
+                                    TargetPixel::blend_slice(
+                                        &mut line_buffer
+                                            [(begin - offset) as usize..(end - offset) as usize],
+                                        color,
+                                    );
+                                }
+                                SceneCommand::Texture { texture_index } => {
+                                    let texture = &scene.vectors.textures[texture_index as usize];
+                                    draw_functions::draw_texture_line(
+                                        &PhysicalRect {
+                                            origin: euclid::point2(begin - offset, span.pos.y),
+                                            size: euclid::size2(end - begin, span.size.height),
+                                        },
+                                        scene.current_line,
+                                        texture,
+                                        line_buffer,
+                                        extra_left_clip,
+                                    );
+                                }
+                                SceneCommand::SharedBuffer { shared_buffer_index } => {
+                                    let texture = scene.vectors.shared_buffers
+                                        [shared_buffer_index as usize]
+                                        .as_texture();
+                                    draw_functions::draw_texture_line(
+                                        &PhysicalRect {
+                                            origin: euclid::point2(begin - offset, span.pos.y),
+                                            size: euclid::size2(end - begin, span.size.height),
+                                        },
+                                        scene.current_line,
+                                        &texture,
+                                        line_buffer,
+                                        extra_left_clip,
+                                    );
+                                }
+                                SceneCommand::RoundedRectangle { rectangle_index } => {
+                                    let rr =
+                                        &scene.vectors.rounded_rectangles[rectangle_index as usize];
+                                    draw_functions::draw_rounded_rectangle_line(
+                                        &PhysicalRect {
+                                            origin: euclid::point2(begin - offset, span.pos.y),
+                                            size: euclid::size2(end - begin, span.size.height),
+                                        },
+                                        scene.current_line,
+                                        rr,
+                                        line_buffer,
+                                        extra_left_clip,
+                                        extra_right_clip,
+                                    );
+                                }
+                                SceneCommand::Gradient { gradient_index } => {
+                                    let g = &scene.vectors.gradients[gradient_index as usize];
+
+                                    draw_functions::draw_gradient_line(
+                                        &PhysicalRect {
+                                            origin: euclid::point2(begin - offset, span.pos.y),
+                                            size: euclid::size2(end - begin, span.size.height),
+                                        },
+                                        scene.current_line,
+                                        g,
+                                        line_buffer,
+                                        extra_left_clip,
+                                    );
+                                }
                             }
                         }
                     }
