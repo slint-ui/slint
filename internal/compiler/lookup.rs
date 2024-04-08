@@ -995,7 +995,7 @@ impl<'a> LookupObject for ColorExpression<'a> {
                 )),
             })
         };
-        let field_access = |f: &str| {
+        let field_access = |f: &str, builtin_func: BuiltinFunction| {
             let base = if self.0.ty() == Type::Brush {
                 Expression::Cast { from: Box::new(self.0.clone()), to: Type::Color }
             } else {
@@ -1004,7 +1004,7 @@ impl<'a> LookupObject for ColorExpression<'a> {
             LookupResult::from(Expression::StructFieldAccess {
                 base: Box::new(Expression::FunctionCall {
                     function: Box::new(Expression::BuiltinFunctionReference(
-                        BuiltinFunction::ColorRgbaStruct,
+                        builtin_func,
                         ctx.current_token.as_ref().map(|t| t.to_source_location()),
                     )),
                     source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
@@ -1013,13 +1013,13 @@ impl<'a> LookupObject for ColorExpression<'a> {
                 name: f.into(),
             })
         };
-        None.or_else(|| f("red", field_access("red")))
-            .or_else(|| f("green", field_access("green")))
-            .or_else(|| f("blue", field_access("blue")))
-            .or_else(|| f("alpha", field_access("alpha")))
-            .or_else(|| f("hue", member_function(BuiltinFunction::ColorHue)))
-            .or_else(|| f("saturation", member_function(BuiltinFunction::ColorSaturation)))
-            .or_else(|| f("brightness", member_function(BuiltinFunction::ColorBrightness)))
+        None.or_else(|| f("red", field_access("red", BuiltinFunction::ColorRgbaStruct)))
+            .or_else(|| f("green", field_access("green", BuiltinFunction::ColorRgbaStruct)))
+            .or_else(|| f("blue", field_access("blue", BuiltinFunction::ColorRgbaStruct)))
+            .or_else(|| f("alpha", field_access("alpha", BuiltinFunction::ColorRgbaStruct)))
+            .or_else(|| f("hue", field_access("hue", BuiltinFunction::ColorHsvaStruct)))
+            .or_else(|| f("saturation", field_access("saturation", BuiltinFunction::ColorHsvaStruct)))
+            .or_else(|| f("value", field_access("value", BuiltinFunction::ColorHsvaStruct)))
             .or_else(|| f("brighter", member_function(BuiltinFunction::ColorBrighter)))
             .or_else(|| f("darker", member_function(BuiltinFunction::ColorDarker)))
             .or_else(|| f("transparentize", member_function(BuiltinFunction::ColorTransparentize)))

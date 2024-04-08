@@ -75,16 +75,19 @@ The following properties are exposed:
 - **`blue`**
 - **`alpha`**
 
-All properties are in the range 0-255.
+These properties are in the range 0-255.
+
+Additional properties exposed are:
+
+- **`hue`**, as float 0...360.0
+- **`saturation`**, as float 0.0.1.0
+- **`value`**, as float 0.0.1.0
+
+These properties correspond to HSV colorspace.
 
 ### Methods
 
 All colors and brushes define the following methods:
-
-- **`linear-mix(other: brush, factor: float) -> brush`**
-
-    Returns a new color that is a mix of this color and `other`, with a proportion
-    factor given by \a factor (which will be clamped to be between `0.0` and `1.0`).
 
 -   **`brighter(factor: float) -> brush`**
 
@@ -107,7 +110,6 @@ All colors and brushes define the following methods:
 
     Returns a new color with the opacity decreased by `factor`.
     The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
-
 
 -  **`with_alpha(alpha: float) -> brush`**
 

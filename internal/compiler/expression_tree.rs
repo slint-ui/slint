@@ -48,9 +48,7 @@ pub enum BuiltinFunction {
     /// the "42".is_float()
     StringIsFloat,
     ColorRgbaStruct,
-    ColorHue,
-    ColorSaturation,
-    ColorBrightness,
+    ColorHsvaStruct,
     ColorBrighter,
     ColorDarker,
     ColorTransparentize,
@@ -174,14 +172,20 @@ impl BuiltinFunction {
                 }),
                 args: vec![Type::Color],
             },
-            BuiltinFunction::ColorHue => Type::Function {
-                return_type: Box::new(Type::Float32), args: vec![Type::Color],
-            },
-            BuiltinFunction::ColorSaturation => Type::Function {
-                return_type: Box::new(Type::Float32), args: vec![Type::Color],
-            },
-            BuiltinFunction::ColorBrightness => Type::Function {
-                return_type: Box::new(Type::Float32), args: vec![Type::Color],
+            BuiltinFunction::ColorHsvaStruct => Type::Function {
+                return_type: Box::new(Type::Struct {
+                    fields: IntoIterator::into_iter([
+                        ("hue".to_string(), Type::Float32),
+                        ("saturation".to_string(), Type::Float32),
+                        ("value".to_string(), Type::Float32),
+                        ("alpha".to_string(), Type::Float32),
+                    ])
+                    .collect(),
+                    name: Some("Color".into()),
+                    node: None,
+                    rust_attributes: None,
+                }),
+                args: vec![Type::Color],
             },
             BuiltinFunction::ColorBrighter => Type::Function {
                 return_type: Box::new(Type::Brush),
@@ -294,9 +298,7 @@ impl BuiltinFunction {
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorRgbaStruct
-            | BuiltinFunction::ColorHue
-            | BuiltinFunction::ColorSaturation
-            | BuiltinFunction::ColorBrightness
+            | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
             | BuiltinFunction::ColorTransparentize
@@ -353,9 +355,7 @@ impl BuiltinFunction {
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorRgbaStruct
-            | BuiltinFunction::ColorHue
-            | BuiltinFunction::ColorSaturation
-            | BuiltinFunction::ColorBrightness
+            | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
             | BuiltinFunction::ColorTransparentize
