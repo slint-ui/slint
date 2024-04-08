@@ -765,10 +765,6 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
             }
         };
 
-        //let clip = self.get_current_clip().intersection(&self.dirty_region.to_rect());
-        //let draw = clip.map_or(false, |r| r.intersects(&item_geometry));
-        //FIXME: the dirty_region is in global coordinate but item_geometry and current_clip is not
-
         let clipped_geom = self.get_current_clip().intersection(&item_geometry);
         let mut draw = clipped_geom.map_or(false, |clipped_geom| {
             let clipped_geom = clipped_geom.translate(self.translation());

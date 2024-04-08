@@ -333,24 +333,21 @@ impl SoftwareRenderer {
     /// Returns the region to actually draw.
     fn apply_dirty_region(
         &self,
-        mut dirty_region: DirtyRegion,
-        screen_size: LogicalSize,
-    ) -> DirtyRegion {
-        todo!()
-        /*let screen_region = LogicalRect::from_size(screen_size);
-
-        if self.force_screen_refresh.take() {
-            dirty_region = screen_region.into();
-        }
-
+        mut dirty_region: PhysicalRegion,
+        screen_size: PhysicalSize,
+    ) -> PhysicalRegion {
         match self.repaint_buffer_type() {
-            RepaintBufferType::NewBuffer => screen_region.into(),
+            RepaintBufferType::NewBuffer => {
+                let screen_rect = euclid::Box2D::from_size(screen_size);
+                PhysicalRegion { rectangles: [screen_rect; 3], count: 1 }
+            }
             RepaintBufferType::ReusedBuffer => dirty_region,
             RepaintBufferType::SwappedBuffers => {
-                dirty_region.union(&self.prev_frame_dirty.replace(dirty_region))
+                todo!()
+                //dirty_region.union(&self.prev_frame_dirty.replace(dirty_region))
             }
         }
-        .intersection(screen_region)*/
+        // .intersection(screen_region)
     }
 
     /// Render the window to the given frame buffer.
@@ -1412,9 +1409,15 @@ fn prepare_scene(
         PrepareScene::default(),
         software_renderer.rotation.get(),
     );
+
+    let mut initial_dirty_region = software_renderer.force_dirty.take();
+    if software_renderer.force_screen_refresh.take() {
+        initial_dirty_region.add_rect(LogicalRect::from_size(size.cast() / factor))
+    }
+
     let mut renderer = crate::item_rendering::PartialRenderer::new(
         &software_renderer.partial_cache,
-        software_renderer.force_dirty.take(),
+        initial_dirty_region,
         prepare_scene,
     );
 
@@ -1424,9 +1427,6 @@ fn prepare_scene(
             renderer.compute_dirty_regions(component, *origin, size.cast() / factor);
         }
 
-        // FIXME
-        //dirty_region = software_renderer
-        //    .apply_dirty_region(renderer.dirty_region, (size.cast() / factor).cast());
         {
             let rotation =
                 RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
@@ -1434,10 +1434,12 @@ fn prepare_scene(
                 .dirty_region
                 .iter()
                 .map(|r| (r.cast() * factor).to_rect().round_out().cast().transformed(rotation));
-            dirty_region = PhysicalRegion {
+            let dr = PhysicalRegion {
                 rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
                 count: renderer.dirty_region.iter().count(),
             };
+
+            dirty_region = software_renderer.apply_dirty_region(dr, size);
         }
 
         debug_log!(
