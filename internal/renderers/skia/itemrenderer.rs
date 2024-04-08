@@ -465,7 +465,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
         let mut text_stroke_style = skia_safe::textlayout::TextStyle::new();
         let stroke_layout = match self.brush_to_paint(text.stroke(), max_width, max_height) {
             Some(mut stroke_paint) => {
-                if stroke_width == 0.0 {
+                if text.stroke().is_transparent() {
                     None
                 } else {
                     stroke_paint.set_style(skia_safe::PaintStyle::Stroke);
