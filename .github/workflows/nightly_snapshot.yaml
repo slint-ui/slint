@@ -321,7 +321,7 @@ jobs:
                   name: wasm_demo
             - uses: actions/download-artifact@v4
               with:
-                  name: android
+                  name: android-demo
                   path: android
                  
             - name: Extract Version
