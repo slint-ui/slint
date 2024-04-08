@@ -678,13 +678,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
         };
         let wrap = text.wrap() == TextWrap::WordWrap;
         let elide = text.overflow() == TextOverflow::Elide;
+        let stroke_visible = !text.stroke().is_transparent();
         let stroke_outside = text.stroke_style() == TextStrokeStyle::Outside;
         let stroke_width = match text.stroke_style() {
             TextStrokeStyle::Outside => text.stroke_width().get() * 2.0,
             TextStrokeStyle::Center => text.stroke_width().get(),
         };
         let painter: &mut QPainterPtr = &mut self.painter;
-        cpp! { unsafe [painter as "QPainterPtr*", rect as "QRectF", fill_brush as "QBrush", stroke_brush as "QBrush", mut string as "QString", font as "QFont", elide as "bool", alignment as "Qt::Alignment", wrap as "bool", stroke_outside as "bool", stroke_width as "float"] {
+        cpp! { unsafe [painter as "QPainterPtr*", rect as "QRectF", fill_brush as "QBrush", stroke_brush as "QBrush", mut string as "QString", font as "QFont", elide as "bool", alignment as "Qt::Alignment", wrap as "bool", stroke_visible as "bool", stroke_outside as "bool", stroke_width as "float"] {
             QString elided;
             if (!elide) {
                 elided = string;
@@ -736,7 +737,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 }
             }
 
-            if (stroke_width == 0) {
+            if (!stroke_visible) {
                 int flags = alignment;
                 if (wrap)
                     flags |= Qt::TextWordWrap;

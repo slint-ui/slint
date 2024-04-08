@@ -332,7 +332,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             .brush_to_paint(text.stroke(), &rect_to_path((size * self.scale_factor).into()))
         {
             Some(mut paint) => {
-                if stroke_width == 0.0 {
+                if text.stroke().is_transparent() {
                     None
                 } else {
                     paint.set_line_width(stroke_width);
