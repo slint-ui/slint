@@ -2494,18 +2494,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringIsFloat => quote!(#(#a)*.as_str().parse::<f64>().is_ok()),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
-        BuiltinFunction::ColorHue => {
-            let x = a.next().unwrap();
-            quote!(#x.hue())
-        }
-        BuiltinFunction::ColorSaturation => {
-            let x = a.next().unwrap();
-            quote!(#x.saturation())
-        }
-        BuiltinFunction::ColorBrightness => {
-            let x = a.next().unwrap();
-            quote!(#x.brightness())
-        }
+        BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
         BuiltinFunction::ColorBrighter => {
             let x = a.next().unwrap();
             let factor = a.next().unwrap();

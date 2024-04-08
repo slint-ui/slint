@@ -3051,14 +3051,8 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorRgbaStruct => {
             format!("{}.to_argb_uint()", a.next().unwrap())
         }
-        BuiltinFunction::ColorHue => {
-            format!("{}.hue()", a.next().unwrap())
-        }
-        BuiltinFunction::ColorSaturation => {
-            format!("{}.saturation()", a.next().unwrap())
-        }
-        BuiltinFunction::ColorBrightness => {
-            format!("{}.brightness()", a.next().unwrap())
+        BuiltinFunction::ColorHsvaStruct => {
+            format!("{}.to_hsva()", a.next().unwrap())
         }
         BuiltinFunction::ColorBrighter => {
             format!("{}.brighter({})", a.next().unwrap(), a.next().unwrap())

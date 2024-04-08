@@ -14,6 +14,9 @@ All notable changes to this project are documented in this file.
 
  - Palette: Added `color-scheme` in-out property for accessing the
    style's color scheme.
+ - Slint: Expose `.red`, `.green`, `.blue`, and `.alpha` properties on `color`
+ - Slint: Expose `.hue()`, `.saturation()`, `.brightness()` methods on `color`
+ - Slint: Add `hsv` and `hsva` as method to create colors
 
 ## [1.5.1] - 2024-03-20
 
@@ -46,9 +49,6 @@ All notable changes to this project are documented in this file.
  - Image: Added support for 9 slice scaling
  - Image: Added `horizontal-` and `vertical-tiling`
  - Flickable: Added `flicked` callback
- - Slint: Expose `.red`, `.green`, `.blue`, and `.alpha` properties on `color`
- - Slint: Expose `.hue()`, `.saturation()`, `.brightness()` methods on `color`
- - Slint: Add `hsv` and `hsva` as method to create colors
 
 ### Widgets
 

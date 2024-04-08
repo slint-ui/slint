@@ -757,6 +757,24 @@ fn call_builtin_function(
                 panic!("First argument not a color");
             }
         }
+        BuiltinFunction::ColorHsvaStruct => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ColorHSVAComponents")
+            }
+            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
+                let color = brush.color().to_hsva();
+                let values = IntoIterator::into_iter([
+                    ("hue".to_string(), Value::Number(color.hue().into())),
+                    ("saturation".to_string(), Value::Number(color.saturation().into())),
+                    ("value".to_string(), Value::Number(color.value().into())),
+                    ("alpha".to_string(), Value::Number(color.alpha().into())),
+                ])
+                .collect();
+                Value::Struct(values)
+            } else {
+                panic!("First argument not a color");
+            }
+        }
         BuiltinFunction::ColorBrighter => {
             if arguments.len() != 2 {
                 panic!("internal error: incorrect argument count to ColorBrighter")
@@ -781,36 +799,6 @@ fn call_builtin_function(
                 } else {
                     panic!("Second argument not a number");
                 }
-            } else {
-                panic!("First argument not a color");
-            }
-        }
-        BuiltinFunction::ColorHue => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ColorHue")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
-                (brush.color().hue() as f32).into()
-            } else {
-                panic!("First argument not a color");
-            }
-        }
-        BuiltinFunction::ColorSaturation => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ColorSaturation")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
-                (brush.color().saturation() as f32).into()
-            } else {
-                panic!("First argument not a color");
-            }
-        }
-        BuiltinFunction::ColorBrightness => {
-            if arguments.len() != 1 {
-                panic!("internal error: incorrect argument count to ColorBrightness")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
-                (brush.color().brightness() as f32).into()
             } else {
                 panic!("First argument not a color");
             }
