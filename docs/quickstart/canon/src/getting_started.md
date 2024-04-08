@@ -1,6 +1,6 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
-# Getting Started
+# Getting started
 
 This tutorial shows you how to use the languages Slint supports as the host programming language.
 
@@ -9,6 +9,7 @@ We recommend using [our editor integrations for Slint](https://github.com/slint-
 Slint has application templates you can use to create a project with dependencies already set up that follows recommended best practices.
 
 <!-- C++ -->
+
 ## Prerequisites
 
 Before using the template, you need a C++ compiler that supports C++ 20 and to install [CMake](https://cmake.org/download/) 3.21 or newer.
@@ -21,6 +22,7 @@ cd memory
 ```
 
 ## Configure the project
+
 The `CMakeLists.txt` uses the line `add_executable(my_application src/main.cpp)` to set `src/main.cpp` as the main C++ code file.
 
 Change the content of `src/main.cpp` to the following:
@@ -74,9 +76,11 @@ If you are stepping through this tutorial on a Windows machine, you can run it w
 ```sh
 my_application
 ```
+
 <!-- C++ -->
 
 <!-- Node -->
+
 Clone the template with the following command:
 
 ```sh
@@ -107,9 +111,11 @@ Replace the contents of `ui/appwindow.slint` with the following:
 ```
 
 Run the example with `npm start` and a window appears with the green "Hello World" greeting.
+
 <!-- Node -->
 
 <!-- Rust -->
+
 We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our editor integrations for Slint](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
 
 Slint has an application template you can use to create a project with dependencies already set up that follows recommended best practices.
@@ -134,5 +140,7 @@ Replace the contents of `src/main.rs` with the following:
 ```
 
 Run the example with `cargo run` and a window appears with the green "Hello World" greeting.
+
 <!-- Rust -->
+
 ![Screenshot of initial tutorial app showing Hello World](https://slint.dev/blog/memory-game-tutorial/getting-started.png "Hello World")

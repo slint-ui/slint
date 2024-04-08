@@ -15,7 +15,7 @@ the location of the icons, and then closes the curtains again.
 Add the following code inside the <span class="hljs-title">MainWindow</span> component to signal to the C++ code when the user clicks on a tile.
 
 ```slint
-{{#include ../../rust/src/main_game_logic_in_rust.rs:mainwindow_interface}}
+{{#include main_game_logic_in_rust.rs:mainwindow_interface}}
 ```
 
 This change adds a way for the <span class="hljs-title">MainWindow</span> to call to the C++ code that it should
@@ -27,7 +27,7 @@ The last change to the code is to act when the <span class="hljs-title">MemoryTi
 Add the following handler in the <span class="hljs-title">MainWindow</span> `for` loop `clicked` handler:
 
 ```slint
-{{#include ../../rust/src/main_game_logic_in_rust.rs:tile_click_logic}}
+{{#include main_game_logic_in_rust.rs:tile_click_logic}}
 ```
 
 On the C++ side, you can now add a handler to the `check_if_pair_solved` callback, that checks if a player opened two tiles.
@@ -51,7 +51,7 @@ instead of strong to avoid a memory leak.
 Change the contents of `memory.slint` to signal to the JavaScript code when the user clicks on a tile.
 
 ```slint
-{{#include ../../rust/src/main_game_logic_in_rust.rs:mainwindow_interface}}
+{{#include main_game_logic_in_rust.rs:mainwindow_interface}}
 ```
 
 This change adds a way for the <span class="hljs-title">MainWindow</span> to call to the JavaScript code that it should
@@ -63,7 +63,7 @@ The last change to the code is to act when the <span class="hljs-title">MemoryTi
 Add the following handler in the <span class="hljs-title">MainWindow</span> `for` loop `clicked` handler:
 
 ```slint
-{{#include ../../rust/src/main_game_logic_in_rust.rs:tile_click_logic}}
+{{#include main_game_logic_in_rust.rs:tile_click_logic}}
 ```
 
 On the JavaScript side, now add a handler to the `check_if_pair_solved` callback, that checks if a player opened two tiles. If they match, the code sets the `solved` property to true in the model. If they don't
