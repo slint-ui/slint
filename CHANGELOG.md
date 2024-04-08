@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file.
 
 ## Slint Language
 
+ - Text: Added `stroke`, `stroke-width`, and `stroke-style` properties.
  - Added `Colors.hsv()` method to create colors in the HSV color space.
  - Added `to-hsv()` function to color.
  - Throw an error when `rgb()` or `argb()` have too many arguments.

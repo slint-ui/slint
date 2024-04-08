@@ -710,7 +710,8 @@ export component Example inherits Window {
 ## `Text`
 
 The `Text` element is responsible for rendering text. Besides the `text` property, that specifies which text to render,
-it also allows configuring different visual aspects through the `font-family`, `font-size`, `font-weight` and `color` properties.
+it also allows configuring different visual aspects through the `font-family`, `font-size`, `font-weight`, `color`, and
+`stroke` properties.
 
 The `Text` element can break long text into multiple lines of text. A line feed character (`\n`) in the string of the `text`
 property will trigger a manual line break. For automatic line breaking you need to set the `wrap` property to a value other than
@@ -731,6 +732,9 @@ and the text itself.
 -   **`text`** (_in_ _[string](../syntax/types.md#strings)_): The text rendered.
 -   **`vertical-alignment`** (_in_ _enum [`TextVerticalAlignment`](enums.md#textverticalalignment)_): The vertical alignment of the text.
 -   **`wrap`** (_in_ _enum [`TextWrap`](enums.md#textwrap)_): The way the text wraps (default value: `no-wrap`).
+-   **`stroke`** (_in_ _brush_): The brush used for the text outline (default value: `transparent`).
+-   **`stroke-width`** (_in_ _length_): The width of the text outline. If the width is zero, then a hairline stroke (1 physical pixel) will be rendered.
+-   **`stroke-style`** (_in_ _enum [`TextStrokeStyle`](enums.md#textstrokestyle)_): The style/alignment of the text outline (default value: `outside`).
 
 ### Example
 
