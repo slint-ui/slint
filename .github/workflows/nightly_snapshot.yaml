@@ -319,6 +319,11 @@ jobs:
             - uses: actions/download-artifact@v4
               with:
                   name: wasm_demo
+            - uses: actions/download-artifact@v4
+              with:
+                  name: android
+                  path: android
+                 
             - name: Extract Version
               id: version
               run: |
@@ -350,6 +355,9 @@ jobs:
                       mkdir -p $output_path/demos/$demo
                       cp -a ../$demo/$subdir/{pkg,index.html} $output_path/demos/$demo/
                   done
+
+                  mkdir -p $output_path/demos/android
+                  cp -a ../android/* $output_path/demos/android/
 
                   rm -rf $output_path/wasm-interpreter
                   mkdir -p $output_path/wasm-interpreter
