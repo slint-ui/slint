@@ -457,9 +457,15 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
         text_style.set_foreground_paint(&paint);
 
         let stroke_style = text.stroke_style();
+        let stroke_width = if text.stroke_width().get() != 0.0 {
+            (text.stroke_width() * self.scale_factor).get()
+        } else {
+            // Hairline stroke
+            1.0
+        };
         let stroke_width = match stroke_style {
-            TextStrokeStyle::Outside => (text.stroke_width() * self.scale_factor).get() * 2.0,
-            TextStrokeStyle::Center => (text.stroke_width() * self.scale_factor).get(),
+            TextStrokeStyle::Outside => stroke_width * 2.0,
+            TextStrokeStyle::Center => stroke_width,
         };
 
         let mut text_stroke_style = skia_safe::textlayout::TextStyle::new();

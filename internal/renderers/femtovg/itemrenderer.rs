@@ -316,21 +316,24 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             )
         });
 
-        let paint = match self
-            .brush_to_paint(text.color(), &rect_to_path((size * self.scale_factor).into()))
-        {
+        let text_path = rect_to_path((size * self.scale_factor).into());
+        let paint = match self.brush_to_paint(text.color(), &text_path) {
             Some(paint) => font.init_paint(text.letter_spacing() * self.scale_factor, paint),
             None => return,
         };
 
         let stroke_style = text.stroke_style();
-        let stroke_width = match stroke_style {
-            TextStrokeStyle::Outside => (text.stroke_width() * self.scale_factor).get() * 2.0,
-            TextStrokeStyle::Center => (text.stroke_width() * self.scale_factor).get(),
+        let stroke_width = if text.stroke_width().get() != 0.0 {
+            (text.stroke_width() * self.scale_factor).get()
+        } else {
+            // Hairline stroke
+            1.0
         };
-        let stroke_paint = match self
-            .brush_to_paint(text.stroke(), &rect_to_path((size * self.scale_factor).into()))
-        {
+        let stroke_width = match stroke_style {
+            TextStrokeStyle::Outside => stroke_width * 2.0,
+            TextStrokeStyle::Center => stroke_width,
+        };
+        let stroke_paint = match self.brush_to_paint(text.stroke(), &text_path) {
             Some(mut paint) => {
                 if text.stroke().is_transparent() {
                     None

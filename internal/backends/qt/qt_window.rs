@@ -777,6 +777,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 
                 QPen stroke_pen(stroke_brush, stroke_width, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin);
                 stroke_pen.setMiterLimit(10.0);
+                if (stroke_width == 0.0) {
+                    // Hairline stroke
+                    if (stroke_outside)
+                        stroke_pen.setWidthF(2.0);
+                    else
+                        stroke_pen.setWidthF(1.0);
+                    stroke_pen.setCosmetic(true);
+                }
 
                 QTextCursor cursor(&document);
                 cursor.select(QTextCursor::Document);
