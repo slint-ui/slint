@@ -741,7 +741,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 int flags = alignment;
                 if (wrap)
                     flags |= Qt::TextWordWrap;
-                
+
                 (*painter)->setFont(font);
                 (*painter)->setBrush(Qt::NoBrush);
                 (*painter)->setPen(QPen(fill_brush, 0));
@@ -774,7 +774,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
                 QTextCharFormat format;
                 format.setFont(font);
-                
+
                 QPen stroke_pen(stroke_brush, stroke_width, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin);
                 stroke_pen.setMiterLimit(10.0);
                 if (stroke_width == 0.0) {

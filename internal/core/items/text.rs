@@ -9,8 +9,8 @@ Lookup the [`crate::items`] module documentation.
 */
 use super::{
     InputType, Item, ItemConsts, ItemRc, KeyEventResult, KeyEventType, PointArg,
-    PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow,
-    TextStrokeStyle, TextVerticalAlignment, TextWrap, VoidArg,
+    PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow, TextStrokeStyle,
+    TextVerticalAlignment, TextWrap, VoidArg,
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
