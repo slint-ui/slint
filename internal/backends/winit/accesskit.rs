@@ -348,12 +348,18 @@ impl AccessKitAdapter {
     }
 
     fn build_node_without_children(&self, item: &ItemRc, scale_factor: ScaleFactor) -> NodeBuilder {
+        let is_checkable =
+            item.accessible_string_property(AccessibleStringProperty::Checkable) == "true";
+
         let (role, label) = if let Some(window_item) = item.downcast::<WindowItem>() {
             (Role::Window, window_item.as_pin_ref().title().to_string())
         } else {
             (
                 match item.accessible_role() {
                     i_slint_core::items::AccessibleRole::None => Role::Unknown,
+                    i_slint_core::items::AccessibleRole::Button if is_checkable => {
+                        Role::ToggleButton
+                    }
                     i_slint_core::items::AccessibleRole::Button => Role::Button,
                     i_slint_core::items::AccessibleRole::Checkbox => Role::CheckBox,
                     i_slint_core::items::AccessibleRole::Combobox => Role::ComboBox,
@@ -393,7 +399,7 @@ impl AccessKitAdapter {
             y1: physical_origin.y + physical_size.height,
         });
 
-        if item.accessible_string_property(AccessibleStringProperty::Checkable) == "true" {
+        if is_checkable {
             builder.set_checked(
                 if item.accessible_string_property(AccessibleStringProperty::Checked) == "true" {
                     Checked::True
