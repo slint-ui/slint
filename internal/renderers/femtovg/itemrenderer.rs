@@ -16,7 +16,7 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ItemRc, Layer, Opacity, RenderingResult,
-    TextHorizontalAlignment, TextStrokeStyle
+    TextHorizontalAlignment, TextStrokeStyle,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -341,7 +341,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     paint.set_line_width(stroke_width);
                     Some(font.init_paint(text.letter_spacing() * self.scale_factor, paint))
                 }
-            },
+            }
             None => None,
         };
 
@@ -360,14 +360,14 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     (TextStrokeStyle::Outside, Some(stroke_paint)) => {
                         canvas.stroke_text(pos.x, pos.y, to_draw.trim_end(), stroke_paint).unwrap();
                         canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
-                    },
+                    }
                     (TextStrokeStyle::Center, Some(stroke_paint)) => {
                         canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
                         canvas.stroke_text(pos.x, pos.y, to_draw.trim_end(), stroke_paint).unwrap();
-                    },
+                    }
                     _ => {
                         canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
-                    },
+                    }
                 };
             },
         );

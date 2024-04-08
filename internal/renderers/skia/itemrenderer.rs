@@ -10,7 +10,9 @@ use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::item_rendering::{CachedRenderingData, ItemCache, ItemRenderer, RenderImage};
-use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult, TextStrokeStyle};
+use i_slint_core::items::{
+    ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult, TextStrokeStyle,
+};
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
     LogicalVector, PhysicalPx, RectLengths, ScaleFactor, SizeLengths,
@@ -492,10 +494,10 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
                         text.vertical_alignment(),
                         text.wrap(),
                         text.overflow(),
-                        None
+                        None,
                     ))
                 }
-            },
+            }
             None => None,
         };
 
@@ -517,11 +519,11 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             (TextStrokeStyle::Outside, Some((stroke_layout, stroke_layout_top_left))) => {
                 stroke_layout.paint(&mut self.canvas, to_skia_point(stroke_layout_top_left));
                 layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
-            },
+            }
             (TextStrokeStyle::Center, Some((stroke_layout, stroke_layout_top_left))) => {
                 layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
                 stroke_layout.paint(&mut self.canvas, to_skia_point(stroke_layout_top_left));
-            },
+            }
             _ => {
                 layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
             }
