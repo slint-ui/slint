@@ -92,10 +92,18 @@ fn resolve_alias(
 
     let mut ty = Type::Invalid;
     if let Some(nr) = &nr {
+        let element = nr.element();
+        let same_element = Rc::ptr_eq(&element, elem);
+        if same_element && nr.name() == prop {
+            diag.push_error(
+                format!("Cannot alias to itself"),
+                &elem.borrow().property_declarations[prop].type_node(),
+            );
+            return;
+        }
         ty = nr.ty();
         if matches!(ty, Type::InferredCallback | Type::InferredProperty) {
-            let element = nr.element();
-            if Rc::ptr_eq(&element, elem) {
+            if same_element {
                 resolve_alias(&element, nr.name(), scope, type_register, diag)
             } else {
                 resolve_alias(&element, nr.name(), &recompute_scope(&element), type_register, diag)

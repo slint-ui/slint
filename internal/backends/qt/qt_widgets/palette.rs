@@ -3,7 +3,7 @@
 
 // cSpell: ignore deinit
 
-use i_slint_core::Brush;
+use i_slint_core::{items::ColorScheme, Brush};
 
 use super::*;
 
@@ -41,6 +41,7 @@ pub struct NativePalette {
     pub selection_background: Property<Brush>,
     pub selection_foreground: Property<Brush>,
     pub border: Property<Brush>,
+    pub color_scheme: Property<ColorScheme>,
     pub style_change_listener: core::cell::Cell<*const u8>,
 }
 
@@ -64,6 +65,7 @@ impl NativePalette {
             border: Default::default(),
             selection_background: Default::default(),
             selection_foreground: Default::default(),
+            color_scheme: Default::default(),
             style_change_listener: core::cell::Cell::new(core::ptr::null()),
         })
     }
@@ -152,6 +154,16 @@ impl NativePalette {
         });
         let selection_foreground = Color::from_argb_encoded(selection_foreground);
         self.selection_foreground.set(Brush::from(selection_foreground));
+
+        self.color_scheme.set(
+            if (background.red() as u32 + background.green() as u32 + background.blue() as u32) / 3
+                < 128
+            {
+                ColorScheme::Dark
+            } else {
+                ColorScheme::Light
+            },
+        );
 
         if self.style_change_listener.get().is_null() {
             self.style_change_listener.set(cpp!(unsafe [self as "void*"] -> *const u8 as "void*"{

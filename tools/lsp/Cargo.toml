@@ -10,7 +10,7 @@ homepage = "https://slint.dev"
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-version = "1.5.1"
+version = "1.6.0"
 categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["lsp", "ui", "toolkit"]
 
@@ -32,8 +32,6 @@ path = "wasm_main.rs"
 name = "slint_lsp_wasm"
 
 [features]
-# Remove once MSRV > 1.70 (1.70 does not yet work!):
-slint = []
 backend-qt = ["slint/backend-qt", "preview"]
 
 backend-winit = ["slint/backend-winit", "preview"]
@@ -114,6 +112,7 @@ wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"
 
 [dev-dependencies]
+i-slint-backend-testing = { path = "../../internal/backends/testing" }
 spin_on = "0.1"
 
 [build-dependencies]

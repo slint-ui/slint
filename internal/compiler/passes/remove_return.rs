@@ -81,6 +81,9 @@ fn process_expression(e: Expression, ctx: &RemoveReturnContext) -> ExpressionRes
                 }
             }
         }
+        Expression::Cast { from, to } => {
+            process_expression(*from, ctx).map_value(|e| Expression::Cast { from: e.into(), to })
+        }
         e => {
             // Normally there shouldn't be any 'return' statements in there since return are not allowed in arbitrary expressions
             ExpressionResult::Just(e)
@@ -351,6 +354,58 @@ impl ExpressionResult {
                     })),
             ),
             ExpressionResult::ReturnObject { value, .. } => value,
+        }
+    }
+
+    fn map_value(self, f: impl FnOnce(Expression) -> Expression) -> Self {
+        match self {
+            ExpressionResult::Just(e) => ExpressionResult::Just(f(e)),
+            ExpressionResult::Return(e) => ExpressionResult::Return(e),
+            ExpressionResult::MaybeReturn {
+                pre_statements,
+                condition,
+                returned_value,
+                actual_value,
+            } => ExpressionResult::MaybeReturn {
+                pre_statements,
+                condition,
+                returned_value,
+                actual_value: actual_value.map(f),
+            },
+            ExpressionResult::ReturnObject { value, has_value, has_return_value } => {
+                if !has_value {
+                    return ExpressionResult::ReturnObject { value, has_value, has_return_value };
+                }
+                static COUNT: std::sync::atomic::AtomicUsize =
+                    std::sync::atomic::AtomicUsize::new(0);
+                let name = format!(
+                    "mapped_expression{}",
+                    COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                );
+                let value_ty = value.ty();
+                let load = |field: &str| Expression::StructFieldAccess {
+                    base: Box::new(Expression::ReadLocalVariable {
+                        name: name.clone(),
+                        ty: value_ty.clone(),
+                    }),
+                    name: field.into(),
+                };
+                let condition = (FIELD_CONDITION, Type::Bool, load(FIELD_CONDITION));
+                let actual = f(load(FIELD_ACTUAL));
+                let actual = (FIELD_ACTUAL, actual.ty(), actual);
+                let ret = has_return_value.then(|| {
+                    let r = load(FIELD_RETURNED);
+                    (FIELD_RETURNED, r.ty(), r)
+                });
+                ExpressionResult::ReturnObject {
+                    value: Expression::CodeBlock(vec![
+                        Expression::StoreLocalVariable { name, value: value.into() },
+                        make_struct([condition, actual].into_iter().chain(ret.into_iter())),
+                    ]),
+                    has_value,
+                    has_return_value,
+                }
+            }
         }
     }
 }

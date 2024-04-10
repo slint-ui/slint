@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { VerticalBox, StyleMetrics } from "std-widgets.slint";
+import { VerticalBox, StyleMetrics, Palette } from "std-widgets.slint";
 
 export component App inherits Window {
     in property <image> video-frame <=> image.source;
@@ -47,7 +47,7 @@ export component App inherits Window {
         y: root.height - self.height - 40px;
         controls := Rectangle {
             border-radius: 4px;
-            background: StyleMetrics.dark-color-scheme ? #3737378c : #ffffff82;
+            background: Palette.color-scheme == ColorScheme.dark ? #3737378c : #ffffff82;
 
             Image {
                 width: 64px;

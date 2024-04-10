@@ -64,12 +64,12 @@ export component SpinBoxBase {
         enabled: root.enabled;
 
         scroll-event(event) => {
-            if (event.delta-y < 0) {
+            if (event.delta-y > 0) {
                 root.increment();
                 return accept;
             }
 
-            if (event.delta-y > 0) {
+            if (event.delta-y < 0) {
                 root.decrement();
                 return accept;
             }

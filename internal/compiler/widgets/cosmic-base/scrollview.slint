@@ -16,9 +16,12 @@ export component ScrollBar {
     private property <length> step-size: 10px;
     private property <length> offset: 2px;
 
-    opacity: 0.6;
+    opacity: 0.7;
 
-    animate width, height { duration: 150ms; easing: ease-out; }
+    Rectangle {
+        border-radius: thumb.border-radius;
+        background: CosmicPalette.neutral-5-background;
+    }
 
     thumb := Rectangle {
         width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : max(32px, root.track-size * root.page-size / (root.maximum + root.page-size));
@@ -92,8 +95,6 @@ export component ScrollView {
     preferred-width: 100%;
 
     flickable := Flickable {
-        x: 2px;
-        y: 2px;
         interactive: false;
         viewport-y <=> vertical-bar.value;
         viewport-x <=> horizontal-bar.value;
@@ -107,7 +108,7 @@ export component ScrollView {
         enabled: root.enabled;
         x: parent.width  - self.width;
         y: 0;
-        width: self.has-hover ? 8px : 4px;
+        width: 8px;
         height: horizontal-bar.visible ? parent.height - horizontal-bar.height : parent.height;
         horizontal: false;
         maximum:  flickable.viewport-height - flickable.height;
@@ -118,7 +119,7 @@ export component ScrollView {
     horizontal-bar := ScrollBar {
         enabled: root.enabled;
         width: vertical-bar.visible ? parent.width - vertical-bar.width : parent.width;
-        height: self.has-hover ? 8px : 4px;
+        height: 8px;
         y: parent.height - self.height;
         x: 0;
         horizontal: true;

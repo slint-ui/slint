@@ -14,7 +14,7 @@ use copypasta::ClipboardProvider;
 use corelib::api::EventLoopError;
 use corelib::graphics::euclid;
 use corelib::input::{KeyEvent, KeyEventType, MouseEvent};
-use corelib::items::PointerEventButton;
+use corelib::items::{ColorScheme, PointerEventButton};
 use corelib::lengths::LogicalPoint;
 use corelib::platform::PlatformError;
 use corelib::window::*;
@@ -423,9 +423,10 @@ impl EventLoopState {
                     //window.resize_event(inner_size_writer.???)?;
                 }
             }
-            WindowEvent::ThemeChanged(theme) => {
-                window.set_dark_color_scheme(theme == winit::window::Theme::Dark)
-            }
+            WindowEvent::ThemeChanged(theme) => window.set_color_scheme(match theme {
+                winit::window::Theme::Dark => ColorScheme::Dark,
+                winit::window::Theme::Light => ColorScheme::Light,
+            }),
             WindowEvent::Occluded(x) => {
                 window.renderer.occluded(x);
 

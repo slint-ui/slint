@@ -55,12 +55,12 @@ export component ComboBox {
                 text: root.current-value;
             }
 
-            Path {
+            Image {
                 y: (parent.height - self.height) / 2;
-                width: 10px;
-                height: 5px;
-                fill: CosmicPalette.control-foreground;
-                commands: "M 0 0 L 10 0 L 5 5 Z";
+                width: 16px;
+                height: 16px;
+                colorize: CosmicPalette.control-foreground;
+                source: Icons.dropdown;
             }
         }
 

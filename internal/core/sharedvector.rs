@@ -5,8 +5,6 @@
 #![allow(unsafe_code)]
 #![warn(missing_docs)]
 use core::fmt::Debug;
-#[cfg(not(feature = "std"))]
-use core::iter::FromIterator;
 use core::mem::MaybeUninit;
 use core::ops::Deref;
 use core::ptr::NonNull;

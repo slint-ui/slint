@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export component TestCase {
+    width: 100px;
+    height: 100px;
+    out property <string> clicked_value;
+    l := VerticalLayout {
+        for val[i] in [10,20,30] : TouchArea {
+            // issue 4961 was about index, but also add other names that are comonly used
+            property <string> index: "index" + i;
+            property <string> model-data: "model-data" + val;
+            property <string> model: "model" + val;
+            property <string> value: "value" + val;
+            property <string> idx: "idx" +i;
+            txt := Text { text: index+model-data+model+value+idx; }
+            clicked => { clicked_value = txt.text; }
+            height: txt.text != "" ? val*1px : 0px;
+        }
+    }
+
+    out property <bool> test: l.preferred-height == 10px+20px+30px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert(instance.get_test());
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_clicked_value(), "index0model-data10model10value10idx0");
+
+
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_clicked_value(), "index0model-data10model10value10idx0");
+
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.clicked_value, "index0model-data10model10value10idx0");
+```
+*/

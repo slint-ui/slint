@@ -15,6 +15,7 @@ export component Slider {
     in-out property <float> value <=> i-base.value;
 
     callback changed <=> i-base.changed;
+    callback released <=> i-base.released;
 
     min-width: i-base.vertical ? 20px : 0px;
     min-height: i-base.vertical ? 0px : 20px;

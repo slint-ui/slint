@@ -22,7 +22,7 @@ use const_field_offset::FieldOffsets;
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
 use corelib::item_tree::ItemTreeRef;
-use corelib::items::MouseCursor;
+use corelib::items::{ColorScheme, MouseCursor};
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 
@@ -117,7 +117,7 @@ pub struct WinitWindowAdapter {
     #[cfg(target_arch = "wasm32")]
     self_weak: Weak<Self>,
     pending_redraw: Cell<bool>,
-    dark_color_scheme: OnceCell<Pin<Box<Property<bool>>>>,
+    color_scheme: OnceCell<Pin<Box<Property<ColorScheme>>>>,
     constraints: Cell<corelib::window::LayoutConstraints>,
     shown: Cell<bool>,
     window_level: Cell<winit::window::WindowLevel>,
@@ -153,7 +153,7 @@ impl WinitWindowAdapter {
             #[cfg(target_arch = "wasm32")]
             self_weak: self_weak.clone(),
             pending_redraw: Default::default(),
-            dark_color_scheme: Default::default(),
+            color_scheme: Default::default(),
             constraints: Default::default(),
             shown: Default::default(),
             window_level: Default::default(),
@@ -305,11 +305,11 @@ impl WinitWindowAdapter {
         Ok(())
     }
 
-    pub fn set_dark_color_scheme(&self, dark_mode: bool) {
-        self.dark_color_scheme
-            .get_or_init(|| Box::pin(Property::new(false)))
+    pub fn set_color_scheme(&self, scheme: ColorScheme) {
+        self.color_scheme
+            .get_or_init(|| Box::pin(Property::new(ColorScheme::Unknown)))
             .as_ref()
-            .set(dark_mode)
+            .set(scheme)
     }
 
     pub fn window_state_event(&self) {
@@ -410,9 +410,12 @@ impl WindowAdapter for WinitWindowAdapter {
 
             // Make sure the dark color scheme property is up-to-date, as it may have been queried earlier when
             // the window wasn't mapped yet.
-            if let Some(dark_color_scheme_prop) = self.dark_color_scheme.get() {
+            if let Some(color_scheme_prop) = self.color_scheme.get() {
                 if let Some(theme) = winit_window.theme() {
-                    dark_color_scheme_prop.as_ref().set(theme == winit::window::Theme::Dark)
+                    color_scheme_prop.as_ref().set(match theme {
+                        winit::window::Theme::Dark => ColorScheme::Dark,
+                        winit::window::Theme::Light => ColorScheme::Light,
+                    })
                 }
             }
 
@@ -719,13 +722,14 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         self
     }
 
-    fn dark_color_scheme(&self) -> bool {
-        self.dark_color_scheme
+    fn color_scheme(&self) -> ColorScheme {
+        self.color_scheme
             .get_or_init(|| {
                 Box::pin(Property::new({
-                    self.winit_window()
-                        .theme()
-                        .map_or(false, |theme| theme == winit::window::Theme::Dark)
+                    self.winit_window().theme().map_or(ColorScheme::Unknown, |theme| match theme {
+                        winit::window::Theme::Dark => ColorScheme::Dark,
+                        winit::window::Theme::Light => ColorScheme::Light,
+                    })
                 }))
             })
             .as_ref()

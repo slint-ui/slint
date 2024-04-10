@@ -38,7 +38,7 @@
 ****************************************************************************/
 */
 
-import { StyleMetrics } from "std-widgets.slint";
+import { Palette } from "std-widgets.slint";
 
 struct Palette  {
     menuBar : brush,
@@ -53,7 +53,7 @@ struct Palette  {
 }
 
 global Skin  {
-    in property <bool> day: !StyleMetrics.dark-color-scheme;
+    in property <bool> day: Palette.color-scheme != ColorScheme.dark;
     out property <Palette> palette : root.day ? {
        menuBar : #6D7BFB,
        mainContent :  #fbfbfb,

@@ -2149,11 +2149,12 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let condition_code = compile_expression(condition, ctx);
             let true_code = compile_expression(true_expr, ctx);
             let false_code = compile_expression(false_expr, ctx);
+            let semi = if false_expr.ty(ctx) == Type::Void { quote!(;) } else { quote!(as _) };
             quote!(
                 if #condition_code {
-                    #true_code
+                    (#true_code) #semi
                 } else {
-                    (#false_code) as _
+                    #false_code
                 }
             )
         }
@@ -2538,9 +2539,9 @@ fn compile_builtin_function_call(
                 sp::Color::from_argb_u8(a, r, g, b)
             })
         }
-        BuiltinFunction::DarkColorScheme => {
+        BuiltinFunction::ColorScheme => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).dark_color_scheme())
+            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).color_scheme())
         }
         BuiltinFunction::TextInputFocused => {
             let window_adapter_tokens = access_window_adapter_field(ctx);

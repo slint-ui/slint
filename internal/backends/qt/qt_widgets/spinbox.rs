@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-use i_slint_core::input::{FocusEventResult, KeyEventType};
+use i_slint_core::{
+    input::{FocusEventResult, KeyEventType},
+    platform::PointerEventButton,
+};
 
 use super::*;
 
@@ -167,10 +170,12 @@ impl Item for NativeSpinBox {
                     data.pressed = false;
                     true
                 }
-                MouseEvent::Released { .. } => {
+                MouseEvent::Released { button, .. } => {
                     data.pressed = false;
+                    let left_button = button == PointerEventButton::Left;
                     if new_control == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
                         && enabled
+                        && left_button
                     {
                         let v = self.value();
                         if v < self.maximum() {
@@ -181,6 +186,7 @@ impl Item for NativeSpinBox {
                     if new_control
                         == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxDown;})
                         && enabled
+                        && left_button
                     {
                         let v = self.value();
                         if v > self.minimum() {
@@ -192,13 +198,13 @@ impl Item for NativeSpinBox {
                 }
                 MouseEvent::Moved { .. } => false,
                 MouseEvent::Wheel { delta_y, .. } => {
-                    if delta_y < 0. {
+                    if delta_y > 0. {
                         let v = self.value();
                         if v < self.maximum() {
                             self.value.set(v + 1);
                             Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(v + 1,));
                         }
-                    } else if delta_y > 0. {
+                    } else if delta_y < 0. {
                         let v = self.value();
                         if v > self.minimum() {
                             self.value.set(v - 1);

@@ -19,7 +19,7 @@ in detail.
 ## Prerequisites
 
 * Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
-  have Rust installed, make sure that it's at least version 1.70 or newer. You can check which version you have installed
+  have Rust installed, make sure that it's at least version 1.73 or newer. You can check which version you have installed
   by running `rustc --version`. Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your path. This requirement will be removed before the final release of Slint for Python.
  * [Python 3](https://python.org/)
  * [pip](https://pypi.org/project/pip/)

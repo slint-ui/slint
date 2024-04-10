@@ -356,6 +356,8 @@ macro_rules! for_each_enums {
                 /// The role for widget with editable text such as a
                 /// [`LineEdit`](../widgets/lineedit.md) or a [`TextEdit`](../widgets/textedit.md)
                 TextInput,
+                /// The element is a [`Switch`](../widgets/switch.md) or behaves like one.
+                Switch,
             }
 
             /// This enum represents the different values of the `sort-order` property.
@@ -377,6 +379,18 @@ macro_rules! for_each_enums {
                 Horizontal,
                 /// Element is oriented vertically.
                 Vertical,
+            }
+
+            /// This enum indicates the color scheme used by the widget style. Use this to explicitly switch
+            /// between dark and light schemes, or choose Unknown to fall back to the system default.
+            enum ColorScheme {
+                /// The scheme is not known and a system wide setting configures this. This could mean that
+                /// the widgets are shown in a dark or light scheme, but it could also be a custom color scheme.
+                Unknown,
+                /// The style chooses light colors for the background and dark for the foreground.
+                Dark,
+                /// The style chooses dark colors for the background and light for the foreground.
+                Light,
             }
         ];
     };
