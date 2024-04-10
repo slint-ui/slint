@@ -16,7 +16,9 @@ export component ComponentList {
     in property <length> preview-area-width;
     in property <length> preview-area-height;
 
-    pure callback can-drop(string/* component_type */, length/* x */, length/* y */) -> bool;
+    out property <bool> over-target;
+
+    pure callback can-drop(string/* component_type */, length/* x */, length/* y */, bool/* on-drop-area */) -> bool;
     callback drop(string/* component_type */, length/* x */, length/* y */);
 
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
@@ -47,7 +49,8 @@ export component ComponentList {
                         private property <length> drop-y: self.absolute-position.y + self.mouse-y - root.preview-area-position-y;
                         private property <bool> on-drop-area:
                             drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
-                        private property <bool> can-drop-here: on-drop-area && root.can-drop(ci, drop-x, drop-y);
+                        private property <bool> can-drop-here: root.can-drop(ci, drop-x, drop-y, on-drop-area);
+
                         enabled: root.preview-visible;
                         height: name.preferred-height + 10px;
                         width: 100%;

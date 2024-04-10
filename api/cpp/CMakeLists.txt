@@ -18,7 +18,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Corrosion)
 
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
-find_package(Rust 1.70 REQUIRED MODULE)
+find_package(Rust 1.73 REQUIRED MODULE)
 
 option(BUILD_SHARED_LIBS "Build Slint as shared library" ON)
 option(SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ ahead of time" ON)
@@ -414,7 +414,7 @@ if(SLINT_BUILD_RUNTIME)
 
     write_basic_package_version_file(
         ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake
-        VERSION 1.5.1
+        VERSION 1.6.0
         COMPATIBILITY SameMinorVersion
     )
 
@@ -431,8 +431,8 @@ set(CPACK_PACKAGE_NAME "Slint-cpp")
 set(CPACK_PACKAGE_VENDOR "Slint")
 set(CPACK_VERBATIM_VARIABLES true)
 set(CPACK_PACKAGE_VERSION_MAJOR 1)
-set(CPACK_PACKAGE_VERSION_MINOR 5)
-set(CPACK_PACKAGE_VERSION_PATCH 1)
+set(CPACK_PACKAGE_VERSION_MINOR 6)
+set(CPACK_PACKAGE_VERSION_PATCH 0)
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://slint.dev")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_LIST_DIR}/../../LICENSE.md")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_LIST_DIR}/README.md")

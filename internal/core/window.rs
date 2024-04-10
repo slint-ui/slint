@@ -17,7 +17,7 @@ use crate::input::{
 };
 use crate::item_tree::ItemRc;
 use crate::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeVTable, ItemTreeWeak};
-use crate::items::{InputType, ItemRef, MouseCursor};
+use crate::items::{ColorScheme, InputType, ItemRef, MouseCursor};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
@@ -200,9 +200,9 @@ pub trait WindowAdapterInternal {
     // used for accessibility
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {}
 
-    /// returns wether a dark theme is used
-    fn dark_color_scheme(&self) -> bool {
-        false
+    /// returns the color scheme used
+    fn color_scheme(&self) -> ColorScheme {
+        ColorScheme::Unknown
     }
 }
 
@@ -906,11 +906,11 @@ impl WindowInner {
         result
     }
 
-    /// returns wether a dark theme is used
-    pub fn dark_color_scheme(&self) -> bool {
+    /// returns the color theme used
+    pub fn color_scheme(&self) -> ColorScheme {
         self.window_adapter()
             .internal(crate::InternalToken)
-            .map_or(false, |x| x.dark_color_scheme())
+            .map_or(ColorScheme::Unknown, |x| x.color_scheme())
     }
 
     /// Show a popup at the given position relative to the item
@@ -1448,11 +1448,13 @@ pub mod ffi {
 
     /// Return wether the style is using a dark theme
     #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_dark_color_scheme(
+    pub unsafe extern "C" fn slint_windowrc_color_scheme(
         handle: *const WindowAdapterRcOpaque,
-    ) -> bool {
+    ) -> ColorScheme {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.internal(crate::InternalToken).map_or(false, |x| x.dark_color_scheme())
+        window_adapter
+            .internal(crate::InternalToken)
+            .map_or(ColorScheme::Unknown, |x| x.color_scheme())
     }
 
     /// Dispatch a key pressed or release event

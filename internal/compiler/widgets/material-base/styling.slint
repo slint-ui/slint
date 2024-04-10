@@ -63,7 +63,13 @@ export global MaterialPalette {
     out property <brush> border-variant: !root.dark-color-scheme ? #C4C7C5 : #444746;
     out property <brush> foreground-alt: !root.dark-color-scheme ? #1C1B1F : #E6E1E5;
     out property <brush> secondary-ripple: !root.dark-color-scheme ? #fffc : #000000;
-    in-out property <bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
+    in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
+    property <bool> dark-color-scheme: {
+        if (color-scheme == ColorScheme.unknown) {
+            return SlintInternal.color-scheme == ColorScheme.dark;
+        }
+        return color-scheme == ColorScheme.dark;
+    }
 }
 
 export global Icons {

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-import { CosmicPalette, CosmicFontSettings } from "styling.slint";
+import { Icons, CosmicPalette, CosmicFontSettings } from "styling.slint";
 
 export component StateLayerBase {
     in property <length> border-radius <=> overlay.border-radius;
@@ -11,6 +11,7 @@ export component StateLayerBase {
     in property <bool> checked;
     in property <bool> enabled: true;
     in property <length> focus-boder-margin: 3px;
+    out property <brush> background <=> overlay.background;
 
     @children
 
@@ -98,7 +99,7 @@ export component ListItem {
     in property <length> pressed-y;
 
     min-width: layout.min-width;
-    min-height: max(32px, layout.min-height);
+    min-height: max(40px, layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 1;
 
@@ -108,42 +109,44 @@ export component ListItem {
         }
     ]
 
-    StateLayerBase {
-        width: 100%;
-        height: 100%;
-        pressed: root.pressed;
-        has-hover: root.has-hover;
-        has-focus: root.has-focus;
-        checked: root.is-selected;
-        border-radius: 16px;
-        focus-boder-margin: 0;
-    }
-
     layout := HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        spacing: 8px;
+        padding-bottom: 8px;
 
-        text := Text {
-            text: root.item.text;
-            color: CosmicPalette.control-foreground;
-            font-size: CosmicFontSettings.body.font-size;
-            font-weight: CosmicFontSettings.body.font-weight;
-            vertical-alignment: center;
-            horizontal-alignment: left;
-            overflow: elide;
-        }
+        StateLayerBase {
+            width: 100%;
+            pressed: root.pressed;
+            has-hover: root.has-hover;
+            has-focus: root.has-focus;
+            checked: root.is-selected;
+            border-radius: 16px;
+            focus-boder-margin: 0;
 
-        Path {
-            width: 16px;
-            height: 16px;
-            y: (root.height - self.height) / 2;
-            visible: root.is-selected;
-            stroke: text.color;
-            stroke-width: 2px;
-            commands: "M 3 8 L 6 12 L 13 5";
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                spacing: 8px;
+
+                text := Text {
+                    text: root.item.text;
+                    color: CosmicPalette.control-foreground;
+                    font-size: CosmicFontSettings.body.font-size;
+                    font-weight: CosmicFontSettings.body.font-weight;
+                    vertical-alignment: center;
+                    horizontal-alignment: left;
+                    overflow: elide;
+                }
+
+                Image {
+                    width: 16px;
+                    height: 16px;
+                    y: (parent.height - self.height) / 2;
+                    visible: root.is-selected;
+                    colorize: text.color;
+                    source: Icons.check-mark;
+                }
+            }
+
+            @children
         }
     }
-
-    @children
 }

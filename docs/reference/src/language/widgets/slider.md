@@ -13,6 +13,7 @@
 ### Callbacks
 
 -   **`changed(float)`**: The value was changed
+-   **`released(float)`**: Invoked when the user completed changing the slider's value, i.e. when the press on the knob was released or the arrow keys lifted.
 
 ### Example
 

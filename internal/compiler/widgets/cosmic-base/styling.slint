@@ -13,17 +13,23 @@ export global CosmicFontSettings {
     out property <int> regular-font-weight: 400;
     out property <int> semibold-font-weight: 600;
     out property <TextStyle> body: {
-        font-size: 15 * 0.0769rem,
+        font-size: 14 * 0.0769rem,
         font-weight: regular-font-weight
     };
     out property <TextStyle> body-strong: {
-        font-size: 15 * 0.0769rem,
+        font-size: 14 * 0.0769rem,
         font-weight: semibold-font-weight
     };
 }
 
 export global CosmicPalette {
-    in-out property <bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
+    in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
+    property <bool> dark-color-scheme: {
+        if (color-scheme == ColorScheme.unknown) {
+            return SlintInternal.color-scheme == ColorScheme.dark;
+        }
+        return color-scheme == ColorScheme.dark;
+    }
 
     // base palette
     out property <brush> background: dark-color-scheme ? #1B1B1B : #D7D7D7;
@@ -57,14 +63,8 @@ export global CosmicPalette {
 }
 
 export global Icons {
-    out property <image> arrow-down: @image-url("_arrow-down.svg");
-    out property <image> arrow-up: @image-url("_arrow-up.svg");
+    out property <image> arrow-down: @image-url("_arrow_down.svg");
+    out property <image> arrow-up: @image-url("_arrow_up.svg");
     out property <image> check-mark: @image-url("_check-mark.svg");
-    out property <image> chevron-down: @image-url("_chevron-down.svg");
-    out property <image> chevron-up: @image-url("_chevron-up.svg");
-    out property <image> down: @image-url("_down.svg");
-    out property <image> dropdown: @image-url("_dropdown.svg");
-    out property <image> left: @image-url("_left.svg");
-    out property <image> right: @image-url("_right.svg");
-    out property <image> up: @image-url("_up.svg");
+    out property <image> dropdown: @image-url("_pane_down.svg");
 }

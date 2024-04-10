@@ -19,6 +19,8 @@ the selected style e.g. fluent, cupertino, material, or qt.
 -   **`selection-background`** (_out_ _brush_): Defines the background brush that is used to highlight a selection such as a text selection.
 -   **`selection-foreground`** (_out_ _brush_):  Defines the foreground brush that is used for content that is displayed on `selection-background` brush.
 -   **`border`** (_out_ _brush_): Defines the brush that is used for borders such as separators and widget borders.
+-   **`color-scheme`** (_in_ _out_ _enum [`ColorScheme`](enums.md#colorscheme)_): Read this property to determine the color scheme used by the palette.
+    Set this property to force a dark or light color scheme. All styles except for the Qt style support setting a dark or light color scheme.
 
 ### Example
 

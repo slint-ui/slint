@@ -109,7 +109,17 @@ fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<Elem
 }
 
 // triggered from the UI, running in UI thread
-fn can_drop_component(component_type: slint::SharedString, x: f32, y: f32) -> bool {
+fn can_drop_component(
+    component_type: slint::SharedString,
+    x: f32,
+    y: f32,
+    on_drop_area: bool,
+) -> bool {
+    if !on_drop_area {
+        set_drop_mark(&None);
+        return false;
+    }
+
     let component_type = component_type.to_string();
 
     PREVIEW_STATE.with(move |preview_state| {
@@ -446,16 +456,18 @@ pub fn load_preview(preview_component: PreviewComponent) {
     });
 }
 
-// Most be inside the thread running the slint event loop
-async fn reload_preview_impl(
-    preview_component: PreviewComponent,
+async fn parse_source(
+    include_paths: Vec<PathBuf>,
+    library_paths: HashMap<String, PathBuf>,
+    path: PathBuf,
+    source_code: String,
     style: String,
-    config: PreviewConfig,
-) {
-    let component = PreviewComponent { style: String::new(), ..preview_component };
-
-    start_parsing();
-
+    file_loader_fallback: impl Fn(
+            &Path,
+        ) -> core::pin::Pin<
+            Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
+        > + 'static,
+) -> (Vec<i_slint_compiler::diagnostics::Diagnostic>, Option<ComponentDefinition>) {
     let mut builder = slint_interpreter::ComponentCompiler::default();
 
     #[cfg(target_arch = "wasm32")]
@@ -465,31 +477,47 @@ async fn reload_preview_impl(
     }
 
     if !style.is_empty() {
-        builder.set_style(style.clone());
+        builder.set_style(style);
     }
-    builder.set_include_paths(config.include_paths);
-    builder.set_library_paths(config.library_paths);
+    builder.set_include_paths(include_paths);
+    builder.set_library_paths(library_paths);
+    builder.set_file_loader(file_loader_fallback);
 
-    builder.set_file_loader(|path| {
-        let path = path.to_owned();
-        Box::pin(async move { get_path_from_cache(&path).map(|(_, c)| Result::Ok(c)) })
-    });
+    let compiled = builder.build_from_source(source_code, path).await;
 
-    // to_file_path on a WASM Url just returns the URL as the path!
+    (builder.diagnostics().clone(), compiled)
+}
+
+// Must be inside the thread running the slint event loop
+async fn reload_preview_impl(
+    preview_component: PreviewComponent,
+    style: String,
+    config: PreviewConfig,
+) {
+    let component = PreviewComponent { style: String::new(), ..preview_component };
+
+    start_parsing();
+
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
-
-    let compiled = if let Some((_, mut from_cache)) = get_url_from_cache(&component.url) {
+    let source = {
+        let (_, from_cache) = get_url_from_cache(&component.url).unwrap_or_default();
         if let Some(component_name) = &component.component {
-            from_cache = format!(
+            format!(
                 "{from_cache}\nexport component _SLINT_LivePreview inherits {component_name} {{ /* {NODE_IGNORE_COMMENT} */ }}\n",
-            );
+            )
+        } else {
+            from_cache
         }
-        builder.build_from_source(from_cache, path).await
-    } else {
-        builder.build_from_path(path).await
     };
 
-    notify_diagnostics(builder.diagnostics());
+    let (diagnostics, compiled) =
+        parse_source(config.include_paths, config.library_paths, path, source, style, |path| {
+            let path = path.to_owned();
+            Box::pin(async move { get_path_from_cache(&path).map(|(_, c)| Result::Ok(c)) })
+        })
+        .await;
+
+    notify_diagnostics(&diagnostics);
 
     let success = compiled.is_some();
     update_preview_area(compiled);
@@ -624,6 +652,27 @@ fn set_selections(
     ui.set_selections(slint::ModelRc::from(model));
 }
 
+fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
+    PREVIEW_STATE.with(move |preview_state| {
+        let preview_state = preview_state.borrow();
+
+        let Some(ui) = &preview_state.ui else {
+            return;
+        };
+
+        if let Some(m) = mark {
+            ui.set_drop_mark(ui::DropMark {
+                x1: m.start.x,
+                y1: m.start.y,
+                x2: m.end.x,
+                y2: m.end.y,
+            });
+        } else {
+            ui.set_drop_mark(ui::DropMark { x1: -1.0, y1: -1.0, x2: -1.0, y2: -1.0 });
+        }
+    })
+}
+
 fn set_selected_element(
     selection: Option<element_selection::ElementSelection>,
     positions: &[i_slint_core::lengths::LogicalRect],
@@ -634,6 +683,8 @@ fn set_selected_element(
         .and_then(|s| s.as_element_node())
         .map(|en| (en.layout_kind(), element_selection::is_element_node_in_layout(&en)))
         .unwrap_or((ui::LayoutKind::None, false));
+
+    set_drop_mark(&None);
 
     PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
@@ -792,4 +843,36 @@ fn is_element_node_ignored(node: &Element) -> bool {
             .map(|t| t.kind() == SyntaxKind::Comment && t.text().contains(NODE_IGNORE_COMMENT))
             .unwrap_or(false)
     })
+}
+
+#[cfg(test)]
+mod test {
+    use slint_interpreter::ComponentInstance;
+
+    #[track_caller]
+    pub fn compile_test(style: &str, source_code: &str) -> ComponentInstance {
+        i_slint_backend_testing::init();
+
+        let path = std::path::PathBuf::from("/test_data.slint");
+        let (diagnostics, component_definition) = spin_on::spin_on(super::parse_source(
+            vec![],
+            std::collections::HashMap::new(),
+            path,
+            source_code.to_string(),
+            style.to_string(),
+            |_path| {
+                Box::pin(async move {
+                    Some(Result::Err(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "Not supported in tests",
+                    )))
+                })
+            },
+        ));
+
+        i_slint_core::debug_log!("Test source diagnostics:\n{diagnostics:?}");
+        assert!(diagnostics.is_empty());
+
+        component_definition.unwrap().create().unwrap()
+    }
 }

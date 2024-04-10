@@ -115,3 +115,4 @@ jobs:
             - name: Clean cache # Don't cache docs to avoid them including removed classes being published
               run: |
                   rm -rf target/doc target/cppdocs target/slintdocs api/node/docs docs/quickstart/canon/book
+

@@ -1262,7 +1262,7 @@ impl TextInput {
         self.as_ref().anchor_position_byte_offset.set(self.as_ref().cursor_position_byte_offset());
     }
 
-    fn select_word(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub fn select_word(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         let text = self.text();
         let anchor = self.anchor_position(&text);
         let cursor = self.cursor_position(&text);

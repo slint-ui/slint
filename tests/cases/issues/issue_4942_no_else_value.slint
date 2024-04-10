@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+
+export component TestCase {
+
+    public pure function issue4942(cond : bool) -> int {
+        if (cond) {
+            45
+        }
+        12
+    }
+
+    out property <bool> test: issue4942(true) == 12 && issue4942(false) == 12;
+}
+
+
+/*
+
+FIXME: The C++ test currently fails with this warning
+(see also https://github.com/slint-ui/slint/issues/4954)
+//ignore: cpp
+
+(This is the warning, for reference)
+    statement has no effect [-Werror=unused-value]
+      |     return [&]{ [&]() -> void { if (arg_0) { 45; } else { ; }}();return 12; }();
+      |                                              ^~
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+*/

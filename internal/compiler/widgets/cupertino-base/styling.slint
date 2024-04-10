@@ -26,7 +26,13 @@ export global CupertinoFontSettings {
 }
 
 export global CupertinoPalette {
-    in-out property <bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
+    in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
+    property <bool> dark-color-scheme: {
+        if (color-scheme == ColorScheme.unknown) {
+            return SlintInternal.color-scheme == ColorScheme.dark;
+        }
+        return color-scheme == ColorScheme.dark;
+    }
 
     // base palette
     out property <brush> background: dark-color-scheme ? #282828 : #ffffff;

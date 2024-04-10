@@ -64,6 +64,7 @@ export component PageContainer {
 
     min-width: 320px;
     min-height: 240px;
+    cache-rendering-hint: true;
 
     i-rect := Rectangle {
         height: parent.height;
@@ -92,6 +93,7 @@ export component PageContainer {
             i-rect.y: (self.height - selected-height) /2 + selected-h-offset;
             out { animate i-rect.y, i-rect.height { duration: Theme.durations.medium; } }
             in { animate i-rect.y, i-rect.height { duration: Theme.durations.medium; } }
+            cache-rendering-hint: false;
         }
         shrink when selected != -1 : {
             horizontal-stretch: 0;

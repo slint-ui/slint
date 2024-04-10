@@ -12,7 +12,8 @@
         <link rel="icon" type="image/x-icon" href="https://slint.dev/assets/img/favicon.svg">
 
         <!-- ===== All CSS files ===== -->
-        <link rel="stylesheet" href="https://slint.dev/assets/css/style.css?v=1.11.51" />
+        <link rel="stylesheet" href="https://slint.dev/assets/css/style.css?v=1.11.56" />
+        
 
         <!-- ===== Header from individual pages ===== -->
         
@@ -30,7 +31,7 @@
             else if (localStorage.getItem('theme') === 'light') {
               document.documentElement.classList.add('light');
             }
-        </script>
+          </script>
 
         <div class="wrap">
             <!-- ====== Header Start ====== -->
@@ -55,14 +56,14 @@
                                     <li id="supported-boards"><a href="https://slint.dev/supported-boards.html">Supported Boards</a></li>
                                   </ul>
                             </li>
-                            <!-- <li class="search"><a href="/search-results.html">Search</a></li> -->
+                            <!-- <li class="search"><a href="https://slint.dev/search-results.html">Search</a></li> -->
                             <li class="theme theme-light"><a href="#">Theme</a></li>
                             <li class="btn"><a href="https://slint.dev/get-started.html">Get Started</a></li>
                         </ul>
 
                     </nav>
 
-                    <!-- <a href="/search-results.html" class="search-mobile">Search</a> -->
+                    <!-- <a href="https://slint.dev/search-results.html" class="search-mobile">Search</a> -->
 
                     <button class="hamburger" aria-label="menu" aria-expanded="false" aria-controls="nav">
                         <span></span>
@@ -81,35 +82,14 @@
             Section blocks on this page:
             - one-column
             -->
-            <script type="text/javascript">
-                window.addEventListener('load', () => {
-
-                    let actualVersionValue = null;
-                    let actualVersionText = null;
-                    const version = document.location.pathname.match(/releases\/([0-9]*.[0-9]*.[0-9]*)|snapshots\/(master)/);
-                    if (version) {
-                        actualVersionValue = version[0];
-                        actualVersionText = version[1];
-                        if (actualVersionValue == "snapshots\/master") {
-                            actualVersionText = "development snapshot";
-                        }
-                    }
-                    document.getElementById("version").innerHTML = "Version: " + actualVersionText;
-
-                }, false);
-            </script>
 
             <section class="one-column">
                 <h1>Documentation</h1>
             </section>
 
-            <!-- Custom drop down select menu-->
-
             <section class="select-filters">
                 <div class="select-wrap">
-                    <label for="version" id="version">Version:</label>
-                    <label style="font-size: 1rem;
-                    font-weight: 400; margin-bottom: 1em;">Visit <a href="https://docs.slint.dev">Slint Documentation</a> for other versions.</label>
+                    <label for="version" id="version">Version: VERSION</label><label style="font-size: 1rem; font-weight: 400; margin-bottom: 1em;">Visit <a href="https://docs.slint.dev">Slint Documentation</a> for other versions.</label>
                 </div>
             </section>
 
@@ -126,7 +106,7 @@
                             <h5>DSL</h5>
                             <h4>Slint</h4>
                             <p><img src="https://slint.dev/assets/img/slint-favicon.svg"></p>
-                            <p><a href="slint/index.html" class="btn doc">Language</a></p>
+                            <p><a href="slint" class="btn doc">Language</a></p>
                         </div><!-- .price-box -->
                     </div><!-- .col-2 -->
                     <div class="col-2">
@@ -135,8 +115,8 @@
                                 <h5>APIs</h5>
                                 <h4>Using Rust</h4>
                                 <p><img src="https://slint.dev/assets/img/rust-logo.svg"></p>
-                                <p><a href="rust/slint/index.html" class="btn doc">API</a></p>
-                                <p><a href="quickstart/rust/index.html" class="btn doc">QuickStart</a></p>
+                                <p><a href="rust/slint" class="btn doc">API</a></p>
+                                <p><a href="quickstart/rust" class="btn doc">QuickStart</a></p>
                                 <p><a href="https://youtu.be/WBcv4V-whHk" class="btn" target="_blank">Video Tutorial</a></p>
                                 <p><a href="https://github.com/slint-ui/slint-rust-template" class="btn" target="_blank">Project Template</a></p>
                             </div><!-- .price-box -->
@@ -144,16 +124,16 @@
                                 <h5>APIs</h5>
                                 <h4>Using C++</h4>
                                 <p><img src="https://slint.dev/assets/img/cpp_logo.svg"></p>
-                                <p><a href="cpp/index.html" class="btn doc">API</a></p>
-                                <p><a href="quickstart/cpp/index.html" class="btn doc">QuickStart</a></p>
+                                <p><a href="cpp" class="btn doc">API</a></p>
+                                <p><a href="quickstart/cpp" class="btn doc">QuickStart</a></p>
                                 <p><a href="https://github.com/slint-ui/slint-cpp-template" class="btn" target="_blank">Project Template</a></p>
                             </div><!-- .price-box -->
                             <div class="price-box">
                                 <h5>APIs</h5>
                                 <h4>Using NodeJS (beta)</h4>
                                 <p><img src="https://slint.dev/assets/img/nodejs_logo.svg"></p>
-                                <p><a href="node/index.html" class="btn doc">API</a></p>
-                                <p><a href="quickstart/node/index.html" class="btn doc">QuickStart</a></p>
+                                <p><a href="node" class="btn doc">API</a></p>
+                                <p><a href="quickstart/node" class="btn doc">QuickStart</a></p>
                                 <p><a href="https://github.com/slint-ui/slint-nodejs-template" class="btn" target="_blank">Project Template</a></p>
                             </div><!-- .price-box -->
                         </div><!-- .col-wrap -->
@@ -246,7 +226,8 @@
         </div><!-- .wrap -->
 
         <!-- ====== All Javascript Files ====== -->
-        <script src="https://slint.dev/assets/js/script.js?ver=1.2.16"></script>
+        <script src="https://slint.dev/assets/js/script.js?ver=1.2.20"></script>
+        
     </body>
 
 </html>

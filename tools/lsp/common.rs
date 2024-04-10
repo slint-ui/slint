@@ -22,6 +22,12 @@ pub struct ElementRcNode {
     pub debug_index: usize,
 }
 
+impl std::cmp::PartialEq for ElementRcNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.path_and_offset() == other.path_and_offset()
+    }
+}
+
 impl std::fmt::Debug for ElementRcNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (path, offset) = self.path_and_offset();
