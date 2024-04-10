@@ -22,6 +22,12 @@ macro_rules! for_each_enums {
         $macro![
             /// This enum describes the different types of alignment of text along the horizontal axis of a [`Text`](elements.md#text) element.
             enum TextHorizontalAlignment {
+                /// The text will be aligned with the start edge of the containing box.
+                /// This could be left or right depending on the direction of the text in the language.
+                Start,
+                /// The text will be aligned with the end edge of the containing box.
+                /// This could be left or right depending on the direction of the text in the language.
+                End,
                 /// The text will be aligned with the left edge of the containing box.
                 Left,
                 /// The text will be horizontally centered within the containing box.

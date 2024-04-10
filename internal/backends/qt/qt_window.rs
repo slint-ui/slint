@@ -667,9 +667,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let mut string: qttypes::QString = text.text().as_str().into();
         let font: QFont = get_font(text.font_request(WindowInner::from_pub(self.window)));
         let flags = match text.horizontal_alignment() {
-            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                key_generated::Qt_AlignmentFlag_AlignLeft
+            }
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
+            TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
+                key_generated::Qt_AlignmentFlag_AlignRight
+            }
         } | match text.vertical_alignment() {
             TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
             TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
@@ -751,9 +755,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let font: QFont =
             get_font(text_input.font_request(&WindowInner::from_pub(self.window).window_adapter()));
         let flags = match text_input.horizontal_alignment() {
-            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                key_generated::Qt_AlignmentFlag_AlignLeft
+            }
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
+            TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
+                key_generated::Qt_AlignmentFlag_AlignRight
+            }
         } | match text_input.vertical_alignment() {
             TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
             TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
@@ -2074,9 +2082,13 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         let string = qttypes::QString::from(visual_representation.text.as_str());
 
         let flags = match text_input.horizontal_alignment() {
-            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                key_generated::Qt_AlignmentFlag_AlignLeft
+            }
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
+            TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
+                key_generated::Qt_AlignmentFlag_AlignRight
+            }
         } | match text_input.vertical_alignment() {
             TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
             TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
@@ -2131,9 +2143,13 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         let mut string = qttypes::QString::from(text.as_str());
         let offset: u32 = utf8_byte_offset_to_utf16_units(text.as_str(), byte_offset) as _;
         let flags = match text_input.horizontal_alignment() {
-            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                key_generated::Qt_AlignmentFlag_AlignLeft
+            }
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
+            TextHorizontalAlignment::End | TextHorizontalAlignment::Right => {
+                key_generated::Qt_AlignmentFlag_AlignRight
+            }
         } | match text_input.vertical_alignment() {
             TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
             TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,

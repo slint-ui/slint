@@ -512,9 +512,11 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         if let Some(cursor_point) = cursor_point.or_else(|| {
             cursor_visible.then(|| {
                 let x = match text_input.horizontal_alignment() {
-                    TextHorizontalAlignment::Left => PhysicalLength::default(),
+                    TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
+                        PhysicalLength::default()
+                    }
                     TextHorizontalAlignment::Center => width / 2.,
-                    TextHorizontalAlignment::Right => width,
+                    TextHorizontalAlignment::End | TextHorizontalAlignment::Right => width,
                 };
                 PhysicalPoint::from_lengths(x, next_y)
             })
