@@ -14,6 +14,7 @@ fn main() -> Result<(), anyhow::Error> {
         manifest_dir.to_string_lossy()
     ));
 
+    println!("cargo:rerun-if-env-changed=SLINT_GENERATED_INCLUDE_DIR");
     let output_dir = std::env::var_os("SLINT_GENERATED_INCLUDE_DIR").unwrap_or_else(|| {
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated_include").into()
     });
