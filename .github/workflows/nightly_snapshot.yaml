@@ -459,7 +459,7 @@ jobs:
             - name: Extract files
               run: |
                   mkdir artifacts
-                  mv Slint-cpp-*-win64.exe artifacts/
+                  mv Slint-cpp-*-win64*.exe artifacts/
                   mv Slint-cpp-*-Linux-x86_64.tar.gz artifacts/
                   mv slint-viewer-linux.tar.gz artifacts/
                   mv slint-viewer-macos.tar.gz artifacts/
