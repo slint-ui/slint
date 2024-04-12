@@ -136,3 +136,19 @@ issues we're aware of and how to resolve them.
 
   The Skia build requires the use of Microsoft Visual Studio 2022 as compiler. Make sure to have the latest patches
   to the compiler installed.
+
+ * Compilation error on macOS:
+
+  The build fails and somewhere in the log output you see this message:
+
+  ```
+  cargo:warning=xcrun: error: unable to lookup item 'PlatformVersion' from command line tools installation
+  cargo:warning=xcrun: error: unable to lookup item 'PlatformVersion' in SDK '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk'
+  ```
+
+  This is due the build process calling `xcrun --show-sdk-platform-version` to determine the SDK version, and that's unfortunately not
+  supported by the Xcode command line tools. To solve this issue, run the following command once:
+
+  ```
+  sudo xcode-select -switch /Applications/Xcode.app/Contents/Developer
+  ```
