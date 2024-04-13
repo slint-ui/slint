@@ -6,7 +6,7 @@ pub fn handle_cursor_move_for_resize(
     current_direction: Option<ResizeDirection>,
 ) -> Option<ResizeDirection> {
     if !window.is_decorated() {
-        let location = get_resize_direction(window.inner_size(), position, 8_f64);
+        let location = get_resize_direction(window.inner_size(), position, 3_f64);
 
         if current_direction != location {
             window.set_cursor_icon(resize_direction_cursor_icon(location));
@@ -74,23 +74,17 @@ fn get_resize_direction(
         Y::Default
     };
 
-    Some(match xdir {
-        X::West => match ydir {
-            Y::North => ResizeDirection::NorthWest,
-            Y::South => ResizeDirection::SouthWest,
-            Y::Default => ResizeDirection::West,
-        },
+    Some(match (xdir, ydir) {
+        (X::West, Y::North)  => ResizeDirection::NorthWest,
+        (X::West, Y::South) => ResizeDirection::SouthWest,
+        (X::West, Y::Default) => ResizeDirection::West,
 
-        X::East => match ydir {
-            Y::North => ResizeDirection::NorthEast,
-            Y::South => ResizeDirection::SouthEast,
-            Y::Default => ResizeDirection::East,
-        },
+        (X::East, Y::North) => ResizeDirection::NorthEast,
+        (X::East, Y::South) => ResizeDirection::SouthEast,
+        (X::East, Y::Default) => ResizeDirection::East,
 
-        X::Default => match ydir {
-            Y::North => ResizeDirection::North,
-            Y::South => ResizeDirection::South,
-            Y::Default => return None,
-        },
+        (X::Default, Y::North) => ResizeDirection::North,
+        (X::Default, Y::South) => ResizeDirection::South,
+        (X::Default, Y::Default) => return None,
     })
 }

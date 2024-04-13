@@ -392,7 +392,8 @@ impl EventLoopState {
                             handle_resize(
                                 window.winit_window().as_ref(),
                                 self.current_resize_direction,
-                            )
+                            );
+                            return;
                         }
 
                         self.pressed = true;
