@@ -5,7 +5,7 @@ pub fn handle_cursor_move_for_resize(
     position: winit::dpi::PhysicalPosition<f64>,
     current_direction: Option<ResizeDirection>,
 ) -> Option<ResizeDirection> {
-    if !window.is_decorated() {
+    if !window.is_decorated() && window.is_resizable() {
         let location = get_resize_direction(window.inner_size(), position, 3_f64);
 
         if current_direction != location {
