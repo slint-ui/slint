@@ -496,7 +496,12 @@ impl LookupType {
                 {
                     None
                 } else {
-                    Some(Expression::ElementReference(Rc::downgrade(&c.root_element)).into())
+                    return Some(LookupResult::Expression {
+                        expression: Expression::ElementReference(Rc::downgrade(&c.root_element)),
+                        deprecated: (name == "StyleMetrics"
+                            && !ctx.type_register.expose_internal_types)
+                            .then(|| "Palette".to_string()),
+                    });
                 }
             }
             _ => None,

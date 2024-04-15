@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { StyleMetrics } from "std-widgets.slint";
+import { HorizontalBox, VerticalBox, Palette } from "std-widgets.slint";
 
 component SideBarItem inherits Rectangle {
     in property <bool> selected;
@@ -29,18 +29,16 @@ component SideBarItem inherits Rectangle {
 
     state := Rectangle {
         opacity: 0;
-        background: StyleMetrics.window-background;
+        background: Palette.background;
 
         animate opacity { duration: 150ms; }
     }
 
-    l := HorizontalLayout {
+    l := HorizontalBox {
         y: (parent.height - self.height) / 2;
-        padding: StyleMetrics.layout-padding;
         spacing: 0px;
 
         label := Text {
-            color: StyleMetrics.default-text-color;
             vertical-alignment: center;
          }
     }
@@ -63,7 +61,7 @@ export component SideBar inherits Rectangle {
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-item;
 
     Rectangle {
-        background: StyleMetrics.window-background.darker(0.2);
+        background: Palette.background.darker(0.2);
 
         fs := FocusScope {
             key-pressed(event) => {
@@ -97,10 +95,9 @@ export component SideBar inherits Rectangle {
         }
     }
 
-    VerticalLayout {
-        padding-top: StyleMetrics.layout-padding;
-        padding-bottom: StyleMetrics.layout-padding;
-        spacing: StyleMetrics.layout-spacing;
+    VerticalBox {
+        padding-left: 0px;
+        padding-right: 0px;
         alignment: start;
 
         label := Text {
@@ -121,9 +118,9 @@ export component SideBar inherits Rectangle {
         }
 
         VerticalLayout {
-            bottom := VerticalLayout {
-                padding-left: StyleMetrics.layout-padding;
-                padding-right: StyleMetrics.layout-padding;
+            bottom := VerticalBox {
+                padding-top: 0px;
+                padding-bottom: 0px;
 
                 @children
              }
