@@ -496,7 +496,7 @@ impl LookupType {
                 {
                     None
                 } else {
-                    return Some(LookupResult::Expression{
+                    return Some(LookupResult::Expression {
                         expression: Expression::ElementReference(Rc::downgrade(&c.root_element)),
                         deprecated: (name == "StyleMetrics" && !ctx.type_register.expose_internal_types).then(|| "Palette".to_string())
                     })
