@@ -22,6 +22,8 @@ pub const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12.);
 struct FontCacheKey {
     family: SharedString,
     weight: fontdb::Weight,
+    style: fontdb::Style,
+    stretch: fontdb::Stretch,
 }
 
 #[derive(Clone)]
@@ -178,8 +180,12 @@ impl FontCache {
         query: fontdb::Query<'_>,
     ) -> LoadedFont {
         let text_context = self.text_context.clone();
-        let cache_key =
-            FontCacheKey { family: family.cloned().unwrap_or_default(), weight: query.weight };
+        let cache_key = FontCacheKey {
+            family: family.cloned().unwrap_or_default(),
+            weight: query.weight,
+            style: query.style,
+            stretch: query.stretch,
+        };
 
         if let Some(loaded_font) = self.loaded_fonts.get(&cache_key) {
             return *loaded_font;
