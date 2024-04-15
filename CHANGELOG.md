@@ -14,8 +14,17 @@ All notable changes to this project are documented in this file.
 
  - Palette: Added `color-scheme` in-out property for accessing the
    style's color scheme.
- - Add `hsv` and `hsva` as method to create colors
+ - Add `hsv` method to create colors
  - Added `to-hsv()` function to color
+
+## Rust API
+
+ - Added conversion of Color to and from HSV
+
+## C++ API
+
+ - Added conversion of Color to and from HSV
+
 
 ## [1.5.1] - 2024-03-20
 

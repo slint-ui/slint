@@ -145,13 +145,15 @@ impl Color {
         RgbaColor::from(*self)
     }
 
-    /// Converts this color to a tuple of `(hue, saturation, value, alpha)`
+    /// Converts this color to the HSV color space.
     pub fn to_hsva(&self) -> HsvaColor {
         let rgba: RgbaColor<f32> = (*self).into();
         rgba.into()
     }
 
-    /// Construct a color from the hue, saturation, and value HSV color parameters.
+    /// Construct a color from the hue, saturation, and value HSV color space parameters.
+    ///
+    /// Hue is between 0 and 360, the others parameters between 0 and 1.
     pub fn from_hsva(hue: f32, saturation: f32, value: f32, alpha: f32) -> Self {
         let hsva = HsvaColor { hue, saturation, value, alpha };
         <RgbaColor<f32>>::from(hsva).into()
@@ -333,45 +335,19 @@ impl core::fmt::Display for Color {
 }
 
 /// HsvaColor stores the hue, saturation, value and alpha components of a color
-/// as `f32 `.
-/// This is merely a helper class for use with [`Color`].
+/// in the HSV color space as `f32 ` fields.
+/// This is merely a helper struct for use with [`Color`].
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct HsvaColor {
-    /// The hue component in degrees 0..360
+    /// The hue component in degrees between 0 and 360.
     pub hue: f32,
-    /// The saturation component
+    /// The saturation component, between 0 and 1.
     pub saturation: f32,
-    /// The value component
+    /// The value component, between 0 and 1.
     pub value: f32,
-    /// The alpha component
+    /// The alpha component, between 0 and 1.
     pub alpha: f32,
-}
-
-impl HsvaColor {
-    /// Returns the hue channel of the HSVA color as f32 in degrees 0.0..360.0
-    #[inline(always)]
-    pub fn hue(self) -> f32 {
-        self.hue
-    }
-
-    /// Returns the saturation of the HSVA color as f32 in the range 0.0..1.0
-    #[inline(always)]
-    pub fn saturation(self) -> f32 {
-        self.saturation
-    }
-
-    /// Returns the value/brightness of HSVA the color as f32 in the range 0.0..1.0
-    #[inline(always)]
-    pub fn value(self) -> f32 {
-        self.value
-    }
-
-    /// Returns the alpha of the HSVA color as f32 in the range 0.0..1.0
-    #[inline(always)]
-    pub fn alpha(self) -> f32 {
-        self.alpha
-    }
 }
 
 impl From<RgbaColor<f32>> for HsvaColor {
@@ -425,6 +401,18 @@ impl From<HsvaColor> for RgbaColor<f32> {
         let m = col.value - chroma;
 
         Self { red: red + m, green: green + m, blue: blue + m, alpha: col.alpha }
+    }
+}
+
+impl From<HsvaColor> for Color {
+    fn from(value: HsvaColor) -> Self {
+        RgbaColor::from(value).into()
+    }
+}
+
+impl From<Color> for HsvaColor {
+    fn from(value: Color) -> Self {
+        value.to_hsva()
     }
 }
 
@@ -491,5 +479,25 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_color_with_alpha(col: &Color, alpha: f32, out: *mut Color) {
         core::ptr::write(out, col.with_alpha(alpha))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_color_to_hsva(
+        col: &Color,
+        h: &mut f32,
+        s: &mut f32,
+        v: &mut f32,
+        a: &mut f32,
+    ) {
+        let hsv = col.to_hsva();
+        *h = hsv.hue;
+        *s = hsv.saturation;
+        *v = hsv.value;
+        *a = hsv.alpha;
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_color_from_hsva(h: f32, s: f32, v: f32, a: f32) -> Color {
+        Color::from_hsva(h, s, v, a)
     }
 }

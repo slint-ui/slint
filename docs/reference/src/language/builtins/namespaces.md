@@ -21,6 +21,11 @@ The fourth value, if present, is an alpha value between 0 and 1.
 
 Unlike in CSS, the commas are mandatory.
 
+ - **`hsv(h: float, s: float, v: float) -> color`**, **`hsv(h: float, s: float, v: float, a: float) -> color`**
+
+Return a color computed from the HSV color space. The hue is between 0 and 360.
+The saturation, value, and optional alpha parameter are expected to be within the range of 0 and 1.
+
 ## `Key`
 
 Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character. Check the value of [`KeyEvent`](structs.md#keyevent)'s `text` property

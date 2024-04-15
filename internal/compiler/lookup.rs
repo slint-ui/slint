@@ -834,7 +834,6 @@ impl LookupObject for ColorFunctions {
         None.or_else(|| f("rgb", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
             .or_else(|| f("rgba", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
             .or_else(|| f("hsv", BuiltinMacroReference(BuiltinMacroFunction::Hsv, t.clone())))
-            .or_else(|| f("hsva", BuiltinMacroReference(BuiltinMacroFunction::Hsv, t.clone())))
     }
 }
 

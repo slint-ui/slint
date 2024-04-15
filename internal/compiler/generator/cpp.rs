@@ -3084,7 +3084,7 @@ fn compile_builtin_function_call(
             )
         }
         BuiltinFunction::Hsv => {
-            format!("slint::Color::from_hsva(std::clamp(static_cast<float>({h}), 0., 360.), std::clamp(static_cast<float>({s}), 0., 1.), std::clamp(static_cast<float>({v}), 0., 1.), std::clamp(static_cast<float>({a}) * 1., 0., 1.))",
+            format!("slint::Color::from_hsva(std::clamp(static_cast<float>({h}), 0.f, 360.f), std::clamp(static_cast<float>({s}), 0.f, 1.f), std::clamp(static_cast<float>({v}), 0.f, 1.f), std::clamp(static_cast<float>({a}), 0.f, 1.f))",
                 h = a.next().unwrap(),
                 s = a.next().unwrap(),
                 v = a.next().unwrap(),
