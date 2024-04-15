@@ -67,7 +67,7 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                         result.accessible_role = Some(e.enumeration.values[e.value].clone())
                     }
                     e => panic!(
-                        "accessible-role not an EnumarationValue : {e:?}    (for {:?})",
+                        "accessible-role not an EnumerationValue : {e:?}    (for {:?})",
                         role.borrow().span
                     ),
                 };
