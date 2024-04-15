@@ -1039,4 +1039,6 @@ export namespace private_api {
     ) {
         component.component_instance.sendKeyboardStringSequence(s);
     }
+
+    export import initTesting = napi.initTesting;
 }

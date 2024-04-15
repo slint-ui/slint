@@ -40,7 +40,7 @@ lazy_static::lazy_static! {
         // builds the slint node package in debug
         let o = std::process::Command::new(npm.clone())
                 .arg("run")
-                .arg("build:debug")
+                .arg("build:testing")
                 .current_dir(node_dir.clone())
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
@@ -64,6 +64,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         r#"
                 const assert = require('assert').strict;
                 let slintlib = require(String.raw`{slintpath}`);
+                slintlib.private_api.initTesting();
                 let slint = slintlib.loadFile(String.raw`{path}`);
         "#,
         slintpath = slintpath.to_string_lossy(),

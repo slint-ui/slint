@@ -120,7 +120,7 @@ jobs:
               working-directory: ./api/node
               run: npm install --ignore-scripts
             - name: Build node plugin in debug
-              run: npm run build:debug
+              run: npm run build:testing
               working-directory: ./api/node
             - name: Run node tests
               working-directory: ./api/node
