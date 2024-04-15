@@ -3,24 +3,30 @@
 
 import { ComboBoxBase } from "../common/combobox-base.slint";
 
-export component ComboBox inherits NativeComboBox {
+export component ComboBox {
     in property <[string]> model <=> i-base.model;
+    in property <bool> enabled <=> i-base.enabled;
+    out property <bool> has-focus <=> i-base.has-focus;
     in-out property <int> current-index <=> i-base.current-index;
+    in-out property <string> current-value <=> i-base.current-value;
 
     callback selected <=> i-base.selected;
 
-    enabled: true;
-    has-focus: i-base.has-focus;
     accessible-role: combobox;
     accessible-value <=> root.current-value;
-    current-value: root.model[root.current-index];
     forward-focus: i-base;
+
+    HorizontalLayout {
+        i-native := NativeComboBox {
+            current-value <=> root.current-value;
+            has-focus <=> root.has-focus;
+            enabled <=> root.enabled;
+        }
+    }
 
     i-base := ComboBoxBase {
         width: 100%;
         height: 100%;
-        current-value <=> root.current-value;
-
         show-popup => {
             i-popup.show();
         }
