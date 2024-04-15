@@ -73,11 +73,15 @@ export component SpinBox {
     vertical-stretch: 0;
     min-width: i-layout.min-width;
     min-height: max(56px, i-layout.min-height);
+
     accessible-role: spinbox;
     accessible-value: root.value;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
+    accessible-action-set-value(v) => { i-base.update-value(v); }
+    accessible-action-increment => { i-base.increment(); }
+    accessible-action-decrement => { i-base.decrement(); }
 
     states [
         disabled when !root.enabled : {

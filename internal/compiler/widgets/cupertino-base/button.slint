@@ -24,9 +24,14 @@ export component Button {
     min-height: max(20px, i-layout.min-height);
     horizontal-stretch: 0;
     vertical-stretch: 0;
-    accessible-label: text;
-    accessible-role: button;
     forward-focus: i-focus-scope;
+
+    accessible-role: button;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-label: root.text;
+    accessible-action-default => { clicked(); }
+
 
     states [
         disabled when !i-touch-area.enabled : {
