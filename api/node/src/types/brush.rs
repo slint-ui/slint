@@ -142,8 +142,9 @@ impl SlintRgbaColor {
         SlintRgbaColor::from(self.inner.transparentize(amount as f32))
     }
 
-    /// Returns a new color that is a mix of `self` and `other`, with a proportion
-    /// factor given by `factor` (which will be clamped to be between `0.0` and `1.0`).
+    /// Returns a new color that is a mix of `this` color and `other`. The specified factor is
+    /// clamped to be between `0.0` and `1.0` and then applied to `this` color, while `1.0 - factor`
+    ///is applied to `other`.
     #[napi]
     pub fn mix(&self, other: &SlintRgbaColor, factor: f64) -> SlintRgbaColor {
         SlintRgbaColor::from(self.inner.mix(&other.inner, factor as f32))
