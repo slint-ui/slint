@@ -77,14 +77,6 @@ The following properties are exposed:
 
 These properties are in the range 0-255.
 
-Additional properties exposed are:
-
-- **`hue`**, as float 0...360.0
-- **`saturation`**, as float 0.0.1.0
-- **`value`**, as float 0.0.1.0
-
-These properties correspond to HSV colorspace.
-
 ### Methods
 
 All colors and brushes define the following methods:
@@ -116,6 +108,11 @@ All colors and brushes define the following methods:
 -  **`with_alpha(alpha: float) -> brush`**
 
     Returns a new color with the alpha value set to `alpha` (between 0 and 1)
+
+- **`to-hsv()->{hue: float, saturation: float, value: float}`**
+
+    Returns a struct with the fields in the HSV colorspace.
+    Hue is between 0 and 360 while saturation and value are between 0 and 1.
 
 ### Linear Gradients
 
