@@ -11,7 +11,9 @@ use std::sync::{Arc, Condvar, Mutex};
 use accesskit::{
     Action, ActionRequest, Checked, Node, NodeBuilder, NodeId, Role, Tree, TreeUpdate,
 };
-use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction};
+use i_slint_core::accessibility::{
+    AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
+};
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
 use i_slint_core::items::{ItemRc, WindowItem};
 use i_slint_core::lengths::ScaleFactor;
