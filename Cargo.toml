@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 [workspace]
 members = [
@@ -100,7 +100,7 @@ documentation = "https://slint.dev/docs"
 edition = "2021"
 homepage = "https://slint.dev"
 keywords = ["gui", "toolkit", "graphics", "design", "ui"]
-license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free OR LicenseRef-Slint-commercial"
+license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial"
 repository = "https://github.com/slint-ui/slint"
 rust-version = "1.73"
 version = "1.6.0"
