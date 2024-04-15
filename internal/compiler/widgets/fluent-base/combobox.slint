@@ -20,6 +20,8 @@ export component ComboBox {
     vertical-stretch: 0;
     forward-focus: i-base;
 
+    accessible-role: combobox;
+
     states [
         disabled when !root.enabled : {
             i-background.background: FluentPalette.control-disabled;
