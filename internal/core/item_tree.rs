@@ -350,6 +350,16 @@ impl ItemRc {
         result
     }
 
+    pub fn accessible_action(&self, action: &crate::accessibility::AccessibilityAction) {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        comp_ref_pin.as_ref().accessibility_action(self.index, action);
+    }
+
+    pub fn supported_accessibility_actions(&self) -> SupportedAccessibilityAction {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        comp_ref_pin.as_ref().supported_accessibility_actions(self.index)
+    }
+
     pub fn geometry(&self) -> LogicalRect {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         comp_ref_pin.as_ref().item_geometry(self.index)

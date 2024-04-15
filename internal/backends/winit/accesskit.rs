@@ -11,11 +11,12 @@ use std::sync::{Arc, Condvar, Mutex};
 use accesskit::{
     Action, ActionRequest, Checked, Node, NodeBuilder, NodeId, Role, Tree, TreeUpdate,
 };
-use i_slint_core::accessibility::AccessibleStringProperty;
+use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction};
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeRef, ItemTreeWeak};
 use i_slint_core::items::{ItemRc, WindowItem};
 use i_slint_core::lengths::ScaleFactor;
 use i_slint_core::window::WindowInner;
+use i_slint_core::SharedString;
 use i_slint_core::{properties::PropertyTracker, window::WindowAdapter};
 
 use super::WinitWindowAdapter;
@@ -119,10 +120,32 @@ impl AccessKitAdapter {
 
     fn handle_request(&self, request: ActionRequest) {
         let Some(window_adapter) = self.window_adapter_weak.upgrade() else { return };
-        if request.action == Action::Focus {
-            if let Some(item) = self.item_rc_for_node_id(request.target) {
-                WindowInner::from_pub(window_adapter.window()).set_focus_item(&item);
+        let a = match request.action {
+            Action::Default => AccessibilityAction::Default,
+            Action::Focus => {
+                if let Some(item) = self.item_rc_for_node_id(request.target) {
+                    WindowInner::from_pub(window_adapter.window()).set_focus_item(&item);
+                }
+                return;
             }
+            Action::Decrement => AccessibilityAction::Decrement,
+            Action::Increment => AccessibilityAction::Increment,
+            Action::ReplaceSelectedText => {
+                let Some(accesskit::ActionData::Value(v)) = request.data else { return };
+                AccessibilityAction::ReplaceSelectedText(SharedString::from(&*v))
+            }
+            Action::SetValue => {
+                match request.data.unwrap() {
+                    // FIXME: what to do when there is a string value?
+                    accesskit::ActionData::Value(_) => return,
+                    accesskit::ActionData::NumericValue(v) => AccessibilityAction::SetValue(v),
+                    _ => return,
+                }
+            }
+            _ => return,
+        };
+        if let Some(item) = self.item_rc_for_node_id(request.target) {
+            item.accessible_action(&a);
         }
     }
 
@@ -433,6 +456,23 @@ impl AccessKitAdapter {
             _ => {
                 builder.set_value(value);
             }
+        }
+
+        let supported = item.supported_accessibility_actions();
+        if supported.contains(SupportedAccessibilityAction::Default) {
+            builder.add_action(accesskit::Action::Default)
+        }
+        if supported.contains(SupportedAccessibilityAction::Decrement) {
+            builder.add_action(accesskit::Action::Decrement)
+        }
+        if supported.contains(SupportedAccessibilityAction::Increment) {
+            builder.add_action(accesskit::Action::Increment)
+        }
+        if supported.contains(SupportedAccessibilityAction::SetValue) {
+            builder.add_action(accesskit::Action::SetValue)
+        }
+        if supported.contains(SupportedAccessibilityAction::ReplaceSelectedText) {
+            builder.add_action(accesskit::Action::ReplaceSelectedText)
         }
 
         builder
