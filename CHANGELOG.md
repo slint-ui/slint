@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 ## General
 
  - The minimum Rust version is now 1.73.
+ - FemtoVG renderer: Fix selection of italic font styles.
 
 ## Slint Language
 
