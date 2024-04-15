@@ -8,9 +8,15 @@ import { Icons } from "../assets.slint";
 export global MailViewAdapter { }
 
 export global MailSideBarViewAdapter {
-    out property <[string]> accounts: ["jon.doe@slint.dev", "jon.doe@my-mail.com", "jon.doe@gmail.com"];
+    callback account-selected(/* index */ int);
+    callback box-selected(/* account */ int, /* box */ int);
+    callback custom-box-selected(/* account */ int, /* box */ int);
 
-    out property <[NavigationListViewItem]> boxes: [
+    in-out property <int> current-account;
+    in property <[string]> accounts: ["jon.doe@slint.dev", "jon.doe@my-mail.com", "jon.doe@gmail.com"];
+    out property <string> current-account-value: root.accounts[root.current-account];
+
+    in property <[NavigationListViewItem]> boxes: [
         { text: "Inbox", message: "128", icon: Icons.inbox },
         { text: "Drafts", message: "9", icon: Icons.document },
         { text: "Sent", icon: Icons.send },
@@ -22,14 +28,25 @@ export global MailSideBarViewAdapter {
         { text: "Trash", icon: Icons.trash },
         { text: "Archive", icon: Icons.archive }
     ];
+    out property <string> current-box-value: root.boxes[root.current-box].text;
 
-    out property <[NavigationListViewItem]> custom-boxes: [
+    in property <[NavigationListViewItem]> custom-boxes: [
         { text: "Social", message: "3972", icon: Icons.useres },
         { text: "Updates", message: "342", icon: Icons.updates },
         { text: "Forums", message: "128", icon: Icons.message }
     ];
+    out property <string> current-custom-box-value: root.custom-boxes[root.current-custom-box].text;
+
     in-out property <int> current-box;
     in-out property <int> current-custom-box: -1;
+
+    public function raise-box-selected(index: int) {
+        root.box-selected(root.current-account, index);
+    }
+
+    public function raise-custom-box-selected(index: int) {
+        root.custom-box-selected(root.current-account, index);
+    }
 
     public pure function current-title() -> string {
         if current-box > -1 && current-box < boxes.length {
@@ -49,11 +66,16 @@ export component MailSideBarView {
     VerticalLayout {
         spacing: 4px;
 
-        ComboBox {
+       cb :=  ComboBox {
             model: MailSideBarViewAdapter.accounts;
+            current-index <=> MailSideBarViewAdapter.current-account;
+
+            selected(account) => {
+                MailSideBarViewAdapter.account_selected(cb.current-index);
+            }
         }
 
-        Container {
+        container := Container {
             NavigationListView {
                 model: MailSideBarViewAdapter.boxes;
                 current-item <=> MailSideBarViewAdapter.current-box;
@@ -61,6 +83,7 @@ export component MailSideBarView {
                 vertical-stretch: 0;
 
                 selected(index) => {
+                    MailSideBarViewAdapter.raise-box-selected(index);
                     MailSideBarViewAdapter.current-custom-box = -1;
                 }
             }
@@ -75,6 +98,7 @@ export component MailSideBarView {
                 current-item <=> MailSideBarViewAdapter.current-custom-box;
 
                 selected(index) => {
+                    MailSideBarViewAdapter.raise-custom-box-selected(index);
                     MailSideBarViewAdapter.current-box = -1;
                 }
             }
