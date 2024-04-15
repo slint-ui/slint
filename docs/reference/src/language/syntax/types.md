@@ -96,7 +96,7 @@ All colors and brushes define the following methods:
 -   **`mix(other: brush, factor: float) -> brush`**
 
     Returns a new color that is a mix of this color and `other`, with a proportion
-    factor given by \a factor (which will be clamped to be between `0.0` and `1.0`).
+    factor given by factor (which will be clamped to be between `0.0` and `1.0`).
 
 -  **`transparentize(factor: float) -> brush`**
 
