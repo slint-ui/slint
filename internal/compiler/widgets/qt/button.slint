@@ -36,11 +36,10 @@ export component StandardButton {
 
     callback clicked <=> native.clicked;
 
-    accessible-label: native.text;
-    accessible-role: button;
-
     HorizontalLayout {
         native := NativeButton {
+            accessible-label: native.text;
+            accessible-role: button;
             is-standard-button: true;
             checkable: false;
         }

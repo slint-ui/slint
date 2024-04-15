@@ -3,6 +3,7 @@
 
 //! Test that all styles have the same API.
 
+use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::PropertyVisibility;
 use i_slint_compiler::typeloader::TypeLoader;
@@ -28,6 +29,7 @@ impl Display for PropertyInfo {
 #[derive(Default)]
 struct Component {
     properties: BTreeMap<String, PropertyInfo>,
+    accessible_role: Option<String>,
 }
 
 #[derive(Default)]
@@ -56,6 +58,22 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                     )
                 }),
         );
+
+        if result.accessible_role.is_none() {
+            if let Some(role) = elem.borrow().bindings.get("accessible-role") {
+                match &role.borrow().expression {
+                    Expression::Invalid => (),
+                    Expression::EnumerationValue(e) => {
+                        result.accessible_role = Some(e.enumeration.values[e.value].clone())
+                    }
+                    e => panic!(
+                        "accessible-role not an EnumerationValue : {e:?}    (for {:?})",
+                        role.borrow().span
+                    ),
+                };
+            }
+        }
+
         let e = match &elem.borrow().base_type {
             i_slint_compiler::langtype::ElementType::Component(r) => r.root_element.clone(),
             i_slint_compiler::langtype::ElementType::Builtin(b) => {
@@ -150,6 +168,14 @@ fn compare_styles(base: &Style, mut other: Style, style_name: &str) -> bool {
         let ignore_extra =
             matches!(compo_name.as_str(), "TabImpl" | "TabWidgetImpl" | "StyleMetrics");
         if let Some(mut c2) = other.components.remove(compo_name) {
+            if c1.accessible_role != c2.accessible_role {
+                eprintln!(
+                    "Mismatch accessible-role for {compo_name} in {style_name} : {:?} != {:?}",
+                    c2.accessible_role, c1.accessible_role
+                );
+                ok = false;
+            }
+
             for (prop_name, p1) in c1.properties.iter() {
                 if let Some(p2) = c2.properties.remove(prop_name) {
                     if p1 != &p2 {
