@@ -38,6 +38,7 @@ software-renderer = ["bytemuck"]
 software-renderer-rotation = []
 
 image-decoders = ["dep:image", "dep:clru"]
+image-default-formats = ["image?/default-formats"]
 svg = ["dep:resvg", "shared-fontdb"]
 
 box-shadow-cache = []
