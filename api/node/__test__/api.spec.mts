@@ -28,21 +28,21 @@ test('loadFile', (t) => {
         {
             columnNumber: 18,
             level: 0,
-            lineNumber: 7,
+            lineNumber: 5,
             message: 'Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type',
             fileName: errorPath
         },
         {
             columnNumber: 22,
             level: 0,
-            lineNumber: 7,
+            lineNumber: 5,
             message: 'Syntax error: expected \';\'',
             fileName: errorPath
         },
         {
             columnNumber: 22,
             level: 0,
-            lineNumber: 7,
+            lineNumber: 5,
             message: 'Parse error',
             fileName: errorPath
         },
