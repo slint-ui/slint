@@ -37,6 +37,20 @@ struct RgbaColor
     RgbaColor(const Color &col);
 };
 
+/// HsvaColor stores the hue, saturation, value, and alpha components of a color in the HSV color
+/// space.
+struct HsvaColor
+{
+    /// The hue component in degrees between 0 and 360.
+    float hue;
+    /// The saturation component, between 0 and 1.
+    float saturation;
+    /// The value component, between 0 and 1.
+    float value;
+    /// The alpha component, between 0 and 1.
+    float alpha;
+};
+
 /// Color represents a color in the Slint run-time, represented using 8-bit channels for
 /// red, green, blue and the alpha (opacity).
 class Color
@@ -117,22 +131,42 @@ public:
     }
 
     /// Converts this color to an RgbaColor struct for easy destructuring.
-    inline RgbaColor<uint8_t> to_argb_uint() const;
+    [[nodiscard]] inline RgbaColor<uint8_t> to_argb_uint() const;
 
     /// Converts this color to an RgbaColor struct for easy destructuring.
-    inline RgbaColor<float> to_argb_float() const;
+    [[nodiscard]] inline RgbaColor<float> to_argb_float() const;
+
+    /// Construct a color from the HSV color space components.
+    /// The hue is expected to be in the range between 0 and 360, and the other parameters between 0
+    /// and 1.
+    [[nodiscard]] static Color from_hsva(float h, float s, float v, float a)
+    {
+        Color ret;
+        ret.inner = cbindgen_private::types::slint_color_from_hsva(h, s, v, a);
+        return ret;
+    }
+
+    /// Convert this color to the HSV color space.
+    /// @returns a new HsvaColor.
+    [[nodiscard]] HsvaColor to_hsva() const
+    {
+        HsvaColor hsv {};
+        cbindgen_private::types::slint_color_to_hsva(&inner, &hsv.hue, &hsv.saturation, &hsv.value,
+                                                     &hsv.alpha);
+        return hsv;
+    }
 
     /// Returns the red channel of the color as u8 in the range 0..255.
-    uint8_t red() const { return inner.red; }
+    [[nodiscard]] uint8_t red() const { return inner.red; }
 
     /// Returns the green channel of the color as u8 in the range 0..255.
-    uint8_t green() const { return inner.green; }
+    [[nodiscard]] uint8_t green() const { return inner.green; }
 
     /// Returns the blue channel of the color as u8 in the range 0..255.
-    uint8_t blue() const { return inner.blue; }
+    [[nodiscard]] uint8_t blue() const { return inner.blue; }
 
     /// Returns the alpha channel of the color as u8 in the range 0..255.
-    uint8_t alpha() const { return inner.alpha; }
+    [[nodiscard]] uint8_t alpha() const { return inner.alpha; }
 
     /// Returns a new version of this color that has the brightness increased
     /// by the specified factor. This is done by converting the color to the HSV

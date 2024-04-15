@@ -107,10 +107,10 @@ All colors and brushes define the following methods:
 
     Returns a new color with the alpha value set to `alpha` (between 0 and 1)
 
-- **`to-hsv()->{hue: float, saturation: float, value: float}`**
+- **`to-hsv()->{hue: float, saturation: float, value: float, alpha: float}`**
 
-    Returns a struct with the fields in the HSV colorspace.
-    Hue is between 0 and 360 while saturation and value are between 0 and 1.
+    Converts this color to the HSV color space and returns a struct with the `hue`, `saturation`, `value`,
+    and `alpha` fields. `hue` is between 0 and 360 while `saturation`, `value`, and `alpha` are between 0 and 1.
 
 ### Linear Gradients
 

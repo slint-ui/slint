@@ -764,10 +764,10 @@ fn call_builtin_function(
             if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
                 let color = brush.color().to_hsva();
                 let values = IntoIterator::into_iter([
-                    ("hue".to_string(), Value::Number(color.hue().into())),
-                    ("saturation".to_string(), Value::Number(color.saturation().into())),
-                    ("value".to_string(), Value::Number(color.value().into())),
-                    ("alpha".to_string(), Value::Number(color.alpha().into())),
+                    ("hue".to_string(), Value::Number(color.hue.into())),
+                    ("saturation".to_string(), Value::Number(color.saturation.into())),
+                    ("value".to_string(), Value::Number(color.value.into())),
+                    ("alpha".to_string(), Value::Number(color.alpha.into())),
                 ])
                 .collect();
                 Value::Struct(values)
