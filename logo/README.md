@@ -32,7 +32,7 @@ It is (manually) copied into the website under <https://slint.dev/logo/>.
 
    ![Slint logo small light](./slint-logo-small-light.svg#gh-light-mode-only)![Slint logo small dark](./slint-logo-small-dark.svg#gh-dark-mode-only)
 
-* Use the #MadeWithSlint logo for attributions to Slint (e.g. when using Slint under the [Royalty-Free License](../LICENSES/LicenseRef-Slint-Royalty-free.md)).
+* Use the #MadeWithSlint logo for attributions to Slint (e.g. when using Slint under the [Royalty-Free License](../LICENSES/LicenseRef-Slint-Royalty-free-1.2.md)).
 
    ![#MadeWithSlint logo light](./MadeWithSlint-logo-light.svg#gh-light-mode-only)![#MadeWithSlint logo dark](./MadeWithSlint-logo-dark.svg#gh-dark-mode-only)
 

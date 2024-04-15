@@ -51,7 +51,7 @@ types of programming languages.
 
 ## Licensing
 
-Slint is available under a [royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free.md) or [GNU GPLv3](LICENSES/GPL-3.0-only.txt), at your choice. For paid plans, visit our website [https://slint.dev](https://slint.dev) or contact us at [info@slint.dev](mailto:info@slint.dev).
+Slint is available under a [royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free-1.2.md) or [GNU GPLv3](LICENSES/GPL-3.0-only.txt), at your choice. For paid plans, visit our website [https://slint.dev](https://slint.dev) or contact us at [info@slint.dev](mailto:info@slint.dev).
 
 ### Royalty-free license
 
