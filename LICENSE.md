@@ -4,7 +4,7 @@
 
 You can use Slint under ***any*** of the following licenses, at your choice:
 
-1. [Royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free.md),
+1. [Royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free-1.2.md),
 2. [GNU GPLv3](LICENSES/GPL-3.0-only.txt),
 3. [Commercial license](LICENSES/LicenseRef-Slint-commercial.md).
 
