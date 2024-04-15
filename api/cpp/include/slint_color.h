@@ -153,8 +153,9 @@ public:
     /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
     [[nodiscard]] inline Color transparentize(float factor) const;
 
-    /// Returns a new color that is a mix of \a this and \a other, with a proportion
-    /// factor given by \a factor (which will be clamped to be between `0.0` and `1.0`).
+    /// Returns a new color that is a mix of \a this color and \a other. The specified \a factor is
+    /// clamped to be between `0.0` and `1.0` and then applied to \a this color, while `1.0 -
+    /// factor` is applied to \a other.
     [[nodiscard]] inline Color mix(const Color &other, float factor) const;
 
     /// Returns a new version of this color with the opacity set to \a alpha.

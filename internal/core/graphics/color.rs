@@ -234,8 +234,9 @@ impl Color {
         color
     }
 
-    /// Returns a new color that is a mix of `self` and `other`, with a proportion
-    /// factor given by `factor` (which will be clamped to be between `0.0` and `1.0`).
+    /// Returns a new color that is a mix of this color and `other`. The specified factor is
+    /// clamped to be between `0.0` and `1.0` and then applied to this color, while `1.0 - factor`
+    /// is applied to `other`.
     ///
     /// # Examples
     /// Mix red with black half-and-half:
@@ -246,7 +247,7 @@ impl Color {
     /// assert_eq!(red.mix(&black, 0.5), Color::from_rgb_u8(128, 0, 0));
     /// ```
     ///
-    /// Mix Purple with OrangeRed with `75%`:`25%` ratio:
+    /// Mix Purple with OrangeRed,  with `75%` purpe and `25%` orange red ratio:
     /// ```
     /// # use i_slint_core::graphics::Color;
     /// let purple = Color::from_rgb_u8(128, 0, 128);
