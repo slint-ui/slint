@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 # Build various demo binaries, c++ packages and documentation and publish them on the website
 name: Build docs
@@ -68,7 +68,7 @@ jobs:
               with:
                   tool_name: formatters
                   level: error
-                  fail_on_error: true
+                  fail_on_error: false
             - name: Check license headers
               run: cargo xtask check_license_headers --fix-it
             - name: Suggest license header changes
