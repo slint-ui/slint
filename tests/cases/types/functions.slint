@@ -12,6 +12,7 @@ TestCase := TouchArea {
     public function fn1(foo2: Foo2) -> Foo3 {
       return { b: foo2.a.member+1 };
     }
+    public function fn2() { fn1({a:{member:456}}); }
 }
 
 
