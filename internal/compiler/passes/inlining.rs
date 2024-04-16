@@ -118,10 +118,13 @@ fn inline_element(
                 .borrow_mut()
                 .children
                 .splice(index..index, std::mem::take(&mut elem_mut.children));
-            if let Some(cip) = root_component.child_insertion_point.borrow_mut().as_mut() {
+            let mut cip = root_component.child_insertion_point.borrow_mut();
+            if let Some(cip) = cip.as_mut() {
                 if Rc::ptr_eq(&cip.0, elem) {
                     *cip = (insertion_element.clone(), index + cip.1, cip_node.clone());
                 }
+            } else {
+                *cip = Some((insertion_element.clone(), *index, cip_node.clone()));
             };
         }
         _ => {
