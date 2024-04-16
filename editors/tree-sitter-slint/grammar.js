@@ -95,7 +95,7 @@ module.exports = grammar({
         choice(
           seq($.assignment_block, optional(";")),
           seq($.assignment_expr, optional(";")),
-          $.if_expr,
+          seq($.if_expr, optional(";")),
           $.callback_event,
           $.binding,
           seq($.expression, optional(";")),
