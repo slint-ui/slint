@@ -1,4 +1,5 @@
 use std::fs;
+use zed::LanguageServerId;
 use zed_extension_api::{self as zed, Result};
 
 struct SlintExtension {
@@ -6,21 +7,33 @@ struct SlintExtension {
 }
 
 impl SlintExtension {
-    fn language_server_binary_path(&mut self, config: zed::LanguageServerConfig) -> Result<String> {
+    fn language_server_binary_path(
+        &mut self,
+        language_server_id: &LanguageServerId,
+        worktree: &zed::Worktree,
+    ) -> Result<String> {
+        // Use a local binary first
+        // TODO: this causes a hang on linux
+        // if let Some(path) = worktree.which("slint-lsp") {
+        //     dbg!(path.clone());
+        //     return Ok(path);
+        // }
+
         if let Some(path) = &self.cached_binary_path {
+            dbg!(path.clone());
             if fs::metadata(path).map_or(false, |stat| stat.is_file()) {
                 zed::set_language_server_installation_status(
-                    &config.name,
+                    language_server_id,
                     &zed::LanguageServerInstallationStatus::None,
                 );
-                return Ok(path.clone());
+                return Ok(path.to_owned());
             }
         }
 
-        // zed::set_language_server_installation_status(
-        //     &config.name,
-        //     &zed::LanguageServerInstallationStatus::CheckingForUpdate,
-        // );
+        zed::set_language_server_installation_status(
+            language_server_id,
+            &zed::LanguageServerInstallationStatus::CheckingForUpdate,
+        );
         let release = zed::latest_github_release(
             "slint-ui/slint",
             zed::GithubReleaseOptions {
@@ -50,7 +63,7 @@ impl SlintExtension {
 
         if !fs::metadata(&binary_path).map_or(false, |stat| stat.is_file()) {
             zed::set_language_server_installation_status(
-                &config.name,
+                language_server_id,
                 &zed::LanguageServerInstallationStatus::Downloading,
             );
 
@@ -71,7 +84,7 @@ impl SlintExtension {
             }
 
             zed::set_language_server_installation_status(
-                &config.name,
+                language_server_id,
                 &zed::LanguageServerInstallationStatus::None,
             );
         }
@@ -90,11 +103,11 @@ impl zed::Extension for SlintExtension {
 
     fn language_server_command(
         &mut self,
-        config: zed::LanguageServerConfig,
-        _worktree: &zed::Worktree,
+        language_server_id: &LanguageServerId,
+        worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
         Ok(zed::Command {
-            command: self.language_server_binary_path(config)?,
+            command: self.language_server_binary_path(language_server_id, worktree)?,
             args: vec![],
             env: Default::default(),
         })

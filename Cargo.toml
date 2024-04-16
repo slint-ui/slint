@@ -1,12 +1,12 @@
 [package]
 name = "zed_slint"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 publish = false
-license = "Apache-2.0"
+license = "GPL-3.0-or-later"
 
 [dependencies]
-zed_extension_api = "0.0.5"
+zed_extension_api = "0.0.6"
 
 [lib]
 path = "src/slint.rs"
