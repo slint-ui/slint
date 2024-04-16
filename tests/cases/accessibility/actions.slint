@@ -10,7 +10,7 @@ component Button {
     in-out property <int> value;
     accessible-action-set-value(x) => {
         debug("SetValue", x);
-        value = x;
+        value = x.to-float();
     }
 }
 
