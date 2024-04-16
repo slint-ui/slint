@@ -305,7 +305,7 @@ impl Color {
 
 impl InterpolatedPropertyValue for Color {
     fn interpolate(&self, target_value: &Self, t: f32) -> Self {
-        self.mix(target_value, t)
+        target_value.mix(self, t)
     }
 }
 
@@ -410,8 +410,12 @@ fn test_brighter_darker() {
 #[test]
 fn test_transparent_transition() {
     let color = Color::from_argb_u8(0, 0, 0, 0);
+    let interpolated = color.interpolate(&Color::from_rgb_u8(211, 211, 211), 0.25);
+    assert_eq!(interpolated, Color::from_argb_u8(64, 211, 211, 211));
     let interpolated = color.interpolate(&Color::from_rgb_u8(211, 211, 211), 0.5);
     assert_eq!(interpolated, Color::from_argb_u8(128, 211, 211, 211));
+    let interpolated = color.interpolate(&Color::from_rgb_u8(211, 211, 211), 0.75);
+    assert_eq!(interpolated, Color::from_argb_u8(191, 211, 211, 211));
 }
 
 #[cfg(feature = "ffi")]
