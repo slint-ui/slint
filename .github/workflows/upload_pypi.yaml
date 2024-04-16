@@ -1,0 +1,38 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+name: Upload component to Python Package Index
+
+on:
+    workflow_dispatch:
+
+jobs:
+    build_binaries:
+        env:
+            MACOSX_DEPLOYMENT_TARGET: "11.0"
+        strategy:
+            matrix:
+                include:
+                    - os: ubuntu-20.04
+                    - os: macos-latest
+                    - os: windows-2022    
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v4
+            - name: Set up Python
+              uses: actions/setup-python@v4
+              with:
+                python-version: "3.x"            
+            - name: Install pypa/build
+              run: >-
+                  python3 -m
+                  pip install
+                  build
+                  --user                
+            - name: Build a binary wheel and a source tarball
+              run: python3 -m build
+            - name: Store the distribution packages
+              uses: actions/upload-artifact@v3
+              with:
+                name: python-package-distributions-${{ runner.os }}
+                path: dist/              
