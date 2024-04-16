@@ -143,6 +143,12 @@ cfg_aliases = { version = "0.2.0" }
 
 raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
 
+[patch.crates-io]
+# Patch in a special version of https://github.com/etemesi254/zune-image/pull/187 applied to zune-core 0.4.12 and zune-jpeg 0.4.11
+# to fix Linux cross-build requiring sysroot.
+zune-core = { git = "https://github.com/slint-ui/zune-image", branch = "simon/fix-rust-cross-build-04" }
+zune-jpeg = { git = "https://github.com/slint-ui/zune-image", branch = "simon/fix-rust-cross-build-04" }
+
 [profile.release]
 lto = true
 panic = "abort"
