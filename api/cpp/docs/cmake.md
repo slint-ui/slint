@@ -32,7 +32,7 @@ Steps:
 3. From "Assets" ("XXX" refers to the version of the latest release),
 
    * for Linux x86-64 architecture - download `slint-cpp-XXX-Linux-x86_64.tar.gz`
-   * for Windows x86-64 architecture - download `slint-cpp-XXX-win64.exe`
+   * for Windows x86-64 architecture - download `slint-cpp-XXX-win64-MSVC.exe`
 
 4. Unpack the downloaded archive (Linux) or run the installer executable (Windows).
 
