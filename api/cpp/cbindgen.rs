@@ -200,6 +200,7 @@ fn default_config() -> cbindgen::Config {
             ("PointerScrollEventArg".into(), "PointerScrollEvent".into()),
             ("PointArg".into(), "slint::LogicalPosition".into()),
             ("FloatArg".into(), "float".into()),
+            ("IntArg".into(), "int".into()),
             ("Coord".into(), "float".into()),
         ]
         .iter()
@@ -752,7 +753,7 @@ fn gen_backend_qt(
     ];
 
     config.export.include = items.iter().map(|x| x.to_string()).collect();
-    config.export.exclude = vec!["FloatArg".into()];
+    config.export.exclude = vec!["FloatArg".into(), "IntArg".into()];
 
     config.export.body.insert(
         "NativeStyleMetrics".to_owned(),
