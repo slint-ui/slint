@@ -55,7 +55,8 @@ url = "2.2.1"
 linked_hash_set = "0.1.4"
 
 # for processing and embedding the rendered image (texture)
-image = { workspace = true, optional = true, features = ["default"] }
+# Pinned to 0.24 as 0.25 with cargo +esp build --release takes hours
+image = { version = "0.24", optional = true, features = ["default"] }
 resvg = { workspace = true, optional = true }
 # font embedding
 fontdue = { workspace = true, optional = true }
