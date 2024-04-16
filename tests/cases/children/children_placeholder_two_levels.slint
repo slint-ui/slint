@@ -19,8 +19,11 @@ Container := Rectangle {
     }
 }
 
+SuperContainer := Container {}
+ExtraContainer := SuperContainer {}
+
 MegaContainer := Rectangle {
-    Container {
+    ExtraContainer {
         Rectangle {
             background: violet;
             width: 100phx;
