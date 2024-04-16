@@ -44,6 +44,9 @@ jobs:
         needs:
             - build_binaries
         runs-on: ubuntu-latest
+        environment:
+            name: testpypi
+            url: https://test.pypi.org/p/slint
         permissions:
             id-token: write  # IMPORTANT: mandatory for trusted publishing                
         steps:
