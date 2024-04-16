@@ -4,6 +4,9 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
+mod search_api;
+pub use search_api::*;
+
 use i_slint_core::api::PhysicalSize;
 use i_slint_core::graphics::euclid::{Point2D, Size2D};
 use i_slint_core::graphics::FontRequest;
