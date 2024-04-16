@@ -1916,11 +1916,12 @@ extern "C" fn accessibility_action(
         AccessibilityAction::Default => perform("accessible-action-default", &[]),
         AccessibilityAction::Decrement => perform("accessible-action-decrement", &[]),
         AccessibilityAction::Increment => perform("accessible-action-increment", &[]),
-        AccessibilityAction::ReplaceSelectedText(a) => {
-            perform("accessible-action-replace-selected-text", &[Value::String(a.clone())])
+        AccessibilityAction::ReplaceSelectedText(_a) => {
+            //perform("accessible-action-replace-selected-text", &[Value::String(a.clone())])
+            i_slint_core::debug_log!("AccessibilityAction::ReplaceSelectedText not implemented in interpreter's accessibility_action");
         }
         AccessibilityAction::SetValue(a) => {
-            perform("accessible-action-replace-selected-text", &[Value::Number(*a)])
+            perform("accessible-action-set-value", &[Value::String(a.clone())])
         }
     };
 }
