@@ -13,7 +13,7 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - os: ubuntu-20.04
+#                    - os: ubuntu-20.04
                     - os: macos-latest
                     - os: windows-2022    
         runs-on: ${{ matrix.os }}
@@ -50,11 +50,11 @@ jobs:
         permissions:
             id-token: write  # IMPORTANT: mandatory for trusted publishing                
         steps:
-            - name: Download Linux binary
-              uses: actions/download-artifact@v3
-              with:
-                name: python-package-distributions-Linux
-                path: dist/
+#            - name: Download Linux binary
+#              uses: actions/download-artifact@v3
+#              with:
+#                name: python-package-distributions-Linux
+#                path: dist/
             - name: Download Windows binary
               uses: actions/download-artifact@v3
               with:
