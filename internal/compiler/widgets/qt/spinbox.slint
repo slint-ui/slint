@@ -8,7 +8,7 @@ export component SpinBox inherits NativeSpinBox {
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
 
-    accessible-action-set-value(v) => { update-value(v); }
+    accessible-action-set-value(v) => { if v.is-float() {update-value(v.to-float());} }
     accessible-action-increment => { update-value(root.value + 1); }
     accessible-action-decrement => { update-value(root.value - 1); }
 

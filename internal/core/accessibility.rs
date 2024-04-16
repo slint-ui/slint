@@ -33,8 +33,9 @@ pub enum AccessibilityAction {
     Default,
     Decrement,
     Increment,
+    /// This is currently unused
     ReplaceSelectedText(SharedString),
-    SetValue(f64),
+    SetValue(SharedString),
 }
 
 bitflags! {
