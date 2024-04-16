@@ -5,7 +5,9 @@
 
 //! This module contains the ItemTree and code that helps navigating it
 
-use crate::accessibility::AccessibleStringProperty;
+use crate::accessibility::{
+    AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
+};
 use crate::items::{AccessibleRole, ItemRef, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalPoint, LogicalRect};
@@ -113,6 +115,19 @@ pub struct ItemTreeVTable {
         result: &mut SharedString,
     ),
 
+    /// Executes an accessibility action.
+    pub accessibility_action: extern "C" fn(
+        core::pin::Pin<VRef<ItemTreeVTable>>,
+        item_index: u32,
+        action: &AccessibilityAction,
+    ),
+
+    /// Returns the supported accessibility actions.
+    pub supported_accessibility_actions: extern "C" fn(
+        core::pin::Pin<VRef<ItemTreeVTable>>,
+        item_index: u32,
+    ) -> SupportedAccessibilityAction,
+
     /// Returns a Window, creating a fresh one if `do_create` is true.
     pub window_adapter: extern "C" fn(
         core::pin::Pin<VRef<ItemTreeVTable>>,
@@ -122,6 +137,7 @@ pub struct ItemTreeVTable {
 
     /// in-place destructor (for VRc)
     pub drop_in_place: unsafe fn(VRefMut<ItemTreeVTable>) -> vtable::Layout,
+
     /// dealloc function (for VRc)
     pub dealloc: unsafe fn(&ItemTreeVTable, ptr: *mut u8, layout: vtable::Layout),
 }
@@ -332,6 +348,16 @@ impl ItemRc {
         let mut result = Default::default();
         comp_ref_pin.as_ref().accessible_string_property(self.index, what, &mut result);
         result
+    }
+
+    pub fn accessible_action(&self, action: &crate::accessibility::AccessibilityAction) {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        comp_ref_pin.as_ref().accessibility_action(self.index, action);
+    }
+
+    pub fn supported_accessibility_actions(&self) -> SupportedAccessibilityAction {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        comp_ref_pin.as_ref().supported_accessibility_actions(self.index)
     }
 
     pub fn geometry(&self) -> LogicalRect {
@@ -1134,6 +1160,17 @@ mod tests {
         }
 
         fn item_geometry(self: Pin<&Self>, _: u32) -> LogicalRect {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn accessibility_action(self: core::pin::Pin<&Self>, _: u32, _: &AccessibilityAction) {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn supported_accessibility_actions(
+            self: core::pin::Pin<&Self>,
+            _: u32,
+        ) -> SupportedAccessibilityAction {
             unimplemented!("Not needed for this test")
         }
     }

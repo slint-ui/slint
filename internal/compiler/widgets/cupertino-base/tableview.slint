@@ -10,7 +10,6 @@ component TableViewColumn inherits Rectangle {
 
     callback clicked <=> i-touch-area.clicked;
     callback adjust-size(/* size **/ length);
-    accessible-role: table;
 
     background: transparent;
 
@@ -174,6 +173,7 @@ export component StandardTableView {
     horizontal-stretch: 1;
     vertical-stretch: 1;
     forward-focus: i-focus-scope;
+    accessible-role: table;
 
     VerticalLayout {
         Rectangle {

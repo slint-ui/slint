@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+component Button {
+    callback clicked();
+    accessible-role: button;
+    accessible-label: "Hello";
+    accessible-action-default => { debug("DEFAULT"); clicked()  }
+    accessible-value:  value;
+    in-out property <int> value;
+    accessible-action-set-value(x) => {
+        debug("SetValue", x);
+        value = x;
+    }
+}
+
+component TestCase {
+    btn := Button {}
+
+    public function call() {
+        btn.accessible-action-set-value(45);
+    }
+
+}

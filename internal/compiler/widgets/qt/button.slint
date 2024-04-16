@@ -14,10 +14,12 @@ export component Button {
 
     callback clicked <=> native.clicked;
 
+    accessible-role: button;
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-label: root.text;
-    accessible-role: button;
+    accessible-action-default => { clicked(); }
+
     forward-focus: native;
 
     HorizontalLayout {
@@ -36,11 +38,11 @@ export component StandardButton {
 
     callback clicked <=> native.clicked;
 
-    accessible-label: native.text;
-    accessible-role: button;
-
     HorizontalLayout {
         native := NativeButton {
+            accessible-role: button;
+            accessible-label: native.text;
+            accessible-action-default => { clicked(); }
             is-standard-button: true;
             checkable: false;
         }

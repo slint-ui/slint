@@ -98,18 +98,28 @@ pub const RESERVED_ROTATION_PROPERTIES: &[(&str, Type)] = &[
     ("rotation-origin-y", Type::LogicalLength),
 ];
 
-pub const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
-    //("accessible-role", ...)
-    ("accessible-checkable", Type::Bool),
-    ("accessible-checked", Type::Bool),
-    ("accessible-delegate-focus", Type::Int32),
-    ("accessible-description", Type::String),
-    ("accessible-label", Type::String),
-    ("accessible-value", Type::String),
-    ("accessible-value-maximum", Type::Float32),
-    ("accessible-value-minimum", Type::Float32),
-    ("accessible-value-step", Type::Float32),
-];
+pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str, Type)> {
+    [
+        //("accessible-role", ...)
+        ("accessible-checkable", Type::Bool),
+        ("accessible-checked", Type::Bool),
+        ("accessible-delegate-focus", Type::Int32),
+        ("accessible-description", Type::String),
+        ("accessible-label", Type::String),
+        ("accessible-value", Type::String),
+        ("accessible-value-maximum", Type::Float32),
+        ("accessible-value-minimum", Type::Float32),
+        ("accessible-value-step", Type::Float32),
+        ("accessible-action-default", Type::Callback { return_type: None, args: vec![] }),
+        ("accessible-action-increment", Type::Callback { return_type: None, args: vec![] }),
+        ("accessible-action-decrement", Type::Callback { return_type: None, args: vec![] }),
+        (
+            "accessible-action-set-value",
+            Type::Callback { return_type: None, args: vec![Type::String] },
+        ),
+    ]
+    .into_iter()
+}
 
 /// list of reserved property injected in every item
 pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, PropertyVisibility)> {
@@ -119,8 +129,8 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_ROTATION_PROPERTIES.iter())
-        .chain(RESERVED_ACCESSIBILITY_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone(), PropertyVisibility::InOut))
+        .chain(reserved_accessibility_properties().map(|(k, v)| (k, v, PropertyVisibility::InOut)))
         .chain(
             RESERVED_GRIDLAYOUT_PROPERTIES
                 .iter()

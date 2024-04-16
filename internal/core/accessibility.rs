@@ -6,9 +6,11 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-use crate::items::ItemRc;
+use crate::{items::ItemRc, SharedString};
 
-// The property names of the accessible-properties
+use bitflags::bitflags;
+
+/// The property names of the accessible-properties
 #[repr(u32)]
 #[derive(PartialEq, Eq, Copy, Clone, strum::Display)]
 #[strum(serialize_all = "kebab-case")]
@@ -22,6 +24,31 @@ pub enum AccessibleStringProperty {
     ValueMaximum,
     ValueMinimum,
     ValueStep,
+}
+
+/// The argument of an accessible action.
+#[repr(u32)]
+#[derive(PartialEq, Clone)]
+pub enum AccessibilityAction {
+    Default,
+    Decrement,
+    Increment,
+    /// This is currently unused
+    ReplaceSelectedText(SharedString),
+    SetValue(SharedString),
+}
+
+bitflags! {
+    /// Define a accessibility actions that supported by an item.
+    #[repr(transparent)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+    pub struct SupportedAccessibilityAction: u32 {
+        const Default = 1;
+        const Decrement = 1 << 1;
+        const Increment = 1 << 2;
+        const ReplaceSelectedText = 1 << 3;
+        const SetValue = 1 << 4;
+    }
 }
 
 /// Find accessible descendents of `root_item`.
