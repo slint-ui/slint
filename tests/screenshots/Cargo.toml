@@ -18,7 +18,7 @@ path = "main.rs"
 name = "test-driver-screenshot"
 
 [dependencies]
-slint = { workspace = true, features = ["std", "compat-1-2"] }
+slint = { workspace = true, features = ["std", "compat-1-6"] }
 i-slint-core = { workspace = true, features = ["default", "software-renderer", "software-renderer-rotation"] }
 i-slint-backend-testing = { workspace = true, features = ["default"] }
 image = { workspace = true }

@@ -20,17 +20,22 @@ path = "lib.rs"
 
 [features]
 
-default = ["backend-default", "renderer-femtovg", "accessibility", "compat-1-2"]
+default = ["backend-default", "renderer-femtovg", "accessibility", "compat-1-6"]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 1.2
+## This feature is required to keep the compatibility with Slint 1.6
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added
-"compat-1-2" = []
+"compat-1-6" = []
+"compat-1-2" = ["compat-1-6", "image-default-formats"]
 "compat-1-0" = ["compat-1-2"]
 
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
 display-diagnostics = ["i-slint-compiler/display-diagnostics"]
+
+## Enable all formats from the `image` crate. To increase what is supported from [`Image::load_from_path`]
+## or in `@image-url`.
+image-default-formats = ["i-slint-core/image-default-formats"]
 
 # (internal) export C++ FFI functions
 ffi = ["spin_on", "i-slint-core/ffi"]

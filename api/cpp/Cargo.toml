@@ -52,7 +52,7 @@ i-slint-backend-selector = { workspace = true, optional = true }
 i-slint-backend-testing = { workspace = true, features = ["default"], optional = true }
 i-slint-renderer-skia = {  workspace = true, features = ["default", "x11", "wayland"], optional = true }
 i-slint-core = { workspace = true, features = ["ffi"] }
-slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], optional = true }
+slint-interpreter = { workspace = true, features = ["ffi", "compat-1-6"], optional = true }
 raw-window-handle = { version = "0.5", optional = true }
 # Enable image-rs' default features to make all image formats to C++ users
 image = { workspace = true, optional = true, features = ["default"] }

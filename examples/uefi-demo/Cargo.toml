@@ -18,7 +18,7 @@ uefi = "0.20.0"
 uefi-services = "0.17.0"
 
 slint = { path = "../../api/rs/slint", default-features = false, features = [
-    "compat-1-2",
+    "compat-1-6",
     "renderer-software",
     "libm",
     "log",
