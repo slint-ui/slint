@@ -621,7 +621,7 @@ cpp! {{
         void *interface_cast(QAccessible::InterfaceType t) override {
             if (t == QAccessible::ValueInterface && !item_string_property(m_data, QAccessible::Value).isEmpty()) {
                 return static_cast<QAccessibleValueInterface*>(this);
-            } else if (t == QAccessible::ActionInterface && !item_string_property(m_data, QAccessible::Value).isEmpty()) {
+            } else if (t == QAccessible::ActionInterface) {
                 return static_cast<QAccessibleActionInterface*>(this);
             }
             return QAccessibleInterface::interface_cast(t);
@@ -633,8 +633,11 @@ cpp! {{
         }
 
         void setCurrentValue(const QVariant &value) override {
-            // FIXME: Implement this?
-            Q_UNUSED(value);
+            QString value_string = value.toString();
+            rust!(Slint_accessible_setCurrentValue [m_data: Pin<&SlintAccessibleItemData> as "void*", value_string: qttypes::QString as "QString"] {
+                let Some(item) = m_data.item.upgrade() else {return};
+                item.accessible_action(&AccessibilityAction::SetValue(i_slint_core::format!("{value_string}")));
+            });
         }
 
         QVariant maximumValue() const override {

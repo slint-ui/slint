@@ -136,14 +136,15 @@ impl AccessKitAdapter {
                 let Some(accesskit::ActionData::Value(v)) = request.data else { return };
                 AccessibilityAction::ReplaceSelectedText(SharedString::from(&*v))
             }
-            Action::SetValue => {
-                match request.data.unwrap() {
-                    // FIXME: what to do when there is a string value?
-                    accesskit::ActionData::Value(_) => return,
-                    accesskit::ActionData::NumericValue(v) => AccessibilityAction::SetValue(v),
-                    _ => return,
+            Action::SetValue => match request.data.unwrap() {
+                accesskit::ActionData::Value(v) => {
+                    AccessibilityAction::SetValue(SharedString::from(&*v))
                 }
-            }
+                accesskit::ActionData::NumericValue(v) => {
+                    AccessibilityAction::SetValue(i_slint_core::format!("{v}"))
+                }
+                _ => return,
+            },
             _ => return,
         };
         if let Some(item) = self.item_rc_for_node_id(request.target) {

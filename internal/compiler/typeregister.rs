@@ -115,10 +115,6 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
         ("accessible-action-decrement", Type::Callback { return_type: None, args: vec![] }),
         (
             "accessible-action-set-value",
-            Type::Callback { return_type: None, args: vec![Type::Float32] },
-        ),
-        (
-            "accessible-action-replace-selected-text",
             Type::Callback { return_type: None, args: vec![Type::String] },
         ),
     ]
