@@ -25,7 +25,6 @@ default = [
   "backend-default",
   "renderer-femtovg",
   "renderer-software",
-  "image-default-formats",
   "accessibility",
   "compat-1-2",
 ]
@@ -35,8 +34,7 @@ default = [
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added.
 ## [More info in this blog post](https://slint.dev/blog/rust-adding-default-cargo-feature.html)
-"compat-1-6" = []
-"compat-1-2" = ["compat-1-6", "image-default-formats"]
+"compat-1-2" = []
 "compat-1-0" = ["compat-1-2", "renderer-software"]
 
 ## Enable use of the Rust standard library.
@@ -85,10 +83,6 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 ## [HasWindowHandle](raw_window_handle_06::HasWindowHandle) and
 ## [HasDisplayHandle](raw_window_handle_06::HasDisplayHandle) implementation.
 raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/raw-window-handle-06"]
-
-## Enable all formats from the `image` crate. To increase what is supported from [`Image::load_from_path`]
-## or in `@image-url`.
-image-default-formats = ["i-slint-core/image-default-formats"]
 
 #! ### Backends
 
