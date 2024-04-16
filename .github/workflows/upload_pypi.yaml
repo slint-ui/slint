@@ -14,8 +14,12 @@ jobs:
             matrix:
                 include:
 #                    - os: ubuntu-20.04
-                    - os: macos-latest
-                    - os: windows-2022    
+                    - os: macos-12
+                      arch: x86_64
+                    - os: macos-14
+                      arch: aarch64
+                    - os: windows-2022
+                      arch: x86_64    
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
@@ -35,7 +39,7 @@ jobs:
             - name: Store the distribution packages
               uses: actions/upload-artifact@v3
               with:
-                name: python-package-distributions-${{ runner.os }}
+                name: python-package-distributions-${{ runner.os }}-${{ matrix.arch }}
                 path: api/python/dist/              
 
     publish-to-pypi:
@@ -58,13 +62,18 @@ jobs:
             - name: Download Windows binary
               uses: actions/download-artifact@v3
               with:
-                name: python-package-distributions-Windows
+                name: python-package-distributions-Windows-x86_64
                 path: dist/
             - name: Download macOS binary
               uses: actions/download-artifact@v3
               with:
-                name: python-package-distributions-macOS
-                path: dist/                
+                name: python-package-distributions-macOS-x86_64
+                path: dist/
+            - name: Download macOS binary
+              uses: actions/download-artifact@v3
+              with:
+                name: python-package-distributions-macOS-aarch64
+                path: dist/       
             - name: Publish distribution 📦 to PyPI
               uses: pypa/gh-action-pypi-publish@release/v1
               with:
