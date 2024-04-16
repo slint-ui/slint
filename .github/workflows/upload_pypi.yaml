@@ -37,3 +37,32 @@ jobs:
               with:
                 name: python-package-distributions-${{ runner.os }}
                 path: api/python/dist/              
+
+    publish-to-pypi:
+        name: >-
+            Publish Python 🐍 distribution 📦 to PyPI
+        needs:
+            - build_binaries
+        runs-on: ubuntu-latest
+        permissions:
+            id-token: write  # IMPORTANT: mandatory for trusted publishing                
+        steps:
+            - name: Download Linux binary
+              uses: actions/download-artifact@v3
+              with:
+                name: python-package-distributions-Linux
+                path: dist/
+            - name: Download Windows binary
+              uses: actions/download-artifact@v3
+              with:
+                name: python-package-distributions-Windows
+                path: dist/
+            - name: Download macOS binary
+              uses: actions/download-artifact@v3
+              with:
+                name: python-package-distributions-macOS
+                path: dist/                
+            - name: Publish distribution 📦 to PyPI
+              uses: pypa/gh-action-pypi-publish@release/v1
+              with:
+                repository-url: https://test.pypi.org/legacy/
