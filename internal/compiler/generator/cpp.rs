@@ -2184,9 +2184,10 @@ fn generate_functions<'a>(
     functions.iter().map(|f| {
         let mut ctx2 = ctx.clone();
         ctx2.argument_types = &f.args;
+        let ret = if f.ret_ty != Type::Void { "return " } else { "" };
         let body = vec![
             "[[maybe_unused]] auto self = this;".into(),
-            format!("return {};", compile_expression(&f.code, &ctx2)),
+            format!("{ret}{};", compile_expression(&f.code, &ctx2)),
         ];
         Declaration::Function(Function {
             name: ident(&format!("fn_{}", f.name)),
