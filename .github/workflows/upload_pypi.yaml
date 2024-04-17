@@ -16,10 +16,14 @@ jobs:
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
+            - uses: actions/setup-python@v3
+            - name: Install cibuildwheel
+              run: python -m pip install cibuildwheel==2.17.0  
             - name: Build a binary wheel
-              uses: pypa/cibuildwheel@v2.17.0
-              with:
-                package-dir: api/python
+              run: python -m cibuildwheel --output-dir wheelhouse
+              working-directory: api/python
+              env:
+                CIBW_BUILD: cp312-*
             - name: Store the distribution packages
               uses: actions/upload-artifact@v4
               with:
