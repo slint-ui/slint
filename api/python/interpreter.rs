@@ -224,7 +224,7 @@ impl ComponentInstance {
         Ok(self.instance.get_property(name)?.into())
     }
 
-    fn set_property(&self, name: &str, value: &PyAny) -> PyResult<()> {
+    fn set_property(&self, name: &str, value: Bound<'_, PyAny>) -> PyResult<()> {
         let pv: PyValue = value.extract()?;
         Ok(self.instance.set_property(name, pv.0).map_err(|e| PySetPropertyError(e))?)
     }
@@ -241,7 +241,7 @@ impl ComponentInstance {
         &self,
         global_name: &str,
         prop_name: &str,
-        value: &PyAny,
+        value: Bound<'_, PyAny>,
     ) -> PyResult<()> {
         let pv: PyValue = value.extract()?;
         Ok(self
@@ -251,7 +251,7 @@ impl ComponentInstance {
     }
 
     #[pyo3(signature = (callback_name, *args))]
-    fn invoke(&self, callback_name: &str, args: &PyTuple) -> PyResult<PyValue> {
+    fn invoke(&self, callback_name: &str, args: Bound<'_, PyTuple>) -> PyResult<PyValue> {
         let mut rust_args = vec![];
         for arg in args.iter() {
             let pv: PyValue = arg.extract()?;
@@ -265,7 +265,7 @@ impl ComponentInstance {
         &self,
         global_name: &str,
         callback_name: &str,
-        args: &PyTuple,
+        args: Bound<'_, PyTuple>,
     ) -> PyResult<PyValue> {
         let mut rust_args = vec![];
         for arg in args.iter() {
@@ -339,8 +339,8 @@ impl GcVisibleCallbacks {
             let callables = callables.borrow();
             let callable = callables.get(&name).unwrap();
             Python::with_gil(|py| {
-                let py_args = PyTuple::new(py, args.iter().map(|v| PyValue(v.clone())));
-                let result = match callable.call(py, py_args, None) {
+                let py_args = PyTuple::new_bound(py, args.iter().map(|v| PyValue(v.clone())));
+                let result = match callable.call_bound(py, py_args, None) {
                     Ok(result) => result,
                     Err(err) => {
                         eprintln!(

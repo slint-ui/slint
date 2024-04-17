@@ -3,7 +3,7 @@
 
 import nox
 
-@nox.session
+@nox.session(python="3.10")
 def python(session: nox.Session):
     session.env["MATURIN_PEP517_ARGS"] = "--profile=dev"
     session.install(".[dev]")

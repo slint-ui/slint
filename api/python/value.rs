@@ -44,7 +44,7 @@ impl<'a> ToPyObject for PyValueRef<'a> {
             slint_interpreter::Value::Struct(structval) => structval
                 .iter()
                 .map(|(name, val)| (name.to_string().into_py(py), PyValueRef(val).into_py(py)))
-                .into_py_dict(py)
+                .into_py_dict_bound(py)
                 .into_py(py),
             slint_interpreter::Value::Brush(brush) => {
                 crate::brush::PyBrush::from(brush.clone()).into_py(py)

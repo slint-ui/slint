@@ -23,7 +23,7 @@ fn quit_event_loop() -> Result<(), errors::PyEventLoopError> {
 use pyo3::prelude::*;
 
 #[pymodule]
-fn slint(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     i_slint_backend_selector::with_platform(|_b| {
         // Nothing to do, just make sure a backend was created
         Ok(())
