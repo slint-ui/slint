@@ -12,41 +12,37 @@ jobs:
             MACOSX_DEPLOYMENT_TARGET: "11.0"
         strategy:
             matrix:
-                include:
-#                    - os: ubuntu-20.04
-                    - os: macos-12
-                      arch: x86_64
-                    - os: macos-14
-                      arch: aarch64
-                    - os: windows-2022
-                      arch: x86_64    
+                os: [windows-latest, macos-13, macos-14]
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
-            - name: Set up Python
-              uses: actions/setup-python@v4
+            - name: Build a binary wheel
+              uses: pypa/cibuildwheel@v2.17.0
               with:
-                python-version: "3.x"            
-            - name: Install pypa/build
-              run: >-
-                  python3 -m
-                  pip install
-                  build
-                  --user                
-            - name: Build a binary wheel and a source tarball
-              run: python3 -m build
-              working-directory: api/python
+                package-dir: api/python
             - name: Store the distribution packages
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
-                name: python-package-distributions-${{ runner.os }}-${{ matrix.arch }}
-                path: api/python/dist/              
+                name: python-package-distributions-${{ matrix.os }}-${{ strategy.job-index }}
+                path: api/python/wheelhouse/*.whl             
+
+    build_source_package:
+        name: Build source package
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Build source package
+              run: pipx run build --sdist
+              working-directory: api/python
+            - uses: actions/upload-artifact@v4
+              with:
+                name: python-package-distributions-source
+                path: api/python/dist/*.tar.gz                
 
     publish-to-pypi:
         name: >-
             Publish Python 🐍 distribution 📦 to PyPI
-        needs:
-            - build_binaries
+        needs: [build_binaries, build_source_package]
         runs-on: ubuntu-latest
         environment:
             name: testpypi
@@ -54,26 +50,11 @@ jobs:
         permissions:
             id-token: write  # IMPORTANT: mandatory for trusted publishing                
         steps:
-#            - name: Download Linux binary
-#              uses: actions/download-artifact@v3
-#              with:
-#                name: python-package-distributions-Linux
-#                path: dist/
-            - name: Download Windows binary
-              uses: actions/download-artifact@v3
-              with:
-                name: python-package-distributions-Windows-x86_64
-                path: dist/
-            - name: Download macOS binary
-              uses: actions/download-artifact@v3
-              with:
-                name: python-package-distributions-macOS-x86_64
-                path: dist/
-            - name: Download macOS binary
-              uses: actions/download-artifact@v3
-              with:
-                name: python-package-distributions-macOS-aarch64
-                path: dist/       
+            - uses: actions/download-artifact@v4
+              with:              
+                pattern: python-package-distributions--*
+                path: dist
+                merge-multiple: true            
             - name: Publish distribution 📦 to PyPI
               uses: pypa/gh-action-pypi-publish@release/v1
               with:
