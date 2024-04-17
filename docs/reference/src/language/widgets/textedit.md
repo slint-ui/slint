@@ -1,7 +1,7 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## `TextEdit`
 
-Similar to [`LineEdit`](#lineedit)`, but can be used to enter several lines of text
+Similar to [`LineEdit`](#lineedit), but can be used to enter several lines of text
 
 _Note:_ The current implementation only implement very few basic shortcut. More
 shortcut will be implemented in a future version: <https://github.com/slint-ui/slint/issues/474>
