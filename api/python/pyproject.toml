@@ -7,7 +7,7 @@ build-backend = "maturin"
 
 [project]
 name = "slint"
-version = "1.6.0a2"
+version = "1.6.0a3"
 authors = [
     {name = "Slint Team", email = "info@slint.dev"},
 ]
