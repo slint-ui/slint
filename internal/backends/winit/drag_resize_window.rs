@@ -76,7 +76,7 @@ fn get_resize_direction(
     };
 
     Some(match (xdir, ydir) {
-        (X::West, Y::North)  => ResizeDirection::NorthWest,
+        (X::West, Y::North) => ResizeDirection::NorthWest,
         (X::West, Y::South) => ResizeDirection::SouthWest,
         (X::West, Y::Default) => ResizeDirection::West,
 
