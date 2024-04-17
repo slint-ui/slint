@@ -5,8 +5,8 @@
 This example demonstrates Slint in a UEFI environment.
 
 ![Screenshot](https://user-images.githubusercontent.com/1486/231705364-8c490e25-48cf-4626-a34b-2bf7239c1245.jpg)
-![img.png](https://github.com/slint-ui/slint/assets/12370628/d329f6ee-184f-4c62-8b36-e32123211685)
-the red rectangle is mouse. Here's how it works:
+
+Here's how it works:
 ![uefi_demo_run_at_vm](https://github.com/slint-ui/slint/assets/12370628/ae534a8e-a138-4333-8813-4b4199d5e806)
 
 To build this example a suitable UEFI rust target must be installed first:
