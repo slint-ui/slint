@@ -349,6 +349,7 @@ impl EventLoopState {
                     window.winit_window().as_ref(),
                     position,
                     self.current_resize_direction,
+                    runtime_window.window_item().map_or(0_f64, |w| w.as_pin_ref().resize_border().into())
                 );
                 let position = position.to_logical(runtime_window.scale_factor() as f64);
                 self.cursor_pos = euclid::point2(position.x, position.y);

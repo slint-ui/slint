@@ -4,9 +4,10 @@ pub fn handle_cursor_move_for_resize(
     window: &winit::window::Window,
     position: winit::dpi::PhysicalPosition<f64>,
     current_direction: Option<ResizeDirection>,
+    border_size: f64,
 ) -> Option<ResizeDirection> {
     if !window.is_decorated() && window.is_resizable() {
-        let location = get_resize_direction(window.inner_size(), position, 3_f64);
+        let location = get_resize_direction(window.inner_size(), position, border_size);
 
         if current_direction != location {
             window.set_cursor_icon(resize_direction_cursor_icon(location));
