@@ -56,7 +56,7 @@ jobs:
         steps:
             - uses: actions/download-artifact@v4
               with:              
-                pattern: python-package-distributions--*
+                pattern: python-package-distributions-*
                 path: dist
                 merge-multiple: true            
             - name: Publish distribution 📦 to PyPI
