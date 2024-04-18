@@ -134,7 +134,7 @@ impl VulkanSurface {
             )
         };
 
-        let gr_context = skia_safe::gpu::DirectContext::new_vulkan(&backend_context, None)
+        let gr_context = skia_safe::gpu::direct_contexts::make_vulkan(&backend_context, None)
             .ok_or_else(|| format!("Error creating Skia Vulkan context"))?;
 
         let previous_frame_end = RefCell::new(Some(sync::now(device.clone()).boxed()));

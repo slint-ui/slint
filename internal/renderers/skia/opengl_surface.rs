@@ -68,7 +68,7 @@ impl super::Surface for OpenGLSurface {
         })?;
 
         let mut gr_context =
-            skia_safe::gpu::DirectContext::new_gl(gl_interface, None).ok_or_else(|| {
+            skia_safe::gpu::direct_contexts::make_gl(gl_interface, None).ok_or_else(|| {
                 format!("Skia Renderer: Internal Error: Could not create Skia Direct Context from GL interface")
             })?;
 
