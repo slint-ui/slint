@@ -18,12 +18,22 @@ in detail.
 
 ## Prerequisites
 
-* Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
-  have Rust installed, make sure that it's at least version 1.73 or newer. You can check which version you have installed
-  by running `rustc --version`. Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your path. This requirement will be removed before the final release of Slint for Python.
  * [Python 3](https://python.org/)
  * [pip](https://pypi.org/project/pip/)
  * [Pipenv](https://pipenv.pypa.io/en/latest/installation.html#installing-pipenv)
+
+## Installation
+
+Slint can be installed with `pip` from the [Python Package Index](https://pypi.org):
+
+```
+pip install slint
+```
+
+The installation will use binaries provided vi macOS, Windows, and Linux for various architectures. If your target platform is not covered by binaries,
+`pip` will automatically build Slint from source. If that happens, you need common software development tools on your machine, as well as [Rust](https://www.rust-lang.org/learn/get-started).
+
+### Building from Source
 
 ## Try it out
 
