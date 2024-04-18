@@ -6,7 +6,7 @@ use slint_interpreter::{DiagnosticLevel, Value, ValueType};
 use std::{collections::HashMap, error::Error};
 
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
-    i_slint_backend_testing::init();
+    i_slint_backend_testing::init_no_event_loop();
 
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
     let include_paths = test_driver_lib::extract_include_paths(&source)

@@ -5,7 +5,7 @@ use ::slint::slint;
 
 #[test]
 fn show_maintains_strong_reference() {
-    i_slint_backend_testing::init_with_event_loop();
+    i_slint_backend_testing::init_integration_test();
 
     slint!(export component TestWindow inherits Window {
         callback root-clicked();

@@ -14,10 +14,12 @@ mod testing_backend;
 #[cfg(feature = "internal")]
 pub use testing_backend::*;
 
-/// Initialize the testing backend.
+/// Initialize the testing backend without support for event loop.
+/// This means that each test thread can use its own backend, but global functions that needs
+/// an event loop such as `slint::invoke_from_event_loop` or `Timer`s won't work.
 /// Must be called before any call that would otherwise initialize the rendering backend.
-/// Calling it when the rendering backend is already initialized will have no effects
-pub fn init() {
+/// Calling it when the rendering backend is already initialized will panic.
+pub fn init_no_event_loop() {
     i_slint_core::platform::set_platform(
         Box::new(testing_backend::TestingBackend::new_no_thread()),
     )
@@ -26,8 +28,10 @@ pub fn init() {
 
 /// Initialize the testing backend with support for simple event loop.
 /// This function can only be called once per process, so make sure to use integration
-/// tests with one `#[test]` function.
-pub fn init_with_event_loop() {
+/// tests with only one `#[test]` function. (Or in a doc test)
+/// Must be called before any call that would otherwise initialize the rendering backend.
+/// Calling it when the rendering backend is already initialized will panic.
+pub fn init_integration_test() {
     i_slint_core::platform::set_platform(Box::new(testing_backend::TestingBackend::new()))
         .expect("platform already initialized");
 }

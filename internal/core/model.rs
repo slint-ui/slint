@@ -546,7 +546,7 @@ impl Model for bool {
 /// ## Example
 ///
 /// ```rust
-/// # i_slint_backend_testing::init();
+/// # i_slint_backend_testing::init_no_event_loop();
 /// use slint::{slint, SharedString, ModelRc, Model, VecModel};
 /// use std::rc::Rc;
 /// slint!{

@@ -39,7 +39,7 @@ mod executor {
 
 #[test]
 fn main() {
-    i_slint_backend_testing::init_with_event_loop();
+    i_slint_backend_testing::init_integration_test();
 
     slint::invoke_from_event_loop(|| {
         let handle = slint::spawn_local(async { String::from("Hello") }).unwrap();

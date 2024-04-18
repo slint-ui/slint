@@ -851,7 +851,7 @@ mod test {
 
     #[track_caller]
     pub fn compile_test(style: &str, source_code: &str) -> ComponentInstance {
-        i_slint_backend_testing::init();
+        i_slint_backend_testing::init_no_event_loop();
 
         let path = std::path::PathBuf::from("/test_data.slint");
         let (diagnostics, component_definition) = spin_on::spin_on(super::parse_source(
