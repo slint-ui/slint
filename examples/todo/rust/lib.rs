@@ -171,22 +171,20 @@ impl SerializedState {
 #[test]
 fn press_add_adds_one_todo() {
     i_slint_backend_testing::init();
+    use i_slint_backend_testing::ElementHandle;
     let state = init();
     state.todo_model.set_vec(vec![TodoItem { checked: false, title: "first".into() }]);
     // FIXME! this assume that the placeholder text is the label, which it isn't right now
-    let line_edit = i_slint_backend_testing::find_by_accessible_label(
-        &state.main_window,
-        "What needs to be done?",
-    )
-    .next()
-    .unwrap();
-    assert_eq!(line_edit.value(), "");
-    line_edit.set_value("second".into());
-
-    let button =
-        i_slint_backend_testing::find_by_accessible_label(&state.main_window, "Add New Entry")
+    let line_edit =
+        ElementHandle::find_by_accessible_label(&state.main_window, "What needs to be done?")
             .next()
             .unwrap();
+    assert_eq!(line_edit.accessible_value(), "");
+    line_edit.set_accessible_value("second".into());
+
+    let button = ElementHandle::find_by_accessible_label(&state.main_window, "Add New Entry")
+        .next()
+        .unwrap();
     button.invoke_default_action();
 
     assert_eq!(state.todo_model.row_count(), 2);
@@ -199,5 +197,5 @@ fn press_add_adds_one_todo() {
         TodoItem { checked: false, title: "second".into() }
     );
 
-    assert_eq!(line_edit.value(), "");
+    assert_eq!(line_edit.accessible_value(), "");
 }
