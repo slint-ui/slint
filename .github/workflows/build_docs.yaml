@@ -89,6 +89,7 @@ jobs:
                   cargo doc -p i-slint-backend-android-activity -p i-slint-backend-winit -p i-slint-backend-testing --no-deps --target aarch64-linux-android --features=i-slint-backend-android-activity/native-activity,i-slint-backend-winit/renderer-femtovg
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_android_activity/ target/doc/
                   cp -r target/aarch64-linux-android/doc/i_slint_backend_winit/ target/doc/
+                  cp -r target/aarch64-linux-android/doc/i_slint_backend_testing/ target/doc/
             - name: "Rust QuickStart"
               run: mdbook build
               working-directory: docs/quickstart/rust
