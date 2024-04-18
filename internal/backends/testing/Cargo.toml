@@ -17,8 +17,9 @@ publish = false
 path = "lib.rs"
 
 [features]
-default = []
+# Internal feature that is only enabled for Slint's own tests
+internal = []
 
 [dependencies]
-i-slint-core = { workspace = true, features = ["default"] }
+i-slint-core = { workspace = true }
 vtable = { workspace = true }
