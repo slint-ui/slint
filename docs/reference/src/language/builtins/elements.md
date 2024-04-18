@@ -74,9 +74,9 @@ Use the following `accessible-` properties to make your items interact well with
 -   **`accessible-value-step`** (_in_ _float_) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
 -   **`accessible-value`** (_in_ _string_): The current value of the item.
 
-You can also use the following callbacks that are going to be called by the accessibility
+You can also use the following callbacks that are going to be called by the accessibility framework:
 
--  **`accessible-action-default()`**: Invoked when the default action for this widget is invoked (eg: pressed for a button).
+-  **`accessible-action-default()`**: Invoked when the default action for this widget is requested (eg: pressed for a button).
 -  **`accessible-action-set-value(string)`**: Invoked when the user wants to change the accessible value.
 -  **`accessible-action-increment()`**: Invoked when the user requests to increment the value.
 -  **`accessible-action-decrement()`**: Invoked when the user requests to decrement the value.
