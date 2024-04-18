@@ -4,58 +4,29 @@
 import { StateLayer } from "components.slint";
 import { MaterialFontSettings, MaterialPalette, Elevation } from "styling.slint";
 
-// Default button widget with Material Design Filled Button look and feel.
-export component Button {
+component MaterialButtonBase {
     in property <string> text;
-    in property <bool> enabled <=> i-state-layer.enabled;
-    in property <bool> checkable;
     in property <image> icon;
-    in property <bool> primary;
+    in property <length> border-radius <=> state-layer.border-radius;
+    in property <bool> checkable;
+    in property <brush> text-color;
+    in property <float> text-opacity;
     in property <bool> colorize-icon;
-    out property <bool> has-focus: i-state-layer.has-focus;
-    out property <bool> pressed: self.enabled &&  i-state-layer.pressed;
+    in property <bool> enabled <=> state-layer.enabled;
+    in property <length> layout-padding-left;
+    in property <length> layout-padding-right;
+    out property <bool> has-focus <=> state-layer.has-focus;
+    out property <bool> pressed <=> state-layer.pressed;
     in-out property <bool> checked;
 
     callback clicked;
 
-    private property <brush> text-color: root.primary ? MaterialPalette.accent-foreground : MaterialPalette.control-foreground;
-    private property <float> text-opacity: 1.0;
+    min-width: layout.min-width;
+    min-height: layout.min-height;
+    forward-focus: state-layer;
 
-    min-height: max(40px, i-layout.min-height);
-    min-width: max(40px, i-layout.min-width);
-    forward-focus: i-state-layer;
-
-    accessible-role: button;
-    accessible-checkable: root.checkable;
-    accessible-checked: root.checked;
-    accessible-label: root.text;
-    accessible-action-default => { i-state-layer.clicked(); }
-
-    states [
-        disabled when !root.enabled : {
-            i-background.background: MaterialPalette.foreground-alt;
-            i-background.opacity: 0.12;
-            root.text-opacity: 0.38;
-            root.text-color: MaterialPalette.control-foreground;
-        }
-        checked when root.checked: {
-            root.text-color: MaterialPalette.accent-foreground;
-        }
-    ]
-
-    i-background := Rectangle {
-        width: 100%;
-        height: 100%;
-        border-radius: 20px;
-        background: root.primary ? MaterialPalette.accent-background : MaterialPalette.control-background;
-        drop-shadow-color: transparent;
-        drop-shadow-blur: Elevation.level0;
-        drop-shadow-offset-y: 1px;
-    }
-
-    i-state-layer := StateLayer {
+    state-layer := StateLayer {
         has-ripple: true;
-        border-radius: i-background.border-radius;
         background: MaterialPalette.foreground-alt;
         ripple-color: MaterialPalette.secondary-ripple;
         checked-background: MaterialPalette.accent-background;
@@ -69,10 +40,10 @@ export component Button {
         }
     }
 
-    i-layout := HorizontalLayout {
-        padding-left: 24px;
-        padding-right: 24px;
+    layout := HorizontalLayout {
         spacing: 8px;
+        padding-left: root.layout-padding-left;
+        padding-right: root.layout-padding-right;
 
         if (root.icon.width > 0 && root.icon.height > 0): Image {
             source <=> root.icon;
@@ -81,7 +52,7 @@ export component Button {
             colorize: root.colorize-icon ? root.text-color : transparent;
         }
 
-        if (root.text != "") : Text {
+        if (root.text != ""): Text {
             text: root.text;
             color: root.text-color;
             opacity: root.text-opacity;
@@ -90,7 +61,134 @@ export component Button {
             font-weight: MaterialFontSettings.label-large.font-weight;
             accessible-role: none;
 
-            animate color { duration: 250ms; easing: ease; }
+            animate color {
+                duration: 250ms;
+                easing: ease;
+            }
         }
+    }
+}
+
+// Default button widget with Material Design Filled Button look and feel.
+export component Button {
+    in property <string> text <=> base.text;
+    in property <bool> enabled <=> base.enabled;
+    in property <bool> checkable <=> base.checkable;
+    in property <image> icon <=> base.icon;
+    in property <bool> primary;
+    in property <bool> colorize-icon <=> base.colorize-icon;
+    out property <bool> has-focus: base.has-focus;
+    out property <bool> pressed: self.enabled && base.pressed;
+    in-out property <bool> checked <=> base.checked;
+
+    callback clicked <=> base.clicked;
+
+    min-height: max(40px, base.min-height);
+    min-width: max(40px, base.min-width);
+    forward-focus: base;
+
+    accessible-role: button;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-label: root.text;
+    accessible-action-default => {
+        base.clicked();
+    }
+
+    states [
+        disabled when !root.enabled: {
+            background.background: MaterialPalette.foreground-alt;
+            background.opacity: 0.12;
+            base.text-opacity: 0.38;
+            base.text-color: MaterialPalette.control-foreground;
+        }
+        checked when root.checked: {
+            base.text-color: MaterialPalette.accent-foreground;
+        }
+    ]
+
+    background := Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: 20px;
+        background: root.primary ? MaterialPalette.accent-background : MaterialPalette.control-background;
+        drop-shadow-color: transparent;
+        drop-shadow-blur: Elevation.level0;
+        drop-shadow-offset-y: 1px;
+    }
+
+    base := MaterialButtonBase {
+        layout-padding-left: 24px;
+        layout-padding-right: 24px;
+        height: 100%;
+        border-radius: background.border-radius;
+        text-color: root.primary ? MaterialPalette.accent-foreground : MaterialPalette.control-foreground;
+        text-opacity: 1.0;
+    }
+}
+
+export component TextButton {
+    in property <string> text <=> base.text;
+    in property <bool> enabled <=> base.enabled;
+    in property <bool> checkable <=> base.checkable;
+    in property <image> icon <=> base.icon;
+
+    in property <bool> colorize-icon <=> base.colorize-icon;
+    out property <bool> has-focus: base.has-focus;
+    out property <bool> pressed: self.enabled && base.pressed;
+    in-out property <bool> checked <=> base.checked;
+
+    callback clicked <=> base.clicked;
+
+    min-height: max(40px, base.min-height);
+    min-width: max(40px, base.min-width);
+    forward-focus: base;
+
+    accessible-role: button;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-label: root.text;
+    accessible-action-default => {
+        clicked();
+    }
+
+    base := MaterialButtonBase {
+        layout-padding-left: 12px;
+        layout-padding-right: 12px;
+        height: 100%;
+        border-radius: 20px;
+        text-color: MaterialPalette.accent-background;
+        text-opacity: 1.0;
+    }
+}
+
+export component IconButton {
+    in property <bool> enabled <=> base.enabled;
+
+    in property <image> icon <=> base.icon;
+
+    out property <bool> has-focus: base.has-focus;
+    out property <bool> pressed: self.enabled && base.pressed;
+
+    callback clicked <=> base.clicked;
+
+    min-height: max(40px, base.min-height);
+    min-width: max(40px, base.min-width);
+    forward-focus: base;
+
+    accessible-role: button;
+    accessible-action-default => {
+        clicked();
+    }
+
+    base := MaterialButtonBase {
+        layout-padding-left: 8px;
+        layout-padding-right: 8px;
+        width: 100%;
+        height: 100%;
+        border-radius: 20px;
+        text-color: MaterialPalette.control-foreground-variant;
+        colorize-icon: true;
+        text-opacity: 1.0;
     }
 }

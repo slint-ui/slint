@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { Button, GroupBox, SpinBox, ComboBox, CheckBox, LineEdit, TabWidget, VerticalBox, HorizontalBox,
-    Slider, ProgressIndicator, SpinBox, Switch, Spinner, GridBox } from "std-widgets.slint";
+    Slider, ProgressIndicator, SpinBox, Switch, Spinner, GridBox, TimePicker } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
@@ -16,6 +16,8 @@ export component ControlsPage inherits Page {
 
         VerticalLayout {
             padding: 0px;
+
+            TimePicker {}
 
             HorizontalBox {
                 alignment: start;

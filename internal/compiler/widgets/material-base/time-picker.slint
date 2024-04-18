@@ -1,0 +1,463 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+import { MaterialPalette, MaterialFontSettings, Icons } from "styling.slint";
+import { VerticalBox } from "layouts.slint";
+import { TextButton, IconButton } from "button.slint";
+
+component ValuePicker inherits Rectangle {
+    in property <bool> selected;
+    in property <int> value;
+
+    callback clicked <=> touch-area.clicked;
+
+    width: max(48px, label.min-width);
+    height: max(48px, label.min-height);
+    border-radius: max(root.width, root.height) / 2;
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+
+    touch-area := TouchArea { }
+
+    label := Text {
+        text: root.value;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+        color: MaterialPalette.foreground;
+        font-size: MaterialFontSettings.body-large.font-size;
+        font-weight: MaterialFontSettings.body-large.font-weight;
+    }
+
+    states [
+        selected when root.selected: {
+            label.color: MaterialPalette.accent-foreground;
+        }
+    ]
+}
+
+component Clock inherits Rectangle {
+    in property <[int]> model;
+    in property <bool> split;
+    in-out property <int> current-item;
+    out property <int> current-value: root.model[root.current-item];
+
+    callback curren-item-changed(/* index */ int);
+
+    property <length> picker-ditameter: 48px;
+    property <length> center: root.border-radius - root.picker-ditameter / 2;
+    property <length> outer-padding: 2px;
+    property <length> inner-padding: 32px;
+    property <length> radius: root.center - root.outer-padding;
+    property <length> radius-inner: root.center - root.inner-padding;
+    property <int> half-model-length: root.model.length / 2;
+    property <angle> rotation: 0.25turn;
+
+    min-width: 256px;
+    min-height: 256px;
+    border-radius: max(root.width, root.height) / 2;
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+    background: MaterialPalette.surface-container-highest;
+
+    if root.current-item >= 0 || root.current-item < root.model.length: Path {
+        stroke: MaterialPalette.accent-background;
+        stroke-width: 2px;
+        viewbox-width: self.width / 1px;
+        viewbox-height: self.height / 1px;
+
+        MoveTo {
+            x: root.width / 2px;
+            y: root.height / 2px;
+        }
+
+        LineTo {
+            x: root.border-radius / 1px + ((root.border-radius - (root.split && root.current-item >= root.half-model-length ? root.inner-padding : root.outer-padding)) / 1px * cos(root.index-to-angle(root.current-item)));
+            y: root.border-radius / 1px + ((root.border-radius - (root.split && root.current-item >= root.half-model-length ? root.inner-padding : root.outer-padding)) / 1px * sin(root.index-to-angle(root.current-item)));
+        }
+    }
+
+    Rectangle {
+        width: 8px;
+        height: 8px;
+        background: MaterialPalette.accent-background;
+        border-radius: 4px;
+    }
+
+    if root.current-item >= 0 || root.current-item < root.model.length: Rectangle {
+        x: get-index-x(root.current-item);
+        y: get-index-y(root.current-item);
+        width: root.picker-ditameter;
+        height: root.picker-ditameter;
+        border-radius: root.picker-ditameter / 2;
+        background: MaterialPalette.accent-background;
+    }
+
+    for val[index] in root.model: ValuePicker {
+        x: root.get-index-x(index);
+        y: root.get-index-y(index);
+        width: root.picker-ditameter;
+        height: root.picker-ditameter;
+        value: val;
+        selected: index == root.current-item;
+
+        clicked => {
+            root.set-current-item(index);
+        }
+    }
+
+    pure function index-to-angle(index: int) -> angle {
+        if root.split {
+            if index >= root.half-model-length {
+                return clamp((index - root.half-model-length) / root.half-model-length * 1turn, 0, 0.999999turn) - root.rotation;
+            }
+            return clamp(index / root.half-model-length * 1turn, 0, 0.99999turn) - root.rotation;
+        }
+        clamp(index / root.model.length * 1turn, 0, 0.99999turn) - root.rotation;
+    }
+
+    pure function get-index-x(index: int) -> length {
+        if root.split && index >= root.half-model-length {
+            return root.center + (root.radius-inner / 1px * cos(root.index-to-angle(index))) * 1px;
+        }
+        root.center + (root.radius / 1px * cos(root.index-to-angle(index))) * 1px
+    }
+
+    pure function get-index-y(index: int) -> length {
+        if root.split && index >= root.half-model-length {
+            return root.center + (root.radius-inner / 1px * sin(root.index-to-angle(index))) * 1px;
+        }
+        root.center + (root.radius / 1px * sin(root.index-to-angle(index))) * 1px
+    }
+
+    function set-current-item(index: int) {
+        if root.current-item == index {
+            return;
+        }
+        root.current-item = index;
+        root.curren-item-changed(index);
+    }
+}
+
+export component PeriodSelectorItem {
+    in property <string> text <=> label.text;
+    in property <bool> checked;
+
+    callback clicked <=> touch-area.clicked;
+
+    touch-area := TouchArea { }
+
+    background-layer := Rectangle { }
+
+    label := Text {
+        font-size: MaterialFontSettings.body-large.font-size;
+        font-weight: MaterialFontSettings.body-large.font-weight;
+        horizontal-alignment: center;
+    }
+
+    states [
+        checked when root.checked: {
+            background-layer.background: MaterialPalette.tertiary-container;
+        }
+    ]
+}
+
+export component PeriodSelector {
+    in property <bool> vertical;
+    in-out property <bool> am-selected: true;
+
+    min-height: 38px;
+
+    Rectangle {
+        border-radius: border.border-radius;
+        clip: true;
+        if root.vertical: VerticalLayout {
+            PeriodSelectorItem {
+                text: "AM";
+
+                checked: root.am-selected;
+
+                clicked => {
+                    root.am-selected = true;
+                }
+            }
+
+            Rectangle {
+                height: 1px;
+                background: border.border-color;
+                vertical-stretch: 0;
+            }
+
+            PeriodSelectorItem {
+                text: "PM";
+
+                checked: !root.am-selected;
+
+                clicked => {
+                    root.am-selected = false;
+                }
+            }
+        }
+
+        if !root.vertical: HorizontalLayout {
+            PeriodSelectorItem {
+                text: "AM";
+
+                checked: root.am-selected;
+
+                clicked => {
+                    root.am-selected = true;
+                }
+            }
+
+            Rectangle {
+                width: 1px;
+                background: border.border-color;
+                horizontal-stretch: 0;
+            }
+
+            PeriodSelectorItem {
+                text: "PM";
+
+                checked: !root.am-selected;
+
+                clicked => {
+                    root.am-selected = false;
+                }
+            }
+        }
+    }
+
+    border := Rectangle {
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: MaterialPalette.border;
+    }
+}
+
+export component TimePickerInput {
+    in property <bool> checked;
+    in-out property <int> value;
+    in property <bool> read-only <=> text-input.read-only;
+
+    callback clicked;
+
+    min-width: max(96px, text-input.min-width);
+    min-height: max(80px, text-input.min-height);
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+
+    background-layer := Rectangle {
+        border-radius: 8px;
+        background: MaterialPalette.surface-container-highest;
+    }
+
+    text-input := TextInput {
+        vertical-alignment: center;
+        horizontal-alignment: center;
+        text: root.value;
+        width: 100%;
+        height: 100%;
+        color: MaterialPalette.foreground;
+        font-size: 57 * 0.0625rem;
+        font-weight: 400;
+
+        accepted => {
+            if (!self.text.is-float()) {
+                self.text = root.value;
+            }
+        }
+
+        edited => {
+            if (self.text.is-float() && self.text.to-float() != root.value) {
+                root.update-value(self.text.to-float());
+            } else if (!self.text.is-float()) {
+                self.text = root.value;
+            }
+        }
+    }
+
+    if root.read-only: TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    function update-value(value: int) {
+        root.value = value;
+        text-input.text = root.value;
+    }
+
+    states [
+        checked when root.checked: {
+            background-layer.background: MaterialPalette.accent-container;
+        }
+    ]
+}
+
+export enum TimePickerMode {
+    Select,
+    Enter
+}
+
+export enum TimeMode {
+    Twelve,
+    TwentyFour
+}
+
+export component TimePicker {
+    in property <string> title: "Select time";
+    in property <TimePickerMode> mode;
+    in property <TimeMode> time-mode;
+
+    property <[int]> twelf-hour-model: [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    property <[int]> twenty-four-hour-model: [
+        12,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        24,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+    ];
+    property <[int]> hour-model: root.time-mode == TimeMode.Twelve ? root.twelf-hour-model : root.twenty-four-hour-model;
+    property <[int]> minute-model: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+    property <bool> hours-selected: true;
+    property <int> current-hour;
+    property <int> current-minute;
+    property <int> current-hour-value: root.hour-model[root.current-hour];
+    property <int> current-minute-value: root.minute-model[root.current-minute];
+
+    callback cancel-clicked();
+    callback ok-clicked;
+    min-width: layout.min-width;
+    min-height: layout.min-height;
+
+    Rectangle {
+        background: MaterialPalette.surface-container-high;
+        border-radius: 28px;
+    }
+
+    layout := VerticalBox {
+        Text {
+            horizontal-alignment: left;
+            overflow: elide;
+            text: root.title;
+            font-size: MaterialFontSettings.label-medium.font-size;
+            font-weight: MaterialFontSettings.label-medium.font-weight;
+        }
+
+        HorizontalLayout {
+            VerticalLayout {
+                alignment: center;
+                spacing: 8px;
+
+                HorizontalLayout {
+                    spacing: 4px;
+
+                    TimePickerInput {
+                        read-only: root.mode == TimePickerMode.Select;
+                        checked: self.read-only && root.hours-selected;
+                        value: root.current-hour-value;
+
+                        clicked => {
+                            root.set-hours-selection();
+                        }
+                    }
+
+                    separator := Text {
+                        text: ":";
+                        color: MaterialPalette.foreground;
+                        font-size: 57 * 0.0625rem;
+                        font-weight: 400;
+                        vertical-alignment: center;
+                    }
+
+                    TimePickerInput {
+                        read-only: root.mode == TimePickerMode.Select;
+                        checked: self.read-only && !root.hours-selected;
+                        value: root.current-minute-value;
+
+                        clicked => {
+                            root.set-minute-selection();
+                        }
+                    }
+                }
+
+                if root.time-mode == TimeMode.Twelve: PeriodSelector { }
+            }
+
+            Rectangle { }
+
+            clock := Clock {
+                width: 256px;
+                height: 256px;
+
+                model: root.hour-model;
+
+                curren-item-changed(index) => {
+                    root.time-selected(index);
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            keyboard-button := IconButton {
+                icon: Icons.keyboard;
+            }
+
+            Rectangle { }
+
+            cancel-button := TextButton {
+                text: "Cancel";
+            }
+
+            ok-button := TextButton {
+                text: "OK";
+            }
+        }
+    }
+
+    // FIXME: refactor with states instead, twenty-four-hours, hours, mintues????
+
+    function set-minute-selection() {
+        root.hours-selected = false;
+        clock.split = false;
+        clock.model = root.minute-model;
+        clock.current-item = root.current-minute;
+    }
+
+    function set-hours-selection() {
+        root.hours-selected = true;
+        clock.split = root.time-mode == TimeMode.TwentyFour;
+        clock.model = root.hour-model;
+        clock.current-item = root.current-hour;
+    }
+
+    function time-selected(index: int) {
+        if root.hours-selected {
+            root.current-hour = index;
+            root.set-minute-selection();
+            return;
+        }
+        root.current-minute = index;
+    }
+}
