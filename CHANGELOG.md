@@ -8,23 +8,52 @@ All notable changes to this project are documented in this file.
 ## General
 
  - The minimum Rust version is now 1.73.
- - FemtoVG renderer: Fix selection of italic font styles.
+ - FemtoVG renderer: Fixed selection of italic font styles. (#5056)
+ - Fixed color animation involving transparency. (#5063)
+ - Android: Fixed support for Android 10 to 12 and Java 1.8.
+ - Android: Fixed build if the locale is not UTF-8.
+ - Android: Added cursor handle on TextInput and selection handle with cut/copy/paste menu.
 
 ## Slint Language
 
- - Palette: Added `color-scheme` in-out property for accessing the
-   style's color scheme.
- - Add `hsv` method to create colors
- - Added `to-hsv()` function to color
+ - Added `Colors.hsv()` method to create colors in the HSV color space.
+ - Added `to-hsv()` function to color.
+ - Throw an error when `rgb()` or `argb()` have too many arguments.
+ - Added support for `accessible-action-*`.
+ - Fixed insertion point of `@children` when it is not the last child. (#4935)
+ - Deprecated usage of internal `StyleMetrics` in the public API.
+ - Fixed compiler panic with state property change involving a state in a parent component. (#5038)
+ - Fixed interpreter overwriting property named `index`. (#4961)
+ - Fixed compiler panic when a callback aliases itself. (#4938)
+
+## Widgets
+
+ - Palette: Added `color-scheme` in-out property for accessing the style's color scheme.
+ - Accessibility: Annotated more widgets with accessible properties and actions.
+ - Qt style: Fixed rendering of focused or hovered ComboBox and CheckBox.
+ - Qt style: Fixed widget that would react to every mouse button instead of only the left button.
+ - SpinBox: Fixed scroll direction.
+ - Allow scrolling through tabs.
+ - Updated TabWidget in Cosmic style.
+ - Added a `released` callback to `Slider`
+ - Fixed text and selection color of TextEdit and LineEdit.
 
 ## Rust API
 
- - Added conversion of Color to and from HSV
+ - Added conversion of Color to and from HSV.
+ - Added getter to the `raw-window-handler` of a window using the `raw-window-handle-06` feature.
 
 ## C++ API
 
- - Added conversion of Color to and from HSV
+ - Workaround breaking change in the build with Rust 1.79 (see https://github.com/corrosion-rs/corrosion/issues/501)
+ - Added conversion of Color to and from HSV.
+ - Fixed code generation of functions that don't return.
+ - Fixed the `MapModel::reset` function. (#4968)
 
+## LSP
+
+ - Added a drop marker to the live preview when dragging an element.
+ - Fixed formatting of function declarations.
 
 ## [1.5.1] - 2024-03-20
 
