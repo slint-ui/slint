@@ -52,7 +52,7 @@ pub enum TimerMode {
 ///
 /// ## Example
 /// ```rust,no_run
-/// # i_slint_backend_testing::init();
+/// # i_slint_backend_testing::init_no_event_loop();
 /// use slint::{Timer, TimerMode};
 /// let timer = Timer::default();
 /// timer.start(TimerMode::Repeated, std::time::Duration::from_millis(200), move || {
@@ -102,7 +102,7 @@ impl Timer {
     ///
     /// ## Example
     /// ```rust
-    /// # i_slint_backend_testing::init();
+    /// # i_slint_backend_testing::init_no_event_loop();
     /// use slint::Timer;
     /// Timer::single_shot(std::time::Duration::from_millis(200), move || {
     ///    println!("This will be printed after 200ms.");
@@ -537,7 +537,7 @@ pub(crate) mod ffi {
 
 /**
 ```rust
-i_slint_backend_testing::init();
+i_slint_backend_testing::init_no_event_loop();
 use slint::{Timer, TimerMode};
 use std::{rc::Rc, cell::RefCell, time::Duration};
 #[derive(Default)]
@@ -719,7 +719,7 @@ const _TIMER_TESTS: () = ();
 // There is a 200 ms timer that increase variable1
 // after 500ms, that timer is destroyed by a single shot timer,
 // and a new new timer  increase variable2
-i_slint_backend_testing::init();
+i_slint_backend_testing::init_no_event_loop();
 use slint::{Timer, TimerMode};
 use std::{rc::Rc, cell::RefCell, time::Duration};
 #[derive(Default)]
@@ -777,7 +777,7 @@ const _BUG3029: () = ();
  * Test that starting a singleshot timer works
 ```rust
 // There is a 200 ms singleshot timer that increase variable1
-i_slint_backend_testing::init();
+i_slint_backend_testing::init_no_event_loop();
 use slint::{Timer, TimerMode};
 use std::{rc::Rc, cell::RefCell, time::Duration};
 #[derive(Default)]

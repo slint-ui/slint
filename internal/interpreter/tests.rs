@@ -4,7 +4,7 @@
 #[cfg(feature = "internal")]
 #[test]
 fn reuse_window() {
-    i_slint_backend_testing::init();
+    i_slint_backend_testing::init_no_event_loop();
     use crate::{ComponentCompiler, ComponentHandle, SharedString, Value};
     let code = r#"
         export component MainWindow inherits Window {

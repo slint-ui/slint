@@ -43,7 +43,7 @@ fn main() -> std::io::Result<()> {
                 r"
 #[test] {} fn t_{}() -> std::result::Result<(), std::boxed::Box<dyn std::error::Error>> {{
     use i_slint_backend_testing as slint_testing;
-    slint_testing::init();
+    slint_testing::init_no_event_loop();
     {}
     Ok(())
 }}",

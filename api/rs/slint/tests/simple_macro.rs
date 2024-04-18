@@ -5,7 +5,7 @@ use ::slint::slint;
 
 #[test]
 fn simple_window() {
-    i_slint_backend_testing::init();
+    i_slint_backend_testing::init_no_event_loop();
     slint!(export component X inherits Window{});
     X::new().unwrap();
 }
@@ -18,7 +18,7 @@ fn empty_stuff() {
 
 #[test]
 fn test_serialize_deserialize_struct() {
-    i_slint_backend_testing::init();
+    i_slint_backend_testing::init_no_event_loop();
     slint! {
 
         @rust-attr(derive(serde::Serialize, serde::Deserialize))
