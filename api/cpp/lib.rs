@@ -138,7 +138,7 @@ pub unsafe extern "C" fn slint_register_bitmap_font(
     window_adapter.renderer().register_bitmap_font(font_data);
 }
 
-#[cfg(feature = "testing")]
+#[cfg(feature = "internal-testing")]
 #[no_mangle]
 pub unsafe extern "C" fn slint_testing_init_backend() {
     i_slint_backend_testing::init();

@@ -20,7 +20,7 @@ name = "test-driver-screenshot"
 [dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"] }
 i-slint-core = { workspace = true, features = ["default", "software-renderer", "software-renderer-rotation"] }
-i-slint-backend-testing = { workspace = true, features = ["default"] }
+i-slint-backend-testing = { workspace = true }
 image = { workspace = true }
 crossterm = "0.27"
 

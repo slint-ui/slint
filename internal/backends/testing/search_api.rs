@@ -39,7 +39,6 @@ impl ElementHandle {
         result.into_iter().map(|x| ElementHandle(x))
     }
 
-
     pub fn invoke_default_action(&self) {
         self.0.accessible_action(&AccessibilityAction::Default)
     }
@@ -60,7 +59,6 @@ impl ElementHandle {
         let g = self.0.geometry();
         i_slint_core::lengths::logical_size_to_api(g.size)
     }
-
 
     pub fn absolute_position(&self) -> i_slint_core::api::LogicalPosition {
         let g = self.0.geometry();
