@@ -192,6 +192,10 @@ pub fn translate(
 
 #[cfg(all(target_family = "unix", feature = "gettext-rs"))]
 fn translate_gettext(string: &str, ctx: &str, domain: &str, n: i32, plural: &str) -> String {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let Some(ctx) = ctx.get() else { return };
+        ctx.0.translations_dirty.as_ref().get();
+    });
     fn mangle_context(ctx: &str, s: &str) -> String {
         format!("{}\u{4}{}", ctx, s)
     }
@@ -220,6 +224,13 @@ fn translate_gettext(string: &str, ctx: &str, domain: &str, n: i32, plural: &str
     }
 }
 
+pub fn mark_all_translations_dirty() {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let Some(ctx) = ctx.get() else { return };
+        ctx.0.translations_dirty.mark_dirty();
+    })
+}
+
 #[cfg(feature = "gettext-rs")]
 /// Initialize the translation by calling the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext
 pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> std::io::Result<()> {
@@ -230,6 +241,7 @@ pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> st
         START.call_once(|| {
             gettextrs::setlocale(gettextrs::LocaleCategory::LcAll, "");
         });
+        mark_all_translations_dirty();
     }
     Ok(())
 }
@@ -240,10 +252,8 @@ mod ffi {
     use super::*;
     use crate::slice::Slice;
 
+    /// Perform the translation and formatting.
     #[no_mangle]
-    /// Returns a nul-terminated pointer for this string.
-    /// The returned value is owned by the string, and should not be used after any
-    /// mutable function have been called on the string, and must not be freed.
     pub extern "C" fn slint_translate(
         to_translate: &mut SharedString,
         context: &SharedString,
@@ -254,5 +264,11 @@ mod ffi {
     ) {
         *to_translate =
             translate(to_translate.as_str(), &context, &domain, arguments.as_slice(), n, &plural)
+    }
+
+    /// Mark all translated string as dirty to perform re-translation in case the language change
+    #[no_mangle]
+    pub extern "C" fn slint_translations_mark_dirty() {
+        mark_all_translations_dirty();
     }
 }

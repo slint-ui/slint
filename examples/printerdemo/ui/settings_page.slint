@@ -3,6 +3,10 @@
 
 import { DemoPalette, Page, SpinBox, ComboBox, CheckBox, Label } from "common.slint";
 
+export global PrinterSettings {
+    callback change-language(int);
+}
+
 export component SettingsPage inherits Page {
     header: @tr("Settings");
 
@@ -65,10 +69,11 @@ export component SettingsPage inherits Page {
 
             Rectangle {}
 
-            Label { text: @tr("Paper Type"); }
+            Label { text: @tr("Language"); }
             ComboBox {
-                value: @tr("Standard");
-                choices: [@tr("Standard"), @tr("Non-standard")];
+                value: @tr("English");
+                choices: [@tr("English"), @tr("French")];
+                selected(x) => { PrinterSettings.change-language(x); }
             }
         }
         Row {
