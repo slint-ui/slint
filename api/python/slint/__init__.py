@@ -189,30 +189,31 @@ def load_file(path, quiet=False, style=None, include_paths=None, library_paths=N
     return module
 
 
-class SlintModuleLoader:
-    def create_module(self, spec):
+class SlintAutoLoader:
+    def __init__(self, base_dir=None):
+        if base_dir:
+            self.local_dirs = [base_dir]
+        else:
+            self.local_dirs = None
+
+    def __getattr__(self, name):
+        for path in self.local_dirs or sys.path:
+            dir_candidate = os.path.join(path, name)
+            if os.path.isdir(dir_candidate):
+                loader = SlintAutoLoader(dir_candidate)
+                setattr(self, name, loader)
+                return loader
+
+            file_candidate = dir_candidate + ".slint"
+            if os.path.isfile(file_candidate):
+                type_namespace = load_file(file_candidate)
+                setattr(self, name, type_namespace)
+                return type_namespace
+
         return None
 
-    def exec_module(self, module):
-        m = load_file(module.__name__)
-        module.__dict__.update(m.__dict__)
 
-
-class SlintModuleFinder:
-    def find_spec(self, name, path, target=None):
-        if "." in name:
-            return None
-
-        if not name.endswith("_slint"):
-            return None
-
-        candidate_filename = name.removesuffix("_slint") + ".slint"
-
-        for path in sys.path:
-            candidate = os.path.join(path, candidate_filename)
-            if os.path.exists(candidate):
-                return ModuleSpec(os.path.realpath(candidate), SlintModuleLoader())
-        return None
+loader = SlintAutoLoader()
 
 
 def _callback_decorator(callable, info):
@@ -234,8 +235,6 @@ def callback(global_name=None, name=None):
             info["global_name"] = global_name
         return lambda callback: _callback_decorator(callback, info)
 
-
-sys.meta_path.append(SlintModuleFinder())
 
 Image = native.PyImage
 Color = native.PyColor
