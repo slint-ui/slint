@@ -5,6 +5,12 @@ name: Upload component to Python Package Index
 
 on:
     workflow_dispatch:
+      inputs:
+        release:
+            type: boolean
+            default: false
+            required: false
+            description: "Release? If false, publish to test.pypi.org, if true, publish to pypi.org"
 
 jobs:
     build_binaries:
@@ -59,9 +65,10 @@ jobs:
                 name: python-package-distributions-source
                 path: api/python/dist/*.tar.gz                
 
-    publish-to-pypi:
+    publish-to-test-pypi:
+        if: ${{ github.event.inputs.release != 'true' }}
         name: >-
-            Publish Python 🐍 distribution 📦 to PyPI
+            Publish Python 🐍 distribution 📦 to Test PyPI
         needs: [build_binaries, build_source_package]
         runs-on: ubuntu-latest
         environment:
@@ -75,7 +82,28 @@ jobs:
                 pattern: python-package-distributions-*
                 path: dist
                 merge-multiple: true            
-            - name: Publish distribution 📦 to PyPI
+            - name: Publish distribution 📦 to Test PyPI
               uses: pypa/gh-action-pypi-publish@release/v1
               with:
                 repository-url: https://test.pypi.org/legacy/
+
+    publish-to-pypi:
+      if: ${{ github.event.inputs.release == 'true' }}
+      name: >-
+          Publish Python 🐍 distribution 📦 to PyPI
+      needs: [build_binaries, build_source_package]
+      runs-on: ubuntu-latest
+      environment:
+          name: pypi
+          url: https://test.pypi.org/p/slint
+      permissions:
+          id-token: write  # IMPORTANT: mandatory for trusted publishing                
+      steps:
+          - uses: actions/download-artifact@v4
+            with:              
+              pattern: python-package-distributions-*
+              path: dist
+              merge-multiple: true            
+          - name: Publish distribution 📦 to PyPI
+            uses: pypa/gh-action-pypi-publish@release/v1
+          
