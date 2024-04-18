@@ -170,6 +170,7 @@ export component SpinBox inherits Rectangle {
 export component ComboBox inherits Rectangle {
     in-out property <string> value;
     in property <[string]> choices;
+    callback selected(int);
 
     border-radius: 3px;
     border-width: 2px;
@@ -235,6 +236,7 @@ export component ComboBox inherits Rectangle {
                 item-area := TouchArea {
                     clicked => {
                         root.value = value;
+                        root.selected(idx);
                     }
                 }
             }

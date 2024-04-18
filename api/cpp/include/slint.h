@@ -1258,6 +1258,27 @@ inline SharedString translate(const SharedString &original, const SharedString &
 
 } // namespace private_api
 
+#ifdef SLINT_FEATURE_GETTEXT
+/// Forces all the strings that are translated with `@tr(...)` to be re-evaluated.
+/// This is useful if the language is changed at runtime.
+/// The function is only available when Slint is compiled with `SLINT_FEATURE_GETTEXT`.
+///
+/// Example
+/// ```cpp
+///     my_ui->global<LanguageSettings>().on_french_selected([] {
+///        // trick from https://www.gnu.org/software/gettext/manual/html_node/gettext-grok.html
+///        setenv("LANGUAGE", langs[l], true);
+///        extern int _nl_msg_cat_cntr;
+///        ++_nl_msg_cat_cntr;
+///        slint::update_all_translations();
+///    });
+/// ```
+inline void update_all_translations()
+{
+    cbindgen_private::slint_translations_mark_dirty();
+}
+#endif
+
 #if !defined(DOXYGEN)
 cbindgen_private::Flickable::Flickable()
 {

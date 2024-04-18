@@ -5,6 +5,7 @@ use crate::api::PlatformError;
 use crate::platform::{EventLoopProxy, Platform};
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::thread_local;
+use crate::Property;
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -17,6 +18,9 @@ thread_local! {
 pub(crate) struct SlintContextInner {
     pub(crate) platform: Box<dyn Platform>,
     pub(crate) window_count: core::cell::RefCell<isize>,
+    /// This property is read by all translations, and marked dirty when the language change
+    /// so that every translated string gets re-translated
+    pub(crate) translations_dirty: core::pin::Pin<Box<Property<()>>>,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -28,7 +32,11 @@ pub struct SlintContext(pub(crate) Rc<SlintContextInner>);
 impl SlintContext {
     /// Create a new context with a given platform
     pub fn new(platform: Box<dyn Platform + 'static>) -> Self {
-        Self(Rc::new(SlintContextInner { platform, window_count: 0.into() }))
+        Self(Rc::new(SlintContextInner {
+            platform,
+            window_count: 0.into(),
+            translations_dirty: Box::pin(Property::new_named((), "SlintContext::translations")),
+        }))
     }
 
     /// Return an event proxy

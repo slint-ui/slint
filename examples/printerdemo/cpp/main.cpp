@@ -2,8 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 #include "printerdemo.h"
+#include "slint.h"
 
+#include <cstdlib>
 #include <ctime>
+#ifdef HAVE_GETTEXT
+#    include <locale>
+#    include <libintl.h>
+#endif
 
 struct InkLevelModel : slint::Model<InkLevel>
 {
@@ -23,6 +29,11 @@ struct InkLevelModel : slint::Model<InkLevel>
 
 int main()
 {
+#ifdef HAVE_GETTEXT
+    bindtextdomain("printerdemo", SRC_DIR "/../lang");
+    std::locale::global(std::locale(""));
+#endif
+
     auto printer_demo = MainWindow::create();
     printer_demo->set_ink_levels(std::make_shared<InkLevelModel>());
     printer_demo->on_quit([] { std::exit(0); });
@@ -64,6 +75,17 @@ int main()
             }
         }
     });
+
+#if defined(HAVE_GETTEXT) && defined(SLINT_FEATURE_GETTEXT)
+    printer_demo->global<PrinterSettings>().on_change_language([](int l) {
+        static const char *langs[] = { "en", "fr" };
+        setenv("LANGUAGE", langs[l], true);
+        // trick from https://www.gnu.org/software/gettext/manual/html_node/gettext-grok.html
+        extern int _nl_msg_cat_cntr;
+        ++_nl_msg_cat_cntr;
+        slint::update_all_translations();
+    });
+#endif
 
     printer_demo->run();
 }
