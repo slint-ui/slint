@@ -47,7 +47,7 @@ pipenv run python main.py
 
 ## Quick Start
 
-1. Add Slint from the Git development branch to your Python project: `pipenv install "git+https://github.com/slint-ui/slint#subdirectory=api/python&egg=slint"`
+1. Add Slint Python Package Index to your Python project: `pipenv install slint`
 2. Create a file called `appwindow.slint`:
 
 ```slint
