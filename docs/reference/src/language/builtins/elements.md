@@ -62,6 +62,7 @@ export component Example inherits Window {
 ### Accessibility
 
 Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
+`accessible-role` must be set in order to be able to set any other accessible property or callback.
 
 -   **`accessible-role`** (_in_ _enum [`AccessibleRole`](enums.md#accessiblerole)_): The role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. (default value: `none` for most elements, but `text` for the Text element)
 -   **`accessible-checkable`** (_in_ _bool_): Whether the element is can be checked or not.
@@ -72,6 +73,13 @@ Use the following `accessible-` properties to make your items interact well with
 -   **`accessible-value-minimum`** (_in_ _float_): The minimum value of the item.
 -   **`accessible-value-step`** (_in_ _float_) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
 -   **`accessible-value`** (_in_ _string_): The current value of the item.
+
+You can also use the following callbacks that are going to be called by the accessibility framework:
+
+-  **`accessible-action-default()`**: Invoked when the default action for this widget is requested (eg: pressed for a button).
+-  **`accessible-action-set-value(string)`**: Invoked when the user wants to change the accessible value.
+-  **`accessible-action-increment()`**: Invoked when the user requests to increment the value.
+-  **`accessible-action-decrement()`**: Invoked when the user requests to decrement the value.
 
 ### Drop Shadows
 
