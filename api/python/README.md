@@ -74,9 +74,8 @@ export component AppWindow inherits Window {
 
 ```python
 import slint
-import appwindow_slint
 
-class App(appwindow_slint.AppWindow):
+class App(slint.loader.appwindow.AppWindow):
     @slint.callback
     def request_increase_value(self):
         self.counter = self.counter + 1
@@ -93,7 +92,7 @@ app.run()
 
 The following example shows how to instantiate a Slint component in Python:
 
-**`ui.slint`**
+**`app.slint`**
 
 ```slint
 export component MainWindow inherits Window {
@@ -111,20 +110,24 @@ export component MainWindow inherits Window {
 The exported component is exposed as a Python class. To access this class, you have two
 options:
 
-1. Call `slint.load_file("ui.slint")`. The returned object is a [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace),
+1. Call `slint.load_file("app.slint")`. The returned object is a [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace),
    that provides the `MainWindow` class:
    ```python
    import slint
-   components = slint.load_file("ui.slint")
+   components = slint.load_file("app.slint")
    main_window = components.MainWindow()
    ```
 
-2. Import the `.slint` file as module by treating it like a Python module where the `.slint` extension is replaced with `_slint`:
+2. Use Slint's auto-loader, which lazily loads `.slint` files from `sys.path`:
    ```python
-   import slint # needs to come first
-   from ui_slint import MainWindow
-   main_window = MainWindow()
+   import slint
+   # Look for for `app.slint` in `sys.path`:
+   main_window = slint.loader.app.MainWindow()
    ```
+
+   Any attribute lookup in `slint.loader` is searched for in `sys.path`. If a directory with the name exists, it is returned as a loader object, and subsequent
+   attribute lookups follow the same logic. If the name matches a file with the `.slint` extension, it is automatically loaded with `load_file` and the
+   [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace) is returned.
 
 ### Accessing Properties
 

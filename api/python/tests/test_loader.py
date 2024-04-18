@@ -3,25 +3,23 @@
 
 import pytest
 from slint import slint as native
+from slint import loader
 import sys
 import os
 
 
 def test_magic_import():
-    import test_load_file_slint as compiledmodule
-    instance = compiledmodule.App()
+    instance = loader.test_load_file.App()
     del instance
 
 
 def test_magic_import_path():
     oldsyspath = sys.path
-    with pytest.raises(ModuleNotFoundError, match="No module named 'printerdemo_slint'"):
-        import printerdemo_slint
+    assert loader.printerdemo == None
     try:
         sys.path.append(os.path.join(os.path.dirname(__file__),
-                        "..", "..", "..", "examples", "printerdemo", "ui"))
-        import printerdemo_slint
-        instance = printerdemo_slint.MainWindow()
+                        "..", "..", ".."))
+        instance = loader.examples.printerdemo.ui.printerdemo.MainWindow()
         del instance
     finally:
         sys.path = oldsyspath
