@@ -34,7 +34,7 @@ author = "Slint Developers <info@slint.dev>"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery"]
+extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery", "sphinx_tabs.tabs", "sphinx_design"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
