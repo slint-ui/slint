@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2024-04-17 03:03+0000\n"
+"POT-Creation-Date: 2024-04-19 03:04+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -94,127 +94,127 @@ msgctxt "PrintPage"
 msgid "Printing-Queue"
 msgstr ""
 
-#: ui/settings_page.slint:7
+#: ui/settings_page.slint:11
 msgctxt "SettingsPage"
 msgid "Settings"
 msgstr ""
 
-#: ui/settings_page.slint:16
+#: ui/settings_page.slint:20
 msgctxt "SettingsPage"
 msgid "General"
 msgstr ""
 
-#: ui/settings_page.slint:23
+#: ui/settings_page.slint:27
 msgctxt "SettingsPage"
 msgid "TURBO mode"
 msgstr ""
 
-#: ui/settings_page.slint:28
+#: ui/settings_page.slint:32
 msgctxt "SettingsPage"
 msgid "Power Management"
 msgstr ""
 
-#: ui/settings_page.slint:31
+#: ui/settings_page.slint:35
 msgctxt "SettingsPage"
 msgid "Eco Mode"
 msgstr ""
 
-#: ui/settings_page.slint:38
+#: ui/settings_page.slint:42
 msgctxt "SettingsPage"
 msgid "Defaults"
 msgstr ""
 
-#: ui/settings_page.slint:45
+#: ui/settings_page.slint:49
 msgctxt "SettingsPage"
 msgid "Layout"
 msgstr ""
 
-#: ui/settings_page.slint:47 ui/settings_page.slint:48
+#: ui/settings_page.slint:51 ui/settings_page.slint:52
 msgctxt "SettingsPage"
 msgid "Portrait"
 msgstr ""
 
-#: ui/settings_page.slint:48
+#: ui/settings_page.slint:52
 msgctxt "SettingsPage"
 msgid "Landscape"
 msgstr ""
 
-#: ui/settings_page.slint:53
+#: ui/settings_page.slint:57
 msgctxt "SettingsPage"
 msgid "Paper Tray"
 msgstr ""
 
-#: ui/settings_page.slint:55 ui/settings_page.slint:56
+#: ui/settings_page.slint:59 ui/settings_page.slint:60
 msgctxt "SettingsPage"
 msgid "Special Tray"
 msgstr ""
 
-#: ui/settings_page.slint:56
+#: ui/settings_page.slint:60
 msgctxt "SettingsPage"
 msgid "Normal Tray"
 msgstr ""
 
-#: ui/settings_page.slint:60
+#: ui/settings_page.slint:64
 msgctxt "SettingsPage"
 msgid "Quality"
 msgstr ""
 
-#: ui/settings_page.slint:62 ui/settings_page.slint:63
+#: ui/settings_page.slint:66 ui/settings_page.slint:67
 msgctxt "SettingsPage"
 msgid "Best"
 msgstr ""
 
-#: ui/settings_page.slint:63
+#: ui/settings_page.slint:67
 msgctxt "SettingsPage"
 msgid "Medium"
 msgstr ""
 
-#: ui/settings_page.slint:63
+#: ui/settings_page.slint:67
 msgctxt "SettingsPage"
 msgid "Draft"
 msgstr ""
 
-#: ui/settings_page.slint:68
+#: ui/settings_page.slint:72
 msgctxt "SettingsPage"
-msgid "Paper Type"
+msgid "Language"
 msgstr ""
 
-#: ui/settings_page.slint:70 ui/settings_page.slint:71
+#: ui/settings_page.slint:74 ui/settings_page.slint:75
 msgctxt "SettingsPage"
-msgid "Standard"
-msgstr ""
-
-#: ui/settings_page.slint:71
-msgctxt "SettingsPage"
-msgid "Non-standard"
+msgid "English"
 msgstr ""
 
 #: ui/settings_page.slint:75
 msgctxt "SettingsPage"
+msgid "French"
+msgstr ""
+
+#: ui/settings_page.slint:80
+msgctxt "SettingsPage"
 msgid "Color Mode"
 msgstr ""
 
-#: ui/settings_page.slint:77 ui/settings_page.slint:78
+#: ui/settings_page.slint:82 ui/settings_page.slint:83
 msgctxt "SettingsPage"
 msgid "Grayscale"
 msgstr ""
 
-#: ui/settings_page.slint:78
+#: ui/settings_page.slint:83
 msgctxt "SettingsPage"
 msgid "RGB"
 msgstr ""
 
-#: ui/settings_page.slint:78
+#: ui/settings_page.slint:83
 msgctxt "SettingsPage"
 msgid "YCMB"
 msgstr ""
 
-#: ui/settings_page.slint:83
+#: ui/settings_page.slint:88
 msgctxt "SettingsPage"
 msgid "Paper Handling"
 msgstr ""
 
-#: ui/settings_page.slint:86
+#: ui/settings_page.slint:91
 msgctxt "SettingsPage"
 msgid "Sort Pages"
 msgstr ""

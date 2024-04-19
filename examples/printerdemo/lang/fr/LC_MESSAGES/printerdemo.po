@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-17 03:03+0000\n"
+"POT-Creation-Date: 2024-04-19 03:04+0000\n"
 "PO-Revision-Date: 2023-06-09 07:56+0200\n"
 "Language: fr_FR\n"
 "MIME-Version: 1.0\n"
@@ -94,127 +94,127 @@ msgctxt "PrintPage"
 msgid "Printing-Queue"
 msgstr "File d'attente d'impression"
 
-#: ui/settings_page.slint:7
+#: ui/settings_page.slint:11
 msgctxt "SettingsPage"
 msgid "Settings"
 msgstr "Configuration"
 
-#: ui/settings_page.slint:16
+#: ui/settings_page.slint:20
 msgctxt "SettingsPage"
 msgid "General"
 msgstr "Général"
 
-#: ui/settings_page.slint:23
+#: ui/settings_page.slint:27
 msgctxt "SettingsPage"
 msgid "TURBO mode"
 msgstr "Mode TURBO"
 
-#: ui/settings_page.slint:28
+#: ui/settings_page.slint:32
 msgctxt "SettingsPage"
 msgid "Power Management"
 msgstr "Gestion de l'énergie"
 
-#: ui/settings_page.slint:31
+#: ui/settings_page.slint:35
 msgctxt "SettingsPage"
 msgid "Eco Mode"
 msgstr "Mode Éco"
 
-#: ui/settings_page.slint:38
+#: ui/settings_page.slint:42
 msgctxt "SettingsPage"
 msgid "Defaults"
 msgstr "Paramètres par défaut"
 
-#: ui/settings_page.slint:45
+#: ui/settings_page.slint:49
 msgctxt "SettingsPage"
 msgid "Layout"
 msgstr "Format "
 
-#: ui/settings_page.slint:47 ui/settings_page.slint:48
+#: ui/settings_page.slint:51 ui/settings_page.slint:52
 msgctxt "SettingsPage"
 msgid "Portrait"
 msgstr "Portrait"
 
-#: ui/settings_page.slint:48
+#: ui/settings_page.slint:52
 msgctxt "SettingsPage"
 msgid "Landscape"
 msgstr "Paysage"
 
-#: ui/settings_page.slint:53
+#: ui/settings_page.slint:57
 msgctxt "SettingsPage"
 msgid "Paper Tray"
 msgstr "Bac à papier"
 
-#: ui/settings_page.slint:55 ui/settings_page.slint:56
+#: ui/settings_page.slint:59 ui/settings_page.slint:60
 msgctxt "SettingsPage"
 msgid "Special Tray"
 msgstr "Bac spécial"
 
-#: ui/settings_page.slint:56
+#: ui/settings_page.slint:60
 msgctxt "SettingsPage"
 msgid "Normal Tray"
 msgstr "Bac normal"
 
-#: ui/settings_page.slint:60
+#: ui/settings_page.slint:64
 msgctxt "SettingsPage"
 msgid "Quality"
 msgstr "Qualité"
 
-#: ui/settings_page.slint:62 ui/settings_page.slint:63
+#: ui/settings_page.slint:66 ui/settings_page.slint:67
 msgctxt "SettingsPage"
 msgid "Best"
 msgstr "Haute"
 
-#: ui/settings_page.slint:63
+#: ui/settings_page.slint:67
 msgctxt "SettingsPage"
 msgid "Medium"
 msgstr "Moyenne"
 
-#: ui/settings_page.slint:63
+#: ui/settings_page.slint:67
 msgctxt "SettingsPage"
 msgid "Draft"
 msgstr "Brouillon"
 
-#: ui/settings_page.slint:68
+#: ui/settings_page.slint:72
 msgctxt "SettingsPage"
-msgid "Paper Type"
-msgstr "Type de papier"
+msgid "Language"
+msgstr ""
 
-#: ui/settings_page.slint:70 ui/settings_page.slint:71
+#: ui/settings_page.slint:74 ui/settings_page.slint:75
 msgctxt "SettingsPage"
-msgid "Standard"
-msgstr "Standard"
-
-#: ui/settings_page.slint:71
-msgctxt "SettingsPage"
-msgid "Non-standard"
-msgstr "Non standard"
+msgid "English"
+msgstr ""
 
 #: ui/settings_page.slint:75
+msgctxt "SettingsPage"
+msgid "French"
+msgstr ""
+
+#: ui/settings_page.slint:80
 msgctxt "SettingsPage"
 msgid "Color Mode"
 msgstr "Couleurs"
 
-#: ui/settings_page.slint:77 ui/settings_page.slint:78
+#: ui/settings_page.slint:82 ui/settings_page.slint:83
 msgctxt "SettingsPage"
 msgid "Grayscale"
 msgstr "Niveau de gris"
 
-#: ui/settings_page.slint:78
+#: ui/settings_page.slint:83
 msgctxt "SettingsPage"
 msgid "RGB"
 msgstr "RGB"
 
-#: ui/settings_page.slint:78
+#: ui/settings_page.slint:83
 msgctxt "SettingsPage"
 msgid "YCMB"
 msgstr "YCMB"
 
-#: ui/settings_page.slint:83
+#: ui/settings_page.slint:88
 msgctxt "SettingsPage"
 msgid "Paper Handling"
 msgstr "Gestion des pages"
 
-#: ui/settings_page.slint:86
+#: ui/settings_page.slint:91
 msgctxt "SettingsPage"
 msgid "Sort Pages"
 msgstr "Trier"
@@ -508,3 +508,15 @@ msgstr "Ordinateur"
 msgctxt "ScanPage"
 msgid "Start scanning"
 msgstr "Démarrer le scan"
+
+#~ msgctxt "SettingsPage"
+#~ msgid "Paper Type"
+#~ msgstr "Type de papier"
+
+#~ msgctxt "SettingsPage"
+#~ msgid "Standard"
+#~ msgstr "Standard"
+
+#~ msgctxt "SettingsPage"
+#~ msgid "Non-standard"
+#~ msgstr "Non standard"
