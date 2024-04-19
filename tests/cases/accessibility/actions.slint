@@ -5,8 +5,11 @@ component Button {
     callback clicked();
     accessible-role: button;
     accessible-label: "Hello";
-    accessible-action-default => { debug("DEFAULT"); clicked()  }
-    accessible-value:  value;
+    accessible-action-default => {
+        debug("DEFAULT");
+        clicked()
+    }
+    accessible-value: value;
     in-out property <int> value;
     accessible-action-set-value(x) => {
         debug("SetValue", x);
@@ -15,10 +18,35 @@ component Button {
 }
 
 component TestCase {
-    btn := Button {}
+    Rectangle {
+        x: 100px;
+        y: 100px;
+
+        btn := Button {
+            x: 23px;
+            y: 43px;
+            width: 143px;
+            height: 76px;
+        }
+    }
 
     public function call() {
         btn.accessible-action-set-value(45);
     }
-
 }
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let mut button_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Hello");
+let button = button_search.next().unwrap();
+assert!(button_search.next().is_none());
+
+assert_eq!(button.absolute_position(), slint::LogicalPosition::new(123., 143.));
+assert_eq!(button.size(), slint::LogicalSize::new(143., 76.));
+
+assert_eq!(button.accessible_value().unwrap(), "0");
+button.set_accessible_value("45".into());
+assert_eq!(button.accessible_value().unwrap(), "45");
+```
+*/
