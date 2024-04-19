@@ -75,6 +75,7 @@ export component AppWindow inherits Window {
 ```python
 import slint
 
+# slint.loader will look in `sys.path` for `appwindow.slint`.
 class App(slint.loader.appwindow.AppWindow):
     @slint.callback
     def request_increase_value(self):
