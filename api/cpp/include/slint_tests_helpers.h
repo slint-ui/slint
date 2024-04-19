@@ -2,18 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 #pragma once
-#include "slint.h"
-#include <concepts>
+#include "slint-testing.h"
 #include <iostream>
 
 // this file contains function useful for internal testing
 
 namespace slint::private_api::testing {
-
-inline void init()
-{
-    cbindgen_private::slint_testing_init_backend();
-}
 
 inline void mock_elapsed_time(int64_t time_in_ms)
 {

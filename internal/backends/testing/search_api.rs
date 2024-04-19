@@ -5,10 +5,13 @@ use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty}
 use i_slint_core::item_tree::{ItemTreeRc, ItemVisitorResult, TraversalOrder};
 use i_slint_core::items::ItemRc;
 use i_slint_core::window::WindowInner;
-use i_slint_core::SharedString;
+use i_slint_core::{SharedString, SharedVector};
 
-fn search_item(item_tree: &ItemTreeRc, mut filter: impl FnMut(&ItemRc) -> bool) -> Vec<ItemRc> {
-    let mut result = vec![];
+pub(crate) fn search_item(
+    item_tree: &ItemTreeRc,
+    mut filter: impl FnMut(&ItemRc) -> bool,
+) -> SharedVector<ItemRc> {
+    let mut result = SharedVector::default();
     i_slint_core::item_tree::visit_items(
         item_tree,
         TraversalOrder::BackToFront,

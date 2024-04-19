@@ -55,7 +55,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 namespace slint_testing = slint::private_api::testing;
 ",
     )?;
-    generated_cpp.write_all(b"int main() {\n    slint::private_api::testing::init();\n")?;
+    generated_cpp.write_all(b"int main() {\n    slint::testing::init();\n")?;
     for x in test_driver_lib::extract_test_functions(&source).filter(|x| x.language_id == "cpp") {
         write!(generated_cpp, "  {{\n    {}\n  }}\n", x.source.replace("\n", "\n    "))?;
     }

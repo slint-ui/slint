@@ -19,6 +19,8 @@ path = "lib.rs"
 [features]
 # Internal feature that is only enabled for Slint's own tests
 internal = []
+# ffi for C++ bindings
+ffi = []
 
 [dependencies]
 i-slint-core = { workspace = true }

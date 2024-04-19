@@ -805,6 +805,29 @@ fn gen_backend_qt(
     Ok(())
 }
 
+fn gen_testing(
+    root_dir: &Path,
+    include_dir: &Path,
+    dependencies: &mut Vec<PathBuf>,
+) -> anyhow::Result<()> {
+    let config = default_config();
+
+    let mut crate_dir = root_dir.to_owned();
+    crate_dir.extend(["internal", "backends", "testing"].iter());
+
+    ensure_cargo_rerun_for_crate(&crate_dir, dependencies)?;
+
+    cbindgen::Builder::new()
+        .with_config(config)
+        .with_crate(crate_dir)
+        .with_include("slint_testing_internal.h")
+        .generate()
+        .context("Unable to generate bindings for slint_testing_internal.h")?
+        .write_to_file(include_dir.join("slint_testing_internal.h"));
+
+    Ok(())
+}
+
 fn gen_platform(
     root_dir: &Path,
     include_dir: &Path,
@@ -933,7 +956,7 @@ macro_rules! declare_features {
     };
 }
 
-declare_features! {interpreter backend_qt freestanding renderer_software renderer_skia experimental gettext}
+declare_features! {interpreter backend_qt freestanding renderer_software renderer_skia experimental gettext testing}
 
 /// Generate the headers.
 /// `root_dir` is the root directory of the slint git repo
@@ -953,6 +976,9 @@ pub fn gen_all(
     gen_corelib(root_dir, include_dir, &mut deps, enabled_features)?;
     gen_backend_qt(root_dir, include_dir, &mut deps)?;
     gen_platform(root_dir, include_dir, &mut deps)?;
+    if enabled_features.testing {
+        gen_testing(root_dir, include_dir, &mut deps)?;
+    }
     if enabled_features.interpreter {
         gen_interpreter(root_dir, include_dir, &mut deps)?;
     }
