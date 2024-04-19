@@ -358,12 +358,13 @@ cpp! {{
                     VALUE_MAXIMUM => item.accessible_string_property(AccessibleStringProperty::ValueMaximum),
                     VALUE_STEP => item.accessible_string_property(AccessibleStringProperty::ValueStep),
                     CHECKABLE => item.accessible_string_property(AccessibleStringProperty::Checkable),
-                    _ => Default::default(),
+                    _ => None,
                 };
-                QString::from(string.as_ref())
-            } else {
-                QString::default()
-            }
+                if let Some(string) = string {
+                    return QString::from(string.as_ref())
+                }
+            };
+            QString::default()
         });
     }
 
@@ -591,7 +592,7 @@ cpp! {{
 
             auto index = rust!(Slint_accessible_item_delegate_focus [m_data: Pin<&SlintAccessibleItemData> as "void*"] -> i32 as "int" {
                 m_data.item.upgrade()
-                    .map(|i| { i.accessible_string_property(AccessibleStringProperty::DelegateFocus) })
+                    .and_then(|i| { i.accessible_string_property(AccessibleStringProperty::DelegateFocus) })
                     .and_then(|s| s.as_str().parse::<i32>().ok()).unwrap_or(-1)
             });
 

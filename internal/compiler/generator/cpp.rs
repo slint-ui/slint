@@ -1355,11 +1355,11 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "accessible_string_property".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::cbindgen_private::AccessibleStringProperty what, slint::SharedString *result) -> void"
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::cbindgen_private::AccessibleStringProperty what, slint::SharedString *result) -> bool"
                     .into(),
             is_static: true,
             statements: Some(vec![format!(
-                "*result = reinterpret_cast<const {}*>(component.instance)->accessible_string_property(index, what);",
+                "if (auto r = reinterpret_cast<const {}*>(component.instance)->accessible_string_property(index, what)) {{ *result = *r; return true; }} else {{ return false; }}",
                 item_tree_class_name
             )]),
             ..Default::default()
@@ -1977,7 +1977,7 @@ fn generate_sub_component(
     );
     dispatch_item_function(
         "accessible_string_property",
-        "(uint32_t index, slint::cbindgen_private::AccessibleStringProperty what) const -> slint::SharedString",
+        "(uint32_t index, slint::cbindgen_private::AccessibleStringProperty what) const -> std::optional<slint::SharedString>",
         ", what",
         accessible_string_cases,
     );

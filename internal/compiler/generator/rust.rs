@@ -806,7 +806,7 @@ fn generate_sub_component(
         } else {
             let what = ident(what);
             accessible_string_property_branch
-                .push(quote!((#index, sp::AccessibleStringProperty::#what) => #e,));
+                .push(quote!((#index, sp::AccessibleStringProperty::#what) => sp::Some(#e),));
         }
     }
     let mut supported_accessibility_actions_branch = supported_accessibility_actions
@@ -1090,12 +1090,12 @@ fn generate_sub_component(
                 self: ::core::pin::Pin<&Self>,
                 index: u32,
                 what: sp::AccessibleStringProperty,
-            ) -> sp::SharedString {
+            ) -> sp::Option<sp::SharedString> {
                 #![allow(unused)]
                 let _self = self;
                 match (index, what) {
                     #(#accessible_string_property_branch)*
-                    _ => ::core::default::Default::default(),
+                    _ => sp::None,
                 }
             }
 
@@ -1558,8 +1558,13 @@ fn generate_item_tree(
                 index: u32,
                 what: sp::AccessibleStringProperty,
                 result: &mut sp::SharedString,
-            ) {
-                *result = self.accessible_string_property(index, what);
+            ) -> bool {
+                if let Some(r) = self.accessible_string_property(index, what) {
+                    *result = r;
+                    true
+                } else {
+                    false
+                }
             }
 
             fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {

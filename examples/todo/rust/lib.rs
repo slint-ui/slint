@@ -179,7 +179,7 @@ fn press_add_adds_one_todo() {
         ElementHandle::find_by_accessible_label(&state.main_window, "What needs to be done?")
             .next()
             .unwrap();
-    assert_eq!(line_edit.accessible_value(), "");
+    assert_eq!(line_edit.accessible_value().unwrap(), "");
     line_edit.set_accessible_value("second".into());
 
     let button = ElementHandle::find_by_accessible_label(&state.main_window, "Add New Entry")
@@ -197,5 +197,5 @@ fn press_add_adds_one_todo() {
         TodoItem { checked: false, title: "second".into() }
     );
 
-    assert_eq!(line_edit.accessible_value(), "");
+    assert_eq!(line_edit.accessible_value().unwrap(), "");
 }
