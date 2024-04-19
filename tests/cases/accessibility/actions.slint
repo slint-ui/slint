@@ -46,7 +46,27 @@ assert_eq!(button.absolute_position(), slint::LogicalPosition::new(123., 143.));
 assert_eq!(button.size(), slint::LogicalSize::new(143., 76.));
 
 assert_eq!(button.accessible_value().unwrap(), "0");
-button.set_accessible_value("45".into());
+instance.invoke_call();
 assert_eq!(button.accessible_value().unwrap(), "45");
+button.set_accessible_value("78".into());
+assert_eq!(button.accessible_value().unwrap(), "78");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+auto button_search = slint::testing::ElementHandle::find_by_accessible_label(handle, "Hello");
+assert_eq(button_search.size(), 1);
+auto button = button_search[0];
+
+assert(button.absolute_position() == slint::LogicalPosition({123., 143.}));
+assert(button.size() == slint::LogicalSize({143., 76.}));
+
+assert_eq(button.accessible_value().value(), "0");
+instance.invoke_call();
+assert_eq(button.accessible_value().value(), "45");
+button.set_accessible_value("78");
+assert_eq(button.accessible_value().value(), "78");
 ```
 */

@@ -13,6 +13,8 @@ pub use internal_tests::*;
 mod testing_backend;
 #[cfg(feature = "internal")]
 pub use testing_backend::*;
+#[cfg(feature = "ffi")]
+mod ffi;
 
 /// Initialize the testing backend without support for event loop.
 /// This means that each test thread can use its own backend, but global functions that needs

@@ -24,8 +24,10 @@ pub fn with_platform<R>(
     i_slint_core::with_platform(|| Err(i_slint_core::platform::PlatformError::NoPlatform), f)
 }
 
-/// One need to make sure something from the crate is exported,
-/// otherwise its symbols are not going to be in the final binary
+// One need to make sure something from the crate is exported,
+// otherwise its symbols are not going to be in the final binary
+#[cfg(feature = "testing")]
+pub use i_slint_backend_testing;
 #[cfg(feature = "slint-interpreter")]
 pub use slint_interpreter;
 
@@ -136,12 +138,6 @@ pub unsafe extern "C" fn slint_register_bitmap_font(
 ) {
     let window_adapter = &*(win as *const Rc<dyn WindowAdapter>);
     window_adapter.renderer().register_bitmap_font(font_data);
-}
-
-#[cfg(feature = "internal-testing")]
-#[no_mangle]
-pub unsafe extern "C" fn slint_testing_init_backend() {
-    i_slint_backend_testing::init_no_event_loop();
 }
 
 #[cfg(not(feature = "std"))]
