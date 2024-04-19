@@ -107,13 +107,13 @@ pub struct ItemTreeVTable {
     pub accessible_role:
         extern "C" fn(core::pin::Pin<VRef<ItemTreeVTable>>, item_index: u32) -> AccessibleRole,
 
-    /// Returns the accessible property
+    /// Returns the accessible property via the `result`. Returns true if such a property exists.
     pub accessible_string_property: extern "C" fn(
         core::pin::Pin<VRef<ItemTreeVTable>>,
         item_index: u32,
         what: AccessibleStringProperty,
         result: &mut SharedString,
-    ),
+    ) -> bool,
 
     /// Executes an accessibility action.
     pub accessibility_action: extern "C" fn(
@@ -343,11 +343,11 @@ impl ItemRc {
     pub fn accessible_string_property(
         &self,
         what: crate::accessibility::AccessibleStringProperty,
-    ) -> SharedString {
+    ) -> Option<SharedString> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let mut result = Default::default();
-        comp_ref_pin.as_ref().accessible_string_property(self.index, what, &mut result);
-        result
+        let ok = comp_ref_pin.as_ref().accessible_string_property(self.index, what, &mut result);
+        ok.then_some(result)
     }
 
     pub fn accessible_action(&self, action: &crate::accessibility::AccessibilityAction) {
@@ -1148,7 +1148,8 @@ mod tests {
             _: u32,
             _: AccessibleStringProperty,
             _: &mut SharedString,
-        ) {
+        ) -> bool {
+            false
         }
 
         fn window_adapter(

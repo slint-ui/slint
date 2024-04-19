@@ -34,7 +34,8 @@ impl ElementHandle {
         // dirty way to get the ItemTreeRc:
         let item_tree = WindowInner::from_pub(component.window()).component();
         let result = search_item(&item_tree, |item| {
-            item.accessible_string_property(AccessibleStringProperty::Label) == label
+            item.accessible_string_property(AccessibleStringProperty::Label)
+                .is_some_and(|x| x == label)
         });
         result.into_iter().map(|x| ElementHandle(x))
     }
@@ -43,7 +44,7 @@ impl ElementHandle {
         self.0.accessible_action(&AccessibilityAction::Default)
     }
 
-    pub fn accessible_value(&self) -> SharedString {
+    pub fn accessible_value(&self) -> Option<SharedString> {
         self.0.accessible_string_property(AccessibleStringProperty::Value)
     }
 
@@ -51,7 +52,7 @@ impl ElementHandle {
         self.0.accessible_action(&AccessibilityAction::SetValue(value))
     }
 
-    pub fn accessible_label(&self) -> SharedString {
+    pub fn accessible_label(&self) -> Option<SharedString> {
         self.0.accessible_string_property(AccessibleStringProperty::Label)
     }
 

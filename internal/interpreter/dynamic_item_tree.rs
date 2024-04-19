@@ -237,7 +237,7 @@ impl ItemTree for ErasedItemTreeBox {
         index: u32,
         what: AccessibleStringProperty,
         result: &mut SharedString,
-    ) {
+    ) -> bool {
         self.borrow().as_ref().accessible_string_property(index, what, result)
     }
 
@@ -1871,7 +1871,7 @@ extern "C" fn accessible_string_property(
     item_index: u32,
     what: AccessibleStringProperty,
     result: &mut SharedString,
-) {
+) -> bool {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let prop_name = format!("accessible-{}", what);
@@ -1889,6 +1889,9 @@ extern "C" fn accessible_string_property(
             Value::Number(x) => *result = x.to_string().into(),
             _ => unimplemented!("invalid type for accessible_string_property"),
         };
+        true
+    } else {
+        false
     }
 }
 

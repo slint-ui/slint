@@ -374,11 +374,12 @@ impl AccessKitAdapter {
     }
 
     fn build_node_without_children(&self, item: &ItemRc, scale_factor: ScaleFactor) -> NodeBuilder {
-        let is_checkable =
-            item.accessible_string_property(AccessibleStringProperty::Checkable) == "true";
+        let is_checkable = item
+            .accessible_string_property(AccessibleStringProperty::Checkable)
+            .is_some_and(|x| x == "true");
 
         let (role, label) = if let Some(window_item) = item.downcast::<WindowItem>() {
-            (Role::Window, window_item.as_pin_ref().title().to_string())
+            (Role::Window, Some(window_item.as_pin_ref().title().to_string()))
         } else {
             (
                 match item.accessible_role() {
@@ -406,13 +407,15 @@ impl AccessKitAdapter {
                 item.accessible_string_property(
                     i_slint_core::accessibility::AccessibleStringProperty::Label,
                 )
-                .to_string(),
+                .map(|x| x.to_string()),
             )
         };
 
         let mut builder = NodeBuilder::new(role);
 
-        builder.set_name(label);
+        if let Some(label) = label {
+            builder.set_name(label);
+        }
 
         let geometry = item.geometry();
         let absolute_origin = item.map_to_window(geometry.origin);
@@ -427,7 +430,10 @@ impl AccessKitAdapter {
 
         if is_checkable {
             builder.set_checked(
-                if item.accessible_string_property(AccessibleStringProperty::Checked) == "true" {
+                if item
+                    .accessible_string_property(AccessibleStringProperty::Checked)
+                    .is_some_and(|x| x == "true")
+                {
                     Checked::True
                 } else {
                     Checked::False
@@ -435,9 +441,11 @@ impl AccessKitAdapter {
             );
         }
 
-        builder.set_description(
-            item.accessible_string_property(AccessibleStringProperty::Description).to_string(),
-        );
+        if let Some(description) =
+            item.accessible_string_property(AccessibleStringProperty::Description)
+        {
+            builder.set_description(description.to_string());
+        }
 
         if matches!(
             role,
@@ -451,20 +459,29 @@ impl AccessKitAdapter {
             builder.add_action(Action::Focus);
         }
 
-        let min = item.accessible_string_property(AccessibleStringProperty::ValueMinimum);
-        let max = item.accessible_string_property(AccessibleStringProperty::ValueMaximum);
-        let step = item.accessible_string_property(AccessibleStringProperty::ValueStep);
-        let value = item.accessible_string_property(AccessibleStringProperty::Value).to_string();
-
-        match (min.parse(), max.parse(), value.parse(), step.parse()) {
-            (Ok(min), Ok(max), Ok(value), Ok(step)) => {
+        let min = item
+            .accessible_string_property(AccessibleStringProperty::ValueMinimum)
+            .unwrap_or_default();
+        let max = item
+            .accessible_string_property(AccessibleStringProperty::ValueMaximum)
+            .unwrap_or_default();
+        let step = item
+            .accessible_string_property(AccessibleStringProperty::ValueStep)
+            .unwrap_or_default();
+        match (min.parse(), max.parse(), step.parse()) {
+            (Ok(min), Ok(max), Ok(step)) => {
                 builder.set_min_numeric_value(min);
                 builder.set_max_numeric_value(max);
-                builder.set_numeric_value(value);
                 builder.set_numeric_value_step(step);
             }
-            _ => {
-                builder.set_value(value);
+            _ => {}
+        }
+
+        if let Some(value) = item.accessible_string_property(AccessibleStringProperty::Value) {
+            if let Ok(value) = value.parse() {
+                builder.set_numeric_value(value);
+            } else {
+                builder.set_value(value.to_string());
             }
         }
 
