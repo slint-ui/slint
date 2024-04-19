@@ -104,7 +104,7 @@ Files: internal/compiler/widgets/cosmic-base/_*.svg
 Copyright: "Cosmic Icons" by System76 <https://github.com/pop-os/cosmic-icons>
 License: CC-BY-SA-4.0
 
-Files: internal/backends/linuxkms/mouse-pointer.svg examples/virtual_keyboard/ui/assets/*.svg examples/ffmpeg/pause.svg examples/ffmpeg/play.svg examples/gstreamer-player/*.svg
+Files: internal/backends/linuxkms/mouse-pointer.svg examples/virtual_keyboard/ui/assets/*.svg examples/ffmpeg/pause.svg examples/ffmpeg/play.svg examples/gstreamer-player/*.svg examples/uefi-demo/resource/cursor.png
 Copyright: Copyright © 2018 Dave Gandy & Fork Awesome
 License: MIT
 
