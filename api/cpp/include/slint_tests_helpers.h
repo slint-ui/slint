@@ -6,7 +6,9 @@
 #include <concepts>
 #include <iostream>
 
-namespace slint::testing {
+// this file contains function useful for internal testing
+
+namespace slint::private_api::testing {
 
 inline void init()
 {
@@ -44,9 +46,8 @@ inline void send_keyboard_string_sequence(const Component *component,
 }
 
 #define assert_eq(A, B)                                                                            \
-    slint::testing::private_api::assert_eq_impl(A, B, #A, #B, __FILE__, __LINE__)
+    slint::private_api::testing::assert_eq_impl(A, B, #A, #B, __FILE__, __LINE__)
 
-namespace private_api {
 template<typename A, std::equality_comparable_with<A> B>
 void assert_eq_impl(const A &a, const B &b, const char *a_str, const char *b_str, const char *file,
                     int line)
@@ -65,7 +66,6 @@ void assert_eq_impl(const A &a, const B &b, const char *a_str, const char *b_str
                   << b_str << ": " << b << std::endl;
         std::abort();
     }
-}
 }
 
 } // namespace slint
