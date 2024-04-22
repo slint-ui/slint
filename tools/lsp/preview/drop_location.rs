@@ -1,10 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
-use std::path::PathBuf;
-
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
-use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize, PointLengths};
+use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
 use crate::common;
@@ -98,7 +96,7 @@ fn calculate_drop_acceptance(
     position: LogicalPoint,
     layout_kind: &crate::preview::ui::LayoutKind,
 ) -> DropAccept {
-    assert!(geometry.contains(position)); // Just checked that before callig this
+    assert!(geometry.contains(position)); // Just checked that before calling this
 
     let horizontal = border_size(geometry.size.width);
     let vertical = border_size(geometry.size.height);
@@ -119,7 +117,7 @@ fn calculate_drop_acceptance(
             LogicalPoint::new(geometry.origin.x + horizontal, geometry.origin.y),
             LogicalSize::new(geometry.size.width - (2.0 * horizontal), geometry.size.height),
         ),
-        ui::LayoutKind::Grid => geometry.clone(),
+        ui::LayoutKind::Grid => *geometry,
     };
 
     if certain_rect.contains(position) {
@@ -129,141 +127,146 @@ fn calculate_drop_acceptance(
     }
 }
 
-#[derive(Debug)]
-struct ChildrenInformation {
-    geometry: LogicalRect,
-    path: PathBuf,
-    range: (u32, u32),
-}
-
 // calculate where to draw the `DropMark`
 fn calculate_drop_information_for_layout(
     geometry: &LogicalRect,
     position: LogicalPoint,
     layout_kind: &crate::preview::ui::LayoutKind,
-    children_information: &[ChildrenInformation],
+    children_geometries: &[LogicalRect],
 ) -> (Option<DropMark>, usize) {
-    eprintln!("calculate_drop_information_for_layout({geometry:?}, {position:?}, {layout_kind:?}, {children_information:?}): Starting up");
-    let horizontal = border_size(geometry.size.width);
-    let vertical = border_size(geometry.size.height);
-
     match layout_kind {
         ui::LayoutKind::None => unreachable!("We are in a layout"),
         ui::LayoutKind::Horizontal => {
-            if children_information.len() == 0 {
-                eprintln!("Horizontal, No child");
+            if children_geometries.is_empty() {
                 // No children: Draw a drop mark in the middle
                 // TODO: Take padding into account: We have no way to get that though
-                return (
+                let start = (geometry.origin.x + (geometry.size.width / 2.0)).floor();
+
+                (
                     Some(DropMark {
-                        start: LogicalPoint::new(
-                            (geometry.origin.x + (geometry.size.width / 2.0)).floor(),
-                            geometry.origin.y,
-                        ),
+                        start: LogicalPoint::new(start, geometry.origin.y),
                         end: LogicalPoint::new(
-                            (geometry.origin.x + (geometry.size.width / 2.0)).ceil(),
+                            start + 1.0,
                             geometry.origin.y + geometry.size.height,
                         ),
                     }),
                     usize::MAX,
-                );
+                )
             } else {
                 let mut last_midpoint = geometry.origin.x;
                 let mut last_endpoint = geometry.origin.x;
-                for (pos, c) in children_information.iter().enumerate() {
-                    let new_midpoint = c.geometry.origin.x + c.geometry.size.width / 2.0;
-                    let hit_rect = LogicalRect::new(LogicalPoint::new(last_midpoint, geometry.origin.y), LogicalSize::new(new_midpoint - last_midpoint, geometry.size.height));
+                for (pos, c) in children_geometries.iter().enumerate() {
+                    let new_midpoint = c.origin.x + c.size.width / 2.0;
+                    let hit_rect = LogicalRect::new(
+                        LogicalPoint::new(last_midpoint, geometry.origin.y),
+                        LogicalSize::new(new_midpoint - last_midpoint, geometry.size.height),
+                    );
                     if hit_rect.contains(position) {
-                    eprintln!("Horizontal, before_child {pos} with geometry {:?}: {hit_rect:?} cointains {position:?}? => HIT", c.geometry);
-                        let start = (c.geometry.origin.x - last_endpoint) / 2.0;
-                        let start_pos = last_endpoint + if start.floor() < geometry.origin.x {
-                            geometry.origin.x
-                        } else {
-                            start
-                        };
+                        let start = (c.origin.x - last_endpoint) / 2.0;
+                        let start_pos = last_endpoint
+                            + if start.floor() < geometry.origin.x {
+                                geometry.origin.x
+                            } else {
+                                start
+                            };
                         let end_pos = start_pos + 1.0;
-                        
-                        return (
-                             Some(DropMark {
-                                start: LogicalPoint::new(start_pos, geometry.origin.y),
-                                end: LogicalPoint::new(end_pos, geometry.origin.y + geometry.size.height),
-                            }),
-                             pos,
-                        ); 
-                    }
-                    eprintln!("Horizontal, before_child {pos} with geometry {:?}: {hit_rect:?} cointains {position:?}? => MISS", c.geometry);
-                    last_midpoint = new_midpoint;
-                    last_endpoint = c.geometry.origin.x + c.geometry.size.width;
-                }
-                    eprintln!("Horizontal, after last child...");
 
-                return (
-                     Some(DropMark {
-                        start: LogicalPoint::new(geometry.origin.x + geometry.size.width - 1.0, geometry.origin.y),
-                        end: LogicalPoint::new(geometry.origin.x + geometry.size.width, geometry.origin.y + geometry.size.height),
-                    }),
-                    usize::MAX,
-                ); 
-            }
-        }
-        ui::LayoutKind::Vertical => {
-            if children_information.len() == 0 {
-                eprintln!("Vertical, No child");
-                // No children: Draw a drop mark in the middle
-                // TODO: Take padding into account: We have no way to get that though
-                return (
+                        return (
+                            Some(DropMark {
+                                start: LogicalPoint::new(start_pos, geometry.origin.y),
+                                end: LogicalPoint::new(
+                                    end_pos,
+                                    geometry.origin.y + geometry.size.height,
+                                ),
+                            }),
+                            pos,
+                        );
+                    }
+                    last_midpoint = new_midpoint;
+                    last_endpoint = c.origin.x + c.size.width;
+                }
+                (
                     Some(DropMark {
                         start: LogicalPoint::new(
-                            geometry.origin.x,
-                            (geometry.origin.y + (geometry.size.height / 2.0)).floor(),
+                            geometry.origin.x + geometry.size.width - 1.0,
+                            geometry.origin.y,
                         ),
                         end: LogicalPoint::new(
                             geometry.origin.x + geometry.size.width,
-                            (geometry.origin.y + (geometry.size.height / 2.0)).ceil(),
+                            geometry.origin.y + geometry.size.height,
                         ),
                     }),
                     usize::MAX,
-                );
+                )
+            }
+        }
+        ui::LayoutKind::Vertical => {
+            if children_geometries.is_empty() {
+                // No children: Draw a drop mark in the middle
+                // TODO: Take padding into account: We have no way to get that though
+                let start = (geometry.origin.y + (geometry.size.height / 2.0)).floor();
+                (
+                    Some(DropMark {
+                        start: LogicalPoint::new(geometry.origin.x, start),
+                        end: LogicalPoint::new(
+                            geometry.origin.x + geometry.size.width,
+                            start + 1.0,
+                        ),
+                    }),
+                    usize::MAX,
+                )
             } else {
                 let mut last_midpoint = geometry.origin.y;
                 let mut last_endpoint = geometry.origin.y;
-                for (pos, c) in children_information.iter().enumerate() {
-                    let new_midpoint = c.geometry.origin.y + c.geometry.size.height / 2.0;
-                    let hit_rect = LogicalRect::new(LogicalPoint::new(geometry.origin.y, last_midpoint), LogicalSize::new(geometry.size.width, new_midpoint - last_midpoint));
+                for (pos, c) in children_geometries.iter().enumerate() {
+                    let new_midpoint = c.origin.y + c.size.height / 2.0;
+                    let hit_rect = LogicalRect::new(
+                        LogicalPoint::new(geometry.origin.y, last_midpoint),
+                        LogicalSize::new(geometry.size.width, new_midpoint - last_midpoint),
+                    );
                     if hit_rect.contains(position) {
-                    eprintln!("Vertical, before_child {pos} with geometry {:?}: {hit_rect:?} cointains {position:?}? => HIT", c.geometry);
-                        let start = (c.geometry.origin.y - last_endpoint) / 2.0;
-                        let start_pos = last_endpoint + if start.floor() < geometry.origin.y {
-                            geometry.origin.y
-                        } else {
-                            start
-                        };
+                        let start = (c.origin.y - last_endpoint) / 2.0;
+                        let start_pos = last_endpoint
+                            + if start.floor() < geometry.origin.y {
+                                geometry.origin.y
+                            } else {
+                                start
+                            };
                         let end_pos = start_pos + 1.0;
-                        
-                        return (
-                             Some(DropMark {
-                                start: LogicalPoint::new(geometry.origin.x, start_pos),
-                                end: LogicalPoint::new(geometry.origin.x + geometry.size.width, end_pos),
-                            }),
-                             pos,
-                        ); 
-                    }
-                    eprintln!("Vertical, before_child {pos} with geometry {:?}: {hit_rect:?} cointains {position:?}? => MISS", c.geometry);
-                    last_midpoint = new_midpoint;
-                    last_endpoint = c.geometry.origin.y + c.geometry.size.height;
-                }
-                    eprintln!("Vertical, after last child...");
 
-                return (
-                     Some(DropMark {
-                        start: LogicalPoint::new(geometry.origin.x, geometry.origin.y + geometry.size.height - 1.0),
-                        end: LogicalPoint::new(geometry.origin.x + geometry.size.width, geometry.origin.y + geometry.size.height),
+                        return (
+                            Some(DropMark {
+                                start: LogicalPoint::new(geometry.origin.x, start_pos),
+                                end: LogicalPoint::new(
+                                    geometry.origin.x + geometry.size.width,
+                                    end_pos,
+                                ),
+                            }),
+                            pos,
+                        );
+                    }
+                    last_midpoint = new_midpoint;
+                    last_endpoint = c.origin.y + c.size.height;
+                }
+                (
+                    Some(DropMark {
+                        start: LogicalPoint::new(
+                            geometry.origin.x,
+                            geometry.origin.y + geometry.size.height - 1.0,
+                        ),
+                        end: LogicalPoint::new(
+                            geometry.origin.x + geometry.size.width,
+                            geometry.origin.y + geometry.size.height,
+                        ),
                     }),
                     usize::MAX,
-                ); 
+                )
             }
         }
-        ui::LayoutKind::Grid => todo!(),
+        ui::LayoutKind::Grid => {
+            // TODO: Do something here
+            (None, usize::MAX)
+        }
     }
 }
 
@@ -274,7 +277,6 @@ fn accept_drop_at(
 ) -> DropAccept {
     let layout_kind = element_node.layout_kind();
     let Some(geometry) = element_node.geometry_at(component_instance, position) else {
-        eprintln!("            accept_drop_at: NO, element not at position");
         return DropAccept::No;
     };
     calculate_drop_acceptance(&geometry, position, &layout_kind)
@@ -310,7 +312,7 @@ fn insert_position_at_end(
         } else if before_closing.kind() == SyntaxKind::Whitespace
             && !before_closing.text().contains('\n')
         {
-            let indent = util::find_element_indent(&target_element_node).unwrap_or_default();
+            let indent = util::find_element_indent(target_element_node).unwrap_or_default();
             let ws_len = before_closing.text().len() as u32;
             (
                 format!("\n{indent}    "),
@@ -320,7 +322,7 @@ fn insert_position_at_end(
                 ws_len,
             )
         } else {
-            let indent = util::find_element_indent(&target_element_node).unwrap_or_default();
+            let indent = util::find_element_indent(target_element_node).unwrap_or_default();
             (format!("\n{indent}    "), format!("{indent}    "), indent, closing_brace_offset, 0)
         };
 
@@ -340,11 +342,72 @@ fn insert_position_at_end(
     })
 }
 
+fn insert_position_before_child(
+    target_element_node: &common::ElementRcNode,
+    child_index: usize,
+) -> Option<InsertInformation> {
+    target_element_node.with_element_node(|node| {
+        for (index, child_node) in node
+            .children()
+            .filter(|n| {
+                [
+                    SyntaxKind::SubElement,
+                    SyntaxKind::RepeatedElement,
+                    SyntaxKind::ConditionalElement,
+                ]
+                .contains(&n.kind())
+            })
+            .enumerate()
+        {
+            if index < child_index {
+                continue;
+            }
+
+            assert!(index == child_index);
+
+            let first_token = child_node.first_token()?;
+            let first_token_offset = u32::from(first_token.text_range().start());
+            let before_first_token = first_token.prev_token()?;
+
+            let (pre_indent, indent) = if before_first_token.kind() == SyntaxKind::Whitespace
+                && before_first_token.text().contains('\n')
+            {
+                let element_indent = before_first_token.text().split('\n').last().unwrap(); // must exist in this branch
+                ("".to_string(), element_indent.to_string())
+            } else if before_first_token.kind() == SyntaxKind::Whitespace
+                && !before_first_token.text().contains('\n')
+            {
+                let indent = util::find_element_indent(target_element_node).unwrap_or_default();
+                ("".to_string(), format!("{indent}    "))
+            } else {
+                let indent = util::find_element_indent(target_element_node).unwrap_or_default();
+                (format!("\n{indent}    "), format!("{indent}    "))
+            };
+
+            let url = lsp_types::Url::from_file_path(child_node.source_file.path()).ok()?;
+            let (version, _) = preview::get_url_from_cache(&url)?;
+
+            return Some(InsertInformation {
+                insertion_position: common::VersionedPosition::new(
+                    crate::common::VersionedUrl::new(url, version),
+                    first_token_offset,
+                ),
+                replacement_range: 0,
+                pre_indent,
+                indent: indent.clone(),
+                post_indent: indent,
+            });
+        }
+
+        // We should never get here...
+        None
+    })
+}
+
 // find all elements covering the given `position`.
 fn drop_target_element_nodes(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    component_type: &str,
 ) -> Vec<common::ElementRcNode> {
     let mut result = Vec::with_capacity(3);
 
@@ -378,70 +441,11 @@ fn extract_element(node: SyntaxNode) -> Option<syntax_nodes::Element> {
     }
 }
 
-fn examine_target_element_node(
-    context: &str,
-    component_instance: &ComponentInstance,
-    position: LogicalPoint,
-    target_element_node: &common::ElementRcNode,
-) {
-    let geometry = target_element_node.geometry_at(component_instance, position);
-    // let mut result = Vec::new();
-    if let Some(geometry) = geometry {
-        for (i, c) in target_element_node.element.borrow().children.iter().enumerate() {
-            let c = common::ElementRcNode::new(c.clone(), 0).unwrap();
-        }
-        target_element_node.with_element_node(|node| {
-            for (i, c) in node.children().enumerate() {
-                let element_data = if let Some(c_element) = extract_element(c.clone()) {
-                    format!(
-                        "\n        {:?}:{:?}",
-                        c_element.source_file.path(),
-                        c_element.text_range().start()
-                    )
-                } else {
-                    String::new()
-                };
-            }
-        });
-    }
-}
-
-fn drop_into_layout(
-    component_instance: &ComponentInstance,
-    element_node: common::ElementRcNode,
-    position: LogicalPoint,
-    layout_kind: ui::LayoutKind,
-    children_geometries: &[LogicalRect],
-) -> Option<DropInformation> {
-    let geometry = element_node.geometry_at(component_instance, position)?;
-    let insert_info = insert_position_at_end(&element_node)?;
-
-    Some(DropInformation {
-        target_element_node: element_node,
-        insert_info,
-        drop_mark: Some(DropMark {
-            start: geometry.origin + LogicalSize::new(0.0, geometry.size.height - 1.0),
-            end: geometry.origin + geometry.size,
-        }),
-    })
-}
-
-fn drop_into_element(
-    component_instance: &ComponentInstance,
-    element_node: common::ElementRcNode,
-    position: LogicalPoint,
-) -> Option<DropInformation> {
-    let geometry = element_node.geometry_at(component_instance, position)?;
-    let insert_info = insert_position_at_end(&element_node)?;
-    Some(DropInformation { target_element_node: element_node, insert_info, drop_mark: None })
-}
-
 fn find_element_to_drop_into(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    component_type: &str,
 ) -> Option<common::ElementRcNode> {
-    let all_element_nodes = drop_target_element_nodes(component_instance, position, component_type);
+    let all_element_nodes = drop_target_element_nodes(component_instance, position);
 
     let mut tmp = None;
     for element_node in &all_element_nodes {
@@ -465,39 +469,27 @@ fn find_drop_location(
     position: LogicalPoint,
     component_type: &str,
 ) -> Option<DropInformation> {
-    eprintln!("find_drop_location at {position:?}: Considering [");
-    let drop_target_node = find_element_to_drop_into(component_instance, position, component_type)?;
-    eprintln!("find_drop_location at {position:?}: ] => {drop_target_node:?}");
+    let drop_target_node = find_element_to_drop_into(component_instance, position)?;
 
     let (path, _) = drop_target_node.path_and_offset();
     let tl = component_instance.definition().type_loader();
-    let Some(doc) = tl.get_document(&path) else {
-        eprintln!("find_drop_location at {position:?}: No document found for {drop_target_node:?} => NONE");
-        return None;
-    };
+    let doc = tl.get_document(&path)?;
     if let Some(element_type) = drop_target_node.with_element_node(|node| {
         util::lookup_current_element_type((node.clone()).into(), &doc.local_registry)
     }) {
         if drop_target_node.layout_kind() == ui::LayoutKind::None
             && element_type.accepts_child_element(component_type, &doc.local_registry).is_err()
         {
-            eprintln!("find_drop_location at {position:?}: {drop_target_node:?} does not accept {component_type} => NONE");
             return None;
         }
     }
 
     let layout_kind = drop_target_node.layout_kind();
     if layout_kind != ui::LayoutKind::None {
-        let parent_kind = drop_target_node.with_element_node(|node| node.kind());
         let geometry = drop_target_node.geometry_at(component_instance, position)?;
         let children_information: Vec<_> = drop_target_node.with_element_node(|node| {
             let mut children_info = Vec::new();
             for c in node.children() {
-                eprintln!("Child syntax_node of {parent_kind:?}: {:?}", c.kind());
-
-                let c_path = c.source_file.path().to_path_buf();
-                let c_range = (u32::from(c.text_range().start()), u32::from(c.text_range().end()));
-
                 if let Some(element) = extract_element(c.clone()) {
                     let e_path = element.source_file.path().to_path_buf();
                     let e_offset = u32::from(element.text_range().start());
@@ -509,12 +501,11 @@ fn find_drop_location(
                     ) else {
                         continue;
                     };
-                    let Some(c_geometry) =  child_node.geometry_in(component_instance, &geometry) else { continue; };
-                    children_info.push(ChildrenInformation {
-                        geometry: c_geometry.clone(),
-                        path: c_path,
-                        range: c_range,
-                    });
+                    let Some(c_geometry) = child_node.geometry_in(component_instance, &geometry)
+                    else {
+                        continue;
+                    };
+                    children_info.push(c_geometry);
                 }
             }
 
@@ -532,13 +523,18 @@ fn find_drop_location(
             if child_index == usize::MAX {
                 insert_position_at_end(&drop_target_node)
             } else {
-                insert_position_at_end(&drop_target_node)
+                insert_position_before_child(&drop_target_node, child_index)
             }
         }?;
 
         Some(DropInformation { target_element_node: drop_target_node, insert_info, drop_mark })
     } else {
-        drop_into_element(component_instance, drop_target_node, position)
+        let insert_info = insert_position_at_end(&drop_target_node)?;
+        Some(DropInformation {
+            target_element_node: drop_target_node,
+            insert_info,
+            drop_mark: None,
+        })
     }
 }
 

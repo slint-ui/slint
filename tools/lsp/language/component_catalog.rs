@@ -26,6 +26,10 @@ fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformatio
     let default_properties = match name {
         "Text" | "TextInput" => vec![PropertyChange::new("text", format!("\"{name}\""))],
         "Image" => vec![PropertyChange::new("source", "@image-url(\"EDIT_ME.png\")".to_string())],
+        "GridLayout" | "HorizontalLayout" | "VerticalLayout" => vec![
+            PropertyChange::new("min-width", "16px".to_string()),
+            PropertyChange::new("min-height", "16px".to_string()),
+        ],
         _ => vec![],
     };
 
@@ -60,6 +64,10 @@ fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
         "ComboBox" => {
             vec![PropertyChange::new("model", "[\"first\", \"second\", \"third\"]".to_string())]
         }
+        "GridBox" | "HorizontalBox" | "VerticalBox" => vec![
+            PropertyChange::new("min-width", "16px".to_string()),
+            PropertyChange::new("min-height", "16px".to_string()),
+        ],
         "Slider" | "SpinBox" => vec![
             PropertyChange::new("minimum", "0".to_string()),
             PropertyChange::new("value", "42".to_string()),
