@@ -539,8 +539,7 @@ fn format_argument_declaration(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    let mut sub = node.children_with_tokens();
-    while let Some(n) = sub.next() {
+    for n in node.children_with_tokens() {
         state.skip_all_whitespace = true;
         match n.kind() {
             SyntaxKind::Colon => {

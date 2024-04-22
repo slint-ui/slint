@@ -49,16 +49,20 @@ impl ElementRcNode {
 
         Some(Self { element, debug_index })
     }
-    
-    pub fn find_in_or_below(element: ElementRc, path: &std::path::Path, offset: u32) -> Option<Self> {
-        let debug_index = element.borrow().debug.iter().position(|(n, _)|  {
+
+    pub fn find_in_or_below(
+        element: ElementRc,
+        path: &std::path::Path,
+        offset: u32,
+    ) -> Option<Self> {
+        let debug_index = element.borrow().debug.iter().position(|(n, _)| {
             u32::from(n.text_range().start()) == offset && n.source_file.path() == path
         });
         if let Some(debug_index) = debug_index {
             Some(Self { element, debug_index })
         } else {
             for c in &element.borrow().children {
-                let result = Self::find_in_or_below(c.clone(), path, offset); 
+                let result = Self::find_in_or_below(c.clone(), path, offset);
                 if result.is_some() {
                     return result;
                 }

@@ -3,10 +3,8 @@
 
 use std::{path::PathBuf, rc::Rc};
 
-use i_slint_compiler::diagnostics::SourceFile;
 use i_slint_compiler::object_tree::{Component, ElementRc};
 use i_slint_core::lengths::LogicalPoint;
-use rowan::TextRange;
 use slint_interpreter::ComponentInstance;
 
 use crate::common::ElementRcNode;
@@ -142,16 +140,6 @@ fn select_element_node(
     }
 }
 
-fn element_node_source_range(
-    element: &ElementRc,
-    debug_index: usize,
-) -> Option<(SourceFile, TextRange)> {
-    let node = element.borrow().debug.get(debug_index)?.0.clone();
-    let source_file = node.source_file.clone();
-    let range = node.text_range();
-    Some((source_file, range))
-}
-
 // Return the real root element, skipping any WindowElement that got added
 pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
     let root_element = component_instance.definition().root_component().root_element.clone();
@@ -167,7 +155,6 @@ pub struct SelectionCandidate {
     pub component_stack: Vec<Rc<Component>>,
     pub element: ElementRc,
     pub debug_index: usize,
-    pub text_range: Option<(SourceFile, TextRange)>,
 }
 
 impl SelectionCandidate {
@@ -227,12 +214,10 @@ fn collect_all_element_nodes_covering_impl(
     if element_covers_point(position, component_instance, &ce) {
         for (i, _) in ce.borrow().debug.iter().enumerate().rev() {
             // All nodes have the same geometry
-            let text_range = element_node_source_range(&ce, i);
             result.push(SelectionCandidate {
                 element: ce.clone(),
                 debug_index: i,
                 component_stack: component_stack.clone(),
-                text_range,
             });
         }
     }
@@ -490,7 +475,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             &component_instance,
         );
 
-        // Remove the "button" implenmentation details. They must be at the start:
+        // Remove the "button" implementation details. They must be at the start:
         let button_path = PathBuf::from("builtin:/fluent-base/button.slint");
         let first_non_button = covers_center
             .iter()
@@ -543,7 +528,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let first_non_button = covers_center.iter().position(|(p, _)| p != &button_path).unwrap();
         covers_center.drain(1..(first_non_button - 1)); // strip all but first/last of button
 
-        // Select without crossing file boundries
+        // Select without crossing file boundaries
         let select = super::select_element_at_impl(
             &component_instance,
             LogicalPoint::new(100.0, 100.0),
@@ -655,7 +640,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             None
         );
 
-        // Select with crossing file boundries
+        // Select with crossing file boundaries
         let select = super::select_element_at_impl(
             &component_instance,
             LogicalPoint::new(100.0, 100.0),
