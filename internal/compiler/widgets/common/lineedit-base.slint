@@ -60,6 +60,8 @@ export component LineEditBase inherits Rectangle {
         font-family: i-text-input.font-family;
         color: root.placeholder-color;
         horizontal-alignment: root.horizontal-alignment;
+        // the label is set on the LineEdit itself
+        accessible-role: none;
     }
 
     i-text-input := TextInput {

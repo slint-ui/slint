@@ -174,7 +174,6 @@ fn press_add_adds_one_todo() {
     use i_slint_backend_testing::ElementHandle;
     let state = init();
     state.todo_model.set_vec(vec![TodoItem { checked: false, title: "first".into() }]);
-    // FIXME! this assume that the placeholder text is the label, which it isn't right now
     let line_edit =
         ElementHandle::find_by_accessible_label(&state.main_window, "What needs to be done?")
             .next()
