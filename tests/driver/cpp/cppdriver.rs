@@ -43,6 +43,12 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         return Err(vec.join("\n").into());
     }
 
+    // Remove the `#pragma once` as this is not going to be included and would produce a warning
+    // when compiling the generated code.
+    let hash_pos = generated_cpp.iter().position(|&b| b == b'#').unwrap();
+    assert_eq!(&generated_cpp[hash_pos..hash_pos + 12], b"#pragma once");
+    generated_cpp.drain(hash_pos..hash_pos + 12);
+
     generated_cpp.write_all(
         br"
 #ifdef NDEBUG
