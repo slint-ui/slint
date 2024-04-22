@@ -3,6 +3,8 @@
 
 #include "logic.h"
 #include "appwindow.h"
+// Test that it's ok to include twice
+#include "appwindow.h"
 
 void setup_logic(const Logic &logic)
 {

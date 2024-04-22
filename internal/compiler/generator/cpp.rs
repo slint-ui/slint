@@ -89,6 +89,8 @@ mod cpp_ast {
 
     impl Display for File {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+            writeln!(f, "// This file is auto-generated")?;
+            writeln!(f, "#pragma once")?;
             for i in &self.includes {
                 writeln!(f, "#include {}", i)?;
             }
