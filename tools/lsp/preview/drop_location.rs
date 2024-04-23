@@ -163,13 +163,11 @@ fn calculate_drop_information_for_layout(
                         LogicalSize::new(new_midpoint - last_midpoint, geometry.size.height),
                     );
                     if hit_rect.contains(position) {
-                        let start = (c.origin.x - last_endpoint) / 2.0;
-                        let start_pos = last_endpoint
-                            + if start.floor() < geometry.origin.x {
-                                geometry.origin.x
-                            } else {
-                                start
-                            };
+                        let start_pos = if pos == 0 {
+                            geometry.origin.x
+                        } else {
+                            last_endpoint + (c.origin.x - last_endpoint) / 2.0
+                        };
                         let end_pos = start_pos + 1.0;
 
                         return (
@@ -226,13 +224,11 @@ fn calculate_drop_information_for_layout(
                         LogicalSize::new(geometry.size.width, new_midpoint - last_midpoint),
                     );
                     if hit_rect.contains(position) {
-                        let start = (c.origin.y - last_endpoint) / 2.0;
-                        let start_pos = last_endpoint
-                            + if start.floor() < geometry.origin.y {
-                                geometry.origin.y
-                            } else {
-                                start
-                            };
+                        let start_pos = if pos == 0 {
+                            geometry.origin.y
+                        } else {
+                            last_endpoint + (c.origin.y - last_endpoint) / 2.0
+                        };
                         let end_pos = start_pos + 1.0;
 
                         return (
