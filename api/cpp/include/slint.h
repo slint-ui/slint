@@ -114,6 +114,16 @@ inline vtable::Layout drop_in_place(ItemTreeRef item_tree)
 #    endif
 #endif // !defined(DOXYGEN)
 
+inline std::optional<cbindgen_private::ItemRc>
+upgrade_item_weak(const cbindgen_private::ItemWeak &item_weak)
+{
+    if (auto item_tree_strong = item_weak.item_tree.lock()) {
+        return { { *item_tree_strong, item_weak.index } };
+    } else {
+        return std::nullopt;
+    }
+}
+
 } // namespace private_api
 
 template<typename T>

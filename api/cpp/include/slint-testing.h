@@ -22,7 +22,7 @@ inline void init()
 /// Use find_by_accessible_label() to obtain all elements matching the given accessible label.
 class ElementHandle
 {
-    cbindgen_private::ItemRc inner;
+    cbindgen_private::ItemWeak inner;
 
 public:
     /// Find all elements matching the given accessible label.
@@ -38,34 +38,39 @@ public:
         SharedVector<ElementHandle> result;
         cbindgen_private::slint_testing_element_find_by_accessible_label(
                 &vrc, &label_view,
-                reinterpret_cast<SharedVector<cbindgen_private::ItemRc> *>(&result));
+                reinterpret_cast<SharedVector<cbindgen_private::ItemWeak> *>(&result));
         return result;
     }
+
+    /// Returns true if the underlying element still exists; false otherwise.
+    bool is_valid() const { return private_api::upgrade_item_weak(inner).has_value(); }
 
     /// Returns the accessible-label of that element, if any.
     std::optional<SharedString> accessible_label() const
     {
-        SharedString result;
-        if (inner.item_tree.vtable()->accessible_string_property(
-                    inner.item_tree.borrow(), inner.index,
-                    cbindgen_private::AccessibleStringProperty::Label, &result)) {
-            return result;
-        } else {
-            return std::nullopt;
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            SharedString result;
+            if (item->item_tree.vtable()->accessible_string_property(
+                        item->item_tree.borrow(), item->index,
+                        cbindgen_private::AccessibleStringProperty::Label, &result)) {
+                return result;
+            }
         }
+        return std::nullopt;
     }
 
     /// Returns the accessible-value of that element, if any.
     std::optional<SharedString> accessible_value() const
     {
-        SharedString result;
-        if (inner.item_tree.vtable()->accessible_string_property(
-                    inner.item_tree.borrow(), inner.index,
-                    cbindgen_private::AccessibleStringProperty::Value, &result)) {
-            return result;
-        } else {
-            return std::nullopt;
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            SharedString result;
+            if (item->item_tree.vtable()->accessible_string_property(
+                        item->item_tree.borrow(), item->index,
+                        cbindgen_private::AccessibleStringProperty::Value, &result)) {
+                return result;
+            }
         }
+        return std::nullopt;
     }
 
     /// Sets the accessible-value of that element.
@@ -73,55 +78,68 @@ public:
     /// Setting the value will invoke the `accessible-action-set-value` callback.
     void set_accessible_value(SharedString value) const
     {
-        union SetValueHelper {
-            cbindgen_private::AccessibilityAction action;
-            SetValueHelper(SharedString value)
-            // : action { .set_value = { cbindgen_private::AccessibilityAction::Tag::SetValue,
-            //                           std::move(value) } }
-            {
-                new (&action.set_value) cbindgen_private::AccessibilityAction::SetValue_Body {
-                    cbindgen_private::AccessibilityAction::Tag::SetValue, std::move(value)
-                };
-            }
-            ~SetValueHelper() { action.set_value.~SetValue_Body(); }
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            union SetValueHelper {
+                cbindgen_private::AccessibilityAction action;
+                SetValueHelper(SharedString value)
+                // : action { .set_value = { cbindgen_private::AccessibilityAction::Tag::SetValue,
+                //                           std::move(value) } }
+                {
+                    new (&action.set_value) cbindgen_private::AccessibilityAction::SetValue_Body {
+                        cbindgen_private::AccessibilityAction::Tag::SetValue, std::move(value)
+                    };
+                }
+                ~SetValueHelper() { action.set_value.~SetValue_Body(); }
 
-        } action(std::move(value));
-        inner.item_tree.vtable()->accessibility_action(inner.item_tree.borrow(), inner.index,
-                                                       &action.action);
+            } action(std::move(value));
+            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
+                                                           &action.action);
+        }
     }
 
-    /// Invokes the default accessibility action of that element (`accessible-action-default`).
+    /// Invokes the default accessibility action of that element
+    /// (`accessible-action-default`).
     void invoke_default_action() const
     {
-        union DefaultActionHelper {
-            cbindgen_private::AccessibilityAction action;
-            DefaultActionHelper()
-            //: action { .tag = cbindgen_private::AccessibilityAction::Tag::Default }
-            {
-                action.tag = cbindgen_private::AccessibilityAction::Tag::Default;
-            }
-            ~DefaultActionHelper() { }
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            union DefaultActionHelper {
+                cbindgen_private::AccessibilityAction action;
+                DefaultActionHelper()
+                //: action { .tag = cbindgen_private::AccessibilityAction::Tag::Default }
+                {
+                    action.tag = cbindgen_private::AccessibilityAction::Tag::Default;
+                }
+                ~DefaultActionHelper() { }
 
-        } action;
-        inner.item_tree.vtable()->accessibility_action(inner.item_tree.borrow(), inner.index,
-                                                       &action.action);
+            } action;
+            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
+                                                           &action.action);
+        }
     }
 
     /// Returns the size of this element
     LogicalSize size() const
     {
-        auto rect = inner.item_tree.vtable()->item_geometry(inner.item_tree.borrow(), inner.index);
-        return LogicalSize({ rect.width, rect.height });
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            auto rect =
+                    item->item_tree.vtable()->item_geometry(item->item_tree.borrow(), item->index);
+            return LogicalSize({ rect.width, rect.height });
+        }
+        return LogicalSize({ 0, 0 });
     }
 
     /// Returns the absolute position of this element
     LogicalPosition absolute_position() const
     {
-        cbindgen_private::LogicalRect rect =
-                inner.item_tree.vtable()->item_geometry(inner.item_tree.borrow(), inner.index);
-        cbindgen_private::LogicalPoint abs = slint::cbindgen_private::slint_item_absolute_position(
-                &inner.item_tree, inner.index);
-        return LogicalPosition({ abs.x + rect.x, abs.y + rect.y });
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            cbindgen_private::LogicalRect rect =
+                    item->item_tree.vtable()->item_geometry(item->item_tree.borrow(), item->index);
+            cbindgen_private::LogicalPoint abs =
+                    slint::cbindgen_private::slint_item_absolute_position(&item->item_tree,
+                                                                          item->index);
+            return LogicalPosition({ abs.x + rect.x, abs.y + rect.y });
+        }
+        return LogicalPosition({ 0, 0 });
     }
 };
 
