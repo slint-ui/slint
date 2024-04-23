@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
+use i_slint_compiler::diagnostics::SourceFile;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
@@ -491,6 +492,10 @@ fn find_drop_location(
             let mut children_info = Vec::new();
             for c in node.children() {
                 if let Some(element) = extract_element(c.clone()) {
+                    if preview::is_element_node_ignored(&element) {
+                        continue;
+                    }
+
                     let e_path = element.source_file.path().to_path_buf();
                     let e_offset = u32::from(element.text_range().start());
 
@@ -558,6 +563,49 @@ pub struct DropData {
     pub path: std::path::PathBuf,
 }
 
+fn drop_ignored_elements_from_node(
+    node: &common::ElementRcNode,
+    source_file: &SourceFile,
+) -> Vec<lsp_types::TextEdit> {
+    node.with_element_node(|node| {
+        node.children()
+            .filter_map(|c| {
+                let e = extract_element(c.clone())?;
+                if preview::is_element_node_ignored(&e) {
+                    let first_et = e.first_token()?;
+                    let before_et = first_et.prev_token()?;
+                    let start_pos = if before_et.kind() == SyntaxKind::Whitespace
+                        && before_et.text().contains('\n')
+                    {
+                        e.text_range().start() // Leave WS in place, so that the next token after us can go into our place
+                    } else if before_et.kind() == SyntaxKind::Whitespace {
+                        before_et.text_range().start() // Cut away all WS!
+                    } else {
+                        first_et.text_range().start() // Nothing to cut away
+                    };
+
+                    let last_et = util::last_non_ws_token(&e)?;
+                    let after_et = last_et.next_token()?;
+                    let end_pos = if after_et.kind() == SyntaxKind::Whitespace
+                        && after_et.text().contains('\n')
+                    {
+                        after_et.text_range().end() // Eat all the WS so that the next non-WS is at our start
+                    } else {
+                        last_et.text_range().end() // Use existing WS or not WS as appropriate
+                    };
+
+                    Some(lsp_types::TextEdit::new(
+                        util::map_range(source_file, rowan::TextRange::new(start_pos, end_pos)),
+                        String::new(),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    })
+}
+
 /// Find a location in a file that would be a good place to insert the new component at
 ///
 /// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
@@ -589,14 +637,20 @@ pub fn drop_at(
 
         props
     };
+    let placeholder = if component.is_layout {
+        format!(" Rectangle {{ /* {} */ }}", preview::NODE_IGNORE_COMMENT)
+    } else {
+        String::new()
+    };
 
     let new_text = if properties.is_empty() {
         format!(
-            "{}{} {{ }}\n{}",
+            "{}{} {{{placeholder} }}\n{}",
             drop_info.insert_info.pre_indent, component_type, drop_info.insert_info.post_indent
         )
     } else {
-        let mut to_insert = format!("{}{} {{\n", drop_info.insert_info.pre_indent, component_type);
+        let mut to_insert =
+            format!("{}{} {{{placeholder}\n", drop_info.insert_info.pre_indent, component_type);
         for p in &properties {
             to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
         }
@@ -612,7 +666,9 @@ pub fn drop_at(
     let (path, _) = drop_info.target_element_node.path_and_offset();
 
     let doc = tl.get_document(&path)?;
-    let mut edits = Vec::with_capacity(2);
+    let source_file = doc.node.as_ref().unwrap().source_file.clone();
+
+    let mut edits = Vec::with_capacity(3);
     let import_file = component.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
     if let Some(edit) = completion::create_import_edit(doc, component_type, &import_file) {
         if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
@@ -621,7 +677,10 @@ pub fn drop_at(
         edits.push(edit);
     }
 
-    let source_file = doc.node.as_ref().unwrap().source_file.clone();
+    edits.extend_from_slice(&drop_ignored_elements_from_node(
+        &drop_info.target_element_node,
+        &source_file,
+    ));
 
     let start_pos =
         util::map_position(&source_file, drop_info.insert_info.insertion_position.offset().into());
