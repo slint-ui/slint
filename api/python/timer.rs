@@ -21,7 +21,7 @@ impl From<PyTimerMode> for i_slint_core::timers::TimerMode {
     }
 }
 
-#[pyclass(name = "Timer")]
+#[pyclass(name = "Timer", unsendable)]
 pub struct PyTimer {
     timer: i_slint_core::timers::Timer,
 }
