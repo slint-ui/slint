@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty};
-use i_slint_core::item_tree::{ItemTreeRc, ItemVisitorResult, TraversalOrder};
+use i_slint_core::item_tree::{ItemTreeRc, ItemVisitorResult, ItemWeak, TraversalOrder};
 use i_slint_core::items::ItemRc;
 use i_slint_core::window::WindowInner;
 use i_slint_core::{SharedString, SharedVector};
@@ -10,7 +10,7 @@ use i_slint_core::{SharedString, SharedVector};
 pub(crate) fn search_item(
     item_tree: &ItemTreeRc,
     mut filter: impl FnMut(&ItemRc) -> bool,
-) -> SharedVector<ItemRc> {
+) -> SharedVector<ItemWeak> {
     let mut result = SharedVector::default();
     i_slint_core::item_tree::visit_items(
         item_tree,
@@ -18,7 +18,7 @@ pub(crate) fn search_item(
         |parent_tree, _, index, _| {
             let item_rc = ItemRc::new(parent_tree.clone(), index);
             if filter(&item_rc) {
-                result.push(item_rc);
+                result.push(item_rc.downgrade());
             }
             ItemVisitorResult::Continue(())
         },
@@ -27,9 +27,13 @@ pub(crate) fn search_item(
     result
 }
 
-pub struct ElementHandle(ItemRc);
+pub struct ElementHandle(ItemWeak);
 
 impl ElementHandle {
+    pub fn is_valid(&self) -> bool {
+        self.0.upgrade().is_some()
+    }
+
     pub fn find_by_accessible_label(
         component: &impl i_slint_core::api::ComponentHandle,
         label: &str,
@@ -44,29 +48,47 @@ impl ElementHandle {
     }
 
     pub fn invoke_default_action(&self) {
-        self.0.accessible_action(&AccessibilityAction::Default)
+        if let Some(item) = self.0.upgrade() {
+            item.accessible_action(&AccessibilityAction::Default)
+        }
     }
 
     pub fn accessible_value(&self) -> Option<SharedString> {
-        self.0.accessible_string_property(AccessibleStringProperty::Value)
+        self.0
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Value))
     }
 
     pub fn set_accessible_value(&self, value: SharedString) {
-        self.0.accessible_action(&AccessibilityAction::SetValue(value))
+        if let Some(item) = self.0.upgrade() {
+            item.accessible_action(&AccessibilityAction::SetValue(value))
+        }
     }
 
     pub fn accessible_label(&self) -> Option<SharedString> {
-        self.0.accessible_string_property(AccessibleStringProperty::Label)
+        self.0
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Label))
     }
 
     pub fn size(&self) -> i_slint_core::api::LogicalSize {
-        let g = self.0.geometry();
-        i_slint_core::lengths::logical_size_to_api(g.size)
+        self.0
+            .upgrade()
+            .map(|item| {
+                let g = item.geometry();
+                i_slint_core::lengths::logical_size_to_api(g.size)
+            })
+            .unwrap_or_default()
     }
 
     pub fn absolute_position(&self) -> i_slint_core::api::LogicalPosition {
-        let g = self.0.geometry();
-        let p = self.0.map_to_window(g.origin);
-        i_slint_core::lengths::logical_position_to_api(p)
+        self.0
+            .upgrade()
+            .map(|item| {
+                let g = item.geometry();
+                let p = item.map_to_window(g.origin);
+                i_slint_core::lengths::logical_position_to_api(p)
+            })
+            .unwrap_or_default()
     }
 }
