@@ -64,6 +64,8 @@ pub enum TimerMode {
 #[derive(Default)]
 pub struct Timer {
     id: Cell<Option<NonZeroUsize>>,
+    /// The timer cannot be moved between treads
+    _phantom: core::marker::PhantomData<*mut ()>,
 }
 
 impl Timer {
@@ -496,7 +498,7 @@ pub(crate) mod ffi {
         if id == 0 {
             return;
         }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)) };
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
         drop(timer);
     }
 
@@ -506,7 +508,7 @@ pub(crate) mod ffi {
         if id == 0 {
             return;
         }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)) };
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
         timer.stop();
         timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
     }
@@ -517,7 +519,7 @@ pub(crate) mod ffi {
         if id == 0 {
             return;
         }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)) };
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
         timer.restart();
         timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
     }
@@ -528,7 +530,7 @@ pub(crate) mod ffi {
         if id == 0 {
             return false;
         }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)) };
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
         let running = timer.running();
         timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
         running
