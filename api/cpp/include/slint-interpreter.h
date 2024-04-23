@@ -1051,21 +1051,7 @@ public:
 };
 }
 
-namespace slint::testing {
-
-using cbindgen_private::KeyboardModifiers;
-
-/// Send a key events to the given component instance
-inline void send_keyboard_char(const slint::interpreter::ComponentInstance *component,
-                               const slint::SharedString &str, bool pressed)
-{
-    const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
-    cbindgen_private::slint_interpreter_component_instance_window(
-            reinterpret_cast<const cbindgen_private::ErasedItemTreeBox *>(component), &win_ptr);
-    cbindgen_private::slint_send_keyboard_char(
-            &str, pressed, reinterpret_cast<const cbindgen_private::WindowAdapterRc *>(win_ptr));
-}
-
+namespace slint::private_api::testing {
 /// Send a key events to the given component instance
 inline void send_keyboard_string_sequence(const slint::interpreter::ComponentInstance *component,
                                           const slint::SharedString &str)

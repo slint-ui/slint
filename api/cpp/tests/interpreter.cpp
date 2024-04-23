@@ -504,7 +504,7 @@ SCENARIO("Send key events")
                                                "");
     REQUIRE(comp_def.has_value());
     auto instance = comp_def->create();
-    slint::testing::send_keyboard_string_sequence(&*instance, "Hello keys!");
+    slint::private_api::testing::send_keyboard_string_sequence(&*instance, "Hello keys!");
     REQUIRE(*instance->get_property("result")->to_string() == "Hello keys!");
 }
 
