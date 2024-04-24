@@ -25,3 +25,7 @@ ffi = []
 [dependencies]
 i-slint-core = { workspace = true }
 vtable = { workspace = true }
+
+[dev-dependencies]
+slint = { workspace = true, default-features = false, features = ["std", "compat-1-2"] }
+i-slint-core-macros = { workspace = true }
