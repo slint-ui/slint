@@ -19,7 +19,7 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 ### Functions
 
 -   **`focus()`** Call this function to focus the TextEdit and make it receive future keyboard events.
--   **`clear-focus()`** Call this function to remove keyboard focus from this `TextEdit` if it currently has the focus.
+-   **`clear-focus()`** Call this function to remove keyboard focus from this `TextEdit` if it currently has the focus. See also [](../concepts/focus.md).
 -   **`set-selection-offsets(int, int)`** Selects the text between two UTF-8 offsets.
 -   **`select-all()`** Selects all text.
 -   **`clear-selection()`** Clears the selection.
