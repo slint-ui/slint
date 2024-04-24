@@ -82,8 +82,6 @@ public:
             union SetValueHelper {
                 cbindgen_private::AccessibilityAction action;
                 SetValueHelper(SharedString value)
-                // : action { .set_value = { cbindgen_private::AccessibilityAction::Tag::SetValue,
-                //                           std::move(value) } }
                 {
                     new (&action.set_value) cbindgen_private::AccessibilityAction::SetValue_Body {
                         cbindgen_private::AccessibilityAction::Tag::SetValue, std::move(value)
@@ -105,7 +103,6 @@ public:
             union DefaultActionHelper {
                 cbindgen_private::AccessibilityAction action;
                 DefaultActionHelper()
-                //: action { .tag = cbindgen_private::AccessibilityAction::Tag::Default }
                 {
                     action.tag = cbindgen_private::AccessibilityAction::Tag::Default;
                 }
