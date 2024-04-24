@@ -48,7 +48,7 @@ assert_eq!(button.size(), slint::LogicalSize::new(143., 76.));
 assert_eq!(button.accessible_value().unwrap(), "0");
 instance.invoke_call();
 assert_eq!(button.accessible_value().unwrap(), "45");
-button.set_accessible_value("78".into());
+button.set_accessible_value("78");
 assert_eq!(button.accessible_value().unwrap(), "78");
 ```
 
