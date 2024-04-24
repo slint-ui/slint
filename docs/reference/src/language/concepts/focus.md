@@ -24,6 +24,29 @@ export component App inherits Window {
 }
 ```
 
+Similarly, you can manually clear the focus on an element that's currently focused, by calling `clear-focus()`:
+
+```slint
+import { Button } from "std-widgets.slint";
+
+export component App inherits Window {
+    VerticalLayout {
+        alignment: start;
+        Button {
+            text: "press me";
+            clicked => { input.clear-focus(); }
+        }
+        input := TextInput {
+            text: "I am a text input field";
+        }
+    }
+}
+```
+
+After the focus is cleared, keyboard input to the window is discarded, until another element is explicitly
+focused. For example by calling `focus()`, an element acquiring focus when the user clicks on it, or when
+pressing tab and the first focusable element is found.
+
 If you have wrapped the `TextInput` in a component, then you can forward such a focus activation
 using the `forward-focus` property to refer to the element that should receive it:
 

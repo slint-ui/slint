@@ -19,7 +19,7 @@ a widget able to handle several lines of text.
 ### Functions
 
 -   **`focus()`** Call this function to focus the LineEdit and make it receive future keyboard events.
--   **`clear-focus()`** Call this function to remove keyboard focus from this `LineEdit` if it currently has the focus.   
+-   **`clear-focus()`** Call this function to remove keyboard focus from this `LineEdit` if it currently has the focus. See also [](../concepts/focus.md).
 -   **`set-selection-offsets(int, int)`** Selects the text between two UTF-8 offsets.
 -   **`select-all()`** Selects all text.
 -   **`clear-selection()`** Clears the selection.

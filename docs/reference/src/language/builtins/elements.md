@@ -216,7 +216,7 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
 
 -   **`focus()`** Call this function to transfer keyboard focus to this `FocusScope`,
     to receive future [`KeyEvent`](structs.md#keyevent)s.
--   **`clear-focus()`** Call this function to remove keyboard focus from this `FocusScope` if it currently has the focus.
+-   **`clear-focus()`** Call this function to remove keyboard focus from this `FocusScope` if it currently has the focus. See also [](../concepts/focus.md).
 
 ### Callbacks
 
@@ -681,7 +681,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Functions
 
 -   **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
--   **`clear-focus()`** Call this function to remove keyboard focus from this `TextInput` if it currently has the focus.
+-   **`clear-focus()`** Call this function to remove keyboard focus from this `TextInput` if it currently has the focus. See also [](../concepts/focus.md).
 -   **`set-selection-offsets(int, int)`** Selects the text between two UTF-8 offsets.
 -   **`select-all()`** Selects all text.
 -   **`clear-selection()`** Clears the selection.
