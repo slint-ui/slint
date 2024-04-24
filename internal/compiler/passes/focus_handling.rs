@@ -167,46 +167,55 @@ impl<'a> LocalFocusForwards<'a> {
     fn resolve_focus_calls_in_expression(&mut self, expr: &mut Expression) {
         expr.visit_mut(|e| self.resolve_focus_calls_in_expression(e));
 
-        if let Expression::FunctionCall { function, arguments, .. } = expr {
-            if let Expression::BuiltinFunctionReference(
-                BuiltinFunction::SetFocusItem,
-                source_location,
-            ) = function.as_ref()
-            {
-                if arguments.len() != 1 {
-                    assert!(
-                        self.diag.has_error(),
-                        "Invalid argument generated for SetFocusItem call"
-                    );
-                    return;
-                }
-                if let Expression::ElementReference(weak_focus_target) = &arguments[0] {
-                    let mut focus_target = weak_focus_target.upgrade().expect(
-                        "internal compiler error: weak SetFocusItem parameter cannot be dangling",
-                    );
-
-                    if self.forwards.contains_key(&ByAddress(focus_target.clone())) {
-                        let Some((next_focus_target, _)) =
-                            self.focus_forward_for_element(&focus_target)
-                        else {
-                            // There's no need to report an additional error that focus() can't be called. Invalid
-                            // forward-focus bindings have already diagnostics produced for them.
-                            return;
-                        };
-                        focus_target = next_focus_target;
+        for focus_function in FocusFunctionType::iter() {
+            if let Expression::FunctionCall { function, arguments, .. } = expr {
+                if let Expression::BuiltinFunctionReference(
+                    builtin_function_type,
+                    source_location,
+                ) = function.as_ref()
+                {
+                    if *builtin_function_type != focus_function.as_builtin_function() {
+                        continue;
                     }
-
-                    if let Some(set_focus_code) = call_set_focus_function(
-                        &focus_target,
-                        source_location.as_ref(),
-                        FocusFunctionType::SetFocus,
-                    ) {
-                        *expr = set_focus_code;
-                    } else {
-                        self.diag.push_error(
-                            "focus() can only be called on focusable elements".into(),
-                            source_location,
+                    if arguments.len() != 1 {
+                        assert!(
+                            self.diag.has_error(),
+                            "Invalid argument generated for {} call",
+                            focus_function.name()
                         );
+                        return;
+                    }
+                    if let Expression::ElementReference(weak_focus_target) = &arguments[0] {
+                        let mut focus_target = weak_focus_target.upgrade().expect(
+                            "internal compiler error: weak focus/clear-focus parameter cannot be dangling"
+                        );
+
+                        if self.forwards.contains_key(&ByAddress(focus_target.clone())) {
+                            let Some((next_focus_target, _)) =
+                                self.focus_forward_for_element(&focus_target)
+                            else {
+                                // There's no need to report an additional error that focus() can't be called. Invalid
+                                // forward-focus bindings have already diagnostics produced for them.
+                                return;
+                            };
+                            focus_target = next_focus_target;
+                        }
+
+                        if let Some(set_or_clear_focus_code) = call_set_focus_function(
+                            &focus_target,
+                            source_location.as_ref(),
+                            focus_function,
+                        ) {
+                            *expr = set_or_clear_focus_code;
+                        } else {
+                            self.diag.push_error(
+                                format!(
+                                    "{}() can only be called on focusable elements",
+                                    focus_function.name(),
+                                ),
+                                source_location,
+                            );
+                        }
                     }
                 }
             }
