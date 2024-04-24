@@ -120,7 +120,7 @@ jobs:
                       docs/quickstart/cpp/book/html
                       docs/quickstart/node/book/html
             - name: "Check for docs warnings in internal crates"
-              run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp
+              run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude pyslint --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg --exclude gstreamer-player --exclude slint-cpp --exclude slint-python
             - name: Clean cache # Don't cache docs to avoid them including removed classes being published
               run: |
                   rm -rf target/doc target/cppdocs target/slintdocs api/node/docs docs/quickstart/rust/book docs/quickstart/cpp/book docs/quickstart/node/book
