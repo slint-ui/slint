@@ -5,6 +5,7 @@
 
 use i_slint_compiler::diagnostics::{SourceFile, SourceFileVersion};
 use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
 use std::{collections::HashMap, path::PathBuf};
@@ -15,6 +16,17 @@ pub type UrlVersion = Option<i32>;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
+
+pub fn extract_element(node: SyntaxNode) -> Option<syntax_nodes::Element> {
+    match node.kind() {
+        SyntaxKind::Element => Some(node.into()),
+        SyntaxKind::SubElement => extract_element(node.child_node(SyntaxKind::Element)?),
+        SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => {
+            extract_element(node.child_node(SyntaxKind::SubElement)?)
+        }
+        _ => None,
+    }
+}
 
 #[derive(Clone)]
 pub struct ElementRcNode {
@@ -99,6 +111,46 @@ impl ElementRcNode {
 
     pub fn as_element(&self) -> &ElementRc {
         &self.element
+    }
+
+    pub fn parent(&self, root_element: ElementRc) -> Option<ElementRcNode> {
+        let parent = self.with_element_node(|node| {
+            let mut ancestor = node.parent()?;
+            loop {
+                if ancestor.kind() == SyntaxKind::Element {
+                    return Some(ancestor);
+                }
+                ancestor = ancestor.parent()?;
+            }
+        })?;
+
+        let (parent_path, parent_offset) =
+            (parent.source_file.path().to_owned(), u32::from(parent.text_range().start()));
+        Self::find_in_or_below(root_element, &parent_path, parent_offset)
+    }
+
+    pub fn children(&self) -> Vec<ElementRcNode> {
+        self.with_element_node(|node| {
+            let mut children = Vec::new();
+            for c in node.children() {
+                if let Some(element) = extract_element(c.clone()) {
+                    let e_path = element.source_file.path().to_path_buf();
+                    let e_offset = u32::from(element.text_range().start());
+
+                    let Some(child_node) = ElementRcNode::find_in_or_below(
+                        self.as_element().clone(),
+                        &e_path,
+                        e_offset,
+                    ) else {
+                        continue;
+                    };
+
+                    children.push(child_node);
+                }
+            }
+
+            children
+        })
     }
 }
 

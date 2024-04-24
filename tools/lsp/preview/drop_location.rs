@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use i_slint_compiler::diagnostics::SourceFile;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
+use i_slint_compiler::parser::SyntaxKind;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
@@ -163,11 +163,13 @@ fn calculate_drop_information_for_layout(
                         LogicalSize::new(new_midpoint - last_midpoint, geometry.size.height),
                     );
                     if hit_rect.contains(position) {
-                        let start_pos = if pos == 0 {
-                            geometry.origin.x
-                        } else {
-                            last_endpoint + (c.origin.x - last_endpoint) / 2.0
-                        };
+                        let start = (c.origin.x - last_endpoint) / 2.0;
+                        let start_pos = last_endpoint
+                            + if start.floor() < geometry.origin.x {
+                                geometry.origin.x
+                            } else {
+                                start
+                            };
                         let end_pos = start_pos + 1.0;
 
                         return (
@@ -224,11 +226,13 @@ fn calculate_drop_information_for_layout(
                         LogicalSize::new(geometry.size.width, new_midpoint - last_midpoint),
                     );
                     if hit_rect.contains(position) {
-                        let start_pos = if pos == 0 {
-                            geometry.origin.y
-                        } else {
-                            last_endpoint + (c.origin.y - last_endpoint) / 2.0
-                        };
+                        let start = (c.origin.y - last_endpoint) / 2.0;
+                        let start_pos = last_endpoint
+                            + if start.floor() < geometry.origin.y {
+                                geometry.origin.y
+                            } else {
+                                start
+                            };
                         let end_pos = start_pos + 1.0;
 
                         return (
@@ -427,17 +431,6 @@ fn drop_target_element_nodes(
     result
 }
 
-fn extract_element(node: SyntaxNode) -> Option<syntax_nodes::Element> {
-    match node.kind() {
-        SyntaxKind::Element => Some(node.into()),
-        SyntaxKind::SubElement => extract_element(node.child_node(SyntaxKind::Element)?),
-        SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => {
-            extract_element(node.child_node(SyntaxKind::SubElement)?)
-        }
-        _ => None,
-    }
-}
-
 fn find_element_to_drop_into(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
@@ -484,40 +477,18 @@ fn find_drop_location(
     let layout_kind = drop_target_node.layout_kind();
     if layout_kind != ui::LayoutKind::None {
         let geometry = drop_target_node.geometry_at(component_instance, position)?;
-        let children_information: Vec<_> = drop_target_node.with_element_node(|node| {
-            let mut children_info = Vec::new();
-            for c in node.children() {
-                if let Some(element) = extract_element(c.clone()) {
-                    if preview::is_element_node_ignored(&element) {
-                        continue;
-                    }
-
-                    let e_path = element.source_file.path().to_path_buf();
-                    let e_offset = u32::from(element.text_range().start());
-
-                    let Some(child_node) = common::ElementRcNode::find_in_or_below(
-                        drop_target_node.as_element().clone(),
-                        &e_path,
-                        e_offset,
-                    ) else {
-                        continue;
-                    };
-                    let Some(c_geometry) = child_node.geometry_in(component_instance, &geometry)
-                    else {
-                        continue;
-                    };
-                    children_info.push(c_geometry);
-                }
-            }
-
-            children_info
-        });
+        let children_geometries: Vec<_> = drop_target_node
+            .children()
+            .iter()
+            .filter(|c| !c.with_element_node(preview::is_element_node_ignored))
+            .filter_map(|c| c.geometry_in(component_instance, &geometry))
+            .collect();
 
         let (drop_mark, child_index) = calculate_drop_information_for_layout(
             &geometry,
             position,
             &layout_kind,
-            &children_information,
+            &children_geometries,
         );
 
         let insert_info = {
@@ -566,14 +537,22 @@ fn drop_ignored_elements_from_node(
     node.with_element_node(|node| {
         node.children()
             .filter_map(|c| {
-                let e = extract_element(c.clone())?;
+                let e = common::extract_element(c.clone())?;
                 if preview::is_element_node_ignored(&e) {
                     let first_et = e.first_token()?;
                     let before_et = first_et.prev_token()?;
                     let start_pos = if before_et.kind() == SyntaxKind::Whitespace
                         && before_et.text().contains('\n')
                     {
-                        e.text_range().start() // Leave WS in place, so that the next token after us can go into our place
+                        before_et.text_range().end()
+                            - rowan::TextSize::from(
+                                before_et
+                                    .text()
+                                    .split('\n')
+                                    .last()
+                                    .map(|s| s.len())
+                                    .unwrap_or_default() as u32,
+                            )
                     } else if before_et.kind() == SyntaxKind::Whitespace {
                         before_et.text_range().start() // Cut away all WS!
                     } else {
@@ -585,7 +564,15 @@ fn drop_ignored_elements_from_node(
                     let end_pos = if after_et.kind() == SyntaxKind::Whitespace
                         && after_et.text().contains('\n')
                     {
-                        after_et.text_range().end() // Eat all the WS so that the next non-WS is at our start
+                        after_et.text_range().start()
+                            + rowan::TextSize::from(
+                                after_et
+                                    .text()
+                                    .split('\n')
+                                    .next()
+                                    .map(|s| s.len() + 1)
+                                    .unwrap_or_default() as u32,
+                            )
                     } else {
                         last_et.text_range().end() // Use existing WS or not WS as appropriate
                     };

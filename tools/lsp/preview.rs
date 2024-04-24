@@ -6,7 +6,7 @@ use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{syntax_nodes::Element, SyntaxKind};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint};
 use i_slint_core::model::VecModel;
@@ -168,6 +168,22 @@ fn drop_component(component_type: slint::SharedString, x: f32, y: f32) {
     };
 }
 
+fn placeholder_node_text(selected: &common::ElementRcNode) -> String {
+    let Some(component_instance) = component_instance() else {
+        return Default::default();
+    };
+    let root_element = element_selection::root_element(&component_instance);
+    let Some(parent) = selected.parent(root_element) else {
+        return Default::default();
+    };
+
+    if parent.layout_kind() != ui::LayoutKind::None && parent.children().len() == 1 {
+        return format!("Rectangle {{ /* {} */ }}", NODE_IGNORE_COMMENT);
+    }
+
+    Default::default()
+}
+
 // triggered from the UI, running in UI thread
 fn delete_selected_element() {
     let Some(selected) = selected_element() else {
@@ -183,24 +199,26 @@ fn delete_selected_element() {
         return;
     };
 
-    let Some(range) = selected.as_element_node().and_then(|en| {
-        en.with_element_node(|n| {
-            if let Some(parent) = &n.parent() {
-                if parent.kind() == SyntaxKind::SubElement {
-                    return util::map_node(parent);
-                }
+    let Some(selected_node) = selected.as_element_node() else {
+        return;
+    };
+
+    let Some(range) = selected_node.with_element_node(|n| {
+        if let Some(parent) = &n.parent() {
+            if parent.kind() == SyntaxKind::SubElement {
+                return util::map_node(parent);
             }
-            util::map_node(n)
-        })
+        }
+        util::map_node(n)
     }) else {
         return;
     };
 
-    let edit = common::create_workspace_edit(
-        url,
-        version,
-        vec![lsp_types::TextEdit { range, new_text: "".into() }],
-    );
+    // Insert a placeholder node into layouts if those end up empty:
+    let new_text = placeholder_node_text(&selected_node);
+
+    let edit =
+        common::create_workspace_edit(url, version, vec![lsp_types::TextEdit { range, new_text }]);
 
     send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
         label: Some("Delete element".to_string()),
@@ -501,7 +519,8 @@ async fn reload_preview_impl(
         let (_, from_cache) = get_url_from_cache(&component.url).unwrap_or_default();
         if let Some(component_name) = &component.component {
             format!(
-                "{from_cache}\nexport component _SLINT_LivePreview inherits {component_name} {{ /* {NODE_IGNORE_COMMENT} */ }}\n",
+                "{from_cache}\nexport component _SLINT_LivePreview inherits {component_name} {{ /* {} */ }}\n",
+                NODE_IGNORE_COMMENT,
             )
         } else {
             from_cache
@@ -831,11 +850,11 @@ pub fn lsp_to_preview_message(
 
 /// Use this in nodes you want the language server and preview to
 /// ignore a node for code analysis purposes.
-const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
+pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
 
 /// Check whether a node is marked to be ignored in the LSP/live preview
 /// using a comment containing `@lsp:ignore-node`
-fn is_element_node_ignored(node: &Element) -> bool {
+pub fn is_element_node_ignored(node: &syntax_nodes::Element) -> bool {
     node.children_with_tokens().any(|nt| {
         nt.as_token()
             .map(|t| t.kind() == SyntaxKind::Comment && t.text().contains(NODE_IGNORE_COMMENT))

@@ -1172,10 +1172,10 @@ fn prepare_scene(
         }
 
         dirty_region = (renderer.dirty_region.to_rect().cast() * factor)
-                    .round_out()
-                    .intersection(&euclid::rect(0., 0., i16::MAX as f32, i16::MAX as f32))
-                    .unwrap_or_default()
-                    .cast();
+            .round_out()
+            .intersection(&euclid::rect(0., 0., i16::MAX as f32, i16::MAX as f32))
+            .unwrap_or_default()
+            .cast();
 
         dirty_region = software_renderer.apply_dirty_region(dirty_region, size);
 

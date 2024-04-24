@@ -7,7 +7,7 @@ use i_slint_compiler::object_tree::{Component, ElementRc};
 use i_slint_core::lengths::LogicalPoint;
 use slint_interpreter::ComponentInstance;
 
-use crate::common::ElementRcNode;
+use crate::{common, preview};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
@@ -25,7 +25,7 @@ impl ElementSelection {
         elements.get(self.instance_index).or_else(|| elements.first()).map(|(e, _)| e.clone())
     }
 
-    pub fn as_element_node(&self) -> Option<ElementRcNode> {
+    pub fn as_element_node(&self) -> Option<common::ElementRcNode> {
         let element = self.as_element()?;
 
         let debug_index = {
@@ -36,7 +36,7 @@ impl ElementSelection {
             })
         };
 
-        debug_index.map(|i| ElementRcNode { element, debug_index: i })
+        debug_index.map(|i| common::ElementRcNode { element, debug_index: i })
     }
 }
 
@@ -52,7 +52,9 @@ fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
     element.clone()
 }
 
-fn lsp_element_node_position(element: &ElementRcNode) -> Option<(String, lsp_types::Range)> {
+fn lsp_element_node_position(
+    element: &common::ElementRcNode,
+) -> Option<(String, lsp_types::Range)> {
     let location = element.with_element_node(|n| {
         n.parent()
             .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
@@ -122,7 +124,7 @@ fn select_element_at_source_code_position_impl(
 
 fn select_element_node(
     component_instance: &ComponentInstance,
-    selected_element: &ElementRcNode,
+    selected_element: &common::ElementRcNode,
     position: Option<LogicalPoint>,
 ) {
     let (path, offset) = selected_element.path_and_offset();
@@ -158,12 +160,12 @@ pub struct SelectionCandidate {
 }
 
 impl SelectionCandidate {
-    pub fn is_selected_element_node(&self, selection: &ElementRcNode) -> bool {
+    pub fn is_selected_element_node(&self, selection: &common::ElementRcNode) -> bool {
         self.as_element_node().map(|en| en.path_and_offset()) == Some(selection.path_and_offset())
     }
 
-    pub fn as_element_node(&self) -> Option<ElementRcNode> {
-        ElementRcNode::new(self.element.clone(), self.debug_index)
+    pub fn as_element_node(&self) -> Option<common::ElementRcNode> {
+        common::ElementRcNode::new(self.element.clone(), self.debug_index)
     }
 }
 
@@ -241,14 +243,14 @@ pub fn collect_all_element_nodes_covering(
 
 pub fn is_root_element_node(
     component_instance: &ComponentInstance,
-    element_node: &ElementRcNode,
+    element_node: &common::ElementRcNode,
 ) -> bool {
     let root_element = root_element(component_instance);
     let Some((root_path, root_offset)) = root_element
         .borrow()
         .debug
         .iter()
-        .find(|(n, _)| !super::is_element_node_ignored(n))
+        .find(|(n, _)| !preview::is_element_node_ignored(n))
         .map(|(n, _)| (n.source_file.path().to_owned(), u32::from(n.text_range().start())))
     else {
         return false;
@@ -260,7 +262,7 @@ pub fn is_root_element_node(
 
 pub fn is_same_file_as_root_node(
     component_instance: &ComponentInstance,
-    element_node: &ElementRcNode,
+    element_node: &common::ElementRcNode,
 ) -> bool {
     let root_element = root_element(component_instance);
     let Some(root_path) =
@@ -277,7 +279,7 @@ fn select_element_at_impl(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
     enter_component: bool,
-) -> Option<ElementRcNode> {
+) -> Option<common::ElementRcNode> {
     for sc in &collect_all_element_nodes_covering(position, component_instance) {
         if let Some(en) = filter_nodes_for_selection(component_instance, sc, enter_component) {
             return Some(en);
@@ -309,7 +311,7 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
     select_element_node(&component_instance, &en, Some(position));
 }
 
-pub fn is_element_node_in_layout(element: &ElementRcNode) -> bool {
+pub fn is_element_node_in_layout(element: &common::ElementRcNode) -> bool {
     if element.debug_index > 0 {
         // If we are not the first node, then we might have been inlined right
         // after a layout managing us
@@ -336,10 +338,10 @@ fn filter_nodes_for_selection(
     component_instance: &ComponentInstance,
     selection_candidate: &SelectionCandidate,
     enter_component: bool,
-) -> Option<ElementRcNode> {
+) -> Option<common::ElementRcNode> {
     let en = selection_candidate.as_element_node()?;
 
-    if en.with_element_node(super::is_element_node_ignored) {
+    if en.with_element_node(preview::is_element_node_ignored) {
         return None;
     }
 
@@ -356,11 +358,11 @@ fn filter_nodes_for_selection(
 
 pub fn select_element_behind_impl(
     component_instance: &ComponentInstance,
-    selected_element_node: &ElementRcNode,
+    selected_element_node: &common::ElementRcNode,
     position: LogicalPoint,
     enter_component: bool,
     reverse: bool,
-) -> Option<ElementRcNode> {
+) -> Option<common::ElementRcNode> {
     let elements = collect_all_element_nodes_covering(position, component_instance);
     let current_selection_position =
         elements.iter().position(|sc| sc.is_selected_element_node(selected_element_node))?;
