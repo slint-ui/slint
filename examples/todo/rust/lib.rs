@@ -179,7 +179,7 @@ fn press_add_adds_one_todo() {
             .next()
             .unwrap();
     assert_eq!(line_edit.accessible_value().unwrap(), "");
-    line_edit.set_accessible_value("second".into());
+    line_edit.set_accessible_value("second");
 
     let button = ElementHandle::find_by_accessible_label(&state.main_window, "Add New Entry")
         .next()

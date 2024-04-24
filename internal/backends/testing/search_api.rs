@@ -59,9 +59,9 @@ impl ElementHandle {
             .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Value))
     }
 
-    pub fn set_accessible_value(&self, value: SharedString) {
+    pub fn set_accessible_value(&self, value: impl Into<SharedString>) {
         if let Some(item) = self.0.upgrade() {
-            item.accessible_action(&AccessibilityAction::SetValue(value))
+            item.accessible_action(&AccessibilityAction::SetValue(value.into()))
         }
     }
 
