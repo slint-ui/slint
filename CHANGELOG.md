@@ -25,6 +25,7 @@ All notable changes to this project are documented in this file.
  - Fixed compiler panic with state property change involving a state in a parent component. (#5038)
  - Fixed interpreter overwriting property named `index`. (#4961)
  - Fixed compiler panic when a callback aliases itself. (#4938)
+ - Added `clear-focus()` function to focusable elements, to allow for programmatic focus clearing.
 
 ## Widgets
 

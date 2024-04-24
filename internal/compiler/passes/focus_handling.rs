@@ -35,7 +35,7 @@ pub fn replace_forward_focus_bindings_with_focus_functions(
         // Phase 2: Filter out focus-forward bindings that aren't callable
         local_forwards.remove_uncallable_forwards();
 
-        // Phase 3: For `focus-forward` in the root element, create a `focus()` function that's callable from the outside
+        // Phase 3: For `focus-forward` in the root element, create `focus()` and `clear-focus()` functions that are callable from the outside
         if let Some((root_focus_forward, focus_forward_location)) =
             local_forwards.focus_forward_for_element(&component.root_element)
         {
@@ -58,6 +58,27 @@ pub fn replace_forward_focus_bindings_with_focus_functions(
                     .borrow_mut()
                     .bindings
                     .insert("focus".into(), RefCell::new(set_focus_code.into()));
+            }
+
+            if let Some(clear_focus_code) =
+                call_clear_focus_function(&root_focus_forward, Some(&focus_forward_location))
+            {
+                component.root_element.borrow_mut().property_declarations.insert(
+                    "clear-focus".into(),
+                    PropertyDeclaration {
+                        property_type: Type::Function {
+                            return_type: Type::Void.into(),
+                            args: vec![],
+                        },
+                        visibility: PropertyVisibility::Public,
+                        ..Default::default()
+                    },
+                );
+                component
+                    .root_element
+                    .borrow_mut()
+                    .bindings
+                    .insert("clear-focus".into(), RefCell::new(clear_focus_code.into()));
             }
         }
 
@@ -240,6 +261,50 @@ fn call_focus_function(
         Some(Expression::FunctionCall {
             function: Box::new(Expression::BuiltinFunctionReference(
                 BuiltinFunction::SetFocusItem,
+                source_location.clone(),
+            )),
+            arguments: vec![Expression::ElementReference(Rc::downgrade(element))],
+            source_location,
+        })
+    } else {
+        None
+    }
+}
+
+fn call_clear_focus_function(
+    element: &ElementRc,
+    source_location: Option<&SourceLocation>,
+) -> Option<Expression> {
+    let declares_focus_function = {
+        let mut element = element.clone();
+        loop {
+            if element.borrow().property_declarations.contains_key("clear-focus") {
+                break true;
+            }
+            let base = element.borrow().base_type.clone();
+            match base {
+                ElementType::Component(compo) => element = compo.root_element.clone(),
+                _ => break false,
+            }
+        }
+    };
+    let builtin_focus_function =
+        element.borrow().builtin_type().map_or(false, |ty| ty.accepts_focus);
+
+    if declares_focus_function {
+        Some(Expression::FunctionCall {
+            function: Box::new(Expression::FunctionReference(
+                NamedReference::new(element, "clear-focus"),
+                None,
+            )),
+            arguments: vec![],
+            source_location: source_location.cloned(),
+        })
+    } else if builtin_focus_function {
+        let source_location = source_location.cloned();
+        Some(Expression::FunctionCall {
+            function: Box::new(Expression::BuiltinFunctionReference(
+                BuiltinFunction::ClearFocusItem,
                 source_location.clone(),
             )),
             arguments: vec![Expression::ElementReference(Rc::downgrade(element))],

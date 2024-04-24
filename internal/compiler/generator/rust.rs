@@ -2396,10 +2396,21 @@ fn compile_builtin_function_call(
                 let window_tokens = access_window_adapter_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
                 quote!(
-                    sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item)
+                    sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, true)
                 )
             } else {
                 panic!("internal error: invalid args to SetFocusItem {:?}", arguments)
+            }
+        }
+        BuiltinFunction::ClearFocusItem => {
+            if let [Expression::PropertyReference(pr)] = arguments {
+                let window_tokens = access_window_adapter_field(ctx);
+                let focus_item = access_item_rc(pr, ctx);
+                quote!(
+                    sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, false)
+                )
+            } else {
+                panic!("internal error: invalid args to ClearFocusItem {:?}", arguments)
             }
         }
         BuiltinFunction::ShowPopupWindow => {

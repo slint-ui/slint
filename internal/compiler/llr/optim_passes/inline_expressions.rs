@@ -81,7 +81,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ATan => 10,
         BuiltinFunction::Log => 10,
         BuiltinFunction::Pow => 10,
-        BuiltinFunction::SetFocusItem => isize::MAX,
+        BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => isize::MAX,
         BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => isize::MAX,
         BuiltinFunction::SetSelectionOffsets => isize::MAX,
         BuiltinFunction::ItemMemberFunction(..) => isize::MAX,

@@ -691,13 +691,24 @@ impl WindowInner {
     }
 
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
-    /// currently focused item.
-    pub fn set_focus_item(&self, focus_item: &ItemRc) {
+    /// currently focused item. If set_focus is false, the focus is cleared.
+    pub fn set_focus_item(&self, new_focus_item: &ItemRc, set_focus: bool) {
         if self.prevent_focus_change.get() {
             return;
         }
+        if !set_focus {
+            let current_focus_item = self.focus_item.borrow().clone();
+            if let Some(current_focus_item_rc) = current_focus_item.upgrade() {
+                if current_focus_item_rc != *new_focus_item {
+                    // can't clear focus unless called with currently focused item.
+                    return;
+                }
+            }
+        }
+
         let old = self.take_focus_item();
-        let new = self.move_focus(focus_item.clone(), next_focus_item);
+        let new =
+            if set_focus { self.move_focus(new_focus_item.clone(), next_focus_item) } else { None };
         let window_adapter = self.window_adapter();
         if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
             window_adapter.handle_focus_change(old, new);
@@ -1250,9 +1261,10 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_set_focus_item(
         handle: *const WindowAdapterRcOpaque,
         focus_item: &ItemRc,
+        set_focus: bool,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).set_focus_item(focus_item)
+        WindowInner::from_pub(window_adapter.window()).set_focus_item(focus_item, set_focus)
     }
 
     /// Associates the window with the given component.

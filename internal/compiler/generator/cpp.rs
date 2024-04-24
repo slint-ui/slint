@@ -3100,9 +3100,18 @@ fn compile_builtin_function_call(
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
-                format!("{}.set_focus_item({});", window, focus_item)
+                format!("{}.set_focus_item({}, true);", window, focus_item)
             } else {
                 panic!("internal error: invalid args to SetFocusItem {:?}", arguments)
+            }
+        }
+        BuiltinFunction::ClearFocusItem => {
+            if let [llr::Expression::PropertyReference(pr)] = arguments {
+                let window = access_window_field(ctx);
+                let focus_item = access_item_rc(pr, ctx);
+                format!("{}.set_focus_item({}, false);", window, focus_item)
+            } else {
+                panic!("internal error: invalid args to ClearFocusItem {:?}", arguments)
             }
         }
         /*  std::from_chars is unfortunately not yet implemented in gcc

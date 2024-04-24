@@ -126,7 +126,7 @@ impl AccessKitAdapter {
             Action::Default => AccessibilityAction::Default,
             Action::Focus => {
                 if let Some(item) = self.item_rc_for_node_id(request.target) {
-                    WindowInner::from_pub(window_adapter.window()).set_focus_item(&item);
+                    WindowInner::from_pub(window_adapter.window()).set_focus_item(&item, true);
                 }
                 return;
             }

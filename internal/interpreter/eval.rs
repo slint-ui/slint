@@ -527,14 +527,54 @@ fn call_builtin_function(
                     enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
 
                 component.access_window(|window| {
-                    window.set_focus_item(&corelib::items::ItemRc::new(
-                        vtable::VRc::into_dyn(focus_item_comp),
-                        item_info.item_index(),
-                    ))
+                    window.set_focus_item(
+                        &corelib::items::ItemRc::new(
+                            vtable::VRc::into_dyn(focus_item_comp),
+                            item_info.item_index(),
+                        ),
+                        true,
+                    )
                 });
                 Value::Void
             } else {
                 panic!("internal error: argument to SetFocusItem must be an element")
+            }
+        }
+        BuiltinFunction::ClearFocusItem => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to SetFocusItem")
+            }
+            let component = match local_context.component_instance {
+                ComponentInstance::InstanceRef(c) => c,
+                ComponentInstance::GlobalComponent(_) => {
+                    panic!("Cannot access the focus item from a global component")
+                }
+            };
+            if let Expression::ElementReference(focus_item) = &arguments[0] {
+                generativity::make_guard!(guard);
+
+                let focus_item = focus_item.upgrade().unwrap();
+                let enclosing_component =
+                    enclosing_component_for_element(&focus_item, component, guard);
+                let description = enclosing_component.description;
+
+                let item_info = &description.items[focus_item.borrow().id.as_str()];
+
+                let focus_item_comp =
+                    enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+
+                component.access_window(|window| {
+                    window.set_focus_item(
+                        &corelib::items::ItemRc::new(
+                            vtable::VRc::into_dyn(focus_item_comp),
+                            item_info.item_index(),
+                        ),
+                        false,
+                    )
+                });
+                Value::Void
+            } else {
+                panic!("internal error: argument to ClearFocusItem must be an element")
             }
         }
         BuiltinFunction::ShowPopupWindow => {
