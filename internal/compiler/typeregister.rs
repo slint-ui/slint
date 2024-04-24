@@ -140,6 +140,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
             ("absolute-position", logical_point_type(), PropertyVisibility::Output),
             ("forward-focus", Type::ElementReference, PropertyVisibility::Constexpr),
             ("focus", BuiltinFunction::SetFocusItem.ty(), PropertyVisibility::Public),
+            ("clear-focus", BuiltinFunction::ClearFocusItem.ty(), PropertyVisibility::Public),
             (
                 "dialog-button-role",
                 Type::Enumeration(BUILTIN_ENUMS.with(|e| e.DialogButtonRole.clone())),
@@ -206,6 +207,7 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult {
 pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
     for (m, e) in [
         ("focus", BuiltinFunction::SetFocusItem), // match for callable "focus" property
+        ("clear-focus", BuiltinFunction::ClearFocusItem), // match for callable "clear-focus" property
     ] {
         if m == name {
             return Some(e);

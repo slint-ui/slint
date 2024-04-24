@@ -38,6 +38,7 @@ pub enum BuiltinFunction {
     Log,
     Pow,
     SetFocusItem,
+    ClearFocusItem,
     ShowPopupWindow,
     ClosePopupWindow,
     SetSelectionOffsets,
@@ -130,6 +131,10 @@ impl BuiltinFunction {
                 args: vec![Type::Float32, Type::Float32],
             },
             BuiltinFunction::SetFocusItem => Type::Function {
+                return_type: Box::new(Type::Void),
+                args: vec![Type::ElementReference],
+            },
+            BuiltinFunction::ClearFocusItem => Type::Function {
                 return_type: Box::new(Type::Void),
                 args: vec![Type::ElementReference],
             },
@@ -292,7 +297,7 @@ impl BuiltinFunction {
             | BuiltinFunction::Log
             | BuiltinFunction::Pow
             | BuiltinFunction::ATan => true,
-            BuiltinFunction::SetFocusItem => false,
+            BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
@@ -349,7 +354,7 @@ impl BuiltinFunction {
             | BuiltinFunction::Log
             | BuiltinFunction::Pow
             | BuiltinFunction::ATan => true,
-            BuiltinFunction::SetFocusItem => false,
+            BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,

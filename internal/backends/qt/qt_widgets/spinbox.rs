@@ -222,7 +222,7 @@ impl Item for NativeSpinBox {
 
         if let MouseEvent::Pressed { .. } = event {
             if !self.has_focus() {
-                WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
+                WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc, true);
             }
         }
         InputEventResult::EventAccepted
