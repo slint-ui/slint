@@ -7,8 +7,11 @@ LOG_MODULE_REGISTER(zephyrSlint, LOG_LEVEL_DBG);
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/display.h>
+#include <zephyr/input/input.h>
 
 #include <chrono>
+#include <deque>
+#include <mutex>
 
 namespace {
 bool is_supported_pixel_format(display_pixel_format current_pixel_format)
@@ -33,6 +36,8 @@ using namespace std::chrono_literals;
 
 using RepaintBufferType = slint::platform::SoftwareRenderer::RepaintBufferType;
 
+K_SEM_DEFINE(SLINT_SEM, 0, 1);
+
 class ZephyrPlatform : public slint::platform::Platform
 {
 public:
@@ -47,6 +52,10 @@ public:
 private:
     const struct device *m_display;
     class ZephyrWindowAdapter *m_window = nullptr;
+
+    std::mutex m_queue_mutex;
+    std::deque<slint::platform::Platform::Task> m_queue; // protected by m_queue_mutex
+    bool m_quit = false; // protected by m_queue_mutex
 };
 
 class ZephyrWindowAdapter : public slint::platform::WindowAdapter
@@ -73,6 +82,8 @@ private:
     std::vector<slint::platform::Rgb565Pixel> m_buffer;
     display_buffer_descriptor m_buffer_descriptor;
 };
+
+static ZephyrWindowAdapter *ZEPHYR_WINDOW = nullptr;
 
 std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device *display)
 {
@@ -201,13 +212,14 @@ ZephyrPlatform::ZephyrPlatform(const struct device *display) : m_display(display
 
 std::unique_ptr<slint::platform::WindowAdapter> ZephyrPlatform::create_window_adapter()
 {
-    if (m_window) {
+    if (m_window || ZEPHYR_WINDOW) {
         LOG_ERR("create_window_adapter called multiple times");
         return nullptr;
     }
 
     auto window = ZephyrWindowAdapter::init_from(m_display);
     m_window = window.get();
+    ZEPHYR_WINDOW = m_window;
     return window;
 }
 
@@ -220,16 +232,37 @@ std::chrono::milliseconds ZephyrPlatform::duration_since_start()
 void ZephyrPlatform::run_event_loop()
 {
     LOG_DBG("Start");
-    const auto max_wait_time = 1000ms; // TODO: K_FOREVER?
+    const auto max_wait_time = 5000ms; // TODO: K_FOREVER?
 
     while (true) {
         LOG_DBG("Loop");
         slint::platform::update_timers_and_animations();
 
+        std::optional<slint::platform::Platform::Task> event;
+        {
+            std::unique_lock lock(m_queue_mutex);
+            if (m_queue.empty()) {
+                if (m_quit) {
+                    m_quit = false;
+                    break;
+                }
+            } else {
+                event = std::move(m_queue.front());
+                m_queue.pop_front();
+            }
+        }
+        if (event) {
+            LOG_DBG("Running event");
+            std::move(*event).run();
+            event.reset();
+            continue;
+        }
+
         if (m_window) {
             m_window->maybe_redraw();
 
             if (m_window->window().has_active_animations()) {
+                LOG_DBG("Animating");
                 continue;
             }
         }
@@ -239,20 +272,83 @@ void ZephyrPlatform::run_event_loop()
             wait_time = std::min(wait_time, next_timer_update.value());
         }
         LOG_DBG("Sleeping for %ims", wait_time.count());
-        k_sleep(K_MSEC(wait_time.count()));
+        k_sem_take(&SLINT_SEM, K_MSEC(wait_time.count()));
     }
 }
 
 void ZephyrPlatform::quit_event_loop()
 {
-    // TODO
+    {
+        const std::unique_lock lock(m_queue_mutex);
+        m_quit = true;
+    }
+    k_sem_give(&SLINT_SEM);
 }
 
 void ZephyrPlatform::run_in_event_loop(Task event)
 {
-    // TODO
-    (void)event;
+    {
+        const std::unique_lock lock(m_queue_mutex);
+        m_queue.push_back(std::move(event));
+    }
+    k_sem_give(&SLINT_SEM);
 }
+
+void zephyr_process_input_event(struct input_event *event)
+{
+    static slint::LogicalPosition pos;
+    static std::optional<slint::PointerEventButton> button;
+
+    LOG_DBG("Input event. Type: %#x, code: %u (%#x), value: %d, sync: %d", event->type, event->type,
+            event->code, event->value, event->sync);
+
+    switch (event->code) {
+    case INPUT_BTN_TOUCH:
+        break;
+    case INPUT_ABS_X:
+        pos.x = event->value;
+        break;
+    case INPUT_ABS_Y:
+        pos.y = event->value;
+        break;
+    default:
+        LOG_WRN("Unexpected input event. Type: %#x, code: %u (%#x), value: %d, sync: %d",
+                event->type, event->type, event->code, event->value, event->sync);
+        return;
+    }
+
+    if (event->sync) {
+        __ASSERT(event->code == INPUT_BTN_TOUCH,
+                 "Expected touch press/release events to be driving the sync status");
+
+        if (!button.has_value()) {
+            __ASSERT(event->value, "Expected press event");
+            LOG_DBG("Press");
+            button = slint::PointerEventButton::Left;
+            slint::invoke_from_event_loop([=, button = button.value()] {
+                __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
+                ZEPHYR_WINDOW->window().dispatch_pointer_move_event(pos);
+                ZEPHYR_WINDOW->window().dispatch_pointer_press_event(pos, button);
+            });
+        } else if (event->value) {
+            LOG_DBG("Move");
+            slint::invoke_from_event_loop([=] {
+                __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
+                ZEPHYR_WINDOW->window().dispatch_pointer_move_event(pos);
+            });
+        } else {
+            LOG_DBG("Release");
+            slint::invoke_from_event_loop([=, button = button.value()] {
+                __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
+                ZEPHYR_WINDOW->window().dispatch_pointer_release_event(pos, button);
+                ZEPHYR_WINDOW->window().dispatch_pointer_exit_event();
+            });
+            button.reset();
+        }
+    }
+}
+
+INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_NODELABEL(input_sdl_touch)), zephyr_process_input_event);
 
 void slint_zephyr_init(const struct device *display)
 {
