@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use i_slint_compiler::diagnostics::SourceFile;
-use i_slint_compiler::parser::SyntaxKind;
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode};
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
@@ -58,6 +58,8 @@ pub struct DropInformation {
     pub target_element_node: common::ElementRcNode,
     pub insert_info: InsertInformation,
     pub drop_mark: Option<DropMark>,
+    /// Child to insert *before* (or usize::MAX)
+    pub child_index: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -128,141 +130,193 @@ fn calculate_drop_acceptance(
     }
 }
 
+#[derive(Debug)]
+struct Zone {
+    start: f32,
+    end: f32,
+}
+
+struct DropZoneIterator<'a> {
+    input: Box<dyn Iterator<Item = (usize, (bool, (f32, f32)))> + 'a>,
+    last_mid: f32,
+    last_end: f32,
+    start: f32,
+    end: f32,
+    state: DropZoneIteratorState,
+}
+
+#[derive(Debug)]
+enum DropZoneIteratorState {
+    NotStarted,
+    InProgress,
+    AtEnd,
+}
+impl<'a> DropZoneIterator<'a> {
+    fn new(start: f32, end: f32, input: impl Iterator<Item = (bool, (f32, f32))> + 'a) -> Self {
+        Self {
+            input: Box::new(input.enumerate()),
+            last_mid: start,
+            last_end: start,
+            start,
+            end,
+            state: DropZoneIteratorState::NotStarted,
+        }
+    }
+}
+
+impl<'a> Iterator for DropZoneIterator<'a> {
+    type Item = (usize, Zone, Zone);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some((current_index, (is_selected, (cur_start, cur_end)))) = self.input.next() {
+            let cur_mid = cur_start + (cur_end - cur_start) / 2.0;
+
+            let last_mid = self.last_mid;
+            let last_end = self.last_end;
+
+            self.last_mid = cur_mid;
+            self.last_end = cur_end;
+
+            if is_selected {
+                if let Some((_, (next_is_selected, (next_start, next_end)))) = self.input.next() {
+                    assert!(!next_is_selected); // We can not handle the same element twice in the same layout:-)
+
+                    let next_mid = next_start + (next_end - next_start) / 2.0;
+
+                    self.last_mid = next_mid;
+                    self.last_end = next_end;
+
+                    return Some((
+                        current_index,
+                        Zone { start: last_mid, end: next_mid },
+                        Zone { start: cur_start, end: cur_end },
+                    ));
+                } else {
+                    self.state = DropZoneIteratorState::AtEnd;
+
+                    return Some((
+                        current_index,
+                        Zone { start: last_mid, end: self.end },
+                        Zone { start: cur_start, end: cur_end },
+                    ));
+                }
+            }
+
+            match self.state {
+                DropZoneIteratorState::NotStarted => {
+                    self.state = DropZoneIteratorState::InProgress;
+                    Some((
+                        current_index,
+                        Zone { start: self.start, end: cur_mid },
+                        Zone { start: self.start, end: self.start + 1.0 },
+                    ))
+                }
+                DropZoneIteratorState::InProgress => {
+                    self.state = DropZoneIteratorState::InProgress;
+                    let drop_loc = last_end + (cur_start - last_end) / 2.0;
+                    Some((
+                        current_index,
+                        Zone { start: last_mid, end: cur_mid },
+                        Zone { start: drop_loc, end: drop_loc + 1.0 },
+                    ))
+                }
+                DropZoneIteratorState::AtEnd => None,
+            }
+        } else {
+            match self.state {
+                DropZoneIteratorState::NotStarted => {
+                    self.state = DropZoneIteratorState::AtEnd;
+                    Some((
+                        usize::MAX,
+                        Zone { start: self.start, end: self.end },
+                        Zone {
+                            start: self.start + (self.end - self.start) / 2.0,
+                            end: self.start + 1.0 + (self.end - self.start) / 2.0,
+                        },
+                    ))
+                }
+                DropZoneIteratorState::InProgress => {
+                    self.state = DropZoneIteratorState::AtEnd;
+                    Some((
+                        usize::MAX,
+                        Zone { start: self.last_mid, end: self.end },
+                        Zone { start: self.end - 1.0, end: self.end },
+                    ))
+                }
+                DropZoneIteratorState::AtEnd => None,
+            }
+        }
+    }
+}
+
 // calculate where to draw the `DropMark`
 fn calculate_drop_information_for_layout(
     geometry: &LogicalRect,
     position: LogicalPoint,
     layout_kind: &crate::preview::ui::LayoutKind,
-    children_geometries: &[LogicalRect],
+    children_geometries: &[(bool, LogicalRect)],
 ) -> (Option<DropMark>, usize) {
     match layout_kind {
         ui::LayoutKind::None => unreachable!("We are in a layout"),
         ui::LayoutKind::Horizontal => {
-            if children_geometries.is_empty() {
-                // No children: Draw a drop mark in the middle
-                // TODO: Take padding into account: We have no way to get that though
-                let start = (geometry.origin.x + (geometry.size.width / 2.0)).floor();
-
-                (
-                    Some(DropMark {
-                        start: LogicalPoint::new(start, geometry.origin.y),
-                        end: LogicalPoint::new(
-                            start + 1.0,
-                            geometry.origin.y + geometry.size.height,
-                        ),
-                    }),
-                    usize::MAX,
-                )
-            } else {
-                let mut last_midpoint = geometry.origin.x;
-                let mut last_endpoint = geometry.origin.x;
-                for (pos, c) in children_geometries.iter().enumerate() {
-                    let new_midpoint = c.origin.x + c.size.width / 2.0;
-                    let hit_rect = LogicalRect::new(
-                        LogicalPoint::new(last_midpoint, geometry.origin.y),
-                        LogicalSize::new(new_midpoint - last_midpoint, geometry.size.height),
+            for (index, hit_zone, drop_zone) in DropZoneIterator::new(
+                geometry.origin.x,
+                geometry.origin.x + geometry.size.width,
+                children_geometries
+                    .iter()
+                    .map(|(is_sel, g)| (*is_sel, (g.origin.x, g.origin.x + g.size.width))),
+            ) {
+                let hit_rect = LogicalRect::new(
+                    LogicalPoint::new(hit_zone.start, geometry.origin.y),
+                    LogicalSize::new(
+                        hit_zone.end - hit_zone.start,
+                        geometry.origin.y + geometry.size.height,
+                    ),
+                );
+                if hit_rect.contains(position) {
+                    return (
+                        Some(DropMark {
+                            start: LogicalPoint::new(drop_zone.start, geometry.origin.y),
+                            end: LogicalPoint::new(
+                                drop_zone.end,
+                                geometry.origin.y + geometry.size.height,
+                            ),
+                        }),
+                        index,
                     );
-                    if hit_rect.contains(position) {
-                        let start = (c.origin.x - last_endpoint) / 2.0;
-                        let start_pos = last_endpoint
-                            + if start.floor() < geometry.origin.x {
-                                geometry.origin.x
-                            } else {
-                                start
-                            };
-                        let end_pos = start_pos + 1.0;
-
-                        return (
-                            Some(DropMark {
-                                start: LogicalPoint::new(start_pos, geometry.origin.y),
-                                end: LogicalPoint::new(
-                                    end_pos,
-                                    geometry.origin.y + geometry.size.height,
-                                ),
-                            }),
-                            pos,
-                        );
-                    }
-                    last_midpoint = new_midpoint;
-                    last_endpoint = c.origin.x + c.size.width;
                 }
-                (
-                    Some(DropMark {
-                        start: LogicalPoint::new(
-                            geometry.origin.x + geometry.size.width - 1.0,
-                            geometry.origin.y,
-                        ),
-                        end: LogicalPoint::new(
-                            geometry.origin.x + geometry.size.width,
-                            geometry.origin.y + geometry.size.height,
-                        ),
-                    }),
-                    usize::MAX,
-                )
             }
+            unreachable!("We missed the target layout")
         }
         ui::LayoutKind::Vertical => {
-            if children_geometries.is_empty() {
-                // No children: Draw a drop mark in the middle
-                // TODO: Take padding into account: We have no way to get that though
-                let start = (geometry.origin.y + (geometry.size.height / 2.0)).floor();
-                (
-                    Some(DropMark {
-                        start: LogicalPoint::new(geometry.origin.x, start),
-                        end: LogicalPoint::new(
-                            geometry.origin.x + geometry.size.width,
-                            start + 1.0,
-                        ),
-                    }),
-                    usize::MAX,
-                )
-            } else {
-                let mut last_midpoint = geometry.origin.y;
-                let mut last_endpoint = geometry.origin.y;
-                for (pos, c) in children_geometries.iter().enumerate() {
-                    let new_midpoint = c.origin.y + c.size.height / 2.0;
-                    let hit_rect = LogicalRect::new(
-                        LogicalPoint::new(geometry.origin.y, last_midpoint),
-                        LogicalSize::new(geometry.size.width, new_midpoint - last_midpoint),
+            for (index, hit_zone, drop_zone) in DropZoneIterator::new(
+                geometry.origin.y,
+                geometry.origin.y + geometry.size.height,
+                children_geometries
+                    .iter()
+                    .map(|(is_sel, g)| (*is_sel, (g.origin.y, g.origin.y + g.size.height))),
+            ) {
+                let hit_rect = LogicalRect::new(
+                    LogicalPoint::new(geometry.origin.x, hit_zone.start),
+                    LogicalSize::new(
+                        geometry.origin.x + geometry.size.width,
+                        hit_zone.end - hit_zone.start,
+                    ),
+                );
+                if hit_rect.contains(position) {
+                    return (
+                        Some(DropMark {
+                            start: LogicalPoint::new(geometry.origin.x, drop_zone.start),
+                            end: LogicalPoint::new(
+                                geometry.origin.x + geometry.size.width,
+                                drop_zone.end,
+                            ),
+                        }),
+                        index,
                     );
-                    if hit_rect.contains(position) {
-                        let start = (c.origin.y - last_endpoint) / 2.0;
-                        let start_pos = last_endpoint
-                            + if start.floor() < geometry.origin.y {
-                                geometry.origin.y
-                            } else {
-                                start
-                            };
-                        let end_pos = start_pos + 1.0;
-
-                        return (
-                            Some(DropMark {
-                                start: LogicalPoint::new(geometry.origin.x, start_pos),
-                                end: LogicalPoint::new(
-                                    geometry.origin.x + geometry.size.width,
-                                    end_pos,
-                                ),
-                            }),
-                            pos,
-                        );
-                    }
-                    last_midpoint = new_midpoint;
-                    last_endpoint = c.origin.y + c.size.height;
                 }
-                (
-                    Some(DropMark {
-                        start: LogicalPoint::new(
-                            geometry.origin.x,
-                            geometry.origin.y + geometry.size.height - 1.0,
-                        ),
-                        end: LogicalPoint::new(
-                            geometry.origin.x + geometry.size.width,
-                            geometry.origin.y + geometry.size.height,
-                        ),
-                    }),
-                    usize::MAX,
-                )
             }
+            unreachable!("We missed the target layout")
         }
         ui::LayoutKind::Grid => {
             // TODO: Do something here
@@ -409,6 +463,7 @@ fn insert_position_before_child(
 fn drop_target_element_nodes(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
+    filter: Box<dyn Fn(&common::ElementRcNode) -> bool>,
 ) -> Vec<common::ElementRcNode> {
     let mut result = Vec::with_capacity(3);
 
@@ -425,6 +480,10 @@ fn drop_target_element_nodes(
             continue;
         }
 
+        if (filter)(&en) {
+            continue;
+        }
+
         result.push(en);
     }
 
@@ -434,8 +493,12 @@ fn drop_target_element_nodes(
 fn find_element_to_drop_into(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
+    selected_element: &Option<common::ElementRcNode>,
 ) -> Option<common::ElementRcNode> {
-    let all_element_nodes = drop_target_element_nodes(component_instance, position);
+    let se = selected_element.clone();
+    let filter = Box::new(move |e: &common::ElementRcNode| Some(e.clone()) == se);
+
+    let all_element_nodes = drop_target_element_nodes(component_instance, position, filter);
 
     let mut tmp = None;
     for element_node in &all_element_nodes {
@@ -458,8 +521,10 @@ fn find_drop_location(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
     component_type: &str,
+    selected_element: Option<common::ElementRcNode>,
 ) -> Option<DropInformation> {
-    let drop_target_node = find_element_to_drop_into(component_instance, position)?;
+    let drop_target_node =
+        find_element_to_drop_into(component_instance, position, &selected_element)?;
 
     let (path, _) = drop_target_node.path_and_offset();
     let tl = component_instance.definition().type_loader();
@@ -481,7 +546,10 @@ fn find_drop_location(
             .children()
             .iter()
             .filter(|c| !c.with_element_node(preview::is_element_node_ignored))
-            .filter_map(|c| c.geometry_in(component_instance, &geometry))
+            .filter_map(|c| {
+                c.geometry_in(component_instance, &geometry)
+                    .map(|g| (Some(c.clone()) == selected_element, g))
+            })
             .collect();
 
         let (drop_mark, child_index) = calculate_drop_information_for_layout(
@@ -499,23 +567,37 @@ fn find_drop_location(
             }
         }?;
 
-        Some(DropInformation { target_element_node: drop_target_node, insert_info, drop_mark })
+        Some(DropInformation {
+            target_element_node: drop_target_node,
+            insert_info,
+            drop_mark,
+            child_index,
+        })
     } else {
         let insert_info = insert_position_at_end(&drop_target_node)?;
         Some(DropInformation {
             target_element_node: drop_target_node,
             insert_info,
             drop_mark: None,
+            child_index: usize::MAX,
         })
     }
 }
 
 /// Find the Element to insert into. None means we can not insert at this point.
-pub fn can_drop_at(x: f32, y: f32, component: &common::ComponentInformation) -> bool {
-    let component_type = component.name.to_string();
-    let position = LogicalPoint::new(x, y);
+pub fn can_drop_at(position: LogicalPoint, component_type: &str) -> bool {
     let dm = &super::component_instance()
-        .and_then(|ci| find_drop_location(&ci, position, &component_type));
+        .and_then(|ci| find_drop_location(&ci, position, component_type, None));
+
+    preview::set_drop_mark(&dm.as_ref().and_then(|dm| dm.drop_mark.clone()));
+    dm.is_some()
+}
+
+/// Find the Element to insert into. None means we can not insert at this point.
+pub fn can_move_to(position: LogicalPoint, element_node: common::ElementRcNode) -> bool {
+    let component_type = element_node.component_type();
+    let dm = &super::component_instance()
+        .and_then(|ci| find_drop_location(&ci, position, &component_type, Some(element_node)));
 
     preview::set_drop_mark(&dm.as_ref().and_then(|dm| dm.drop_mark.clone()));
     dm.is_some()
@@ -530,6 +612,35 @@ pub struct DropData {
     pub path: std::path::PathBuf,
 }
 
+fn pretty_node_removal_range(node: &SyntaxNode) -> Option<rowan::TextRange> {
+    let first_et = node.first_token()?;
+    let before_et = first_et.prev_token()?;
+    let start_pos = if before_et.kind() == SyntaxKind::Whitespace && before_et.text().contains('\n')
+    {
+        before_et.text_range().end()
+            - rowan::TextSize::from(
+                before_et.text().split('\n').last().map(|s| s.len()).unwrap_or_default() as u32,
+            )
+    } else if before_et.kind() == SyntaxKind::Whitespace {
+        before_et.text_range().start() // Cut away all WS!
+    } else {
+        first_et.text_range().start() // Nothing to cut away
+    };
+
+    let last_et = util::last_non_ws_token(&node)?;
+    let after_et = last_et.next_token()?;
+    let end_pos = if after_et.kind() == SyntaxKind::Whitespace && after_et.text().contains('\n') {
+        after_et.text_range().start()
+            + rowan::TextSize::from(
+                after_et.text().split('\n').next().map(|s| s.len() + 1).unwrap_or_default() as u32,
+            )
+    } else {
+        last_et.text_range().end() // Use existing WS or not WS as appropriate
+    };
+
+    Some(rowan::TextRange::new(start_pos, end_pos))
+}
+
 fn drop_ignored_elements_from_node(
     node: &common::ElementRcNode,
     source_file: &SourceFile,
@@ -539,48 +650,9 @@ fn drop_ignored_elements_from_node(
             .filter_map(|c| {
                 let e = common::extract_element(c.clone())?;
                 if preview::is_element_node_ignored(&e) {
-                    let first_et = e.first_token()?;
-                    let before_et = first_et.prev_token()?;
-                    let start_pos = if before_et.kind() == SyntaxKind::Whitespace
-                        && before_et.text().contains('\n')
-                    {
-                        before_et.text_range().end()
-                            - rowan::TextSize::from(
-                                before_et
-                                    .text()
-                                    .split('\n')
-                                    .last()
-                                    .map(|s| s.len())
-                                    .unwrap_or_default() as u32,
-                            )
-                    } else if before_et.kind() == SyntaxKind::Whitespace {
-                        before_et.text_range().start() // Cut away all WS!
-                    } else {
-                        first_et.text_range().start() // Nothing to cut away
-                    };
-
-                    let last_et = util::last_non_ws_token(&e)?;
-                    let after_et = last_et.next_token()?;
-                    let end_pos = if after_et.kind() == SyntaxKind::Whitespace
-                        && after_et.text().contains('\n')
-                    {
-                        after_et.text_range().start()
-                            + rowan::TextSize::from(
-                                after_et
-                                    .text()
-                                    .split('\n')
-                                    .next()
-                                    .map(|s| s.len() + 1)
-                                    .unwrap_or_default() as u32,
-                            )
-                    } else {
-                        last_et.text_range().end() // Use existing WS or not WS as appropriate
-                    };
-
-                    Some(lsp_types::TextEdit::new(
-                        util::map_range(source_file, rowan::TextRange::new(start_pos, end_pos)),
-                        String::new(),
-                    ))
+                    pretty_node_removal_range(&e)
+                        .map(|range| util::map_range(source_file, range))
+                        .map(|range| lsp_types::TextEdit::new(range, String::new()))
                 } else {
                     None
                 }
@@ -594,15 +666,13 @@ fn drop_ignored_elements_from_node(
 /// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
 /// the DropData struct.
 pub fn drop_at(
-    x: f32,
-    y: f32,
+    position: LogicalPoint,
     component: &common::ComponentInformation,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
-    let position = LogicalPoint::new(x, y);
     let component_type = &component.name;
     let component_instance = preview::component_instance()?;
     let tl = component_instance.definition().type_loader();
-    let drop_info = find_drop_location(&component_instance, position, component_type)?;
+    let drop_info = find_drop_location(&component_instance, position, component_type, None)?;
 
     let properties = {
         let mut props = component.default_properties.clone();
@@ -613,8 +683,14 @@ pub fn drop_at(
             if let Some(area) =
                 drop_info.target_element_node.geometry_at(&component_instance, position)
             {
-                props.push(common::PropertyChange::new("x", format!("{}px", x - area.origin.x)));
-                props.push(common::PropertyChange::new("y", format!("{}px", y - area.origin.y)));
+                props.push(common::PropertyChange::new(
+                    "x",
+                    format!("{}px", position.x - area.origin.x),
+                ));
+                props.push(common::PropertyChange::new(
+                    "y",
+                    format!("{}px", position.y - area.origin.y),
+                ));
             }
         }
 
@@ -660,10 +736,16 @@ pub fn drop_at(
         edits.push(edit);
     }
 
-    edits.extend_from_slice(&drop_ignored_elements_from_node(
-        &drop_info.target_element_node,
-        &source_file,
-    ));
+    edits.extend(
+        drop_ignored_elements_from_node(&drop_info.target_element_node, &source_file)
+            .drain(..)
+            .map(|te| {
+                // Abuse map somewhat...
+                selection_offset =
+                    TextOffsetAdjustment::new(&te, &source_file).adjust(selection_offset);
+                te
+            }),
+    );
 
     let start_pos =
         util::map_position(&source_file, drop_info.insert_info.insertion_position.offset().into());
@@ -677,6 +759,214 @@ pub fn drop_at(
 
     Some((
         common::create_workspace_edit_from_source_file(&source_file, edits)?,
+        DropData { selection_offset, path },
+    ))
+}
+
+fn property_ranges(
+    element: &common::ElementRcNode,
+    remove_properties: &[&str],
+) -> Vec<rowan::TextRange> {
+    element.with_element_node(|node| {
+        let mut result = vec![];
+
+        for b in node.Binding() {
+            let name = b.first_token().map(|t| t.text().to_string()).unwrap_or_default();
+            if remove_properties.contains(&name.as_str()) {
+                let Some(r) = pretty_node_removal_range(&b) else {
+                    continue;
+                };
+                result.push(r);
+            }
+        }
+
+        result
+    })
+}
+
+fn extract_text_of_element(
+    element: &common::ElementRcNode,
+    remove_properties: &[&str],
+) -> Vec<String> {
+    let (start_offset, mut text) = element.with_element_node(|node| {
+        (usize::from(node.text_range().start()), node.text().to_string())
+    });
+
+    let mut to_delete_ranges = property_ranges(element, remove_properties);
+    to_delete_ranges.sort_by(|a, b| u32::from(a.start()).cmp(&u32::from(b.start())));
+    let mut offset = start_offset;
+    for dr in to_delete_ranges {
+        let start = usize::from(dr.start()) - offset;
+        let end = usize::from(dr.end()) - offset;
+
+        offset = offset + (end - start);
+
+        text.drain(start..end);
+    }
+
+    // Trim leading WS to get "raw" lines
+    let lines = text.split('\n').collect::<Vec<_>>();
+    let indent = util::find_element_indent(element).unwrap_or_else(|| {
+        lines
+            .last()
+            .expect("There is always one line")
+            .chars()
+            .take_while(|c| c.is_whitespace())
+            .collect()
+    });
+    let lines = lines
+        .iter()
+        .map(|l| if l.starts_with(&indent) { l[indent.len()..].to_string() } else { l.to_string() })
+        .collect::<Vec<_>>();
+
+    lines
+}
+
+fn node_removal_text_edit(node: &SyntaxNode) -> Option<(SourceFile, lsp_types::TextEdit)> {
+    let source_file = node.source_file.clone();
+    let range = util::map_range(&source_file, pretty_node_removal_range(node)?);
+    Some((source_file, lsp_types::TextEdit::new(range, String::new())))
+}
+
+/// Find a location in a file that would be a good place to insert the new component at
+///
+/// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
+/// the DropData struct.
+pub fn move_element_to(
+    element: common::ElementRcNode,
+    position: LogicalPoint,
+    mouse_position: LogicalPoint,
+) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+    let component_type = element.component_type();
+    let component_instance = preview::component_instance()?;
+    let tl = component_instance.definition().type_loader();
+    let Some(drop_info) = find_drop_location(
+        &component_instance,
+        mouse_position,
+        &component_type,
+        Some(element.clone()),
+    ) else {
+        element_selection::reselect_element();
+        // Can not drop here: Ignore the move
+        return None;
+    };
+
+    let parent_of_element = element.parent(element_selection::root_element(&component_instance));
+
+    if Some(&drop_info.target_element_node) == parent_of_element.as_ref() {
+        // We are moving within ourselves!
+
+        let size = element.geometries(&component_instance).first().map(|g| g.size)?;
+
+        if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
+            preview::resize_selected_element_impl(LogicalRect::new(position, size));
+            return None;
+        } else {
+            let children = drop_info.target_element_node.children();
+            let child_index = {
+                let tmp =
+                    children.iter().position(|c| c == &element).expect("We have the same parent");
+                if tmp == children.len() {
+                    usize::MAX
+                } else {
+                    tmp
+                }
+            };
+
+            if child_index == drop_info.child_index {
+                element_selection::reselect_element();
+                // Dropped onto myself: Ignore the move
+                return None;
+            }
+        }
+
+        /* fall trough to the general case here */
+    }
+
+    let new_text = {
+        let element_text_lines = extract_text_of_element(&element, &["x", "y"]);
+
+        if element_text_lines.is_empty() {
+            String::new()
+        } else {
+            let mut tmp = format!(
+                "{}{}\n",
+                drop_info.insert_info.pre_indent,
+                element_text_lines.first().expect("Not empty")
+            );
+
+            for l in element_text_lines.iter().take(element_text_lines.len() - 1).skip(1) {
+                tmp.push_str(&format!("{}{l}\n", drop_info.insert_info.indent));
+            }
+
+            if element_text_lines.len() >= 2 {
+                tmp.push_str(&format!(
+                    "{}{}\n{}",
+                    drop_info.insert_info.indent,
+                    element_text_lines.last().expect("Length was checked"),
+                    drop_info.insert_info.post_indent
+                ));
+            }
+
+            tmp
+        }
+    };
+
+    let (path, _) = drop_info.target_element_node.path_and_offset();
+
+    let doc = tl.get_document(&path)?;
+    let source_file = doc.node.as_ref().unwrap().source_file.clone();
+
+    let mut selection_offset = drop_info.insert_info.insertion_position.offset()
+        + new_text.chars().take_while(|c| c.is_whitespace()).map(|c| c.len_utf8()).sum::<usize>()
+            as u32;
+
+    let mut edits = Vec::with_capacity(3);
+
+    let remove_me = element.with_element_node(|node| node_removal_text_edit(&node))?;
+    if remove_me.0.path() == source_file.path() {
+        selection_offset =
+            TextOffsetAdjustment::new(&remove_me.1, &source_file).adjust(selection_offset);
+    }
+    edits.push(remove_me);
+
+    if let Some(component_info) = preview::get_component_info(&component_type) {
+        let import_file =
+            component_info.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
+        if let Some(edit) = completion::create_import_edit(doc, &component_type, &import_file) {
+            if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
+                selection_offset = TextOffsetAdjustment::new(&edit, sf).adjust(selection_offset);
+            }
+            edits.push((source_file.clone(), edit));
+        }
+    }
+
+    edits.extend(
+        drop_ignored_elements_from_node(&drop_info.target_element_node, &source_file)
+            .drain(..)
+            .map(|te| {
+                // Abuse map somewhat...
+                selection_offset =
+                    TextOffsetAdjustment::new(&te, &source_file).adjust(selection_offset);
+                (source_file.clone(), te)
+            }),
+    );
+
+    let start_pos =
+        util::map_position(&source_file, drop_info.insert_info.insertion_position.offset().into());
+    let end_pos = util::map_position(
+        &source_file,
+        (drop_info.insert_info.insertion_position.offset()
+            + drop_info.insert_info.replacement_range)
+            .into(),
+    );
+    edits.push((
+        source_file,
+        lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text },
+    ));
+
+    Some((
+        common::create_workspace_edit_from_source_files(edits)?,
         DropData { selection_offset, path },
     ))
 }
