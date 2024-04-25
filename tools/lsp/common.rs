@@ -3,7 +3,7 @@
 
 //! Data structures common between LSP and previewer
 
-use i_slint_compiler::diagnostics::{SourceFile, SourceFileVersion};
+use i_slint_compiler::diagnostics::SourceFile;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
@@ -152,13 +152,15 @@ impl ElementRcNode {
             children
         })
     }
+
+    pub fn component_type(&self) -> String {
+        self.with_element_node(|node| {
+            node.QualifiedName().map(|qn| qn.text().to_string()).unwrap_or_default()
+        })
+    }
 }
 
-pub fn create_workspace_edit(
-    uri: Url,
-    version: SourceFileVersion,
-    edits: Vec<TextEdit>,
-) -> WorkspaceEdit {
+pub fn create_workspace_edit(uri: Url, version: UrlVersion, edits: Vec<TextEdit>) -> WorkspaceEdit {
     let edits = edits
         .into_iter()
         .map(lsp_types::OneOf::Left::<TextEdit, lsp_types::AnnotatedTextEdit>)
@@ -180,6 +182,38 @@ pub fn create_workspace_edit_from_source_file(
         source_file.version(),
         edits,
     ))
+}
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+pub fn create_workspace_edit_from_source_files(
+    mut inputs: Vec<(SourceFile, TextEdit)>,
+) -> Option<WorkspaceEdit> {
+    let mut files: HashMap<
+        (Url, UrlVersion),
+        Vec<lsp_types::OneOf<TextEdit, lsp_types::AnnotatedTextEdit>>,
+    > = HashMap::new();
+    inputs.drain(..).for_each(|(sf, edit)| {
+        let url = Url::from_file_path(sf.path()).ok();
+        if let Some(url) = url {
+            let edit = lsp_types::OneOf::Left(edit);
+            files
+                .entry((url, sf.version()))
+                .and_modify(|v| v.push(edit.clone()))
+                .or_insert_with(|| vec![edit]);
+        }
+    });
+
+    let changes = lsp_types::DocumentChanges::Edits(
+        files
+            .drain()
+            .map(|((uri, version), edits)| lsp_types::TextDocumentEdit {
+                text_document: lsp_types::OptionalVersionedTextDocumentIdentifier { uri, version },
+                edits,
+            })
+            .collect::<Vec<_>>(),
+    );
+
+    Some(WorkspaceEdit { document_changes: Some(changes), ..Default::default() })
 }
 
 /// A versioned file
