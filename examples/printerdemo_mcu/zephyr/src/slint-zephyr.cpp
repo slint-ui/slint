@@ -172,7 +172,6 @@ void ZephyrWindowAdapter::maybe_redraw()
     if (!std::exchange(m_needs_redraw, false))
         return;
 
-    display_blanking_on(m_display);
     auto rotated = false;
     auto region = m_renderer.render(m_buffer, rotated ? m_size.height : m_size.width);
     auto o = region.bounding_box_origin();
@@ -196,7 +195,6 @@ void ZephyrWindowAdapter::maybe_redraw()
             LOG_WRN("display_write returned non-zero: %d", ret);
         }
     }
-    display_blanking_off(m_display);
 }
 
 ZephyrPlatform::ZephyrPlatform(const struct device *display) : m_display(display) { }
@@ -258,5 +256,6 @@ void ZephyrPlatform::run_in_event_loop(Task event)
 
 void slint_zephyr_init(const struct device *display)
 {
+    display_blanking_off(display);
     slint::platform::set_platform(std::make_unique<ZephyrPlatform>(display));
 }
