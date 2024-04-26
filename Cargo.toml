@@ -134,7 +134,7 @@ fontdue = { version = "0.8.0" }
 glutin = { version = "0.31.1", default-features = false }
 image = { version = "0.24", default-features = false, features = [ "png", "jpeg" ] }
 itertools = { version = "0.12" }
-resvg = { version= "0.40.0", default-features = false, features = ["text"] }
+resvg = { version= "0.41.0", default-features = false, features = ["text"] }
 send_wrapper = { version = "0.6.0" }
 softbuffer = { version = "0.3.3", default-features = false }
 strum = { version = "0.26.1", default-features = false, features = ["derive"] }
