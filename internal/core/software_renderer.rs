@@ -207,17 +207,28 @@ pub trait LineBufferProvider {
     );
 }
 
+#[cfg(not(cbindgen))]
+const PHYSICAL_REGION_MAX_SIZE: usize = DirtyRegion::MAX_COUNT;
+// cbindgen can't understand associated const correctly, so hardcode the value
+#[cfg(cbindgen)]
+pub const PHYSICAL_REGION_MAX_SIZE: usize = 3;
+const _: () = {
+    assert!(PHYSICAL_REGION_MAX_SIZE == 3);
+    assert!(DirtyRegion::MAX_COUNT == 3);
+};
+
 /// Represents a rectangular region on the screen, used for partial rendering.
 ///
 /// The region may be composed of multiple sub-regions.
 #[derive(Clone, Debug, Default)]
+#[repr(C)]
 pub struct PhysicalRegion {
-    rectangles: [euclid::Box2D<i16, PhysicalPx>; DirtyRegion::MAX_COUNT],
+    rectangles: [euclid::Box2D<i16, PhysicalPx>; PHYSICAL_REGION_MAX_SIZE],
     count: usize,
 }
 
 impl PhysicalRegion {
-    fn iter(&self) -> impl Iterator<Item = euclid::Box2D<i16, PhysicalPx>> + '_ {
+    fn iter_box(&self) -> impl Iterator<Item = euclid::Box2D<i16, PhysicalPx>> + '_ {
         (0..self.count).map(|x| self.rectangles[x])
     }
 
@@ -242,6 +253,20 @@ impl PhysicalRegion {
         let bb = self.bounding_rect();
         crate::api::PhysicalPosition { x: bb.origin.x as _, y: bb.origin.y as _ }
     }
+
+    /// Returns an iterator over the rectangles in this region.
+    /// Each rectangle is represented by its position and its size.
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (crate::api::PhysicalPosition, crate::api::PhysicalSize)> + '_ {
+        self.iter_box().map(|r| {
+            let r = r.to_rect();
+            (
+                crate::api::PhysicalPosition { x: r.origin.x as _, y: r.origin.y as _ },
+                crate::api::PhysicalSize { width: r.width() as _, height: r.height() as _ },
+            )
+        })
+    }
 }
 
 /// Computes what are the x ranges that intersects the region for specified y line.
@@ -256,7 +281,7 @@ fn region_line_ranges(
 ) -> Option<i16> {
     line_ranges.clear();
     let mut next_validity = None::<i16>;
-    for geom in region.iter() {
+    for geom in region.iter_box() {
         if geom.is_empty() {
             continue;
         }
@@ -921,7 +946,8 @@ impl Scene {
         vectors: SceneVectors,
         dirty_region: PhysicalRegion,
     ) -> Self {
-        let current_line = dirty_region.iter().map(|x| x.min.y_length()).min().unwrap_or_default();
+        let current_line =
+            dirty_region.iter_box().map(|x| x.min.y_length()).min().unwrap_or_default();
         items.retain(|i| i.pos.y_length() + i.size.height_length() > current_line);
         items.sort_unstable_by(compare_scene_item);
         let current_items_index = items.partition_point(|i| i.pos.y_length() <= current_line);

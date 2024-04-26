@@ -216,6 +216,8 @@ fn default_config() -> cbindgen::Config {
     .iter()
     .cloned()
     .collect();
+    config.structure.associated_constants_in_body = true;
+    config.constant.allow_constexpr = true;
     config
 }
 
@@ -295,6 +297,7 @@ fn gen_corelib(
         "Rect",
         "SortOrder",
         "BitmapFont",
+        "PhysicalRegion",
     ]
     .iter()
     .chain(items.iter())
