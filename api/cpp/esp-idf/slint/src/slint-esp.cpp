@@ -225,10 +225,9 @@ void EspPlatform::run_event_loop()
                 if (buffer1) {
                     auto region = m_window->m_renderer.render(buffer1.value(),
                                                               rotated ? size.height : size.width);
-                    auto o = region.bounding_box_origin();
-                    auto s = region.bounding_box_size();
-                    if (s.width > 0 && s.height > 0) {
-                        if (buffer2) {
+                    if (buffer2) {
+                        auto s = region.bounding_box_size();
+                        if (s.width > 0 && s.height > 0) {
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
                             xSemaphoreGive(sem_gui_ready);
                             xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
@@ -241,7 +240,9 @@ void EspPlatform::run_event_loop()
                                                       buffer1->data());
 
                             std::swap(buffer1, buffer2);
-                        } else {
+                        }
+                    } else {
+                        for (auto [o, s] : region.rectangles()) {
                             for (int y = o.y; y < o.y + s.height; y++) {
                                 for (int x = o.x; x < o.x + s.width; x++) {
                                     // Swap endianess to big endian

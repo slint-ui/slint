@@ -198,6 +198,15 @@ pub mod ffi {
         y: f32,
     }
 
+    /// Expand Box2D so that cbindgen can see it.
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct Box2D<T, U> {
+        min: euclid::Point2D<T>,
+        max: euclid::Point2D<T>,
+        _unit: std::marker::PhantomData<U>,
+    }
+
     #[cfg(feature = "std")]
     pub use super::path::ffi::*;
 

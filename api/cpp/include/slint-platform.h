@@ -8,6 +8,7 @@
 #include <cassert>
 #include <cstdint>
 #include <utility>
+#include <ranges>
 
 struct xcb_connection_t;
 struct wl_surface;
@@ -564,18 +565,68 @@ public:
         /// Returns the size of the bounding box of this region.
         PhysicalSize bounding_box_size() const
         {
-            return PhysicalSize({ uint32_t(inner.width), uint32_t(inner.height) });
+            if (inner.count == 0) {
+                return PhysicalSize();
+            }
+            auto origin = bounding_box_origin();
+            PhysicalSize size({ .width = uint32_t(inner.rectangles[0].max.x - origin.x),
+                                .height = uint32_t(inner.rectangles[0].max.y - origin.y) });
+            for (size_t i = 1; i < inner.count; ++i) {
+                size.width = std::max(size.width, uint32_t(inner.rectangles[i].max.x - origin.x));
+                size.height = std::max(size.height, uint32_t(inner.rectangles[i].max.y - origin.y));
+            }
+            return size;
         }
         /// Returns the origin of the bounding box of this region.
         PhysicalPosition bounding_box_origin() const
         {
-            return PhysicalPosition({ inner.x, inner.y });
+            if (inner.count == 0) {
+                return PhysicalPosition();
+            }
+            PhysicalPosition origin(
+                    { .x = inner.rectangles[0].min.x, .y = inner.rectangles[0].min.y });
+            for (size_t i = 1; i < inner.count; ++i) {
+                origin.x = std::min<int>(origin.x, inner.rectangles[i].min.x);
+                origin.y = std::min<int>(origin.y, inner.rectangles[i].min.y);
+            }
+            return origin;
         }
 
+        /// Returns a view on all the rectangles in this region.
+        /// The returned type is a C++ view over PhysicalRegion::Rect structs.
+        ///
+        /// It can be used like so:
+        /// ```cpp
+        /// for (auto [origin, size] : region.rectangles()) {
+        ///     // Do something with the rect
+        /// }
+        /// ```
+        auto rectangles() const
+        {
+            return std::views::counted(inner.rectangles, inner.count)
+                    | std::views::transform([](const auto &box) {
+                          return Rect {
+                              .origin = PhysicalPosition({ .x = box.min.x, .y = box.min.y }),
+                              .size = PhysicalSize({ .width = uint32_t(box.max.x - box.min.x),
+                                                     .height = uint32_t(box.max.y - box.min.y) })
+                          };
+                      });
+        }
+
+        /// A Rectangle defined with an origin and a size.
+        /// The PhysicalRegion::rectangles() function returns a view over them
+        struct Rect
+        {
+            /// The origin of the rectangle.
+            PhysicalPosition origin;
+            /// The size of the rectangle.
+            PhysicalSize size;
+        };
+
     private:
-        cbindgen_private::types::IntRect inner;
+        cbindgen_private::PhysicalRegion inner;
         friend class SoftwareRenderer;
-        PhysicalRegion(cbindgen_private::types::IntRect inner) : inner(inner) { }
+        PhysicalRegion(cbindgen_private::PhysicalRegion inner) : inner(std::move(inner)) { }
     };
 
     /// This enum describes which parts of the buffer passed to the SoftwareRenderer may be
