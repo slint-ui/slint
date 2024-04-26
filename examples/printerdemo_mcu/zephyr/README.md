@@ -19,6 +19,9 @@ Before you can run this example, make sure you have the following:
 
 Once you have the prerequisites, navigate to this directory and execute the following comands:
 
+    # Activate the Zephyr virtualenv
+    source <path/to>/zephyrproject/.venv/bin/activate
+
     # CMake only:
     cmake -GNinja -S . -B ./build -DBOARD=native_sim/native/64
     cmake --build ./build -t run
