@@ -57,6 +57,16 @@
         "embeddedLanguages": {
           "source.slint": "slint"
         }
+      },
+      {
+        "scopeName": "markdown.slint.codeblock",
+        "path": "./slint.markdown-injection.json",
+        "injectTo": [
+          "text.html.markdown"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.slint": "slint"
+        }
       }
     ],
     "commands": [
