@@ -29,7 +29,7 @@ export component Button {
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-label: root.text;
-    accessible-action-default => { clicked(); }
+    accessible-action-default => { state-layer.clicked(); }
 
     states [
         disabled when !root.enabled : {
