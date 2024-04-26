@@ -102,7 +102,7 @@ export component App {
 #         }
 #     }
 # }
-# 
+#
 # export component App {
 #     callback submit <=> form.submit;
 #     // ...
@@ -127,8 +127,8 @@ fn test_basic_user_interface()
     let buttons: Vec<_> = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&app, "Submit").collect();
     assert_eq!(buttons.len(), 1);
     let button = &buttons[0];
-    
-    button.invoke_default_action();
+
+    button.invoke_accessible_default_action();
 
     assert!(*submitted.borrow());
 }
