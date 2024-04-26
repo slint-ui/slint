@@ -25,7 +25,7 @@ SCENARIO("Basic TEST")
                                                                       "Add New Entry");
     REQUIRE(results.size() == 1);
     auto button = results[0];
-    button.invoke_default_action();
+    button.invoke_accessible_default_action();
 
     REQUIRE(state.todo_model->row_count() == 2);
     REQUIRE(state.todo_model->row_data(0).value() == TodoItem { "first", true });

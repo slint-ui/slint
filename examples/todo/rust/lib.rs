@@ -184,7 +184,7 @@ fn press_add_adds_one_todo() {
     let button = ElementHandle::find_by_accessible_label(&state.main_window, "Add New Entry")
         .next()
         .unwrap();
-    button.invoke_default_action();
+    button.invoke_accessible_default_action();
 
     assert_eq!(state.todo_model.row_count(), 2);
     assert_eq!(

@@ -73,6 +73,37 @@ public:
         return std::nullopt;
     }
 
+    /// Returns the accessible-description of that element, if any.
+    std::optional<SharedString> accessible_description() const
+    {
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            SharedString result;
+            if (item->item_tree.vtable()->accessible_string_property(
+                        item->item_tree.borrow(), item->index,
+                        cbindgen_private::AccessibleStringProperty::Description, &result)) {
+                return result;
+            }
+        }
+        return std::nullopt;
+    }
+
+    /// Returns the accessible-checked of that element, if any.
+    std::optional<bool> accessible_checked() const
+    {
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            SharedString result;
+            if (item->item_tree.vtable()->accessible_string_property(
+                        item->item_tree.borrow(), item->index,
+                        cbindgen_private::AccessibleStringProperty::Checked, &result)) {
+                if (result == "true")
+                    return true;
+                else if (result == "false")
+                    return false;
+            }
+        }
+        return std::nullopt;
+    }
+
     /// Sets the accessible-value of that element.
     ///
     /// Setting the value will invoke the `accessible-action-set-value` callback.
@@ -97,7 +128,7 @@ public:
 
     /// Invokes the default accessibility action of that element
     /// (`accessible-action-default`).
-    void invoke_default_action() const
+    void invoke_accessible_default_action() const
     {
         if (auto item = private_api::upgrade_item_weak(inner)) {
             union DefaultActionHelper {

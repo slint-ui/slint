@@ -75,7 +75,7 @@ impl ElementHandle {
     ///     accessible-action-default => { self.clicked(); }
     /// }
     /// ```
-    pub fn invoke_default_action(&self) {
+    pub fn invoke_accessible_default_action(&self) {
         if let Some(item) = self.0.upgrade() {
             item.accessible_action(&AccessibilityAction::Default)
         }
@@ -101,6 +101,21 @@ impl ElementHandle {
         self.0
             .upgrade()
             .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Label))
+    }
+
+    /// Returns the value of the `accessible-description` property, if present
+    pub fn accessible_description(&self) -> Option<SharedString> {
+        self.0
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Description))
+    }
+
+    /// Returns the value of the `accessible-checked` property, if present
+    pub fn accessible_checked(&self) -> Option<bool> {
+        self.0
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Checked))
+            .and_then(|item| item.parse().ok())
     }
 
     /// Returns the size of the element in logical pixels. This corresponds to the value of the `width` and
