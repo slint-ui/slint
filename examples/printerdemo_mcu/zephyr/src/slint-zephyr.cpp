@@ -177,6 +177,7 @@ void ZephyrWindowAdapter::maybe_redraw()
     auto region = m_renderer.render(m_buffer, rotated ? m_size.height : m_size.width);
     auto o = region.bounding_box_origin();
     auto s = region.bounding_box_size();
+    LOG_DBG("Rendering x: %d y: %d w: %d h: %d", o.x, o.y, s.width, s.height);
     if (s.width > 0 && s.height > 0) {
         for (int y = o.y; y < o.y + s.height; y++) {
             for (int x = o.x; x < o.x + s.width; x++) {
@@ -185,9 +186,15 @@ void ZephyrWindowAdapter::maybe_redraw()
                 *px = (*px << 8) | (*px >> 8);
             }
         }
+
         m_buffer_descriptor.width = s.width;
         m_buffer_descriptor.height = s.height;
-        display_write(m_display, o.x, o.y, &m_buffer_descriptor, m_buffer.data());
+
+        if (const auto ret = display_write(m_display, o.x, o.y, &m_buffer_descriptor,
+                                           m_buffer.data() + ((o.y * m_size.width) + o.x))
+                    != 0) {
+            LOG_WRN("display_write returned non-zero: %d", ret);
+        }
     }
     display_blanking_off(m_display);
 }
