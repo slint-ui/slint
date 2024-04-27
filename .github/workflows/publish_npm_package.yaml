@@ -59,10 +59,10 @@ jobs:
                     - os: ubuntu-20.04
                       rust-target: x86_64-unknown-linux-gnu
                       napi-rs-target: linux-x64-gnu
-                    - os: macos-latest
+                    - os: macos-12
                       rust-target: x86_64-apple-darwin
                       napi-rs-target: darwin-x64
-                    - os: macos-latest
+                    - os: macos-14
                       rust-target: aarch64-apple-darwin
                       napi-rs-target: darwin-arm64
                     - os: windows-2022
