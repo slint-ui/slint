@@ -24,6 +24,7 @@ use lsp_types::notification::{
 use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, Url};
 
 use clap::{Args, Parser, Subcommand};
+use itertools::Itertools;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -36,13 +37,13 @@ use std::task::{Poll, Waker};
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
-    #[arg(
-        short = 'I',
-        name = "Add include paths for the import statements",
-        number_of_values = 1,
-        action
-    )]
+    /// Add include paths for the import statements
+    #[arg(short = 'I', name = "/path/to/import", number_of_values = 1, action)]
     include_paths: Vec<std::path::PathBuf>,
+
+    /// Specify library location of the '@library' in the form 'library=/path/to/library'
+    #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
+    library_paths: Vec<String>,
 
     /// The style name for the preview ('native' or 'fluent')
     #[arg(long, name = "style name", default_value_t, action)]
@@ -280,6 +281,11 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     compiler_config.style =
         Some(if cli_args.style.is_empty() { "native".into() } else { cli_args.style });
     compiler_config.include_paths = cli_args.include_paths;
+    compiler_config.library_paths = cli_args
+        .library_paths
+        .iter()
+        .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
+        .collect();
     let server_notifier_ = server_notifier.clone();
     compiler_config.open_import_fallback = Some(Rc::new(move |path| {
         let server_notifier = server_notifier_.clone();
