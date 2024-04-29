@@ -258,16 +258,19 @@ void ZephyrPlatform::run_event_loop()
             continue;
         }
 
+        auto wait_time = max_wait_time;
+
         if (m_window) {
             m_window->maybe_redraw();
 
             if (m_window->window().has_active_animations()) {
-                LOG_DBG("Animating");
-                continue;
+                LOG_DBG("Has active animations");
+                // TODO: Don't hardcode this time period, but also don't block the main thread with
+                // eternal rendering updates.
+                wait_time = 10ms;
             }
         }
 
-        auto wait_time = max_wait_time;
         if (auto next_timer_update = slint::platform::duration_until_next_timer_update()) {
             wait_time = std::min(wait_time, next_timer_update.value());
         }
