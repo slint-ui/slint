@@ -92,6 +92,13 @@ pub async fn run_passes(
             diag,
         );
         lower_tabwidget::lower_tabwidget(component, type_loader, diag).await;
+    }
+
+    collect_subcomponents::collect_subcomponents(root_component);
+
+    for component in (root_component.used_types.borrow().sub_components.iter())
+        .chain(std::iter::once(root_component))
+    {
         apply_default_properties_from_style::apply_default_properties_from_style(
             component,
             &style_metrics,
@@ -99,6 +106,9 @@ pub async fn run_passes(
         );
         lower_states::lower_states(component, &doc.local_registry, diag);
         lower_text_input_interface::lower_text_input_interface(component);
+        repeater_component::process_repeater_components(component);
+        lower_popups::lower_popups(component, &doc.local_registry, diag);
+        collect_init_code::collect_init_code(component);
     }
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents);
@@ -113,8 +123,6 @@ pub async fn run_passes(
     {
         border_radius::handle_border_radius(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
-        repeater_component::process_repeater_components(component);
-        lower_popups::lower_popups(component, &doc.local_registry, diag);
         lower_component_container::lower_component_container(component, &doc.local_registry, diag);
 
         lower_layout::lower_layouts(component, type_loader, diag).await;
@@ -169,7 +177,6 @@ pub async fn run_passes(
         if type_loader.compiler_config.accessibility {
             lower_accessibility::lower_accessibility_properties(component, diag);
         }
-        collect_init_code::collect_init_code(component);
         materialize_fake_properties::materialize_fake_properties(component);
     }
     lower_layout::check_window_layout(root_component);
