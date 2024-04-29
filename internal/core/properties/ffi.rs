@@ -219,6 +219,17 @@ pub unsafe extern "C" fn slint_property_set_animated_value_color(
     c_set_animated_value(handle, from, to, animation_data);
 }
 
+/// Internal function to set up a property animation to the specified target value for a brush property.
+#[no_mangle]
+pub unsafe extern "C" fn slint_property_set_animated_value_brush(
+    handle: &PropertyHandleOpaque,
+    from: &Brush,
+    to: &Brush,
+    animation_data: &PropertyAnimation,
+) {
+    c_set_animated_value(handle, from.clone(), to.clone(), animation_data);
+}
+
 unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
     handle: &PropertyHandleOpaque,
     binding: extern "C" fn(*mut c_void, *mut T),

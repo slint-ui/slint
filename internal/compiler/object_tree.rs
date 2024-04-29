@@ -686,6 +686,7 @@ pub fn pretty_print(
         expression_tree::pretty_print(f, &repeated.model)?;
         write!(f, ":")?;
         if let ElementType::Component(base) = &e.base_type {
+            write!(f, "(base) ")?;
             if base.parent_element.upgrade().is_some() {
                 pretty_print(f, &base.root_element.borrow(), indentation)?;
                 return Ok(());

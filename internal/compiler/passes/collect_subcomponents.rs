@@ -37,6 +37,13 @@ fn collect_subcomponents_recursive(
             _ => return,
         };
         collect_subcomponents_recursive(&base_comp, result, hash);
+        if base_comp.parent_element.upgrade().is_some() {
+            // This is not a sub-component, but is a repeated component
+            return;
+        }
         result.push(base_comp);
     });
+    for popup in component.popup_windows.borrow().iter() {
+        collect_subcomponents_recursive(&popup.component, result, hash);
+    }
 }
