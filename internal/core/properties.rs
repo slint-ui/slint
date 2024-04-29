@@ -1277,6 +1277,7 @@ fn property_two_ways_binding_of_two_two_way_bindings() {
     assert_eq!(p2_2.as_ref().get(), 9);
 }
 
+mod change_tracker;
 mod properties_animations;
 pub use crate::items::StateInfo;
 pub use properties_animations::*;
