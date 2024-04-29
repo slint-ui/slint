@@ -157,7 +157,7 @@ private:
     using Tag = cbindgen_private::types::Brush::Tag;
     using Inner = cbindgen_private::types::Brush;
     Inner data;
-    friend class private_api::Property<Brush>;
+    friend struct private_api::Property<Brush>;
 };
 
 Color Brush::color() const
