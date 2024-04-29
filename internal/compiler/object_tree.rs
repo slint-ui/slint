@@ -383,7 +383,12 @@ impl Component {
         let c = Rc::new(c);
         let weak = Rc::downgrade(&c);
         recurse_elem(&c.root_element, &(), &mut |e, _| {
-            e.borrow_mut().enclosing_component = weak.clone()
+            e.borrow_mut().enclosing_component = weak.clone();
+            if let Some(ref mut qualified_id) =
+                e.borrow_mut().debug.first_mut().unwrap().qualified_id
+            {
+                *qualified_id = format!("{}::{}", c.id, qualified_id);
+            }
         });
         c
     }
@@ -589,6 +594,16 @@ impl GeometryProps {
 
 pub type BindingsMap = BTreeMap<String, RefCell<BindingExpression>>;
 
+#[derive(Clone)]
+pub struct ElementDebugInfo {
+    // The id qualified with the enclosing component name. Given `foo := Bar {}` this is `EnclosingComponent::foo`
+    pub qualified_id: Option<String>,
+    pub node: syntax_nodes::Element,
+    // Field to indicate wether this element was a layout that had
+    // been lowered into a rectangle in the lower_layouts pass.
+    pub layout: Option<crate::layout::Layout>,
+}
+
 /// An Element is an instantiation of a Component
 #[derive(Default)]
 pub struct Element {
@@ -656,21 +671,19 @@ pub struct Element {
 
     /// Debug information about this element.
     ///
-    /// Contains the AST node if available, as well as wether this element was a layout that had
-    /// been lowered into a rectangle in the lower_layouts pass.
     /// There can be several in case of inlining or optimization (child merged into their parent).
     ///
     /// The order in the list is first the parent, and then the removed children.
-    pub debug: Vec<(syntax_nodes::Element, Option<crate::layout::Layout>)>,
+    pub debug: Vec<ElementDebugInfo>,
 }
 
 impl Spanned for Element {
     fn span(&self) -> crate::diagnostics::Span {
-        self.debug.first().map(|n| n.0.span()).unwrap_or_default()
+        self.debug.first().map(|n| n.node.span()).unwrap_or_default()
     }
 
     fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
-        self.debug.first().map(|n| &n.0.source_file)
+        self.debug.first().map(|n| &n.node.source_file)
     }
 }
 
@@ -910,10 +923,12 @@ impl Element {
         } else {
             tr.empty_type()
         };
+        // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
+        let qualified_id = (!id.is_empty()).then(|| id.clone());
         let mut r = Element {
             id,
             base_type,
-            debug: vec![(node.clone(), None)],
+            debug: vec![ElementDebugInfo { qualified_id, node: node.clone(), layout: None }],
             is_legacy_syntax,
             ..Default::default()
         };
@@ -1690,7 +1705,7 @@ impl Element {
     pub fn original_name(&self) -> String {
         self.debug
             .first()
-            .and_then(|n| n.0.child_token(parser::SyntaxKind::Identifier))
+            .and_then(|n| n.node.child_token(parser::SyntaxKind::Identifier))
             .map(|n| n.to_string())
             .unwrap_or_else(|| self.id.clone())
     }
@@ -1747,6 +1762,10 @@ impl Element {
         } else {
             None
         }
+    }
+
+    pub fn element_infos(&self) -> Vec<String> {
+        self.debug.iter().flat_map(|debug_info| debug_info.qualified_id.clone()).collect()
     }
 }
 
@@ -2201,7 +2220,7 @@ pub fn visit_all_named_references_in_element(
     elem.borrow_mut().layout_info_prop = layout_info_prop;
     let mut debug = std::mem::take(&mut elem.borrow_mut().debug);
     for d in debug.iter_mut() {
-        d.1.as_mut().map(|l| l.visit_named_references(&mut vis));
+        d.layout.as_mut().map(|l| l.visit_named_references(&mut vis));
     }
     elem.borrow_mut().debug = debug;
 

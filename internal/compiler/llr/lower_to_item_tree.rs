@@ -201,6 +201,7 @@ fn lower_sub_component(
         layout_info_h: super::Expression::BoolLiteral(false).into(),
         layout_info_v: super::Expression::BoolLiteral(false).into(),
         accessible_prop: Default::default(),
+        element_ids: Default::default(),
         prop_analysis: Default::default(),
     };
     let mut mapping = LoweredSubComponentMapping::default();
@@ -323,6 +324,10 @@ fn lower_sub_component(
 
         for (prop, expr) in &elem.change_callbacks {
             change_callbacks.push((NamedReference::new(element, prop), expr.borrow().clone()));
+        }
+        let element_infos = elem.element_infos();
+        if !element_infos.is_empty() {
+            sub_component.element_ids.insert(*elem.item_index.get().unwrap(), element_infos);
         }
 
         Some(element.clone())

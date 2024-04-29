@@ -253,6 +253,9 @@ pub struct SubComponent {
     /// Maps (item_index, property) to an expression
     pub accessible_prop: BTreeMap<(u32, String), MutExpression>,
 
+    /// Maps item index to a list of qualified ids of the element.
+    pub element_ids: BTreeMap<u32, Vec<String>>,
+
     pub prop_analysis: HashMap<PropertyReference, PropAnalysis>,
 }
 
@@ -280,6 +283,17 @@ impl SubComponent {
             count += x.ty.child_item_count();
         }
         count
+    }
+
+    pub fn root_item_element_ids(&self) -> Vec<String> {
+        let mut result = Vec::new();
+        if let Some(root_item_ids) = self.element_ids.get(&0) {
+            result.extend_from_slice(root_item_ids);
+        }
+        if let Some(sub_compo) = self.sub_components.iter().find(|c| c.index_in_tree == 0) {
+            result.extend_from_slice(&sub_compo.ty.root_item_element_ids());
+        }
+        result
     }
 }
 

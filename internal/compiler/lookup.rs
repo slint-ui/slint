@@ -504,7 +504,7 @@ impl LookupType {
                                 .borrow()
                                 .debug
                                 .get(0)
-                                .and_then(|x| x.0.source_file())
+                                .and_then(|x| x.node.source_file())
                                 .map_or(false, |x| x.path().starts_with("builtin:")))
                         .then(|| "Palette".to_string()),
                     })

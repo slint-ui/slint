@@ -58,6 +58,19 @@ impl ElementHandle {
         result.into_iter().map(ElementHandle)
     }
 
+    /// This function searches through the entire tree of elements of `component`, looks for
+    /// elements by their name.
+    pub fn find_by_element_id(
+        component: &impl i_slint_core::api::ComponentHandle,
+        id: &str,
+    ) -> impl Iterator<Item = Self> {
+        // dirty way to get the ItemTreeRc:
+        let item_tree = WindowInner::from_pub(component.window()).component();
+        let result =
+            search_item(&item_tree, |item| item.element_ids().iter().find(|&i| *i == id).is_some());
+        result.into_iter().map(|x| ElementHandle(x))
+    }
+
     /// Invokes the default accessible action on the element. For example a `MyButton` element might declare
     /// an accessible default action that simulates a click, as in the following example:
     ///

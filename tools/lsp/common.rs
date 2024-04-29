@@ -149,7 +149,7 @@ impl ElementRcNode {
     /// Run with the SyntaxNode incl. any id, condition, etc.
     pub fn with_decorated_node<R>(&self, func: impl Fn(SyntaxNode) -> R) -> R {
         let elem = self.element.borrow();
-        func(find_element_with_decoration(&elem.debug.get(self.debug_index).unwrap().0))
+        func(find_element_with_decoration(&elem.debug.get(self.debug_index).unwrap().node))
     }
 
     pub fn path_and_offset(&self) -> (PathBuf, u32) {

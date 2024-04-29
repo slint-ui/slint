@@ -14,6 +14,8 @@ use crate::lengths::{LogicalPoint, LogicalRect};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use crate::SharedString;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use core::pin::Pin;
 use vtable::*;
 
@@ -127,6 +129,10 @@ pub struct ItemTreeVTable {
         core::pin::Pin<VRef<ItemTreeVTable>>,
         item_index: u32,
     ) -> SupportedAccessibilityAction,
+
+    /// Add the `ElementName::id` entries of the given item
+    pub item_element_ids:
+        extern "C" fn(core::pin::Pin<VRef<ItemTreeVTable>>, item_index: u32) -> SharedString,
 
     /// Returns a Window, creating a fresh one if `do_create` is true.
     pub window_adapter: extern "C" fn(
@@ -358,6 +364,17 @@ impl ItemRc {
     pub fn supported_accessibility_actions(&self) -> SupportedAccessibilityAction {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         comp_ref_pin.as_ref().supported_accessibility_actions(self.index)
+    }
+
+    pub fn element_ids(&self) -> Vec<String> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        comp_ref_pin
+            .as_ref()
+            .item_element_ids(self.index)
+            .as_str()
+            .split(";")
+            .map(ToString::to_string)
+            .collect()
     }
 
     pub fn geometry(&self) -> LogicalRect {
@@ -1150,6 +1167,10 @@ mod tests {
             _: &mut SharedString,
         ) -> bool {
             false
+        }
+
+        fn item_element_ids(self: Pin<&Self>, _: u32) -> SharedString {
+            Default::default()
         }
 
         fn window_adapter(
