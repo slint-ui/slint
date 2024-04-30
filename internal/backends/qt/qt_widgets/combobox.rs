@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use i_slint_core::input::FocusEventResult;
 
@@ -10,6 +10,7 @@ use super::*;
 #[pin]
 pub struct NativeComboBox {
     pub enabled: Property<bool>,
+    pub has_focus: Property<bool>,
     pub pressed: Property<bool>,
     pub has_hover: Property<bool>,
     pub is_open: Property<bool>,
@@ -94,6 +95,7 @@ impl Item for NativeComboBox {
         let text: qttypes::QString =
             this.current_value().as_str().into();
         let enabled = this.enabled();
+        let has_focus = this.has_focus();
         let has_hover = this.has_hover();
         cpp!(unsafe [
             painter as "QPainterPtr*",
@@ -103,6 +105,7 @@ impl Item for NativeComboBox {
             size as "QSize",
             down as "bool",
             is_open as "bool",
+            has_focus as "bool",
             has_hover as "bool",
             dpr as "float",
             initial_state as "int"
@@ -121,6 +124,9 @@ impl Item for NativeComboBox {
                 option.state |= QStyle::State_Enabled;
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
+            }
+            if (has_focus) {
+                option.state |= QStyle::State_HasFocus | QStyle::State_KeyboardFocusChange | QStyle::State_Item;
             }
             if (has_hover) {
                 option.state |= QStyle::State_MouseOver;

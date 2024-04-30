@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 //! Pass that lowers synthetic `accessible-*` properties
 
@@ -39,8 +39,7 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
                 None => elem.borrow().is_binding_set("accessible-role", false),
             };
 
-            for prop_name in crate::typeregister::RESERVED_ACCESSIBILITY_PROPERTIES
-                .iter()
+            for prop_name in crate::typeregister::reserved_accessibility_properties()
                 .map(|x| x.0)
                 .chain(std::iter::once("accessible-role"))
             {

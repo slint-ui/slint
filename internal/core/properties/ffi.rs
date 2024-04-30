@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use super::*;
 use crate::graphics::{Brush, Color};
@@ -217,6 +217,17 @@ pub unsafe extern "C" fn slint_property_set_animated_value_color(
     animation_data: &PropertyAnimation,
 ) {
     c_set_animated_value(handle, from, to, animation_data);
+}
+
+/// Internal function to set up a property animation to the specified target value for a brush property.
+#[no_mangle]
+pub unsafe extern "C" fn slint_property_set_animated_value_brush(
+    handle: &PropertyHandleOpaque,
+    from: &Brush,
+    to: &Brush,
+    animation_data: &PropertyAnimation,
+) {
+    c_set_animated_value(handle, from.clone(), to.clone(), animation_data);
 }
 
 unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(

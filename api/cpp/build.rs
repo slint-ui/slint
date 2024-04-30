@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use crate::cbindgen::EnabledFeatures;
 use std::path::Path;
@@ -14,6 +14,7 @@ fn main() -> Result<(), anyhow::Error> {
         manifest_dir.to_string_lossy()
     ));
 
+    println!("cargo:rerun-if-env-changed=SLINT_GENERATED_INCLUDE_DIR");
     let output_dir = std::env::var_os("SLINT_GENERATED_INCLUDE_DIR").unwrap_or_else(|| {
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated_include").into()
     });

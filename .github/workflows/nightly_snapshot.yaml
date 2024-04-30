@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 # Build various demo binaries, c++ packages and documentation and publish them on the website
 name: Nightly snapshot
@@ -111,7 +111,7 @@ jobs:
     build_vscode_lsp_macos_x86_64:
         env:
             SLINT_NO_QT: 1
-        runs-on: macos-latest
+        runs-on: macos-12
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/setup-rust
@@ -459,7 +459,7 @@ jobs:
             - name: Extract files
               run: |
                   mkdir artifacts
-                  mv Slint-cpp-*-win64.exe artifacts/
+                  mv Slint-cpp-*-win64*.exe artifacts/
                   mv Slint-cpp-*-Linux-x86_64.tar.gz artifacts/
                   mv slint-viewer-linux.tar.gz artifacts/
                   mv slint-viewer-macos.tar.gz artifacts/
@@ -468,7 +468,7 @@ jobs:
             - name: Extract Version
               id: version
               run: |
-                  version=$(echo artifacts/Slint-cpp-*-win64.exe | sed -nre 's/^.*-([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')
+                  version=$(echo artifacts/Slint-cpp-*-win64-MSVC.exe | sed -nre 's/^.*-([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')
                   if [[ -z "$version" ]]; then
                     echo "Version not found"
                     exit 1

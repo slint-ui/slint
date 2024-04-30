@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 /*!
 # Slint interpreter library
@@ -40,7 +40,7 @@ if let Some(definition) = definition {
 This example load a `.slint` from a string and set some properties:
 
 ```rust
-# i_slint_backend_testing::init();
+# i_slint_backend_testing::init_no_event_loop();
 use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
 
 let code = r#"

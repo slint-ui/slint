@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 [package]
 name = "i-slint-compiler"
@@ -55,7 +55,7 @@ url = "2.2.1"
 linked_hash_set = "0.1.4"
 
 # for processing and embedding the rendered image (texture)
-image = { version = "0.24", optional = true }
+image = { workspace = true, optional = true, features = ["default"] }
 resvg = { workspace = true, optional = true }
 # font embedding
 fontdue = { workspace = true, optional = true }

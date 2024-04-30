@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 #![cfg(target_has_atomic = "ptr")] // Arc is not available. TODO: implement using RawWarker
 #![warn(missing_docs)]
@@ -157,7 +157,7 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 /// in the future passed to slint::spawn_local.
 ///
 /// ```rust
-/// # i_slint_backend_testing::init_with_event_loop();
+/// # i_slint_backend_testing::init_integration_test();
 /// // In your main function, create a runtime that runs on the other threads
 /// let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
 ///

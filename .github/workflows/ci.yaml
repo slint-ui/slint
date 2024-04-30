@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 name: CI
 
@@ -43,6 +43,9 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install-linux-dependencies
+            - uses: actions/setup-python@v5
+              with:
+                python-version: '3.10'
             - name: Install Qt
               if: runner.os != 'Windows'
               uses: jurplel/install-qt-action@v3
@@ -70,12 +73,12 @@ jobs:
                     cargo update -p clap --precise 4.4.18
                   fi
             - name: Run tests (not qt)
-              run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp -- --skip=_qt::t
+              run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python -- --skip=_qt::t
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
-              run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --bin test-driver-rust -- _qt --test-threads=1
+              run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --bin test-driver-rust -- _qt --test-threads=1
               shell: bash
             - name: Archive screenshots after failed tests
               if: ${{ failure() }}
@@ -120,7 +123,7 @@ jobs:
               working-directory: ./api/node
               run: npm install --ignore-scripts
             - name: Build node plugin in debug
-              run: npm run build:debug
+              run: npm run build:testing
               working-directory: ./api/node
             - name: Run node tests
               working-directory: ./api/node
@@ -198,8 +201,6 @@ jobs:
                   echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
                   echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             - uses: ./.github/actions/setup-rust
-            - name: Build
-              run: cargo build --lib -p slint-cpp --features testing,backend-qt
             - name: Run tests
               run: cargo test --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
 
@@ -295,7 +296,7 @@ jobs:
     mcu:
         env:
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
-            RUSTFLAGS: --cfg slint_int_coord
+            RUSTFLAGS: --cfg slint_int_coord -D warnings
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
         runs-on: ubuntu-22.04
@@ -315,6 +316,8 @@ jobs:
               run: cargo check --target=${{matrix.target}} -p printerdemo_mcu --no-default-features --features=mcu-board-support/${{matrix.feature}} --release
 
     mcu_esp:
+        env:
+            RUSTFLAGS: -D warnings
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use i_slint_core::{graphics::GradientStop, Brush, Color};
 use napi::{bindgen_prelude::External, Error, Result};
@@ -142,8 +142,9 @@ impl SlintRgbaColor {
         SlintRgbaColor::from(self.inner.transparentize(amount as f32))
     }
 
-    /// Returns a new color that is a mix of `self` and `other`, with a proportion
-    /// factor given by `factor` (which will be clamped to be between `0.0` and `1.0`).
+    /// Returns a new color that is a mix of `this` color and `other`. The specified factor is
+    /// clamped to be between `0.0` and `1.0` and then applied to `this` color, while `1.0 - factor`
+    ///is applied to `other`.
     #[napi]
     pub fn mix(&self, other: &SlintRgbaColor, factor: f64) -> SlintRgbaColor {
         SlintRgbaColor::from(self.inner.mix(&other.inner, factor as f32))

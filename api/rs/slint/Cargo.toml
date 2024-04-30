@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 [package]
 name = "slint"
@@ -193,7 +193,7 @@ i-slint-backend-android-activity = { workspace = true, optional = true }
 
 [dev-dependencies]
 slint-build = { path = "../build" }
-i-slint-backend-testing = { path = "../../../internal/backends/testing" }
+i-slint-backend-testing = { path = "../../../internal/backends/testing", features = ["internal"] }
 serde_json = "1.0.96"
 serde = { version = "1.0.163", features = ["derive"] }
 

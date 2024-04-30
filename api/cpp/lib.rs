@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 /*! This crate just expose the function used by the C++ integration */
 
@@ -24,8 +24,10 @@ pub fn with_platform<R>(
     i_slint_core::with_platform(|| Err(i_slint_core::platform::PlatformError::NoPlatform), f)
 }
 
-/// One need to make sure something from the crate is exported,
-/// otherwise its symbols are not going to be in the final binary
+// One need to make sure something from the crate is exported,
+// otherwise its symbols are not going to be in the final binary
+#[cfg(feature = "testing")]
+pub use i_slint_backend_testing;
 #[cfg(feature = "slint-interpreter")]
 pub use slint_interpreter;
 
@@ -136,12 +138,6 @@ pub unsafe extern "C" fn slint_register_bitmap_font(
 ) {
     let window_adapter = &*(win as *const Rc<dyn WindowAdapter>);
     window_adapter.renderer().register_bitmap_font(font_data);
-}
-
-#[cfg(feature = "testing")]
-#[no_mangle]
-pub unsafe extern "C" fn slint_testing_init_backend() {
-    i_slint_backend_testing::init();
 }
 
 #[cfg(not(feature = "std"))]

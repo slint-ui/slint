@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 #pragma once
 
@@ -113,6 +113,16 @@ inline vtable::Layout drop_in_place(ItemTreeRef item_tree)
 #        define SLINT_GET_ITEM_VTABLE(VTableName) (&slint::private_api::VTableName)
 #    endif
 #endif // !defined(DOXYGEN)
+
+inline std::optional<cbindgen_private::ItemRc>
+upgrade_item_weak(const cbindgen_private::ItemWeak &item_weak)
+{
+    if (auto item_tree_strong = item_weak.item_tree.lock()) {
+        return { { *item_tree_strong, item_weak.index } };
+    } else {
+        return std::nullopt;
+    }
+}
 
 } // namespace private_api
 
@@ -1257,6 +1267,27 @@ inline SharedString translate(const SharedString &original, const SharedString &
 }
 
 } // namespace private_api
+
+#ifdef SLINT_FEATURE_GETTEXT
+/// Forces all the strings that are translated with `@tr(...)` to be re-evaluated.
+/// This is useful if the language is changed at runtime.
+/// The function is only available when Slint is compiled with `SLINT_FEATURE_GETTEXT`.
+///
+/// Example
+/// ```cpp
+///     my_ui->global<LanguageSettings>().on_french_selected([] {
+///        // trick from https://www.gnu.org/software/gettext/manual/html_node/gettext-grok.html
+///        setenv("LANGUAGE", langs[l], true);
+///        extern int _nl_msg_cat_cntr;
+///        ++_nl_msg_cat_cntr;
+///        slint::update_all_translations();
+///    });
+/// ```
+inline void update_all_translations()
+{
+    cbindgen_private::slint_translations_mark_dirty();
+}
+#endif
 
 #if !defined(DOXYGEN)
 cbindgen_private::Flickable::Flickable()

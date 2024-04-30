@@ -1,0 +1,141 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+import { ComboBox, Button } from "std-widgets.slint";
+export component TestCase inherits Window {
+
+    in-out property <string> clicked;
+    in-out property <bool> a-checked <=> a.checked;
+    out property <bool> a-focused <=> a.has-focus;
+    public function focus-a() { a.focus(); }
+
+
+    HorizontalLayout {
+        alignment: start;
+        a := Button {
+            checkable: true;
+            text: "Aaa";
+            accessible-description: "Checkable Button";
+            clicked => {clicked += "a"; }
+        }
+
+        Button {
+            text: "Bbb";
+            accessible-description: "Normal Button";
+            clicked => {clicked += "b"; }
+        }
+
+        Button {
+            text: "Ccc";
+            clicked => {clicked += "c"; }
+        }
+    }
+
+}
+
+
+/*
+```rust
+use slint::{SharedString};
+use slint::platform::Key;
+
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+
+assert_eq!(instance.get_clicked(), SharedString::from(""));
+assert_eq!(instance.get_a_checked(), false);
+
+let mut result = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Aaa").collect::<Vec<_>>();
+assert_eq!(result.len(), 1);
+let aaa = result.pop().unwrap();
+assert_eq!(aaa.accessible_label().unwrap(), "Aaa");
+assert_eq!(aaa.accessible_description().unwrap(), "Checkable Button");
+assert_eq!(aaa.accessible_value(), None);
+assert_eq!(instance.get_a_focused(), false);
+assert_eq!(aaa.accessible_checked(), Some(false));
+aaa.invoke_accessible_default_action();
+assert_eq!(instance.get_clicked(), SharedString::from("a"));
+assert_eq!(instance.get_a_checked(), true, "button Aaa was not checked");
+assert_eq!(aaa.accessible_checked(), Some(true));
+assert_eq!(instance.get_a_focused(), false);
+instance.set_clicked("".into());
+
+instance.invoke_focus_a();
+assert_eq!(instance.get_a_focused(), true);
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+assert_eq!(instance.get_clicked(), SharedString::from("a"));
+assert_eq!(instance.get_a_checked(), false, "button aaa was not toggled on space");
+assert_eq!(aaa.accessible_checked(), Some(false));
+assert_eq!(instance.get_a_focused(), true);
+
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+assert_eq!(instance.get_clicked(), SharedString::from("aa"));
+assert_eq!(instance.get_a_checked(), true, "button aaa was not toggled on enter");
+assert_eq!(aaa.accessible_checked(), Some(true));
+assert_eq!(instance.get_a_focused(), true);
+
+let mut result = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Bbb").collect::<Vec<_>>();
+assert_eq!(result.len(), 1);
+let bbb = result.pop().unwrap();
+assert_eq!(bbb.accessible_label().unwrap(), "Bbb");
+assert_eq!(bbb.accessible_description().unwrap(), "Normal Button");
+assert_eq!(bbb.accessible_value(), None);
+assert_eq!(bbb.accessible_checked(), Some(false));
+let origin = bbb.absolute_position();
+let size = bbb.size();
+slint_testing::send_mouse_click(&instance, origin.x + size.width/2., origin.y + size.height/2.);
+assert_eq!(instance.get_clicked(), SharedString::from("aab"));
+assert_eq!(bbb.accessible_checked(), Some(false));
+
+// a is still focused
+assert_eq!(instance.get_a_focused(), true);
+
+
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+auto label_search = slint::testing::ElementHandle::find_by_accessible_label(handle, "Aaa");
+assert(label_search.size() == 1);
+auto aaa = label_search.front();
+assert_eq(aaa.accessible_label().value(), "Aaa");
+assert_eq(aaa.accessible_description().value(), "Normal Button");
+assert_eq(aaa.accessible_value(), std::nullopt);
+assert_eq(aaa.accessible_checked().value(), false);
+aaa.invoke_accessible_default_action();
+assert_eq(instance.get_clicked(), "a");
+assert_eq(aaa.accessible_checked().value(), true);
+assert_eq(instance.get_a_focused(), false);
+
+instance.set_clicked("");
+
+instance.invoke_focus_a();
+slint_testing::send_keyboard_string_sequence(&instance, " ");
+assert_eq(instance.get_clicked(), "a");
+assert_eq(aaa.accessible_checked().value(), false);
+assert_eq(instance.get_a_focused(), true);
+slint_testing::send_keyboard_string_sequence(&instance, "\n");
+assert_eq(instance.get_clicked(), "aa");
+assert_eq(aaa.accessible_checked().value(), false);
+assert_eq(instance.get_a_focused(), true);
+
+label_search = slint::testing::ElementHandle::find_by_accessible_label(handle, "Bbb");
+assert(label_search.size() == 1);
+auto bbb = label_search.front();
+assert_eq(bbb.accessible_label().value(), "Bbb");
+assert_eq(bbb.accessible_description().value(), "Normal Button");
+assert_eq(bbb.accessible_value(), std::nullopt);
+assert_eq(bbb.accessible_checked().value(), false);
+auto origin = bbb.accessible_origin();
+auto size = bbb.size();
+slint_testing::sebd_mouse_click(&instance, origin.x + size.width / 2, origin.y + size.height / 2);
+assert_eq(instance.get_clicked(), "aab");
+assert_eq(bbb.accessible_checked().value(), false);
+assert_eq(instance.get_a_focused(), true);
+
+```
+
+*/

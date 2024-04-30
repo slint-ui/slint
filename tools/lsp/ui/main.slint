@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 // cSpell: ignore Heade
 
@@ -26,7 +26,9 @@ export component PreviewUi inherits Window {
 
     pure callback can-drop(/* component_type */ string, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
     callback drop(/* component_type */ string, /* x */ length, /* y */ length);
-    callback selected-element-update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
+    callback selected-element-resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
+    callback selected-element-can-move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length) -> bool;
+    callback selected-element-move(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
     callback selected-element-delete();
     callback select-at(/* x */ length, /* y */ length, /* enter_component? */ bool);
     callback select-behind(/* x */ length, /* y */ length, /* enter_component* */ bool, /* reverse */ bool);
@@ -114,7 +116,7 @@ export component PreviewUi inherits Window {
                         }
 
                         states [
-                        visible when !pick-button.checked: {
+                            visible when !pick-button.checked: {
                                 width: 0px;
                             }
                             hidden when pick-button.checked: {
@@ -133,8 +135,14 @@ export component PreviewUi inherits Window {
                         select-at(x, y, enter_component) => {
                             root.select-at(x, y, enter_component);
                         }
-                        selected-element-update-geometry(x, y, w, h) => {
-                            root.selected-element-update-geometry(x, y, w, h);
+                        selected-element-resize(x, y, w, h) => {
+                            root.selected-element-resize(x, y, w, h);
+                        }
+                        selected-element-can-move-to(x, y, mx, my) => {
+                            root.selected-element-can-move-to(x, y, mx, my);
+                        }
+                        selected-element-move(x, y, mx, my) => {
+                            root.selected-element-move(x, y, mx, my);
                         }
                         selected-element-delete() => {
                             root.selected-element-delete();

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use alloc::rc::Rc;
 #[cfg(not(feature = "std"))]
@@ -355,8 +355,10 @@ pub unsafe extern "C" fn slint_platform_task_run(event: PlatformTaskOpaque) {
 mod software_renderer {
     use super::*;
     type SoftwareRendererOpaque = *const c_void;
-    use i_slint_core::graphics::{IntRect, Rgb8Pixel};
-    use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
+    use i_slint_core::graphics::Rgb8Pixel;
+    use i_slint_core::software_renderer::{
+        PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
+    };
 
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_new(
@@ -383,12 +385,10 @@ mod software_renderer {
         buffer: *mut Rgb8Pixel,
         buffer_len: usize,
         pixel_stride: usize,
-    ) -> IntRect {
+    ) -> PhysicalRegion {
         let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
         let renderer = &*(r as *const SoftwareRenderer);
-        let r = renderer.render(buffer, pixel_stride);
-        let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
-        i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
+        renderer.render(buffer, pixel_stride)
     }
 
     #[no_mangle]
@@ -397,12 +397,10 @@ mod software_renderer {
         buffer: *mut u16,
         buffer_len: usize,
         pixel_stride: usize,
-    ) -> IntRect {
+    ) -> PhysicalRegion {
         let buffer = core::slice::from_raw_parts_mut(buffer as *mut Rgb565Pixel, buffer_len);
         let renderer = &*(r as *const SoftwareRenderer);
-        let r = renderer.render(buffer, pixel_stride);
-        let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
-        i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
+        renderer.render(buffer, pixel_stride)
     }
 
     #[cfg(feature = "experimental")]
@@ -418,7 +416,9 @@ mod software_renderer {
             *const core::ffi::c_void,
         ),
         user_data: *mut core::ffi::c_void,
-    ) -> IntRect {
+    ) -> PhysicalRegion {
+        use i_slint_core::software_renderer::PhysicalRegion;
+
         struct Rgb565Processor {
             process_line_fn: extern "C" fn(
                 *mut core::ffi::c_void,
@@ -482,9 +482,7 @@ mod software_renderer {
 
         let processor = Rgb565Processor { process_line_fn, user_data };
 
-        let r = renderer.render_by_line(processor);
-        let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
-        i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
+        renderer.render_by_line(processor)
     }
 
     #[cfg(feature = "experimental")]

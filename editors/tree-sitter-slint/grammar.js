@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 // cSpell: ignore mult prec
 
@@ -95,7 +95,7 @@ module.exports = grammar({
         choice(
           seq($.assignment_block, optional(";")),
           seq($.assignment_expr, optional(";")),
-          $.if_expr,
+          seq($.if_expr, optional(";")),
           $.callback_event,
           $.binding,
           seq($.expression, optional(";")),

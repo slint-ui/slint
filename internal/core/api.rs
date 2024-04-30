@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 /*!
 This module contains types that are public and re-exported in the slint-rs as well as the slint-interpreter crate as public API.
@@ -619,7 +619,7 @@ pub use crate::SharedString;
 /// The following example of `.slint` markup defines a global singleton called `Palette`, exports
 /// it and modifies it from Rust code:
 /// ```rust
-/// # i_slint_backend_testing::init();
+/// # i_slint_backend_testing::init_no_event_loop();
 /// slint::slint!{
 /// export global Palette {
 ///     in property<color> foreground-color;
@@ -800,7 +800,7 @@ mod weak_handle {
         ///
         /// # Example
         /// ```rust
-        /// # i_slint_backend_testing::init();
+        /// # i_slint_backend_testing::init_no_event_loop();
         /// slint::slint! { export component MyApp inherits Window { in property <int> foo; /* ... */ } }
         /// let handle = MyApp::new().unwrap();
         /// let handle_weak = handle.as_weak();
@@ -856,7 +856,7 @@ pub use weak_handle::*;
 /// # Example
 /// ```rust
 /// slint::slint! { export component MyApp inherits Window { in property <int> foo; /* ... */ } }
-/// # i_slint_backend_testing::init();
+/// # i_slint_backend_testing::init_no_event_loop();
 /// let handle = MyApp::new().unwrap();
 /// let handle_weak = handle.as_weak();
 /// # return; // don't run the event loop in examples

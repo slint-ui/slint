@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 #pragma once
 #include <string_view>
@@ -157,6 +157,7 @@ private:
     using Tag = cbindgen_private::types::Brush::Tag;
     using Inner = cbindgen_private::types::Brush;
     Inner data;
+    friend struct private_api::Property<Brush>;
 };
 
 Color Brush::color() const
@@ -279,4 +280,18 @@ inline Brush Brush::with_alpha(float alpha) const
     }
     return result;
 }
+
+namespace private_api {
+
+template<>
+inline void Property<slint::Brush>::set_animated_value(
+        const slint::Brush &new_value,
+        const cbindgen_private::PropertyAnimation &animation_data) const
+{
+    cbindgen_private::slint_property_set_animated_value_brush(&inner, &value, &new_value,
+                                                              &animation_data);
 }
+
+} // namespace private_api
+
+} // namespace slint

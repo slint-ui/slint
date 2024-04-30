@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 //! This module contains the implementation of the builtin macros.
 //! They are just transformations that convert into some more complicated expression tree
@@ -63,6 +63,7 @@ pub fn lower_macro(
             expr
         }
         BuiltinMacroFunction::Rgb => rgb_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::Hsv => hsv_macro(n, sub_expr.collect(), diag),
     }
 }
 
@@ -219,6 +220,42 @@ fn rgb_macro(
     Expression::FunctionCall {
         function: Box::new(Expression::BuiltinFunctionReference(
             BuiltinFunction::Rgb,
+            node.as_ref().map(|t| t.to_source_location()),
+        )),
+        arguments,
+        source_location: Some(node.to_source_location()),
+    }
+}
+
+fn hsv_macro(
+    node: Option<NodeOrToken>,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() < 3 || args.len() > 4 {
+        diag.push_error(
+            format!("This function needs 3 or 4 arguments, but {} were provided", args.len()),
+            &node,
+        );
+        return Expression::Invalid;
+    }
+    let mut arguments: Vec<_> = args
+        .into_iter()
+        .enumerate()
+        .map(|(i, (expr, n))| {
+            if i < 3 {
+                expr.maybe_convert_to(Type::Float32, &n, diag)
+            } else {
+                expr.maybe_convert_to(Type::Float32, &n, diag)
+            }
+        })
+        .collect();
+    if arguments.len() < 4 {
+        arguments.push(Expression::NumberLiteral(1., Unit::None))
+    }
+    Expression::FunctionCall {
+        function: Box::new(Expression::BuiltinFunctionReference(
+            BuiltinFunction::Hsv,
             node.as_ref().map(|t| t.to_source_location()),
         )),
         arguments,

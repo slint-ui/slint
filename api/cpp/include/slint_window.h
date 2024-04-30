@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 #pragma once
 
@@ -93,10 +93,10 @@ public:
                 items, &inner);
     }
 
-    void set_focus_item(const ItemTreeRc &component_rc, uint32_t item_index)
+    void set_focus_item(const ItemTreeRc &component_rc, uint32_t item_index, bool set_focus)
     {
         cbindgen_private::ItemRc item_rc { component_rc, item_index };
-        cbindgen_private::slint_windowrc_set_focus_item(&inner, &item_rc);
+        cbindgen_private::slint_windowrc_set_focus_item(&inner, &item_rc, set_focus);
     }
 
     template<typename Component>

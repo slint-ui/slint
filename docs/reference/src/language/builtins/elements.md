@@ -62,6 +62,7 @@ export component Example inherits Window {
 ### Accessibility
 
 Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
+`accessible-role` must be set in order to be able to set any other accessible property or callback.
 
 -   **`accessible-role`** (_in_ _enum [`AccessibleRole`](enums.md#accessiblerole)_): The role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. (default value: `none` for most elements, but `text` for the Text element)
 -   **`accessible-checkable`** (_in_ _bool_): Whether the element is can be checked or not.
@@ -72,6 +73,13 @@ Use the following `accessible-` properties to make your items interact well with
 -   **`accessible-value-minimum`** (_in_ _float_): The minimum value of the item.
 -   **`accessible-value-step`** (_in_ _float_) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
 -   **`accessible-value`** (_in_ _string_): The current value of the item.
+
+You can also use the following callbacks that are going to be called by the accessibility framework:
+
+-  **`accessible-action-default()`**: Invoked when the default action for this widget is requested (eg: pressed for a button).
+-  **`accessible-action-set-value(string)`**: Invoked when the user wants to change the accessible value.
+-  **`accessible-action-increment()`**: Invoked when the user requests to increment the value.
+-  **`accessible-action-decrement()`**: Invoked when the user requests to decrement the value.
 
 ### Drop Shadows
 
@@ -208,6 +216,7 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
 
 -   **`focus()`** Call this function to transfer keyboard focus to this `FocusScope`,
     to receive future [`KeyEvent`](structs.md#keyevent)s.
+-   **`clear-focus()`** Call this function to remove keyboard focus from this `FocusScope` if it currently has the focus. See also [](../concepts/focus.md).
 
 ### Callbacks
 
@@ -672,6 +681,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Functions
 
 -   **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
+-   **`clear-focus()`** Call this function to remove keyboard focus from this `TextInput` if it currently has the focus. See also [](../concepts/focus.md).
 -   **`set-selection-offsets(int, int)`** Selects the text between two UTF-8 offsets.
 -   **`select-all()`** Selects all text.
 -   **`clear-selection()`** Clears the selection.
@@ -702,7 +712,8 @@ export component Example inherits Window {
 ## `Text`
 
 The `Text` element is responsible for rendering text. Besides the `text` property, that specifies which text to render,
-it also allows configuring different visual aspects through the `font-family`, `font-size`, `font-weight` and `color` properties.
+it also allows configuring different visual aspects through the `font-family`, `font-size`, `font-weight`, `color`, and
+`stroke` properties.
 
 The `Text` element can break long text into multiple lines of text. A line feed character (`\n`) in the string of the `text`
 property will trigger a manual line break. For automatic line breaking you need to set the `wrap` property to a value other than
@@ -723,6 +734,9 @@ and the text itself.
 -   **`text`** (_in_ _[string](../syntax/types.md#strings)_): The text rendered.
 -   **`vertical-alignment`** (_in_ _enum [`TextVerticalAlignment`](enums.md#textverticalalignment)_): The vertical alignment of the text.
 -   **`wrap`** (_in_ _enum [`TextWrap`](enums.md#textwrap)_): The way the text wraps (default value: `no-wrap`).
+-   **`stroke`** (_in_ _brush_): The brush used for the text outline (default value: `transparent`).
+-   **`stroke-width`** (_in_ _length_): The width of the text outline. If the width is zero, then a hairline stroke (1 physical pixel) will be rendered.
+-   **`stroke-style`** (_in_ _enum [`TextStrokeStyle`](enums.md#textstrokestyle)_): The style/alignment of the text outline (default value: `outside`).
 
 ### Example
 

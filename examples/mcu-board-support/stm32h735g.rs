@@ -37,7 +37,7 @@ static RNG: cortex_m::interrupt::Mutex<core::cell::RefCell<Option<hal::rng::Rng>
     cortex_m::interrupt::Mutex::new(core::cell::RefCell::new(None));
 
 pub fn init() {
-    unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
+    unsafe { ALLOCATOR.init(core::ptr::addr_of_mut!(HEAP) as usize, HEAP_SIZE) }
     slint::platform::set_platform(Box::new(StmBackend::default()))
         .expect("backend already initialized");
 }
@@ -178,10 +178,12 @@ impl Default for StmBackend {
 
         unsafe {
             let asset_mem_slice = core::slice::from_raw_parts_mut(
-                &mut __s_slint_assets as *mut u8,
-                &__e_slint_assets as *const u8 as usize - &__s_slint_assets as *const u8 as usize,
+                core::ptr::addr_of_mut!(__s_slint_assets),
+                core::ptr::addr_of!(__e_slint_assets) as usize
+                    - core::ptr::addr_of!(__s_slint_assets) as usize,
             );
-            let mut asset_flash_addr = &__si_slint_assets as *const u8 as usize - 0x9000_0000;
+            let mut asset_flash_addr =
+                core::ptr::addr_of!(__si_slint_assets) as usize - 0x9000_0000;
             for chunk in asset_mem_slice.chunks_mut(32) {
                 octospi
                     .read_extended(
@@ -204,12 +206,12 @@ impl Default for StmBackend {
         */
 
         // SAFETY the init function is only called once (as enforced by Peripherals::take)
-        let (fb1, fb2) = unsafe { (&mut FB1, &mut FB2) };
+        let (fb1, fb2) = unsafe { (core::ptr::addr_of!(FB1), core::ptr::addr_of!(FB2)) };
 
         assert!((hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
-            .contains(&(fb1.as_ptr() as usize)));
+            .contains(&(fb1 as usize)));
         assert!((hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
-            .contains(&(fb2.as_ptr() as usize)));
+            .contains(&(fb2 as usize)));
 
         // setup LTDC  (LTDC_MspInit)
         let _p = gpioa.pa3.into_alternate::<14>().speed(High).internal_pull_up(true);
@@ -274,10 +276,7 @@ impl Default for StmBackend {
 
         // Safety: the frame buffer has the right size
         unsafe {
-            layer.enable(
-                fb1.as_ptr() as *const u8,
-                embedded_display_controller::PixelFormat::RGB565,
-            );
+            layer.enable(fb1 as *const u8, embedded_display_controller::PixelFormat::RGB565);
         }
 
         lcd_disp_en.set_low();
@@ -328,7 +327,8 @@ impl slint::platform::Platform for StmBackend {
         ft5336.init(&mut inner.touch_i2c);
 
         // Safety: The Refcell at the beginning of `run_event_loop` prevents re-entrancy and thus multiple mutable references to FB1/FB2.
-        let (fb1, fb2) = unsafe { (&mut FB1, &mut FB2) };
+        let (fb1, fb2) =
+            unsafe { (&mut *core::ptr::addr_of_mut!(FB1), &mut *core::ptr::addr_of_mut!(FB2)) };
 
         let mut displayed_fb: &mut [TargetPixel] = fb1;
         let mut work_fb: &mut [TargetPixel] = fb2;

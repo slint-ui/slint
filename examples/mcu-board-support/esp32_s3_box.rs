@@ -29,7 +29,7 @@ static ALLOCATOR: EspHeap = EspHeap::empty();
 pub fn init() {
     const HEAP_SIZE: usize = 250 * 1024;
     static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
-    unsafe { ALLOCATOR.init(&mut HEAP as *mut u8, core::mem::size_of_val(&HEAP)) }
+    unsafe { ALLOCATOR.init(core::ptr::addr_of_mut!(HEAP) as *mut u8, HEAP_SIZE) }
     slint::platform::set_platform(Box::new(EspBackend::default()))
         .expect("backend already initialized");
 }

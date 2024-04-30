@@ -1,5 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+import { StyleMetrics } from "std-widgets.slint";
 
 export Xxx := Rectangle {
     color: white;
@@ -22,6 +24,8 @@ export Xxx := Rectangle {
     not_called() => {
         color = #000000;
 //      ^warning{The property 'color' has been deprecated. Please use 'background' instead}
+        debug(StyleMetrics.dark-color-scheme);
+//            ^warning{The property 'StyleMetrics' has been deprecated. Please use 'Palette' instead}
     }
 
 }

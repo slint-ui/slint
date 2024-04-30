@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 // cSpell: ignore singleshot
 
@@ -52,7 +52,7 @@ pub enum TimerMode {
 ///
 /// ## Example
 /// ```rust,no_run
-/// # i_slint_backend_testing::init();
+/// # i_slint_backend_testing::init_no_event_loop();
 /// use slint::{Timer, TimerMode};
 /// let timer = Timer::default();
 /// timer.start(TimerMode::Repeated, std::time::Duration::from_millis(200), move || {
@@ -64,6 +64,8 @@ pub enum TimerMode {
 #[derive(Default)]
 pub struct Timer {
     id: Cell<Option<NonZeroUsize>>,
+    /// The timer cannot be moved between treads
+    _phantom: core::marker::PhantomData<*mut ()>,
 }
 
 impl Timer {
@@ -102,7 +104,7 @@ impl Timer {
     ///
     /// ## Example
     /// ```rust
-    /// # i_slint_backend_testing::init();
+    /// # i_slint_backend_testing::init_no_event_loop();
     /// use slint::Timer;
     /// Timer::single_shot(std::time::Duration::from_millis(200), move || {
     ///    println!("This will be printed after 200ms.");
@@ -496,7 +498,7 @@ pub(crate) mod ffi {
         if id == 0 {
             return;
         }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)) };
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
         drop(timer);
     }
 
@@ -506,7 +508,7 @@ pub(crate) mod ffi {
         if id == 0 {
             return;
         }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)) };
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
         timer.stop();
         timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
     }
@@ -517,7 +519,7 @@ pub(crate) mod ffi {
         if id == 0 {
             return;
         }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)) };
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
         timer.restart();
         timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
     }
@@ -528,7 +530,7 @@ pub(crate) mod ffi {
         if id == 0 {
             return false;
         }
-        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)) };
+        let timer = Timer { id: Cell::new(NonZeroUsize::new(id)), _phantom: Default::default() };
         let running = timer.running();
         timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
         running
@@ -537,7 +539,7 @@ pub(crate) mod ffi {
 
 /**
 ```rust
-i_slint_backend_testing::init();
+i_slint_backend_testing::init_no_event_loop();
 use slint::{Timer, TimerMode};
 use std::{rc::Rc, cell::RefCell, time::Duration};
 #[derive(Default)]
@@ -719,7 +721,7 @@ const _TIMER_TESTS: () = ();
 // There is a 200 ms timer that increase variable1
 // after 500ms, that timer is destroyed by a single shot timer,
 // and a new new timer  increase variable2
-i_slint_backend_testing::init();
+i_slint_backend_testing::init_no_event_loop();
 use slint::{Timer, TimerMode};
 use std::{rc::Rc, cell::RefCell, time::Duration};
 #[derive(Default)]
@@ -777,7 +779,7 @@ const _BUG3029: () = ();
  * Test that starting a singleshot timer works
 ```rust
 // There is a 200 ms singleshot timer that increase variable1
-i_slint_backend_testing::init();
+i_slint_backend_testing::init_no_event_loop();
 use slint::{Timer, TimerMode};
 use std::{rc::Rc, cell::RefCell, time::Duration};
 #[derive(Default)]

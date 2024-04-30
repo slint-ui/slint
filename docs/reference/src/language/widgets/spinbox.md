@@ -5,7 +5,7 @@
 
 -   **`enabled`**: (_in_ _bool_): Defaults to true. You can't interact with the spinbox if enabled is false.
 -   **`has-focus`**: (_out_ _bool_): Set to true when the spinbox currently has the focus
--   **`value`** (_in-out_ _int_): The value.
+-   **`value`** (_in-out_ _int_): The value. Defaults to the minimum.
 -   **`minimum`** (_in_ _int_): The minimum value (default: 0).
 -   **`maximum`** (_in_ _int_): The maximum value (default: 100).
 

@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 [package]
 name = "slint-node"
@@ -37,6 +37,9 @@ renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan"]
 renderer-software = ["slint-interpreter/renderer-software"]
 accessibility = ["slint-interpreter/accessibility"]
 
+# Removed by node_package xtask
+testing = ["dep:i-slint-backend-testing"]
+
 [dependencies]
 napi = { version = "2.14.0", default-features = false, features = ["napi8"] }
 napi-derive = "2.14.0"
@@ -48,6 +51,8 @@ spin_on = "0.1"
 css-color-parser2 = { workspace = true }
 itertools = { workspace = true }
 send_wrapper = { workspace = true }
+# Removed by node_package xtask
+i-slint-backend-testing = { workspace = true, optional = true }
 
 [build-dependencies]
 napi-build = "2.1.0"

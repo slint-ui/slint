@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2024-04-06 03:04+0000\n"
+"POT-Creation-Date: 2024-04-19 03:04+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -14,174 +14,9 @@ msgstr ""
 "Language: \n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: ui/usb_page.slint:20
-msgctxt "UsbPage"
-msgid "USB"
-msgstr ""
-
-#: ui/usb_page.slint:44
-msgctxt "UsbPage"
-msgid "Select File:"
-msgstr ""
-
-#: ui/usb_page.slint:67
-msgctxt "UsbPage"
-msgid "Copies"
-msgstr ""
-
-#: ui/usb_page.slint:75 ui/usb_page.slint:78
-msgctxt "UsbPage"
-msgid "Color"
-msgstr ""
-
-#: ui/usb_page.slint:77 ui/usb_page.slint:78
-msgctxt "UsbPage"
-msgid "Grayscale"
-msgstr ""
-
-#: ui/usb_page.slint:93
-msgctxt "UsbPage"
-msgid "Start printing"
-msgstr ""
-
-#: ui/settings_page.slint:7
-msgctxt "SettingsPage"
-msgid "Settings"
-msgstr ""
-
-#: ui/settings_page.slint:16
-msgctxt "SettingsPage"
-msgid "General"
-msgstr ""
-
-#: ui/settings_page.slint:23
-msgctxt "SettingsPage"
-msgid "TURBO mode"
-msgstr ""
-
-#: ui/settings_page.slint:28
-msgctxt "SettingsPage"
-msgid "Power Management"
-msgstr ""
-
-#: ui/settings_page.slint:31
-msgctxt "SettingsPage"
-msgid "Eco Mode"
-msgstr ""
-
-#: ui/settings_page.slint:38
-msgctxt "SettingsPage"
-msgid "Defaults"
-msgstr ""
-
-#: ui/settings_page.slint:45
-msgctxt "SettingsPage"
-msgid "Layout"
-msgstr ""
-
-#: ui/settings_page.slint:47 ui/settings_page.slint:48
-msgctxt "SettingsPage"
-msgid "Portrait"
-msgstr ""
-
-#: ui/settings_page.slint:48
-msgctxt "SettingsPage"
-msgid "Landscape"
-msgstr ""
-
-#: ui/settings_page.slint:53
-msgctxt "SettingsPage"
-msgid "Paper Tray"
-msgstr ""
-
-#: ui/settings_page.slint:55 ui/settings_page.slint:56
-msgctxt "SettingsPage"
-msgid "Special Tray"
-msgstr ""
-
-#: ui/settings_page.slint:56
-msgctxt "SettingsPage"
-msgid "Normal Tray"
-msgstr ""
-
-#: ui/settings_page.slint:60
-msgctxt "SettingsPage"
-msgid "Quality"
-msgstr ""
-
-#: ui/settings_page.slint:62 ui/settings_page.slint:63
-msgctxt "SettingsPage"
-msgid "Best"
-msgstr ""
-
-#: ui/settings_page.slint:63
-msgctxt "SettingsPage"
-msgid "Medium"
-msgstr ""
-
-#: ui/settings_page.slint:63
-msgctxt "SettingsPage"
-msgid "Draft"
-msgstr ""
-
-#: ui/settings_page.slint:68
-msgctxt "SettingsPage"
-msgid "Paper Type"
-msgstr ""
-
-#: ui/settings_page.slint:70 ui/settings_page.slint:71
-msgctxt "SettingsPage"
-msgid "Standard"
-msgstr ""
-
-#: ui/settings_page.slint:71
-msgctxt "SettingsPage"
-msgid "Non-standard"
-msgstr ""
-
-#: ui/settings_page.slint:75
-msgctxt "SettingsPage"
-msgid "Color Mode"
-msgstr ""
-
-#: ui/settings_page.slint:77 ui/settings_page.slint:78
-msgctxt "SettingsPage"
-msgid "Grayscale"
-msgstr ""
-
-#: ui/settings_page.slint:78
-msgctxt "SettingsPage"
-msgid "RGB"
-msgstr ""
-
-#: ui/settings_page.slint:78
-msgctxt "SettingsPage"
-msgid "YCMB"
-msgstr ""
-
-#: ui/settings_page.slint:83
-msgctxt "SettingsPage"
-msgid "Paper Handling"
-msgstr ""
-
-#: ui/settings_page.slint:86
-msgctxt "SettingsPage"
-msgid "Sort Pages"
-msgstr ""
-
 #: ui/ink_page.slint:15
 msgctxt "InkPage"
 msgid "Ink Level"
-msgstr ""
-
-#: ui/print_page.slint:10
-msgctxt "PrintPage"
-msgid "Print"
-msgstr ""
-
-#: ui/print_page.slint:18
-msgctxt "PrintPage"
-msgid "Printing-Queue"
 msgstr ""
 
 #: ui/printer_queue.slint:25
@@ -249,109 +84,169 @@ msgctxt "PrinterQueueView"
 msgid "Printing Queue"
 msgstr ""
 
-#: ui/scan_page.slint:9 ui/scan_page.slint:84
-msgctxt "ScanPage"
-msgid "Scan"
+#: ui/print_page.slint:10
+msgctxt "PrintPage"
+msgid "Print"
 msgstr ""
 
-#: ui/scan_page.slint:17
-msgctxt "ScanPage"
-msgid "Choose Settings"
+#: ui/print_page.slint:18
+msgctxt "PrintPage"
+msgid "Printing-Queue"
 msgstr ""
 
-#: ui/scan_page.slint:24
-msgctxt "ScanPage"
-msgid "Copies"
+#: ui/settings_page.slint:11
+msgctxt "SettingsPage"
+msgid "Settings"
 msgstr ""
 
-#: ui/scan_page.slint:32
-msgctxt "ScanPage"
-msgid "Size"
+#: ui/settings_page.slint:20
+msgctxt "SettingsPage"
+msgid "General"
 msgstr ""
 
-#: ui/scan_page.slint:34 ui/scan_page.slint:35
-msgctxt "ScanPage"
-msgid "Original"
+#: ui/settings_page.slint:27
+msgctxt "SettingsPage"
+msgid "TURBO mode"
 msgstr ""
 
-#: ui/scan_page.slint:35
-msgctxt "ScanPage"
-msgid "A4"
+#: ui/settings_page.slint:32
+msgctxt "SettingsPage"
+msgid "Power Management"
 msgstr ""
 
-#: ui/scan_page.slint:39
-msgctxt "ScanPage"
+#: ui/settings_page.slint:35
+msgctxt "SettingsPage"
+msgid "Eco Mode"
+msgstr ""
+
+#: ui/settings_page.slint:42
+msgctxt "SettingsPage"
+msgid "Defaults"
+msgstr ""
+
+#: ui/settings_page.slint:49
+msgctxt "SettingsPage"
+msgid "Layout"
+msgstr ""
+
+#: ui/settings_page.slint:51 ui/settings_page.slint:52
+msgctxt "SettingsPage"
+msgid "Portrait"
+msgstr ""
+
+#: ui/settings_page.slint:52
+msgctxt "SettingsPage"
+msgid "Landscape"
+msgstr ""
+
+#: ui/settings_page.slint:57
+msgctxt "SettingsPage"
+msgid "Paper Tray"
+msgstr ""
+
+#: ui/settings_page.slint:59 ui/settings_page.slint:60
+msgctxt "SettingsPage"
+msgid "Special Tray"
+msgstr ""
+
+#: ui/settings_page.slint:60
+msgctxt "SettingsPage"
+msgid "Normal Tray"
+msgstr ""
+
+#: ui/settings_page.slint:64
+msgctxt "SettingsPage"
 msgid "Quality"
 msgstr ""
 
-#: ui/scan_page.slint:41 ui/scan_page.slint:42
-msgctxt "ScanPage"
+#: ui/settings_page.slint:66 ui/settings_page.slint:67
+msgctxt "SettingsPage"
 msgid "Best"
 msgstr ""
 
-#: ui/scan_page.slint:42
-msgctxt "ScanPage"
+#: ui/settings_page.slint:67
+msgctxt "SettingsPage"
 msgid "Medium"
 msgstr ""
 
-#: ui/scan_page.slint:42
-msgctxt "ScanPage"
+#: ui/settings_page.slint:67
+msgctxt "SettingsPage"
 msgid "Draft"
 msgstr ""
 
-#: ui/scan_page.slint:47
-msgctxt "ScanPage"
-msgid "Format"
+#: ui/settings_page.slint:72
+msgctxt "SettingsPage"
+msgid "Language"
 msgstr ""
 
-#: ui/scan_page.slint:49 ui/scan_page.slint:50
-msgctxt "ScanPage"
-msgid "PDF"
+#: ui/settings_page.slint:74 ui/settings_page.slint:75
+msgctxt "SettingsPage"
+msgid "English"
 msgstr ""
 
-#: ui/scan_page.slint:50
-msgctxt "ScanPage"
-msgid "JPEG"
+#: ui/settings_page.slint:75
+msgctxt "SettingsPage"
+msgid "French"
 msgstr ""
 
-#: ui/scan_page.slint:50
-msgctxt "ScanPage"
-msgid "PNG"
+#: ui/settings_page.slint:80
+msgctxt "SettingsPage"
+msgid "Color Mode"
 msgstr ""
 
-#: ui/scan_page.slint:54
-msgctxt "ScanPage"
-msgid "Color"
-msgstr ""
-
-#: ui/scan_page.slint:56 ui/scan_page.slint:57
-msgctxt "ScanPage"
+#: ui/settings_page.slint:82 ui/settings_page.slint:83
+msgctxt "SettingsPage"
 msgid "Grayscale"
 msgstr ""
 
-#: ui/scan_page.slint:57
-msgctxt "ScanPage"
+#: ui/settings_page.slint:83
+msgctxt "SettingsPage"
 msgid "RGB"
 msgstr ""
 
-#: ui/scan_page.slint:57
-msgctxt "ScanPage"
+#: ui/settings_page.slint:83
+msgctxt "SettingsPage"
 msgid "YCMB"
 msgstr ""
 
-#: ui/scan_page.slint:62
-msgctxt "ScanPage"
-msgid "Save to"
+#: ui/settings_page.slint:88
+msgctxt "SettingsPage"
+msgid "Paper Handling"
 msgstr ""
 
-#: ui/scan_page.slint:64 ui/scan_page.slint:65
-msgctxt "ScanPage"
-msgid "Desktop"
+#: ui/settings_page.slint:91
+msgctxt "SettingsPage"
+msgid "Sort Pages"
 msgstr ""
 
-#: ui/scan_page.slint:82
-msgctxt "ScanPage"
-msgid "Start scanning"
+#: ui/usb_page.slint:20
+msgctxt "UsbPage"
+msgid "USB"
+msgstr ""
+
+#: ui/usb_page.slint:44
+msgctxt "UsbPage"
+msgid "Select File:"
+msgstr ""
+
+#: ui/usb_page.slint:67
+msgctxt "UsbPage"
+msgid "Copies"
+msgstr ""
+
+#: ui/usb_page.slint:75 ui/usb_page.slint:78
+msgctxt "UsbPage"
+msgid "Color"
+msgstr ""
+
+#: ui/usb_page.slint:77 ui/usb_page.slint:78
+msgctxt "UsbPage"
+msgid "Grayscale"
+msgstr ""
+
+#: ui/usb_page.slint:93
+msgctxt "UsbPage"
+msgid "Start printing"
 msgstr ""
 
 #: ui/home_page.slint:51
@@ -377,6 +272,11 @@ msgstr ""
 #: ui/home_page.slint:57
 msgctxt "HomePage"
 msgid "USB"
+msgstr ""
+
+#: ui/printerdemo.slint:46
+msgctxt "MainWindow"
+msgid "Slint printer demo"
 msgstr ""
 
 #: ui/copy_page.slint:10 ui/copy_page.slint:97
@@ -504,8 +404,108 @@ msgctxt "CopyPage"
 msgid "Start copying"
 msgstr ""
 
-#: ui/printerdemo.slint:46
-msgctxt "MainWindow"
-msgid "Slint printer demo"
+#: ui/scan_page.slint:9 ui/scan_page.slint:84
+msgctxt "ScanPage"
+msgid "Scan"
+msgstr ""
+
+#: ui/scan_page.slint:17
+msgctxt "ScanPage"
+msgid "Choose Settings"
+msgstr ""
+
+#: ui/scan_page.slint:24
+msgctxt "ScanPage"
+msgid "Copies"
+msgstr ""
+
+#: ui/scan_page.slint:32
+msgctxt "ScanPage"
+msgid "Size"
+msgstr ""
+
+#: ui/scan_page.slint:34 ui/scan_page.slint:35
+msgctxt "ScanPage"
+msgid "Original"
+msgstr ""
+
+#: ui/scan_page.slint:35
+msgctxt "ScanPage"
+msgid "A4"
+msgstr ""
+
+#: ui/scan_page.slint:39
+msgctxt "ScanPage"
+msgid "Quality"
+msgstr ""
+
+#: ui/scan_page.slint:41 ui/scan_page.slint:42
+msgctxt "ScanPage"
+msgid "Best"
+msgstr ""
+
+#: ui/scan_page.slint:42
+msgctxt "ScanPage"
+msgid "Medium"
+msgstr ""
+
+#: ui/scan_page.slint:42
+msgctxt "ScanPage"
+msgid "Draft"
+msgstr ""
+
+#: ui/scan_page.slint:47
+msgctxt "ScanPage"
+msgid "Format"
+msgstr ""
+
+#: ui/scan_page.slint:49 ui/scan_page.slint:50
+msgctxt "ScanPage"
+msgid "PDF"
+msgstr ""
+
+#: ui/scan_page.slint:50
+msgctxt "ScanPage"
+msgid "JPEG"
+msgstr ""
+
+#: ui/scan_page.slint:50
+msgctxt "ScanPage"
+msgid "PNG"
+msgstr ""
+
+#: ui/scan_page.slint:54
+msgctxt "ScanPage"
+msgid "Color"
+msgstr ""
+
+#: ui/scan_page.slint:56 ui/scan_page.slint:57
+msgctxt "ScanPage"
+msgid "Grayscale"
+msgstr ""
+
+#: ui/scan_page.slint:57
+msgctxt "ScanPage"
+msgid "RGB"
+msgstr ""
+
+#: ui/scan_page.slint:57
+msgctxt "ScanPage"
+msgid "YCMB"
+msgstr ""
+
+#: ui/scan_page.slint:62
+msgctxt "ScanPage"
+msgid "Save to"
+msgstr ""
+
+#: ui/scan_page.slint:64 ui/scan_page.slint:65
+msgctxt "ScanPage"
+msgid "Desktop"
+msgstr ""
+
+#: ui/scan_page.slint:82
+msgctxt "ScanPage"
+msgid "Start scanning"
 msgstr ""
 

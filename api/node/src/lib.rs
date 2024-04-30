@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 mod interpreter;
 pub use interpreter::*;
@@ -75,4 +75,10 @@ pub fn set_quit_on_last_window_closed(
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
     }
     env.get_undefined()
+}
+
+#[napi]
+pub fn init_testing() {
+    #[cfg(feature = "testing")]
+    i_slint_backend_testing::init_integration_test();
 }

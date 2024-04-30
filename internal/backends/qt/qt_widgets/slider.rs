@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use i_slint_core::{
     input::key_codes,
@@ -209,7 +209,7 @@ impl Item for NativeSlider {
                 click_count: _,
             } => {
                 if !self.has_focus() {
-                    WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
+                    WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc, true);
                 }
                 data.pressed_x = if vertical { pos.y as f32 } else { pos.x as f32 };
                 data.pressed = 1;

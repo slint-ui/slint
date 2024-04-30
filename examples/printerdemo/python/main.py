@@ -1,18 +1,15 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
-# autopep8: off
+from slint import Color, ListModel, Timer, TimerMode
+import slint
 from datetime import timedelta, datetime
 import os
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "ui"))
-import slint
-from slint import Color, ListModel, Timer, TimerMode
-import printerdemo_slint
-# autopep8: on
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 
-class MainWindow(printerdemo_slint.MainWindow):
+class MainWindow(slint.loader.ui.printerdemo.MainWindow):
     def __init__(self):
         super().__init__()
         self.ink_levels = ListModel([

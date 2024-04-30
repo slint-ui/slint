@@ -11,6 +11,14 @@ slint::include_modules!();
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
+    let state = init();
+    let main_window = state.main_window.clone_strong();
+    #[cfg(target_os = "android")]
+    STATE.with(|ui| *ui.borrow_mut() = Some(state));
+    main_window.run().unwrap();
+}
+
+fn init() -> State {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
@@ -28,12 +36,6 @@ pub fn main() {
     ]));
 
     let main_window = MainWindow::new().unwrap();
-
-    #[cfg(target_os = "android")]
-    STATE.with(|ui| {
-        *ui.borrow_mut() =
-            Some(State { main_window: main_window.clone_strong(), todo_model: todo_model.clone() })
-    });
 
     main_window.on_todo_added({
         let todo_model = todo_model.clone();
@@ -99,9 +101,8 @@ pub fn main() {
     });
 
     main_window.set_show_header(true);
-    main_window.set_todo_model(todo_model.into());
-
-    main_window.run().unwrap();
+    main_window.set_todo_model(todo_model.clone().into());
+    State { main_window, todo_model }
 }
 
 #[cfg(target_os = "android")]
@@ -132,10 +133,9 @@ fn android_main(app: slint::android::AndroidApp) {
     main();
 }
 
-#[cfg(target_os = "android")]
-struct State {
-    main_window: MainWindow,
-    todo_model: Rc<slint::VecModel<TodoItem>>,
+pub struct State {
+    pub main_window: MainWindow,
+    pub todo_model: Rc<slint::VecModel<TodoItem>>,
 }
 
 #[cfg(target_os = "android")]
@@ -166,4 +166,35 @@ impl SerializedState {
             hide_done: state.main_window.get_hide_done_items(),
         }
     }
+}
+
+#[test]
+fn press_add_adds_one_todo() {
+    i_slint_backend_testing::init_no_event_loop();
+    use i_slint_backend_testing::ElementHandle;
+    let state = init();
+    state.todo_model.set_vec(vec![TodoItem { checked: false, title: "first".into() }]);
+    let line_edit =
+        ElementHandle::find_by_accessible_label(&state.main_window, "What needs to be done?")
+            .next()
+            .unwrap();
+    assert_eq!(line_edit.accessible_value().unwrap(), "");
+    line_edit.set_accessible_value("second");
+
+    let button = ElementHandle::find_by_accessible_label(&state.main_window, "Add New Entry")
+        .next()
+        .unwrap();
+    button.invoke_accessible_default_action();
+
+    assert_eq!(state.todo_model.row_count(), 2);
+    assert_eq!(
+        state.todo_model.row_data(0).unwrap(),
+        TodoItem { checked: false, title: "first".into() }
+    );
+    assert_eq!(
+        state.todo_model.row_data(1).unwrap(),
+        TodoItem { checked: false, title: "second".into() }
+    );
+
+    assert_eq!(line_edit.accessible_value().unwrap(), "");
 }

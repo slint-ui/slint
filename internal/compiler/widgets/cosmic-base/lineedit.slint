@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
 import { LineEditBase} from "../common/lineedit-base.slint";
@@ -18,6 +18,8 @@ export component LineEdit {
     callback edited <=> base.edited;
     accessible-role: text-input;
     accessible-value <=> text;
+    accessible-label: placeholder-text;
+    accessible-action-set-value(v) => { text = v; edited(v); }
 
     public function set-selection-offsets(start: int, end: int) {
         base.set-selection-offsets(start, end);

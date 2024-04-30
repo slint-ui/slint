@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 import { LineEditBase} from "../common/lineedit-base.slint";
 import { StyleMetrics  } from "std-widgets-impl.slint";
@@ -18,6 +18,8 @@ export component LineEdit {
     callback edited <=> inner.edited;
     accessible-role: text-input;
     accessible-value <=> text;
+    accessible-label: placeholder-text;
+    accessible-action-set-value(v) => { text = v; edited(v); }
 
     public function set-selection-offsets(start: int, end: int) {
         inner.set-selection-offsets(start, end);

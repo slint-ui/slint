@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 #pragma once
 
@@ -35,6 +35,20 @@ struct RgbaColor
     /// Creates a new RgbaColor instance from a given color. This template function is
     /// specialized and thus implemented for T == uint8_t and T == float.
     RgbaColor(const Color &col);
+};
+
+/// HsvaColor stores the hue, saturation, value, and alpha components of a color in the HSV color
+/// space.
+struct HsvaColor
+{
+    /// The hue component in degrees between 0 and 360.
+    float hue;
+    /// The saturation component, between 0 and 1.
+    float saturation;
+    /// The value component, between 0 and 1.
+    float value;
+    /// The alpha component, between 0 and 1.
+    float alpha;
 };
 
 /// Color represents a color in the Slint run-time, represented using 8-bit channels for
@@ -117,22 +131,42 @@ public:
     }
 
     /// Converts this color to an RgbaColor struct for easy destructuring.
-    inline RgbaColor<uint8_t> to_argb_uint() const;
+    [[nodiscard]] inline RgbaColor<uint8_t> to_argb_uint() const;
 
     /// Converts this color to an RgbaColor struct for easy destructuring.
-    inline RgbaColor<float> to_argb_float() const;
+    [[nodiscard]] inline RgbaColor<float> to_argb_float() const;
+
+    /// Construct a color from the HSV color space components.
+    /// The hue is expected to be in the range between 0 and 360, and the other parameters between 0
+    /// and 1.
+    [[nodiscard]] static Color from_hsva(float h, float s, float v, float a)
+    {
+        Color ret;
+        ret.inner = cbindgen_private::types::slint_color_from_hsva(h, s, v, a);
+        return ret;
+    }
+
+    /// Convert this color to the HSV color space.
+    /// @returns a new HsvaColor.
+    [[nodiscard]] HsvaColor to_hsva() const
+    {
+        HsvaColor hsv {};
+        cbindgen_private::types::slint_color_to_hsva(&inner, &hsv.hue, &hsv.saturation, &hsv.value,
+                                                     &hsv.alpha);
+        return hsv;
+    }
 
     /// Returns the red channel of the color as u8 in the range 0..255.
-    uint8_t red() const { return inner.red; }
+    [[nodiscard]] uint8_t red() const { return inner.red; }
 
     /// Returns the green channel of the color as u8 in the range 0..255.
-    uint8_t green() const { return inner.green; }
+    [[nodiscard]] uint8_t green() const { return inner.green; }
 
     /// Returns the blue channel of the color as u8 in the range 0..255.
-    uint8_t blue() const { return inner.blue; }
+    [[nodiscard]] uint8_t blue() const { return inner.blue; }
 
     /// Returns the alpha channel of the color as u8 in the range 0..255.
-    uint8_t alpha() const { return inner.alpha; }
+    [[nodiscard]] uint8_t alpha() const { return inner.alpha; }
 
     /// Returns a new version of this color that has the brightness increased
     /// by the specified factor. This is done by converting the color to the HSV
@@ -153,8 +187,9 @@ public:
     /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
     [[nodiscard]] inline Color transparentize(float factor) const;
 
-    /// Returns a new color that is a mix of \a this and \a other, with a proportion
-    /// factor given by \a factor (which will be clamped to be between `0.0` and `1.0`).
+    /// Returns a new color that is a mix of \a this color and \a other. The specified \a factor is
+    /// clamped to be between `0.0` and `1.0` and then applied to \a this color, while `1.0 -
+    /// factor` is applied to \a other.
     [[nodiscard]] inline Color mix(const Color &other, float factor) const;
 
     /// Returns a new version of this color with the opacity set to \a alpha.

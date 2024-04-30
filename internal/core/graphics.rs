@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 #![warn(missing_docs)]
 /*!
@@ -196,6 +196,15 @@ pub mod ffi {
     struct Point {
         x: f32,
         y: f32,
+    }
+
+    /// Expand Box2D so that cbindgen can see it.
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct Box2D<T, U> {
+        min: euclid::Point2D<T>,
+        max: euclid::Point2D<T>,
+        _unit: std::marker::PhantomData<U>,
     }
 
     #[cfg(feature = "std")]

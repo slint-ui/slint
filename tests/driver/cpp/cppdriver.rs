@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 use std::error::Error;
@@ -43,6 +43,12 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         return Err(vec.join("\n").into());
     }
 
+    // Remove the `#pragma once` as this is not going to be included and would produce a warning
+    // when compiling the generated code.
+    let hash_pos = generated_cpp.iter().position(|&b| b == b'#').unwrap();
+    assert_eq!(&generated_cpp[hash_pos..hash_pos + 12], b"#pragma once");
+    generated_cpp.drain(hash_pos..hash_pos + 12);
+
     generated_cpp.write_all(
         br"
 #ifdef NDEBUG
@@ -51,8 +57,8 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 #include <assert.h>
 #include <cmath>
 #include <iostream>
-#include <slint_testing.h>
-namespace slint_testing = slint::testing;
+#include <slint_tests_helpers.h>
+namespace slint_testing = slint::private_api::testing;
 ",
     )?;
     generated_cpp.write_all(b"int main() {\n    slint::testing::init();\n")?;

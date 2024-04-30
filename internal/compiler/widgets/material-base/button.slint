@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 import { StateLayer } from "components.slint";
 import { MaterialFontSettings, MaterialPalette, Elevation } from "styling.slint";
@@ -23,11 +23,13 @@ export component Button {
 
     min-height: max(40px, i-layout.min-height);
     min-width: max(40px, i-layout.min-width);
-    accessible-checkable: root.checkable;
-    accessible-checked <=> root.checked;
-    accessible-label: text;
-    accessible-role: button;
     forward-focus: i-state-layer;
+
+    accessible-role: button;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-label: root.text;
+    accessible-action-default => { i-state-layer.clicked(); }
 
     states [
         disabled when !root.enabled : {
@@ -86,6 +88,7 @@ export component Button {
             vertical-alignment: center;
             horizontal-alignment: center;
             font-weight: MaterialFontSettings.label-large.font-weight;
+            accessible-role: none;
 
             animate color { duration: 250ms; easing: ease; }
         }

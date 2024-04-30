@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 #![doc = include_str!("README.md")]
 
@@ -10,6 +10,7 @@ use slint_interpreter::{
 };
 use std::collections::HashMap;
 use std::io::{BufReader, BufWriter};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -182,37 +183,49 @@ fn init_compiler(
         compiler.set_style(style.clone());
     }
     if let Some(watcher) = fswatcher {
-        notify::Watcher::watch(
-            &mut *watcher.lock().unwrap(),
-            &args.path,
-            notify::RecursiveMode::NonRecursive,
-        )
-        .unwrap_or_else(|err| {
-            eprintln!("Warning: error while watching {}: {:?}", args.path.display(), err)
-        });
+        watch_with_retry(&args.path, &watcher);
         if let Some(data_path) = &args.load_data {
-            notify::Watcher::watch(
-                &mut *watcher.lock().unwrap(),
-                data_path,
-                notify::RecursiveMode::NonRecursive,
-            )
-            .unwrap_or_else(|err| {
-                eprintln!("Warning: error while watching {}: {:?}", data_path.display(), err)
-            });
+            watch_with_retry(&data_path, &watcher);
         }
         compiler.set_file_loader(move |path| {
-            notify::Watcher::watch(
-                &mut *watcher.lock().unwrap(),
-                path,
-                notify::RecursiveMode::NonRecursive,
-            )
-            .unwrap_or_else(|err| {
-                eprintln!("Warning: error while watching {}: {:?}", path.display(), err)
-            });
+            watch_with_retry(&path.into(), &watcher);
             Box::pin(async { None })
         })
     }
     compiler
+}
+
+fn watch_with_retry(path: &PathBuf, watcher: &Arc<Mutex<notify::RecommendedWatcher>>) {
+    notify::Watcher::watch(
+        &mut *watcher.lock().unwrap(),
+        &path,
+        notify::RecursiveMode::NonRecursive,
+    )
+    .unwrap_or_else(|err| match err.kind {
+        notify::ErrorKind::PathNotFound | notify::ErrorKind::Generic(_) => {
+            let path = path.clone();
+            let watcher = watcher.clone();
+            static RETRY_DURATION: u64 = 100;
+            i_slint_core::timers::Timer::single_shot(
+                std::time::Duration::from_millis(RETRY_DURATION),
+                move || {
+                    notify::Watcher::watch(
+                        &mut *watcher.lock().unwrap(),
+                        &path,
+                        notify::RecursiveMode::NonRecursive,
+                    )
+                    .unwrap_or_else(|err| {
+                        eprintln!(
+                            "Warning: error while watching missing path {}: {:?}",
+                            path.display(),
+                            err
+                        )
+                    });
+                },
+            );
+        }
+        _ => eprintln!("Warning: error while watching {}: {:?}", path.display(), err),
+    });
 }
 
 fn init_dialog(instance: &ComponentInstance) {

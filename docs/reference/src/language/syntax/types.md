@@ -75,7 +75,7 @@ The following properties are exposed:
 - **`blue`**
 - **`alpha`**
 
-All properties are in the range 0-255.
+These properties are in the range 0-255.
 
 ### Methods
 
@@ -95,18 +95,24 @@ All colors and brushes define the following methods:
 
 -   **`mix(other: brush, factor: float) -> brush`**
 
-    Returns a new color that is a mix of this color and `other`, with a proportion
-    factor given by \a factor (which will be clamped to be between `0.0` and `1.0`).
+    Returns a new color that is a mix of this color and `other`. The specified factor is
+    clamped to be between `0.0` and `1.0` and then applied to this color, while `1.0 - factor`
+    is applied to `other`. For example `red.mix(green, 70%)` will have a stronger tone of red, while
+    `red.mix(green, 30%)` will have a stronger tone of green.
 
 -  **`transparentize(factor: float) -> brush`**
 
     Returns a new color with the opacity decreased by `factor`.
     The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
 
-
 -  **`with_alpha(alpha: float) -> brush`**
 
     Returns a new color with the alpha value set to `alpha` (between 0 and 1)
+
+- **`to-hsv()->{hue: float, saturation: float, value: float, alpha: float}`**
+
+    Converts this color to the HSV color space and returns a struct with the `hue`, `saturation`, `value`,
+    and `alpha` fields. `hue` is between 0 and 360 while `saturation`, `value`, and `alpha` are between 0 and 1.
 
 ### Linear Gradients
 
