@@ -632,6 +632,12 @@ fn generate_sub_component(
         }
     }
 
+    let change_tracker_names = component
+        .change_callbacks
+        .iter()
+        .enumerate()
+        .map(|(idx, _)| format_ident!("change_tracker{idx}"));
+
     let declared_functions = generate_functions(&component.functions, &ctx);
 
     let mut init = vec![];
@@ -960,6 +966,28 @@ fn generate_sub_component(
         quote!(#code;)
     }));
 
+    user_init_code.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
+        let code = compile_expression(&e.borrow(), &ctx);
+        let prop = compile_expression(&Expression::PropertyReference(p.clone()), &ctx);
+        let change_tracker = format_ident!("change_tracker{idx}");
+        quote! {
+            let self_weak = sp::VRcMapped::downgrade(&self_rc);
+            _self.#change_tracker.init(
+                self_weak,
+                move |self_weak| {
+                    let self_rc = self_weak.upgrade().unwrap();
+                    let _self = self_rc.as_pin_ref();
+                    #prop
+                },
+                move |self_weak, _| {
+                    let self_rc = self_weak.upgrade().unwrap();
+                    let _self = self_rc.as_pin_ref();
+                    #code;
+                }
+            );
+        }
+    }));
+
     let layout_info_h = compile_expression(&component.layout_info_h.borrow(), &ctx);
     let layout_info_v = compile_expression(&component.layout_info_v.borrow(), &ctx);
 
@@ -991,6 +1019,7 @@ fn generate_sub_component(
             #(#declared_property_vars : sp::Property<#declared_property_types>,)*
             #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
             #(#repeated_element_names : sp::Repeater<#repeated_element_components>,)*
+            #(#change_tracker_names : sp::ChangeTracker,)*
             self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
             #(parent : #parent_component_type,)*
             root : sp::OnceCell<sp::VWeak<sp::ItemTreeVTable, #root_component_id>>,

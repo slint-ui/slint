@@ -3,12 +3,11 @@
 
 //! This pass moves all declaration of properties or callback to the root
 
-use crate::expression_tree::NamedReference;
-use crate::object_tree::*;
-
+use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::ElementType;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
+use crate::object_tree::*;
+use core::cell::RefCell;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 struct Declarations {
@@ -30,6 +29,7 @@ fn do_move_declarations(component: &Rc<Component>) {
     component.popup_windows.borrow().iter().for_each(|f| do_move_declarations(&f.component));
 
     let mut new_root_bindings = HashMap::new();
+    let mut new_root_change_callbacks = HashMap::new();
     let mut new_root_property_analysis = HashMap::new();
 
     let move_bindings_and_animations = &mut |elem: &ElementRc| {
@@ -72,6 +72,19 @@ fn do_move_declarations(component: &Rc<Component>) {
             }
         }
         *elem.borrow().property_analysis.borrow_mut() = new_property_analysis;
+
+        // Also move the changed callback
+        let change_callbacks = core::mem::take(&mut elem.borrow_mut().change_callbacks);
+        let mut new_change_callbacks = BTreeMap::<String, RefCell<Vec<Expression>>>::default();
+        for (k, e) in change_callbacks {
+            let will_be_moved = elem.borrow().property_declarations.contains_key(&k);
+            if will_be_moved {
+                new_root_change_callbacks.insert(map_name(elem, k.as_str()), e);
+            } else {
+                new_change_callbacks.insert(k, e);
+            }
+        }
+        elem.borrow_mut().change_callbacks = new_change_callbacks;
     };
 
     component.optimized_elements.borrow().iter().for_each(|e| move_bindings_and_animations(e));
@@ -106,6 +119,7 @@ fn do_move_declarations(component: &Rc<Component>) {
         r.property_declarations = decl.property_declarations;
         r.bindings.extend(new_root_bindings);
         r.property_analysis.borrow_mut().extend(new_root_property_analysis);
+        r.change_callbacks.extend(new_root_change_callbacks);
     }
 }
 

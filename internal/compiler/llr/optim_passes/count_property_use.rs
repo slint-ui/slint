@@ -110,6 +110,12 @@ pub fn count_property_use(root: &PublicComponent) {
         for f in &sc.functions {
             f.code.visit_recursive(&mut |e| visit_expression(e, ctx));
         }
+
+        // 9. change callbacks
+        for (p, e) in &sc.change_callbacks {
+            visit_property(p, ctx);
+            e.visit_recursive(&mut |e| visit_expression(e, ctx));
+        }
     });
 
     // TODO: only visit used function

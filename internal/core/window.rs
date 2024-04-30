@@ -618,6 +618,8 @@ impl WindowInner {
         {
             self.close_popup();
         }
+
+        crate::properties::ChangeTracker::run_change_handlers();
     }
 
     /// Called by the input code's internal timer to send an event that was delayed
@@ -657,6 +659,7 @@ impl WindowInner {
                 &focus_item,
             ) == crate::input::KeyEventResult::EventAccepted
             {
+                crate::properties::ChangeTracker::run_change_handlers();
                 return;
             }
             item = focus_item.parent_item();
@@ -674,6 +677,7 @@ impl WindowInner {
         {
             self.focus_previous_item();
         }
+        crate::properties::ChangeTracker::run_change_handlers();
     }
 
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.

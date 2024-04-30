@@ -221,6 +221,7 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
 pub fn update_timers_and_animations() {
     crate::animations::update_animations();
     crate::timers::TimerList::maybe_activate_timers(crate::animations::Instant::now());
+    crate::properties::ChangeTracker::run_change_handlers();
 }
 
 /// Returns the duration before the next timer is expected to be activated. This is the

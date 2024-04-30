@@ -22,6 +22,7 @@ pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
         tick
     });
     crate::timers::TimerList::maybe_activate_timers(tick);
+    crate::properties::ChangeTracker::run_change_handlers();
 }
 
 /// Return the current mocked time.
