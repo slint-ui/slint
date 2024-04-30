@@ -50,6 +50,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     ui.on_selected_element_can_move_to(super::can_move_selected_element);
     ui.on_selected_element_move(super::move_selected_element);
     ui.on_selected_element_delete(super::delete_selected_element);
+    ui.on_add_component(super::add_component);
 
     Ok(ui)
 }

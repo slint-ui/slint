@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
-import { Palette, ScrollView, VerticalBox, GroupBox } from "std-widgets.slint";
+import { Button, Palette, ScrollView, VerticalBox, GroupBox } from "std-widgets.slint";
 
 export struct ComponentListItem {
     category: string,
@@ -18,17 +18,30 @@ export component ComponentList {
 
     out property <bool> over-target;
 
+    callback add_component(/* component type */ string);
     pure callback can-drop(string/* component_type */, length/* x */, length/* y */, bool/* on-drop-area */) -> bool;
     callback drop(string/* component_type */, length/* x */, length/* y */);
 
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
 
     VerticalBox {
-        Text {
-            text: @tr("Library");
-            horizontal-alignment: center;
-            font-size: 1.4rem;
-            font-weight: 800;
+        HorizontalLayout {
+            alignment: center;
+            spacing: 8px;
+            
+            Text {
+                text: @tr("Library");
+                vertical-alignment: center;
+                
+                font-size: 1.4rem;
+                font-weight: 800;
+            }
+            Button {
+                text: "+";
+                width: self.min-width;
+                height: self.min-height;
+                clicked => { root.add_component("Test"); }
+            }
         }
 
         ScrollView {

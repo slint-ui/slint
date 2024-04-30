@@ -24,6 +24,7 @@ export component PreviewUi inherits Window {
     in-out property <string> current-style;
     out property <bool> design-mode;
 
+    callback add-component(/* component_type */ string);
     pure callback can-drop(/* component_type */ string, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
     callback drop(/* component_type */ string, /* x */ length, /* y */ length);
     callback selected-element-resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
@@ -105,6 +106,8 @@ export component PreviewUi inherits Window {
                                 preview-area-position-y: draw-area.preview-area-position-y;
                                 preview-area-width: draw-area.preview-area-width;
                                 preview-area-height: draw-area.preview-area-height;
+
+                                add-component(ct) => { root.add-component(ct); }
 
                                 can-drop(c, x, y, oda) => {
                                     return root.can-drop(c, x, y, oda);
