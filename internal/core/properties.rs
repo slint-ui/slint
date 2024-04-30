@@ -124,6 +124,41 @@ pub(crate) mod dependency_tracker {
                 next.debug_assert_valid();
             }
         }
+
+        /// Swap two list head
+        pub fn swap(from: Pin<&Self>, to: Pin<&Self>) {
+            Cell::swap(&from.0, &to.0);
+            unsafe {
+                if let Some(n) = from.0.get().as_ref() {
+                    debug_assert_eq!(n.prev.get() as *const _, &to.0 as *const _);
+                    n.prev.set(&from.0 as *const _);
+                    n.debug_assert_valid();
+                }
+
+                if let Some(n) = to.0.get().as_ref() {
+                    debug_assert_eq!(n.prev.get() as *const _, &from.0 as *const _);
+                    n.prev.set(&to.0 as *const _);
+                    n.debug_assert_valid();
+                }
+            }
+        }
+
+        /// Return true is the list is empty
+        pub fn is_empty(&self) -> bool {
+            self.0.get().is_null()
+        }
+
+        /// Remove all the nodes from the list;
+        pub fn clear(self: Pin<&Self>) {
+            unsafe {
+                if let Some(n) = self.0.get().as_ref() {
+                    n.debug_assert_valid();
+                    n.prev.set(core::ptr::null());
+                }
+            }
+            self.0.set(core::ptr::null());
+        }
+
         pub unsafe fn drop(_self: *mut Self) {
             if let Some(next) = ((*_self).0.get() as *const DependencyNode<T>).as_ref() {
                 debug_assert_eq!(_self as *const _, next.prev.get() as *const _);
@@ -1278,6 +1313,7 @@ fn property_two_ways_binding_of_two_two_way_bindings() {
 }
 
 mod change_tracker;
+pub use change_tracker::*;
 mod properties_animations;
 pub use crate::items::StateInfo;
 pub use properties_animations::*;
