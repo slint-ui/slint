@@ -715,11 +715,10 @@ fn report_known_components(document_cache: &mut DocumentCache, ctx: &Rc<Context>
 
     let url = ctx.to_show.borrow().as_ref().map(|pc| {
         let url = pc.url.clone();
-        let file = PathBuf::from(url.to_string());
         let version = document_cache.document_version(&url);
-
-        component_catalog::file_local_components(document_cache, &file, &mut components);
-
+        if let Ok(file) = url.to_file_path() {
+            component_catalog::file_local_components(document_cache, &file, &mut components);
+        }
         common::VersionedUrl::new(url, version)
     });
 
