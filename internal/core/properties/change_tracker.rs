@@ -1,13 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
-use super::{BindingHolder, BindingResult, BindingVTable, DependencyListHead, DependencyNode};
+use super::{BindingHolder, BindingResult, BindingVTable, DependencyListHead};
+use alloc::boxed::Box;
 use core::cell::Cell;
 use core::marker::PhantomPinned;
 use core::pin::Pin;
 use core::ptr::addr_of;
 
-thread_local! {static CHANGED_NODES : DependencyListHead = DependencyListHead::default() }
+// TODO a pinned thread local key?
+thread_local! {static CHANGED_NODES : Pin<Box<DependencyListHead>> = Box::pin(DependencyListHead::default()) }
 
 struct ChangeTrackerInner<T, EvalFn, NotifyFn, Data> {
     eval_fn: EvalFn,
@@ -16,6 +18,12 @@ struct ChangeTrackerInner<T, EvalFn, NotifyFn, Data> {
     data: Data,
 }
 
+/// A change tracker is used to run a callback when a property value changes.
+///
+/// The Change Tracker must be initialized with the [`Self::init`] method.
+///
+/// When the property changes, the ChangeTracker is added to a thread local list, and the notify
+/// callback is called when the [`Self::run_change_handlers()`] method is called
 pub struct ChangeTracker {
     /// (Actually a `BindingHolder<ChangeTrackerInner>`)
     inner: Cell<*mut BindingHolder>,
@@ -35,6 +43,10 @@ impl Drop for ChangeTracker {
 
 impl ChangeTracker {
     /// Initialize the change tracker with the given data and callbacks.
+    ///
+    /// The `data` is any struct that is going to be passed to the functor.
+    /// The `eval_fn` is a function that queries and return the property.
+    /// And the `notify_fn` is the callback run if the property is changed
     pub fn init<Data, T: Default + PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T)>(
         &self,
         data: Data,
@@ -46,7 +58,6 @@ impl ChangeTracker {
 
         /// Safety: _self must be a pointer to a `BindingHolder<DirtyHandler>`
         unsafe fn mark_dirty(_self: *const BindingHolder, _was_dirty: bool) {
-            debug_assert!(!_was_dirty);
             // Move the dependency list node from the dependency list to the CHANGED_NODE
             let _self = _self.as_ref().unwrap();
             let node_head = _self.dep_nodes.take();
@@ -100,7 +111,7 @@ impl ChangeTracker {
             dependencies: Cell::new(0),
             dep_nodes: Default::default(),
             vtable: <ChangeTrackerInner<T, EF, NF, Data> as HasBindingVTable>::VT,
-            dirty: Cell::new(true), // starts dirty so it evaluates the property when used
+            dirty: Cell::new(false),
             is_two_way_binding: false,
             pinned: PhantomPinned,
             binding: inner,
@@ -108,7 +119,14 @@ impl ChangeTracker {
             debug_name: "<ChangeTracker>".into(),
         };
 
-        self.inner.set(Box::into_raw(Box::new(holder)) as *mut BindingHolder);
+        let raw = Box::into_raw(Box::new(holder));
+        self.inner.set(raw as *mut BindingHolder);
+        let value = unsafe {
+            let pinned_holder = Pin::new_unchecked((raw as *mut BindingHolder).as_ref().unwrap());
+            let inner = core::ptr::addr_of!((*raw).binding).as_ref().unwrap();
+            super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(&inner.data))
+        };
+        unsafe { core::ptr::addr_of_mut!((*raw).binding).as_mut().unwrap().value = value };
     }
 
     fn clear(&self) {
@@ -122,15 +140,71 @@ impl ChangeTracker {
         }
     }
 
-    fn run_change_handlers() {
+    /// Run all the change handler that were queued.
+    pub fn run_change_handlers() {
         CHANGED_NODES.with(|list| {
-            todo!("Swap the list before iterate.  Also clear the dependency node");
-            list.for_each(|node| {
-                let node = *node;
-                unsafe {
-                    ((*addr_of!((*node).vtable)).evaluate)(node as *mut BindingHolder, core::ptr::null_mut());
-                }
-            });
+            let old_list = DependencyListHead::default();
+            let old_list = core::pin::pin!(old_list);
+            while !list.is_empty() {
+                DependencyListHead::swap(list.as_ref(), old_list.as_ref());
+                old_list.for_each(|node| {
+                    let node = *node;
+                    unsafe {
+                        ((*addr_of!((*node).vtable)).evaluate)(
+                            node as *mut BindingHolder,
+                            core::ptr::null_mut(),
+                        );
+                    }
+                });
+                old_list.as_ref().clear();
+            }
         });
     }
+}
+
+#[test]
+fn change_tracker() {
+    use super::Property;
+    use std::rc::Rc;
+    let prop1 = Rc::pin(Property::new(42));
+    let prop2 = Rc::pin(Property::<i32>::default());
+    prop2.as_ref().set_binding({
+        let prop1 = prop1.clone();
+        move || prop1.as_ref().get() * 2
+    });
+
+    let change1 = ChangeTracker::default();
+    let change2 = ChangeTracker::default();
+
+    let state = Rc::new(core::cell::RefCell::new(String::new()));
+
+    change1.init(
+        (state.clone(), prop1.clone()),
+        |(_, prop1)| prop1.as_ref().get(),
+        |(state, _), val| {
+            *state.borrow_mut() += &format!(":1({val})");
+        },
+    );
+    change2.init(
+        (state.clone(), prop2.clone()),
+        |(_, prop2)| prop2.as_ref().get(),
+        |(state, _), val| {
+            *state.borrow_mut() += &format!(":2({val})");
+        },
+    );
+
+    assert_eq!(state.borrow().as_str(), "");
+    prop1.as_ref().set(10);
+    assert_eq!(state.borrow().as_str(), "");
+    prop1.as_ref().set(30);
+    assert_eq!(state.borrow().as_str(), "");
+
+    ChangeTracker::run_change_handlers();
+    assert_eq!(state.borrow().as_str(), ":1(30):2(60)");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(state.borrow().as_str(), ":1(30):2(60)");
+    prop1.as_ref().set(1);
+    assert_eq!(state.borrow().as_str(), ":1(30):2(60)");
+    ChangeTracker::run_change_handlers();
+    assert_eq!(state.borrow().as_str(), ":1(30):2(60):1(1):2(2)");
 }
