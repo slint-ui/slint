@@ -17,7 +17,7 @@ export component SliderBase {
     out property <bool> handle-has-hover: touch-area.mouse-x >= root.handle-x && touch-area.mouse-x <= root.handle-x + root.handle-width &&
         touch-area.mouse-y >= root.handle-y && touch-area.mouse-y <= root.handle-y + root.handle-height;
     out property <bool> handle-pressed;
-    in-out property <float> value: 0;
+    in-out property <float> value: minimum;
 
     callback changed(/* value */ float);
     callback released(/* value */ float);

@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+
+import { SpinBox } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    
+    spin_min_pos := SpinBox { minimum: 10; }
+    out property <int> pos-val <=> spin-min-pos.value;
+    
+    spin_min_default := SpinBox {}
+    out property <int> default-min <=> spin-min-default.minimum;    
+    out property <int> default-val <=> spin-min-default.value;
+
+    spin_min_neg := SpinBox {
+        minimum: -10;
+    }
+    out property <int> neg-val <=> spin-min-neg.value;
+}
+
+
+/*
+
+```rust
+
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_pos_val(), 10);
+assert_eq!(instance.get_default_min(), 0);
+assert_eq!(instance.get_default_val(), 0);
+assert_eq!(instance.get_neg_val(), -10);
+
+```
+
+*/
