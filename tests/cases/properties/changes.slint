@@ -10,7 +10,7 @@ export component TestCase {
     property <int> other: clamp(value + 1, 50, 100);
     changed other => {
         result += "other(" + other + ")";
-        "ignore this"
+        debug("Other changed");
     }
 }
 
@@ -18,7 +18,7 @@ export component TestCase {
 /*
 
 
-```todo-rust
+```rust
 let instance = TestCase::new().unwrap();
 slint_testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_result(), "");
@@ -28,11 +28,11 @@ assert_eq!(instance.get_result(), ""); // so far, nothing have changed
 instance.set_value(142);
 assert_eq!(instance.get_result(), "");
 slint_testing::mock_elapsed_time(1);
-assert_eq!(instance.get_result(), "value(142)other(100)");
+assert_eq!(instance.get_result(), "other(100)value(142)");
 instance.set_value(8); // this one is going to be merged in the other
 instance.set_value(141);
 slint_testing::mock_elapsed_time(1);
-assert_eq!(instance.get_result(), "value(142)other(100)value(141)");
+assert_eq!(instance.get_result(), "other(100)value(142)value(141)");
 
 
 ```

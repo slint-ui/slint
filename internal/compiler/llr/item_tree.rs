@@ -236,6 +236,7 @@ pub struct SubComponent {
     /// The initial value or binding for properties.
     /// This is ordered in the order they must be set.
     pub property_init: Vec<(PropertyReference, BindingExpression)>,
+    pub change_callbacks: Vec<(PropertyReference, MutExpression)>,
     /// The animation for properties which are animated
     pub animations: HashMap<PropertyReference, Expression>,
     pub two_way_bindings: Vec<(PropertyReference, PropertyReference)>,
@@ -371,6 +372,9 @@ impl PublicComponent {
             }
             for i in sc.geometries.iter().flatten() {
                 visitor(i, ctx);
+            }
+            for (_, e) in sc.change_callbacks.iter() {
+                visitor(e, ctx);
             }
         });
         for g in &self.globals {

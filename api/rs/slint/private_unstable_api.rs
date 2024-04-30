@@ -203,7 +203,9 @@ pub mod re_exports {
         logical_position_to_api, LogicalLength, LogicalPoint, LogicalRect,
     };
     pub use i_slint_core::model::*;
-    pub use i_slint_core::properties::{set_state_binding, Property, PropertyTracker, StateInfo};
+    pub use i_slint_core::properties::{
+        set_state_binding, ChangeTracker, Property, PropertyTracker, StateInfo,
+    };
     pub use i_slint_core::slice::Slice;
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,
