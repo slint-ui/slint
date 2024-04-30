@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use i_slint_compiler::diagnostics::SourceFile;
-use i_slint_compiler::parser::{SyntaxKind, SyntaxNode};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
@@ -491,15 +491,36 @@ fn drop_target_element_nodes(
     result
 }
 
+fn is_recursive_inclusion(
+    root_node: &Option<&common::ElementRcNode>,
+    component_type: &str,
+) -> bool {
+    let declared_identifier = root_node
+        .and_then(|rn| {
+            rn.with_element_node(|node| {
+                node.parent()
+                    .and_then(|p| TryInto::<syntax_nodes::Component>::try_into(p).ok())
+                    .map(|c| c.DeclaredIdentifier().text().to_string())
+            })
+        })
+        .unwrap_or_default();
+
+    declared_identifier == component_type
+}
+
 fn find_element_to_drop_into(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
     selected_element: &Option<common::ElementRcNode>,
+    component_type: &str,
 ) -> Option<common::ElementRcNode> {
     let se = selected_element.clone();
     let filter = Box::new(move |e: &common::ElementRcNode| Some(e.clone()) == se);
 
     let all_element_nodes = drop_target_element_nodes(component_instance, position, filter);
+    if is_recursive_inclusion(&all_element_nodes.last(), component_type) {
+        return None;
+    }
 
     let mut tmp = None;
     for element_node in &all_element_nodes {
@@ -525,7 +546,7 @@ fn find_drop_location(
     selected_element: Option<common::ElementRcNode>,
 ) -> Option<DropInformation> {
     let drop_target_node =
-        find_element_to_drop_into(component_instance, position, &selected_element)?;
+        find_element_to_drop_into(component_instance, position, &selected_element, component_type)?;
 
     let (path, _) = drop_target_node.path_and_offset();
     let tl = component_instance.definition().type_loader();
@@ -628,7 +649,7 @@ fn pretty_node_removal_range(node: &SyntaxNode) -> Option<rowan::TextRange> {
         first_et.text_range().start() // Nothing to cut away
     };
 
-    let last_et = util::last_non_ws_token(&node)?;
+    let last_et = util::last_non_ws_token(node)?;
     let after_et = last_et.next_token()?;
     let end_pos = if after_et.kind() == SyntaxKind::Whitespace && after_et.text().contains('\n') {
         after_et.text_range().start()
@@ -924,7 +945,7 @@ pub fn move_element_to(
 
     let mut edits = Vec::with_capacity(3);
 
-    let remove_me = element.with_element_node(|node| node_removal_text_edit(&node))?;
+    let remove_me = element.with_element_node(|node| node_removal_text_edit(node))?;
     if remove_me.0.path() == source_file.path() {
         selection_offset =
             TextOffsetAdjustment::new(&remove_me.1, &source_file).adjust(selection_offset);
