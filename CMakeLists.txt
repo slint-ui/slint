@@ -39,7 +39,7 @@ if(SLINT_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 if(SLINT_BUILD_TESTING AND (SLINT_FEATURE_COMPILER OR SLINT_COMPILER))
-    add_subdirectory(docs/quickstart/cpp/src/)
+    add_subdirectory(docs/reference/src/quickstart/)
 endif()
 
 feature_summary(WHAT ENABLED_FEATURES DESCRIPTION "Enabled features:")
