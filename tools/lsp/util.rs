@@ -10,8 +10,6 @@ use i_slint_compiler::parser::{TextRange, TextSize};
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
 
-use crate::common;
-
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::UrlWasm;
 
@@ -60,8 +58,8 @@ pub fn last_non_ws_token(node: &SyntaxNode) -> Option<SyntaxToken> {
 
 // Find the indentation of the element node itself as well as the indentation of properties inside the
 // element. Returns the element indent.
-pub fn find_element_indent(element: &common::ElementRcNode) -> Option<String> {
-    let mut token = element.with_element_node(|node| node.first_token()?.prev_token());
+pub fn find_node_indent(node: &SyntaxNode) -> Option<String> {
+    let mut token = node.first_token()?.prev_token();
     while let Some(t) = token {
         if t.kind() == SyntaxKind::Whitespace && t.text().contains('\n') {
             return t.text().split('\n').last().map(|s| s.to_owned());
@@ -304,7 +302,7 @@ mod tests {
     use crate::language::test::loaded_document_cache;
 
     #[test]
-    fn test_find_element_indent() {
+    fn test_find_node_indent() {
         let (dc, url, _) = loaded_document_cache(
             r#"component MainWindow inherits Window {
     VerticalBox {
@@ -315,15 +313,21 @@ mod tests {
         );
 
         let window =
-            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(0, 30));
-        assert_eq!(find_element_indent(&window.unwrap()), None);
+            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(0, 30))
+                .unwrap();
+        assert_eq!(window.with_element_node(|n| find_node_indent(&*n)), None);
 
         let vbox =
-            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(1, 4));
-        assert_eq!(find_element_indent(&vbox.unwrap()), Some("    ".to_string()));
+            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(1, 4))
+                .unwrap();
+        assert_eq!(vbox.with_element_node(|n| find_node_indent(&*n)), Some("    ".to_string()));
 
         let label =
-            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(2, 17));
-        assert_eq!(find_element_indent(&label.unwrap()), Some("        ".to_string()));
+            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(2, 17))
+                .unwrap();
+        assert_eq!(
+            label.with_element_node(|n| find_node_indent(&*n)),
+            Some("        ".to_string())
+        );
     }
 }

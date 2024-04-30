@@ -54,14 +54,6 @@ impl ElementRcNode {
         Some(Self { element, debug_index })
     }
 
-    pub fn find_in(element: ElementRc, path: &std::path::Path, offset: u32) -> Option<Self> {
-        let debug_index = element.borrow().debug.iter().position(|(n, _)| {
-            u32::from(n.text_range().start()) == offset && n.source_file.path() == path
-        })?;
-
-        Some(Self { element, debug_index })
-    }
-
     pub fn find_in_or_below(
         element: ElementRc,
         path: &std::path::Path,
@@ -220,22 +212,14 @@ pub fn create_workspace_edit_from_source_files(
 #[derive(Clone, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct VersionedUrl {
     /// The file url
-    url: Url,
+    pub url: Url,
     // The file version
-    version: UrlVersion,
+    pub version: UrlVersion,
 }
 
 impl VersionedUrl {
     pub fn new(url: Url, version: UrlVersion) -> Self {
         VersionedUrl { url, version }
-    }
-
-    pub fn url(&self) -> &Url {
-        &self.url
-    }
-
-    pub fn version(&self) -> &UrlVersion {
-        &self.version
     }
 }
 
@@ -255,31 +239,26 @@ pub struct Position {
     pub offset: u32,
 }
 
+#[allow(unused)]
+impl Position {
+    pub fn new(url: Url, offset: u32) -> Self {
+        Position { url, offset }
+    }
+}
+
 /// A versioned file
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct VersionedPosition {
     /// The file url
-    url: VersionedUrl,
+    pub url: VersionedUrl,
     /// The offset in the file pointed to by the `url`
-    offset: u32,
+    pub offset: u32,
 }
 
 #[allow(unused)]
 impl VersionedPosition {
     pub fn new(url: VersionedUrl, offset: u32) -> Self {
         VersionedPosition { url, offset }
-    }
-
-    pub fn url(&self) -> &Url {
-        self.url.url()
-    }
-
-    pub fn version(&self) -> &UrlVersion {
-        self.url.version()
-    }
-
-    pub fn offset(&self) -> u32 {
-        self.offset
     }
 }
 

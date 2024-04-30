@@ -74,10 +74,10 @@ thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default:
 
 pub fn set_contents(url: &common::VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let old = cache.source_code.insert(url.url().clone(), (*url.version(), content.clone()));
-    if cache.dependency.contains(url.url()) {
+    let old = cache.source_code.insert(url.url.clone(), (url.version, content.clone()));
+    if cache.dependency.contains(&url.url) {
         if let Some((old_version, old)) = old {
-            if content == old && old_version == *url.version() {
+            if content == old && old_version == url.version {
                 return;
             }
         }
@@ -109,11 +109,113 @@ fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<Elem
 }
 
 // triggered from the UI, running in UI thread
-fn add_component(
-    component_type: slint::SharedString,
-) {
-    let component_type = component_type.to_string();
-    eprintln!("Adding new component '{component_type}'");
+fn add_component(component_type: slint::SharedString) {
+    // Find a unique component name
+    let new_component_type = PREVIEW_STATE.with(|preview_state| {
+        let nct = component_type.to_string();
+        let preview_state = preview_state.borrow();
+
+        let mut new_component_type = nct.clone();
+        let mut current_count = 0;
+
+        while preview_state
+            .known_components
+            .binary_search_by_key(&new_component_type.as_str(), |ci| ci.name.as_str())
+            .is_ok()
+        {
+            current_count += 1;
+            new_component_type = format!("{nct}{current_count}");
+        }
+
+        new_component_type
+    });
+
+    let (current_url, current_version, current_source) = {
+        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        let Some(PreviewComponent { url: current_url, .. }) = &cache.current else {
+            return;
+        };
+        let Some((current_version, current_source)) = cache.source_code.get(&current_url).cloned()
+        else {
+            return;
+        };
+        (current_url.clone(), current_version, current_source)
+    };
+
+    let Ok(current_path) = current_url.to_file_path() else {
+        return;
+    };
+
+    let Some(component_instance) = component_instance() else {
+        return;
+    };
+
+    let tl = component_instance.definition().type_loader();
+    let Some(current_doc) = tl.get_document(&current_path) else {
+        return;
+    };
+
+    let Some(current_doc_node) = &current_doc.node else {
+        return;
+    };
+
+    let source_file = current_doc_node.source_file.clone();
+
+    let insert_location = current_doc_node
+        .children()
+        .find(|child| {
+            [SyntaxKind::Component, SyntaxKind::ExportsList].contains(&child.kind())
+        })
+        .and_then(|c| drop_location::pretty_node_insert_before(&c))
+        .unwrap_or_else(|| {
+            let end_offset = current_source.as_bytes().len() as u32;
+            let pre_indent =
+                if current_source.ends_with('\n') { "\n".to_string() } else { "\n\n".to_string() };
+
+            drop_location::InsertInformation {
+                insertion_position: common::Position::new(current_url.clone(), end_offset),
+                replacement_range: 0,
+                pre_indent,
+                indent: String::new(),
+                post_indent: "\n".to_string(),
+            }
+        });
+
+    let new_text = format!(
+        "{}component {new_component_type} {{ }}\n\n{}",
+        insert_location.pre_indent, insert_location.post_indent
+    );
+
+    let start_pos =
+        util::map_position(&source_file, insert_location.insertion_position.offset.into());
+    let end_pos = util::map_position(
+        &source_file,
+        (insert_location.insertion_position.offset + insert_location.replacement_range).into(),
+    );
+    let edit = lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text };
+
+    let edit = common::create_workspace_edit(current_url.clone(), current_version, vec![edit]);
+
+    element_selection::select_element_at_source_code_position(
+        current_path,
+        insert_location.insertion_position.offset
+            + insert_location.pre_indent.as_bytes().len() as u32,
+        None,
+        true,
+    );
+
+    send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
+        label: Some(format!("Add component {}", new_component_type)),
+        edit,
+    });
+
+    {
+        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        if let Some(mut preview) = cache.current.take() {
+            preview.component = Some(new_component_type);
+            cache.current = Some(preview);
+        }
+    }
 }
 
 // triggered from the UI, running in UI thread

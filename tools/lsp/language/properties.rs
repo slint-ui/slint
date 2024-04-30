@@ -563,7 +563,8 @@ fn create_workspace_edit_for_set_binding_on_known_property(
 
     find_insert_range_for_property(&block_range, properties, property_name).map(
         |(range, insert_type)| {
-            let indent = util::find_element_indent(element).unwrap_or_default();
+            let indent =
+                element.with_element_node(|n| util::find_node_indent(&n)).unwrap_or_default();
             let edit = lsp_types::TextEdit {
                 range,
                 new_text: match insert_type {
@@ -727,10 +728,10 @@ fn element_at_source_code_position(
     dc: &mut language::DocumentCache,
     position: &common::VersionedPosition,
 ) -> Result<common::ElementRcNode> {
-    let file = lsp_types::Url::to_file_path(position.url())
+    let file = lsp_types::Url::to_file_path(&position.url.url)
         .map_err(|_| "Failed to convert URL to file path".to_string())?;
 
-    if &dc.document_version(position.url()) != position.version() {
+    if dc.document_version(&position.url.url) != position.url.version {
         return Err("Document version mismatch.".into());
     }
 
@@ -741,11 +742,12 @@ fn element_at_source_code_position(
         .as_ref()
         .map(|n| n.source_file.clone())
         .ok_or_else(|| "Document had no node".to_string())?;
-    let element_position = util::map_position(&source_file, position.offset().into());
+    let element_position = util::map_position(&source_file, position.offset.into());
 
-    Ok(language::element_at_position(&dc.documents, position.url(), &element_position).ok_or_else(
-        || format!("No element found at the given start position {:?}", &element_position),
-    )?)
+    Ok(language::element_at_position(&dc.documents, &position.url.url, &element_position)
+        .ok_or_else(|| {
+            format!("No element found at the given start position {:?}", &element_position)
+        })?)
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -758,8 +760,8 @@ pub fn update_element_properties(
 
     let (_, e) = set_bindings(
         &ctx.document_cache.borrow_mut(),
-        position.url().clone(),
-        *position.version(),
+        position.url.url.clone(),
+        position.url.version,
         &element,
         &properties,
     )?;

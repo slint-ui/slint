@@ -64,7 +64,7 @@ pub struct DropInformation {
 
 #[derive(Clone, Debug)]
 pub struct InsertInformation {
-    pub insertion_position: common::VersionedPosition,
+    pub insertion_position: common::Position,
     pub replacement_range: u32,
     pub pre_indent: String,
     pub indent: String,
@@ -368,7 +368,9 @@ fn insert_position_at_end(
         } else if before_closing.kind() == SyntaxKind::Whitespace
             && !before_closing.text().contains('\n')
         {
-            let indent = util::find_element_indent(target_element_node).unwrap_or_default();
+            let indent = target_element_node
+                .with_element_node(|n| util::find_node_indent(&*n))
+                .unwrap_or_default();
             let ws_len = before_closing.text().len() as u32;
             (
                 format!("\n{indent}    "),
@@ -378,18 +380,16 @@ fn insert_position_at_end(
                 ws_len,
             )
         } else {
-            let indent = util::find_element_indent(target_element_node).unwrap_or_default();
+            let indent = target_element_node
+                .with_element_node(|n| util::find_node_indent(&*n))
+                .unwrap_or_default();
             (format!("\n{indent}    "), format!("{indent}    "), indent, closing_brace_offset, 0)
         };
 
         let url = lsp_types::Url::from_file_path(node.source_file.path()).ok()?;
-        let (version, _) = preview::get_url_from_cache(&url)?;
 
         Some(InsertInformation {
-            insertion_position: common::VersionedPosition::new(
-                crate::common::VersionedUrl::new(url, version),
-                offset,
-            ),
+            insertion_position: common::Position::new(url, offset),
             replacement_range,
             pre_indent,
             indent,
@@ -415,48 +415,44 @@ fn insert_position_before_child(
             })
             .enumerate()
         {
-            if index < child_index {
-                continue;
+            if index == child_index {
+                return pretty_node_insert_before(&child_node);
             }
-
-            assert!(index == child_index);
-
-            let first_token = child_node.first_token()?;
-            let first_token_offset = u32::from(first_token.text_range().start());
-            let before_first_token = first_token.prev_token()?;
-
-            let (pre_indent, indent) = if before_first_token.kind() == SyntaxKind::Whitespace
-                && before_first_token.text().contains('\n')
-            {
-                let element_indent = before_first_token.text().split('\n').last().unwrap(); // must exist in this branch
-                ("".to_string(), element_indent.to_string())
-            } else if before_first_token.kind() == SyntaxKind::Whitespace
-                && !before_first_token.text().contains('\n')
-            {
-                let indent = util::find_element_indent(target_element_node).unwrap_or_default();
-                ("".to_string(), format!("{indent}    "))
-            } else {
-                let indent = util::find_element_indent(target_element_node).unwrap_or_default();
-                (format!("\n{indent}    "), format!("{indent}    "))
-            };
-
-            let url = lsp_types::Url::from_file_path(child_node.source_file.path()).ok()?;
-            let (version, _) = preview::get_url_from_cache(&url)?;
-
-            return Some(InsertInformation {
-                insertion_position: common::VersionedPosition::new(
-                    crate::common::VersionedUrl::new(url, version),
-                    first_token_offset,
-                ),
-                replacement_range: 0,
-                pre_indent,
-                indent: indent.clone(),
-                post_indent: indent,
-            });
         }
 
         // We should never get here...
         None
+    })
+}
+
+pub(crate) fn pretty_node_insert_before(node: &SyntaxNode) -> Option<InsertInformation> {
+    let first_token = node.first_token()?;
+    let first_token_offset = u32::from(first_token.text_range().start());
+    let before_first_token = first_token.prev_token()?;
+
+    let (pre_indent, indent) = if before_first_token.kind() == SyntaxKind::Whitespace
+        && before_first_token.text().contains('\n')
+    {
+        let element_indent = before_first_token.text().split('\n').last().unwrap(); // must exist in this branch
+        ("".to_string(), element_indent.to_string())
+    } else if before_first_token.kind() == SyntaxKind::Whitespace
+        && !before_first_token.text().contains('\n')
+    {
+        let indent = util::find_node_indent(node).unwrap_or_default();
+        ("".to_string(), format!("{indent}    "))
+    } else {
+        let indent = util::find_node_indent(node).unwrap_or_default();
+        (format!("\n{indent}    "), format!("{indent}    "))
+    };
+
+    let url = lsp_types::Url::from_file_path(node.source_file.path()).ok()?;
+
+    Some(InsertInformation {
+        insertion_position: common::Position::new(url, first_token_offset),
+        replacement_range: 0,
+        pre_indent,
+        indent: indent.clone(),
+        post_indent: indent,
     })
 }
 
@@ -613,7 +609,7 @@ pub struct DropData {
     pub path: std::path::PathBuf,
 }
 
-fn pretty_node_removal_range(node: &SyntaxNode) -> Option<rowan::TextRange> {
+pub(crate) fn pretty_node_removal_range(node: &SyntaxNode) -> Option<rowan::TextRange> {
     let first_et = node.first_token()?;
     let before_et = first_et.prev_token()?;
     let start_pos = if before_et.kind() == SyntaxKind::Whitespace && before_et.text().contains('\n')
@@ -719,7 +715,7 @@ pub fn drop_at(
         to_insert
     };
 
-    let mut selection_offset = drop_info.insert_info.insertion_position.offset()
+    let mut selection_offset = drop_info.insert_info.insertion_position.offset
         + new_text.chars().take_while(|c| c.is_whitespace()).map(|c| c.len_utf8()).sum::<usize>()
             as u32;
 
@@ -749,11 +745,10 @@ pub fn drop_at(
     );
 
     let start_pos =
-        util::map_position(&source_file, drop_info.insert_info.insertion_position.offset().into());
+        util::map_position(&source_file, drop_info.insert_info.insertion_position.offset.into());
     let end_pos = util::map_position(
         &source_file,
-        (drop_info.insert_info.insertion_position.offset()
-            + drop_info.insert_info.replacement_range)
+        (drop_info.insert_info.insertion_position.offset + drop_info.insert_info.replacement_range)
             .into(),
     );
     edits.push(lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text });
@@ -807,7 +802,7 @@ fn extract_text_of_element(
 
     // Trim leading WS to get "raw" lines
     let lines = text.split('\n').collect::<Vec<_>>();
-    let indent = util::find_element_indent(element).unwrap_or_else(|| {
+    let indent = element.with_element_node(|n| util::find_node_indent(&*n)).unwrap_or_else(|| {
         lines
             .last()
             .expect("There is always one line")
@@ -918,7 +913,7 @@ pub fn move_element_to(
     let doc = tl.get_document(&path)?;
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
 
-    let mut selection_offset = drop_info.insert_info.insertion_position.offset()
+    let mut selection_offset = drop_info.insert_info.insertion_position.offset
         + new_text.chars().take_while(|c| c.is_whitespace()).map(|c| c.len_utf8()).sum::<usize>()
             as u32;
 
@@ -954,11 +949,10 @@ pub fn move_element_to(
     );
 
     let start_pos =
-        util::map_position(&source_file, drop_info.insert_info.insertion_position.offset().into());
+        util::map_position(&source_file, drop_info.insert_info.insertion_position.offset.into());
     let end_pos = util::map_position(
         &source_file,
-        (drop_info.insert_info.insertion_position.offset()
-            + drop_info.insert_info.replacement_range)
+        (drop_info.insert_info.insertion_position.offset + drop_info.insert_info.replacement_range)
             .into(),
     );
     edits.push((
