@@ -12,7 +12,7 @@
         <link rel="icon" type="image/x-icon" href="https://slint.dev/assets/img/favicon.svg">
 
         <!-- ===== All CSS files ===== -->
-        <link rel="stylesheet" href="https://slint.dev/assets/css/style.css?v=1.11.56" />
+        <link rel="stylesheet" href="https://slint.dev/assets/css/style.css?v=1.12.0" />
         
 
         <!-- ===== Header from individual pages ===== -->
@@ -26,12 +26,12 @@
         <script>
             /* Check if dark theme is selected */
             if (localStorage.getItem('theme') === 'dark') {
-              document.documentElement.classList.add('dark');
+                document.documentElement.classList.add('dark');
             }
             else if (localStorage.getItem('theme') === 'light') {
-              document.documentElement.classList.add('light');
+                document.documentElement.classList.add('light');
             }
-          </script>
+        </script>
 
         <div class="wrap">
             <!-- ====== Header Start ====== -->
@@ -43,22 +43,28 @@
                     <nav class="main-navi">
 
                         <ul>
-                            <li id="use-cases"><a href="https://slint.dev/use-cases.html">Use Cases</a></li>
+                            <li class="navi-item-has-children" id="use-cases"><a href="#">Use Cases</a>
+                                <ul>
+                                    <li id="demos"><a href="https://slint.dev/demos.html">Demos</a></li>
+                                    <li id="supported-boards"><a href="https://slint.dev/supported-boards.html">Embedded</a></li>
+                                    <li id="use-cases"><a href="https://slint.dev/use-cases.html">Cross Platform</a></li>
+                                </ul>
+                            </li>
                             <li id="pricing"><a href="https://slint.dev/pricing.html">Pricing</a></li>
                             <li id="blog"><a href="https://slint.dev/blog">Blog</a></li>
                             <li id="docs"><a href="https://slint.dev/docs.html">Docs</a></li>
                             <li class="navi-item-has-children" id="resources"><a href="#">Resources</a>
                                 <ul>
-                                    <li id="demos"><a href="https://slint.dev/demos.html">Demos</a></li>
-                                    <li id="partners"><a href="https://slint.dev/partners.html">Partners</a></li>
-                                    <li id="community"><a href="https://slint.dev/community.html">Community</a></li>
                                     <li id="success"><a href="https://slint.dev/success">Success Stories</a></li>
-                                    <li id="supported-boards"><a href="https://slint.dev/supported-boards.html">Supported Boards</a></li>
-                                  </ul>
+                                    <li id="community"><a href="https://slint.dev/community.html">Community</a></li>
+                                    <li id="partners"><a href="https://slint.dev/partners.html">Partners</a></li>
+                                    <li id="events"><a href="https://slint.dev/events.html">Events</a></li>    
+                                </ul>
                             </li>
                             <!-- <li class="search"><a href="https://slint.dev/search-results.html">Search</a></li> -->
                             <li class="theme theme-light"><a href="#">Theme</a></li>
-                            <li class="btn"><a href="https://slint.dev/get-started.html">Get Started</a></li>
+                            <li class="btn btn-blue"><a href="https://slint.dev/get-started.html">Get Started</a></li>
+                            <li class="btn btn-white"><a href="https://slint.dev/contact.html">Contact Us</a></li>
                         </ul>
 
                     </nav>
@@ -101,7 +107,7 @@
                     </div>
                 </div>
                 <div class="col-wrap">
-                    <div class="col-2">
+                    <div id="slint-lang" class="col-2">
                         <div class="price-box">
                             <h5>DSL</h5>
                             <h4>Slint</h4>
@@ -109,7 +115,7 @@
                             <p><a href="slint" class="btn doc">Language</a></p>
                         </div><!-- .price-box -->
                     </div><!-- .col-2 -->
-                    <div class="col-2">
+                    <div id="prog-lang" class="col-2">
                         <div class="col-wrap">
                             <div class="price-box">
                                 <h5>APIs</h5>
@@ -141,8 +147,9 @@
                 </div><!-- .col-wrap -->
             </section>
 
-            <section class="one-column" style="padding: 50px 0 2em;">
-                <p class="cta"><a href="https://slint.dev/contact.html" class="btn blue btn-center">Contact Us</a></p>
+            <section class="one-column mobile-only" style="padding: 50px 0 2em;">
+                <p class="cta"><a href="https://slint.dev/get-started.html" class="btn blue btn-center">Get Started</a></p>
+                <p class="cta"><a href="https://slint.dev/contact.html" class="btn btn-center">Contact Us</a></p>
             </section>
 
         </main>

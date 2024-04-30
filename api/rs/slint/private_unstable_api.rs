@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 //! Module containing the private api that is used by the generated code.
 //!
@@ -179,7 +179,9 @@ pub mod re_exports {
     // This one is empty when Qt is not available, which triggers a warning
     #[allow(unused_imports)]
     pub use i_slint_backend_selector::native_widgets::*;
-    pub use i_slint_core::accessibility::AccessibleStringProperty;
+    pub use i_slint_core::accessibility::{
+        AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
+    };
     pub use i_slint_core::animations::{animation_tick, EasingCurve};
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::graphics::*;

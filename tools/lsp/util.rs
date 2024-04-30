@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use i_slint_compiler::diagnostics::{DiagnosticLevel, SourceFile, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
@@ -59,7 +59,7 @@ pub fn last_non_ws_token(node: &SyntaxNode) -> Option<SyntaxToken> {
 }
 
 // Find the indentation of the element node itself as well as the indentation of properties inside the
-// element. Returns the element indent followed by the block indent
+// element. Returns the element indent.
 pub fn find_element_indent(element: &common::ElementRcNode) -> Option<String> {
     let mut token = element.with_element_node(|node| node.first_token()?.prev_token());
     while let Some(t) = token {

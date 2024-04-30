@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 /*!
 This module contains the builtin text related items.
@@ -9,7 +9,7 @@ Lookup the [`crate::items`] module documentation.
 */
 use super::{
     InputType, Item, ItemConsts, ItemRc, KeyEventResult, KeyEventType, PointArg,
-    PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow,
+    PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow, TextStrokeStyle,
     TextVerticalAlignment, TextWrap, VoidArg,
 };
 use crate::graphics::{Brush, Color, FontRequest};
@@ -51,6 +51,9 @@ pub struct Text {
     pub wrap: Property<TextWrap>,
     pub overflow: Property<TextOverflow>,
     pub letter_spacing: Property<LogicalLength>,
+    pub stroke: Property<Brush>,
+    pub stroke_width: Property<LogicalLength>,
+    pub stroke_style: Property<TextStrokeStyle>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
@@ -1476,7 +1479,7 @@ impl TextInput {
         self_rc: &ItemRc,
     ) {
         if !self.has_focus() {
-            WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
+            WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc, true);
         } else if !self.read_only() {
             if let Some(w) = window_adapter.internal(crate::InternalToken) {
                 w.input_method_request(InputMethodRequest::Enable(

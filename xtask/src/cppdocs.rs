@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 // cspell:ignore cppdocs pipenv pipfile
 
@@ -90,6 +90,8 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
         renderer_software: true,
         renderer_skia: true,
         experimental: false,
+        gettext: true,
+        testing: true,
     };
     cbindgen::gen_all(&root, &generated_headers_dir, enabled_features)?;
 

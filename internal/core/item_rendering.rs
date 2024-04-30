@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 #![warn(missing_docs)]
 //! module for rendering the tree of items
@@ -396,6 +396,9 @@ pub trait ItemRenderer {
     fn get_current_clip(&self) -> LogicalRect;
 
     fn translate(&mut self, distance: LogicalVector);
+    fn translation(&self) -> LogicalVector {
+        unimplemented!()
+    }
     fn rotate(&mut self, angle_in_degrees: f32);
     /// Apply the opacity (between 0 and 1) for all following items until the next call to restore_state.
     fn apply_opacity(&mut self, opacity: f32);
@@ -446,8 +449,121 @@ pub trait ItemRenderer {
 /// The cache that needs to be held by the Window for the partial rendering
 pub type PartialRenderingCache = RenderingCache<LogicalRect>;
 
-/// FIXME: Should actually be a region and not just a rectangle
-pub type DirtyRegion = euclid::Box2D<Coord, LogicalPx>;
+/// A region composed of a few rectangles that need to be redrawn.
+#[derive(Default, Clone, Debug)]
+pub struct DirtyRegion {
+    rectangles: [euclid::Box2D<Coord, LogicalPx>; Self::MAX_COUNT],
+    count: usize,
+}
+
+impl DirtyRegion {
+    /// The maximum number of rectangles that can be stored in a DirtyRegion
+    pub(crate) const MAX_COUNT: usize = 3;
+
+    /// An iterator over the part of the region (they can overlap)
+    pub fn iter(&self) -> impl Iterator<Item = euclid::Box2D<Coord, LogicalPx>> + '_ {
+        (0..self.count).map(|x| self.rectangles[x])
+    }
+
+    /// Add a rectangle to the region.
+    ///
+    /// Note that if the region becomes too complex, it might be simplified by being bigger than the actual union.
+    pub fn add_rect(&mut self, rect: LogicalRect) {
+        self.add_box(rect.to_box2d());
+    }
+
+    /// Add a box to the region
+    ///
+    /// Note that if the region becomes too complex, it might be simplified by being bigger than the actual union.
+    pub fn add_box(&mut self, b: euclid::Box2D<Coord, LogicalPx>) {
+        if b.is_empty() {
+            return;
+        }
+        let mut i = 0;
+        while i < self.count {
+            let r = &self.rectangles[i];
+            if r.contains_box(&b) {
+                // the rectangle is already in the union
+                return;
+            } else if b.contains_box(&r) {
+                self.rectangles.swap(i, self.count - 1);
+                self.count -= 1;
+                continue;
+            }
+            i += 1;
+        }
+
+        if self.count < Self::MAX_COUNT {
+            self.rectangles[self.count] = b;
+            self.count += 1;
+            return;
+        } else {
+            let best_merge = (0..self.count)
+                .map(|i| (i, self.rectangles[i].union(&b).area() - self.rectangles[i].area()))
+                .min_by(|a, b| PartialOrd::partial_cmp(&a.1, &b.1).unwrap())
+                .expect("There should always be rectangles")
+                .0;
+            self.rectangles[best_merge] = self.rectangles[best_merge].union(&b);
+        }
+    }
+
+    /// Make an union of two regions.
+    ///
+    /// Note that if the region becomes too complex, it might be simplified by being bigger than the actual union
+    #[must_use]
+    pub fn union(&self, other: &Self) -> Self {
+        let mut s = self.clone();
+        for o in other.iter() {
+            s.add_box(o)
+        }
+        s
+    }
+
+    /// Bounding rectangle of the region.
+    #[must_use]
+    pub fn bounding_rect(&self) -> LogicalRect {
+        if self.count == 0 {
+            return Default::default();
+        }
+        let mut r = self.rectangles[0];
+        for i in 1..self.count {
+            r = r.union(&self.rectangles[i]);
+        }
+        r.to_rect()
+    }
+
+    /// Intersection of a region and a rectangle.
+    #[must_use]
+    pub fn intersection(&self, other: LogicalRect) -> DirtyRegion {
+        let mut ret = self.clone();
+        let other = other.to_box2d();
+        let mut i = 0;
+        while i < ret.count {
+            if let Some(x) = ret.rectangles[i].intersection(&other) {
+                ret.rectangles[i] = x;
+            } else {
+                ret.rectangles.swap(i, ret.count);
+                ret.count -= 1;
+                continue;
+            }
+            i += 1;
+        }
+        ret
+    }
+
+    fn draw_intersects(&self, clipped_geom: LogicalRect) -> bool {
+        let b = clipped_geom.to_box2d();
+        self.iter().any(|r| r.intersects(&b))
+    }
+}
+
+impl From<LogicalRect> for DirtyRegion {
+    fn from(value: LogicalRect) -> Self {
+        let mut s = Self::default();
+        s.add_rect(value);
+        s
+    }
+}
 
 /// Put this structure in the renderer to help with partial rendering
 pub struct PartialRenderer<'a, T> {
@@ -469,7 +585,12 @@ impl<'a, T> PartialRenderer<'a, T> {
     }
 
     /// Visit the tree of item and compute what are the dirty regions
-    pub fn compute_dirty_regions(&mut self, component: &ItemTreeRc, origin: LogicalPoint) {
+    pub fn compute_dirty_regions(
+        &mut self,
+        component: &ItemTreeRc,
+        origin: LogicalPoint,
+        size: LogicalSize,
+    ) {
         #[derive(Clone, Copy)]
         struct ComputeDirtyRegionState {
             offset: euclid::Vector2D<Coord, LogicalPx>,
@@ -562,7 +683,7 @@ impl<'a, T> PartialRenderer<'a, T> {
             ComputeDirtyRegionState {
                 offset: origin.to_vector(),
                 old_offset: origin.to_vector(),
-                clipped: euclid::rect(0 as Coord, 0 as Coord, Coord::MAX, Coord::MAX),
+                clipped: LogicalRect::from_size(size),
                 must_refresh_children: false,
             },
         );
@@ -576,7 +697,7 @@ impl<'a, T> PartialRenderer<'a, T> {
     ) {
         if !rect.is_empty() {
             if let Some(rect) = rect.translate(offset).intersection(clip_rect) {
-                self.dirty_region = self.dirty_region.union(&rect.to_box2d());
+                self.dirty_region.add_rect(rect);
             }
         }
     }
@@ -662,10 +783,12 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
             }
         };
 
-        //let clip = self.get_current_clip().intersection(&self.dirty_region.to_rect());
-        //let draw = clip.map_or(false, |r| r.intersects(&item_geometry));
-        //FIXME: the dirty_region is in global coordinate but item_geometry and current_clip is not
-        let draw = self.get_current_clip().intersects(&item_geometry);
+        let clipped_geom = self.get_current_clip().intersection(&item_geometry);
+        let draw = clipped_geom.map_or(false, |clipped_geom| {
+            let clipped_geom = clipped_geom.translate(self.translation());
+            self.dirty_region.draw_intersects(clipped_geom)
+        });
+
         (draw, item_geometry)
     }
 
@@ -696,6 +819,9 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
 
     fn translate(&mut self, distance: LogicalVector) {
         self.actual_renderer.translate(distance)
+    }
+    fn translation(&self) -> LogicalVector {
+        self.actual_renderer.translation()
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {

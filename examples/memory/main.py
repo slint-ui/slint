@@ -1,18 +1,16 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
-# autopep8: off
+
 from datetime import timedelta, datetime
 import os
 import random
 import itertools
 import slint
 from slint import Color, ListModel, Timer, TimerMode
-import memory_slint
-# autopep8: on
 
 
-class MainWindow(memory_slint.MainWindow):
+class MainWindow(slint.loader.memory.MainWindow):
     def __init__(self):
         super().__init__()
         initial_tiles = self.memory_tiles
@@ -22,7 +20,8 @@ class MainWindow(memory_slint.MainWindow):
 
     @slint.callback
     def check_if_pair_solved(self):
-        flipped_tiles = [(index, tile) for index, tile in enumerate(self.memory_tiles) if tile["image-visible"] and not tile["solved"]]
+        flipped_tiles = [(index, tile) for index, tile in enumerate(
+            self.memory_tiles) if tile["image-visible"] and not tile["solved"]]
         if len(flipped_tiles) == 2:
             tile1_index, tile1 = flipped_tiles[0]
             tile2_index, tile2 = flipped_tiles[1]

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 // cSpell: ignore descr rfind unindented
 
@@ -173,6 +173,9 @@ pub fn all_exported_components(
             result.push(to_push);
         }
     }
+
+    result.sort_by(|a, b| a.name.cmp(&b.name));
+    result.dedup_by(|a, b| a.name == b.name);
 }
 
 pub fn file_local_components(

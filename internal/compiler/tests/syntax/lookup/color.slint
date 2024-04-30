@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 
 export X := Rectangle {
@@ -46,6 +46,8 @@ export X := Rectangle {
         property<color> c3: Colors.rgb(45,45);
 //                          ^error{This function needs 3 or 4 arguments, but 2 were provided}
         property<color> c4: Colors.rgba(1,2,3,4,5);
+//                          ^error{This function needs 3 or 4 arguments, but 5 were provided}
+        property<color> c5: Colors.hsv(1,2,3,4,5);
 //                          ^error{This function needs 3 or 4 arguments, but 5 were provided}
 
 

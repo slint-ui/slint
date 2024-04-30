@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 [package]
 name = "slint-viewer"
@@ -67,7 +67,7 @@ env_logger = "0.11.0"
 itertools = { workspace = true }
 
 # Enable image-rs' default features to make all image formats available for preview
-image = { version = "0.24.0" }
+image = { workspace = true, features = ["default"] }
 
 [[bin]]
 name = "slint-viewer"

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use std::{collections::HashMap, iter::once, rc::Rc};
 
@@ -46,7 +46,9 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     ui.on_select_behind(super::element_selection::select_element_behind);
     ui.on_can_drop(super::can_drop_component);
     ui.on_drop(super::drop_component);
-    ui.on_selected_element_update_geometry(super::change_geometry_of_selected_element);
+    ui.on_selected_element_resize(super::resize_selected_element);
+    ui.on_selected_element_can_move_to(super::can_move_selected_element);
+    ui.on_selected_element_move(super::move_selected_element);
     ui.on_selected_element_delete(super::delete_selected_element);
 
     Ok(ui)

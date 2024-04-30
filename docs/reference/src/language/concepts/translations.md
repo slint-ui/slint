@@ -172,8 +172,8 @@ To do so, add this in your CMakeLists.txt
 ```cmake
 find_package(Intl)
 if(Intl_FOUND)
-    target_compile_definitions(gallery PRIVATE HAVE_GETTEXT SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-    target_link_libraries(gallery PRIVATE Intl::Intl)
+    target_compile_definitions(my_application PRIVATE HAVE_GETTEXT SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(my_application PRIVATE Intl::Intl)
 endif()
 ```
 
@@ -196,7 +196,7 @@ int main()
 ```
 
 Suppose you're using the above and the user's locale is set to `fr`,
-Slint will look for `gallery.mo` in the `lang/fr/LC_MESSAGES/gallery.mo`.
+Slint will look for `my_application.mo` in the `lang/fr/LC_MESSAGES/` directory.
 
 ## Previewing Translations with `slint-viewer`
 

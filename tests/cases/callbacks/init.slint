@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 // Verify that the init callback is invoked in the correct order
 
@@ -43,6 +43,14 @@ Container := Rectangle {
     @children
 }
 
+InsideRepeater := Rectangle {
+    property <int> index;
+    init => {
+        InitOrder.observed-order += "(i" + self.index + ")";
+    }
+    @children
+}
+
 TestCase := Rectangle {
     width: 300phx;
     height: 300phx;
@@ -74,11 +82,13 @@ TestCase := Rectangle {
         }
     }
 
-    for i in 2: Rectangle {
+    for i in 2: InsideRepeater {
+        index: i;
         init => {
             InitOrder.observed-order += "|repeater";
             InitOrder.observed-order += i;
         }
+        Rectangle {}
     }
 
     property <string> test_global_prop_value: InitOrder.observed-order;
@@ -94,7 +104,7 @@ let instance = TestCase::new().unwrap();
 
 assert!(instance.get_test());
 slint_testing::send_mouse_click(&instance, 5., 5.);
-assert_eq!(instance.global::<InitOrder<'_>>().get_observed_order(), instance.get_expected_static_order() + "|repeater0|repeater1");
+assert_eq!(instance.global::<InitOrder<'_>>().get_observed_order(), instance.get_expected_static_order() + "|repeater0(i0)|repeater1(i1)");
 ```
 
 ```cpp
@@ -102,7 +112,7 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
 slint_testing::send_mouse_click(&instance, 5., 5.);
-assert_eq(instance.global<InitOrder>().get_observed_order(),  instance.get_expected_static_order() + "|repeater0|repeater1");
+assert_eq(instance.global<InitOrder>().get_observed_order(),  instance.get_expected_static_order() + "|repeater0(i0)|repeater1(i1)");
 ```
 
 
@@ -110,7 +120,7 @@ assert_eq(instance.global<InitOrder>().get_observed_order(),  instance.get_expec
 var instance = new slint.TestCase({});
 assert(instance.test);
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
-assert.equal(instance.test_global_prop_value,  instance.expected_static_order + "|repeater0|repeater1");
+assert.equal(instance.test_global_prop_value,  instance.expected_static_order + "|repeater0(i0)|repeater1(i1)");
 ```
 
 

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 //! This pass follows the forward-focus property on the root element to determine the initial focus item
 //! as well as handle the forward for `focus()` calls in code.
@@ -14,10 +14,13 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use by_address::ByAddress;
 use std::collections::{HashMap, HashSet};
+use strum::IntoEnumIterator;
 
 /// Generate setup code to pass window focus to the root item or a forwarded focus if applicable.
 pub fn call_focus_on_init(component: &Rc<Component>) {
-    if let Some(focus_call_code) = call_focus_function(&component.root_element, None) {
+    if let Some(focus_call_code) =
+        call_set_focus_function(&component.root_element, None, FocusFunctionType::SetFocus)
+    {
         component.init_code.borrow_mut().focus_setting_code.push(focus_call_code);
     }
 }
@@ -35,29 +38,32 @@ pub fn replace_forward_focus_bindings_with_focus_functions(
         // Phase 2: Filter out focus-forward bindings that aren't callable
         local_forwards.remove_uncallable_forwards();
 
-        // Phase 3: For `focus-forward` in the root element, create a `focus()` function that's callable from the outside
+        // Phase 3: For `focus-forward` in the root element, create `focus()` and `clear-focus()` functions that are callable from the outside
         if let Some((root_focus_forward, focus_forward_location)) =
             local_forwards.focus_forward_for_element(&component.root_element)
         {
-            if let Some(set_focus_code) =
-                call_focus_function(&root_focus_forward, Some(&focus_forward_location))
-            {
-                component.root_element.borrow_mut().property_declarations.insert(
-                    "focus".into(),
-                    PropertyDeclaration {
-                        property_type: Type::Function {
-                            return_type: Type::Void.into(),
-                            args: vec![],
+            for function in FocusFunctionType::iter() {
+                if let Some(set_or_clear_focus_code) = call_set_focus_function(
+                    &root_focus_forward,
+                    Some(&focus_forward_location),
+                    function,
+                ) {
+                    component.root_element.borrow_mut().property_declarations.insert(
+                        function.name().into(),
+                        PropertyDeclaration {
+                            property_type: Type::Function {
+                                return_type: Type::Void.into(),
+                                args: vec![],
+                            },
+                            visibility: PropertyVisibility::Public,
+                            ..Default::default()
                         },
-                        visibility: PropertyVisibility::Public,
-                        ..Default::default()
-                    },
-                );
-                component
-                    .root_element
-                    .borrow_mut()
-                    .bindings
-                    .insert("focus".into(), RefCell::new(set_focus_code.into()));
+                    );
+                    component.root_element.borrow_mut().bindings.insert(
+                        function.name().into(),
+                        RefCell::new(set_or_clear_focus_code.into()),
+                    );
+                }
             }
         }
 
@@ -123,7 +129,7 @@ impl<'a> LocalFocusForwards<'a> {
     fn remove_uncallable_forwards(&mut self) {
         for target_and_location in self.forwards.values_mut() {
             let (target, source_location) = target_and_location.as_ref().unwrap();
-            if call_focus_function(target, None).is_none() {
+            if call_set_focus_function(target, None, FocusFunctionType::SetFocus).is_none() {
                 self.diag.push_error(
                     "Cannot forward focus to unfocusable element".into(),
                     source_location,
@@ -161,44 +167,55 @@ impl<'a> LocalFocusForwards<'a> {
     fn resolve_focus_calls_in_expression(&mut self, expr: &mut Expression) {
         expr.visit_mut(|e| self.resolve_focus_calls_in_expression(e));
 
-        if let Expression::FunctionCall { function, arguments, .. } = expr {
-            if let Expression::BuiltinFunctionReference(
-                BuiltinFunction::SetFocusItem,
-                source_location,
-            ) = function.as_ref()
-            {
-                if arguments.len() != 1 {
-                    assert!(
-                        self.diag.has_error(),
-                        "Invalid argument generated for SetFocusItem call"
-                    );
-                    return;
-                }
-                if let Expression::ElementReference(weak_focus_target) = &arguments[0] {
-                    let mut focus_target = weak_focus_target.upgrade().expect(
-                        "internal compiler error: weak SetFocusItem parameter cannot be dangling",
-                    );
-
-                    if self.forwards.contains_key(&ByAddress(focus_target.clone())) {
-                        let Some((next_focus_target, _)) =
-                            self.focus_forward_for_element(&focus_target)
-                        else {
-                            // There's no need to report an additional error that focus() can't be called. Invalid
-                            // forward-focus bindings have already diagnostics produced for them.
-                            return;
-                        };
-                        focus_target = next_focus_target;
+        for focus_function in FocusFunctionType::iter() {
+            if let Expression::FunctionCall { function, arguments, .. } = expr {
+                if let Expression::BuiltinFunctionReference(
+                    builtin_function_type,
+                    source_location,
+                ) = function.as_ref()
+                {
+                    if *builtin_function_type != focus_function.as_builtin_function() {
+                        continue;
                     }
-
-                    if let Some(set_focus_code) =
-                        call_focus_function(&focus_target, source_location.as_ref())
-                    {
-                        *expr = set_focus_code;
-                    } else {
-                        self.diag.push_error(
-                            "focus() can only be called on focusable elements".into(),
-                            source_location,
+                    if arguments.len() != 1 {
+                        assert!(
+                            self.diag.has_error(),
+                            "Invalid argument generated for {} call",
+                            focus_function.name()
                         );
+                        return;
+                    }
+                    if let Expression::ElementReference(weak_focus_target) = &arguments[0] {
+                        let mut focus_target = weak_focus_target.upgrade().expect(
+                            "internal compiler error: weak focus/clear-focus parameter cannot be dangling"
+                        );
+
+                        if self.forwards.contains_key(&ByAddress(focus_target.clone())) {
+                            let Some((next_focus_target, _)) =
+                                self.focus_forward_for_element(&focus_target)
+                            else {
+                                // There's no need to report an additional error that focus() can't be called. Invalid
+                                // forward-focus bindings have already diagnostics produced for them.
+                                return;
+                            };
+                            focus_target = next_focus_target;
+                        }
+
+                        if let Some(set_or_clear_focus_code) = call_set_focus_function(
+                            &focus_target,
+                            source_location.as_ref(),
+                            focus_function,
+                        ) {
+                            *expr = set_or_clear_focus_code;
+                        } else {
+                            self.diag.push_error(
+                                format!(
+                                    "{}() can only be called on focusable elements",
+                                    focus_function.name(),
+                                ),
+                                source_location,
+                            );
+                        }
                     }
                 }
             }
@@ -206,14 +223,38 @@ impl<'a> LocalFocusForwards<'a> {
     }
 }
 
-fn call_focus_function(
+#[derive(Copy, Clone, strum::EnumIter)]
+enum FocusFunctionType {
+    SetFocus,
+    ClearFocus,
+}
+
+impl FocusFunctionType {
+    fn name(&self) -> &'static str {
+        match self {
+            Self::SetFocus => "focus",
+            Self::ClearFocus => "clear-focus",
+        }
+    }
+
+    fn as_builtin_function(&self) -> BuiltinFunction {
+        match self {
+            Self::SetFocus => BuiltinFunction::SetFocusItem,
+            Self::ClearFocus => BuiltinFunction::ClearFocusItem,
+        }
+    }
+}
+
+fn call_set_focus_function(
     element: &ElementRc,
     source_location: Option<&SourceLocation>,
+    function_type: FocusFunctionType,
 ) -> Option<Expression> {
+    let function_name = function_type.name();
     let declares_focus_function = {
         let mut element = element.clone();
         loop {
-            if element.borrow().property_declarations.contains_key("focus") {
+            if element.borrow().property_declarations.contains_key(function_name) {
                 break true;
             }
             let base = element.borrow().base_type.clone();
@@ -229,7 +270,7 @@ fn call_focus_function(
     if declares_focus_function {
         Some(Expression::FunctionCall {
             function: Box::new(Expression::FunctionReference(
-                NamedReference::new(element, "focus"),
+                NamedReference::new(element, function_name),
                 None,
             )),
             arguments: vec![],
@@ -239,7 +280,7 @@ fn call_focus_function(
         let source_location = source_location.cloned();
         Some(Expression::FunctionCall {
             function: Box::new(Expression::BuiltinFunctionReference(
-                BuiltinFunction::SetFocusItem,
+                function_type.as_builtin_function(),
                 source_location.clone(),
             )),
             arguments: vec![Expression::ElementReference(Rc::downgrade(element))],

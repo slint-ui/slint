@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 //! Inline each object_tree::Component within the main Component
 
@@ -54,11 +54,9 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
     }
     inline_components_recursively(&doc.root_component, inline_selection);
 
-    if matches!(inline_selection, InlineSelection::InlineAllComponents) {
-        let mut init_code = doc.root_component.init_code.borrow_mut();
-        let inlined_init_code = core::mem::take(&mut init_code.inlined_init_code);
-        init_code.constructor_code.splice(0..0, inlined_init_code.into_values());
-    }
+    let mut init_code = doc.root_component.init_code.borrow_mut();
+    let inlined_init_code = core::mem::take(&mut init_code.inlined_init_code);
+    init_code.constructor_code.splice(0..0, inlined_init_code.into_values());
 }
 
 fn clone_tuple<U: Clone, V: Clone>((u, v): (&U, &V)) -> (U, V) {
@@ -118,10 +116,13 @@ fn inline_element(
                 .borrow_mut()
                 .children
                 .splice(index..index, std::mem::take(&mut elem_mut.children));
-            if let Some(cip) = root_component.child_insertion_point.borrow_mut().as_mut() {
+            let mut cip = root_component.child_insertion_point.borrow_mut();
+            if let Some(cip) = cip.as_mut() {
                 if Rc::ptr_eq(&cip.0, elem) {
                     *cip = (insertion_element.clone(), index + cip.1, cip_node.clone());
                 }
+            } else {
+                *cip = Some((insertion_element.clone(), *index, cip_node.clone()));
             };
         }
         _ => {
@@ -152,19 +153,7 @@ fn inline_element(
             .map(|p| duplicate_popup(p, &mut mapping, priority_delta)),
     );
 
-    // When inlining a component before the collect_init_code phase, do the collect_init_code phase for
-    // the init callback in the inlined component manually, by cloning the expression into the init_code
-    // and skipping "init" in the binding merge phase.
-    let maybe_init_callback_to_inline = inlined_component
-        .root_element
-        .borrow()
-        .bindings
-        .get("init")
-        .map(|binding| binding.borrow().expression.clone());
-
-    for (k, val) in
-        inlined_component.root_element.borrow().bindings.iter().filter(|(k, _)| *k != "init")
-    {
+    for (k, val) in inlined_component.root_element.borrow().bindings.iter() {
         match elem_mut.bindings.entry(k.clone()) {
             std::collections::btree_map::Entry::Vacant(entry) => {
                 let priority = &mut entry.insert(val.clone()).get_mut().priority;
@@ -197,13 +186,6 @@ fn inline_element(
         fixup_element_references(&mut init_code, &mapping);
         init_code
     };
-
-    root_component
-        .init_code
-        .borrow_mut()
-        .constructor_code
-        .extend(maybe_init_callback_to_inline.map(fixup_init_expression));
-
     let inlined_init_code = inlined_component
         .init_code
         .borrow()

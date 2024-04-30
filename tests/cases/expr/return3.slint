@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+
+component BackgroundExpr inherits Rectangle {
+    in property <bool> cond;
+    // conversion from color to brush do a Cast expression and this should work even when there is a return
+    background: {
+        if (cond) {
+            return blue;
+        }
+        red
+    }
+}
+component BackgroundExpr2 inherits Rectangle {
+    in property <int> val;
+    in property <bool> cond1;
+    pure callback foo();
+    background: {
+        if (val > 20) {
+            if (val > 50) {
+                return green;
+            } else if val > 40 {
+                return yellow;
+            } else {
+                return blue;
+            };
+            return black;
+        }
+        if val > 10 {
+            return pink;
+        } else {
+            foo();
+        }
+        if val > 1 {
+            red
+        } else {
+            orange
+        }
+
+    }
+}
+
+export component TestCase {
+
+    bkg1 := BackgroundExpr { cond: true; }
+    bkg2 := BackgroundExpr { cond: false; }
+    bkg3 := BackgroundExpr2 { val: 0; }
+    bkg4 := BackgroundExpr2 { val: 11; }
+    bkg5 := BackgroundExpr2 { val: 21; }
+
+
+    out property <bool> test:
+    {
+        return bkg1.background == Colors.blue && bkg2.background == Colors.red
+            && bkg3.background == Colors.orange && bkg4.background == Colors.pink && bkg5.background == Colors.blue;
+    }
+
+
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/

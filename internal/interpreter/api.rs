@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use i_slint_compiler::diagnostics::SourceFileVersion;
 use i_slint_compiler::langtype::Type as LangType;
@@ -937,7 +937,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// # i_slint_backend_testing::init();
+    /// # i_slint_backend_testing::init_no_event_loop();
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// let code = r#"
     ///     export component MyWin inherits Window {
@@ -1004,7 +1004,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// # i_slint_backend_testing::init();
+    /// # i_slint_backend_testing::init_no_event_loop();
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
     /// use core::convert::TryInto;
     /// let code = r#"
@@ -1060,7 +1060,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// # i_slint_backend_testing::init();
+    /// # i_slint_backend_testing::init_no_event_loop();
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// let code = r#"
     ///     global Glob {
@@ -1115,7 +1115,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// # i_slint_backend_testing::init();
+    /// # i_slint_backend_testing::init_no_event_loop();
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// use core::convert::TryInto;
     /// let code = r#"
@@ -1387,7 +1387,7 @@ pub mod testing {
 
 #[test]
 fn component_definition_properties() {
-    i_slint_backend_testing::init();
+    i_slint_backend_testing::init_no_event_loop();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
@@ -1435,7 +1435,7 @@ fn component_definition_properties() {
 
 #[test]
 fn component_definition_properties2() {
-    i_slint_backend_testing::init();
+    i_slint_backend_testing::init_no_event_loop();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
@@ -1486,7 +1486,7 @@ fn component_definition_properties2() {
 
 #[test]
 fn globals() {
-    i_slint_backend_testing::init();
+    i_slint_backend_testing::init_no_event_loop();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let definition = spin_on::spin_on(
@@ -1604,7 +1604,7 @@ fn globals() {
 
 #[test]
 fn call_functions() {
-    i_slint_backend_testing::init();
+    i_slint_backend_testing::init_no_event_loop();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let definition = spin_on::spin_on(
@@ -1650,7 +1650,7 @@ fn call_functions() {
 
 #[test]
 fn component_definition_struct_properties() {
-    i_slint_backend_testing::init();
+    i_slint_backend_testing::init_no_event_loop();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
@@ -1701,7 +1701,7 @@ fn component_definition_struct_properties() {
 #[test]
 fn component_definition_model_properties() {
     use i_slint_core::model::*;
-    i_slint_backend_testing::init();
+    i_slint_backend_testing::init_no_event_loop();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(compiler.build_from_source(

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use std::error::Error;
 use std::{fs::File, io::Write, path::PathBuf};
@@ -40,7 +40,7 @@ lazy_static::lazy_static! {
         // builds the slint node package in debug
         let o = std::process::Command::new(npm.clone())
                 .arg("run")
-                .arg("build:debug")
+                .arg("build:testing")
                 .current_dir(node_dir.clone())
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
@@ -64,6 +64,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         r#"
                 const assert = require('assert').strict;
                 let slintlib = require(String.raw`{slintpath}`);
+                slintlib.private_api.initTesting();
                 let slint = slintlib.loadFile(String.raw`{path}`);
         "#,
         slintpath = slintpath.to_string_lossy(),

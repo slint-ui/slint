@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::langtype::{BuiltinElement, EnumerationValue, Type};
@@ -38,6 +38,7 @@ pub enum BuiltinFunction {
     Log,
     Pow,
     SetFocusItem,
+    ClearFocusItem,
     ShowPopupWindow,
     ClosePopupWindow,
     SetSelectionOffsets,
@@ -48,6 +49,7 @@ pub enum BuiltinFunction {
     /// the "42".is_float()
     StringIsFloat,
     ColorRgbaStruct,
+    ColorHsvaStruct,
     ColorBrighter,
     ColorDarker,
     ColorTransparentize,
@@ -56,6 +58,7 @@ pub enum BuiltinFunction {
     ImageSize,
     ArrayLength,
     Rgb,
+    Hsv,
     ColorScheme,
     TextInputFocused,
     SetTextInputFocused,
@@ -86,6 +89,7 @@ pub enum BuiltinMacroFunction {
     /// The argument can be r,g,b,a or r,g,b and they can be percentages or integer.
     /// transform the argument so it is always rgb(r, g, b, a) with r, g, b between 0 and 255.
     Rgb,
+    Hsv,
     /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
     Debug,
 }
@@ -130,6 +134,10 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Void),
                 args: vec![Type::ElementReference],
             },
+            BuiltinFunction::ClearFocusItem => Type::Function {
+                return_type: Box::new(Type::Void),
+                args: vec![Type::ElementReference],
+            },
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => {
                 Type::Function {
                     return_type: Box::new(Type::Void),
@@ -161,6 +169,21 @@ impl BuiltinFunction {
                         ("green".to_string(), Type::Int32),
                         ("blue".to_string(), Type::Int32),
                         ("alpha".to_string(), Type::Int32),
+                    ])
+                    .collect(),
+                    name: Some("Color".into()),
+                    node: None,
+                    rust_attributes: None,
+                }),
+                args: vec![Type::Color],
+            },
+            BuiltinFunction::ColorHsvaStruct => Type::Function {
+                return_type: Box::new(Type::Struct {
+                    fields: IntoIterator::into_iter([
+                        ("hue".to_string(), Type::Float32),
+                        ("saturation".to_string(), Type::Float32),
+                        ("value".to_string(), Type::Float32),
+                        ("alpha".to_string(), Type::Float32),
                     ])
                     .collect(),
                     name: Some("Color".into()),
@@ -208,6 +231,10 @@ impl BuiltinFunction {
             BuiltinFunction::Rgb => Type::Function {
                 return_type: Box::new(Type::Color),
                 args: vec![Type::Int32, Type::Int32, Type::Int32, Type::Float32],
+            },
+            BuiltinFunction::Hsv => Type::Function {
+                return_type: Box::new(Type::Color),
+                args: vec![Type::Float32, Type::Float32, Type::Float32, Type::Float32],
             },
             BuiltinFunction::ColorScheme => Type::Function {
                 return_type: Box::new(Type::Enumeration(
@@ -270,12 +297,13 @@ impl BuiltinFunction {
             | BuiltinFunction::Log
             | BuiltinFunction::Pow
             | BuiltinFunction::ATan => true,
-            BuiltinFunction::SetFocusItem => false,
+            BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorRgbaStruct
+            | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
             | BuiltinFunction::ColorTransparentize
@@ -291,6 +319,7 @@ impl BuiltinFunction {
             BuiltinFunction::ImageSize => false,
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
+            BuiltinFunction::Hsv => true,
             BuiltinFunction::SetTextInputFocused => false,
             BuiltinFunction::TextInputFocused => false,
             BuiltinFunction::ImplicitLayoutInfo(_) => false,
@@ -325,12 +354,13 @@ impl BuiltinFunction {
             | BuiltinFunction::Log
             | BuiltinFunction::Pow
             | BuiltinFunction::ATan => true,
-            BuiltinFunction::SetFocusItem => false,
+            BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorRgbaStruct
+            | BuiltinFunction::ColorHsvaStruct
             | BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
             | BuiltinFunction::ColorTransparentize
@@ -339,6 +369,7 @@ impl BuiltinFunction {
             BuiltinFunction::ImageSize => true,
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
+            BuiltinFunction::Hsv => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => true,
             BuiltinFunction::ItemAbsolutePosition => true,
             BuiltinFunction::SetTextInputFocused => false,

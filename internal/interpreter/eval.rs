@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_item_tree::InstanceRef;
@@ -527,14 +527,54 @@ fn call_builtin_function(
                     enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
 
                 component.access_window(|window| {
-                    window.set_focus_item(&corelib::items::ItemRc::new(
-                        vtable::VRc::into_dyn(focus_item_comp),
-                        item_info.item_index(),
-                    ))
+                    window.set_focus_item(
+                        &corelib::items::ItemRc::new(
+                            vtable::VRc::into_dyn(focus_item_comp),
+                            item_info.item_index(),
+                        ),
+                        true,
+                    )
                 });
                 Value::Void
             } else {
                 panic!("internal error: argument to SetFocusItem must be an element")
+            }
+        }
+        BuiltinFunction::ClearFocusItem => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to SetFocusItem")
+            }
+            let component = match local_context.component_instance {
+                ComponentInstance::InstanceRef(c) => c,
+                ComponentInstance::GlobalComponent(_) => {
+                    panic!("Cannot access the focus item from a global component")
+                }
+            };
+            if let Expression::ElementReference(focus_item) = &arguments[0] {
+                generativity::make_guard!(guard);
+
+                let focus_item = focus_item.upgrade().unwrap();
+                let enclosing_component =
+                    enclosing_component_for_element(&focus_item, component, guard);
+                let description = enclosing_component.description;
+
+                let item_info = &description.items[focus_item.borrow().id.as_str()];
+
+                let focus_item_comp =
+                    enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+
+                component.access_window(|window| {
+                    window.set_focus_item(
+                        &corelib::items::ItemRc::new(
+                            vtable::VRc::into_dyn(focus_item_comp),
+                            item_info.item_index(),
+                        ),
+                        false,
+                    )
+                });
+                Value::Void
+            } else {
+                panic!("internal error: argument to ClearFocusItem must be an element")
             }
         }
         BuiltinFunction::ShowPopupWindow => {
@@ -757,6 +797,24 @@ fn call_builtin_function(
                 panic!("First argument not a color");
             }
         }
+        BuiltinFunction::ColorHsvaStruct => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ColorHSVAComponents")
+            }
+            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
+                let color = brush.color().to_hsva();
+                let values = IntoIterator::into_iter([
+                    ("hue".to_string(), Value::Number(color.hue.into())),
+                    ("saturation".to_string(), Value::Number(color.saturation.into())),
+                    ("value".to_string(), Value::Number(color.value.into())),
+                    ("alpha".to_string(), Value::Number(color.alpha.into())),
+                ])
+                .collect();
+                Value::Struct(values)
+            } else {
+                panic!("First argument not a color");
+            }
+        }
         BuiltinFunction::ColorBrighter => {
             if arguments.len() != 2 {
                 panic!("internal error: incorrect argument count to ColorBrighter")
@@ -883,6 +941,14 @@ fn call_builtin_function(
             let b: u8 = b.max(0).min(255) as u8;
             let a: u8 = (255. * a).max(0.).min(255.) as u8;
             Value::Brush(Brush::SolidColor(Color::from_argb_u8(a, r, g, b)))
+        }
+        BuiltinFunction::Hsv => {
+            let h: f32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let s: f32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let v: f32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
+            let a: f32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
+            let a = (1. * a).max(0.).min(1.);
+            Value::Brush(Brush::SolidColor(Color::from_hsva(h, s, v, a)))
         }
         BuiltinFunction::ColorScheme => match local_context.component_instance {
             ComponentInstance::InstanceRef(component) => component

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use anyhow::Context;
 use std::io::{BufWriter, Write};
@@ -181,6 +181,7 @@ fn ensure_cargo_rerun_for_crate(
 
 fn default_config() -> cbindgen::Config {
     let mut config = cbindgen::Config::default();
+    config.macro_expansion.bitflags = true;
     config.pragma_once = true;
     config.include_version = true;
     config.namespaces = Some(vec!["slint".into(), "cbindgen_private".into()]);
@@ -199,6 +200,7 @@ fn default_config() -> cbindgen::Config {
             ("PointerScrollEventArg".into(), "PointerScrollEvent".into()),
             ("PointArg".into(), "slint::LogicalPosition".into()),
             ("FloatArg".into(), "float".into()),
+            ("IntArg".into(), "int".into()),
             ("Coord".into(), "float".into()),
         ]
         .iter()
@@ -214,6 +216,8 @@ fn default_config() -> cbindgen::Config {
     .iter()
     .cloned()
     .collect();
+    config.structure.associated_constants_in_body = true;
+    config.constant.allow_constexpr = true;
     config
 }
 
@@ -293,6 +297,7 @@ fn gen_corelib(
         "Rect",
         "SortOrder",
         "BitmapFont",
+        "PhysicalRegion",
     ]
     .iter()
     .chain(items.iter())
@@ -347,6 +352,8 @@ fn gen_corelib(
         "slint_color_transparentize",
         "slint_color_mix",
         "slint_color_with_alpha",
+        "slint_color_to_hsva",
+        "slint_color_from_hsva",
         "slint_image_size",
         "slint_image_path",
         "slint_image_load_from_path",
@@ -477,7 +484,9 @@ fn gen_corelib(
             vec!["Color", "slint_color_brighter", "slint_color_darker",
             "slint_color_transparentize",
             "slint_color_mix",
-            "slint_color_with_alpha",],
+            "slint_color_with_alpha",
+            "slint_color_to_hsva",
+            "slint_color_from_hsva",],
             vec![],
             "slint_color_internal.h",
             "",
@@ -540,6 +549,8 @@ fn gen_corelib(
             "slint_color_transparentize",
             "slint_color_mix",
             "slint_color_with_alpha",
+            "slint_color_to_hsva",
+            "slint_color_from_hsva",
             "slint_image_size",
             "slint_image_path",
             "slint_image_load_from_path",
@@ -751,7 +762,7 @@ fn gen_backend_qt(
     ];
 
     config.export.include = items.iter().map(|x| x.to_string()).collect();
-    config.export.exclude = vec!["FloatArg".into()];
+    config.export.exclude = vec!["FloatArg".into(), "IntArg".into()];
 
     config.export.body.insert(
         "NativeStyleMetrics".to_owned(),
@@ -793,6 +804,29 @@ fn gen_backend_qt(
         .generate()
         .context("Unable to generate bindings for slint_qt_internal.h")?
         .write_to_file(include_dir.join("slint_qt_internal.h"));
+
+    Ok(())
+}
+
+fn gen_testing(
+    root_dir: &Path,
+    include_dir: &Path,
+    dependencies: &mut Vec<PathBuf>,
+) -> anyhow::Result<()> {
+    let config = default_config();
+
+    let mut crate_dir = root_dir.to_owned();
+    crate_dir.extend(["internal", "backends", "testing"].iter());
+
+    ensure_cargo_rerun_for_crate(&crate_dir, dependencies)?;
+
+    cbindgen::Builder::new()
+        .with_config(config)
+        .with_crate(crate_dir)
+        .with_include("slint_testing_internal.h")
+        .generate()
+        .context("Unable to generate bindings for slint_testing_internal.h")?
+        .write_to_file(include_dir.join("slint_testing_internal.h"));
 
     Ok(())
 }
@@ -925,7 +959,7 @@ macro_rules! declare_features {
     };
 }
 
-declare_features! {interpreter backend_qt freestanding renderer_software renderer_skia experimental}
+declare_features! {interpreter backend_qt freestanding renderer_software renderer_skia experimental gettext testing}
 
 /// Generate the headers.
 /// `root_dir` is the root directory of the slint git repo
@@ -945,6 +979,9 @@ pub fn gen_all(
     gen_corelib(root_dir, include_dir, &mut deps, enabled_features)?;
     gen_backend_qt(root_dir, include_dir, &mut deps)?;
     gen_platform(root_dir, include_dir, &mut deps)?;
+    if enabled_features.testing {
+        gen_testing(root_dir, include_dir, &mut deps)?;
+    }
     if enabled_features.interpreter {
         gen_interpreter(root_dir, include_dir, &mut deps)?;
     }

@@ -1,4 +1,4 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial -->
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial -->
 
 # Editor Configuration for Slint
 
@@ -176,3 +176,15 @@ https://github.com/kizeevov/slint-idea-plugin has a plugin for the Intellij
 platform.
 
 _Note: This plugin is developed by @kizeevov._
+
+## Zed
+
+[Zed](https://zed.dev) is a high-performance, multiplayer code editor. Luke Jones maintains
+the [zed-slint extension](https://gitlab.com/flukejones/zed-slint), that integrates the latest
+release of the [slint language server](../tools/lsp/README.md) into Zed, offering code completion
+and syntax highlighting. Install the extension via the following steps:
+
+1. Open the extensions tab via the Zed -> Extensions menu.
+2. In the search field, enter "slint".
+3. Click on "Install" for the "Slint" extension.
+

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 // cSpell: ignore langtype typeregister
 
@@ -102,6 +102,9 @@ export component Text inherits Empty {
     in property <TextOverflow> overflow;
     in property <TextWrap> wrap;
     in property <length> letter-spacing;
+    in property <brush> stroke;
+    in property <length> stroke-width;
+    in property <TextStrokeStyle> stroke-style;
     //-default_size_binding:implicit_size
 }
 
@@ -501,6 +504,7 @@ export component NativeTableHeaderSection {
 export component NativeComboBox {
     in-out property <string> current_value;
     in property <bool> enabled: true;
+    in property <bool> has-focus;
     //-is_internal
 }
 

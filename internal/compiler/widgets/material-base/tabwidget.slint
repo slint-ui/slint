@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 
 import { MaterialPalette, MaterialFontSettings } from "styling.slint";
+import { TabBarBase } from "../common/tabwidget-base.slint";
 
 export component TabWidgetImpl inherits Rectangle {
     in property <length> tabbar-preferred-height;
@@ -27,12 +28,16 @@ export component TabWidgetImpl inherits Rectangle {
 }
 
 export component TabImpl inherits Rectangle {
-    in property <int> current-focused; // The currently focused tab
-    in property <int> tab-index; // The index of this tab
-    in property <int> num-tabs; // The total number of tabs
+    // The currently focused tab
+    in property <int> current-focused;
+    // The index of this tab
+    in property <int> tab-index;
+    // The total number of tabs
+    in property <int> num-tabs;
     in property <string> title <=> i-text.text;
     in property <bool> enabled: true;
-    in-out property <int> current; // The currently selected tab
+    // The currently selected tab
+    in-out property <int> current;
 
     private property <bool> has-focus: root.current-focused == root.tab-index;
     private property <bool> active: root.tab-index == root.current;
@@ -52,8 +57,11 @@ export component TabImpl inherits Rectangle {
         border-radius: i-container.border-radius;
         background: MaterialPalette.accent-background;
 
-        animate opacity { duration: 250ms; easing: ease; }
-     }
+        animate opacity {
+            duration: 250ms;
+            easing: ease;
+        }
+    }
 
     i-layout := HorizontalLayout {
         padding-left: 16px;
@@ -67,7 +75,10 @@ export component TabImpl inherits Rectangle {
             font-size: MaterialFontSettings.title-small.font-size;
             font-weight: MaterialFontSettings.title-small.font-weight;
 
-            animate color { duration: 250ms; easing: ease; }
+            animate color {
+                duration: 250ms;
+                easing: ease;
+            }
         }
     }
 
@@ -78,7 +89,10 @@ export component TabImpl inherits Rectangle {
         y: parent.height - self.height;
         background: MaterialPalette.accent-background;
 
-        animate opacity { duration: 250ms; easing: ease; }
+        animate opacity {
+            duration: 250ms;
+            easing: ease;
+        }
     }
 
     i-touch-area := TouchArea {
@@ -90,11 +104,10 @@ export component TabImpl inherits Rectangle {
     }
 }
 
-export component TabBarImpl {
+export component TabBarImpl inherits TabBarBase {
     // injected properties:
-    in-out property <int> current; // The currently selected tab
-    in-out property <int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1; // The currently focused tab
-    in-out property <int> num-tabs; // The total number of tabs
+    // The currently focused tab
+    in-out property <int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1;
 
     accessible-role: tab-list;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
@@ -109,12 +122,13 @@ export component TabBarImpl {
         property <int> focused-tab: 0;
 
         x: 0;
-        width: 0; // Do not react on clicks
+        // Do not react on clicks
+        width: 0;
 
         key-pressed(event) => {
             if (event.text == "\n") {
-                 root.current = root.current-focused;
-                 return accept;
+                root.current = root.current-focused;
+                return accept;
             }
             if (event.text == Key.LeftArrow) {
                  self.focused-tab = Math.max(self.focused-tab - 1,  0);
@@ -129,13 +143,12 @@ export component TabBarImpl {
 
         key-released(event) => {
             if (event.text == " ") {
-                 root.current = root.current-focused;
-                 return accept;
+                root.current = root.current-focused;
+                return accept;
             }
             return reject;
         }
     }
 }
 
-
-export component TabWidget inherits TabWidget {}
+export component TabWidget inherits TabWidget { }

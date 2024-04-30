@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 import { FluentPalette, FluentFontSettings } from "styling.slint";
 import { FocusBorder } from "components.slint";
+import { TabBarBase } from "../common/tabwidget-base.slint";
 
 export component TabWidgetImpl inherits Rectangle {
     in property <length> tabbar-preferred-height;
@@ -27,13 +28,17 @@ export component TabWidgetImpl inherits Rectangle {
 }
 
 export component TabImpl inherits Rectangle {
-    in property <int> current-focused; // The currently focused tab
-    in property <int> tab-index; // The index of this tab
-    in property <int> num-tabs; // The total number of tabs
+    // The currently focused tab
+    in property <int> current-focused;
+    // The index of this tab
+    in property <int> tab-index;
+    // The total number of tabs
+    in property <int> num-tabs;
     in property <string> title <=> i-text.text;
     in property <bool> enabled: true;
     out property <bool> has-focus: root.current-focused == root.tab-index;
-    in-out property <int> current; // The currently selected tab
+    // The currently selected tab
+    in-out property <int> current;
 
     private property <bool> hide-right-border: root.tab-index == root.num-tabs - 1 || tab-index + 1 == current;
     private property <bool> is-current: root.tab-index == root.current;
@@ -57,8 +62,7 @@ export component TabImpl inherits Rectangle {
             border-radius: 7px;
             border-width: root.is-current ? 1px : 0px;
             border-color: FluentPalette.card-stroke;
-            background: i-touch-area.pressed || root.is-current ? FluentPalette.layer-on-mica-base-alt :
-                i-touch-area.has-hover ? FluentPalette.layer-on-mica-base-alt-secondary : transparent;
+            background: i-touch-area.pressed || root.is-current ? FluentPalette.layer-on-mica-base-alt : i-touch-area.has-hover ? FluentPalette.layer-on-mica-base-alt-secondary : transparent;
         }
     }
 
@@ -83,14 +87,14 @@ export component TabImpl inherits Rectangle {
         }
     }
 
-    if (!root.is-current && !root.hide-right-border && !i-touch-area.has-hover && !i-touch-area.pressed) : Rectangle {
+    if (!root.is-current && !root.hide-right-border && !i-touch-area.has-hover && !i-touch-area.pressed): Rectangle {
         x: (parent.width - self.width);
         width: 2px;
         height: 16px;
         background: FluentPalette.divider;
     }
 
-    if (!root.is-current && !i-touch-area.has-hover && !i-touch-area.pressed) : Rectangle {
+    if (!root.is-current && !i-touch-area.has-hover && !i-touch-area.pressed): Rectangle {
         y: (parent.height - self.height);
         width: 100%;
         height: 1px;
@@ -98,16 +102,15 @@ export component TabImpl inherits Rectangle {
     }
 
     // focus border
-    if (root.has-focus && root.enabled) : FocusBorder {
+    if (root.has-focus && root.enabled): FocusBorder {
         border-radius: i-background.border-radius;
     }
 }
 
-export component TabBarImpl {
+export component TabBarImpl inherits TabBarBase {
     // injected properties:
-    in-out property <int> current; // The currently selected tab
-    in-out property <int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1; // The currently focused tab
-    in-out property <int> num-tabs; // The total number of tabs
+    // The currently focused tab
+    in-out property <int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1;
 
     HorizontalLayout {
         alignment: start;
@@ -122,12 +125,13 @@ export component TabBarImpl {
         property <int> focused-tab: 0;
 
         x: 0;
-        width: 0px; // Do not react on clicks
+        // Do not react on clicks
+        width: 0px;
 
         key-pressed(event) => {
             if (event.text == "\n") {
-                 root.current = root.current-focused;
-                 return accept;
+                root.current = root.current-focused;
+                return accept;
             }
             if (event.text == Key.LeftArrow) {
                  self.focused-tab = Math.max(self.focused-tab - 1,  0);
@@ -142,12 +146,12 @@ export component TabBarImpl {
 
         key-released(event) => {
             if (event.text == " ") {
-                 root.current = root.current-focused;
-                 return accept;
+                root.current = root.current-focused;
+                return accept;
             }
             return reject;
         }
     }
 }
 
-export component TabWidget inherits TabWidget {}
+export component TabWidget inherits TabWidget { }

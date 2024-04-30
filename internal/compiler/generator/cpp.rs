@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 /*! module for the C++ code generator
 */
@@ -89,6 +89,8 @@ mod cpp_ast {
 
     impl Display for File {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+            writeln!(f, "// This file is auto-generated")?;
+            writeln!(f, "#pragma once")?;
             for i in &self.includes {
                 writeln!(f, "#include {}", i)?;
             }
@@ -335,7 +337,7 @@ use crate::parser::syntax_nodes;
 use cpp_ast::*;
 use itertools::{Either, Itertools};
 use std::cell::Cell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroUsize;
 
 #[derive(Default)]
@@ -1355,11 +1357,43 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "accessible_string_property".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::cbindgen_private::AccessibleStringProperty what, slint::SharedString *result) -> void"
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::cbindgen_private::AccessibleStringProperty what, slint::SharedString *result) -> bool"
                     .into(),
             is_static: true,
             statements: Some(vec![format!(
-                "*result = reinterpret_cast<const {}*>(component.instance)->accessible_string_property(index, what);",
+                "if (auto r = reinterpret_cast<const {}*>(component.instance)->accessible_string_property(index, what)) {{ *result = *r; return true; }} else {{ return false; }}",
+                item_tree_class_name
+            )]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "accessibility_action".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, const slint::cbindgen_private::AccessibilityAction *action) -> void"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![format!(
+                "reinterpret_cast<const {}*>(component.instance)->accessibility_action(index, *action);",
+                item_tree_class_name
+            )]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "supported_accessibility_actions".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index) -> uint32_t"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![format!(
+                "return reinterpret_cast<const {}*>(component.instance)->supported_accessibility_actions(index);",
                 item_tree_class_name
             )]),
             ..Default::default()
@@ -1396,7 +1430,8 @@ fn generate_item_tree(
         init: Some(format!(
             "{{ visit_children, get_item_ref, get_subtree_range, get_subtree, \
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
-                item_geometry, accessible_role, accessible_string_property, window_adapter, \
+                item_geometry, accessible_role, accessible_string_property, accessibility_action, \
+                supported_accessibility_actions, window_adapter, \
                 slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
             item_tree_class_name
         )),
@@ -1864,7 +1899,8 @@ fn generate_sub_component(
             }
             else_ = "} else ";
         }
-        code.push(format!("{else_}return {{}};"));
+        let ret = if signature.contains("->") { "{}" } else { "" };
+        code.push(format!("{else_}return {ret};"));
         target_struct.members.push((
             field_access,
             Declaration::Function(Function {
@@ -1901,16 +1937,39 @@ fn generate_sub_component(
 
     let mut accessible_role_cases = vec!["switch (index) {".into()];
     let mut accessible_string_cases = vec!["switch ((index << 8) | uintptr_t(what)) {".into()];
+    let mut accessibility_action_cases =
+        vec!["switch ((index << 8) | uintptr_t(action.tag)) {".into()];
+    let mut supported_accessibility_actions = BTreeMap::<u32, BTreeSet<_>>::new();
     for ((index, what), expr) in &component.accessible_prop {
-        let expr = compile_expression(&expr.borrow(), &ctx);
+        let e = compile_expression(&expr.borrow(), &ctx);
         if what == "Role" {
-            accessible_role_cases.push(format!("    case {index}: return {expr};"));
+            accessible_role_cases.push(format!("    case {index}: return {e};"));
+        } else if let Some(what) = what.strip_prefix("Action") {
+            let has_args = matches!(&*expr.borrow(), llr::Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
+
+            accessibility_action_cases.push(if has_args {
+                let member = ident(&crate::generator::to_kebab_case(what));
+                format!("    case ({index} << 8) | uintptr_t(slint::cbindgen_private::AccessibilityAction::Tag::{what}): {{ auto arg_0 = action.{member}._0; return {e}; }}")
+            } else {
+                format!("    case ({index} << 8) | uintptr_t(slint::cbindgen_private::AccessibilityAction::Tag::{what}): return {e};")
+            });
+            supported_accessibility_actions
+                .entry(*index)
+                .or_default()
+                .insert(format!("slint::cbindgen_private::SupportedAccessibilityAction_{what}"));
         } else {
-            accessible_string_cases.push(format!("    case ({index} << 8) | uintptr_t(slint::cbindgen_private::AccessibleStringProperty::{what}): return {expr};"));
+            accessible_string_cases.push(format!("    case ({index} << 8) | uintptr_t(slint::cbindgen_private::AccessibleStringProperty::{what}): return {e};"));
         }
     }
     accessible_role_cases.push("}".into());
     accessible_string_cases.push("}".into());
+    accessibility_action_cases.push("}".into());
+
+    let mut supported_accessibility_actions_cases = vec!["switch (index) {".into()];
+    supported_accessibility_actions_cases.extend(supported_accessibility_actions.into_iter().map(
+        |(index, values)| format!("    case {index}: return {};", values.into_iter().join("|")),
+    ));
+    supported_accessibility_actions_cases.push("}".into());
 
     dispatch_item_function(
         "accessible_role",
@@ -1920,9 +1979,23 @@ fn generate_sub_component(
     );
     dispatch_item_function(
         "accessible_string_property",
-        "(uint32_t index, slint::cbindgen_private::AccessibleStringProperty what) const -> slint::SharedString",
+        "(uint32_t index, slint::cbindgen_private::AccessibleStringProperty what) const -> std::optional<slint::SharedString>",
         ", what",
         accessible_string_cases,
+    );
+
+    dispatch_item_function(
+        "accessibility_action",
+        "(uint32_t index, const slint::cbindgen_private::AccessibilityAction &action) const",
+        ", action",
+        accessibility_action_cases,
+    );
+
+    dispatch_item_function(
+        "supported_accessibility_actions",
+        "(uint32_t index) const -> uint32_t",
+        "",
+        supported_accessibility_actions_cases,
     );
 
     if !children_visitor_cases.is_empty() {
@@ -2184,9 +2257,10 @@ fn generate_functions<'a>(
     functions.iter().map(|f| {
         let mut ctx2 = ctx.clone();
         ctx2.argument_types = &f.args;
+        let ret = if f.ret_ty != Type::Void { "return " } else { "" };
         let body = vec![
             "[[maybe_unused]] auto self = this;".into(),
-            format!("return {};", compile_expression(&f.code, &ctx2)),
+            format!("{ret}{};", compile_expression(&f.code, &ctx2)),
         ];
         Declaration::Function(Function {
             name: ident(&format!("fn_{}", f.name)),
@@ -3026,9 +3100,18 @@ fn compile_builtin_function_call(
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
-                format!("{}.set_focus_item({});", window, focus_item)
+                format!("{}.set_focus_item({}, true);", window, focus_item)
             } else {
                 panic!("internal error: invalid args to SetFocusItem {:?}", arguments)
+            }
+        }
+        BuiltinFunction::ClearFocusItem => {
+            if let [llr::Expression::PropertyReference(pr)] = arguments {
+                let window = access_window_field(ctx);
+                let focus_item = access_item_rc(pr, ctx);
+                format!("{}.set_focus_item({}, false);", window, focus_item)
+            } else {
+                panic!("internal error: invalid args to ClearFocusItem {:?}", arguments)
             }
         }
         /*  std::from_chars is unfortunately not yet implemented in gcc
@@ -3050,6 +3133,9 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ColorRgbaStruct => {
             format!("{}.to_argb_uint()", a.next().unwrap())
+        }
+        BuiltinFunction::ColorHsvaStruct => {
+            format!("{}.to_hsva()", a.next().unwrap())
         }
         BuiltinFunction::ColorBrighter => {
             format!("{}.brighter({})", a.next().unwrap(), a.next().unwrap())
@@ -3077,6 +3163,14 @@ fn compile_builtin_function_call(
                 r = a.next().unwrap(),
                 g = a.next().unwrap(),
                 b = a.next().unwrap(),
+                a = a.next().unwrap(),
+            )
+        }
+        BuiltinFunction::Hsv => {
+            format!("slint::Color::from_hsva(std::clamp(static_cast<float>({h}), 0.f, 360.f), std::clamp(static_cast<float>({s}), 0.f, 1.f), std::clamp(static_cast<float>({v}), 0.f, 1.f), std::clamp(static_cast<float>({a}), 0.f, 1.f))",
+                h = a.next().unwrap(),
+                s = a.next().unwrap(),
+                v = a.next().unwrap(),
                 a = a.next().unwrap(),
             )
         }

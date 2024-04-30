@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 export component Button {
     in property <string> text <=> native.text;
@@ -14,10 +14,17 @@ export component Button {
 
     callback clicked <=> native.clicked;
 
+    accessible-role: button;
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-label: root.text;
-    accessible-role: button;
+    accessible-action-default => {
+        if (root.checkable) {
+            root.checked = !root.checked;
+        }
+        clicked();
+    }
+
     forward-focus: native;
 
     HorizontalLayout {
@@ -36,11 +43,11 @@ export component StandardButton {
 
     callback clicked <=> native.clicked;
 
-    accessible-label: native.text;
-    accessible-role: button;
-
     HorizontalLayout {
         native := NativeButton {
+            accessible-role: button;
+            accessible-label: native.text;
+            accessible-action-default => { clicked(); }
             is-standard-button: true;
             checkable: false;
         }

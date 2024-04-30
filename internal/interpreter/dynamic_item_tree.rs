@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use crate::{api::Value, dynamic_type, eval};
 
@@ -11,7 +11,9 @@ use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use i_slint_compiler::{generator, object_tree, parser, CompilerConfiguration};
-use i_slint_core::accessibility::AccessibleStringProperty;
+use i_slint_core::accessibility::{
+    AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
+};
 use i_slint_core::component_factory::ComponentFactory;
 use i_slint_core::item_tree::{
     IndexRange, ItemTree, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
@@ -235,12 +237,23 @@ impl ItemTree for ErasedItemTreeBox {
         index: u32,
         what: AccessibleStringProperty,
         result: &mut SharedString,
-    ) {
+    ) -> bool {
         self.borrow().as_ref().accessible_string_property(index, what, result)
     }
 
     fn window_adapter(self: Pin<&Self>, do_create: bool, result: &mut Option<WindowAdapterRc>) {
         self.borrow().as_ref().window_adapter(do_create, result);
+    }
+
+    fn accessibility_action(self: core::pin::Pin<&Self>, index: u32, action: &AccessibilityAction) {
+        self.borrow().as_ref().accessibility_action(index, action)
+    }
+
+    fn supported_accessibility_actions(
+        self: core::pin::Pin<&Self>,
+        index: u32,
+    ) -> SupportedAccessibilityAction {
+        self.borrow().as_ref().supported_accessibility_actions(index)
     }
 }
 
@@ -1159,6 +1172,8 @@ pub(crate) fn generate_item_tree<'id>(
         item_geometry,
         accessible_role,
         accessible_string_property,
+        accessibility_action,
+        supported_accessibility_actions,
         window_adapter,
         drop_in_place,
         dealloc,
@@ -1856,7 +1871,7 @@ extern "C" fn accessible_string_property(
     item_index: u32,
     what: AccessibleStringProperty,
     result: &mut SharedString,
-) {
+) -> bool {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let prop_name = format!("accessible-{}", what);
@@ -1874,7 +1889,66 @@ extern "C" fn accessible_string_property(
             Value::Number(x) => *result = x.to_string().into(),
             _ => unimplemented!("invalid type for accessible_string_property"),
         };
+        true
+    } else {
+        false
     }
+}
+
+extern "C" fn accessibility_action(
+    component: ItemTreeRefPin,
+    item_index: u32,
+    action: &AccessibilityAction,
+) {
+    let perform = |prop_name, args: &[Value]| {
+        generativity::make_guard!(guard);
+        let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+        let nr = instance_ref.description.original_elements[item_index as usize]
+            .borrow()
+            .accessibility_props
+            .0
+            .get(prop_name)
+            .cloned();
+        if let Some(nr) = nr {
+            let instance_ref = eval::ComponentInstance::InstanceRef(instance_ref);
+            crate::eval::invoke_callback(instance_ref, &nr.element(), nr.name(), args).unwrap();
+        }
+    };
+
+    match action {
+        AccessibilityAction::Default => perform("accessible-action-default", &[]),
+        AccessibilityAction::Decrement => perform("accessible-action-decrement", &[]),
+        AccessibilityAction::Increment => perform("accessible-action-increment", &[]),
+        AccessibilityAction::ReplaceSelectedText(_a) => {
+            //perform("accessible-action-replace-selected-text", &[Value::String(a.clone())])
+            i_slint_core::debug_log!("AccessibilityAction::ReplaceSelectedText not implemented in interpreter's accessibility_action");
+        }
+        AccessibilityAction::SetValue(a) => {
+            perform("accessible-action-set-value", &[Value::String(a.clone())])
+        }
+    };
+}
+
+extern "C" fn supported_accessibility_actions(
+    component: ItemTreeRefPin,
+    item_index: u32,
+) -> SupportedAccessibilityAction {
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    let val = instance_ref.description.original_elements[item_index as usize]
+        .borrow()
+        .accessibility_props
+        .0
+        .keys()
+        .filter_map(|x| x.strip_prefix("acessible-action-"))
+        .fold(SupportedAccessibilityAction::default(), |acc, value| {
+            SupportedAccessibilityAction::from_name(&i_slint_compiler::generator::to_pascal_case(
+                value,
+            ))
+            .unwrap_or_else(|| panic!("Not an accessible action: {value:?}"))
+                | acc
+        });
+    val
 }
 
 extern "C" fn window_adapter(

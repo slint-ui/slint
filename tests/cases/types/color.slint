@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 Test := Rectangle {
     property<color> b1: blue;
@@ -29,11 +29,42 @@ Test := Rectangle {
     // allow to use `with_alpha` on colors
     property<brush> invisible: b1.with-alpha(0%);
 
+    property<float> b1hue: 240.0;
+    property<float> b1sat: 1.0;
+    property<float> b1bri: 1.0;
+
+    property<float> r1hue: 0.0;
+    property<float> r1sat: 1.0;
+    property<float> r1bri: 1.0;
+
+    property<float> y1hue: 60.0;
+    property<float> y1sat: 1.0;
+    property<float> y1bri: 1.0;
+
+    property <color> gr1: green;
+    property<float> gr1hue: 120.0;
+    property<float> gr1sat: 1.0;
+    property<float> gr1bri: 0.501960813999176;
+    property <color> new_green: hsv(120.0, 1.0, 0.501960813999176);
+
+    // burlywood
+    property<color> bwood: Colors.burlywood;
+    property<float> bwood_hue: 33.79310607910156;
+    property<float> bwood_sat: 0.39189186692237854;
+    property<float> bwood_bri: 0.8705882430076599;
+
     out property <bool> test_rgb: Colors.blue.blue == 255 && Colors.blue.red == 0 && Colors.blue.green == 0 && Colors.blue.alpha == 255
         && Colors.rgb(45, 12, 78).red == 45 && Colors.rgb(45, 12, 78).green == 12 && Colors.rgba(45, 12, 78, 12/255).alpha == 12 && Colors.rgba(145, 112, 178, 85%).alpha == floor(85% * 255)
         && #abc.green == (11 * 16 + 11) && #abcd.alpha == (13 * 16 + 13) && #abcdef.red == (10 * 16 + 11);
 
-    property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%) && test_rgb;
+    out property <bool> test_hsv: gr1.to-hsv().hue == new_green.to-hsv().hue && gr1.to-hsv().saturation == new_green.to-hsv().saturation && gr1.to-hsv().value == new_green.to-hsv().value
+        && bwood == Colors.hsv(bwood_hue, bwood_sat, bwood_bri);
+    out property <bool> test_hsv_hue: b1.to-hsv().hue == b1hue && r1.to-hsv().hue == r1hue && y1.to-hsv().hue == y1hue && gr1.to-hsv().hue == gr1hue && bwood.to-hsv().hue == bwood_hue;
+    out property <bool> test_hsv_sat: b1.to-hsv().saturation == b1sat && r1.to-hsv().saturation == r1sat && y1.to-hsv().saturation == y1sat && gr1.to-hsv().saturation == gr1sat && bwood.to-hsv().saturation == bwood_sat;
+    out property <bool> test_hsv_bri: b1.to-hsv().value == b1bri && r1.to-hsv().value == r1bri && y1.to-hsv().value == y1bri && gr1.to-hsv().value == gr1bri && bwood.to-hsv().value == bwood_bri;
+
+    property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%)
+        && test_rgb && test_hsv && test_hsv_hue && test_hsv_sat && test_hsv_bri;
 }
 
 /*

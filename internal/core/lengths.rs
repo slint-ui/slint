@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use crate::BorderRadius;
 use crate::Coord;
@@ -95,4 +95,8 @@ pub fn logical_point_from_api(position: crate::api::LogicalPosition) -> LogicalP
 
 pub fn logical_position_to_api(pos: LogicalPoint) -> crate::api::LogicalPosition {
     crate::api::LogicalPosition::from_euclid(pos)
+}
+
+pub fn logical_size_to_api(size: LogicalSize) -> crate::api::LogicalSize {
+    crate::api::LogicalSize::from_euclid(size)
 }

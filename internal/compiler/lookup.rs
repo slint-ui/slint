@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 //! Helper to do lookup in expressions
 
@@ -496,7 +496,12 @@ impl LookupType {
                 {
                     None
                 } else {
-                    Some(Expression::ElementReference(Rc::downgrade(&c.root_element)).into())
+                    return Some(LookupResult::Expression {
+                        expression: Expression::ElementReference(Rc::downgrade(&c.root_element)),
+                        deprecated: (name == "StyleMetrics"
+                            && !ctx.type_register.expose_internal_types)
+                            .then(|| "Palette".to_string()),
+                    });
                 }
             }
             _ => None,
@@ -828,6 +833,7 @@ impl LookupObject for ColorFunctions {
         let mut f = |n, e: Expression| f(n, e.into());
         None.or_else(|| f("rgb", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
             .or_else(|| f("rgba", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
+            .or_else(|| f("hsv", BuiltinMacroReference(BuiltinMacroFunction::Hsv, t.clone())))
     }
 }
 
@@ -984,8 +990,13 @@ impl<'a> LookupObject for ColorExpression<'a> {
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
+            let base = if f == BuiltinFunction::ColorHsvaStruct && self.0.ty() == Type::Brush {
+                Expression::Cast { from: Box::new(self.0.clone()), to: Type::Color }
+            } else {
+                self.0.clone()
+            };
             LookupResult::from(Expression::MemberFunction {
-                base: Box::new(self.0.clone()),
+                base: Box::new(base),
                 base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
                 member: Box::new(Expression::BuiltinFunctionReference(
                     f,
@@ -1015,6 +1026,7 @@ impl<'a> LookupObject for ColorExpression<'a> {
             .or_else(|| f("green", field_access("green")))
             .or_else(|| f("blue", field_access("blue")))
             .or_else(|| f("alpha", field_access("alpha")))
+            .or_else(|| f("to-hsv", member_function(BuiltinFunction::ColorHsvaStruct)))
             .or_else(|| f("brighter", member_function(BuiltinFunction::ColorBrighter)))
             .or_else(|| f("darker", member_function(BuiltinFunction::ColorDarker)))
             .or_else(|| f("transparentize", member_function(BuiltinFunction::ColorTransparentize)))

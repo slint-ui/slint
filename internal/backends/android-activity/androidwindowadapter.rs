@@ -1,9 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use super::*;
 use crate::javahelper::{print_jni_error, JavaHelper};
-use android_activity::input::{InputEvent, KeyAction, Keycode, MotionAction, MotionEvent};
+use android_activity::input::{
+    ButtonState, InputEvent, KeyAction, Keycode, MotionAction, MotionEvent,
+};
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::api::{LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window};
 use i_slint_core::items::ColorScheme;
@@ -40,6 +42,7 @@ pub struct AndroidWindowAdapter {
     pub(crate) show_cursor_handles: Cell<bool>,
 
     long_press: RefCell<Option<LongPressDetection>>,
+    last_pressed_state: Cell<ButtonState>,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -187,6 +190,7 @@ impl AndroidWindowAdapter {
             offset: Default::default(),
             show_cursor_handles: Cell::new(false),
             long_press: RefCell::default(),
+            last_pressed_state: Cell::new(ButtonState(0)),
         })
     }
 
@@ -281,7 +285,7 @@ impl AndroidWindowAdapter {
                         self.window.dispatch_event(WindowEvent::PointerPressed {
                             position: position_for_event(motion_event, self.offset.get())
                                 .to_logical(self.window.scale_factor()),
-                            button: button_for_event(motion_event),
+                            button: button_for_event(motion_event, &self.last_pressed_state),
                         });
                         InputStatus::Handled
                     }
@@ -308,7 +312,7 @@ impl AndroidWindowAdapter {
                         self.window.dispatch_event(WindowEvent::PointerReleased {
                             position: position_for_event(motion_event, self.offset.get())
                                 .to_logical(self.window.scale_factor()),
-                            button: button_for_event(motion_event),
+                            button: button_for_event(motion_event, &self.last_pressed_state),
                         });
                         InputStatus::Handled
                     }
@@ -456,13 +460,51 @@ fn position_for_event(motion_event: &MotionEvent, offset: PhysicalPosition) -> P
     })
 }
 
-fn button_for_event(motion_event: &MotionEvent) -> PointerEventButton {
-    match motion_event.action_button() {
-        android_activity::input::Button::Primary => PointerEventButton::Left,
-        android_activity::input::Button::Secondary => PointerEventButton::Right,
-        android_activity::input::Button::Tertiary => PointerEventButton::Middle,
-        _ => PointerEventButton::Other,
+fn button_for_event(
+    motion_event: &MotionEvent,
+    last_pressed_cell: &Cell<ButtonState>,
+) -> PointerEventButton {
+    //
+    // The motion_event API has a method called action_button() which can be used to directly
+    // determine the button associated with the event. However, the disadvantage of using the
+    // action_button() API is that it relies on NDK 33 or higher, which implies that the output
+    // application will only run on Android 13 or higher.
+    //
+    // This functionally equivalent method of computing the action button relies on the
+    // button_state() call from the motion event, rather than action_button(). It is a bit more
+    // complex than using action_button() directly, since the previous button state must be
+    // tracked and used in the calculation for computing which button was toggled. However, this
+    // will run on Android 12 (and possibly lower).
+    //
+    // See here for further discussion:
+    //
+    // https://stackoverflow.com/questions/75718566/amotionevent-getbuttonstate-returns-0-for-every-button-during-mouse-button-relea
+    //
+    let cur_pressed_state = motion_event.button_state();
+    let last_pressed_state = last_pressed_cell.get();
+    let toggled = match motion_event.action() {
+        MotionAction::ButtonPress => {
+            last_pressed_cell.set(cur_pressed_state);
+            ButtonState((last_pressed_state.0 ^ cur_pressed_state.0) & cur_pressed_state.0)
+        }
+        MotionAction::ButtonRelease => {
+            last_pressed_cell.set(cur_pressed_state);
+            ButtonState((last_pressed_state.0 ^ cur_pressed_state.0) & last_pressed_state.0)
+        }
+        _ => ButtonState(0),
+    };
+
+    // if multiple buttons toggled, primary takes precedence, then secondary, etc.
+    if toggled.primary() {
+        return PointerEventButton::Left;
     }
+    if toggled.secondary() {
+        return PointerEventButton::Right;
+    }
+    if toggled.teriary() {
+        return PointerEventButton::Middle;
+    }
+    return PointerEventButton::Other;
 }
 
 fn map_key_event(key_event: &android_activity::input::KeyEvent) -> Option<WindowEvent> {

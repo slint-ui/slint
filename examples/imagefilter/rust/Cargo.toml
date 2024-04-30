@@ -16,7 +16,7 @@ name = "imagefilter"
 
 [dependencies]
 slint = { path = "../../../api/rs/slint" }
-image = { version = "0.24.0", default-features = false, features = [ "png" ] }
+image = { workspace = true }
 
 [build-dependencies]
 slint-build = { path = "../../../api/rs/build" }

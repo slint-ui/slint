@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 //! Data structures common between LSP and previewer
 
-use i_slint_compiler::diagnostics::{SourceFile, SourceFileVersion};
+use i_slint_compiler::diagnostics::SourceFile;
 use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
 use std::{collections::HashMap, path::PathBuf};
@@ -15,6 +16,17 @@ pub type UrlVersion = Option<i32>;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
+
+pub fn extract_element(node: SyntaxNode) -> Option<syntax_nodes::Element> {
+    match node.kind() {
+        SyntaxKind::Element => Some(node.into()),
+        SyntaxKind::SubElement => extract_element(node.child_node(SyntaxKind::Element)?),
+        SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => {
+            extract_element(node.child_node(SyntaxKind::SubElement)?)
+        }
+        _ => None,
+    }
+}
 
 #[derive(Clone)]
 pub struct ElementRcNode {
@@ -50,6 +62,27 @@ impl ElementRcNode {
         Some(Self { element, debug_index })
     }
 
+    pub fn find_in_or_below(
+        element: ElementRc,
+        path: &std::path::Path,
+        offset: u32,
+    ) -> Option<Self> {
+        let debug_index = element.borrow().debug.iter().position(|(n, _)| {
+            u32::from(n.text_range().start()) == offset && n.source_file.path() == path
+        });
+        if let Some(debug_index) = debug_index {
+            Some(Self { element, debug_index })
+        } else {
+            for c in &element.borrow().children {
+                let result = Self::find_in_or_below(c.clone(), path, offset);
+                if result.is_some() {
+                    return result;
+                }
+            }
+            None
+        }
+    }
+
     pub fn with_element_debug<R>(
         &self,
         func: impl Fn(
@@ -75,13 +108,59 @@ impl ElementRcNode {
             (n.source_file.path().to_owned(), u32::from(n.text_range().start()))
         })
     }
+
+    pub fn as_element(&self) -> &ElementRc {
+        &self.element
+    }
+
+    pub fn parent(&self, root_element: ElementRc) -> Option<ElementRcNode> {
+        let parent = self.with_element_node(|node| {
+            let mut ancestor = node.parent()?;
+            loop {
+                if ancestor.kind() == SyntaxKind::Element {
+                    return Some(ancestor);
+                }
+                ancestor = ancestor.parent()?;
+            }
+        })?;
+
+        let (parent_path, parent_offset) =
+            (parent.source_file.path().to_owned(), u32::from(parent.text_range().start()));
+        Self::find_in_or_below(root_element, &parent_path, parent_offset)
+    }
+
+    pub fn children(&self) -> Vec<ElementRcNode> {
+        self.with_element_node(|node| {
+            let mut children = Vec::new();
+            for c in node.children() {
+                if let Some(element) = extract_element(c.clone()) {
+                    let e_path = element.source_file.path().to_path_buf();
+                    let e_offset = u32::from(element.text_range().start());
+
+                    let Some(child_node) = ElementRcNode::find_in_or_below(
+                        self.as_element().clone(),
+                        &e_path,
+                        e_offset,
+                    ) else {
+                        continue;
+                    };
+
+                    children.push(child_node);
+                }
+            }
+
+            children
+        })
+    }
+
+    pub fn component_type(&self) -> String {
+        self.with_element_node(|node| {
+            node.QualifiedName().map(|qn| qn.text().to_string()).unwrap_or_default()
+        })
+    }
 }
 
-pub fn create_workspace_edit(
-    uri: Url,
-    version: SourceFileVersion,
-    edits: Vec<TextEdit>,
-) -> WorkspaceEdit {
+pub fn create_workspace_edit(uri: Url, version: UrlVersion, edits: Vec<TextEdit>) -> WorkspaceEdit {
     let edits = edits
         .into_iter()
         .map(lsp_types::OneOf::Left::<TextEdit, lsp_types::AnnotatedTextEdit>)
@@ -103,6 +182,38 @@ pub fn create_workspace_edit_from_source_file(
         source_file.version(),
         edits,
     ))
+}
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+pub fn create_workspace_edit_from_source_files(
+    mut inputs: Vec<(SourceFile, TextEdit)>,
+) -> Option<WorkspaceEdit> {
+    let mut files: HashMap<
+        (Url, UrlVersion),
+        Vec<lsp_types::OneOf<TextEdit, lsp_types::AnnotatedTextEdit>>,
+    > = HashMap::new();
+    inputs.drain(..).for_each(|(sf, edit)| {
+        let url = Url::from_file_path(sf.path()).ok();
+        if let Some(url) = url {
+            let edit = lsp_types::OneOf::Left(edit);
+            files
+                .entry((url, sf.version()))
+                .and_modify(|v| v.push(edit.clone()))
+                .or_insert_with(|| vec![edit]);
+        }
+    });
+
+    let changes = lsp_types::DocumentChanges::Edits(
+        files
+            .drain()
+            .map(|((uri, version), edits)| lsp_types::TextDocumentEdit {
+                text_document: lsp_types::OptionalVersionedTextDocumentIdentifier { uri, version },
+                edits,
+            })
+            .collect::<Vec<_>>(),
+    );
+
+    Some(WorkspaceEdit { document_changes: Some(changes), ..Default::default() })
 }
 
 /// A versioned file

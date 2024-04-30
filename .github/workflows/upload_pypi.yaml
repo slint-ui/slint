@@ -1,0 +1,109 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+name: Upload component to Python Package Index
+
+on:
+    workflow_dispatch:
+      inputs:
+        release:
+            type: boolean
+            default: false
+            required: false
+            description: "Release? If false, publish to test.pypi.org, if true, publish to pypi.org"
+
+jobs:
+    build_binaries:
+        env:
+            MACOSX_DEPLOYMENT_TARGET: "11.0"
+        strategy:
+            matrix:
+                platform:
+                    - runner: windows-latest
+                      target: x64
+                    - runner: macos-13
+                      target: x86_64
+                    - runner: macos-14
+                      target: aarch64
+                    - runner: ubuntu-latest
+                      target: x86_64
+                    - runner: ubuntu-latest
+                      target: aarch64
+                    - runner: ubuntu-latest
+                      target: armv7
+        runs-on: ${{ matrix.platform.runner }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                python-version: '3.10'
+            - name: Build a binary wheel
+              uses: PyO3/maturin-action@v1
+              with:
+                  working-directory: api/python
+                  target: ${{ matrix.platform.target }}
+                  args: --release --out wheelhouse --find-interpreter
+            - name: Store the distribution packages
+              uses: actions/upload-artifact@v4
+              with:
+                name: python-package-distributions-${{ matrix.platform.runner }}-${{ strategy.job-index }}
+                path: api/python/wheelhouse/*.whl             
+
+    build_source_package:
+        name: Build source package
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Build source package
+              uses: PyO3/maturin-action@v1
+              with:
+                  working-directory: api/python
+                  command: sdist
+                  args: --out dist
+            - uses: actions/upload-artifact@v4
+              with:
+                name: python-package-distributions-source
+                path: api/python/dist/*.tar.gz                
+
+    publish-to-test-pypi:
+        if: ${{ github.event.inputs.release != 'true' }}
+        name: >-
+            Publish Python 🐍 distribution 📦 to Test PyPI
+        needs: [build_binaries, build_source_package]
+        runs-on: ubuntu-latest
+        environment:
+            name: testpypi
+            url: https://test.pypi.org/p/slint
+        permissions:
+            id-token: write  # IMPORTANT: mandatory for trusted publishing                
+        steps:
+            - uses: actions/download-artifact@v4
+              with:              
+                pattern: python-package-distributions-*
+                path: dist
+                merge-multiple: true            
+            - name: Publish distribution 📦 to Test PyPI
+              uses: pypa/gh-action-pypi-publish@release/v1
+              with:
+                repository-url: https://test.pypi.org/legacy/
+
+    publish-to-pypi:
+      if: ${{ github.event.inputs.release == 'true' }}
+      name: >-
+          Publish Python 🐍 distribution 📦 to PyPI
+      needs: [build_binaries, build_source_package]
+      runs-on: ubuntu-latest
+      environment:
+          name: pypi
+          url: https://test.pypi.org/p/slint
+      permissions:
+          id-token: write  # IMPORTANT: mandatory for trusted publishing                
+      steps:
+          - uses: actions/download-artifact@v4
+            with:              
+              pattern: python-package-distributions-*
+              path: dist
+              merge-multiple: true            
+          - name: Publish distribution 📦 to PyPI
+            uses: pypa/gh-action-pypi-publish@release/v1
+          

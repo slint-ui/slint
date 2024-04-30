@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use anyhow::Context;
 use xshell::{cmd, Shell};
@@ -101,6 +101,11 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
         toml["package"][&key_to_replace] = data;
     }
 
+    // Remove testing feature as we also remove the i-slint-backend-testing dependency below
+    if let Some(features_table) = toml["features"].as_table_mut() {
+        features_table.remove("testing");
+    }
+
     // Remove all `path = ` entries from dependencies and subsitute workspace = true
     for dep_key in ["dependencies", "build-dependencies"].iter() {
         let dep_table = match toml[dep_key].as_table_mut() {
@@ -108,6 +113,10 @@ pub fn generate(sha1: Option<String>) -> Result<(), Box<dyn std::error::Error>> 
             _ => continue,
         };
         let deps: Vec<_> = dep_table.iter().map(|(name, _)| name.to_string()).collect();
+
+        // Remove testing backend as it's not published
+        dep_table.remove("i-slint-backend-testing");
+
         deps.iter().for_each(|name| {
             if let Some(dep_config) = dep_table[name].as_inline_table_mut() {
                 if name.contains("slint") {

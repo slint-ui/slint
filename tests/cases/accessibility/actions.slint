@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+component Button {
+    callback clicked();
+    accessible-role: button;
+    accessible-label: "Hello";
+    accessible-action-default => {
+        debug("DEFAULT");
+        clicked()
+    }
+    accessible-value: value;
+    in-out property <int> value;
+    accessible-action-set-value(x) => {
+        debug("SetValue", x);
+        value = x.to-float();
+    }
+}
+
+component TestCase {
+    Rectangle {
+        x: 100px;
+        y: 100px;
+
+        btn := Button {
+            x: 23px;
+            y: 43px;
+            width: 143px;
+            height: 76px;
+        }
+    }
+
+    public function call() {
+        btn.accessible-action-set-value(45);
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let mut button_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Hello");
+let button = button_search.next().unwrap();
+assert!(button_search.next().is_none());
+
+assert_eq!(button.absolute_position(), slint::LogicalPosition::new(123., 143.));
+assert_eq!(button.size(), slint::LogicalSize::new(143., 76.));
+
+assert_eq!(button.accessible_value().unwrap(), "0");
+instance.invoke_call();
+assert_eq!(button.accessible_value().unwrap(), "45");
+button.set_accessible_value("78");
+assert_eq!(button.accessible_value().unwrap(), "78");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+auto button_search = slint::testing::ElementHandle::find_by_accessible_label(handle, "Hello");
+assert_eq(button_search.size(), 1);
+auto button = button_search[0];
+
+assert(button.absolute_position() == slint::LogicalPosition({123., 143.}));
+assert(button.size() == slint::LogicalSize({143., 76.}));
+
+assert_eq(button.accessible_value().value(), "0");
+instance.invoke_call();
+assert_eq(button.accessible_value().value(), "45");
+button.set_accessible_value("78");
+assert_eq(button.accessible_value().value(), "78");
+```
+*/

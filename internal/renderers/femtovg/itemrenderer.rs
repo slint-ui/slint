@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use std::cell::RefCell;
 use std::pin::Pin;
@@ -16,7 +16,7 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ItemRc, Layer, Opacity, RenderingResult,
-    TextHorizontalAlignment,
+    TextHorizontalAlignment, TextStrokeStyle,
 };
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -316,11 +316,33 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             )
         });
 
-        let paint = match self
-            .brush_to_paint(text.color(), &rect_to_path((size * self.scale_factor).into()))
-        {
+        let text_path = rect_to_path((size * self.scale_factor).into());
+        let paint = match self.brush_to_paint(text.color(), &text_path) {
             Some(paint) => font.init_paint(text.letter_spacing() * self.scale_factor, paint),
             None => return,
+        };
+
+        let stroke_style = text.stroke_style();
+        let stroke_width = if text.stroke_width().get() != 0.0 {
+            (text.stroke_width() * self.scale_factor).get()
+        } else {
+            // Hairline stroke
+            1.0
+        };
+        let stroke_width = match stroke_style {
+            TextStrokeStyle::Outside => stroke_width * 2.0,
+            TextStrokeStyle::Center => stroke_width,
+        };
+        let stroke_paint = match self.brush_to_paint(text.stroke(), &text_path) {
+            Some(mut paint) => {
+                if text.stroke().is_transparent() {
+                    None
+                } else {
+                    paint.set_line_width(stroke_width);
+                    Some(font.init_paint(text.letter_spacing() * self.scale_factor, paint))
+                }
+            }
+            None => None,
         };
 
         let mut canvas = self.canvas.borrow_mut();
@@ -334,7 +356,19 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             false,
             &paint,
             |to_draw, pos, _, _| {
-                canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
+                match (stroke_style, &stroke_paint) {
+                    (TextStrokeStyle::Outside, Some(stroke_paint)) => {
+                        canvas.stroke_text(pos.x, pos.y, to_draw.trim_end(), stroke_paint).unwrap();
+                        canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
+                    }
+                    (TextStrokeStyle::Center, Some(stroke_paint)) => {
+                        canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
+                        canvas.stroke_text(pos.x, pos.y, to_draw.trim_end(), stroke_paint).unwrap();
+                    }
+                    _ => {
+                        canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
+                    }
+                };
             },
         );
     }

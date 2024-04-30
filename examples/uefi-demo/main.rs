@@ -11,13 +11,29 @@ use alloc::{
     format,
     rc::Rc,
     string::{String, ToString},
+    vec,
 };
-use core::{slice, time::Duration};
-use slint::{platform::software_renderer, SharedString};
-use uefi::{prelude::*, proto::console::gop::BltPixel, Char16};
+use core::{
+    slice,
+    sync::atomic::{AtomicPtr, Ordering},
+    time::Duration,
+};
+
+use log::info;
+use uefi::{
+    prelude::*,
+    proto::console::{gop::BltPixel, pointer::Pointer},
+    table::boot::ScopedProtocol,
+    Char16,
+};
 use uefi_services::system_table;
 
+use slint::{platform::software_renderer, SharedString};
+
 slint::include_modules!();
+
+static MOUSE_POINTER: AtomicPtr<ScopedProtocol<'static, Pointer>> =
+    AtomicPtr::new(core::ptr::null_mut());
 
 fn st() -> &'static mut SystemTable<Boot> {
     // SAFETY: uefi_services::init() is always called first in main()
@@ -59,6 +75,20 @@ fn timer_freq() -> u64 {
         core::arch::asm!("mrs {}, cntfrq_el0", out(reg) freq);
         freq
     }
+}
+
+fn pointer_init() {
+    // mouse pointer
+    let bs = st().boot_services();
+    let handle = bs.get_handle_for_protocol::<Pointer>().expect("miss Pointer protocol");
+
+    let mut pointer =
+        bs.open_protocol_exclusive::<Pointer>(handle).expect("can't open Pointer protocol.");
+
+    pointer.reset(false).expect("Failed to reset pointer device.");
+    info!("pointer inited, mode = {:?}.", pointer.mode());
+    let raw_ptr = Box::into_raw(Box::new(pointer));
+    MOUSE_POINTER.store(raw_ptr, Ordering::Relaxed);
 }
 
 fn get_key_press() -> Option<char> {
@@ -133,8 +163,15 @@ fn wait_for_input(max_timeout: Option<Duration>) {
     {
         // SAFETY: The cloned handles are only used to wait for further input events and
         // are then immediately dropped.
-        let mut events =
-            unsafe { [st().stdin().wait_for_key_event().unsafe_clone(), timer.unsafe_clone()] };
+        let ptr = MOUSE_POINTER.load(Ordering::Relaxed);
+        let pointer_ref = unsafe { &*ptr };
+        let mut events = unsafe {
+            [
+                st().stdin().wait_for_key_event().unsafe_clone(),
+                pointer_ref.wait_for_input_event().unsafe_clone(),
+                timer.unsafe_clone(),
+            ]
+        };
         bs.wait_for_event(&mut events).unwrap();
     }
 
@@ -159,6 +196,37 @@ impl software_renderer::TargetPixel for SlintBltPixel {
     }
 }
 
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+/// RGBA-8-8-8-8
+struct PngRGBAPixel([u8; 4]);
+
+impl PngRGBAPixel {
+    fn new() -> Self {
+        PngRGBAPixel([254, 254, 254, 0])
+    }
+    fn from_rgba(&mut self, r: u8, g: u8, b: u8, a: u8) {
+        self.0 = [r, g, b, a];
+    }
+
+    fn blend_blt_pixel(&self, background: &mut BltPixel) {
+        // Alpha Blending
+        // Result = Foreground×α + Background×(1−α)
+        let alpha = self.0[3] as f32 / 255.0;
+        let r = self.0[0] as f32;
+        let g = self.0[1] as f32;
+        let b = self.0[2] as f32;
+
+        let blended_r = ((1.0 - alpha) * background.red as f32 + alpha * r) as u8;
+        let blended_g = ((1.0 - alpha) * background.green as f32 + alpha * g) as u8;
+        let blended_b = ((1.0 - alpha) * background.blue as f32 + alpha * b) as u8;
+
+        background.red = blended_r;
+        background.green = blended_g;
+        background.blue = blended_b;
+    }
+}
+
 struct Platform {
     window: Rc<software_renderer::MinimalSoftwareWindow>,
     timer_freq: f64,
@@ -167,6 +235,7 @@ struct Platform {
 
 impl Default for Platform {
     fn default() -> Self {
+        pointer_init();
         Self {
             window: software_renderer::MinimalSoftwareWindow::new(
                 software_renderer::RepaintBufferType::ReusedBuffer,
@@ -213,14 +282,45 @@ impl slint::platform::Platform for Platform {
         let info = gop.current_mode_info();
         let mut fb = alloc::vec![SlintBltPixel(BltPixel::new(0, 0, 0)); info.resolution().0 * info.resolution().1];
 
+        //mouse pixel
+        let png: &[u8] = &include_bytes!("resource/cursor.png")[..];
+        let header = minipng::decode_png_header(png).expect("bad PNG");
+        let mut buffer = vec![0; header.required_bytes_rgba8bpc()];
+        let mut image = minipng::decode_png(png, &mut buffer).expect("bad PNG");
+        image.convert_to_rgba8bpc().expect("Failed to convert to RGBA8bit");
+        info!("pointer png image size: {}x{} ", image.width(), image.height());
+        let pointer_x = image.width() as usize;
+        let pointer_y = image.height() as usize;
+        let image_size: usize = (image.width() * image.height()) as usize;
+        let mut vec_png = alloc::vec![PngRGBAPixel::new(); image_size];
+        let mut mfb = alloc::vec![BltPixel::new(254, 254, 254); image_size];
+        for i in 0..image_size {
+            vec_png[i].from_rgba(
+                image.pixels()[4 * i + 0], //r
+                image.pixels()[4 * i + 1], //g
+                image.pixels()[4 * i + 2], //b
+                image.pixels()[4 * i + 3], //a
+            );
+            vec_png[i].blend_blt_pixel(&mut mfb[i]);
+        }
+
         self.window.set_size(slint::PhysicalSize::new(
             info.resolution().0.try_into().unwrap(),
             info.resolution().1.try_into().unwrap(),
         ));
 
+        let mut position = slint::LogicalPosition::new(0.0, 0.0);
+
+        let ptr = MOUSE_POINTER.load(Ordering::Relaxed);
+        let mpointer = unsafe { &mut *ptr };
+        let conpointer = unsafe { &*ptr };
+        let mouse_mode = conpointer.mode();
+        let mut is_mouse_move = false;
+
         loop {
             slint::platform::update_timers_and_animations();
 
+            // key handle until no input
             while let Some(key) = get_key_press() {
                 // EFI does not distinguish between pressed and released events.
                 let text = SharedString::from(key);
@@ -229,6 +329,51 @@ impl slint::platform::Platform for Platform {
                 });
                 self.window.dispatch_event(slint::platform::WindowEvent::KeyReleased { text });
             }
+            // mouse handle until no input
+            while let Some(mut mouse) =
+                mpointer.read_state().expect("Failed to read state from Pointer.")
+            {
+                position.x += (mouse.relative_movement.0 as f32) / (mouse_mode.resolution.0 as f32);
+                position.y += (mouse.relative_movement.1 as f32) / (mouse_mode.resolution.1 as f32);
+
+                let button: slint::platform::PointerEventButton = match mouse.button {
+                    (true, true) => slint::platform::PointerEventButton::Left,
+                    (true, false) => slint::platform::PointerEventButton::Left,
+                    (false, true) => slint::platform::PointerEventButton::Right,
+                    (false, false) => slint::platform::PointerEventButton::Other,
+                };
+
+                if position.x < 0.0 {
+                    position.x = 0.0;
+                } else if position.x > (info.resolution().0 - pointer_x) as f32 {
+                    position.x = (info.resolution().0 - pointer_x) as f32;
+                    mouse.relative_movement.0 = (info.resolution().0) as i32;
+                }
+
+                if position.y < 0.0 {
+                    position.y = 0.0;
+                } else if position.y > (info.resolution().1 - pointer_y) as f32 {
+                    position.y = (info.resolution().1 - pointer_y) as f32;
+                    mouse.relative_movement.1 = (info.resolution().1) as i32;
+                }
+
+                self.window.dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+                self.window.dispatch_event(slint::platform::WindowEvent::PointerExited {});
+                self.window.dispatch_event(slint::platform::WindowEvent::PointerPressed {
+                    position,
+                    button,
+                });
+                self.window.dispatch_event(slint::platform::WindowEvent::PointerReleased {
+                    position,
+                    button,
+                });
+                is_mouse_move = true;
+            }
+
+            if is_mouse_move {
+                self.window.request_redraw();
+                is_mouse_move = false;
+            };
 
             self.window.draw_if_needed(|renderer| {
                 renderer.render(&mut fb, info.resolution().0);
@@ -236,6 +381,9 @@ impl slint::platform::Platform for Platform {
                 // SAFETY: SlintBltPixel is a repr(transparent) BltPixel so it is safe to transform.
                 let blt_fb =
                     unsafe { slice::from_raw_parts(fb.as_ptr() as *const BltPixel, fb.len()) };
+                let blt_mfb = unsafe {
+                    slice::from_raw_parts_mut(mfb.as_mut_ptr() as *mut BltPixel, mfb.len())
+                };
 
                 // We could let the software renderer draw to gop.frame_buffer() directly, but that
                 // requires dealing with different frame buffer formats. The blit buffer is easier to
@@ -246,6 +394,31 @@ impl slint::platform::Platform for Platform {
                     src: BltRegion::Full,
                     dest: (0, 0),
                     dims: info.resolution(),
+                })
+                .unwrap();
+
+                // get framebuffer from UEFI.
+                gop.blt(BltOp::VideoToBltBuffer {
+                    buffer: blt_mfb,
+                    src: (position.x as usize, position.y as usize),
+                    dest: BltRegion::Full,
+                    dims: (pointer_x, pointer_y),
+                })
+                .unwrap();
+
+                // mouse cursor RGBA render to framebuffer.
+                for y in 0..pointer_y {
+                    for x in 0..pointer_x {
+                        vec_png[x + y * pointer_x].blend_blt_pixel(&mut mfb[x + y * pointer_x]);
+                    }
+                }
+
+                // write framebuffer to UEFI.
+                gop.blt(BltOp::BufferToVideo {
+                    buffer: blt_mfb,
+                    src: BltRegion::Full,
+                    dest: (position.x as usize, position.y as usize),
+                    dims: (pointer_x, pointer_y),
                 })
                 .unwrap();
             });

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 //! Inline properties that are simple enough to be inlined
 //!
@@ -81,13 +81,14 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ATan => 10,
         BuiltinFunction::Log => 10,
         BuiltinFunction::Pow => 10,
-        BuiltinFunction::SetFocusItem => isize::MAX,
+        BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => isize::MAX,
         BuiltinFunction::ShowPopupWindow | BuiltinFunction::ClosePopupWindow => isize::MAX,
         BuiltinFunction::SetSelectionOffsets => isize::MAX,
         BuiltinFunction::ItemMemberFunction(..) => isize::MAX,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,
         BuiltinFunction::ColorRgbaStruct => 50,
+        BuiltinFunction::ColorHsvaStruct => 50,
         BuiltinFunction::ColorBrighter => 50,
         BuiltinFunction::ColorDarker => 50,
         BuiltinFunction::ColorTransparentize => 50,
@@ -96,6 +97,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ImageSize => 50,
         BuiltinFunction::ArrayLength => 50,
         BuiltinFunction::Rgb => 50,
+        BuiltinFunction::Hsv => 50,
         BuiltinFunction::ImplicitLayoutInfo(_) => isize::MAX,
         BuiltinFunction::ItemAbsolutePosition => isize::MAX,
         BuiltinFunction::RegisterCustomFontByPath => isize::MAX,

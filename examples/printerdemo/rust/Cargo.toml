@@ -23,6 +23,11 @@ name = "printerdemo_lib"
 slint = { path = "../../../api/rs/slint", features = ["backend-android-activity-05"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}
 
+# Disable gettext on macOS due to https://github.com/Koka/gettext-rs/issues/114
+[target.'cfg(not(any(target_os = "macos", target_os = "android")))'.dependencies]
+slint = { path = "../../../api/rs/slint", features=["gettext"] }
+
+
 [build-dependencies]
 slint-build = { path = "../../../api/rs/build" }
 

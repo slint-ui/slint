@@ -1,4 +1,4 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial -->
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial -->
 
 # Slint-python (Alpha)
 
@@ -18,12 +18,22 @@ in detail.
 
 ## Prerequisites
 
-* Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
-  have Rust installed, make sure that it's at least version 1.73 or newer. You can check which version you have installed
-  by running `rustc --version`. Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your path. This requirement will be removed before the final release of Slint for Python.
  * [Python 3](https://python.org/)
  * [pip](https://pypi.org/project/pip/)
  * [Pipenv](https://pipenv.pypa.io/en/latest/installation.html#installing-pipenv)
+
+## Installation
+
+Slint can be installed with `pip` from the [Python Package Index](https://pypi.org):
+
+```
+pip install slint
+```
+
+The installation will use binaries provided vi macOS, Windows, and Linux for various architectures. If your target platform is not covered by binaries,
+`pip` will automatically build Slint from source. If that happens, you need common software development tools on your machine, as well as [Rust](https://www.rust-lang.org/learn/get-started).
+
+### Building from Source
 
 ## Try it out
 
@@ -37,7 +47,7 @@ pipenv run python main.py
 
 ## Quick Start
 
-1. Add Slint from the Git development branch to your Python project: `pipenv install "git+https://github.com/slint-ui/slint#subdirectory=api/python&egg=slint"`
+1. Add Slint Python Package Index to your Python project: `pipenv install slint`
 2. Create a file called `appwindow.slint`:
 
 ```slint
@@ -64,9 +74,9 @@ export component AppWindow inherits Window {
 
 ```python
 import slint
-import appwindow_slint
 
-class App(appwindow_slint.AppWindow):
+# slint.loader will look in `sys.path` for `appwindow.slint`.
+class App(slint.loader.appwindow.AppWindow):
     @slint.callback
     def request_increase_value(self):
         self.counter = self.counter + 1
@@ -83,7 +93,7 @@ app.run()
 
 The following example shows how to instantiate a Slint component in Python:
 
-**`ui.slint`**
+**`app.slint`**
 
 ```slint
 export component MainWindow inherits Window {
@@ -101,20 +111,24 @@ export component MainWindow inherits Window {
 The exported component is exposed as a Python class. To access this class, you have two
 options:
 
-1. Call `slint.load_file("ui.slint")`. The returned object is a [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace),
+1. Call `slint.load_file("app.slint")`. The returned object is a [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace),
    that provides the `MainWindow` class:
    ```python
    import slint
-   components = slint.load_file("ui.slint")
+   components = slint.load_file("app.slint")
    main_window = components.MainWindow()
    ```
 
-2. Import the `.slint` file as module by treating it like a Python module where the `.slint` extension is replaced with `_slint`:
+2. Use Slint's auto-loader, which lazily loads `.slint` files from `sys.path`:
    ```python
-   import slint # needs to come first
-   from ui_slint import MainWindow
-   main_window = MainWindow()
+   import slint
+   # Look for for `app.slint` in `sys.path`:
+   main_window = slint.loader.app.MainWindow()
    ```
+
+   Any attribute lookup in `slint.loader` is searched for in `sys.path`. If a directory with the name exists, it is returned as a loader object, and subsequent
+   attribute lookups follow the same logic. If the name matches a file with the `.slint` extension, it is automatically loaded with `load_file` and the
+   [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace) is returned.
 
 ### Accessing Properties
 

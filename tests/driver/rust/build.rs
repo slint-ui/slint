@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use std::io::{BufWriter, Write};
 use std::path::Path;
@@ -43,7 +43,7 @@ fn main() -> std::io::Result<()> {
                 r"
 #[test] {} fn t_{}() -> std::result::Result<(), std::boxed::Box<dyn std::error::Error>> {{
     use i_slint_backend_testing as slint_testing;
-    slint_testing::init();
+    slint_testing::init_no_event_loop();
     {}
     Ok(())
 }}",

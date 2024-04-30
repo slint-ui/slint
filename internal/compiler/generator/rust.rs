@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 // cSpell: ignore conv gdata powf punct vref
 
@@ -23,7 +23,7 @@ use crate::object_tree::Document;
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
@@ -788,16 +788,31 @@ fn generate_sub_component(
 
     let mut accessible_role_branch = vec![];
     let mut accessible_string_property_branch = vec![];
+    let mut accessibility_action_branch = vec![];
+    let mut supported_accessibility_actions = BTreeMap::<u32, BTreeSet<_>>::new();
     for ((index, what), expr) in &component.accessible_prop {
-        let expr = compile_expression(&expr.borrow(), &ctx);
+        let e = compile_expression(&expr.borrow(), &ctx);
         if what == "Role" {
-            accessible_role_branch.push(quote!(#index => #expr,));
+            accessible_role_branch.push(quote!(#index => #e,));
+        } else if let Some(what) = what.strip_prefix("Action") {
+            let what = ident(what);
+            let has_args = matches!(&*expr.borrow(), Expression::CallBackCall { arguments, .. } if !arguments.is_empty());
+            accessibility_action_branch.push(if has_args {
+                quote!((#index, sp::AccessibilityAction::#what(args)) => { let args = (args,); #e })
+            } else {
+                quote!((#index, sp::AccessibilityAction::#what) => { #e })
+            });
+            supported_accessibility_actions.entry(*index).or_default().insert(what);
         } else {
             let what = ident(what);
             accessible_string_property_branch
-                .push(quote!((#index, sp::AccessibleStringProperty::#what) => #expr,));
+                .push(quote!((#index, sp::AccessibleStringProperty::#what) => sp::Some(#e),));
         }
     }
+    let mut supported_accessibility_actions_branch = supported_accessibility_actions
+        .into_iter()
+        .map(|(index, values)| quote!(#index => #(sp::SupportedAccessibilityAction::#values)|*,))
+        .collect::<Vec<_>>();
 
     let mut item_geometry_branch = component
         .geometries
@@ -875,6 +890,12 @@ fn generate_sub_component(
         accessible_string_property_branch.push(quote!(
             (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(0, what),
         ));
+        accessibility_action_branch.push(quote!(
+            (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessibility_action(0, action),
+        ));
+        supported_accessibility_actions_branch.push(quote!(
+            #local_tree_index => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(0),
+        ));
         if sub_items_count > 1 {
             let range_begin = local_index_of_first_child;
             let range_end = range_begin + sub_items_count - 2 + sub.ty.repeater_count();
@@ -886,6 +907,12 @@ fn generate_sub_component(
             ));
             item_geometry_branch.push(quote!(
                 #range_begin..=#range_end => return #sub_compo_field.apply_pin(_self).item_geometry(index - #range_begin + 1),
+            ));
+            accessibility_action_branch.push(quote!(
+                (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessibility_action(index - #range_begin + 1, action),
+            ));
+            supported_accessibility_actions_branch.push(quote!(
+                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(index - #range_begin + 1),
             ));
         }
 
@@ -1063,14 +1090,33 @@ fn generate_sub_component(
                 self: ::core::pin::Pin<&Self>,
                 index: u32,
                 what: sp::AccessibleStringProperty,
-            ) -> sp::SharedString {
+            ) -> sp::Option<sp::SharedString> {
                 #![allow(unused)]
                 let _self = self;
                 match (index, what) {
                     #(#accessible_string_property_branch)*
+                    _ => sp::None,
+                }
+            }
+
+            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
+                #![allow(unused)]
+                let _self = self;
+                match (index, action) {
+                    #(#accessibility_action_branch)*
+                    _ => (),
+                }
+            }
+
+            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
+                #![allow(unused)]
+                let _self = self;
+                match index {
+                    #(#supported_accessibility_actions_branch)*
                     _ => ::core::default::Default::default(),
                 }
             }
+
 
             #(#declared_functions)*
         }
@@ -1512,8 +1558,21 @@ fn generate_item_tree(
                 index: u32,
                 what: sp::AccessibleStringProperty,
                 result: &mut sp::SharedString,
-            ) {
-                *result = self.accessible_string_property(index, what);
+            ) -> bool {
+                if let Some(r) = self.accessible_string_property(index, what) {
+                    *result = r;
+                    true
+                } else {
+                    false
+                }
+            }
+
+            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
+                self.accessibility_action(index, action);
+            }
+
+            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
+                self.supported_accessibility_actions(index)
             }
 
             fn window_adapter(
@@ -2337,10 +2396,21 @@ fn compile_builtin_function_call(
                 let window_tokens = access_window_adapter_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
                 quote!(
-                    sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item)
+                    sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, true)
                 )
             } else {
                 panic!("internal error: invalid args to SetFocusItem {:?}", arguments)
+            }
+        }
+        BuiltinFunction::ClearFocusItem => {
+            if let [Expression::PropertyReference(pr)] = arguments {
+                let window_tokens = access_window_adapter_field(ctx);
+                let focus_item = access_item_rc(pr, ctx);
+                quote!(
+                    sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item, false)
+                )
+            } else {
+                panic!("internal error: invalid args to ClearFocusItem {:?}", arguments)
             }
         }
         BuiltinFunction::ShowPopupWindow => {
@@ -2494,6 +2564,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringIsFloat => quote!(#(#a)*.as_str().parse::<f64>().is_ok()),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
+        BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
         BuiltinFunction::ColorBrighter => {
             let x = a.next().unwrap();
             let factor = a.next().unwrap();
@@ -2537,6 +2608,17 @@ fn compile_builtin_function_call(
                 let b: u8 = (#b as u32).max(0).min(255) as u8;
                 let a: u8 = (255. * (#a as f32)).max(0.).min(255.) as u8;
                 sp::Color::from_argb_u8(a, r, g, b)
+            })
+        }
+        BuiltinFunction::Hsv => {
+            let (h, s, v, a) =
+                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+            quote!({
+                let h: f32 = (#h as f32).clamp(0., 360.) as f32;
+                let s: f32 = (#s as f32).max(0.).min(1.) as f32;
+                let v: f32 = (#v as f32).max(0.).min(1.) as f32;
+                let a: f32 = (1. * (#a as f32)).max(0.).min(1.) as f32;
+                sp::Color::from_hsva(h, s, v, a)
             })
         }
         BuiltinFunction::ColorScheme => {

@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 [package]
 name = "i-slint-backend-testing"
@@ -17,9 +17,15 @@ publish = false
 path = "lib.rs"
 
 [features]
-default = []
+# Internal feature that is only enabled for Slint's own tests
+internal = []
+# ffi for C++ bindings
+ffi = []
 
 [dependencies]
-i-slint-core = { workspace = true, features = ["default"] }
+i-slint-core = { workspace = true }
 vtable = { workspace = true }
-image = { version = "0.24.0", default-features = false, features = ["png", "jpeg"] }
+
+[dev-dependencies]
+slint = { workspace = true, default-features = false, features = ["std", "compat-1-2"] }
+i-slint-core-macros = { workspace = true }

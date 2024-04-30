@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 import { FluentPalette, FluentFontSettings, Icons } from "styling.slint";
 import { ListView } from "../common/listview.slint";
@@ -9,7 +9,6 @@ component TableViewColumn inherits Rectangle {
 
     callback clicked <=> i-touch-area.clicked;
     callback adjust_size(length);
-    accessible-role: table;
 
     background: FluentPalette.background;
 
@@ -197,6 +196,7 @@ export component StandardTableView {
     horizontal-stretch: 1;
     vertical-stretch: 1;
     forward-focus: i-focus-scope;
+    accessible-role: table;
 
     VerticalLayout {
         Rectangle {

@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 [package]
 name = "test-driver-interpreter"
@@ -19,7 +19,7 @@ name = "test-driver-interpreter"
 
 [dev-dependencies]
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2"] }
-i-slint-backend-testing = { workspace = true, features = ["default"] }
+i-slint-backend-testing = { workspace = true }
 
 itertools = { workspace = true }
 lazy_static = "1.4.0"

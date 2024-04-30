@@ -104,7 +104,7 @@ pub fn init() {
     .ok()
     .unwrap();
 
-    unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
+    unsafe { ALLOCATOR.init(core::ptr::addr_of_mut!(HEAP) as usize, HEAP_SIZE) }
 
     let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().raw());
 

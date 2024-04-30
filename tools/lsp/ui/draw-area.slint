@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 // cSpell: ignore resizer
 
@@ -46,12 +46,12 @@ component SelectionFrame {
     in property <Selection> selection;
     in property <bool> interactive: true;
 
-    function pick-selection-color(layout-kind: LayoutKind, is-primary: bool) -> color {
+    function pick-selection-color(layout-kind: LayoutKind,is-primary: bool) -> color {
         if layout-kind == LayoutKind.None {
             if is-primary {
                 return #2379f4ff;
             } else {
-                return #2379f480;  
+                return #2379f480;
             }
         } else {
             if is-primary {
@@ -69,7 +69,9 @@ component SelectionFrame {
     width: root.selection.geometry.width;
     height: root.selection.geometry.height;
 
-    callback update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
+    callback resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
+    callback can-move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length) -> bool;
+    callback move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
     callback select-behind(/* x */ length, /* y */ length, /* enter component? */ bool, /* same file? */ bool);
     callback selected-element-delete();
 
@@ -97,14 +99,26 @@ component SelectionFrame {
         width: root.width;
         height: root.height;
 
-        update-geometry(x, y, w, h, done) => {
+        resize(x, y, w, h, done) => {
             root.x = x;
             root.y = y;
             root.width = w;
             root.height = h;
             if done {
-                root.update-geometry(x, y, w, h);
+                root.resize(x, y, w, h);
             }
+        }
+
+        can-move-to(x, y, mx, my) => {
+            root.x = x;
+            root.y = y;
+            return root.can-move-to(x, y, mx, my);
+        }
+
+        move-to(x, y, mx, my) => {
+            root.x = x;
+            root.y = y;
+            root.move-to(x, y, mx, my);
         }
 
         inner := Rectangle {
@@ -127,7 +141,7 @@ component SelectionFrame {
             height: label-text.height * 1.2;
             label-text := Text {
                 color: Colors.white;
-                text: Math.round(root.width/1px) + "x" + Math.round(root.height/1px);
+                text: Math.round(root.width / 1px) + "x" + Math.round(root.height / 1px);
             }
         }
     }
@@ -161,7 +175,9 @@ export component DrawArea {
     callback reselect();
     // Reselect element e.g. after changing the window size (which may move the element)
     callback unselect();
-    callback selected-element-update-geometry(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
+    callback selected-element-resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
+    callback selected-element-can-move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length) -> bool;
+    callback selected-element-move(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
     callback selected-element-delete();
 
     preferred-height: max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border;
@@ -203,7 +219,7 @@ export component DrawArea {
                 x-position: parent.x;
                 y-position: parent.y;
 
-                update-geometry(_, _, w, h) => {
+                resize(_, _, w, h) => {
                     preview-area-container.width = clamp(w, preview-area-container.min-width, preview-area-container.max-width);
                     preview-area-container.height = clamp(h, preview-area-container.min-height, preview-area-container.max-height);
                     reselect();
@@ -275,8 +291,16 @@ export component DrawArea {
                     for s in root.selections: SelectionFrame {
                         interactive: root.mode == DrawAreaMode.designing;
                         selection: s;
-                        update-geometry(x, y, w, h) => {
-                            root.selected-element-update-geometry(x, y, w, h);
+                        resize(x, y, w, h) => {
+                            root.selected-element-resize(x, y, w, h);
+                        }
+
+                        can-move-to(x, y, mx, my) => {
+                            root.selected-element-can-move-to(x, y, mx, my);
+                        }
+
+                        move-to(x, y, mx, my) => {
+                            root.selected-element-move(x, y, mx, my);
                         }
 
                         selected-element-delete() => {
@@ -295,7 +319,8 @@ export component DrawArea {
                     width: drop-mark.x2 - drop-mark.x1;
                     height: drop-mark.y2 - drop-mark.y1;
 
-                    background: #00ff00;
+                    border-color: #00ff00;
+                    background: #00ff0080;
                 }
             }
         }
@@ -305,7 +330,7 @@ export component DrawArea {
     diagnostics := DiagnosticsOverlay {
         width: 100%;
         height: 100%;
-       diagnostics <=> root.diagnostics;
+        diagnostics <=> root.diagnostics;
         show-document(url, line, column) => {
             root.show-document(url, line, column);
         }

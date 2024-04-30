@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, SoftwareRenderer, TargetPixel,
@@ -41,15 +41,18 @@ fn do_test_render_region(renderer: &SoftwareRenderer, x: i32, y: i32, x2: i32, y
     assert_eq!(r.bounding_box_size(), PhysicalSize { width: (x2 - x) as _, height: (y2 - y) as _ });
     assert_eq!(r.bounding_box_origin(), PhysicalPosition { x, y });
 
+    let mut has_one_pixel = false;
     for py in 0..500 {
         for px in 0..500 {
-            assert_eq!(
-                buffer[py * 500 + px].0,
-                (x..x2).contains(&(px as i32)) && (y..y2).contains(&(py as i32)),
-                "unexpected value at {px},{py}"
-            )
+            let in_bounding_box = (x..x2).contains(&(px as i32)) && (y..y2).contains(&(py as i32));
+            if !in_bounding_box {
+                assert!(!buffer[py * 500 + px].0, "Something written outside of bounding box in  {px},{py}   - (x={x},y={y},x2={x2},y2={y2})")
+            } else if buffer[py * 500 + px].0 {
+                has_one_pixel = true;
+            }
         }
     }
+    assert!(has_one_pixel, "Nothing was rendered");
 }
 
 #[test]

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 /*!
  This module contains the intermediate representation of the code in the form of an object tree
@@ -686,6 +686,7 @@ pub fn pretty_print(
         expression_tree::pretty_print(f, &repeated.model)?;
         write!(f, ":")?;
         if let ElementType::Component(base) = &e.base_type {
+            write!(f, "(base) ")?;
             if base.parent_element.upgrade().is_some() {
                 pretty_print(f, &base.root_element.borrow(), indentation)?;
                 return Ok(());
