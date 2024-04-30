@@ -180,6 +180,7 @@ impl<'a> Iterator for DropZoneIterator<'a> {
             if is_selected {
                 if let Some((_, (next_is_selected, (next_start, next_end)))) = self.input.next() {
                     assert!(!next_is_selected); // We can not handle the same element twice in the same layout:-)
+                    self.state = DropZoneIteratorState::InProgress;
 
                     let next_mid = next_start + (next_end - next_start) / 2.0;
 
