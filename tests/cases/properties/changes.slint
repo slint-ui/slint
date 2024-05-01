@@ -53,4 +53,21 @@ slint_testing::mock_elapsed_time(1);
 assert_eq(instance.get_result(), "other(100)value(142)value(141)");
 ```
 
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.result, "");
+instance.value = 56;
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.result, ""); // so far, nothing have changed
+instance.value = 142;
+assert.equal(instance.result, "");
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.result, "other(100)value(142)");
+instance.value = 8; // this one is going to be merged in the other
+instance.value = 141;
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.result, "other(100)value(142)value(141)");
+```
+
 */
