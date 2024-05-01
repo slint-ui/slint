@@ -140,7 +140,7 @@ fn generate_source(
     let syntax_node =
         parser::parse(source.to_owned(), Some(&testcase.absolute_path), None, &mut diag);
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
-    compiler_config.enable_component_containers = true;
+    compiler_config.enable_experimental = true;
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
     compiler_config.style = Some(testcase.requested_style.unwrap_or("fluent").to_string());

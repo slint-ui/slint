@@ -160,7 +160,7 @@ fn generate_source(
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
     compiler_config.include_paths = include_paths;
     compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
-    compiler_config.enable_component_containers = true;
+    compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".to_string());
     compiler_config.scale_factor = scale_factor.into();
     let (root_component, diag, _) =

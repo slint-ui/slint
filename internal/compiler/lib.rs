@@ -89,8 +89,8 @@ pub struct CompilerConfiguration {
     /// expose the accessible role and properties
     pub accessibility: bool,
 
-    /// Add support for component containers
-    pub enable_component_containers: bool,
+    /// Add support for experimental features
+    pub enable_experimental: bool,
 
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
@@ -140,10 +140,7 @@ impl CompilerConfiguration {
             .filter(|f| *f > 0.)
             .unwrap_or(1.);
 
-        let enable_experimental_features =
-            std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
-
-        let enable_component_containers = enable_experimental_features;
+        let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
 
         let cpp_namespace = match output_format {
             #[cfg(feature = "cpp")]
@@ -167,7 +164,7 @@ impl CompilerConfiguration {
             inline_all_elements,
             scale_factor,
             accessibility: true,
-            enable_component_containers,
+            enable_experimental,
             translation_domain: None,
             cpp_namespace,
         }
@@ -185,7 +182,9 @@ fn prepare_for_compile(
         compiler_config.accessibility = false;
     }
 
-    let global_type_registry = if compiler_config.enable_component_containers {
+    diagnostics.enable_experimental = compiler_config.enable_experimental;
+
+    let global_type_registry = if compiler_config.enable_experimental {
         crate::typeregister::TypeRegister::builtin_experimental()
     } else {
         crate::typeregister::TypeRegister::builtin()
