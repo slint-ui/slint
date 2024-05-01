@@ -461,6 +461,88 @@ pub unsafe extern "C" fn slint_property_tracker_drop(handle: *mut PropertyTracke
     core::ptr::drop_in_place(handle as *mut PropertyTracker);
 }
 
+/// Construct a ChangeTracker
+#[no_mangle]
+pub unsafe extern "C" fn slint_change_tracker_construct(ct: *mut ChangeTracker) {
+    core::ptr::write(ct, ChangeTracker::default());
+}
+
+/// Drop a ChangeTracker
+#[no_mangle]
+pub unsafe extern "C" fn slint_change_tracker_drop(ct: *mut ChangeTracker) {
+    core::ptr::drop_in_place(ct);
+}
+
+/// initialize the change tracker
+#[no_mangle]
+pub unsafe extern "C" fn slint_change_tracker_init(
+    ct: &ChangeTracker,
+    user_data: *mut c_void,
+    drop_user_data: extern "C" fn(user_data: *mut c_void),
+    eval_fn: extern "C" fn(user_data: *mut c_void) -> bool,
+    notify_fn: extern "C" fn(user_data: *mut c_void),
+) {
+    #[allow(non_camel_case_types)]
+    struct C_ChangeTrackerInner {
+        user_data: *mut c_void,
+        drop_user_data: extern "C" fn(user_data: *mut c_void),
+        eval_fn: extern "C" fn(user_data: *mut c_void) -> bool,
+        notify_fn: extern "C" fn(user_data: *mut c_void),
+    }
+    impl Drop for C_ChangeTrackerInner {
+        fn drop(&mut self) {
+            (self.drop_user_data)(self.user_data);
+        }
+    }
+
+    unsafe fn drop(_self: *mut BindingHolder) {
+        core::mem::drop(Box::from_raw(_self as *mut BindingHolder<C_ChangeTrackerInner>));
+    }
+
+    unsafe fn evaluate(_self: *mut BindingHolder, _value: *mut ()) -> BindingResult {
+        let pinned_holder = Pin::new_unchecked(&*_self);
+        let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
+        let inner = core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap();
+        let notify =
+            super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
+        if notify {
+            (inner.notify_fn)(inner.user_data);
+        }
+        BindingResult::KeepBinding
+    }
+
+    const VT: &'static BindingVTable = &BindingVTable {
+        drop,
+        evaluate,
+        mark_dirty: ChangeTracker::mark_dirty,
+        intercept_set: |_, _| false,
+        intercept_set_binding: |_, _| false,
+    };
+
+    ct.clear();
+
+    let inner = C_ChangeTrackerInner { user_data, drop_user_data, eval_fn, notify_fn };
+
+    let holder = BindingHolder {
+        dependencies: Cell::new(0),
+        dep_nodes: Default::default(),
+        vtable: VT,
+        dirty: Cell::new(false),
+        is_two_way_binding: false,
+        pinned: PhantomPinned,
+        binding: inner,
+        #[cfg(slint_debug_property)]
+        debug_name: "<ChangeTracker>".into(),
+    };
+
+    let raw = Box::into_raw(Box::new(holder));
+    ct.set_internal(raw as *mut BindingHolder);
+
+    let pinned_holder = Pin::new_unchecked(&*(raw as *mut BindingHolder));
+    let inner = core::ptr::addr_of_mut!((*raw).binding).as_mut().unwrap();
+    super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
+}
+
 /// return the current animation tick for the `animation-tick` function
 #[no_mangle]
 pub extern "C" fn slint_animation_tick() -> u64 {

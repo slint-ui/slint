@@ -56,21 +56,6 @@ impl ChangeTracker {
         self.clear();
         let inner = ChangeTrackerInner { eval_fn, notify_fn, value: T::default(), data };
 
-        /// Safety: _self must be a pointer to a `BindingHolder<DirtyHandler>`
-        unsafe fn mark_dirty(_self: *const BindingHolder, _was_dirty: bool) {
-            // Move the dependency list node from the dependency list to the CHANGED_NODE
-            let _self = _self.as_ref().unwrap();
-            let node_head = _self.dep_nodes.take();
-            if let Some(node) = node_head.iter().next() {
-                node.remove();
-                CHANGED_NODES.with(|changed_nodes| {
-                    changed_nodes.append(node);
-                });
-            }
-            _self.dep_nodes.set(node_head);
-        }
-
-        /// and value must be a pointer to T
         unsafe fn evaluate<T: PartialEq, EF: Fn(&Data) -> T, NF: Fn(&Data, &T), Data>(
             _self: *mut BindingHolder,
             _value: *mut (),
@@ -102,7 +87,7 @@ impl ChangeTracker {
             const VT: &'static BindingVTable = &BindingVTable {
                 drop: drop::<T, EF, NF, Data>,
                 evaluate: evaluate::<T, EF, NF, Data>,
-                mark_dirty: mark_dirty,
+                mark_dirty: ChangeTracker::mark_dirty,
                 intercept_set: |_, _| false,
                 intercept_set_binding: |_, _| false,
             };
@@ -120,8 +105,8 @@ impl ChangeTracker {
         };
 
         let raw = Box::into_raw(Box::new(holder));
-        self.inner.set(raw as *mut BindingHolder);
         let value = unsafe {
+            self.set_internal(raw as *mut BindingHolder);
             let pinned_holder = Pin::new_unchecked((raw as *mut BindingHolder).as_ref().unwrap());
             let inner = core::ptr::addr_of!((*raw).binding).as_ref().unwrap();
             super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(&inner.data))
@@ -129,7 +114,9 @@ impl ChangeTracker {
         unsafe { core::ptr::addr_of_mut!((*raw).binding).as_mut().unwrap().value = value };
     }
 
-    fn clear(&self) {
+    /// Clear the change tracker.
+    /// No notify function will be called after this.
+    pub fn clear(&self) {
         let inner = self.inner.get();
         if !inner.is_null() {
             unsafe {
@@ -159,6 +146,23 @@ impl ChangeTracker {
                 old_list.as_ref().clear();
             }
         });
+    }
+
+    pub(super) unsafe fn mark_dirty(_self: *const BindingHolder, _was_dirty: bool) {
+        // Move the dependency list node from the dependency list to the CHANGED_NODE
+        let _self = _self.as_ref().unwrap();
+        let node_head = _self.dep_nodes.take();
+        if let Some(node) = node_head.iter().next() {
+            node.remove();
+            CHANGED_NODES.with(|changed_nodes| {
+                changed_nodes.append(node);
+            });
+        }
+        _self.dep_nodes.set(node_head);
+    }
+
+    pub(super) unsafe fn set_internal(&self, raw: *mut BindingHolder) {
+        self.inner.set(raw);
     }
 }
 

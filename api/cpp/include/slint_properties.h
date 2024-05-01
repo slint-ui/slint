@@ -7,6 +7,10 @@
 
 namespace slint::cbindgen_private {
 struct PropertyAnimation;
+struct ChangeTracker
+{
+    void *inner;
+};
 }
 
 #include "slint_properties_internal.h"
@@ -291,6 +295,43 @@ struct PropertyTracker
 
 private:
     cbindgen_private::PropertyTrackerOpaque inner;
+};
+
+struct ChangeTracker
+{
+    ChangeTracker() { cbindgen_private::slint_change_tracker_construct(&inner); }
+    ~ChangeTracker() { cbindgen_private::slint_change_tracker_drop(&inner); }
+
+    template<typename Data, typename FnEval, typename FnNotify>
+    void init(Data data, FnEval fn_eval, FnNotify fn_notify)
+    {
+        using Value = std::invoke_result_t<FnEval, Data>;
+        struct Inner
+        {
+            Data data;
+            FnEval fn_eval;
+            FnNotify fn_notify;
+            Value value;
+        };
+        auto data_ptr =
+                new Inner { std::move(data), std::move(fn_eval), std::move(fn_notify), Value() };
+        cbindgen_private::slint_change_tracker_init(
+                &inner, data_ptr, [](void *d) { delete reinterpret_cast<Inner *>(d); },
+                [](void *d) {
+                    auto inner = reinterpret_cast<Inner *>(d);
+                    auto v = inner->fn_eval(inner->data);
+                    bool r = v != inner->value;
+                    inner->value = v;
+                    return r;
+                },
+                [](void *d) {
+                    auto inner = reinterpret_cast<Inner *>(d);
+                    inner->fn_notify(inner->data, inner->value);
+                });
+    }
+
+private:
+    cbindgen_private::ChangeTracker inner;
 };
 
 } // namespace slint::private_api

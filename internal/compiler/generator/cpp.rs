@@ -1625,6 +1625,17 @@ fn generate_sub_component(
         ));
     }
 
+    for (i, _) in component.change_callbacks.iter().enumerate() {
+        target_struct.members.push((
+            field_access,
+            Declaration::Var(Var {
+                ty: "slint::private_api::ChangeTracker".into(),
+                name: format!("change_tracker{}", i),
+                ..Default::default()
+            }),
+        ));
+    }
+
     let mut user_init = vec!["[[maybe_unused]] auto self = this;".into()];
 
     let mut children_visitor_cases = Vec::new();
@@ -1826,6 +1837,12 @@ fn generate_sub_component(
         let mut expr_str = compile_expression(&e.borrow(), &ctx);
         expr_str.push(';');
         expr_str
+    }));
+
+    user_init.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
+        let code = compile_expression(&e.borrow(), &ctx);
+        let prop = compile_expression(&llr::Expression::PropertyReference(p.clone()), &ctx);
+        format!("self->change_tracker{idx}.init(self, [](auto self) {{ return {prop}; }}, [](auto self, auto) {{ {code}; }});")
     }));
 
     target_struct
