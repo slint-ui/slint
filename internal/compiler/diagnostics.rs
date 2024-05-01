@@ -302,6 +302,9 @@ impl std::fmt::Display for Diagnostic {
 pub struct BuildDiagnostics {
     inner: Vec<Diagnostic>,
 
+    /// When false, throw error for experimental features
+    pub enable_experimental: bool,
+
     /// This is the list of all loaded files (with or without diagnostic)
     /// does not include the main file.
     /// FIXME: this doesn't really belong in the diagnostics, it should be somehow returned in another way

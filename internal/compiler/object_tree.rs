@@ -1294,6 +1294,12 @@ impl Element {
         }
 
         for ch in node.PropertyChangedCallback() {
+            if !diag.enable_experimental {
+                diag.push_error(
+                    "Change callbacks are experimental and not yet implemented in this version of Slint".into(),
+                    &ch,
+                );
+            }
             let Some(prop) = parser::identifier_text(&ch.DeclaredIdentifier()) else { continue };
             let lookup_result = r.lookup_property(&prop);
             if lookup_result.property_visibility == PropertyVisibility::Private
