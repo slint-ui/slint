@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 use super::{BindingHolder, BindingResult, BindingVTable, DependencyListHead};
+#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+use crate::thread_local;
 use alloc::boxed::Box;
 use core::cell::Cell;
 use core::marker::PhantomPinned;
