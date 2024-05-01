@@ -209,6 +209,7 @@ module.exports = grammar({
         $.callback_alias,
         $.callback_event,
         $.children_identifier, // No `;` after this one!
+        $.changed_callback,
         $.component,
         $.for_loop,
         $.function_definition,
@@ -501,6 +502,14 @@ module.exports = grammar({
     callback_event: ($) =>
       seq(
         field("name", choice($.function_call, $.simple_identifier)),
+        "=>",
+        field("action", $.imperative_block),
+      ),
+
+    changed_callback: ($) =>
+      seq(
+        "changed",
+        field("name", $.simple_identifier),
         "=>",
         field("action", $.imperative_block),
       ),
