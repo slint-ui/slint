@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+import { Time, PickerMode, TimePickerBase } from "../common/time-picker-base.slint";
+import { CosmicPalette, CosmicFontSettings } from "styling.slint";
+
+export { Time, PickerMode }
+
+export component TimePicker {
+    in property <string> title <=> base.title;
+    in property <string> ok-label <=> base.ok-label;
+    in property <string> cancel-label <=> base.cancel-label;
+    in property <bool> is-twenty-four-hour <=> base.is-twenty-four-hour;
+    in-out property <Time> current-time <=> base.current-time;
+
+    callback cancled <=> base.cancled;
+    callback accepted <=> base.accepted;
+
+    base := TimePickerBase {
+        style: {
+            background: CosmicPalette.alternate-background,
+        };
+    }
+}

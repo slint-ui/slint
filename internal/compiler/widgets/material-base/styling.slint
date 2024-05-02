@@ -50,6 +50,7 @@ export global MaterialPalette {
     out property <brush> surface-container-high: !root.dark-color-scheme ? #ECE6F0 : #2B2930;
     out property <brush> surface-container-highest: !root.dark-color-scheme ? #E6E0E9 : #36343B;
     out property <brush> tertiary-container: !root.dark-color-scheme ? #FFD8E4 : #633B48;
+    out property <brush> on-tertiary-container: !root.dark-color-scheme ? #31111D : #FFD8E4;
     in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
     property <bool> dark-color-scheme: {
         if (color-scheme == ColorScheme.unknown) {
