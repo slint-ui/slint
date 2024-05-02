@@ -764,7 +764,7 @@ fn set_selected_element(
             preview_state.ui.as_ref(),
             selection.as_ref().map(|s| s.instance_index).unwrap_or_default(),
             layout_kind,
-            !is_layout,
+            true,
             !is_in_layout && !is_layout,
             positions,
         );
