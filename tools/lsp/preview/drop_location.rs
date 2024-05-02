@@ -16,8 +16,8 @@ use crate::preview::ext::ElementRcNodeExt;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
-fn placeholder() -> String {
-    format!(" Rectangle {{ /* {} */ }}", preview::NODE_IGNORE_COMMENT)
+pub fn placeholder() -> String {
+    format!(" Rectangle {{ min-width: 16px; min-height: 16px; /* {} */ }}", preview::NODE_IGNORE_COMMENT)
 }
 
 #[derive(Clone, Debug)]
