@@ -16,6 +16,10 @@ use crate::preview::ext::ElementRcNodeExt;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
+fn placeholder() -> String {
+    format!(" Rectangle {{ /* {} */ }}", preview::NODE_IGNORE_COMMENT)
+}
+
 #[derive(Clone, Debug)]
 pub struct TextOffsetAdjustment {
     pub start_offset: u32,
@@ -718,11 +722,7 @@ pub fn drop_at(
 
         props
     };
-    let placeholder = if component.is_layout {
-        format!(" Rectangle {{ /* {} */ }}", preview::NODE_IGNORE_COMMENT)
-    } else {
-        String::new()
-    };
+    let placeholder = if component.is_layout { placeholder() } else { String::new() };
 
     let new_text = if properties.is_empty() {
         format!(
@@ -844,10 +844,13 @@ fn extract_text_of_element(
     lines
 }
 
-fn node_removal_text_edit(node: &SyntaxNode) -> Option<(SourceFile, lsp_types::TextEdit)> {
+fn node_removal_text_edit(
+    node: &SyntaxNode,
+    replace_with: String,
+) -> Option<(SourceFile, lsp_types::TextEdit)> {
     let source_file = node.source_file.clone();
     let range = util::map_range(&source_file, pretty_node_removal_range(node)?);
-    Some((source_file, lsp_types::TextEdit::new(range, String::new())))
+    Some((source_file, lsp_types::TextEdit::new(range, replace_with)))
 }
 
 /// Find a location in a file that would be a good place to insert the new component at
@@ -875,7 +878,7 @@ pub fn move_element_to(
 
     let parent_of_element = element.parent(element_selection::root_element(&component_instance));
 
-    if Some(&drop_info.target_element_node) == parent_of_element.as_ref() {
+    let placeholder_text = if Some(&drop_info.target_element_node) == parent_of_element.as_ref() {
         // We are moving within ourselves!
 
         let size = element.geometries(&component_instance).first().map(|g| g.size)?;
@@ -903,7 +906,12 @@ pub fn move_element_to(
         }
 
         /* fall trough to the general case here */
-    }
+        String::new()
+    } else if parent_of_element.map(|p| p.children().len()).unwrap_or_default() == 1 {
+        placeholder()
+    } else {
+        String::new()
+    };
 
     let new_text = {
         let element_text_lines = extract_text_of_element(&element, &["x", "y"]);
@@ -945,7 +953,8 @@ pub fn move_element_to(
 
     let mut edits = Vec::with_capacity(3);
 
-    let remove_me = element.with_element_node(|node| node_removal_text_edit(node))?;
+    let remove_me =
+        element.with_element_node(|node| node_removal_text_edit(node, placeholder_text.clone()))?;
     if remove_me.0.path() == source_file.path() {
         selection_offset =
             TextOffsetAdjustment::new(&remove_me.1, &source_file).adjust(selection_offset);
