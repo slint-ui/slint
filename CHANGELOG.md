@@ -13,6 +13,8 @@ All notable changes to this project are documented in this file.
  - Android: Fixed support for Android 10 to 12 and Java 1.8.
  - Android: Fixed build if the locale is not UTF-8.
  - Android: Added cursor handle on TextInput and selection handle with cut/copy/paste menu.
+ - Software renderer: Dirty regions can now be composed of multiple rectangles.
+ - Added a function to mark all translations as dirty.
 
 ## Slint Language
 
@@ -26,6 +28,7 @@ All notable changes to this project are documented in this file.
  - Fixed compiler panic with state property change involving a state in a parent component. (#5038)
  - Fixed interpreter overwriting property named `index`. (#4961)
  - Fixed compiler panic when a callback aliases itself. (#4938)
+ - Fixed compiler panic when an init from a repeater is inlined into the parent component (#5146)
  - Added `clear-focus()` function to focusable elements, to allow for programmatic focus clearing.
 
 ## Widgets
@@ -37,8 +40,9 @@ All notable changes to this project are documented in this file.
  - SpinBox: Fixed scroll direction.
  - Allow scrolling through tabs.
  - Updated TabWidget in Cosmic style.
- - Added a `released` callback to `Slider`
+ - Added a `released` callback to `Slider`.
  - Fixed text and selection color of TextEdit and LineEdit.
+ - Spinbox and Slider: The value now defaults to the minimum.
 
 ## Rust API
 
@@ -51,11 +55,16 @@ All notable changes to this project are documented in this file.
  - Added conversion of Color to and from HSV.
  - Fixed code generation of functions that don't return.
  - Fixed the `MapModel::reset` function. (#4968)
+ - Fixed compilation of the generated code when an animated brush property is set in a sling callback.
+ - Added include guard to the generated header.
 
-## LSP
+## LSP and tooling
 
- - Added a drop marker to the live preview when dragging an element.
+ - Design mode of the live preview can now drag into and from layout. With a drop marker when dragging an element.
  - Fixed formatting of function declarations.
+ - Added `-L` command line args to `slint-lsp` to specify path of external libraries (#5144)
+ - VSCode extension highlights Slint code blocks in markdown files.
+ - `slint-viewer` will properly reload files saved with neovim, which renames and replaces files (#3941)
 
 ## [1.5.1] - 2024-03-20
 
