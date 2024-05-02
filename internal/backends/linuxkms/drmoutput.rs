@@ -23,17 +23,6 @@ impl drm::Device for SharedFd {}
 
 impl drm::control::Device for SharedFd {}
 
-struct OwnedFramebufferHandle {
-    handle: drm::control::framebuffer::Handle,
-    device: SharedFd,
-}
-
-impl Drop for OwnedFramebufferHandle {
-    fn drop(&mut self) {
-        self.device.destroy_framebuffer(self.handle).ok();
-    }
-}
-
 #[derive(Default)]
 enum PageFlipState {
     #[default]

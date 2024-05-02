@@ -4,9 +4,9 @@
 use std::cell::RefCell;
 #[cfg(not(feature = "libseat"))]
 use std::fs::OpenOptions;
-use std::os::fd::{AsFd, BorrowedFd, OwnedFd, RawFd};
+use std::os::fd::OwnedFd;
 #[cfg(feature = "libseat")]
-use std::os::fd::{AsRawFd, FromRawFd};
+use std::os::fd::{AsFd, AsRawFd, FromRawFd};
 #[cfg(not(feature = "libseat"))]
 use std::os::unix::fs::OpenOptionsExt;
 use std::rc::Rc;
@@ -300,16 +300,5 @@ impl i_slint_core::platform::Platform for Backend {
 
 #[derive(Default)]
 pub struct LoopData {}
-
-struct Device {
-    // in the future, use this from libseat: device_id: i32,
-    fd: RawFd,
-}
-
-impl AsFd for Device {
-    fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
-        unsafe { BorrowedFd::borrow_raw(self.fd) }
-    }
-}
 
 pub type EventLoopHandle<'a> = calloop::LoopHandle<'a, LoopData>;
