@@ -42,6 +42,7 @@ pub enum Type {
     String,
     Color,
     Duration,
+    DateTime,
     PhysicalLength,
     LogicalLength,
     Rem,
@@ -98,6 +99,7 @@ impl core::cmp::PartialEq for Type {
             Type::String => matches!(other, Type::String),
             Type::Color => matches!(other, Type::Color),
             Type::Duration => matches!(other, Type::Duration),
+            Type::DateTime => matches!(other, Type::DateTime),
             Type::Angle => matches!(other, Type::Angle),
             Type::PhysicalLength => matches!(other, Type::PhysicalLength),
             Type::LogicalLength => matches!(other, Type::LogicalLength),
@@ -160,6 +162,7 @@ impl Display for Type {
             Type::Int32 => write!(f, "int"),
             Type::String => write!(f, "string"),
             Type::Duration => write!(f, "duration"),
+            Type::DateTime => write!(f, "date-time"),
             Type::Angle => write!(f, "angle"),
             Type::PhysicalLength => write!(f, "physical-length"),
             Type::LogicalLength => write!(f, "length"),
@@ -305,6 +308,7 @@ impl Type {
     pub fn default_unit(&self) -> Option<Unit> {
         match self {
             Type::Duration => Some(Unit::Ms),
+            Type::DateTime => None,
             Type::PhysicalLength => Some(Unit::Phx),
             Type::LogicalLength => Some(Unit::Px),
             Type::Rem => Some(Unit::Rem),

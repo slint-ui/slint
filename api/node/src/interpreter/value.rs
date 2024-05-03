@@ -96,6 +96,9 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
             let js_number: Result<JsNumber> = unknown.try_into();
             Ok(Value::Number(js_number?.get_double()?))
         }
+        Type::DateTime => {
+            // FIXME: finish
+        }
         Type::String => {
             let js_string: JsString = unknown.try_into()?;
             Ok(Value::String(js_string.into_utf8()?.as_str()?.into()))

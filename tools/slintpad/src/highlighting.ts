@@ -33,6 +33,7 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
         "length",
         "physical_length",
         "duration",
+        "date-time",
         "color",
         "brush",
     ],

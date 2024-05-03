@@ -143,6 +143,8 @@ cfg_aliases = { version = "0.2.0" }
 
 raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
 
+chrono = { version = "0.4" }
+
 [profile.release]
 lto = true
 panic = "abort"

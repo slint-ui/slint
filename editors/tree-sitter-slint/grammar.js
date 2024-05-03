@@ -657,6 +657,7 @@ module.exports = grammar({
         "percent",
         "image",
         "relative-font-size",
+        "date-time"
       ),
 
     easing_kind_identifier: ($) =>
