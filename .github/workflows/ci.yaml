@@ -241,7 +241,7 @@ jobs:
               with:
                   cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
                   cmakeListsTxtPath: CMakeLists.txt
-                  cmakeAppendedArgs: "-DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=ON"
+                  cmakeAppendedArgs: "-DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=ON -DSLINT_FEATURES_EXPERIMENTAL=ON -DSLINT_FEATURES_TESTING=ON"
                   buildDirectory: ${{ runner.workspace }}/cppbuild
                   buildWithCMakeArgs: "--config Debug"
             - name: ctest
