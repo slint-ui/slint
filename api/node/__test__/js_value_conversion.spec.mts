@@ -217,9 +217,9 @@ test('get/set image properties', async (t) => {
       message: "Cannot convert object to image, because the provided object does not have an u32 `height` property"
     });
     t.throws(() => {
-      instance!.setProperty("external-image", { width: 1, height: 1, data: new Uint8ClampedArray() });
+      instance!.setProperty("external-image", { width: 1, height: 1, data: new Uint8ClampedArray(1) });
     }, {
-      message: "data property does not have the correct size; expected 1 (width) * 1 (height) * 4 = 0; got 4"
+      message: "data property does not have the correct size; expected 1 (width) * 1 (height) * 4 = 1; got 4"
     });
 
     t.is(image.bitmap.width, 64);
