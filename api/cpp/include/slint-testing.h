@@ -7,6 +7,7 @@
 #include <string_view>
 
 #ifdef SLINT_FEATURE_TESTING
+#    ifdef SLINT_FEATURE_EXPERIMENTAL
 
 namespace slint::testing {
 /// Init the testing backend.
@@ -173,4 +174,5 @@ public:
 
 }
 
+#    endif // SLINT_FEATURE_EXPERIMENTAL
 #endif // SLINT_FEATURE_TESTING

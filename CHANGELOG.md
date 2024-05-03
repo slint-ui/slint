@@ -2,7 +2,6 @@
 
 # Changelog
 All notable changes to this project are documented in this file.
-
 ## [1.6.0] - Unreleased
 
 ## General
