@@ -16,5 +16,6 @@ Quickstart
    from_one_to_multiple_tiles.md   
    creating_the_tiles.md   
    game_logic.md   
+   running_in_a_browser.md
    ideas_for_the_reader.md   
    conclusion.md   
