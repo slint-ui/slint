@@ -44,6 +44,7 @@ First, add the tile data structure definition at the top of the `slint!` macro:
 ::::
 
 :::{literalinclude} main_multiple_tiles.rs
+:language: slint
 :lines: 11-15
 :lineno-match:
 :::
@@ -73,6 +74,7 @@ Next, replace the _export component <span class="hljs-title">MainWindow</span> i
 ::::
 
 :::{literalinclude} main_multiple_tiles.rs
+:language: slint
 :lines: 63-90
 :lineno-match:
 :::

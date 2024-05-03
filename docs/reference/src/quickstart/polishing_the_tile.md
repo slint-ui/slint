@@ -27,6 +27,7 @@ _solved_ property used to animate the color to a shade of green when a player fi
 Replace the code inside the `ui/appwindow.slint` file with the following:
 
 :::{literalinclude} main_polishing_the_tile.rs
+:language: slint
 :lines: 10-61
 :lineno-match:
 :::

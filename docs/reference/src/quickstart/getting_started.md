@@ -42,6 +42,7 @@ add the `appwindow.slint` file to the target.
 Change the contents of `ui/appwindow.slint` to the following:
 
 :::{literalinclude} appwindow.slint
+:language: slint
 :lines: 6-11
 :lineno-match:
 :::
@@ -120,6 +121,7 @@ The `slint.loadFile` method resolves files from the process's current working di
 Replace the contents of `ui/appwindow.slint` with the following:
 
 :::{literalinclude} memory.slint
+:language: slint
 :lines: 6-11
 :lineno-match:
 :::
