@@ -12,7 +12,7 @@ use alloc::rc::Rc;
 
 thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
-        = once_cell::unsync::OnceCell::new()
+        = const { once_cell::unsync::OnceCell::new() }
 }
 
 pub(crate) struct SlintContextInner {

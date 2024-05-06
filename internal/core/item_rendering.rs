@@ -485,7 +485,7 @@ impl DirtyRegion {
             if r.contains_box(&b) {
                 // the rectangle is already in the union
                 return;
-            } else if b.contains_box(&r) {
+            } else if b.contains_box(r) {
                 self.rectangles.swap(i, self.count - 1);
                 self.count -= 1;
                 continue;

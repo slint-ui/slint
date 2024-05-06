@@ -239,17 +239,8 @@ fn hsv_macro(
         );
         return Expression::Invalid;
     }
-    let mut arguments: Vec<_> = args
-        .into_iter()
-        .enumerate()
-        .map(|(i, (expr, n))| {
-            if i < 3 {
-                expr.maybe_convert_to(Type::Float32, &n, diag)
-            } else {
-                expr.maybe_convert_to(Type::Float32, &n, diag)
-            }
-        })
-        .collect();
+    let mut arguments: Vec<_> =
+        args.into_iter().map(|(expr, n)| expr.maybe_convert_to(Type::Float32, &n, diag)).collect();
     if arguments.len() < 4 {
         arguments.push(Expression::NumberLiteral(1., Unit::None))
     }

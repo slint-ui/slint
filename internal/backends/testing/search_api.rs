@@ -55,7 +55,7 @@ impl ElementHandle {
             item.accessible_string_property(AccessibleStringProperty::Label)
                 .is_some_and(|x| x == label)
         });
-        result.into_iter().map(|x| ElementHandle(x))
+        result.into_iter().map(ElementHandle)
     }
 
     /// Invokes the default accessible action on the element. For example a `MyButton` element might declare

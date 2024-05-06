@@ -96,7 +96,7 @@ fn resolve_alias(
         let same_element = Rc::ptr_eq(&element, elem);
         if same_element && nr.name() == prop {
             diag.push_error(
-                format!("Cannot alias to itself"),
+                "Cannot alias to itself".to_string(),
                 &elem.borrow().property_declarations[prop].type_node(),
             );
             return;

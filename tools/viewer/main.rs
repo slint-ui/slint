@@ -185,7 +185,7 @@ fn init_compiler(
     if let Some(watcher) = fswatcher {
         watch_with_retry(&args.path, &watcher);
         if let Some(data_path) = &args.load_data {
-            watch_with_retry(&data_path, &watcher);
+            watch_with_retry(data_path, &watcher);
         }
         compiler.set_file_loader(move |path| {
             watch_with_retry(&path.into(), &watcher);
@@ -198,7 +198,7 @@ fn init_compiler(
 fn watch_with_retry(path: &PathBuf, watcher: &Arc<Mutex<notify::RecommendedWatcher>>) {
     notify::Watcher::watch(
         &mut *watcher.lock().unwrap(),
-        &path,
+        path,
         notify::RecursiveMode::NonRecursive,
     )
     .unwrap_or_else(|err| match err.kind {

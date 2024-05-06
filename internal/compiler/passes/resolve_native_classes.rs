@@ -71,7 +71,7 @@ fn select_minimal_class_based_on_property_usage<'a>(
         minimal_class = class;
     }
     let (_min_distance, minimal_class) = properties_used.fold(
-        (std::usize::MAX, minimal_class),
+        (usize::MAX, minimal_class),
         |(current_distance, current_class), prop_name| {
             let (prop_distance, prop_class) = lookup_property_distance(class.clone(), prop_name);
 

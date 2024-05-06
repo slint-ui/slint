@@ -72,7 +72,7 @@ pub fn screenshot(
     window.request_redraw();
     window.draw_if_needed(|renderer| {
         renderer.mark_dirty_region(
-            LogicalRect::from_size(euclid::size2(width as f32, height as f32).into()).into(),
+            LogicalRect::from_size(euclid::size2(width as f32, height as f32)).into(),
         );
         renderer.set_rendering_rotation(rotated);
         renderer.render(buffer.make_mut_slice(), width as usize);

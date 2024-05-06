@@ -1412,7 +1412,7 @@ impl Element {
             };
             for trs in state.Transition() {
                 let mut t = Transition::from_node(trs, &r, tr, diag);
-                t.state_id = s.id.clone();
+                t.state_id.clone_from(&s.id);
                 r.borrow_mut().transitions.push(t);
             }
             r.borrow_mut().states.push(s);
@@ -2621,7 +2621,7 @@ pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem
     );
     let mut old_elem_mut = old_elem.borrow_mut();
     injected_parent_mut.default_fill_parent = std::mem::take(&mut old_elem_mut.default_fill_parent);
-    injected_parent_mut.geometry_props = old_elem_mut.geometry_props.clone();
+    injected_parent_mut.geometry_props.clone_from(&old_elem_mut.geometry_props);
     drop(injected_parent_mut);
     old_elem_mut.geometry_props.as_mut().unwrap().x = NamedReference::new(injected_parent, "dummy");
     old_elem_mut.geometry_props.as_mut().unwrap().y = NamedReference::new(injected_parent, "dummy");
