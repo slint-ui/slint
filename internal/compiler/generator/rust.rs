@@ -1648,9 +1648,10 @@ fn generate_item_tree(
             fn item_element_ids(
                 self: ::core::pin::Pin<&Self>,
                 index: u32,
-            ) -> sp::SharedString {
-                self.item_element_ids(index)
-        }
+                result: &mut sp::SharedString,
+            )  {
+                *result = self.item_element_ids(index);
+            }
 
             fn window_adapter(
                 self: ::core::pin::Pin<&Self>,

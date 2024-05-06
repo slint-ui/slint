@@ -154,7 +154,7 @@ fn find_element_node_at_source_code_position(
                 .debug
                 .iter()
                 .enumerate()
-                .filter_map(|(i, n)| n.0.QualifiedName().map(|n| (i, n)))
+                .filter_map(|(i, n)| n.node.QualifiedName().map(|n| (i, n)))
             {
                 if node.source_file.path() == path && node.text_range().contains(offset.into()) {
                     result.push((elem.clone(), index));

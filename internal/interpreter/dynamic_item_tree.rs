@@ -256,8 +256,8 @@ impl ItemTree for ErasedItemTreeBox {
         self.borrow().as_ref().supported_accessibility_actions(index)
     }
 
-    fn item_element_ids(self: core::pin::Pin<&Self>, index: u32) -> SharedString {
-        self.borrow().as_ref().item_element_ids(index)
+    fn item_element_ids(self: core::pin::Pin<&Self>, index: u32, result: &mut SharedString) {
+        self.borrow().as_ref().item_element_ids(index, result)
     }
 }
 
@@ -2014,15 +2014,18 @@ extern "C" fn supported_accessibility_actions(
     val
 }
 
-extern "C" fn item_element_ids(component: ItemTreeRefPin, item_index: u32) -> SharedString {
+extern "C" fn item_element_ids(
+    component: ItemTreeRefPin,
+    item_index: u32,
+    result: &mut SharedString,
+) {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    let val = instance_ref.description.original_elements[item_index as usize]
+    *result = instance_ref.description.original_elements[item_index as usize]
         .borrow()
         .element_infos()
         .join(";")
         .into();
-    val
 }
 
 extern "C" fn window_adapter(
