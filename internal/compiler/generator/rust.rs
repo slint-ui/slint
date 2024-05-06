@@ -102,6 +102,7 @@ fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
             }
         }
         Type::Brush => Some(quote!(slint::Brush)),
+        Type::DateTime => Some(quote!(chrono::DateTime<chrono::Local>)),
         Type::LayoutCache => Some(quote!(
             sp::SharedVector<
                 sp::Coord,
