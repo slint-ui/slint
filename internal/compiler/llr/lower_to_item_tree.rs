@@ -322,7 +322,7 @@ fn lower_sub_component(
         }
 
         for (prop, expr) in &elem.change_callbacks {
-            change_callbacks.push((NamedReference::new(&element, prop), expr.borrow().clone()));
+            change_callbacks.push((NamedReference::new(element, prop), expr.borrow().clone()));
         }
 
         Some(element.clone())

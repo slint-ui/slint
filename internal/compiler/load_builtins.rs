@@ -197,7 +197,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             .collect();
         if let Some(builtin_name) = exports.get(&id) {
             if !matches!(&base, Base::Global) {
-                builtin.name = builtin_name.clone();
+                builtin.name.clone_from(&builtin_name);
                 register.add_builtin(Rc::new(builtin));
             } else {
                 let glob = Rc::new(Component {

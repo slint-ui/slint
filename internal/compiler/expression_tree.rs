@@ -1487,7 +1487,7 @@ impl BindingExpression {
     /// Returns true if the other expression was taken
     pub fn merge_with(&mut self, other: &Self) -> bool {
         if self.animation.is_none() {
-            self.animation = other.animation.clone();
+            self.animation.clone_from(&other.animation);
         }
         let has_binding = self.has_binding();
         self.two_way_bindings.extend_from_slice(&other.two_way_bindings);

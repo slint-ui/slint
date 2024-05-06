@@ -557,7 +557,7 @@ mod parser_trait {
             let mut brackets = 0;
             loop {
                 match self.nth(0).kind() {
-                    k @ _ if k == kind && parens == 0 && braces == 0 && brackets == 0 => break,
+                    k if k == kind && parens == 0 && braces == 0 && brackets == 0 => break,
                     SyntaxKind::Eof => break,
                     SyntaxKind::LParent => parens += 1,
                     SyntaxKind::LBrace => braces += 1,

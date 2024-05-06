@@ -163,7 +163,7 @@ pub fn lower_shadow_properties(
                     }
                 };
 
-                shadow_elem.geometry_props = child.borrow().geometry_props.clone();
+                shadow_elem.geometry_props.clone_from(&child.borrow().geometry_props);
                 elem.borrow_mut().children.push(ElementRc::new(shadow_elem.into()));
             }
             elem.borrow_mut().children.push(child);

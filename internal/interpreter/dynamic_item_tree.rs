@@ -974,7 +974,7 @@ pub(crate) fn generate_item_tree<'id>(
             );
             for (prop, expr) in &item.change_callbacks {
                 self.change_callbacks.push((
-                    NamedReference::new(&rc_item, prop),
+                    NamedReference::new(rc_item, prop),
                     Expression::CodeBlock(expr.borrow().clone()),
                 ));
             }
@@ -1813,7 +1813,7 @@ extern "C" fn subtree_index(component: ItemTreeRefPin) -> usize {
     if let Ok(value) = instance_ref.description.get_property(component, SPECIAL_PROPERTY_INDEX) {
         value.try_into().unwrap()
     } else {
-        core::usize::MAX
+        usize::MAX
     }
 }
 

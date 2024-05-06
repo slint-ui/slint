@@ -17,7 +17,10 @@ use crate::preview::ext::ElementRcNodeExt;
 use crate::wasm_prelude::*;
 
 pub fn placeholder() -> String {
-    format!(" Rectangle {{ min-width: 16px; min-height: 16px; /* {} */ }}", preview::NODE_IGNORE_COMMENT)
+    format!(
+        " Rectangle {{ min-width: 16px; min-height: 16px; /* {} */ }}",
+        preview::NODE_IGNORE_COMMENT
+    )
 }
 
 #[derive(Clone, Debug)]
@@ -821,7 +824,7 @@ fn extract_text_of_element(
         let start = usize::from(dr.start()) - offset;
         let end = usize::from(dr.end()) - offset;
 
-        offset = offset + (end - start);
+        offset += end - start;
 
         text.drain(start..end);
     }

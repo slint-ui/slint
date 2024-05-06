@@ -936,10 +936,10 @@ fn call_builtin_function(
             let g: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
             let b: i32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
             let a: f32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
-            let r: u8 = r.max(0).min(255) as u8;
-            let g: u8 = g.max(0).min(255) as u8;
-            let b: u8 = b.max(0).min(255) as u8;
-            let a: u8 = (255. * a).max(0.).min(255.) as u8;
+            let r: u8 = r.clamp(0, 255) as u8;
+            let g: u8 = g.clamp(0, 255) as u8;
+            let b: u8 = b.clamp(0, 255) as u8;
+            let a: u8 = (255. * a).clamp(0., 255.) as u8;
             Value::Brush(Brush::SolidColor(Color::from_argb_u8(a, r, g, b)))
         }
         BuiltinFunction::Hsv => {
@@ -947,7 +947,7 @@ fn call_builtin_function(
             let s: f32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
             let v: f32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
             let a: f32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
-            let a = (1. * a).max(0.).min(1.);
+            let a = (1. * a).clamp(0., 1.);
             Value::Brush(Brush::SolidColor(Color::from_hsva(h, s, v, a)))
         }
         BuiltinFunction::ColorScheme => match local_context.component_instance {
