@@ -173,7 +173,11 @@ impl WinitWindowAdapter {
             ),
         });
 
-        let id = self_rc.winit_window().id();
+        let winit_window = self_rc.winit_window();
+        if let Err(e) = self_rc.renderer.resumed(&winit_window) {
+            i_slint_core::debug_log!("Error initialing renderer in winit backend with window: {e}");
+        }
+        let id = winit_window.id();
         crate::event_loop::register_window(id, (self_rc.clone()) as _);
 
         let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
