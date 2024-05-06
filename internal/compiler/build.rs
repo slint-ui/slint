@@ -6,6 +6,8 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 fn main() -> std::io::Result<()> {
+    println!("cargo:rustc-check-cfg=cfg(slint_debug_property)");
+
     let mut library_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
     library_dir.push("widgets");
 
