@@ -4,6 +4,8 @@
 // The presence of this component shouldn't break anything
 component Window {}
 
+component InheritsPopup inherits PopupWindow {}
+
 Combo := Rectangle {
     property <color> inner_color;
     my_popup := PopupWindow {
@@ -46,4 +48,5 @@ TypeConversionTestCase := Rectangle {
     TouchArea {
         clicked => { popup.show() }
     }
+    InheritsPopup {}
 }

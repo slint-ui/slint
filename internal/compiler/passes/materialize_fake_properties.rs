@@ -103,6 +103,9 @@ fn should_materialize(
         let ty = crate::typeregister::reserved_property(prop).property_type;
         if ty != Type::Invalid {
             return Some(ty);
+        } else if prop == "close-on-click" {
+            // PopupWindow::close-on-click
+            return Some(Type::Bool);
         }
     }
     None
