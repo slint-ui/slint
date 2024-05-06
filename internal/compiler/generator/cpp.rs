@@ -1403,6 +1403,19 @@ fn generate_item_tree(
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
+            name: "element_ids".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::SharedString *result) -> void"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![format!("*result = reinterpret_cast<const {}*>(component.instance)->element_ids(index);", item_tree_class_name)]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
             name: "window_adapter".into(),
             signature:
                 "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] bool do_create, [[maybe_unused]] slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
@@ -1431,7 +1444,7 @@ fn generate_item_tree(
             "{{ visit_children, get_item_ref, get_subtree_range, get_subtree, \
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
                 item_geometry, accessible_role, accessible_string_property, accessibility_action, \
-                supported_accessibility_actions, window_adapter, \
+                supported_accessibility_actions, element_ids, window_adapter, \
                 slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
             item_tree_class_name
         )),
@@ -2013,6 +2026,22 @@ fn generate_sub_component(
         "(uint32_t index) const -> uint32_t",
         "",
         supported_accessibility_actions_cases,
+    );
+
+    let mut element_ids_cases = vec!["switch (index) {".to_string()];
+    element_ids_cases.extend(
+        component
+            .element_ids
+            .iter()
+            .map(|(index, ids)| format!("    case {index}: return \"{}\";", ids.join(";"))),
+    );
+    element_ids_cases.push("}".into());
+
+    dispatch_item_function(
+        "element_ids",
+        "(uint32_t index) const -> slint::SharedString",
+        "",
+        element_ids_cases,
     );
 
     if !children_visitor_cases.is_empty() {

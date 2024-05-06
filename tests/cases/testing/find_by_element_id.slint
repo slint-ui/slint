@@ -39,4 +39,23 @@ assert!(button_search.next().is_none());
 
 assert_eq!(slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::second").count(), 1);
 ```
+
+```cpp
+auto handle = TestCase::create();
+//const TestCase &instance = *handle;
+
+auto button_search = slint::testing::ElementHandle::find_by_element_id(handle, "Button::root");
+assert_eq(button_search.size(), 3);
+auto button = button_search[0];
+assert(button.is_valid());
+assert_eq(button.accessible_label().value(), "optimized");
+button = button_search[1];
+assert(button.is_valid());
+assert_eq(button.accessible_label().value(), "plain");
+button = button_search[2];
+assert(button.is_valid());
+assert_eq(button.accessible_label().value(), "third");
+
+assert_eq(slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::second").size(), 1);
+```
 */
