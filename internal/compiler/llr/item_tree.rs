@@ -284,17 +284,6 @@ impl SubComponent {
         }
         count
     }
-
-    pub fn root_item_element_ids(&self) -> Vec<String> {
-        let mut result = Vec::new();
-        if let Some(root_item_ids) = self.element_ids.get(&0) {
-            result.extend_from_slice(root_item_ids);
-        }
-        if let Some(sub_compo) = self.sub_components.iter().find(|c| c.index_in_tree == 0) {
-            result.extend_from_slice(&sub_compo.ty.root_item_element_ids());
-        }
-        result
-    }
 }
 
 pub struct SubComponentInstance {

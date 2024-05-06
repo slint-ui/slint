@@ -66,8 +66,7 @@ impl ElementHandle {
     ) -> impl Iterator<Item = Self> {
         // dirty way to get the ItemTreeRc:
         let item_tree = WindowInner::from_pub(component.window()).component();
-        let result =
-            search_item(&item_tree, |item| item.element_ids().iter().find(|&i| *i == id).is_some());
+        let result = search_item(&item_tree, |item| item.element_ids().iter().any(|i| i == id));
         result.into_iter().map(|x| ElementHandle(x))
     }
 

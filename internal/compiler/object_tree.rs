@@ -1765,7 +1765,18 @@ impl Element {
     }
 
     pub fn element_infos(&self) -> Vec<String> {
-        self.debug.iter().flat_map(|debug_info| debug_info.qualified_id.clone()).collect()
+        let mut infos = self
+            .debug
+            .iter()
+            .flat_map(|debug_info| debug_info.qualified_id.clone())
+            .collect::<Vec<_>>();
+        let mut base = self.base_type.clone();
+        while let ElementType::Component(b) = base {
+            let elem = b.root_element.borrow();
+            base = elem.base_type.clone();
+            infos.extend(elem.debug.iter().flat_map(|debug_info| debug_info.qualified_id.clone()));
+        }
+        infos
     }
 }
 

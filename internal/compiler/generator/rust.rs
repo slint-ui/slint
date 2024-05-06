@@ -23,7 +23,7 @@ use crate::object_tree::Document;
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
@@ -832,34 +832,14 @@ fn generate_sub_component(
         })
         .collect::<Vec<_>>();
 
-    let mut sub_components_by_local_tree_index = component
-        .sub_components
-        .iter()
-        .map(|sub| {
-            let local_tree_index: u32 = sub.index_in_tree as _;
-            (local_tree_index, sub.ty.clone())
-        })
-        .collect::<HashMap<_, _>>();
-
-    let mut collect_item_element_ids_branch = component
+    let mut item_element_ids_branch = component
         .element_ids
         .iter()
         .map(|(item_index, ids)| {
-            let mut ids = ids.clone();
-            if let Some(sub_compo) = sub_components_by_local_tree_index.remove(&item_index) {
-                ids.extend_from_slice(&sub_compo.root_item_element_ids());
-            }
             let ids = ids.join(";");
             quote!(#item_index => { return #ids.into(); })
         })
         .collect::<Vec<_>>();
-
-    collect_item_element_ids_branch.extend(sub_components_by_local_tree_index.into_iter().map(
-        |(sub_compo_index, sc)| {
-            let compo_ids = sc.root_item_element_ids().join(";");
-            quote!(#sub_compo_index => { return #compo_ids.into(); })
-        },
-    ));
 
     let mut user_init_code: Vec<TokenStream> = Vec::new();
 
@@ -949,7 +929,7 @@ fn generate_sub_component(
             supported_accessibility_actions_branch.push(quote!(
                 #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(index - #range_begin + 1),
             ));
-            collect_item_element_ids_branch.push(quote!(
+            item_element_ids_branch.push(quote!(
                 #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_ids(index - #range_begin + 1),
             ));
         }
@@ -1183,7 +1163,7 @@ fn generate_sub_component(
                 #![allow(unused)]
                 let _self = self;
                 match index {
-                    #(#collect_item_element_ids_branch)*
+                    #(#item_element_ids_branch)*
                     _ => { ::core::default::Default::default() }
                 }
             }

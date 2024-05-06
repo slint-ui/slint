@@ -22,3 +22,15 @@ pub extern "C" fn slint_testing_element_find_by_accessible_label(
         item.accessible_string_property(AccessibleStringProperty::Label).is_some_and(|x| x == label)
     })
 }
+
+#[no_mangle]
+pub extern "C" fn slint_testing_element_find_by_element_id(
+    root: &ItemTreeRc,
+    element_id: &Slice<u8>,
+    out: &mut SharedVector<ItemWeak>,
+) {
+    let Ok(element_id) = core::str::from_utf8(element_id.as_slice()) else { return };
+    *out = crate::search_api::search_item(root, |item| {
+        item.element_ids().iter().any(|i| i == element_id)
+    })
+}
