@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
+use chrono::DateTime;
 use i_slint_compiler::diagnostics::SourceFileVersion;
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::component_factory::ComponentFactory;
@@ -68,7 +69,8 @@ impl From<LangType> for ValueType {
             | LangType::PhysicalLength
             | LangType::LogicalLength
             | LangType::Percent
-            | LangType::UnitProduct(_) => Self::Number,
+            | LangType::UnitProduct(_)
+            | LangType::DateTime => Self::Number,
             LangType::String => Self::String,
             LangType::Color => Self::Brush,
             LangType::Brush => Self::Brush,
@@ -132,7 +134,7 @@ pub enum Value {
     ComponentFactory(ComponentFactory) = 12,
 
     /// Correspond to the `date-time` type in .slint`
-    DateTime(chrono::DateTime<chrono::Local>),
+    DateTime(chrono::DateTime<chrono::Local>) = 13,
 }
 
 impl Value {
@@ -147,6 +149,7 @@ impl Value {
             Value::Struct(_) => ValueType::Struct,
             Value::Brush(_) => ValueType::Brush,
             Value::Image(_) => ValueType::Image,
+            Value::DateTime(_) => ValueType::DateTime,
             _ => ValueType::Other,
         }
     }

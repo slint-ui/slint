@@ -2675,6 +2675,11 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to MapPointToWindow {:?}", arguments)
             }
         }
+        BuiltinFunction::DateTimeFormat => {
+            let x = a.next().unwrap();
+            let format = a.next().unwrap();
+            quote!(#x.format(#format as String))
+        }
     }
 }
 

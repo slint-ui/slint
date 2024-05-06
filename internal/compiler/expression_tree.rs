@@ -68,6 +68,7 @@ pub enum BuiltinFunction {
     RegisterCustomFontByMemory,
     RegisterBitmapFont,
     Translate,
+    DateTimeFormat,
 }
 
 #[derive(Debug, Clone)]
@@ -271,6 +272,9 @@ impl BuiltinFunction {
                     Type::Array(Type::String.into()),
                 ],
             },
+            BuiltinFunction::DateTimeFormat => {
+                Type::Function { return_type: Box::new(Type::String), args: vec![Type::String] }
+            }
         }
     }
 
@@ -328,6 +332,7 @@ impl BuiltinFunction {
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
             BuiltinFunction::Translate => false,
+            BuiltinFunction::DateTimeFormat => false,
         }
     }
 
@@ -378,6 +383,7 @@ impl BuiltinFunction {
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
             BuiltinFunction::Translate => true,
+            BuiltinFunction::DateTimeFormat => true,
         }
     }
 }

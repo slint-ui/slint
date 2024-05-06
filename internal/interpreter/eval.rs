@@ -1092,6 +1092,20 @@ fn call_builtin_function(
                 &SharedString::try_from(eval_expression(&arguments[5], local_context)).unwrap(),
             ))
         }
+        BuiltinFunction::DateTimeFormat => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to DateTimeFormat")
+            }
+            if let Value::DateTime(date_time) = eval_expression(&arguments[0], local_context) {
+                if let Value::String(format) = eval_expression(&arguments[1], local_context) {
+                    date_time.format(&format).into()
+                } else {
+                    panic!("Second argument not a string");
+                }
+            } else {
+                panic!("First argument not a date time");
+            }
+        }
     }
 }
 
@@ -1367,6 +1381,7 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         }
         Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
+        Type::DateTime => matches!(value, Value::DateTime(_)),
     }
 }
 
@@ -1622,5 +1637,6 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         | Type::Function { .. } => {
             panic!("There can't be such property")
         }
+        Type::DateTime => Value::DateTime(chrono::Local::now()),
     }
 }

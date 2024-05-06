@@ -3320,6 +3320,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::Translate => {
             format!("slint::private_api::translate({})", a.join(","))
         }
+        BuiltinFunction::DateTimeFormat => {
+            format!("{}.format({})", a.next().unwrap(), a.next().unwrap())
+        }
     }
 }
 
