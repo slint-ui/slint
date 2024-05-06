@@ -85,10 +85,10 @@ fn default_renderer_factory(
     window_builder: winit::window::WindowBuilder,
 ) -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError> {
     cfg_if::cfg_if! {
-        if #[cfg(enable_skia_renderer)] {
-            renderer::skia::WinitSkiaRenderer::new(window_builder)
-        } else if #[cfg(feature = "renderer-femtovg")] {
+        if #[cfg(feature = "renderer-femtovg")] {
             renderer::femtovg::GlutinFemtoVGRenderer::new(window_builder)
+        } else if #[cfg(enable_skia_renderer)] {
+            renderer::skia::WinitSkiaRenderer::new(window_builder)
         } else if #[cfg(feature = "renderer-software")] {
             renderer::sw::WinitSoftwareRenderer::new(window_builder)
         } else {
