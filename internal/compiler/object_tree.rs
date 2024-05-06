@@ -337,7 +337,7 @@ pub struct Component {
     pub used_types: RefCell<UsedSubTypes>,
     pub popup_windows: RefCell<Vec<PopupWindow>>,
 
-    /// This component actually inherits PopupWindow (although that has been changed to a Waindow by the lower_popups pass)
+    /// This component actually inherits PopupWindow (although that has been changed to a Window by the lower_popups pass)
     pub inherits_popup_window: Cell<bool>,
 
     /// The names under which this component should be accessible
