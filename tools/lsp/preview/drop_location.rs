@@ -511,7 +511,7 @@ fn find_drop_location(
         .borrow()
         .debug
         .first()
-        .map(|(n, _)| n.source_file.path().to_owned());
+        .map(|info| info.node.source_file.path().to_owned());
     let filter = Box::new(move |e: &common::ElementRcNode| {
         e.with_element_node(|n| Some(n.source_file.path()) != root_node_path.as_deref())
     });

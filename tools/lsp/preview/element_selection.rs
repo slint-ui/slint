@@ -32,9 +32,9 @@ impl ElementSelection {
 
         let debug_index = {
             let e = element.borrow();
-            e.debug.iter().position(|(n, _)| {
-                n.source_file.path() == self.path
-                    && u32::from(n.text_range().start()) == self.offset
+            e.debug.iter().position(|d| {
+                d.node.source_file.path() == self.path
+                    && u32::from(d.node.text_range().start()) == self.offset
             })
         };
 

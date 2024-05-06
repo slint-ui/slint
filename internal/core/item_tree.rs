@@ -131,8 +131,11 @@ pub struct ItemTreeVTable {
     ) -> SupportedAccessibilityAction,
 
     /// Add the `ElementName::id` entries of the given item
-    pub item_element_ids:
-        extern "C" fn(core::pin::Pin<VRef<ItemTreeVTable>>, item_index: u32) -> SharedString,
+    pub item_element_ids: extern "C" fn(
+        core::pin::Pin<VRef<ItemTreeVTable>>,
+        item_index: u32,
+        result: &mut SharedString,
+    ),
 
     /// Returns a Window, creating a fresh one if `do_create` is true.
     pub window_adapter: extern "C" fn(
@@ -368,13 +371,9 @@ impl ItemRc {
 
     pub fn element_ids(&self) -> Vec<String> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
-        comp_ref_pin
-            .as_ref()
-            .item_element_ids(self.index)
-            .as_str()
-            .split(";")
-            .map(ToString::to_string)
-            .collect()
+        let mut result = SharedString::new();
+        comp_ref_pin.as_ref().item_element_ids(self.index, &mut result);
+        return result.as_str().split(";").map(ToString::to_string).collect();
     }
 
     pub fn geometry(&self) -> LogicalRect {
@@ -1169,9 +1168,7 @@ mod tests {
             false
         }
 
-        fn item_element_ids(self: Pin<&Self>, _: u32) -> SharedString {
-            Default::default()
-        }
+        fn item_element_ids(self: Pin<&Self>, _: u32, _: &mut SharedString) {}
 
         fn window_adapter(
             self: Pin<&Self>,

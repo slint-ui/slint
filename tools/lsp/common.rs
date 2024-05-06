@@ -90,8 +90,8 @@ impl ElementRcNode {
     }
 
     pub fn find_in(element: ElementRc, path: &std::path::Path, offset: u32) -> Option<Self> {
-        let debug_index = element.borrow().debug.iter().position(|(n, _)| {
-            u32::from(n.text_range().start()) == offset && n.source_file.path() == path
+        let debug_index = element.borrow().debug.iter().position(|d| {
+            u32::from(d.node.text_range().start()) == offset && d.node.source_file.path() == path
         })?;
 
         Some(Self { element, debug_index })
@@ -102,8 +102,8 @@ impl ElementRcNode {
         path: &std::path::Path,
         offset: u32,
     ) -> Option<Self> {
-        let debug_index = element.borrow().debug.iter().position(|(n, _)| {
-            u32::from(n.text_range().start()) == offset && n.source_file.path() == path
+        let debug_index = element.borrow().debug.iter().position(|d| {
+            u32::from(d.node.text_range().start()) == offset && d.node.source_file.path() == path
         });
         if let Some(debug_index) = debug_index {
             Some(Self { element, debug_index })
@@ -127,8 +127,8 @@ impl ElementRcNode {
         ) -> R,
     ) -> R {
         let elem = self.element.borrow();
-        let (n, l) = &elem.debug.get(self.debug_index).unwrap();
-        func(n, l)
+        let d = &elem.debug.get(self.debug_index).unwrap();
+        func(&d.node, &d.layout)
     }
 
     /// Run with the `Element` node
@@ -137,7 +137,7 @@ impl ElementRcNode {
         func: impl Fn(&i_slint_compiler::parser::syntax_nodes::Element) -> R,
     ) -> R {
         let elem = self.element.borrow();
-        func(&elem.debug.get(self.debug_index).unwrap().0)
+        func(&elem.debug.get(self.debug_index).unwrap().node)
     }
 
     /// Run with the SyntaxNode incl. any id, condition, etc.
