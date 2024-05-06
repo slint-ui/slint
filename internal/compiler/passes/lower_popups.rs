@@ -22,7 +22,12 @@ pub fn lower_popups(
         component,
         &None,
         &mut |elem, parent_element: &Option<ElementRc>| {
-            let is_popup = matches!(&elem.borrow().base_type, ElementType::Builtin(base_type) if base_type.name == "PopupWindow");
+            let is_popup = match &elem.borrow().base_type {
+                ElementType::Builtin(base_type) => base_type.name == "PopupWindow",
+                ElementType::Component(base_type) => base_type.inherits_popup_window.get(),
+                _ => false,
+            };
+
             if is_popup {
                 lower_popup_window(elem, parent_element.as_ref(), &window_type, diag);
             }
@@ -37,18 +42,25 @@ fn lower_popup_window(
     window_type: &ElementType,
     diag: &mut BuildDiagnostics,
 ) {
+    let parent_component = popup_window_element.borrow().enclosing_component.upgrade().unwrap();
     let parent_element = match parent_element {
         None => {
-            diag.push_error(
-                "PopupWindow cannot be the top level".into(),
-                &*popup_window_element.borrow(),
-            );
+            if parent_component.is_root_component.get() {
+                diag.push_error(
+                    "PopupWindow cannot be the top level".into(),
+                    &*popup_window_element.borrow(),
+                );
+                return;
+            }
+            if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
+                popup_window_element.borrow_mut().base_type = window_type.clone();
+            }
+            parent_component.inherits_popup_window.set(true);
             return;
         }
         Some(parent_element) => parent_element,
     };
 
-    let parent_component = popup_window_element.borrow().enclosing_component.upgrade().unwrap();
     if Rc::ptr_eq(&parent_component.root_element, popup_window_element) {
         diag.push_error(
             "PopupWindow cannot be directly repeated or conditional".into(),
@@ -67,25 +79,42 @@ fn lower_popup_window(
     );
     parent_element.borrow_mut().has_popup_child = true;
 
-    popup_window_element.borrow_mut().base_type = window_type.clone();
+    if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
+        popup_window_element.borrow_mut().base_type = window_type.clone();
+    }
 
-    let close_on_click =
-        match popup_window_element.borrow_mut().bindings.remove("close-on-click").map_or_else(
-            || Ok(true),
-            |binding| match binding.borrow().expression {
-                Expression::BoolLiteral(value) => Ok(value),
-                _ => Err(binding.borrow().span.clone()),
-            },
-        ) {
-            Ok(coc) => coc,
-            Err(location) => {
+    const CLOSE_ON_CLICK: &str = "close-on-click";
+    let close_on_click = popup_window_element.borrow_mut().bindings.remove(CLOSE_ON_CLICK);
+    let close_on_click = close_on_click
+        .map(|b| {
+            let b = b.into_inner();
+            (b.expression, b.span)
+        })
+        .or_else(|| {
+            let mut base = popup_window_element.borrow().base_type.clone();
+            while let ElementType::Component(b) = base {
+                base = b.root_element.borrow().base_type.clone();
+                if let Some(binding) = b.root_element.borrow().bindings.get(CLOSE_ON_CLICK) {
+                    let b = binding.borrow();
+                    return Some((b.expression.clone(), b.span.clone()));
+                }
+            }
+            None
+        });
+
+    let close_on_click = match close_on_click {
+        Some((expr, location)) => match expr {
+            Expression::BoolLiteral(value) => value,
+            _ => {
                 diag.push_error(
                     "The close-on-click property only supports constants at the moment".into(),
                     &location,
                 );
                 return;
             }
-        };
+        },
+        None => true,
+    };
 
     let popup_comp = Rc::new(Component {
         root_element: popup_window_element.clone(),
