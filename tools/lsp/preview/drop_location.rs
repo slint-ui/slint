@@ -17,7 +17,10 @@ use crate::preview::ext::ElementRcNodeExt;
 use crate::wasm_prelude::*;
 
 pub fn placeholder() -> String {
-    format!(" Rectangle {{ min-width: 16px; min-height: 16px; /* {} */ }}", preview::NODE_IGNORE_COMMENT)
+    format!(
+        " Rectangle {{ min-width: 16px; min-height: 16px; /* {} */ }}",
+        preview::NODE_IGNORE_COMMENT
+    )
 }
 
 #[derive(Clone, Debug)]

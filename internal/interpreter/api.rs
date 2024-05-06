@@ -132,7 +132,7 @@ pub enum Value {
     ComponentFactory(ComponentFactory) = 12,
 
     /// Correspond to the `date-time` type in .slint`
-    DateTime(chrono::DateTime<chrono::Local>)
+    DateTime(chrono::DateTime<chrono::Local>),
 }
 
 impl Value {
@@ -203,7 +203,7 @@ impl std::fmt::Debug for Value {
             Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({:?}, {:?})", n, v),
             Value::LayoutCache(v) => write!(f, "Value::LayoutCache({:?})", v),
             Value::ComponentFactory(factory) => write!(f, "Value::ComponentFactory({:?})", factory),
-            Value::DateTime(v) =>  write!(f, "Value::DateTime({:?})", v),
+            Value::DateTime(v) => write!(f, "Value::DateTime({:?})", v),
         }
     }
 }
@@ -246,6 +246,7 @@ declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
+declare_value_conversion!(DateTime => [chrono::DateTime<chrono::Local>] );
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {

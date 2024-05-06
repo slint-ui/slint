@@ -208,7 +208,8 @@ impl Expression {
             | Type::PhysicalLength
             | Type::LogicalLength
             | Type::Rem
-            | Type::UnitProduct(_) => Expression::NumberLiteral(0.),
+            | Type::UnitProduct(_)
+            | Type::DateTime => Expression::NumberLiteral(0.),
             Type::Percent => Expression::NumberLiteral(1.),
             Type::String => Expression::StringLiteral(String::new()),
             Type::Color => {

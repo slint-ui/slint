@@ -1326,6 +1326,7 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
+            Type::DateTime => Expression::NumberLiteral(0., Unit::Ms),
         }
     }
 
