@@ -105,6 +105,23 @@ public:
         return std::nullopt;
     }
 
+    /// Returns the accessible-checkable of that element, if any.
+    std::optional<bool> accessible_checkable() const
+    {
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            SharedString result;
+            if (item->item_tree.vtable()->accessible_string_property(
+                        item->item_tree.borrow(), item->index,
+                        cbindgen_private::AccessibleStringProperty::Checkable, &result)) {
+                if (result == "true")
+                    return true;
+                else if (result == "false")
+                    return false;
+            }
+        }
+        return std::nullopt;
+    }
+
     /// Sets the accessible-value of that element.
     ///
     /// Setting the value will invoke the `accessible-action-set-value` callback.
