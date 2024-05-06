@@ -4,6 +4,10 @@
 use cfg_aliases::cfg_aliases;
 
 fn main() {
+    // Remove when cfg_aliases supports this
+    println!("cargo:rustc-check-cfg=cfg(enable_skia_renderer)");
+    println!("cargo:rustc-check-cfg=cfg(enable_accesskit)");
+
     // Setup cfg aliases
     cfg_aliases! {
        enable_skia_renderer: { any(feature = "renderer-skia", feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan")},

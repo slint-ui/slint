@@ -4,6 +4,8 @@
 use std::path::Path;
 
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(no_qt)");
+
     // This is part code tries to detect automatically what default style to use and tries to
     // use the native style automatically if Qt is available.
     //
