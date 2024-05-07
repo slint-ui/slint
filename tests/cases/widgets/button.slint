@@ -102,10 +102,10 @@ const TestCase &instance = *handle;
 
 auto label_search = slint::testing::ElementHandle::find_by_accessible_label(handle, "Aaa");
 assert(label_search.size() == 1);
-auto aaa = label_search.front();
+auto aaa = label_search[0];
 assert_eq(aaa.accessible_label().value(), "Aaa");
-assert_eq(aaa.accessible_description().value(), "Normal Button");
-assert_eq(aaa.accessible_value(), std::nullopt);
+assert_eq(aaa.accessible_description().value(), "Checkable Button");
+assert(!aaa.accessible_value());
 assert_eq(aaa.accessible_checked().value(), false);
 assert_eq(aaa.accessible_checkable().value(), true);
 aaa.invoke_accessible_default_action();
@@ -122,23 +122,24 @@ assert_eq(aaa.accessible_checked().value(), false);
 assert_eq(instance.get_a_focused(), true);
 slint_testing::send_keyboard_string_sequence(&instance, "\n");
 assert_eq(instance.get_clicked(), "aa");
-assert_eq(aaa.accessible_checked().value(), false);
+assert_eq(aaa.accessible_checked().value(), true);
 assert_eq(instance.get_a_focused(), true);
 
 label_search = slint::testing::ElementHandle::find_by_accessible_label(handle, "Bbb");
 assert(label_search.size() == 1);
-auto bbb = label_search.front();
+auto bbb = label_search[0];
 assert_eq(bbb.accessible_label().value(), "Bbb");
 assert_eq(bbb.accessible_description().value(), "Normal Button");
-assert_eq(bbb.accessible_value(), std::nullopt);
-assert_eq!(bbb.accessible_checkable().value(), false);
+assert(!bbb.accessible_value());
+assert_eq(bbb.accessible_checkable().value(), false);
 assert_eq(bbb.accessible_checked().value(), false);
-auto origin = bbb.accessible_origin();
+auto origin = bbb.absolute_position();
 auto size = bbb.size();
-slint_testing::sebd_mouse_click(&instance, origin.x + size.width / 2, origin.y + size.height / 2);
+slint_testing::send_mouse_click(&instance, origin.x + size.width / 2, origin.y + size.height / 2);
 assert_eq(instance.get_clicked(), "aab");
 assert_eq(bbb.accessible_checked().value(), false);
 assert_eq(instance.get_a_focused(), true);
+
 
 ```
 
