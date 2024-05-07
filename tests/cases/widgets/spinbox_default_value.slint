@@ -40,6 +40,7 @@ assert_eq!(label_search.len(), 1);
 let spinbox = label_search.pop().unwrap();
 assert_eq!(spinbox.accessible_value_maximum(), Some(SharedString::from("100")));
 assert_eq!(spinbox.accessible_value_minimum(), Some(SharedString::from("10")));
+assert_eq!(spinbox.accessible_value_step(), Some(SharedString::from("0.9")));
 
 
 ```
@@ -53,6 +54,7 @@ assert(label_search.size() == 1);
 auto spinbox = label_search.front();
 assert_eq!(spinbox.accessible_value_maximum().value(), "100");
 assert_eq!(spinbox.accessible_value_minimum().value(), "10");
+assert_eq!(spinbox.accessible_value_step().value(), "5");
 
 ```
 

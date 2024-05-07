@@ -116,6 +116,20 @@ public:
         return std::nullopt;
     }
 
+    /// Returns the accessible-value-step of that element, if any.
+    std::optional<SharedString> accessible_value_step() const
+    {
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            SharedString result;
+            if (item->item_tree.vtable()->accessible_string_property(
+                        item->item_tree.borrow(), item->index,
+                        cbindgen_private::AccessibleStringProperty::ValueStep, &result)) {
+                return result;
+            }
+        }
+        return std::nullopt;
+    }
+
     /// Returns the accessible-checked of that element, if any.
     std::optional<bool> accessible_checked() const
     {
