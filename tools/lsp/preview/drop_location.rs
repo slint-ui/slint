@@ -813,10 +813,8 @@ fn extract_text_of_element(
     element: &common::ElementRcNode,
     remove_properties: &[&str],
 ) -> Vec<String> {
-    let (start_offset, mut text) = element.with_element_node(|node| {
-        let parent = node.parent().unwrap();
-        debug_assert_eq!(parent.kind(), SyntaxKind::SubElement);
-        (usize::from(parent.text_range().start()), parent.text().to_string())
+    let (start_offset, mut text) = element.with_decorated_node(|node| {
+        (usize::from(node.text_range().start()), node.text().to_string())
     });
 
     let mut to_delete_ranges = property_ranges(element, remove_properties);
@@ -958,11 +956,8 @@ pub fn move_element_to(
 
     let mut edits = Vec::with_capacity(3);
 
-    let remove_me = element.with_element_node(|node| {
-        let parent = node.parent().unwrap();
-        debug_assert_eq!(parent.kind(), SyntaxKind::SubElement);
-        node_removal_text_edit(&parent, placeholder_text.clone())
-    })?;
+    let remove_me = element
+        .with_decorated_node(|node| node_removal_text_edit(&node, placeholder_text.clone()))?;
     if remove_me.0.path() == source_file.path() {
         selection_offset =
             TextOffsetAdjustment::new(&remove_me.1, &source_file).adjust(selection_offset);
