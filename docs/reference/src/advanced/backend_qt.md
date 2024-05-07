@@ -12,9 +12,9 @@ but it does not utilize GPU hardware acceleration.
 
 The compilation step will detect whether Qt is installed or not using the qttype crate.
 See the instructions in the [qttypes documentation](https://docs.rs/qttypes/latest/qttypes/#finding-qt)
-on how to set the environment variable to point to the Qt installation.
+on how to set environment variables to point to the Qt installation.
 
-If Qt is not installed, the backend will be disabled, and Slint will fallback to another backend (usually the winit backend).
+If Qt is not installed, the backend will be disabled, and Slint will fallback to another backend, usually the [Winit backend](backend_winit.md).
 
 ## Configuration Options
 
