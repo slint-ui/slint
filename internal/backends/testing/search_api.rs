@@ -96,6 +96,20 @@ impl ElementHandle {
         }
     }
 
+    /// Returns the value of the element's `accessible-value-maximum` property, if present.
+    pub fn accessible_value_maximum(&self) -> Option<SharedString> {
+        self.0
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::ValueMaximum))
+    }
+
+    /// Returns the value of the element's `accessible-value-minimum` property, if present.
+    pub fn accessible_value_minimum(&self) -> Option<SharedString> {
+        self.0
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::ValueMinimum))
+    }
+
     /// Returns the value of the `accessible-label` property, if present.
     pub fn accessible_label(&self) -> Option<SharedString> {
         self.0
