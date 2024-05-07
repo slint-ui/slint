@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file.
 ## General
 
  - The minimum Rust version is now 1.73.
+ - When the Skia renderer is enabled at compile time, it is picked as the default at run-time.
  - FemtoVG renderer: Fixed selection of italic font styles. (#5056)
  - Fixed color animation involving transparency. (#5063)
  - Android: Fixed support for Android 10 to 12 and Java 1.8.
