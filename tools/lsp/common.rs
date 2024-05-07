@@ -28,6 +28,25 @@ pub fn extract_element(node: SyntaxNode) -> Option<syntax_nodes::Element> {
     }
 }
 
+fn find_element_with_decoration(element: &syntax_nodes::Element) -> SyntaxNode {
+    let this_node: SyntaxNode = element.clone().into();
+    element
+        .parent()
+        .and_then(|p| match p.kind() {
+            SyntaxKind::SubElement => p.parent().map(|gp| {
+                if gp.kind() == SyntaxKind::ConditionalElement
+                    || gp.kind() == SyntaxKind::RepeatedElement
+                {
+                    gp
+                } else {
+                    p
+                }
+            }),
+            _ => Some(this_node.clone()),
+        })
+        .unwrap_or(this_node)
+}
+
 #[derive(Clone)]
 pub struct ElementRcNode {
     pub element: ElementRc,
@@ -83,6 +102,7 @@ impl ElementRcNode {
         }
     }
 
+    /// Run with all the debug information on the node
     pub fn with_element_debug<R>(
         &self,
         func: impl Fn(
@@ -95,12 +115,19 @@ impl ElementRcNode {
         func(n, l)
     }
 
+    /// Run with the `Element` node
     pub fn with_element_node<R>(
         &self,
         func: impl Fn(&i_slint_compiler::parser::syntax_nodes::Element) -> R,
     ) -> R {
         let elem = self.element.borrow();
         func(&elem.debug.get(self.debug_index).unwrap().0)
+    }
+
+    /// Run with the SyntaxNode incl. any id, condition, etc.
+    pub fn with_decorated_node<R>(&self, func: impl Fn(SyntaxNode) -> R) -> R {
+        let elem = self.element.borrow();
+        func(find_element_with_decoration(&elem.debug.get(self.debug_index).unwrap().0))
     }
 
     pub fn path_and_offset(&self) -> (PathBuf, u32) {

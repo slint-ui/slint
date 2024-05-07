@@ -192,14 +192,7 @@ fn delete_selected_element() {
         return;
     };
 
-    let Some(range) = selected_node.with_element_node(|n| {
-        if let Some(parent) = &n.parent() {
-            if parent.kind() == SyntaxKind::SubElement {
-                return util::map_node(parent);
-            }
-        }
-        util::map_node(n)
-    }) else {
+    let Some(range) = selected_node.with_decorated_node(|n| util::map_node(&n)) else {
         return;
     };
 
