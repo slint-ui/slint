@@ -10,6 +10,12 @@ macOS, Windows, Linux with Wayland and X11, and direct full-screen rendering via
 The Qt backend only supports software rendering at the moment. That means it runs with any graphics driver,
 but it does not utilize GPU hardware acceleration.
 
+The compilation step will detect whether Qt is installed or not using the qttype crate.
+See the instructions in the [qttypes documentation](https://docs.rs/qttypes/latest/qttypes/#finding-qt)
+on how to set the environment variable to point to the Qt installation.
+
+If Qt is not installed, the backend will be disabled, and Slint will fallback to another backend (usually the winit backend).
+
 ## Configuration Options
 
 The Qt backend reads and interprets the following environment variables:
