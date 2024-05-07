@@ -84,7 +84,7 @@ component SelectionFrame {
 
     if root.interactive && selection.is-primary: Resizer {
         double-clicked(x, y, modifiers) => {
-            root.select-behind(self.absolute-position.x + x, self.absolute-position.y + y, modifiers.control, modifiers.shift);
+            root.select-behind(root.selection.geometry.x + x, root.selection.geometry.y + y, modifiers.control, modifiers.shift);
         }
 
         is-moveable: root.selection.is-moveable;
