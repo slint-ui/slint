@@ -935,6 +935,7 @@ impl LookupObject for Expression {
                 Type::String => StringExpression(self).for_each_entry(ctx, f),
                 Type::Brush | Type::Color => ColorExpression(self).for_each_entry(ctx, f),
                 Type::Image => ImageExpression(self).for_each_entry(ctx, f),
+                Type::DateTime => DateTimeExpression(self).for_each_entry(ctx, f),
                 Type::Array(_) => ArrayExpression(self).for_each_entry(ctx, f),
                 _ => None,
             },
@@ -954,6 +955,7 @@ impl LookupObject for Expression {
                 Type::String => StringExpression(self).lookup(ctx, name),
                 Type::Brush | Type::Color => ColorExpression(self).lookup(ctx, name),
                 Type::Image => ImageExpression(self).lookup(ctx, name),
+                Type::DateTime => DateTimeExpression(self).lookup(ctx, name),
                 Type::Array(_) => ArrayExpression(self).lookup(ctx, name),
                 _ => None,
             },
@@ -1078,5 +1080,26 @@ impl<'a> LookupObject for ArrayExpression<'a> {
             })
         };
         None.or_else(|| f("length", member_function(BuiltinFunction::ArrayLength)))
+    }
+}
+
+struct DateTimeExpression<'a>(&'a Expression);
+impl<'a> LookupObject for DateTimeExpression<'a> {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        let member_function = |f: BuiltinFunction| {
+            LookupResult::from(Expression::FunctionCall {
+                function: Box::new(Expression::BuiltinFunctionReference(
+                    f,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                )),
+                source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                arguments: vec![self.0.clone()],
+            })
+        };
+        None.or_else(|| f("format", member_function(BuiltinFunction::DateTimeFormat)))
     }
 }

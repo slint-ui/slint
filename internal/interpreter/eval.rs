@@ -1098,7 +1098,7 @@ fn call_builtin_function(
             }
             if let Value::DateTime(date_time) = eval_expression(&arguments[0], local_context) {
                 if let Value::String(format) = eval_expression(&arguments[1], local_context) {
-                    date_time.format(&format).into()
+                    Value::String(format!("{}", date_time.format(&format)).into())
                 } else {
                     panic!("Second argument not a string");
                 }
