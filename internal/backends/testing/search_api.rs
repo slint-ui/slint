@@ -112,9 +112,9 @@ impl ElementHandle {
 
     /// Returns the value of the element's `accessible-value-step` property, if present.
     pub fn accessible_value_step(&self) -> Option<SharedString> {
-        self.0.upgrade().and_then(|item| {
-            item.accessible_string_property(AccessibleStringProperty::ValueStep)
-        })
+        self.0
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::ValueStep))
     }
 
     /// Returns the value of the `accessible-label` property, if present.
