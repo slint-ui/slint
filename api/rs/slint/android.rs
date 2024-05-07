@@ -3,7 +3,7 @@
 
 //! Android backend.
 //!
-//! **Note:** This module is only available on Android with the "backend-android-activity-05" feature
+//! **Note:** This module is only available on Android with the "backend-android-activity-06" feature
 //!
 //! Slint uses the [android-activity crate](https://github.com/rust-mobile/android-activity) as a backend.
 //!
@@ -33,7 +33,7 @@
 //! }
 //! ```
 //!
-//! That function must be in a `cdylib` library, and you should enable the "backend-android-activity-05"`
+//! That function must be in a `cdylib` library, and you should enable the "backend-android-activity-06"`
 //! feature of the slint crate in your Cargo.toml:
 //!
 //! ```toml
@@ -41,7 +41,7 @@
 //! crate-type = ["cdylib"]
 //!
 //! [dependencies]
-//! slint = { version = "1.5", features = ["backend-android-activity-05"] }
+//! slint = { version = "1.6", features = ["backend-android-activity-06"] }
 //! ```
 //!
 //! ## Building and Deploying
@@ -63,10 +63,16 @@
 //! Note Slint does not require a specific build tool and can work with others, such as [xbuild](https://github.com/rust-mobile/xbuild).
 
 /// Re-export of the android-activity crate.
-#[cfg(all(target_os = "android", feature = "backend-android-activity-05"))]
+#[cfg(all(
+    target_os = "android",
+    any(feature = "backend-android-activity-05", feature = "backend-android-activity-06")
+))]
 pub use i_slint_backend_android_activity::android_activity;
 
-#[cfg(not(all(target_os = "android", feature = "backend-android-activity-05")))]
+#[cfg(not(all(
+    target_os = "android",
+    any(feature = "backend-android-activity-05", feature = "backend-android-activity-06")
+)))]
 /// Re-export of the [android-activity](https://docs.rs/android-activity) crate.
 pub mod android_activity {
     #[doc(hidden)]
@@ -83,7 +89,7 @@ use crate::platform::SetPlatformError;
 
 /// Initializes the Android backend.
 ///
-/// **Note:** This function is only available on Android with the "backend-android-activity-05" feature
+/// **Note:** This function is only available on Android with the "backend-android-activity-06" feature
 ///
 /// This function must be called from the `android_main` function before any call to Slint that needs a backend.
 ///
@@ -98,7 +104,7 @@ pub fn init(app: android_activity::AndroidApp) -> Result<(), SetPlatformError> {
 
 /// Similar to [`init()`], which allow to listen to android-activity's event
 ///
-/// **Note:** This function is only available on Android with the "backend-android-activity-05" feature
+/// **Note:** This function is only available on Android with the "backend-android-activity-06" feature
 ///
 /// The listener argument is a function that takes a [`android_activity::PollEvent`](https://docs.rs/android-activity/latest/android_activity/enum.PollEvent.html)
 ///

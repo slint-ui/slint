@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
  - Android: Fixed support for Android 10 to 12 and Java 1.8.
  - Android: Fixed build if the locale is not UTF-8.
  - Android: Added cursor handle on TextInput and selection handle with cut/copy/paste menu.
+ - Android: added `backend-android-activity-06` feature.
  - Software renderer: Dirty regions can now be composed of multiple rectangles.
  - Added a function to mark all translations as dirty.
 
