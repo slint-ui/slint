@@ -83,7 +83,7 @@ assert_eq!(bbb.accessible_label().unwrap(), "Bbb");
 assert_eq!(bbb.accessible_description().unwrap(), "Normal Button");
 assert_eq!(bbb.accessible_value(), None);
 assert_eq!(bbb.accessible_checked(), Some(false));
-assert_eq!(aaa.accessible_checkable(), Some(false));
+assert_eq!(bbb.accessible_checkable(), Some(false));
 let origin = bbb.absolute_position();
 let size = bbb.size();
 slint_testing::send_mouse_click(&instance, origin.x + size.width/2., origin.y + size.height/2.);
