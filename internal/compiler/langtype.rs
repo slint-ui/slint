@@ -233,6 +233,7 @@ impl Type {
                 | Self::Array(_)
                 | Self::Brush
                 | Self::InferredProperty
+                | Self::DateTime
         )
     }
 
@@ -308,7 +309,7 @@ impl Type {
     pub fn default_unit(&self) -> Option<Unit> {
         match self {
             Type::Duration => Some(Unit::Ms),
-            Type::DateTime => None,
+            Type::DateTime => Some(Unit::Ms),
             Type::PhysicalLength => Some(Unit::Phx),
             Type::LogicalLength => Some(Unit::Px),
             Type::Rem => Some(Unit::Rem),

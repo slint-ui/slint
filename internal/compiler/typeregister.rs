@@ -261,6 +261,7 @@ impl TypeRegister {
         register.insert_type(Type::Angle);
         register.insert_type(Type::Brush);
         register.insert_type(Type::Rem);
+        register.insert_type(Type::DateTime);
         register.types.insert("Point".into(), logical_point_type());
 
         BUILTIN_ENUMS.with(|e| e.fill_register(&mut register));

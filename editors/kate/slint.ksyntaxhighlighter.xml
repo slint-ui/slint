@@ -18,6 +18,7 @@
       <item>length</item>
       <item>physical-length</item>
       <item>relative-font-size</item>
+      <item>date-time</item>
     </list>
     <list name="keywords">
       <item>import</item>

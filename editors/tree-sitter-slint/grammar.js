@@ -737,6 +737,7 @@ module.exports = grammar({
     percent_value: ($) => seq($._number, token.immediate("%")),
     // image_value: ($) => ???.
     relative_font_size_value: ($) => seq($._number, token.immediate("rem")),
+    date_Time: ($) => seq($._number, token.immediate("ms")),
 
     _basic_value: ($) =>
       choice(
