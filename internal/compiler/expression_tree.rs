@@ -273,7 +273,7 @@ impl BuiltinFunction {
                 ],
             },
             BuiltinFunction::DateTimeFormat => {
-                Type::Function { return_type: Box::new(Type::String), args: vec![Type::String] }
+                Type::Function { return_type: Box::new(Type::String), args: vec![Type::DateTime, Type::String] }
             }
         }
     }

@@ -1091,13 +1091,13 @@ impl<'a> LookupObject for DateTimeExpression<'a> {
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| {
-            LookupResult::from(Expression::FunctionCall {
-                function: Box::new(Expression::BuiltinFunctionReference(
+            LookupResult::from(Expression::MemberFunction {
+                base: Box::new(self.0.clone()),
+                base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+                member: Box::new(Expression::BuiltinFunctionReference(
                     f,
                     ctx.current_token.as_ref().map(|t| t.to_source_location()),
                 )),
-                source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                arguments: vec![self.0.clone()],
             })
         };
         None.or_else(|| f("format", member_function(BuiltinFunction::DateTimeFormat)))
