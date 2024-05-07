@@ -9,8 +9,13 @@
 mod androidwindowadapter;
 mod javahelper;
 
+#[cfg(all(not(feature = "aa-06"), feature = "aa-05"))]
+pub use android_activity_05 as android_activity;
+#[cfg(feature = "aa-06")]
+pub use android_activity_06 as android_activity;
+
+pub use android_activity::AndroidApp;
 use android_activity::PollEvent;
-pub use android_activity::{self, AndroidApp};
 use androidwindowadapter::AndroidWindowAdapter;
 use core::ops::ControlFlow;
 use i_slint_core::api::{EventLoopError, PlatformError};
