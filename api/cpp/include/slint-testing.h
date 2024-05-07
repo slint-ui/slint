@@ -89,42 +89,48 @@ public:
     }
 
     /// Returns the accessible-value-maximum of that element, if any.
-    std::optional<SharedString> accessible_value_maximum() const
+    std::optional<float> accessible_value_maximum() const
     {
         if (auto item = private_api::upgrade_item_weak(inner)) {
             SharedString result;
             if (item->item_tree.vtable()->accessible_string_property(
                         item->item_tree.borrow(), item->index,
                         cbindgen_private::AccessibleStringProperty::ValueMaximum, &result)) {
-                return result;
+                float value = 0.0;
+                cbindgen_private::slint_string_to_float(&result, &value);
+                return value;
             }
         }
         return std::nullopt;
     }
 
     /// Returns the accessible-value-minimum of that element, if any.
-    std::optional<SharedString> accessible_value_minimum() const
+    std::optional<float> accessible_value_minimum() const
     {
         if (auto item = private_api::upgrade_item_weak(inner)) {
             SharedString result;
             if (item->item_tree.vtable()->accessible_string_property(
                         item->item_tree.borrow(), item->index,
                         cbindgen_private::AccessibleStringProperty::ValueMinimum, &result)) {
-                return result;
+                float value = 0.0;
+                cbindgen_private::slint_string_to_float(&result, &value);
+                return value;
             }
         }
         return std::nullopt;
     }
 
     /// Returns the accessible-value-step of that element, if any.
-    std::optional<SharedString> accessible_value_step() const
+    std::optional<float> accessible_value_step() const
     {
         if (auto item = private_api::upgrade_item_weak(inner)) {
             SharedString result;
             if (item->item_tree.vtable()->accessible_string_property(
                         item->item_tree.borrow(), item->index,
                         cbindgen_private::AccessibleStringProperty::ValueStep, &result)) {
-                return result;
+                float value = 0.0;
+                cbindgen_private::slint_string_to_float(&result, &value);
+                return value;
             }
         }
         return std::nullopt;

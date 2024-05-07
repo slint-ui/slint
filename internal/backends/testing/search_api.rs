@@ -97,24 +97,27 @@ impl ElementHandle {
     }
 
     /// Returns the value of the element's `accessible-value-maximum` property, if present.
-    pub fn accessible_value_maximum(&self) -> Option<SharedString> {
+    pub fn accessible_value_maximum(&self) -> Option<f32> {
         self.0.upgrade().and_then(|item| {
             item.accessible_string_property(AccessibleStringProperty::ValueMaximum)
+                .and_then(|item| item.parse().ok())
         })
     }
 
     /// Returns the value of the element's `accessible-value-minimum` property, if present.
-    pub fn accessible_value_minimum(&self) -> Option<SharedString> {
+    pub fn accessible_value_minimum(&self) -> Option<f32> {
         self.0.upgrade().and_then(|item| {
             item.accessible_string_property(AccessibleStringProperty::ValueMinimum)
+                .and_then(|item| item.parse().ok())
         })
     }
 
     /// Returns the value of the element's `accessible-value-step` property, if present.
-    pub fn accessible_value_step(&self) -> Option<SharedString> {
-        self.0
-            .upgrade()
-            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::ValueStep))
+    pub fn accessible_value_step(&self) -> Option<f32> {
+        self.0.upgrade().and_then(|item| {
+            item.accessible_string_property(AccessibleStringProperty::ValueStep)
+                .and_then(|item| item.parse().ok())
+        })
     }
 
     /// Returns the value of the `accessible-label` property, if present.
