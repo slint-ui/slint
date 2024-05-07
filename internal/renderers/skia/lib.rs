@@ -50,14 +50,14 @@ pub mod opengl_surface;
 pub use skia_safe;
 
 cfg_if::cfg_if! {
-    if #[cfg(skia_backend_opengl)] {
+    if #[cfg(skia_backend_vulkan)] {
+        type DefaultSurface = vulkan_surface::VulkanSurface;
+    } else if #[cfg(skia_backend_opengl)] {
         type DefaultSurface = opengl_surface::OpenGLSurface;
     } else if #[cfg(skia_backend_metal)] {
         type DefaultSurface = metal_surface::MetalSurface;
     } else if #[cfg(skia_backend_d3d)] {
         type DefaultSurface = d3d_surface::D3DSurface;
-    } else if #[cfg(skia_backend_vulkan)] {
-        type DefaultSurface = vulkan_surface::VulkanSurface;
     }
 }
 
