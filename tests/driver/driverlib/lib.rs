@@ -14,7 +14,8 @@ pub struct TestCase {
 impl TestCase {
     /// Return a string which is a valid C++/Rust identifier
     pub fn identifier(&self) -> String {
-        let mut result = self.relative_path
+        let mut result = self
+            .relative_path
             .with_extension("")
             .to_string_lossy()
             .replace([std::path::MAIN_SEPARATOR, '-'], "_");
