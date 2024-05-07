@@ -131,7 +131,7 @@ auto bbb = label_search.front();
 assert_eq(bbb.accessible_label().value(), "Bbb");
 assert_eq(bbb.accessible_description().value(), "Normal Button");
 assert_eq(bbb.accessible_value(), std::nullopt);
-assert_eq!(aaa.accessible_checkable().value(), false);
+assert_eq!(bbb.accessible_checkable().value(), false);
 assert_eq(bbb.accessible_checked().value(), false);
 auto origin = bbb.accessible_origin();
 auto size = bbb.size();
