@@ -14,10 +14,16 @@ pub struct TestCase {
 impl TestCase {
     /// Return a string which is a valid C++/Rust identifier
     pub fn identifier(&self) -> String {
-        self.relative_path
+        let mut result = self
+            .relative_path
             .with_extension("")
             .to_string_lossy()
-            .replace([std::path::MAIN_SEPARATOR, '-'], "_")
+            .replace([std::path::MAIN_SEPARATOR, '-'], "_");
+        if let Some(requested_style) = &self.requested_style {
+            result.push_str("_");
+            result.push_str(requested_style);
+        }
+        result
     }
 
     /// Returns true if the test case should be ignored for the specified driver.
