@@ -3131,7 +3131,8 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to ClearFocusItem {:?}", arguments)
             }
         }
-        /*  std::from_chars is unfortunately not yet implemented in gcc
+        /* std::from_chars is unfortunately not yet implemented in all stdlib compiler we support.
+         * And std::strtod depends on the locale. Use slint_string_to_float implemented in Rust
         BuiltinFunction::StringIsFloat => {
             "[](const auto &a){ double v; auto r = std::from_chars(std::begin(a), std::end(a), v); return r.ptr == std::end(a); }"
                 .into()
@@ -3142,11 +3143,11 @@ fn compile_builtin_function_call(
         }*/
         BuiltinFunction::StringIsFloat => {
             ctx.generator_state.conditional_includes.cstdlib.set(true);
-            format!("[](const auto &a){{ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); std::strtod(std::begin(a), &e2); return e1 == e2; }}({})", a.next().unwrap())
+            format!("[](const auto &a){{ float res = 0; return slint::cbindgen_private::slint_string_to_float(&a, &res); }}({})", a.next().unwrap())
         }
         BuiltinFunction::StringToFloat => {
             ctx.generator_state.conditional_includes.cstdlib.set(true);
-            format!("[](const auto &a){{ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); auto r = std::strtod(std::begin(a), &e2); return e1 == e2 ? r : 0; }}({})", a.next().unwrap())
+            format!("[](const auto &a){{ float res = 0; slint::cbindgen_private::slint_string_to_float(&a, &res); return res; }}({})", a.next().unwrap())
         }
         BuiltinFunction::ColorRgbaStruct => {
             format!("{}.to_argb_uint()", a.next().unwrap())
