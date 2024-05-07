@@ -97,8 +97,9 @@ public:
                         item->item_tree.borrow(), item->index,
                         cbindgen_private::AccessibleStringProperty::ValueMaximum, &result)) {
                 float value = 0.0;
-                cbindgen_private::slint_string_to_float(&result, &value);
-                return value;
+                if (cbindgen_private::slint_string_to_float(&result, &value)) {
+                    return value;
+                }
             }
         }
         return std::nullopt;
@@ -113,8 +114,9 @@ public:
                         item->item_tree.borrow(), item->index,
                         cbindgen_private::AccessibleStringProperty::ValueMinimum, &result)) {
                 float value = 0.0;
-                cbindgen_private::slint_string_to_float(&result, &value);
-                return value;
+                if (cbindgen_private::slint_string_to_float(&result, &value)) {
+                    return value;
+                }
             }
         }
         return std::nullopt;
@@ -129,8 +131,9 @@ public:
                         item->item_tree.borrow(), item->index,
                         cbindgen_private::AccessibleStringProperty::ValueStep, &result)) {
                 float value = 0.0;
-                cbindgen_private::slint_string_to_float(&result, &value);
-                return value;
+                if (cbindgen_private::slint_string_to_float(&result, &value)) {
+                    return value;
+                }
             }
         }
         return std::nullopt;
