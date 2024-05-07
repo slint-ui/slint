@@ -48,7 +48,7 @@ All notable changes to this project are documented in this file.
 ## Rust API
 
  - Added conversion of Color to and from HSV.
- - Added getter to the `raw-window-handler` of a window using the `raw-window-handle-06` feature.
+ - Added getter to the `raw-window-handle` of a window using the `raw-window-handle-06` feature.
 
 ## C++ API
 
