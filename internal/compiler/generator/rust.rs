@@ -2679,7 +2679,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::DateTimeFormat => {
             let x = a.next().unwrap();
             let format = a.next().unwrap();
-            quote!(#x.format(#format as String))
+            quote!(chrono::DateTime::from(#x).format(#format.as_str()))
         }
     }
 }
