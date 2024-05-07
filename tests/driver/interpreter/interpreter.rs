@@ -18,7 +18,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let mut compiler = slint_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(include_paths);
     compiler.set_library_paths(library_paths);
-    compiler.set_style(String::from("fluent")); // force to fluent style as Qt does not like multi-threaded test execution
+    compiler.set_style(testcase.requested_style.unwrap_or("fluent").into());
 
     let component =
         spin_on::spin_on(compiler.build_from_source(source, testcase.absolute_path.clone()));

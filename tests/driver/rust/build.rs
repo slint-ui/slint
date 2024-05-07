@@ -15,10 +15,6 @@ fn main() -> std::io::Result<()> {
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
             module_name.insert(0, '_');
         }
-        if let Some(style) = testcase.requested_style {
-            module_name.push('_');
-            module_name.push_str(style);
-        }
         writeln!(generated_file, "#[path=\"{0}.rs\"] mod r#{0};", module_name)?;
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
         let ignored = testcase.is_ignored("rust");
