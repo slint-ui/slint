@@ -65,7 +65,7 @@ All notable changes to this project are documented in this file.
  - Fixed formatting of function declarations.
  - Added `-L` command line args to `slint-lsp` to specify path of external libraries (#5144)
  - VSCode extension highlights Slint code blocks in markdown files.
- - `slint-viewer` will properly reload files saved with neovim, which renames and replaces files (#3941)
+ - `slint-viewer` will properly reload files saved with neovim, which renames and replaces files (#3641)
 
 ## [1.5.1] - 2024-03-20
 
