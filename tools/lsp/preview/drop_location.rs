@@ -546,6 +546,75 @@ fn find_element_to_drop_into(
     tmp
 }
 
+fn can_drop_into(
+    selected_element: &common::ElementRcNode,
+    drop_target: &common::ElementRcNode,
+) -> bool {
+    // Not reparenting, so this most likely will work ;-)
+    if drop_target.children().contains(selected_element) {
+        return true;
+    }
+
+    let is_simple_element = selected_element.with_decorated_node(|node| match node.kind() {
+        SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => false,
+        SyntaxKind::SubElement => {
+            let se: syntax_nodes::SubElement = node.clone().into();
+            se.first_token().map(|t| t.kind()).unwrap_or(SyntaxKind::Error)
+                == SyntaxKind::Identifier
+        }
+        _ => true,
+    });
+
+    let has_simple_contents = selected_element.with_element_node(|element| {
+        for p in element.Binding() {
+            if !p
+                .BindingExpression()
+                .Expression()
+                .map(|e| match e.first_token().map(|t| t.kind()) {
+                    Some(
+                        SyntaxKind::ColorLiteral
+                        | SyntaxKind::StringLiteral
+                        | SyntaxKind::NumberLiteral,
+                    ) => true,
+                    _ => false,
+                })
+                .unwrap_or(false)
+            {
+                return false;
+            }
+        }
+        for p in element.PropertyDeclaration() {
+            if !p
+                .BindingExpression()
+                .and_then(|be| be.Expression())
+                .map(|e| match e.first_token().map(|t| t.kind()) {
+                    Some(
+                        SyntaxKind::ColorLiteral
+                        | SyntaxKind::StringLiteral
+                        | SyntaxKind::NumberLiteral,
+                    ) => true,
+                    _ => false,
+                })
+                .unwrap_or(false)
+            {
+                return false;
+            }
+        }
+
+        if element.CallbackConnection().next().is_some()
+            || element.CallbackDeclaration().next().is_some()
+            || element.Function().next().is_some()
+            || element.ChildrenPlaceholder().is_some()
+        {
+            return false;
+        }
+
+        true
+    });
+
+    is_simple_element && has_simple_contents
+}
+
 fn find_drop_location(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
@@ -554,6 +623,12 @@ fn find_drop_location(
 ) -> Option<DropInformation> {
     let drop_target_node =
         find_element_to_drop_into(component_instance, position, &selected_element, component_type)?;
+
+    if let Some(se) = &selected_element {
+        if !can_drop_into(se, &drop_target_node) {
+            return None;
+        }
+    }
 
     let (path, _) = drop_target_node.path_and_offset();
     let tl = component_instance.definition().type_loader();
