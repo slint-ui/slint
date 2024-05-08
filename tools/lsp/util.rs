@@ -23,6 +23,11 @@ pub fn map_node_and_url(node: &SyntaxNode) -> Option<(lsp_types::Url, lsp_types:
 
 pub fn map_node(node: &SyntaxNode) -> Option<lsp_types::Range> {
     let range = node.text_range();
+    // shorten range to not include trailing WS:
+    let range = TextRange::new(
+        range.start(),
+        last_non_ws_token(node).map(|t| t.text_range().end()).unwrap_or(range.end()),
+    );
     node.source_file().map(|sf| map_range(sf, range))
 }
 
