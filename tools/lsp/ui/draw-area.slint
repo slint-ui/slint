@@ -69,6 +69,8 @@ component SelectionFrame {
     width: root.selection.geometry.width;
     height: root.selection.geometry.height;
 
+    property <bool> had-drag-distance: false;
+
     callback resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
     callback can-move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length) -> bool;
     callback move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
@@ -110,15 +112,26 @@ component SelectionFrame {
         }
 
         can-move-to(x, y, mx, my) => {
-            root.x = x;
-            root.y = y;
-            return root.can-move-to(x, y, mx, my);
+            root.had-drag-distance = abs((root.x - x) / 1px) > 8 || abs((root.y - y) / 1px) > 8 || root.had-drag-distance;
+
+            if root.had-drag-distance {
+                root.x = x;
+                root.y = y;
+                return root.can-move-to(x, y, mx, my);
+            } else {
+                return false;
+            }
         }
 
         move-to(x, y, mx, my) => {
-            root.x = x;
-            root.y = y;
-            root.move-to(x, y, mx, my);
+            root.had-drag-distance = abs((root.x - x) / 1px) > 8 || abs((root.y - y) / 1px) > 8 || root.had-drag-distance;
+
+            if root.had-drag-distance {
+                root.x = x;
+                root.y = y;
+                root.move-to(x, y, mx, my);
+            }
+            root.had-drag-distance = false;
         }
 
         inner := Rectangle {
