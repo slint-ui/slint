@@ -85,6 +85,8 @@ pub enum BuiltinMacroFunction {
     Clamp,
     /// Add the right conversion operations so that the return type is the same as the argument type
     Mod,
+    /// Add the right conversion operations so that the return type is the same as the argument type
+    Abs,
     CubicBezier,
     /// The argument can be r,g,b,a or r,g,b and they can be percentages or integer.
     /// transform the argument so it is always rgb(r, g, b, a) with r, g, b between 0 and 255.
