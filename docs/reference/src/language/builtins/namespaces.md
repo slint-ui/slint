@@ -90,9 +90,9 @@ against the constants below.
 
 These functions are available both in the global scope and in the `Math` namespace.
 
-### `abs(float) -> float`
+### `abs(T) -> T`
 
-Return the absolute value.
+Return the absolute value, where T is a numeric type.
 
 ### `acos(float) -> angle`, `asin(float) -> angle`, `atan(float) -> angle`, `cos(angle) -> float`, `sin(angle) -> float`, `tan(angle) -> float`
 
