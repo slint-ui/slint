@@ -763,7 +763,7 @@ struct MapModelInner : private_api::ModelChangeListener
     {
         target_model.row_removed(index, count);
     }
-    void reset() override { target_model.Model<SourceModelData>::reset(); }
+    void reset() override { target_model.Model<MappedModelData>::reset(); }
 
     slint::MapModel<SourceModelData, MappedModelData> &target_model;
 };
