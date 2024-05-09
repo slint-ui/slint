@@ -10,10 +10,13 @@ export component TestCase inherits Window {
         minimum: 0;
         maximum: 100;
         value: 10;
+        width: 100%;
+        height: 100%;
     }
 
     forward-focus: slider;
     out property <bool> slider-focused <=> slider.has_focus;
+    in-out property <float> value <=> slider.value;
     callback released <=> slider.released;
     callback changed <=> slider.changed;
 }
@@ -27,6 +30,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+instance.set_value(10.);
 
 let edits = Rc::new(RefCell::new(Vec::new()));
 let changes = Rc::new(RefCell::new(Vec::new()));
@@ -43,7 +48,6 @@ instance.on_changed({
     changes.borrow_mut().push(val);
 }});
 
-slint_testing::send_mouse_click(&instance, 5., 5.);
 assert!(edits.borrow().is_empty());
 assert!(changes.borrow().is_empty());
 assert!(instance.get_slider_focused());
