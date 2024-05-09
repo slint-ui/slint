@@ -86,6 +86,10 @@ mod value_model;
 #[doc(inline)]
 pub use api::*;
 
+#[cfg(feature = "internal")]
+#[doc(hidden)]
+pub use eval::default_value_for_type;
+
 /// (Re-export from corelib.)
 #[doc(inline)]
 pub use i_slint_core::{Brush, Color, SharedString, SharedVector};

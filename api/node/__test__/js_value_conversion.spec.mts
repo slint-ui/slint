@@ -153,18 +153,6 @@ test('set struct properties', (t) => {
     "energy_level": 0.8
   });
 
-  // Missing properties throw an exception (TODO: the message is not very helpful, should say which one)
-  const incomplete_struct_err = t.throws(() => {
-    instance!.setProperty("player", {
-      "name": "Incomplete Player"
-    })
-  }, {
-    instanceOf: Error
-  }
-  ) as any;
-  t.is(incomplete_struct_err!.code, 'InvalidArg');
-  t.is(incomplete_struct_err!.message, 'expect Number, got: Undefined');
-
   // Extra properties are thrown away
   instance!.setProperty("player", {
     "name": "Excessive Player",
@@ -177,6 +165,15 @@ test('set struct properties', (t) => {
     "age": 100,
     "energy_level": 0.8
   });
+
+  // Missing properties are defaulted
+  instance!.setProperty("player", { "age": 39 });
+  t.deepEqual(instance!.getProperty("player"), {
+    "name": "",
+    "age": 39,
+    "energy_level": 0.0
+  });
+
 })
 
 test('get/set image properties', async (t) => {
@@ -670,14 +667,8 @@ test('invoke callback', (t) => {
   instance!.invoke("great-person", [{ "name": "simon" }]);
   t.deepEqual(speakTest, "hello simon");
 
-  t.throws(() => {
-    instance!.invoke("great-person", [{ "hello": "simon" }]);
-  },
-    {
-      code: "InvalidArg",
-      message: "expect String, got: Undefined"
-    }
-  );
+  instance!.invoke("great-person", [{ "hello": "simon" }]);
+  t.deepEqual(speakTest, "hello ");
 
   t.deepEqual(instance!.invoke("get-string", []), "string");
   t.deepEqual(instance!.invoke("person", []), { "name": "florian" });
