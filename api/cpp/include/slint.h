@@ -821,7 +821,7 @@ private:
 
 namespace private_api {
 template<typename SourceModelData, typename MappedModelData>
-inline void MapModelInner<SourceModelData, MappedModelData>::reset() override
+inline void MapModelInner<SourceModelData, MappedModelData>::reset()
 {
     target_model.Model<SourceModelData>::reset();
 }
