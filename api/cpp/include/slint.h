@@ -819,10 +819,12 @@ private:
     std::function<MappedModelData(const SourceModelData &)> map_fn;
 };
 
+namespace private_api {
 template<typename SourceModelData, typename MappedModelData>
 inline void MapModelInner<SourceModelData, MappedModelData>::reset() override
 {
     target_model.Model<SourceModelData>::reset();
+}
 }
 
 template<typename ModelData>
