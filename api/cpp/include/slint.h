@@ -820,7 +820,10 @@ private:
 };
 
 template<typename SourceModelData, typename MappedModelData>
-inline void MapModelInner<SourceModelData, MappedModelData>::reset() override { target_model.Model<SourceModelData>::reset(); }
+inline void MapModelInner<SourceModelData, MappedModelData>::reset() override
+{
+    target_model.Model<SourceModelData>::reset();
+}
 
 template<typename ModelData>
 class SortModel;
