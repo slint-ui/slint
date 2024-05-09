@@ -217,8 +217,10 @@ impl Item for NativeSlider {
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+                if data.pressed != 0 {
+                    Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
+                }
                 data.pressed = 0;
-                Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
                 InputEventResult::EventAccepted
             }
             MouseEvent::Moved { position: pos } => {
