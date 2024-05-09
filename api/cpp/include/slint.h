@@ -763,7 +763,7 @@ struct MapModelInner : private_api::ModelChangeListener
     {
         target_model.row_removed(index, count);
     }
-    void reset() override { target_model.Model<SourceModelData>::reset(); }
+    inline void reset() override;
 
     slint::MapModel<SourceModelData, MappedModelData> &target_model;
 };
@@ -818,6 +818,9 @@ private:
     std::shared_ptr<slint::Model<SourceModelData>> model;
     std::function<MappedModelData(const SourceModelData &)> map_fn;
 };
+
+template<typename SourceModelData, typename MappedModelData>
+inline void MapModelInner<SourceModelData, MappedModelData>::reset() override { target_model.Model<SourceModelData>::reset(); }
 
 template<typename ModelData>
 class SortModel;
