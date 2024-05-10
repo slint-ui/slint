@@ -30,5 +30,8 @@ export Xxx := Rectangle {
             return "hello";
 //          ^error{Cannot convert string to int}
         }
+
+        callback x <=> compute_alias;
+//               ^error{Cannot declare callback 'x' when a property with the same name exists}
     }
 }
