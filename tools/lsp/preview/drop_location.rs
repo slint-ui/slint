@@ -879,7 +879,7 @@ pub fn move_element_to(
         return None;
     };
 
-    let parent_of_element = element.parent(element_selection::root_element(&component_instance));
+    let parent_of_element = element.parent();
 
     let placeholder_text = if Some(&drop_info.target_element_node) == parent_of_element.as_ref() {
         // We are moving within ourselves!

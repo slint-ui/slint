@@ -158,11 +158,7 @@ fn drop_component(component_type: slint::SharedString, x: f32, y: f32) {
 }
 
 fn placeholder_node_text(selected: &common::ElementRcNode) -> String {
-    let Some(component_instance) = component_instance() else {
-        return Default::default();
-    };
-    let root_element = element_selection::root_element(&component_instance);
-    let Some(parent) = selected.parent(root_element) else {
+    let Some(parent) = selected.parent() else {
         return Default::default();
     };
 
