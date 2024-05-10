@@ -38,6 +38,8 @@ All notable changes to this project are documented in this file.
  - Fixed compiler panic when a callback aliases itself. (#4938)
  - Fixed compiler panic when an init from a repeater is inlined into the parent component (#5146)
  - Added `clear-focus()` function to focusable elements, to allow for programmatic focus clearing.
+ - Fixed updating model of ComboBox does not change current-value
+ - Fixed set current-index of ComboBox to -1 does not reset current-value
 
 ## Widgets
 

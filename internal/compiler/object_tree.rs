@@ -1297,7 +1297,7 @@ impl Element {
         }
 
         for ch in node.PropertyChangedCallback() {
-            if !diag.enable_experimental {
+            if !diag.enable_experimental && !tr.expose_internal_types {
                 diag.push_error(
                     "Change callbacks are experimental and not yet implemented in this version of Slint".into(),
                     &ch,

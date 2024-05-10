@@ -14,12 +14,11 @@ export component ComboBoxBase {
     callback show-popup();
 
     public function select(index: int) {
-        if (!root.enabled) {
+        if !root.enabled {
             return;
         }
-
         root.current-index = index;
-        root.current-value = root.model[root.current-index];
+        root.update-current-value();
         root.selected(root.current-value);
     }
 
@@ -31,6 +30,26 @@ export component ComboBoxBase {
         root.select(Math.min(root.current-index + 1, root.model.length - 1));
     }
 
+    function reset-current() {
+        root.current-index = 0;
+    }
+
+    function update-current-value() {
+        if root.current-index < 0 || root.current-index >= root.model.length {
+            root.current-value = "";
+            return;
+        }
+        root.current-value = root.model[root.current-index];
+    }
+
+    changed model => {
+        root.reset-current();
+    }
+
+    changed current-index => {
+        root.update-current-value();
+    }
+
     private property <length> scroll-delta: 2px;
 
     forward-focus: i-focus-scope;
@@ -40,7 +59,6 @@ export component ComboBoxBase {
             if (!self.enabled) {
                 return reject;
             }
-
             if (event.text == Key.UpArrow) {
                 root.move-selection-up();
                 return accept;
@@ -66,12 +84,10 @@ export component ComboBoxBase {
                     root.move-selection-down();
                     return accept;
                 }
-
                 if (event.delta-y > root.scroll-delta) {
                     root.move-selection-up();
                     return accept;
                 }
-
                 reject
             }
         }
