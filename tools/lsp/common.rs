@@ -47,6 +47,17 @@ fn find_element_with_decoration(element: &syntax_nodes::Element) -> SyntaxNode {
         .unwrap_or(this_node)
 }
 
+fn find_parent_component(node: &SyntaxNode) -> Option<SyntaxNode> {
+    let mut current = Some(node.clone());
+    while let Some(p) = current {
+        if matches!(p.kind(), SyntaxKind::Component) {
+            return Some(p);
+        }
+        current = p.parent();
+    }
+    None
+}
+
 #[derive(Clone)]
 pub struct ElementRcNode {
     pub element: ElementRc,
@@ -71,6 +82,11 @@ impl ElementRcNode {
         let _ = element.borrow().debug.get(debug_index)?;
 
         Some(Self { element, debug_index })
+    }
+
+    /// Some nodes get merged into the same ElementRc with no real connections between them...
+    pub fn next_element_rc_node(&self) -> Option<Self> {
+        Self::new(self.element.clone(), self.debug_index + 1)
     }
 
     pub fn find_in(element: ElementRc, path: &std::path::Path, offset: u32) -> Option<Self> {
@@ -192,7 +208,6 @@ impl ElementRcNode {
                     ) else {
                         continue;
                     };
-
                     children.push(child_node);
                 }
             }
@@ -205,6 +220,17 @@ impl ElementRcNode {
         self.with_element_node(|node| {
             node.QualifiedName().map(|qn| qn.text().to_string()).unwrap_or_default()
         })
+    }
+
+    pub fn is_same_component_as(&self, other: &Self) -> bool {
+        let Some(s) = self.with_element_node(|n| find_parent_component(n)) else {
+            return false;
+        };
+        let Some(o) = other.with_element_node(|n| find_parent_component(n)) else {
+            return false;
+        };
+
+        std::rc::Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range()
     }
 }
 

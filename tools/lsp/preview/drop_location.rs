@@ -506,10 +506,6 @@ fn drop_target_element_nodes(
             continue;
         }
 
-        if !element_selection::is_same_file_as_root_node(component_instance, &en) {
-            continue;
-        }
-
         if (filter)(&en) {
             continue;
         }
@@ -528,7 +524,7 @@ fn is_recursive_inclusion(
         .and_then(|rn| {
             rn.with_element_node(|node| {
                 node.parent()
-                    .and_then(|p| TryInto::<syntax_nodes::Component>::try_into(p).ok())
+                    .map(|p| Into::<syntax_nodes::Component>::into(p))
                     .map(|c| c.DeclaredIdentifier().text().to_string())
             })
         })
@@ -570,7 +566,16 @@ fn find_drop_location(
     position: LogicalPoint,
     component_type: &str,
 ) -> Option<DropInformation> {
-    find_drop_or_move_location(component_instance, position, component_type, None)
+    let root_node_path = element_selection::root_element(component_instance)
+        .borrow()
+        .debug
+        .first()
+        .map(|(n, _)| n.source_file.path().to_owned());
+    let filter = Box::new(move |e: &common::ElementRcNode| {
+        e.with_element_node(|n| Some(n.source_file.path()) != root_node_path.as_deref())
+    });
+    let mark = Box::new(move |_: &common::ElementRcNode| false);
+    find_filtered_location(component_instance, position, filter, mark, component_type)
 }
 
 fn find_move_location(
@@ -579,18 +584,22 @@ fn find_move_location(
     selected_element: common::ElementRcNode,
     component_type: &str,
 ) -> Option<DropInformation> {
-    find_drop_or_move_location(component_instance, position, component_type, Some(selected_element))
+    let se = selected_element.clone();
+    let filter =
+        Box::new(move |e: &common::ElementRcNode| *e == se && !e.is_same_component_as(&se));
+    let se = selected_element.clone();
+    let mark = Box::new(move |e: &common::ElementRcNode| *e == se);
+
+    find_filtered_location(component_instance, position, filter, mark, component_type)
 }
 
-fn find_drop_or_move_location(
+fn find_filtered_location(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
+    filter: Box<dyn Fn(&common::ElementRcNode) -> bool>,
+    mark: Box<dyn Fn(&common::ElementRcNode) -> bool>,
     component_type: &str,
-    selected_element: Option<common::ElementRcNode>,
 ) -> Option<DropInformation> {
-    let se = selected_element.clone();
-    let filter = Box::new(move |e: &common::ElementRcNode| Some(e.clone()) == se);
-
     let drop_target_node =
         find_element_to_drop_into(component_instance, position, filter, component_type)?;
 
@@ -614,10 +623,7 @@ fn find_drop_or_move_location(
             .children()
             .iter()
             .filter(|c| !c.with_element_node(preview::is_element_node_ignored))
-            .filter_map(|c| {
-                c.geometry_in(component_instance, &geometry)
-                    .map(|g| (Some(c.clone()) == selected_element, g))
-            })
+            .filter_map(|c| c.geometry_in(component_instance, &geometry).map(|g| ((mark)(c), g)))
             .collect();
 
         let (drop_mark, child_index) = calculate_drop_information_for_layout(
@@ -662,10 +668,10 @@ pub fn can_drop_at(position: LogicalPoint, component_type: &str) -> bool {
 }
 
 /// Find the Element to insert into. None means we can not insert at this point.
-pub fn can_move_to(position: LogicalPoint, element_node: common::ElementRcNode) -> bool {
+pub fn can_move_to(mouse_position: LogicalPoint, element_node: common::ElementRcNode) -> bool {
     let component_type = element_node.component_type();
     let dm = &super::component_instance()
-        .and_then(|ci| find_move_location(&ci, position, element_node, &component_type));
+        .and_then(|ci| find_move_location(&ci, mouse_position, element_node, &component_type));
 
     preview::set_drop_mark(&dm.as_ref().and_then(|dm| dm.drop_mark.clone()));
     dm.is_some()
@@ -907,12 +913,9 @@ pub fn move_element_to(
     let component_type = element.component_type();
     let component_instance = preview::component_instance()?;
     let tl = component_instance.definition().type_loader();
-    let Some(drop_info) = find_move_location(
-        &component_instance,
-        mouse_position,
-        element.clone(),
-        &component_type,
-    ) else {
+    let Some(drop_info) =
+        find_move_location(&component_instance, mouse_position, element.clone(), &component_type)
+    else {
         element_selection::reselect_element();
         // Can not drop here: Ignore the move
         return None;
