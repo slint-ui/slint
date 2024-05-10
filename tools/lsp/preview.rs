@@ -299,6 +299,8 @@ fn resize_selected_element_impl(rect: LogicalRect) {
 
 // triggered from the UI, running in UI thread
 fn can_move_selected_element(_x: f32, _y: f32, mouse_x: f32, mouse_y: f32) -> bool {
+    // let position = LogicalPoint::new(x, y);
+    let mouse_position = LogicalPoint::new(mouse_x, mouse_y);
     let Some(selected) = selected_element() else {
         return false;
     };
@@ -306,7 +308,6 @@ fn can_move_selected_element(_x: f32, _y: f32, mouse_x: f32, mouse_y: f32) -> bo
         return false;
     };
 
-    let mouse_position = LogicalPoint::new(mouse_x, mouse_y);
     drop_location::can_move_to(mouse_position, selected_element_node)
 }
 
@@ -535,6 +536,8 @@ async fn parse_source(
     (builder.diagnostics().clone(), compiled)
 }
 
+pub const SLINT_LIVEPREVIEW_COMPONENT: &str = "_SLINT_LivePreview";
+
 // Must be inside the thread running the slint event loop
 async fn reload_preview_impl(
     preview_component: PreviewComponent,
@@ -550,8 +553,7 @@ async fn reload_preview_impl(
         let (_, from_cache) = get_url_from_cache(&component.url).unwrap_or_default();
         if let Some(component_name) = &component.component {
             format!(
-                "{from_cache}\nexport component _SLINT_LivePreview inherits {component_name} {{ /* {} */ }}\n",
-                NODE_IGNORE_COMMENT,
+                "{from_cache}\nexport component {SLINT_LIVEPREVIEW_COMPONENT} inherits {component_name} {{ /* {NODE_IGNORE_COMMENT} */ }}\n",
             )
         } else {
             from_cache

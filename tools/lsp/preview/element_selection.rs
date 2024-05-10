@@ -144,14 +144,15 @@ fn select_element_node(
     }
 }
 
-// Return the real root element, skipping any WindowElement that got added
+// Return the real root element, skipping the WindowElement that might got added
 pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
     let root_element = component_instance.definition().root_component().root_element.clone();
-    if !root_element.borrow().debug.is_empty() {
-        return root_element;
+    if root_element.borrow().debug.is_empty() {
+        let child = root_element.borrow().children.first().cloned();
+        child.unwrap_or(root_element)
+    } else {
+        root_element
     }
-    let child = root_element.borrow().children.first().cloned();
-    child.unwrap_or(root_element)
 }
 
 #[derive(Clone)]
@@ -243,38 +244,13 @@ pub fn collect_all_element_nodes_covering(
     elements
 }
 
-pub fn is_root_element_node(
-    component_instance: &ComponentInstance,
-    element_node: &common::ElementRcNode,
-) -> bool {
-    let root_element = root_element(component_instance);
-    let Some((root_path, root_offset)) = root_element
-        .borrow()
-        .debug
-        .iter()
-        .find(|(n, _)| !preview::is_element_node_ignored(n))
-        .map(|(n, _)| (n.source_file.path().to_owned(), u32::from(n.text_range().start())))
-    else {
-        return false;
-    };
-
-    let (path, offset) = element_node.path_and_offset();
-    path == root_path && offset == root_offset
-}
-
-pub fn is_same_file_as_root_node(
-    component_instance: &ComponentInstance,
-    element_node: &common::ElementRcNode,
-) -> bool {
-    let root_element = root_element(component_instance);
-    let Some(root_path) =
-        root_element.borrow().debug.first().map(|(n, _)| n.source_file.path().to_owned())
-    else {
-        return false;
-    };
-
-    let (path, _) = element_node.path_and_offset();
-    path == root_path
+fn find_main_node(root_node: &common::ElementRcNode) -> common::ElementRcNode {
+    if root_node.children().is_empty() {
+        // Things got merged into one ElementRc, no real connection remains:-/
+        root_node.next_element_rc_node().unwrap_or_else(|| root_node.clone())
+    } else {
+        root_node.clone()
+    }
 }
 
 fn select_element_at_impl(
@@ -282,8 +258,13 @@ fn select_element_at_impl(
     position: LogicalPoint,
     enter_component: bool,
 ) -> Option<common::ElementRcNode> {
+    let root_node = common::ElementRcNode::new(root_element(component_instance), 0)?;
+    // The main node is the first non-ignored node below the root
+    // This is to find the first "real" eleemnt in the preview, ignoring the
+    // synthetic nodes we added on top to make the preview work.
+    let main_node = find_main_node(&root_node);
     for sc in &collect_all_element_nodes_covering(position, component_instance) {
-        if let Some(en) = filter_nodes_for_selection(component_instance, sc, enter_component) {
+        if let Some(en) = filter_nodes_for_selection(sc, enter_component, &root_node, &main_node) {
             return Some(en);
         }
     }
@@ -318,9 +299,10 @@ pub fn is_element_node_in_layout(element: &common::ElementRcNode) -> bool {
 }
 
 fn filter_nodes_for_selection(
-    component_instance: &ComponentInstance,
     selection_candidate: &SelectionCandidate,
     enter_component: bool,
+    root_node: &common::ElementRcNode,
+    main_node: &common::ElementRcNode,
 ) -> Option<common::ElementRcNode> {
     let en = selection_candidate.as_element_node()?;
 
@@ -328,11 +310,11 @@ fn filter_nodes_for_selection(
         return None;
     }
 
-    if !enter_component && !is_same_file_as_root_node(component_instance, &en) {
+    if root_node == &en || main_node == &en {
         return None;
     }
 
-    if is_root_element_node(component_instance, &en) {
+    if !enter_component && !main_node.is_same_component_as(&en) {
         return None;
     }
 
@@ -358,6 +340,9 @@ pub fn select_element_behind_impl(
         (start_position, elements.len().saturating_sub(current_selection_position + 1))
     };
 
+    let root_node = common::ElementRcNode::new(root_element(component_instance), 0)?;
+    let main_node = find_main_node(&root_node);
+
     for i in 0..iterations {
         let mapped_index = if reverse {
             assert!(i <= start_position);
@@ -367,9 +352,10 @@ pub fn select_element_behind_impl(
             start_position + i
         };
         if let Some(en) = filter_nodes_for_selection(
-            component_instance,
             elements.get(mapped_index).unwrap(),
             enter_component,
+            &root_node,
+            &main_node,
         ) {
             return Some(en);
         }
@@ -513,7 +499,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let first_non_button = covers_center.iter().position(|(p, _)| p != &button_path).unwrap();
         covers_center.drain(1..(first_non_button - 1)); // strip all but first/last of button
 
-        // Select without crossing file boundaries
+        // Select without crossing  boundaries
         let select = super::select_element_at_impl(
             &component_instance,
             LogicalPoint::new(100.0, 100.0),
@@ -526,15 +512,6 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let next = super::select_element_behind_impl(
             &component_instance,
             &select,
-            LogicalPoint::new(100.0, 100.0),
-            false,
-            false,
-        )
-        .unwrap();
-        assert_eq!(&next.path_and_offset(), covers_center.get(3).unwrap());
-        let next = super::select_element_behind_impl(
-            &component_instance,
-            &next,
             LogicalPoint::new(100.0, 100.0),
             false,
             false,
@@ -595,15 +572,6 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.get(3).unwrap());
-        let prev = super::select_element_behind_impl(
-            &component_instance,
-            &prev,
-            LogicalPoint::new(100.0, 100.0),
-            false,
-            true,
-        )
-        .unwrap();
         assert_eq!(&prev.path_and_offset(), covers_center.get(2).unwrap());
         assert!(super::select_element_behind_impl(
             &component_instance,
@@ -625,7 +593,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             None
         );
 
-        // Select with crossing file boundaries
+        // Select with crossing component boundaries
         let select = super::select_element_at_impl(
             &component_instance,
             LogicalPoint::new(100.0, 100.0),
