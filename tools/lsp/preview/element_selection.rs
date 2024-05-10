@@ -9,6 +9,8 @@ use slint_interpreter::ComponentInstance;
 
 use crate::{common, preview};
 
+use super::{ext::ElementRcNodeExt, ui};
+
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
     pub path: PathBuf,
@@ -312,26 +314,7 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
 }
 
 pub fn is_element_node_in_layout(element: &common::ElementRcNode) -> bool {
-    if element.debug_index > 0 {
-        // If we are not the first node, then we might have been inlined right
-        // after a layout managing us
-        element
-            .element
-            .borrow()
-            .debug
-            .get(element.debug_index - 1)
-            .map(|d| d.1.is_some())
-            .unwrap_or_default()
-    } else {
-        // If we are the first node, then we might be a child of a layout stored
-        // in the last node of our parent element.
-        let Some(parent) = i_slint_compiler::object_tree::find_parent_element(&element.element)
-        else {
-            return false;
-        };
-        let r = parent.borrow().debug.last().map(|d| d.1.is_some()).unwrap_or_default();
-        r
-    }
+    element.parent().map(|p| p.layout_kind() != ui::LayoutKind::None).unwrap_or(false)
 }
 
 fn filter_nodes_for_selection(
