@@ -1049,22 +1049,6 @@ impl Element {
                 sig_decl.child_token(SyntaxKind::Identifier).map_or(false, |t| t.text() == "pure"),
             );
 
-            if let Some(csn) = sig_decl.TwoWayBinding() {
-                r.bindings
-                    .insert(name.clone(), BindingExpression::new_uncompiled(csn.into()).into());
-                r.property_declarations.insert(
-                    name,
-                    PropertyDeclaration {
-                        property_type: Type::InferredCallback,
-                        node: Some(sig_decl.into()),
-                        visibility: PropertyVisibility::InOut,
-                        pure,
-                        ..Default::default()
-                    },
-                );
-                continue;
-            }
-
             let PropertyLookupResult {
                 resolved_name: existing_name,
                 property_type: maybe_existing_prop_type,
@@ -1092,6 +1076,22 @@ impl Element {
                         &sig_decl.DeclaredIdentifier(),
                     );
                 }
+                continue;
+            }
+
+            if let Some(csn) = sig_decl.TwoWayBinding() {
+                r.bindings
+                    .insert(name.clone(), BindingExpression::new_uncompiled(csn.into()).into());
+                r.property_declarations.insert(
+                    name,
+                    PropertyDeclaration {
+                        property_type: Type::InferredCallback,
+                        node: Some(sig_decl.into()),
+                        visibility: PropertyVisibility::InOut,
+                        pure,
+                        ..Default::default()
+                    },
+                );
                 continue;
             }
 
