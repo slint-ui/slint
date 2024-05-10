@@ -540,12 +540,9 @@ fn is_recursive_inclusion(
 fn find_element_to_drop_into(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    selected_element: &Option<common::ElementRcNode>,
+    filter: Box<dyn Fn(&common::ElementRcNode) -> bool>,
     component_type: &str,
 ) -> Option<common::ElementRcNode> {
-    let se = selected_element.clone();
-    let filter = Box::new(move |e: &common::ElementRcNode| Some(e.clone()) == se);
-
     let all_element_nodes = drop_target_element_nodes(component_instance, position, filter);
     if is_recursive_inclusion(&all_element_nodes.last(), component_type) {
         return None;
@@ -572,10 +569,30 @@ fn find_drop_location(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
     component_type: &str,
+) -> Option<DropInformation> {
+    find_drop_or_move_location(component_instance, position, component_type, None)
+}
+
+fn find_move_location(
+    component_instance: &ComponentInstance,
+    position: LogicalPoint,
+    selected_element: common::ElementRcNode,
+    component_type: &str,
+) -> Option<DropInformation> {
+    find_drop_or_move_location(component_instance, position, component_type, Some(selected_element))
+}
+
+fn find_drop_or_move_location(
+    component_instance: &ComponentInstance,
+    position: LogicalPoint,
+    component_type: &str,
     selected_element: Option<common::ElementRcNode>,
 ) -> Option<DropInformation> {
+    let se = selected_element.clone();
+    let filter = Box::new(move |e: &common::ElementRcNode| Some(e.clone()) == se);
+
     let drop_target_node =
-        find_element_to_drop_into(component_instance, position, &selected_element, component_type)?;
+        find_element_to_drop_into(component_instance, position, filter, component_type)?;
 
     let (path, _) = drop_target_node.path_and_offset();
     let tl = component_instance.definition().type_loader();
@@ -638,7 +655,7 @@ fn find_drop_location(
 /// Find the Element to insert into. None means we can not insert at this point.
 pub fn can_drop_at(position: LogicalPoint, component_type: &str) -> bool {
     let dm = &super::component_instance()
-        .and_then(|ci| find_drop_location(&ci, position, component_type, None));
+        .and_then(|ci| find_drop_location(&ci, position, component_type));
 
     preview::set_drop_mark(&dm.as_ref().and_then(|dm| dm.drop_mark.clone()));
     dm.is_some()
@@ -648,7 +665,7 @@ pub fn can_drop_at(position: LogicalPoint, component_type: &str) -> bool {
 pub fn can_move_to(position: LogicalPoint, element_node: common::ElementRcNode) -> bool {
     let component_type = element_node.component_type();
     let dm = &super::component_instance()
-        .and_then(|ci| find_drop_location(&ci, position, &component_type, Some(element_node)));
+        .and_then(|ci| find_move_location(&ci, position, element_node, &component_type));
 
     preview::set_drop_mark(&dm.as_ref().and_then(|dm| dm.drop_mark.clone()));
     dm.is_some()
@@ -723,7 +740,7 @@ pub fn drop_at(
     let component_type = &component.name;
     let component_instance = preview::component_instance()?;
     let tl = component_instance.definition().type_loader();
-    let drop_info = find_drop_location(&component_instance, position, component_type, None)?;
+    let drop_info = find_drop_location(&component_instance, position, component_type)?;
 
     let properties = {
         let mut props = component.default_properties.clone();
@@ -890,11 +907,11 @@ pub fn move_element_to(
     let component_type = element.component_type();
     let component_instance = preview::component_instance()?;
     let tl = component_instance.definition().type_loader();
-    let Some(drop_info) = find_drop_location(
+    let Some(drop_info) = find_move_location(
         &component_instance,
         mouse_position,
+        element.clone(),
         &component_type,
-        Some(element.clone()),
     ) else {
         element_selection::reselect_element();
         // Can not drop here: Ignore the move
