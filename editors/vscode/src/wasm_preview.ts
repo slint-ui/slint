@@ -202,7 +202,7 @@ function map_url(webview: vscode.Webview, url_: string) {
 
     try {
         const url = Uri.parse(url_, false);
-        if (vscode.workspace.getWorkspaceFolder(url) && url.scheme === "file") {
+        if (vscode.workspace.getWorkspaceFolder(url)) {
             result = previewPanel?.webview.asWebviewUri(url)?.toString();
         }
     } catch (_) {
