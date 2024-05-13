@@ -3,14 +3,20 @@
 
 import { Time, TimePickerBase } from "../common/time-picker-base.slint";
 import { VerticalBox } from "./layouts.slint";
+import { IconButton, TextButton } from "./button.slint";
 import { MaterialPalette, MaterialFontSettings, Icons } from "styling.slint";
 
 export { Time }
 
 export component TimePicker {
     in property <bool> twenty-four-hour <=> base.twenty-four-hour;
-    in property <bool> selection-mode <=> base.selection-mode;
-    in-out property <Time> current-time <=> base.current-time;
+    in property <string> title: "Select time";
+    in property <string> cancel-text: "Cancel";
+    in property <string> ok-text: "Ok";
+    in property <Time> time <=> base.time;
+
+    callback canceled();
+    callback accepted(/* current-time */ Time);
 
     min-width: content-layer.min-width;
     min-height: content-layer.min-height;
@@ -20,10 +26,20 @@ export component TimePicker {
     }
 
     content-layer := VerticalBox {
+        Text {
+            text: root.title;
+            horizontal-alignment: left;
+            overflow: elide;
+            font-size: MaterialFontSettings.label-medium.font-size;
+            font-weight: MaterialFontSettings.label-medium.font-weight;
+            color: MaterialPalette.foreground;
+        }
+
         base := TimePickerBase {
             style: {
                 foreground: MaterialPalette.foreground,
-                spacing: 4px,
+                vertical-spacing: 8px,
+                horizontal-spacing: 4px,
                 clock-style: {
                     background: MaterialPalette.surface-container-highest,
                     foreground: MaterialPalette.accent-background,
@@ -41,309 +57,52 @@ export component TimePicker {
                     border-radius: 8px,
                     font-size: 57 * 0.0625rem,
                     font-weight: 400
+                },
+                period-selector-style: {
+                    border-radius: 8px,
+                    border-width: 1px,
+                    border-brush: MaterialPalette.border,
+                    item-style: {
+                        font-size: MaterialFontSettings.body-large.font-size,
+                        font-weight: MaterialFontSettings.body-large.font-weight,
+                        foreground: MaterialPalette.foreground,
+                        background-selected: MaterialPalette.tertiary-container,
+                        foreground-selected: MaterialPalette.on-tertiary-container
+                    }
                 }
             };
         }
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            IconButton {
+                icon: base.selection-mode ? Icons.keyboard : Icons.clock;
+                accessible-label: "Toggle input picker";
+
+                clicked => {
+                    base.selection-mode = !base.selection-mode;
+                }
+            }
+
+            Rectangle { }
+
+            TextButton {
+                text: root.cancel-text;
+
+                clicked => {
+                    root.canceled();
+                }
+            }
+
+            TextButton {
+                text: root.ok-text;
+                enabled: base.ok-enabled();
+
+                clicked => {
+                    root.accepted(base.get-current-time());
+                }
+            }
+        }
     }
 }
-
-// export component PeriodSelector {
-//     in property <bool> vertical;
-//     in-out property <bool> am-selected: true;
-
-//     min-height: 38px;
-
-//     Rectangle {
-//         border-radius: border.border-radius;
-//         clip: true;
-//         if root.vertical: VerticalLayout {
-//             PeriodSelectorItem {
-//                 text: "AM";
-
-//                 checked: root.am-selected;
-
-//                 clicked => {
-//                     root.am-selected = true;
-//                 }
-//             }
-
-//             Rectangle {
-//                 height: 1px;
-//                 background: border.border-color;
-//                 vertical-stretch: 0;
-//             }
-
-//             PeriodSelectorItem {
-//                 text: "PM";
-
-//                 checked: !root.am-selected;
-
-//                 clicked => {
-//                     root.am-selected = false;
-//                 }
-//             }
-//         }
-
-//         if !root.vertical: HorizontalLayout {
-//             PeriodSelectorItem {
-//                 text: "AM";
-
-//                 checked: root.am-selected;
-
-//                 clicked => {
-//                     root.am-selected = true;
-//                 }
-//             }
-
-//             Rectangle {
-//                 width: 1px;
-//                 background: border.border-color;
-//                 horizontal-stretch: 0;
-//             }
-
-//             PeriodSelectorItem {
-//                 text: "PM";
-
-//                 checked: !root.am-selected;
-
-//                 clicked => {
-//                     root.am-selected = false;
-//                 }
-//             }
-//         }
-//     }
-
-//     border := Rectangle {
-//         border-radius: 8px;
-//         border-width: 1px;
-//         border-color: MaterialPalette.border;
-//     }
-// }
-
-// export component TimePickerInput {
-//     in property <bool> checked;
-//     in-out property <int> value;
-//     in property <bool> read-only <=> text-input.read-only;
-
-//     callback clicked;
-
-//     min-width: max(96px, text-input.min-width);
-//     min-height: max(80px, text-input.min-height);
-//     vertical-stretch: 0;
-//     horizontal-stretch: 0;
-
-//     background-layer := Rectangle {
-//         border-radius: 8px;
-//         background: MaterialPalette.surface-container-highest;
-//     }
-
-//     text-input := TextInput {
-//         vertical-alignment: center;
-//         horizontal-alignment: center;
-//         text: root.value;
-//         width: 100%;
-//         height: 100%;
-//         color: MaterialPalette.foreground;
-//         font-size: 57 * 0.0625rem;
-//         font-weight: 400;
-
-//         accepted => {
-//             if (!self.text.is-float()) {
-//                 self.text = root.value;
-//             }
-//         }
-
-//         edited => {
-//             if (self.text.is-float() && self.text.to-float() != root.value) {
-//                 root.update-value(self.text.to-float());
-//             } else if (!self.text.is-float()) {
-//                 self.text = root.value;
-//             }
-//         }
-//     }
-
-//     if root.read-only: TouchArea {
-//         clicked => {
-//             root.clicked();
-//         }
-//     }
-
-//     function update-value(value: int) {
-//         root.value = value;
-//         text-input.text = root.value;
-//     }
-
-//     states [
-//         checked when root.checked: {
-//             background-layer.background: MaterialPalette.accent-container;
-//         }
-//     ]
-// }
-
-// export enum TimePickerMode {
-//     Select,
-//     Enter
-// }
-
-// export enum TimeMode {
-//     Twelve,
-//     TwentyFour
-// }
-
-// export component TimePicker {
-//     in property <string> title: "Select time";
-//     in property <TimePickerMode> mode;
-//     in property <TimeMode> time-mode;
-
-//     property <[int]> twelf-hour-model: [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-//     property <[int]> twenty-four-hour-model: [
-//         12,
-//         1,
-//         2,
-//         3,
-//         4,
-//         5,
-//         6,
-//         7,
-//         8,
-//         9,
-//         10,
-//         11,
-//         24,
-//         13,
-//         14,
-//         15,
-//         16,
-//         17,
-//         18,
-//         19,
-//         20,
-//         21,
-//         22,
-//         23
-//     ];
-//     property <[int]> hour-model: root.time-mode == TimeMode.Twelve ? root.twelf-hour-model : root.twenty-four-hour-model;
-//     property <[int]> minute-model: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
-//     property <bool> hours-selected: true;
-//     property <int> current-hour;
-//     property <int> current-minute;
-//     property <int> current-hour-value: root.hour-model[root.current-hour];
-//     property <int> current-minute-value: root.minute-model[root.current-minute];
-
-//     callback cancel-clicked();
-//     callback ok-clicked;
-//     min-width: layout.min-width;
-//     min-height: layout.min-height;
-
-//     Rectangle {
-//         background: MaterialPalette.surface-container-high;
-//         border-radius: 28px;
-//     }
-
-//     layout := VerticalBox {
-//         Text {
-//             horizontal-alignment: left;
-//             overflow: elide;
-//             text: root.title;
-//             font-size: MaterialFontSettings.label-medium.font-size;
-//             font-weight: MaterialFontSettings.label-medium.font-weight;
-//         }
-
-//         HorizontalLayout {
-//             VerticalLayout {
-//                 alignment: center;
-//                 spacing: 8px;
-
-//                 HorizontalLayout {
-//                     spacing: 4px;
-
-//                     TimePickerInput {
-//                         read-only: root.mode == TimePickerMode.Select;
-//                         checked: self.read-only && root.hours-selected;
-//                         value: root.current-hour-value;
-
-//                         clicked => {
-//                             root.set-hours-selection();
-//                         }
-//                     }
-
-//                     separator := Text {
-//                         text: ":";
-//                         color: MaterialPalette.foreground;
-//                         font-size: 57 * 0.0625rem;
-//                         font-weight: 400;
-//                         vertical-alignment: center;
-//                     }
-
-//                     TimePickerInput {
-//                         read-only: root.mode == TimePickerMode.Select;
-//                         checked: self.read-only && !root.hours-selected;
-//                         value: root.current-minute-value;
-
-//                         clicked => {
-//                             root.set-minute-selection();
-//                         }
-//                     }
-//                 }
-
-//                 if root.time-mode == TimeMode.Twelve: PeriodSelector { }
-//             }
-
-//             Rectangle { }
-
-//             clock := Clock {
-//                 width: 256px;
-//                 height: 256px;
-
-//                 model: root.hour-model;
-
-//                 curren-item-changed(index) => {
-//                     root.time-selected(index);
-//                 }
-//             }
-//         }
-
-//         HorizontalLayout {
-//             spacing: 8px;
-
-//             keyboard-button := IconButton {
-//                 icon: Icons.keyboard;
-//             }
-
-//             Rectangle { }
-
-//             cancel-button := TextButton {
-//                 text: "Cancel";
-//             }
-
-//             ok-button := TextButton {
-//                 text: "OK";
-//             }
-//         }
-//     }
-
-//     // FIXME: refactor with states instead, twenty-four-hours, hours, mintues????
-
-//     function set-minute-selection() {
-//         root.hours-selected = false;
-//         clock.split = false;
-//         clock.model = root.minute-model;
-//         clock.current-item = root.current-minute;
-//     }
-
-//     function set-hours-selection() {
-//         root.hours-selected = true;
-//         clock.split = root.time-mode == TimeMode.TwentyFour;
-//         clock.model = root.hour-model;
-//         clock.current-item = root.current-hour;
-//     }
-
-//     function time-selected(index: int) {
-//         if root.hours-selected {
-//             root.current-hour = index;
-//             root.set-minute-selection();
-//             return;
-//         }
-//         root.current-minute = index;
-//     }
-// }

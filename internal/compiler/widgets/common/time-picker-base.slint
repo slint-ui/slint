@@ -46,8 +46,9 @@ export component Clock {
     in property <[int]> model;
     in property <bool> two-columns;
     in property <ClockStyle> style;
+    in property <int> total;
     in-out property <int> current-item;
-    out property <int> current-value: root.model[root.current-item];
+    in property <int> current-value;
 
     callback curren-item-changed(/* index */ int);
 
@@ -58,8 +59,10 @@ export component Clock {
     property <length> inner-padding: 32px;
     property <length> radius-outer: root.center - root.outer-padding;
     property <length> radius-inner: root.center - root.inner-padding;
-    property <int> half-model-length: root.model.length / 2;
+    property <int> half-total: root.total / 2;
     property <angle> rotation: 0.25turn;
+    property <length> current-x: get-index-x(root.current-value);
+    property <length> current-y: get-index-y(root.current-value);
 
     min-width: 256px;
     min-height: 256px;
@@ -83,8 +86,8 @@ export component Clock {
         }
 
         LineTo {
-            x: root.radius / 1px + ((root.radius - (root.two-columns && root.current-item >= root.half-model-length ? root.inner-padding : root.outer-padding)) / 1px * cos(root.index-to-angle(root.current-item)));
-            y: root.radius / 1px + ((root.radius - (root.two-columns && root.current-item >= root.half-model-length ? root.inner-padding : root.outer-padding)) / 1px * sin(root.index-to-angle(root.current-item)));
+            x: (root.current-x + root.picker-ditameter / 2) / 1px;
+            y: (root.current-y + root.picker-ditameter / 2) / 1px;
         }
     }
 
@@ -95,58 +98,76 @@ export component Clock {
         border-radius: 4px;
     }
 
-    if root.current-item >= 0 || root.current-item < root.model.length: Rectangle {
-        x: get-index-x(root.current-item);
-        y: get-index-y(root.current-item);
+    if root.current-item < root.model.length: Rectangle {
+        x: root.current-x;
+        y: root.current-y;
         width: root.picker-ditameter;
         height: root.picker-ditameter;
         border-radius: root.picker-ditameter / 2;
         background: root.style.foreground;
+
+        if root.current-item < 0: Rectangle {
+            width: 4px;
+            height: 4px;
+            border-radius: 2px;
+            background: root.style.time-selector-style.foreground;
+        }
     }
 
     for val[index] in root.model: TimeSelector {
-        x: root.get-index-x(index);
-        y: root.get-index-y(index);
+        x: get-index-x(val);
+        y: get-index-y(val);
         width: root.picker-ditameter;
         height: root.picker-ditameter;
         value: val;
         selected: index == root.current-item;
         style: root.style.time-selector-style;
+        accessible-role: button;
+        accessible-label: @tr("{} Hours or minutes of {}", val, root.total);
+        accessible-action-default => {
+            self.clicked();
+        }
 
         clicked => {
             root.set-current-item(index);
         }
     }
 
-    pure function index-to-angle(index: int) -> angle {
+    pure function value-to-angle(value: int) -> angle {
         if root.two-columns {
-            if index >= root.half-model-length {
-                return clamp((index - root.half-model-length) / root.half-model-length * 1turn, 0, 0.999999turn) - root.rotation;
+            if value >= root.half-total {
+                return clamp((value - root.half-total) / root.half-total * 1turn, 0, 0.999999turn) - root.rotation;
             }
-            return clamp(index / root.half-model-length * 1turn, 0, 0.99999turn) - root.rotation;
+            return clamp(value / root.half-total * 1turn, 0, 0.99999turn) - root.rotation;
         }
-        clamp(index / root.model.length * 1turn, 0, 0.99999turn) - root.rotation;
+        clamp(value / root.total * 1turn, 0, 0.99999turn) - root.rotation;
     }
 
-    pure function get-index-x(index: int) -> length {
-        if root.two-columns && index >= root.half-model-length {
-            return root.center + (root.radius-inner / 1px * cos(root.index-to-angle(index))) * 1px;
+    pure function get-index-x(value: int) -> length {
+        if root.two-columns && value >= root.half-total {
+            return root.center + (root.radius-inner / 1px * cos(root.value-to-angle(value))) * 1px;
         }
-        root.center + (root.radius-outer / 1px * cos(root.index-to-angle(index))) * 1px
+        root.center + (root.radius-outer / 1px * cos(root.value-to-angle(value))) * 1px
     }
 
-    pure function get-index-y(index: int) -> length {
-        if root.two-columns && index >= root.half-model-length {
-            return root.center + (root.radius-inner / 1px * sin(root.index-to-angle(index))) * 1px;
+    pure function get-index-y(value: int) -> length {
+        // this is only for 24 mode
+        if root.total == 24 && value == 0 {
+            return root.center + (root.radius-inner / 1px * sin(root.value-to-angle(value))) * 1px;
         }
-        root.center + (root.radius-outer / 1px * sin(root.index-to-angle(index))) * 1px
+        if root.total == 24 && value == 12 {
+            return root.center + (root.radius-outer / 1px * sin(root.value-to-angle(value))) * 1px;
+        }
+        if root.two-columns && value >= root.half-total {
+            return root.center + (root.radius-inner / 1px * sin(root.value-to-angle(value))) * 1px;
+        }
+        root.center + (root.radius-outer / 1px * sin(root.value-to-angle(value))) * 1px
     }
 
     function set-current-item(index: int) {
         if root.current-item == index {
             return;
         }
-        root.current-item = index;
         root.curren-item-changed(index);
     }
 }
@@ -163,16 +184,17 @@ export component TimePickerInput {
     in property <TimePickerInputStyle> style;
     in property <bool> read-only <=> text-input.read-only;
     in property <bool> checked;
-    in-out property <int> value;
+    in-out property <string> text <=> text-input.text;
 
     callback clicked;
-    callback accepted(int);
+    callback edited(int);
 
     min-width: max(96px, text-input.min-width);
     min-height: max(80px, text-input.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 0;
 
+    forward-focus: text-input;
     background-layer := Rectangle {
         border-radius: root.style.border-radius;
         background: root.style.background;
@@ -181,19 +203,14 @@ export component TimePickerInput {
     text-input := TextInput {
         vertical-alignment: center;
         horizontal-alignment: center;
-        text: root.value;
         width: 100%;
         height: 100%;
         color: root.style.foreground;
         font-size: root.style.font-size;
         font-weight: root.style.font-weight;
         input-type: number;
-
-        accepted => {
-            if !self.text.is-float() {
-                return;
-            }
-            root.accepted(self.text.to-float());
+        edited => {
+            root.edited(self.text.to-float());
         }
     }
 
@@ -201,11 +218,6 @@ export component TimePickerInput {
         clicked => {
             root.clicked();
         }
-    }
-
-    function update-value(value: int) {
-        root.value = value;
-        text-input.text = root.value;
     }
 
     states [
@@ -243,14 +255,16 @@ export component PeriodSelectorItem {
     states [
         checked when root.checked: {
             background-layer.background: root.style.background-selected;
-            label.color: root.style.foreground;
+            label.color: root.style.foreground-selected;
         }
     ]
 }
 
 export struct PeriodSelectorStyle {
     item-style: PeriodSelectorItemStyle,
-    border-brush: brush}
+    border-brush: brush,
+    border-radius: length,
+    border-width: length}
 
 export component PeriodSelector {
     in property <PeriodSelectorStyle> style;
@@ -258,13 +272,16 @@ export component PeriodSelector {
 
     callback update-period(bool);
 
-    min-height: 38px;
+    min-width: max(38px, layout.min-width);
+    accessible-label: "AM or PM";
+    accessible-role: checkbox;
+    accessible-checked: root.am-selected;
 
     Rectangle {
         border-radius: border.border-radius;
         clip: true;
 
-        VerticalLayout {
+        layout := VerticalLayout {
             PeriodSelectorItem {
                 text: "AM";
                 checked: root.am-selected;
@@ -300,8 +317,8 @@ export component PeriodSelector {
     }
 
     border := Rectangle {
-        border-radius: 8px;
-        border-width: 1px;
+        border-radius: root.style.border-radius;
+        border-width: root.style.border-width;
         border-color: root.style.border-brush;
     }
 }
@@ -312,7 +329,8 @@ export struct Time {
 
 export struct TimePickerStyle {
     foreground: brush,
-    spacing: length,
+    horizontal-spacing: length,
+    vertical-spacing: length,
     clock-style: ClockStyle,
     input-style: TimePickerInputStyle,
     period-selector-style: PeriodSelectorStyle, 
@@ -322,10 +340,10 @@ export component TimePickerBase {
     in property <bool> twenty-four-hour;
     in property <bool> selection-mode: true;
     in property <TimePickerStyle> style;
-    in-out property <Time> current-time;
+    in property <Time> time: { hour: 12 };
 
     property <bool> minutes-selected;
-    property <bool> am-selected: root.current-time.hour <= 12;
+    property <bool> am-selected: true;
     property <[int]> twelf-hour-model: [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
     property <[int]> twenty-four-hour-model: [
         12,
@@ -340,7 +358,7 @@ export component TimePickerBase {
         9,
         10,
         11,
-        24,
+        0,
         13,
         14,
         15,
@@ -355,27 +373,55 @@ export component TimePickerBase {
     ];
     property <[int]> minute-model: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
     property <[int]> current-model: root.get-current-model();
+    property <int> current-item: root.minutes-selected ? root.index-of-minute(root.current-time.minute) : root.index-of-hour(root.current-time.hour);
+    property <Time> current-time: root.time;
+    property <int> time-picker-hour: hour-time-picker.text.to-float();
+    property <int> time-picker-minute: minute-time-picker.text.to-float();
+
+    pure public function ok-enabled() -> bool {
+        if root.selection-mode {
+            return root.current-time.hour <= 23 && root.current-time.minute <= 60;
+        }
+        if root.twenty-four-hour {
+            return root.time-picker-hour <= 23 && root.time-picker-minute <= 60;
+        }
+        root.time-picker-hour <= 12 && root.time-picker-minute <= 60
+    }
+
+    public function get-current-time() -> Time {
+        if root.selection-mode {
+            if !root.twenty-four-hour && !root.am-selected {
+                if root.current-time.hour == 12 {
+                    return { hour: 0, minute: root.current-time.minute };
+                }
+                return { hour: root.current-time.hour + 12, minute: root.current-time.minute };
+            }
+            return root.current-time;
+        }
+        return { hour: root.time-picker-hour, minute: root.time-picker-minute };
+    }
 
     min-width: layout.min-width;
     min-height: layout.min-height;
 
     layout := VerticalLayout {
-        spacing: root.style.spacing;
+        spacing: root.style.vertical-spacing;
         HorizontalLayout {
-            spacing: root.style.spacing;
+            spacing: root.style.horizontal-spacing;
             alignment: center;
 
-            TimePickerInput {
+            hour-time-picker := TimePickerInput {
                 read-only: root.selection-mode;
                 checked: self.read-only && !root.minutes-selected;
-                value: root.current-time.hour;
+                text: root.current-time.hour;
                 style: root.style.input-style;
+
+                accessible-role: AccessibleRole.text-input;
+                accessible-value: self.text;
+                accessible-label: "hour";
 
                 clicked => {
                     root.minutes-selected = false;
-                }
-                accepted(value) => {
-                    root.update-time(value);
                 }
             }
 
@@ -387,18 +433,18 @@ export component TimePickerBase {
                 vertical-alignment: center;
             }
 
-            TimePickerInput {
+            minute-time-picker := TimePickerInput {
                 read-only: root.selection-mode;
                 checked: self.read-only && root.minutes-selected;
-                value: root.current-time.minute;
+                text: root.current-time.minute;
                 style: root.style.input-style;
+
+                accessible-role: AccessibleRole.text-input;
+                accessible-value: self.text;
+                accessible-label: "minute";
 
                 clicked => {
                     root.minutes-selected = true;
-                }
-
-                accepted(value) => {
-                    root.update-time(value);
                 }
             }
 
@@ -407,12 +453,12 @@ export component TimePickerBase {
                 style: root.style.period-selector-style;
 
                 update-period(am) => {
-                    root.update-period(am);
+                    root.am-selected = am;
                 }
             }
         }
 
-        if root.selection-mode : HorizontalLayout {
+        if root.selection-mode: HorizontalLayout {
             alignment: center;
 
             Clock {
@@ -421,6 +467,9 @@ export component TimePickerBase {
                 model: root.current-model;
                 style: root.style.clock-style;
                 two-columns: !root.minutes-selected && root.twenty-four-hour;
+                current-item: root.current-item;
+                total: root.minutes-selected ? 60 : root.twenty-four-hour ? 24 : 12;
+                current-value: root.minutes-selected ? root.current-time.minute : root.current-time.hour;
 
                 curren-item-changed(index) => {
                     root.update-time-by-item(index);
@@ -433,30 +482,57 @@ export component TimePickerBase {
         }
     }
 
-    function update-period(am: bool) {
-        if am && root.current-time.hour > 12 {
-            root.current-time.hour -= 12;
+    changed selection-mode => {
+        if !root.selection-mode {
             return;
         }
-        if !am && root.current-time.hour <= 12 {
-            root.current-time.hour += 12;
+        if root.twenty-four-hour {
+            root.update-time(root.time-picker-hour <= 23 ? root.time-picker-hour : 23, root.time-picker-minute <= 60 ? root.time-picker-minute : 60);
         }
-    }
 
+        root.update-time(root.time-picker-hour <= 12 ? root.time-picker-hour : 12, root.time-picker-minute <= 60 ? root.time-picker-minute : 60);
+    }
+    
+    changed time => {
+        root.current-time = root.time;
+    }
+    
     function update-time-by-item(index: int) {
-        root.update-time(root.current-model[index]);
+        root.update-time-by-value(root.current-model[index]);
     }
 
-    function update-time(value: int) {
+    function update-time-by-value(value: int) {
         if root.minutes-selected {
-            root.current-time.minute = value;
+            root.update-time(root.current-time.hour, value);
             return;
         }
-        if root.twenty-four-hour || root.am-selected {
-            root.current-time.hour = value;
-            return;
+        root.update-time(value, root.current-time.minute)
+    }
+
+    function update-time(hour: int, minute: int) {
+        root.current-time = { hour: hour, minute: minute };
+        hour-time-picker.text = root.current-time.hour;
+        minute-time-picker.text = minute;
+    }
+
+    pure function index-of-minute(minute: int) -> int {
+        if mod(minute, 5) != 0 {
+            return -1;
         }
-        root.current-time.hour = value;
+        minute / 5
+    }
+
+    pure function index-of-hour(hour: int) -> int {
+        if hour == 12 {
+            return 0;
+        }
+        if hour == 0 {
+            return 12;
+        }
+        if !root.twenty-four-hour && hour > 12 {
+            return hour - 12;
+        }
+        return hour;
     }
 
     pure function get-current-model() -> [int] {

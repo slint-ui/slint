@@ -4,8 +4,7 @@
 import { Time, TimePickerBase } from "../common/time-picker-base.slint";
 import { VerticalBox } from "./layouts.slint";
 import { Button } from "./button.slint";
-import { CupertinoPalette, CupertinoFontSettings, Icons } from "styling.slint";
-import { MenuBorder } from "./components.slint";
+import { Palette } from "./std-widgets-impl.slint";
 
 export { Time }
 
@@ -21,7 +20,10 @@ export component TimePicker {
 
     min-width: content-layer.min-width;
     min-height: content-layer.min-height;
-    background-layer := MenuBorder { }
+    background-layer := Rectangle {
+        border-radius: 8px;
+        background: Palette.control-background;
+    }
 
     content-layer := VerticalBox {
         spacing: 8px;
@@ -30,30 +32,28 @@ export component TimePicker {
             text: root.title;
             horizontal-alignment: left;
             overflow: elide;
-            font-size: CupertinoFontSettings.body.font-size;
-            font-weight: CupertinoFontSettings.body.font-weight;
-            color: CupertinoPalette.foreground;
+            color: Palette.foreground;
         }
 
         base := TimePickerBase {
             style: {
-                foreground: CupertinoPalette.foreground,
+                foreground: Palette.foreground,
                 vertical-spacing: 8px,
                 horizontal-spacing: 4px,
                 clock-style: {
-                    background: CupertinoPalette.alternate-control-background,
-                    foreground: CupertinoPalette.accent-background,
+                    background: Palette.alternate-background,
+                    foreground: Palette.accent-background,
                     time-selector-style: {
-                        foreground: CupertinoPalette.foreground,
-                        foreground-selected: CupertinoPalette.accent-foreground,
-                        font-size: CupertinoFontSettings.body-strong.font-size,
-                        font-weight: CupertinoFontSettings.body-strong.font-weight
+                        foreground: Palette.foreground,
+                        foreground-selected: Palette.accent-foreground,
+                        font-size: 12 * 0.0625rem,
+                        font-weight: 400
                     }
                 },
                 input-style: {
-                    background: CupertinoPalette.alternate-control-background,
-                    background-selected: CupertinoPalette.accent-background,
-                    foreground: CupertinoPalette.foreground,
+                    background: Palette.alternate-background,
+                    background-selected: Palette.accent-background,
+                    foreground: Palette.foreground,
                     border-radius: 8px,
                     font-size: 57 * 0.0625rem,
                     font-weight: 400
@@ -61,13 +61,13 @@ export component TimePicker {
                 period-selector-style: {
                     border-radius: 8px,
                     border-width: 1px,
-                    border-brush: CupertinoPalette.border,
+                    border-brush: Palette.border,
                     item-style: {
-                        font-size: CupertinoFontSettings.body-strong.font-size,
-                        font-weight: CupertinoFontSettings.body-strong.font-weight,
-                        foreground: CupertinoPalette.foreground,
-                        background-selected: CupertinoPalette.accent-background,
-                        foreground-selected: CupertinoPalette.accent-foreground
+                        font-size: 14 * 0.0625rem,
+                        font-weight: 400,
+                        foreground: Palette.foreground,
+                        background-selected: Palette.accent-background,
+                        foreground-selected: Palette.accent-foreground
                     }
                 }
             };
@@ -77,7 +77,6 @@ export component TimePicker {
             spacing: 8px;
 
             Button {
-                icon: base.selection-mode ? Icons.keyboard : Icons.clock;
                 colorize-icon: true;
                 accessible-label: "Toggle input picker";
 
