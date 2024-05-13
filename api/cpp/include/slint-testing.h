@@ -195,7 +195,9 @@ public:
         }
     }
 
-    void set_accessible_increase() const
+    /// Invokes the increase accessibility action of that element
+    /// (`accessible-action-increment`).
+    void invoke_accessible_increment_action() const
     {
         if (auto item = private_api::upgrade_item_weak(inner)) {
             union IncreaseActionHelper {
@@ -212,7 +214,9 @@ public:
         }
     }
 
-    void set_accessible_decrease() const
+    /// Invokes the decrease accessibility action of that element
+    /// (`accessible-action-decrement`).    
+    void invoke_accessible_decrement_action() const
     {
         if (auto item = private_api::upgrade_item_weak(inner)) {
             union DecreaseActionHelper {
