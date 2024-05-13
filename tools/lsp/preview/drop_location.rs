@@ -48,15 +48,37 @@ impl TextOffsetAdjustment {
     }
 
     pub fn adjust(&self, offset: u32) -> u32 {
-        // This is a bit simplistic: We ignore special cases like the offset
-        // being in the area that gets removed.
-        // Worst case: Some unexpected element gets selected. We can live with that.
-        if offset >= self.start_offset {
-            let old_length = self.end_offset - self.start_offset;
+        // This is a bit simplistic... Worst case: Some unexpected element gets selected. We can live with that.
+
+        debug_assert!(self.end_offset >= self.start_offset);
+        let old_length = self.end_offset - self.start_offset;
+
+        if offset >= self.end_offset {
             offset + self.new_text_length - old_length
+        } else if offset >= self.start_offset {
+            (offset as i64 + self.new_text_length as i64 - old_length as i64).clamp(
+                self.start_offset as i64,
+                self.end_offset.min(self.start_offset + self.new_text_length) as i64,
+            ) as u32
         } else {
             offset
         }
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct TextOffsetAdjustments(Vec<TextOffsetAdjustment>);
+
+impl TextOffsetAdjustments {
+    pub fn add_adjustment(&mut self, adjustment: TextOffsetAdjustment) {
+        self.0.push(adjustment);
+    }
+
+    pub fn adjust(&self, input: u32) -> u32 {
+        let input_ = i64::from(input);
+        let total_adjustment =
+            self.0.iter().fold(0_i64, |acc, a| acc + i64::from(a.adjust(input)) - input_);
+        (input_ + total_adjustment) as u32
     }
 }
 
@@ -1003,4 +1025,68 @@ pub fn move_element_to(
         common::create_workspace_edit_from_source_files(edits)?,
         DropData { selection_offset, path },
     ))
+}
+
+#[test]
+fn test_text_offset_adjustments() {
+    let mut a = TextOffsetAdjustments::default();
+    // same length change
+    a.add_adjustment(TextOffsetAdjustment {
+        start_offset: 10,
+        end_offset: 20,
+        new_text_length: 10,
+    });
+    // insert
+    a.add_adjustment(TextOffsetAdjustment { start_offset: 25, end_offset: 25, new_text_length: 1 });
+    // smaller replacment
+    a.add_adjustment(TextOffsetAdjustment { start_offset: 30, end_offset: 40, new_text_length: 5 });
+    // longer replacement
+    a.add_adjustment(TextOffsetAdjustment {
+        start_offset: 50,
+        end_offset: 60,
+        new_text_length: 20,
+    });
+    // deletion
+    a.add_adjustment(TextOffsetAdjustment { start_offset: 70, end_offset: 80, new_text_length: 0 });
+
+    assert_eq!(a.adjust(0), 0);
+    assert_eq!(a.adjust(20), 20);
+    assert_eq!(a.adjust(25), 26);
+    assert_eq!(a.adjust(30), 31);
+    assert_eq!(a.adjust(40), 36);
+    assert_eq!(a.adjust(60), 66);
+    assert_eq!(a.adjust(70), 76);
+    assert_eq!(a.adjust(80), 76);
+}
+
+#[test]
+fn test_text_offset_adjustments_reverse() {
+    let mut a = TextOffsetAdjustments::default();
+    // deletion
+    a.add_adjustment(TextOffsetAdjustment { start_offset: 70, end_offset: 80, new_text_length: 0 });
+    // longer replacement
+    a.add_adjustment(TextOffsetAdjustment {
+        start_offset: 50,
+        end_offset: 60,
+        new_text_length: 20,
+    });
+    // smaller replacment
+    a.add_adjustment(TextOffsetAdjustment { start_offset: 30, end_offset: 40, new_text_length: 5 });
+    // insert
+    a.add_adjustment(TextOffsetAdjustment { start_offset: 25, end_offset: 25, new_text_length: 1 });
+    // same length change
+    a.add_adjustment(TextOffsetAdjustment {
+        start_offset: 10,
+        end_offset: 20,
+        new_text_length: 10,
+    });
+
+    assert_eq!(a.adjust(0), 0);
+    assert_eq!(a.adjust(20), 20);
+    assert_eq!(a.adjust(25), 26);
+    assert_eq!(a.adjust(30), 31);
+    assert_eq!(a.adjust(40), 36);
+    assert_eq!(a.adjust(60), 66);
+    assert_eq!(a.adjust(70), 76);
+    assert_eq!(a.adjust(80), 76);
 }
