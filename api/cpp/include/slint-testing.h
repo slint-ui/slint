@@ -215,7 +215,7 @@ public:
     }
 
     /// Invokes the decrease accessibility action of that element
-    /// (`accessible-action-decrement`).    
+    /// (`accessible-action-decrement`).
     void invoke_accessible_decrement_action() const
     {
         if (auto item = private_api::upgrade_item_weak(inner)) {
