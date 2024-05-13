@@ -174,4 +174,20 @@ impl ElementHandle {
             })
             .unwrap_or_default()
     }
+
+    /// Increase value of the element's `accessible-action-increment` property. Note that you can only set this
+    /// property if it is declared in your Slint code.
+    pub fn set_accessible_increase(&self) {
+        if let Some(item) = self.0.upgrade() {
+            item.accessible_action(&AccessibilityAction::Increment)
+        }
+    }
+
+    /// Decrease value of the element's `accessible-action-decrease` property. Note that you can only set this
+    /// property if it is declared in your Slint code.
+    pub fn set_accessible_decrease(&self) {
+        if let Some(item) = self.0.upgrade() {
+            item.accessible_action(&AccessibilityAction::Decrement)
+        }
+    }
 }

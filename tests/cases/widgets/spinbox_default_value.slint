@@ -41,6 +41,12 @@ assert_eq!(spinbox.accessible_value_maximum(), Some(100f32));
 assert_eq!(spinbox.accessible_value_minimum(), Some(10f32));
 assert_eq!(spinbox.accessible_value_step(), Some(0.9));
 
+spinbox.set_accessible_increase();
+assert_eq!(spinbox.accessible_value().unwrap(), "11");
+
+spinbox.set_accessible_decrease();
+assert_eq!(spinbox.accessible_value().unwrap(), "10");
+
 
 ```
 
@@ -53,6 +59,12 @@ auto spinbox = label_search[0];
 assert_eq(spinbox.accessible_value_maximum().value(), 100);
 assert_eq(spinbox.accessible_value_minimum().value(), 10);
 assert_eq(spinbox.accessible_value_step().value(), 0.9);
+
+spinbox.set_accessible_increase();
+assert_eq(spinbox.accessible_value().value(), "11");
+
+spinbox.set_accessible_decrease();
+assert_eq(spinbox.accessible_value().value(), "10");
 
 ```
 
