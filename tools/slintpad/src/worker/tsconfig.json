@@ -2,7 +2,7 @@
     "extends": "../../tsconfig.default.json",
     "compilerOptions": {
         "lib": ["webworker", "es6"],
-        "types": ["json-schema", "vscode"]
+        "types": ["vscode"]
     },
     "include": ["./*.mjs", "./*.ts"]
 }
