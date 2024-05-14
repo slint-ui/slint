@@ -20,7 +20,6 @@ Add the following code inside the <span class="hljs-title">MainWindow</span> com
 :::{literalinclude} main_game_logic_in_rust.rs
 :language: slint
 :lines: 107-115
-:lineno-match:
 :::
 
 This change adds a way for the <span class="hljs-title">MainWindow</span> to call to the C++ code that it should
@@ -34,7 +33,6 @@ Add the following handler in the <span class="hljs-title">MainWindow</span> `for
 :::{literalinclude} main_game_logic_in_rust.rs
 :language: slint
 :lines: 126-143
-:lineno-match:
 :::
 
 
@@ -47,7 +45,6 @@ Insert this code before the `main_window->run()` call:
 
 :::{literalinclude} main_game_logic.cpp
 :lines: 29-65
-:lineno-match:
 :::
 
 The code uses a [ComponentWeakHandle](https://slint.dev/docs/cpp/api/classslint_1_1ComponentWeakHandle) pointer of the `main_window`. This is
@@ -65,7 +62,6 @@ Change the contents of `memory.slint` to signal to the JavaScript code when the 
 :::{literalinclude} main_game_logic_in_rust.rs
 :language: slint
 :lines: 107-115
-:lineno-match:
 :::
 
 This change adds a way for the <span class="hljs-title">MainWindow</span> to call to the JavaScript code that it should
@@ -78,7 +74,6 @@ Add the following handler in the <span class="hljs-title">MainWindow</span> `for
 
 :::{literalinclude} main_game_logic_in_rust.rs
 :lines: 126-143
-:lineno-match:
 :::
 
 On the JavaScript side, now add a handler to the `check_if_pair_solved` callback, that checks if a player opened two tiles. If they match, the code sets the `solved` property to true in the model. If they don't
@@ -89,7 +84,6 @@ Insert this code before the `mainWindow.run()` call:
 
 :::{literalinclude} main_game_logic.js
 :lines: 23-63
-:lineno-match:
 :::
 
 ::::
@@ -101,7 +95,6 @@ Add the following code inside the <span class="hljs-title">MainWindow</span> com
 
 :::{literalinclude} main_game_logic_in_rust.rs
 :lines: 107-115
-:lineno-match:
 :::
 
 This change adds a way for the <span class="hljs-title">MainWindow</span> to call to the Rust code that it should
@@ -114,7 +107,6 @@ Add the following handler in the <span class="hljs-title">MainWindow</span> `for
 
 :::{literalinclude} main_game_logic_in_rust.rs
 :lines: 126-143
-:lineno-match:
 :::
 
 On the Rust side, you can now add a handler to the `check_if_pair_solved` callback, that checks if a player opened two tiles.
@@ -126,7 +118,6 @@ Add this code before the `main_window.run().unwrap();` call:
 
 :::{literalinclude} main_game_logic_in_rust.rs
 :lines: 21-52
-:lineno-match:
 :::
 
 The code uses a [Weak](https://slint.dev/docs/rust/slint/struct.Weak) pointer of the `main_window`. This is

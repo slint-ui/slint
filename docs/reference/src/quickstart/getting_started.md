@@ -32,7 +32,6 @@ Change the content of `src/main.cpp` to the following:
 
 :::{literalinclude} main_initial.cpp
 :lines: 9-13
-:lineno-match:
 :::
 
 Also in `CMakeLists.txt` the line
@@ -44,7 +43,6 @@ Change the contents of `ui/appwindow.slint` to the following:
 :::{literalinclude} appwindow.slint
 :language: slint
 :lines: 6-11
-:lineno-match:
 :::
 
 Configure with CMake:
@@ -113,7 +111,6 @@ Replace the contents of `src/main.js` with the following:
 
 :::{literalinclude} main_initial.js
 :lines: 6-10
-:lineno-match:
 :::
 
 The `slint.loadFile` method resolves files from the process's current working directory, so from the `package.json` file's location.
@@ -123,7 +120,6 @@ Replace the contents of `ui/appwindow.slint` with the following:
 :::{literalinclude} memory.slint
 :language: slint
 :lines: 6-11
-:lineno-match:
 :::
 
 ### Run the application
@@ -158,7 +154,6 @@ Replace the contents of `src/main.rs` with the following:
 
 :::{literalinclude} main_initial.rs
 :lines: 6-17
-:lineno-match:
 :::
 
 ### Run the application

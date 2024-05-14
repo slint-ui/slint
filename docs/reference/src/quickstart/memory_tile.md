@@ -40,7 +40,6 @@ Copy the following code inside of the `slint!` macro, replacing the current cont
 :::{literalinclude} memory_tile.slint
 :language: slint
 :lines: 5-19
-:lineno-match:
 :::
 
 This exports the <span class="hljs-title">MainWindow</span> component so that the game logic code can access it later.

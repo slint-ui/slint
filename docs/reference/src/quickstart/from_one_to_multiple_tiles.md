@@ -46,7 +46,6 @@ First, add the tile data structure definition at the top of the `slint!` macro:
 :::{literalinclude} main_multiple_tiles.rs
 :language: slint
 :lines: 11-15
-:lineno-match:
 :::
 
 ::::{tab-set}
@@ -76,7 +75,6 @@ Next, replace the _export component <span class="hljs-title">MainWindow</span> i
 :::{literalinclude} main_multiple_tiles.rs
 :language: slint
 :lines: 63-90
-:lineno-match:
 :::
 
 The <code><span class="hljs-keyword">for</span> tile\[i\] <span class="hljs-keyword">in</span> memory_tiles:</code> syntax declares a variable `tile` which contains the data of one element from the `memory_tiles` array,

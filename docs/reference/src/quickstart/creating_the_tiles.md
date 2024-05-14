@@ -12,7 +12,6 @@ Change the `main` function and includes in `src/main.cpp` to the following:
 
 :::{literalinclude} main_tiles_from_cpp.cpp
 :lines: 10-28
-:lineno-match:
 :::
 
 The code takes the list of tiles, duplicates it, and shuffles it, accessing the `memory_tiles` property through the C++ code.
@@ -29,7 +28,6 @@ Change `main.js` to the following:
 
 :::{literalinclude} main_tiles_from_js.js
 :lines: 6-21
-:lineno-match:
 :::
 
 The code takes the list of tiles, duplicates it, and shuffles it, accessing the `memory_tiles` property through the JavaScript code.
@@ -51,7 +49,6 @@ Change the main function to the following:
 
 :::{literalinclude} main_tiles_from_rust.rs
 :lines: 6-26
-:lineno-match:
 :::
 
 The code takes the list of tiles, duplicates it, and shuffles it, accessing the `memory_tiles` property through the Rust code.
