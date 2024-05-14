@@ -1,4 +1,7 @@
 /*
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
  * Expands a specific tab of sphinx-tabs.
  * Usage:
  * - docs.readthedocs.io/?tab=Name
