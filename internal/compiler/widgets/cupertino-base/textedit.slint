@@ -5,7 +5,7 @@ import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 import { ScrollBar } from "scrollview.slint";
 import { FocusBorder } from "components.slint";
 
-// FIXME: After auto-hiding of scrollbars is implemented, remove and use `ScrollView` from `scrollview.slint`
+// FIXME: After auto-hiding of scrollbars is implemented, use TextEditBase
 component ScrollView {
     in property <bool> enabled: true;
     out property <length> visible-width <=> i-flickable.width;
