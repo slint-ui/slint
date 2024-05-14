@@ -195,6 +195,44 @@ public:
         }
     }
 
+    /// Invokes the increase accessibility action of that element
+    /// (`accessible-action-increment`).
+    void invoke_accessible_increment_action() const
+    {
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            union IncreaseActionHelper {
+                cbindgen_private::AccessibilityAction action;
+                IncreaseActionHelper()
+                {
+                    action.tag = cbindgen_private::AccessibilityAction::Tag::Increment;
+                }
+                ~IncreaseActionHelper() { }
+
+            } action;
+            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
+                                                           &action.action);
+        }
+    }
+
+    /// Invokes the decrease accessibility action of that element
+    /// (`accessible-action-decrement`).
+    void invoke_accessible_decrement_action() const
+    {
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            union DecreaseActionHelper {
+                cbindgen_private::AccessibilityAction action;
+                DecreaseActionHelper()
+                {
+                    action.tag = cbindgen_private::AccessibilityAction::Tag::Decrement;
+                }
+                ~DecreaseActionHelper() { }
+
+            } action;
+            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
+                                                           &action.action);
+        }
+    }
+
     /// Invokes the default accessibility action of that element
     /// (`accessible-action-default`).
     void invoke_accessible_default_action() const
