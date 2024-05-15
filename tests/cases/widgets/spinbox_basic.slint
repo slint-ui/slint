@@ -23,6 +23,7 @@ export component TestCase inherits Window {
 use slint::{LogicalPosition, platform::WindowEvent, platform::Key};
 use std::cell::RefCell;
 use std::rc::Rc;
+use i_slint_backend_testing::mock_elapsed_time;
 
 let instance = TestCase::new().unwrap();
 
@@ -44,6 +45,7 @@ slint_testing::send_keyboard_char(&instance, Key::Return.into(), true);
 
 assert_eq!(instance.get_value(), 40);
 assert_eq!(&*edits.borrow(), &[40]);
+
 edits.borrow_mut().clear();
 
 // This position happens to work with all styles
@@ -69,7 +71,13 @@ assert_eq!(instance.get_value(), 0);
 assert_eq!(&*edits.borrow(), &[]);
 edits.borrow_mut().clear();
 
+instance.set_value(30);
+mock_elapsed_time(500);
 
+let mut text_input_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "spinbox-textinput");
+let text_input = text_input_search.next().unwrap();
+assert_eq!(text_input.accessible_value().unwrap(), "30");
+edits.borrow_mut().clear();
 
 
 ```
