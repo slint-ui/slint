@@ -3,107 +3,75 @@
 
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
 import { ScrollView } from "scrollview.slint";
+import { TextEditBase } from "../common/textedit-base.slint";
 
 export component TextEdit {
-    in property <TextWrap> wrap <=> text-input.wrap;
-    in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
-    in property <bool> read-only <=> text-input.read-only;
-    in property <length> font-size <=> text-input.font-size;
-    in property <bool> enabled <=> text-input.enabled;
-    in-out property <bool> has-focus: text-input.has-focus;
-    out property <length> visible-width <=> scroll-view.visible-width;
-    out property <length> visible-height <=> scroll-view.visible-height;
-    in-out property <string> text <=> text-input.text;
-    in-out property <length> viewport-x <=> scroll-view.viewport-x;
-    in-out property <length> viewport-y <=> scroll-view.viewport-y;
-    in-out property <length> viewport-width <=> scroll-view.viewport-width;
-    in-out property <length> viewport-height <=> scroll-view.viewport-height;
+    in property <TextWrap> wrap <=> base.wrap;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
+    in property <bool> read-only <=> base.read-only;
+    in property <length> font-size <=> base.font-size;
+    in property <bool> enabled <=> base.enabled;
+    in-out property <bool> has-focus: base.has-focus;
+    out property <length> visible-width <=> base.visible-width;
+    out property <length> visible-height <=> base.visible-height;
+    in-out property <string> text <=> base.text;
+    in-out property <length> viewport-x <=> base.viewport-x;
+    in-out property <length> viewport-y <=> base.viewport-y;
+    in-out property <length> viewport-width <=> base.viewport-width;
+    in-out property <length> viewport-height <=> base.viewport-height;
 
     callback edited(/* text */ string);
     accessible-role: AccessibleRole.text-input;
     accessible-value <=> text;
 
     public function set-selection-offsets(start: int, end: int) {
-        text-input.set-selection-offsets(start, end);
+        base.set-selection-offsets(start, end);
     }
 
     public function select-all() {
-        text-input.select-all();
+        base.select-all();
     }
 
     public function clear-selection() {
-        text-input.clear-selection();
+        base.clear-selection();
     }
 
     public function cut() {
-        text-input.cut();
+        base.cut();
     }
 
     public function copy() {
-        text-input.copy();
+        base.copy();
     }
 
     public function paste() {
-        text-input.paste();
+        base.paste();
     }
 
-    forward-focus: text-input;
+    forward-focus: base;
     horizontal-stretch: 1;
     vertical-stretch: 1;
 
     states [
-        disabled when !root.enabled : {
+        disabled when !root.enabled: {
             root.opacity: 0.5;
         }
     ]
 
-    background := Rectangle {
+    base := TextEditBase {
         width: 100%;
         height: 100%;
         border-radius: 8px;
         background: CosmicPalette.control-background;
         border-width: 1px;
         border-color: CosmicPalette.control-divider;
-
-        scroll-view := ScrollView {
-            x: 12px;
-            y: 12px;
-            width: parent.width - 24px;
-            height: parent.height - 24px;
-            viewport-width: root.wrap == TextWrap.word-wrap ? self.visible-width : max(self.visible-width, text-input.preferred-width);
-            viewport-height: max(self.visible-height, text-input.preferred-height);
-
-            text-input := TextInput {
-                enabled: true;
-                color: CosmicPalette.foreground;
-                font-size: CosmicFontSettings.body.font-size;
-                font-weight: CosmicFontSettings.body.font-weight;
-                selection-background-color: CosmicPalette.selection-background;
-                selection-foreground-color: CosmicPalette.accent-foreground;
-                single-line: false;
-                wrap: word-wrap;
-
-                edited => {
-                    root.edited(self.text);
-                }
-
-                cursor-position-changed(cpos) => {
-                    if (cpos.x + root.viewport-x < 12px) {
-                        root.viewport-x = min(0px, max(parent.visible-width - self.width,  - cpos.x + 12px ));
-                    } else if (cpos.x + root.viewport-x > parent.visible-width - 12px) {
-                        root.viewport-x = min(0px, max(parent.visible-width - self.width,  parent.visible-width - cpos.x - 12px ));
-                    }
-                    if (cpos.y + root.viewport-y < 12px) {
-                        root.viewport-y = min(0px, max(parent.visible-height - self.height,  - cpos.y + 12px ));
-                    } else if (cpos.y + root.viewport-y > parent.visible-height - 12px - 20px) {
-                        // FIXME: font-height hardcoded to 20px
-                        root.viewport-y = min(0px, max(parent.visible-height - self.height,  parent.visible-height - cpos.y - 12px - 20px));
-                    }
-                }
-            }
-        }
-
-        if (root.has-focus && root.enabled) : Rectangle {
+        scroll-view-padding: 12px;
+        foreground: CosmicPalette.foreground;
+        font-size: CosmicFontSettings.body.font-size;
+        font-weight: CosmicFontSettings.body.font-weight;
+        selection-background-color: CosmicPalette.selection-background;
+        selection-foreground-color: CosmicPalette.selection-foreground;
+        if root.has-focus && root.enabled: Rectangle {
             width: parent.width + 2px;
             height: parent.height + 2px;
             border-radius: parent.border-radius + 2px;
