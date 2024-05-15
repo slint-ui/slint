@@ -8,12 +8,12 @@ import { FocusBorder } from "components.slint";
 // FIXME: After auto-hiding of scrollbars is implemented, use TextEditBase
 component ScrollView {
     in property <bool> enabled: true;
-    out property <length> visible-width <=> i-flickable.width;
-    out property <length> visible-height <=> i-flickable.height;
-    in-out property <length> viewport-width <=> i-flickable.viewport-width;
-    in-out property <length> viewport-height <=> i-flickable.viewport-height;
-    in-out property <length> viewport-x <=> i-flickable.viewport-x;
-    in-out property <length> viewport-y <=> i-flickable.viewport-y;
+    out property <length> visible-width <=> flickable.width;
+    out property <length> visible-height <=> flickable.height;
+    in-out property <length> viewport-width <=> flickable.viewport-width;
+    in-out property <length> viewport-height <=> flickable.viewport-height;
+    in-out property <length> viewport-x <=> flickable.viewport-x;
+    in-out property <length> viewport-y <=> flickable.viewport-y;
     // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
     in-out property <bool> has-focus;
 
@@ -24,98 +24,98 @@ component ScrollView {
     preferred-height: 100%;
     preferred-width: 100%;
 
-    i-flickable := Flickable {
+    flickable := Flickable {
         x: 2px;
         y: 2px;
         interactive: false;
-        viewport-y <=> i-vertical-bar.value;
-        viewport-x <=> i-horizontal-bar.value;
-        width:  parent.width - 16px;
+        viewport-y <=> vertical-bar.value;
+        viewport-x <=> horizontal-bar.value;
+        width: parent.width - 16px;
         height: 100%;
 
         @children
     }
 
-    i-vertical-bar := ScrollBar {
+    vertical-bar := ScrollBar {
         enabled: root.enabled;
-        x: parent.width  - self.width;
+        x: parent.width - self.width;
         y: 0;
         width: self.has-hover ? 20px : 12px;
-        height: i-horizontal-bar.visible ? parent.height - i-horizontal-bar.height : parent.height;
+        height: horizontal-bar.visible ? parent.height - horizontal-bar.height : parent.height;
         horizontal: false;
-        maximum:  i-flickable.viewport-height - i-flickable.height;
-        page-size:  i-flickable.height;
-        visible: i-flickable.viewport-height > i-flickable.height;
+        maximum: flickable.viewport-height - flickable.height;
+        page-size: flickable.height;
+        visible: flickable.viewport-height > flickable.height;
     }
 
-    i-horizontal-bar := ScrollBar {
+    horizontal-bar := ScrollBar {
         enabled: root.enabled;
-        width: i-vertical-bar.visible ? parent.width - i-vertical-bar.width : parent.width;
+        width: vertical-bar.visible ? parent.width - vertical-bar.width : parent.width;
         height: self.has-hover ? 20px : 12px;
         y: parent.height - self.height;
         x: 0;
         horizontal: true;
-        maximum:  i-flickable.viewport-width - i-flickable.width;
-        page-size:  i-flickable.width;
-        visible: i-flickable.viewport-width > i-flickable.width;
+        maximum: flickable.viewport-width - flickable.width;
+        page-size: flickable.width;
+        visible: flickable.viewport-width > flickable.width;
     }
 }
 
 export component TextEdit {
-    in property <TextWrap> wrap <=> i-text-input.wrap;
-    in property <TextHorizontalAlignment> horizontal-alignment <=> i-text-input.horizontal-alignment;
-    in property <bool> read-only <=> i-text-input.read-only;
-    in property <length> font-size <=> i-text-input.font-size;
-    in property <bool> enabled <=> i-text-input.enabled;
-    out property <length> visible-width <=> i-scroll-view.visible-width;
-    out property <length> visible-height <=> i-scroll-view.visible-height;
-    in-out property <bool> has-focus: i-text-input.has-focus;
-    in-out property <string> text <=> i-text-input.text;
-    in-out property <length> viewport-x <=> i-scroll-view.viewport-x;
-    in-out property <length> viewport-y <=> i-scroll-view.viewport-y;
-    in-out property <length> viewport-width <=> i-scroll-view.viewport-width;
-    in-out property <length> viewport-height <=> i-scroll-view.viewport-height;
+    in property <TextWrap> wrap <=> text-input.wrap;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
+    in property <bool> read-only <=> text-input.read-only;
+    in property <length> font-size <=> text-input.font-size;
+    in property <bool> enabled <=> text-input.enabled;
+    out property <length> visible-width <=> scroll-view.visible-width;
+    out property <length> visible-height <=> scroll-view.visible-height;
+    in-out property <bool> has-focus: text-input.has-focus;
+    in-out property <string> text <=> text-input.text;
+    in-out property <length> viewport-x <=> scroll-view.viewport-x;
+    in-out property <length> viewport-y <=> scroll-view.viewport-y;
+    in-out property <length> viewport-width <=> scroll-view.viewport-width;
+    in-out property <length> viewport-height <=> scroll-view.viewport-height;
+    in property <string> placeholder-text;
 
     callback edited(/* text */ string);
     accessible-role: AccessibleRole.text-input;
     accessible-value <=> text;
 
-
-    public function set-selection-offsets(start: int, end: int) {
-        i-text-input.set-selection-offsets(start, end);
+    public function set-selection-offsets(start: int,end: int){
+        text-input.set-selection-offsets(start, end);
     }
 
-    public function select-all() {
-        i-text-input.select-all();
+    public function select-all(){
+        text-input.select-all();
     }
 
-    public function clear-selection() {
-        i-text-input.clear-selection();
+    public function clear-selection(){
+        text-input.clear-selection();
     }
 
-    public function cut() {
-        i-text-input.cut();
+    public function cut(){
+        text-input.cut();
     }
 
-    public function copy() {
-        i-text-input.copy();
+    public function copy(){
+        text-input.copy();
     }
 
-    public function paste() {
-        i-text-input.paste();
+    public function paste(){
+        text-input.paste();
     }
 
-    forward-focus: i-text-input;
+    forward-focus: text-input;
     horizontal-stretch: 1;
     vertical-stretch: 1;
 
     states [
-        disabled when !root.enabled : {
-            i-text-input.color: CupertinoPalette.foreground-secondary;
-            i-background.background: CupertinoPalette.tertiary-control-background;
+        disabled when !root.enabled: {
+            text-input.color: CupertinoPalette.foreground-secondary;
+            background.background: CupertinoPalette.tertiary-control-background;
         }
-        focused when root.has-focus : {
-            i-background.background: CupertinoPalette.control-background;
+        focused when root.has-focus: {
+            background.background: CupertinoPalette.control-background;
         }
     ]
 
@@ -127,21 +127,21 @@ export component TextEdit {
         has-focus: root.has-focus;
     }
 
-    i-background := Rectangle {
+    background := Rectangle {
         background: CupertinoPalette.alternate-background;
         border-color: CupertinoPalette.border;
         border-width: 1px;
     }
 
-    i-scroll-view := ScrollView {
+    scroll-view := ScrollView {
         x: 8px;
         y: 8px;
         width: parent.width - 16px;
         height: parent.height - 16px;
-        viewport-width: root.wrap == TextWrap.word-wrap ? self.visible-width : max(self.visible-width, i-text-input.preferred-width);
-        viewport-height: max(self.visible-height, i-text-input.preferred-height);
+        viewport-width: root.wrap == TextWrap.word-wrap ? self.visible-width : max(self.visible-width, text-input.preferred-width);
+        viewport-height: max(self.visible-height, text-input.preferred-height);
 
-        i-text-input := TextInput {
+        text-input := TextInput {
             enabled: true;
             color: CupertinoPalette.foreground;
             font-size: CupertinoFontSettings.body.font-size;
@@ -157,17 +157,33 @@ export component TextEdit {
 
             cursor-position-changed(cpos) => {
                 if (cpos.x + root.viewport-x < 12px) {
-                    root.viewport-x = min(0px, max(parent.visible-width - self.width,  - cpos.x + 12px ));
+                    root.viewport-x = min(0px, max(parent.visible-width - self.width,  - cpos.x + 12px));
                 } else if (cpos.x + root.viewport-x > parent.visible-width - 12px) {
-                    root.viewport-x = min(0px, max(parent.visible-width - self.width,  parent.visible-width - cpos.x - 12px ));
+                    root.viewport-x = min(0px, max(parent.visible-width - self.width,  parent.visible-width - cpos.x - 12px));
                 }
                 if (cpos.y + root.viewport-y < 12px) {
-                    root.viewport-y = min(0px, max(parent.visible-height - self.height,  - cpos.y + 12px ));
+                    root.viewport-y = min(0px, max(parent.visible-height - self.height,  - cpos.y + 12px));
                 } else if (cpos.y + root.viewport-y > parent.visible-height - 12px - 20px) {
                     // FIXME: font-height hardcoded to 20px
                     root.viewport-y = min(0px, max(parent.visible-height - self.height,  parent.visible-height - cpos.y - 12px - 20px));
                 }
             }
         }
+    }
+
+    placeholder := Text {
+        x: scroll-view.x;
+        y: scroll-view.y;
+        width: scroll-view.width;
+        vertical-alignment: top;
+        text: (root.text == "" && text-input.preedit-text == "") ? root.placeholder-text : "";
+        font-size: text-input.font-size;
+        font-italic: text-input.font-italic;
+        font-weight: text-input.font-weight;
+        font-family: text-input.font-family;
+        color: CupertinoPalette.foreground-secondary;
+        overflow: elide;
+        // the label is set on the TextEdit itself
+        accessible-role: none;
     }
 }

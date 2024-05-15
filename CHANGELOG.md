@@ -2,6 +2,13 @@
 
 # Changelog
 All notable changes to this project are documented in this file.
+
+## Unreleased
+
+### Widgets
+
+ - Added `placeholder-text` property to `TextEdit`.
+ 
 ## [1.6.0] - 2024-05-13
 
 ## General

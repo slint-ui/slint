@@ -11,6 +11,7 @@ export component TextEdit {
     in property <bool> read-only <=> base.read-only;
     in property <length> font-size <=> base.font-size;
     in property <bool> enabled <=> base.enabled;
+    in property <string> placeholder-text <=> base.placeholder-text;
     in-out property <bool> has-focus: base.has-focus;
     out property <length> visible-width <=> base.visible-width;
     out property <length> visible-height <=> base.visible-height;
@@ -24,27 +25,27 @@ export component TextEdit {
     accessible-role: AccessibleRole.text-input;
     accessible-value <=> text;
 
-    public function set-selection-offsets(start: int, end: int) {
+    public function set-selection-offsets(start: int,end: int){
         base.set-selection-offsets(start, end);
     }
 
-    public function select-all() {
+    public function select-all(){
         base.select-all();
     }
 
-    public function clear-selection() {
+    public function clear-selection(){
         base.clear-selection();
     }
 
-    public function cut() {
+    public function cut(){
         base.cut();
     }
 
-    public function copy() {
+    public function copy(){
         base.copy();
     }
 
-    public function paste() {
+    public function paste(){
         base.paste();
     }
 
@@ -56,7 +57,7 @@ export component TextEdit {
         disabled when !root.enabled: {
             root.opacity: 0.5;
         }
-        focused when  base.has-focus: {
+        focused when base.has-focus: {
             base.border-width: 2px;
             base.border-color: MaterialPalette.accent-background;
         }
@@ -72,6 +73,7 @@ export component TextEdit {
         foreground: MaterialPalette.foreground;
         font-size: MaterialFontSettings.body-large.font-size;
         font-weight: MaterialFontSettings.body-large.font-weight;
+        placeholder-color: MaterialPalette.border-variant;
         selection-background-color: MaterialPalette.selection-background;
         selection-foreground-color: MaterialPalette.selection-foreground;
     }
