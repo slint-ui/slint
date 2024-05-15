@@ -25,29 +25,32 @@ export component TextEditBase inherits Rectangle {
     in property <brush> selection-background-color;
     in property <brush> selection-foreground-color;
 
+    in property <string> placeholder-text;
+    in property <brush> placeholder-color;
+
     callback edited(/* text */ string);
 
-    public function set-selection-offsets(start: int, end: int) {
+    public function set-selection-offsets(start: int,end: int){
         text-input.set-selection-offsets(start, end);
     }
 
-    public function select-all() {
+    public function select-all(){
         text-input.select-all();
     }
 
-    public function clear-selection() {
+    public function clear-selection(){
         text-input.clear-selection();
     }
 
-    public function cut() {
+    public function cut(){
         text-input.cut();
     }
 
-    public function copy() {
+    public function copy(){
         text-input.copy();
     }
 
-    public function paste() {
+    public function paste(){
         text-input.paste();
     }
 
@@ -86,6 +89,22 @@ export component TextEditBase inherits Rectangle {
                 }
             }
         }
+    }
+
+    placeholder := Text {
+        x: scroll-view.x;
+        y: scroll-view.y;
+        width: scroll-view.width;
+        vertical-alignment: top;
+        text: (root.text == "" && text-input.preedit-text == "") ? root.placeholder-text : "";
+        font-size: text-input.font-size;
+        font-italic: text-input.font-italic;
+        font-weight: text-input.font-weight;
+        font-family: text-input.font-family;
+        color: root.placeholder-color;
+        overflow: elide;
+        // the label is set on the LineEdit itself
+        accessible-role: none;
     }
 
     @children

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
 import { TextEditBase } from "../common/textedit-base.slint";
+import { StyleMetrics  } from "std-widgets-impl.slint";
 
 export component TextEdit {
     in property <TextWrap> wrap <=> base.wrap;
@@ -9,6 +10,7 @@ export component TextEdit {
     in property <bool> read-only <=> base.read-only;
     in property <length> font-size <=> base.font-size;
     in property <bool> enabled <=> base.enabled;
+    in property <string> placeholder-text <=> base.placeholder-text;
     in-out property <bool> has-focus: base.has-focus;
     out property <length> visible-width <=> base.visible-width;
     out property <length> visible-height <=> base.visible-height;
@@ -22,27 +24,27 @@ export component TextEdit {
     accessible-role: AccessibleRole.text-input;
     accessible-value <=> text;
 
-    public function set-selection-offsets(start: int, end: int) {
+    public function set-selection-offsets(start: int,end: int){
         base.set-selection-offsets(start, end);
     }
 
-    public function select-all() {
+    public function select-all(){
         base.select-all();
     }
 
-    public function clear-selection() {
+    public function clear-selection(){
         base.clear-selection();
     }
 
-    public function cut() {
+    public function cut(){
         base.cut();
     }
 
-    public function copy() {
+    public function copy(){
         base.copy();
     }
 
-    public function paste() {
+    public function paste(){
         base.paste();
     }
 
@@ -54,7 +56,7 @@ export component TextEdit {
         disabled when !root.enabled: {
             root.opacity: 0.5;
         }
-        focused when  base.has-focus: {
+        focused when base.has-focus: {
             base.border-width: 2px;
             base.border-color: NativePalette.accent-background;
         }
@@ -68,6 +70,7 @@ export component TextEdit {
         border-color: NativePalette.border;
         scroll-view-padding: 4px;
         foreground: NativePalette.foreground;
+        placeholder-color: self.enabled ? StyleMetrics.placeholder-color : StyleMetrics.placeholder-color-disabled;
         selection-background-color: NativePalette.selection-background;
         selection-foreground-color: NativePalette.selection-foreground;
     }

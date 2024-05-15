@@ -11,6 +11,7 @@ export component TextEdit {
     in property <bool> read-only <=> base.read-only;
     in property <length> font-size <=> base.font-size;
     in property <bool> enabled <=> base.enabled;
+    in property <string> placeholder-text <=> base.placeholder-text;
     in-out property <bool> has-focus: base.has-focus;
     out property <length> visible-width <=> base.visible-width;
     out property <length> visible-height <=> base.visible-height;
@@ -71,6 +72,7 @@ export component TextEdit {
         font-weight: CosmicFontSettings.body.font-weight;
         selection-background-color: CosmicPalette.selection-background;
         selection-foreground-color: CosmicPalette.selection-foreground;
+        placeholder-color: CosmicPalette.placeholder-foreground;
         if root.has-focus && root.enabled: Rectangle {
             width: parent.width + 2px;
             height: parent.height + 2px;
