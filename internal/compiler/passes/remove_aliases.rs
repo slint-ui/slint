@@ -160,6 +160,14 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
             }
         };
 
+        // Adjust the change callbacks
+        {
+            let mut elem = elem.borrow_mut();
+            if let Some(old_change_callback) = elem.change_callbacks.remove(remove.name()) {
+                elem.change_callbacks.insert(to.name().to_owned(), old_change_callback);
+            }
+        }
+
         // Remove the declaration
         {
             let mut elem = elem.borrow_mut();
