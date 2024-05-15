@@ -273,7 +273,12 @@ impl<'a> SkiaItemRenderer<'a> {
         }) {
             let mut tint = skia_safe::Paint::default();
             tint.set_alpha_f(self.current_state.alpha);
-            self.canvas.draw_image(layer_image, skia_safe::Point::default(), Some(&tint));
+            self.canvas.draw_image_with_sampling_options(
+                layer_image,
+                skia_safe::Point::default(),
+                skia_safe::sampling_options::FilterMode::Linear,
+                Some(&tint),
+            );
         }
         RenderingResult::ContinueRenderingWithoutChildren
     }
