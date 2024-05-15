@@ -31,6 +31,7 @@ pub fn remove_unused_properties(component: &Component) {
                     elem.property_declarations.remove(x);
                     elem.property_analysis.borrow_mut().remove(x);
                     elem.bindings.remove(x);
+                    elem.change_callbacks.remove(x);
                 }
             },
         );
