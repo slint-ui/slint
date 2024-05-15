@@ -256,8 +256,8 @@ impl ItemTree for ErasedItemTreeBox {
         self.borrow().as_ref().supported_accessibility_actions(index)
     }
 
-    fn item_element_ids(self: core::pin::Pin<&Self>, index: u32, result: &mut SharedString) {
-        self.borrow().as_ref().item_element_ids(index, result)
+    fn item_element_infos(self: core::pin::Pin<&Self>, index: u32, result: &mut SharedString) {
+        self.borrow().as_ref().item_element_infos(index, result)
     }
 }
 
@@ -1197,7 +1197,7 @@ pub(crate) fn generate_item_tree<'id>(
         accessible_string_property,
         accessibility_action,
         supported_accessibility_actions,
-        item_element_ids,
+        item_element_infos,
         window_adapter,
         drop_in_place,
         dealloc,
@@ -2014,7 +2014,7 @@ extern "C" fn supported_accessibility_actions(
     val
 }
 
-extern "C" fn item_element_ids(
+extern "C" fn item_element_infos(
     component: ItemTreeRefPin,
     item_index: u32,
     result: &mut SharedString,

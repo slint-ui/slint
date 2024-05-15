@@ -6,7 +6,9 @@ component ButtonBase inherits Text { }
 component Button inherits ButtonBase {
     accessible-role: button;
     accessible-label: "optimized";
-    extra-label := Text { }
+    extra-label := Text {
+        accessible-label: "extra";
+    }
 }
 
 export component TestCase {
@@ -38,6 +40,9 @@ assert_eq!(button.accessible_label().unwrap(), "third");
 assert!(button_search.next().is_none());
 
 assert_eq!(slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::second").count(), 1);
+
+let texts = slint_testing::ElementHandle::find_by_element_type_name(&instance, "Text").filter_map(|elem| elem.accessible_label()).collect::<Vec<_>>();
+assert_eq!(texts, vec!["optimized", "extra", "plain", "extra", "third", "extra"]);
 ```
 
 ```cpp

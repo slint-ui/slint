@@ -598,10 +598,24 @@ pub type BindingsMap = BTreeMap<String, RefCell<BindingExpression>>;
 pub struct ElementDebugInfo {
     // The id qualified with the enclosing component name. Given `foo := Bar {}` this is `EnclosingComponent::foo`
     pub qualified_id: Option<String>,
+    pub type_name: String,
     pub node: syntax_nodes::Element,
     // Field to indicate wether this element was a layout that had
     // been lowered into a rectangle in the lower_layouts pass.
     pub layout: Option<crate::layout::Layout>,
+}
+
+impl ElementDebugInfo {
+    // Returns a comma separate string that encodes the element type name (`Rectangle`, `MyButton`, etc.)
+    // and the qualified id (`SurroundingComponent::my-id`).
+    fn encoded_element_info(&self) -> String {
+        let mut info = self.type_name.clone();
+        info.push(',');
+        if let Some(id) = self.qualified_id.as_ref() {
+            info.push_str(id);
+        }
+        info
+    }
 }
 
 /// An Element is an instantiation of a Component
@@ -925,10 +939,20 @@ impl Element {
         };
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
+        let type_name = base_type
+            .type_name()
+            .filter(|_| base_type != tr.empty_type())
+            .unwrap_or_default()
+            .to_string();
         let mut r = Element {
             id,
             base_type,
-            debug: vec![ElementDebugInfo { qualified_id, node: node.clone(), layout: None }],
+            debug: vec![ElementDebugInfo {
+                qualified_id,
+                type_name,
+                node: node.clone(),
+                layout: None,
+            }],
             is_legacy_syntax,
             ..Default::default()
         };
@@ -1768,13 +1792,13 @@ impl Element {
         let mut infos = self
             .debug
             .iter()
-            .flat_map(|debug_info| debug_info.qualified_id.clone())
+            .map(|debug_info| debug_info.encoded_element_info())
             .collect::<Vec<_>>();
         let mut base = self.base_type.clone();
         while let ElementType::Component(b) = base {
             let elem = b.root_element.borrow();
             base = elem.base_type.clone();
-            infos.extend(elem.debug.iter().flat_map(|debug_info| debug_info.qualified_id.clone()));
+            infos.extend(elem.debug.iter().map(|debug_info| debug_info.encoded_element_info()));
         }
         infos
     }
