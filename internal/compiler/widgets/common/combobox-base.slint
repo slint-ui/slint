@@ -18,7 +18,11 @@ export component ComboBoxBase {
             return;
         }
         root.current-index = index;
-        root.update-current-value();
+
+        if root.current-value != root.model[root.current-index] {
+            root.update-current-value();
+        }
+
         root.selected(root.current-value);
     }
 

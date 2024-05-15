@@ -35,6 +35,7 @@ use std::rc::Rc;
 use slint::platform::Key;
 use slint::SharedString;
 use slint::VecModel;
+use i_slint_backend_testing::mock_elapsed_time;
 
 let instance = TestCase::new().unwrap();
 
@@ -91,10 +92,12 @@ instance.set_output(Default::default());
 
 // Set current-index to -1
 instance.set_current_index(-1);
+mock_elapsed_time(500);
 assert_eq!(instance.get_current_value(), &SharedString::from(""));
 
 // Replace model
 instance.set_model(Rc::new(VecModel::from_slice(&[SharedString::from("A"), SharedString::from("B")])).into());
+mock_elapsed_time(500);
 assert_eq!(instance.get_current_index(), 0);
 assert_eq!(instance.get_current_value(), &SharedString::from("A"));
 
