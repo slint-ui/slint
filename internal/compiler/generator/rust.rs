@@ -834,8 +834,8 @@ fn generate_sub_component(
         })
         .collect::<Vec<_>>();
 
-    let mut item_element_ids_branch = component
-        .element_ids
+    let mut item_element_infos_branch = component
+        .element_infos
         .iter()
         .map(|(item_index, ids)| {
             let ids = ids.join(";");
@@ -931,8 +931,8 @@ fn generate_sub_component(
             supported_accessibility_actions_branch.push(quote!(
                 #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(index - #range_begin + 1),
             ));
-            item_element_ids_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_ids(index - #range_begin + 1),
+            item_element_infos_branch.push(quote!(
+                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_infos(index - #range_begin + 1),
             ));
         }
 
@@ -1161,11 +1161,11 @@ fn generate_sub_component(
                 }
             }
 
-            fn item_element_ids(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SharedString {
+            fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SharedString {
                 #![allow(unused)]
                 let _self = self;
                 match index {
-                    #(#item_element_ids_branch)*
+                    #(#item_element_infos_branch)*
                     _ => { ::core::default::Default::default() }
                 }
             }
@@ -1627,12 +1627,12 @@ fn generate_item_tree(
                 self.supported_accessibility_actions(index)
             }
 
-            fn item_element_ids(
+            fn item_element_infos(
                 self: ::core::pin::Pin<&Self>,
                 index: u32,
                 result: &mut sp::SharedString,
             )  {
-                *result = self.item_element_ids(index);
+                *result = self.item_element_infos(index);
             }
 
             fn window_adapter(
