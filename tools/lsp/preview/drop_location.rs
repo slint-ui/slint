@@ -170,6 +170,83 @@ impl<'a> Iterator for EditIterator<'a> {
     }
 }
 
+#[derive(Clone)]
+pub struct TextEditor {
+    source_file: i_slint_compiler::diagnostics::SourceFile,
+    contents: String,
+    original_offset_range: (usize, usize),
+    adjustments: TextOffsetAdjustments,
+}
+
+impl TextEditor {
+    pub fn new(source_file: i_slint_compiler::diagnostics::SourceFile) -> crate::Result<Self> {
+        let Some(contents) = source_file.source().map(|s| s.to_string()) else {
+            return Err(format!("Soure file {:?} had no contents set", source_file.path()).into());
+        };
+        Ok(Self {
+            source_file,
+            contents,
+            original_offset_range: (usize::MAX, 0),
+            adjustments: TextOffsetAdjustments::default(),
+        })
+    }
+
+    pub fn apply(&mut self, text_edit: &lsp_types::TextEdit) -> crate::Result<()> {
+        let current_offset = {
+            let start_range = &text_edit.range.start;
+            let end_range = &text_edit.range.end;
+            let start_offset =
+                self.source_file.offset(start_range.line as usize, start_range.character as usize);
+            let end_offset =
+                self.source_file.offset(end_range.line as usize, end_range.character as usize);
+            (start_offset, end_offset)
+        };
+
+        let adjusted_offset = (
+            self.adjustments.adjust(current_offset.0 as u32) as usize,
+            self.adjustments.adjust(current_offset.1 as u32) as usize,
+        );
+
+        if self.contents.len() < adjusted_offset.1 {
+            return Err("Text edit renage is out of bounds".into());
+        }
+
+        // Book keeping:
+        self.original_offset_range.0 = self.original_offset_range.0.min(current_offset.0);
+        self.original_offset_range.1 = self.original_offset_range.1.max(current_offset.1);
+
+        self.contents.replace_range((adjusted_offset.0)..(adjusted_offset.1), &text_edit.new_text);
+
+        self.adjustments.add_adjustment(TextOffsetAdjustment::new(text_edit, &self.source_file));
+
+        Ok(())
+    }
+
+    pub fn apply_versioned(
+        &mut self,
+        text_edit: &lsp_types::TextEdit,
+        document_version: i_slint_compiler::diagnostics::SourceFileVersion,
+    ) -> crate::Result<()> {
+        if let Some(expected) = document_version {
+            if let Some(actual) = self.source_file.version() {
+                if expected != actual {
+                    return Err(format!("Source file {:?} version mismatch (expected: {expected}, actual: {actual})", self.source_file.path()).into());
+                }
+            }
+        }
+
+        self.apply(text_edit)
+    }
+
+    pub fn finalize(mut self) -> (String, TextOffsetAdjustments, (usize, usize)) {
+        if self.original_offset_range.0 == usize::MAX {
+            self.original_offset_range.0 = 0;
+        }
+
+        (self.contents, self.adjustments, self.original_offset_range)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct DropInformation {
     pub target_element_node: common::ElementRcNode,
@@ -1651,4 +1728,163 @@ fn test_edit_iterator_document_mixed() {
             seen[3] = true;
         }
     }
+}
+
+#[test]
+fn test_texteditor_no_content_in_source_file() {
+    use i_slint_compiler::diagnostics::SourceFileInner;
+
+    let source_file = SourceFileInner::from_path_only(std::path::PathBuf::from("/tmp/foo.slint"));
+
+    assert!(TextEditor::new(source_file).is_err());
+}
+
+#[test]
+fn test_texteditor_version_mismatch() {
+    use i_slint_compiler::diagnostics::SourceFileInner;
+
+    let source_file = std::rc::Rc::new(SourceFileInner::new(
+        std::path::PathBuf::from("/tmp/foo.slint"),
+        r#""#.to_string(),
+        Some(42),
+    ));
+
+    let mut editor = TextEditor::new(source_file.clone()).unwrap();
+
+    let edit = lsp_types::TextEdit {
+        range: lsp_types::Range::new(
+            lsp_types::Position::new(1, 1),
+            lsp_types::Position::new(1, 1),
+        ),
+        new_text: "Foobar".to_string(),
+    };
+    assert!(editor.apply_versioned(&edit, Some(23)).is_err());
+}
+
+#[test]
+fn test_texteditor_edit_out_of_range() {
+    use i_slint_compiler::diagnostics::SourceFileInner;
+
+    let source_file = std::rc::Rc::new(SourceFileInner::new(
+        std::path::PathBuf::from("/tmp/foo.slint"),
+        r#""#.to_string(),
+        Some(42),
+    ));
+
+    let mut editor = TextEditor::new(source_file.clone()).unwrap();
+
+    let edit = lsp_types::TextEdit {
+        range: lsp_types::Range::new(
+            lsp_types::Position::new(2, 3),
+            lsp_types::Position::new(2, 4),
+        ),
+        new_text: "Foobar".to_string(),
+    };
+    assert!(editor.apply(&edit).is_err());
+}
+
+#[test]
+fn test_texteditor_delete_everything() {
+    use i_slint_compiler::diagnostics::SourceFileInner;
+
+    let source_file = std::rc::Rc::new(SourceFileInner::new(
+        std::path::PathBuf::from("/tmp/foo.slint"),
+        r#"abc
+def
+geh"#
+            .to_string(),
+        Some(42),
+    ));
+
+    let mut editor = TextEditor::new(source_file.clone()).unwrap();
+
+    let edit = lsp_types::TextEdit {
+        range: lsp_types::Range::new(
+            lsp_types::Position::new(1, 1),
+            lsp_types::Position::new(3, 4),
+        ),
+        new_text: "".to_string(),
+    };
+    assert!(editor.apply(&edit).is_ok());
+
+    let result = editor.finalize();
+    assert!(result.0.is_empty());
+    assert_eq!(result.1.adjust(42), 31);
+    assert_eq!(result.2 .0, 0);
+    assert_eq!(result.2 .1, 3 * 3 + 2);
+}
+
+#[test]
+fn test_texteditor_replace() {
+    use i_slint_compiler::diagnostics::SourceFileInner;
+
+    let source_file = std::rc::Rc::new(SourceFileInner::new(
+        std::path::PathBuf::from("/tmp/foo.slint"),
+        r#"abc
+def
+geh"#
+            .to_string(),
+        Some(42),
+    ));
+
+    let mut editor = TextEditor::new(source_file.clone()).unwrap();
+
+    let edit = lsp_types::TextEdit {
+        range: lsp_types::Range::new(
+            lsp_types::Position::new(2, 1),
+            lsp_types::Position::new(2, 4),
+        ),
+        new_text: "REPLACEMENT".to_string(),
+    };
+    assert!(editor.apply(&edit).is_ok());
+
+    let result = editor.finalize();
+    assert_eq!(
+        &result.0,
+        r#"abc
+REPLACEMENT
+geh"#
+    );
+    assert_eq!(result.1.adjust(42), 50);
+    assert_eq!(result.2 .0, 3 + 1);
+    assert_eq!(result.2 .1, 3 + 1 + 3);
+}
+
+#[test]
+fn test_texteditor_2step_replace_all() {
+    use i_slint_compiler::diagnostics::SourceFileInner;
+
+    let source_file = std::rc::Rc::new(SourceFileInner::new(
+        std::path::PathBuf::from("/tmp/foo.slint"),
+        r#"abc
+def
+geh"#
+            .to_string(),
+        Some(42),
+    ));
+
+    let mut editor = TextEditor::new(source_file.clone()).unwrap();
+
+    let edit = lsp_types::TextEdit {
+        range: lsp_types::Range::new(
+            lsp_types::Position::new(1, 1),
+            lsp_types::Position::new(3, 4),
+        ),
+        new_text: "".to_string(),
+    };
+    assert!(editor.apply(&edit).is_ok());
+    let edit = lsp_types::TextEdit {
+        range: lsp_types::Range::new(
+            lsp_types::Position::new(1, 1),
+            lsp_types::Position::new(1, 1),
+        ),
+        new_text: "REPLACEMENT".to_string(),
+    };
+    assert!(editor.apply(&edit).is_ok());
+
+    let result = editor.finalize();
+    assert_eq!(&result.0, "REPLACEMENT");
+    assert_eq!(result.1.adjust(42), 42);
+    assert_eq!(result.2 .0, 0);
+    assert_eq!(result.2 .1, 3 * 3 + 2);
 }
