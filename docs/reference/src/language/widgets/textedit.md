@@ -15,7 +15,7 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 -   **`read-only`** (_in_ _bool_): When set to true, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically (default value: `false`)
 -   **`wrap`** (_in_ _enum [`TextWrap`](../builtins/enums.md#textwrap)_): The way the text wraps (default: word-wrap).
 -   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](../builtins/enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
--   **`placeholder-text`**: (_in_ _string_): A placeholder text being shown when there is no text in the edit field
+-   **`placeholder-text`**: (_in_ _string_): A placeholder text being shown when there is no text in the edit field.
 
 ### Functions
 
