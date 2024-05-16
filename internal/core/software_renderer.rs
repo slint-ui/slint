@@ -440,16 +440,16 @@ impl SoftwareRenderer {
     /// Render the window to the given frame buffer.
     ///
     /// The renderer uses a cache internally and will only render the part of the window
-    /// which are dirty. The `extra_draw_region` is an extra regin which will also
+    /// which are dirty. The `extra_draw_region` is an extra region which will also
     /// be rendered. (eg: the previous dirty region in case of double buffering)
     /// This function returns the region that was rendered.
     ///
-    /// The pixel_stride is the size, in pixel, between two line in the buffer
+    /// The pixel_stride is the size (in pixels) between two lines in the buffer.
     /// The buffer needs to be big enough to contain the window, so its size must be at least
-    /// `pixel_stride * height`, or `pixel_stride * width` if the screen is rotated by 90°.
+    /// `pixel_stride * width`, or `pixel_stride * height` if the screen is rotated by 90°.
     ///
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
-    /// in the window frame of reference. It affected by the screen rotation.
+    /// in the window frame of reference. It is affected by the screen rotation.
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
         let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
         else {
