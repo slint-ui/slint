@@ -23,7 +23,7 @@ inline void init()
 /// Use find_by_accessible_label() to obtain all elements matching the given accessible label.
 class ElementHandle
 {
-    cbindgen_private::ItemWeak inner;
+    cbindgen_private::ElementHandle inner;
 
 public:
     /// Find all elements matching the given accessible label.
@@ -39,7 +39,7 @@ public:
         SharedVector<ElementHandle> result;
         cbindgen_private::slint_testing_element_find_by_accessible_label(
                 &vrc, &label_view,
-                reinterpret_cast<SharedVector<cbindgen_private::ItemWeak> *>(&result));
+                reinterpret_cast<SharedVector<cbindgen_private::ElementHandle> *>(&result));
         return result;
     }
 
@@ -56,17 +56,63 @@ public:
         SharedVector<ElementHandle> result;
         cbindgen_private::slint_testing_element_find_by_element_id(
                 &vrc, &element_id_view,
-                reinterpret_cast<SharedVector<cbindgen_private::ItemWeak> *>(&result));
+                reinterpret_cast<SharedVector<cbindgen_private::ElementHandle> *>(&result));
         return result;
     }
 
     /// Returns true if the underlying element still exists; false otherwise.
-    bool is_valid() const { return private_api::upgrade_item_weak(inner).has_value(); }
+    bool is_valid() const { return private_api::upgrade_item_weak(inner.item).has_value(); }
+
+    /// Helper struct for use with element_type_names_and_ids() to describe an element's type name
+    /// and qualified id;
+    struct ElementTypeNameAndId
+    {
+        /// The type name this element instantiates, such as `Rectangle` or `MyComponent`
+        SharedString type_name;
+        /// The id of the element qualified with the surrounding component.
+        SharedString id;
+
+        friend bool operator==(const ElementTypeNameAndId &lhs,
+                               const ElementTypeNameAndId &rhs) = default;
+    };
+
+    /// Returns a vector over a struct of element type names and their ids. Returns an empty vector
+    /// if the element is not valid anymore.
+    ///
+    /// Elements can have multiple type names and ids, due to inheritance.
+    /// In the following example, the `PushButton` element returns for `element_type_names_and_ids`
+    /// the following ElementTypeNameAndId structs:
+    /// entries:
+    ///   * type_name: "PushButton", id: "App::mybutton"
+    ///   * type_name: "ButtonBase", id: "PushButton::root"
+    ///   * type_name: "", id: "ButtonBase::root"
+    ///
+    /// ```slint,no-preview
+    /// component ButtonBase {
+    ///    // ...
+    /// }
+    /// component PushButton inherits ButtonBase {
+    /// }
+    /// export component App {
+    ///     mybutton := PushButton {}
+    /// }
+    /// ```
+    SharedVector<ElementTypeNameAndId> element_type_names_and_ids() const
+    {
+        SharedVector<SharedString> type_names;
+        SharedVector<SharedString> ids;
+        cbindgen_private::slint_testing_element_type_names_and_ids(&inner, &type_names, &ids);
+        SharedVector<ElementTypeNameAndId> result(type_names.size());
+        for (std::size_t i = 0; i < type_names.size(); ++i) {
+            result[i] = { type_names[i], ids[i] };
+        }
+        return result;
+    }
 
     /// Returns the accessible-label of that element, if any.
     std::optional<SharedString> accessible_label() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             SharedString result;
             if (item->item_tree.vtable()->accessible_string_property(
                         item->item_tree.borrow(), item->index,
@@ -80,7 +126,7 @@ public:
     /// Returns the accessible-value of that element, if any.
     std::optional<SharedString> accessible_value() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             SharedString result;
             if (item->item_tree.vtable()->accessible_string_property(
                         item->item_tree.borrow(), item->index,
@@ -94,7 +140,7 @@ public:
     /// Returns the accessible-description of that element, if any.
     std::optional<SharedString> accessible_description() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             SharedString result;
             if (item->item_tree.vtable()->accessible_string_property(
                         item->item_tree.borrow(), item->index,
@@ -108,7 +154,7 @@ public:
     /// Returns the accessible-value-maximum of that element, if any.
     std::optional<float> accessible_value_maximum() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             SharedString result;
             if (item->item_tree.vtable()->accessible_string_property(
                         item->item_tree.borrow(), item->index,
@@ -125,7 +171,7 @@ public:
     /// Returns the accessible-value-minimum of that element, if any.
     std::optional<float> accessible_value_minimum() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             SharedString result;
             if (item->item_tree.vtable()->accessible_string_property(
                         item->item_tree.borrow(), item->index,
@@ -142,7 +188,7 @@ public:
     /// Returns the accessible-value-step of that element, if any.
     std::optional<float> accessible_value_step() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             SharedString result;
             if (item->item_tree.vtable()->accessible_string_property(
                         item->item_tree.borrow(), item->index,
@@ -159,7 +205,7 @@ public:
     /// Returns the accessible-checked of that element, if any.
     std::optional<bool> accessible_checked() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             SharedString result;
             if (item->item_tree.vtable()->accessible_string_property(
                         item->item_tree.borrow(), item->index,
@@ -176,7 +222,7 @@ public:
     /// Returns the accessible-checkable of that element, if any.
     std::optional<bool> accessible_checkable() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             SharedString result;
             if (item->item_tree.vtable()->accessible_string_property(
                         item->item_tree.borrow(), item->index,
@@ -195,7 +241,7 @@ public:
     /// Setting the value will invoke the `accessible-action-set-value` callback.
     void set_accessible_value(SharedString value) const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             union SetValueHelper {
                 cbindgen_private::AccessibilityAction action;
                 SetValueHelper(SharedString value)
@@ -216,7 +262,7 @@ public:
     /// (`accessible-action-increment`).
     void invoke_accessible_increment_action() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             union IncreaseActionHelper {
                 cbindgen_private::AccessibilityAction action;
                 IncreaseActionHelper()
@@ -235,7 +281,7 @@ public:
     /// (`accessible-action-decrement`).
     void invoke_accessible_decrement_action() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             union DecreaseActionHelper {
                 cbindgen_private::AccessibilityAction action;
                 DecreaseActionHelper()
@@ -254,7 +300,7 @@ public:
     /// (`accessible-action-default`).
     void invoke_accessible_default_action() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             union DefaultActionHelper {
                 cbindgen_private::AccessibilityAction action;
                 DefaultActionHelper()
@@ -272,7 +318,7 @@ public:
     /// Returns the size of this element
     LogicalSize size() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             auto rect =
                     item->item_tree.vtable()->item_geometry(item->item_tree.borrow(), item->index);
             return LogicalSize({ rect.width, rect.height });
@@ -283,7 +329,7 @@ public:
     /// Returns the absolute position of this element
     LogicalPosition absolute_position() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner)) {
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
             cbindgen_private::LogicalRect rect =
                     item->item_tree.vtable()->item_geometry(item->item_tree.borrow(), item->index);
             cbindgen_private::LogicalPoint abs =
