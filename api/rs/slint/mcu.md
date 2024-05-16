@@ -69,7 +69,7 @@ edition = "2021"
 [dependencies.slint]
 version = "1.6.0"
 default-features = false
-features = ["compat-1-2", "unsafe-single-threaded", "libm"]
+features = ["compat-1-2", "unsafe-single-threaded", "libm", "renderer-software"]
 [build-dependencies]
 slint-build = "1.6.0"
 ```
