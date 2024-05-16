@@ -445,8 +445,9 @@ impl SoftwareRenderer {
     /// This function returns the region that was rendered.
     ///
     /// The pixel_stride is the size (in pixels) between two lines in the buffer.
+    /// It is equal `width` if the screen is not rotated, and `height` if the screen is rotated by 90°.
     /// The buffer needs to be big enough to contain the window, so its size must be at least
-    /// `pixel_stride * width`, or `pixel_stride * height` if the screen is rotated by 90°.
+    /// `pixel_stride * height`, or `pixel_stride * width` if the screen is rotated by 90°.
     ///
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
     /// in the window frame of reference. It is affected by the screen rotation.
