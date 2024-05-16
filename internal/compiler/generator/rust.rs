@@ -20,6 +20,7 @@ use crate::llr::{
     TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
+use crate::CompilerConfiguration;
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
@@ -138,7 +139,7 @@ fn set_primitive_property_value(ty: &Type, value_expression: TokenStream) -> Tok
 }
 
 /// Generate the rust code for the given component.
-pub fn generate(doc: &Document) -> TokenStream {
+pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> TokenStream {
     let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = doc
         .root_component
         .used_types
@@ -162,7 +163,8 @@ pub fn generate(doc: &Document) -> TokenStream {
         return TokenStream::default();
     }
 
-    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component);
+    let llr =
+        crate::llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component, &compiler_config);
 
     let sub_compos = llr
         .sub_components

@@ -97,6 +97,9 @@ pub struct CompilerConfiguration {
 
     /// C++ namespace
     pub cpp_namespace: Option<String>,
+
+    /// Generate debug information for elements (ids, type names)
+    pub debug_info: bool,
 }
 
 impl CompilerConfiguration {
@@ -142,6 +145,8 @@ impl CompilerConfiguration {
 
         let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
 
+        let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
+
         let cpp_namespace = match output_format {
             #[cfg(feature = "cpp")]
             crate::generator::OutputFormat::Cpp(config) => match config.namespace {
@@ -167,6 +172,7 @@ impl CompilerConfiguration {
             enable_experimental,
             translation_domain: None,
             cpp_namespace,
+            debug_info,
         }
     }
 }
