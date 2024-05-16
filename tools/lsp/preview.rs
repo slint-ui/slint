@@ -35,6 +35,7 @@ pub use wasm::*;
 mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
+mod text_edit;
 
 #[derive(Default, Copy, Clone, PartialEq, Eq, Debug)]
 enum PreviewFutureState {
