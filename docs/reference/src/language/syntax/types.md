@@ -146,8 +146,8 @@ export component Example inherits Window {
 
 ### Radial Gradients
 
-Radial gradients are like linear gradiants but the colors are interpolated circularly instead of
-along a line. To describe a radial gradiant, use the `@radial-gradient` macro with the following signature:
+Radial gradients are like linear gradients but the colors are interpolated circularly instead of
+along a line. To describe a radial gradient, use the `@radial-gradient` macro with the following signature:
 
 **`@radial-gradient(circle, color percentage, color percentage, ...)`**
 
