@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
  - Added `placeholder-text` property to `TextEdit`.
  - Fixed updating model of ComboBox does not change current-value
  - Fixed set current-index of ComboBox to -1 does not reset current-value
+ - Fixed issue where the text of `SpinBox` is not updated after value is changed from outside
 
 ## [1.6.0] - 2024-05-13
 

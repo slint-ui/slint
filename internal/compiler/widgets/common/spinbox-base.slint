@@ -5,24 +5,22 @@ export component SpinBoxBase {
     in property <int> minimum;
     in property <int> maximum: 100;
     in property <bool> enabled: true;
-    in property <brush> color <=> i-text-input.color;
-    in property <length> font-size <=> i-text-input.font-size;
-    in property <int> font-weight <=> i-text-input.font-weight;
-    in property <color> selection-background-color <=> i-text-input.selection-background-color;
-    in property <color> selection-foreground-color <=> i-text-input.selection-foreground-color;
-    in property <TextHorizontalAlignment> horizontal-alignment <=> i-text-input.horizontal-alignment;
-    out property <bool> has-focus <=> i-text-input.has-focus;
+    in property <brush> color <=> text-input.color;
+    in property <length> font-size <=> text-input.font-size;
+    in property <int> font-weight <=> text-input.font-weight;
+    in property <color> selection-background-color <=> text-input.selection-background-color;
+    in property <color> selection-foreground-color <=> text-input.selection-foreground-color;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
+    out property <bool> has-focus <=> text-input.has-focus;
     in-out property <int> value: minimum;
 
     callback edited(/* value */ int);
 
     public function update-value(value: int) {
-        if (value >= root.minimum && value <= root.maximum) {
+        if root.value == value || (value >= root.minimum && value <= root.maximum) {
             root.value = value;
             root.edited(value);
         }
-
-        i-text-input.text = root.value;
     }
 
     public function increment() {
@@ -35,9 +33,17 @@ export component SpinBoxBase {
 
     private property <length> scroll-delta: 2px;
 
-    forward-focus: i-text-input;
+    forward-focus: text-input;
 
-    i-text-input := TextInput {
+    changed value => {
+        root.set-text-to-value();
+    }
+
+    function set-text-to-value() {
+        text-input.text = root.value;
+    }
+
+    text-input := TextInput {
         vertical-alignment: center;
         horizontal-alignment: left;
         text: root.value;
@@ -45,17 +51,21 @@ export component SpinBoxBase {
         width: 100%;
         height: 100%;
 
+        accessible-role: AccessibleRole.text-input;
+        accessible-value: self.text;
+        accessible-label: "spinbox-textinput";
+
         accepted => {
-            if (!self.text.is-float()) {
-                self.text = root.value;
+            if !self.text.is-float() {
+                root.set-text-to-value();
             }
         }
 
         edited => {
-            if (self.text.is-float() && self.text.to-float() != root.value) {
+            if self.text.is-float() && self.text.to-float() != root.value {
                 root.update-value(self.text.to-float());
-            } else if (!self.text.is-float()) {
-                self.text = root.value;
+            } else if !self.text.is-float() && self.text != "" {
+                root.set-text-to-value();
             }
         }
     }
@@ -64,12 +74,12 @@ export component SpinBoxBase {
         enabled: root.enabled;
 
         scroll-event(event) => {
-            if (event.delta-y > 0) {
+            if event.delta-y > 0 {
                 root.increment();
                 return accept;
             }
 
-            if (event.delta-y < 0) {
+            if event.delta-y < 0 {
                 root.decrement();
                 return accept;
             }
@@ -78,7 +88,7 @@ export component SpinBoxBase {
         }
 
         clicked => {
-            i-text-input.focus();
+            text-input.focus();
         }
     }
 }
