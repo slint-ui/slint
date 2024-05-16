@@ -374,7 +374,7 @@ pub fn compile_with_config(
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
-    let (doc, diag, _) =
+    let (doc, diag, loader) =
         spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
 
     if diag.has_error() {
@@ -393,7 +393,7 @@ pub fn compile_with_config(
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let mut code_formatter = CodeFormatter::new(BufWriter::new(file));
-    let generated = i_slint_compiler::generator::rust::generate(&doc);
+    let generated = i_slint_compiler::generator::rust::generate(&doc, &loader.compiler_config);
 
     for x in &diag.all_loaded_files {
         if x.is_absolute() {
@@ -421,6 +421,7 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SLINT_SCALE_FACTOR");
     println!("cargo:rerun-if-env-changed=SLINT_ASSET_SECTION");
     println!("cargo:rerun-if-env-changed=SLINT_EMBED_RESOURCES");
+    println!("cargo:rerun-if-env-changed=SLINT_EMIT_DEBUG_INFO");
 
     println!("cargo:rustc-env=SLINT_INCLUDE_GENERATED={}", output_file_path.display());
 

@@ -9,10 +9,14 @@ use crate::langtype::{ElementType, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, ElementRc, PropertyVisibility};
+use crate::CompilerConfiguration;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
-pub fn lower_to_item_tree(component: &Rc<Component>) -> PublicComponent {
+pub fn lower_to_item_tree(
+    component: &Rc<Component>,
+    compiler_config: &CompilerConfiguration,
+) -> PublicComponent {
     let mut state = LoweringState::default();
 
     let mut globals = Vec::new();
@@ -21,11 +25,11 @@ pub fn lower_to_item_tree(component: &Rc<Component>) -> PublicComponent {
         globals.push(lower_global(g, count, &mut state));
     }
     for c in &component.used_types.borrow().sub_components {
-        let sc = lower_sub_component(c, &state, None);
+        let sc = lower_sub_component(c, &state, None, &compiler_config);
         state.sub_components.insert(ByAddress(c.clone()), sc);
     }
 
-    let sc = lower_sub_component(component, &state, None);
+    let sc = lower_sub_component(component, &state, None, &compiler_config);
     let public_properties = public_properties(component, &sc.mapping, &state);
     let item_tree = ItemTree {
         tree: make_tree(&state, &component.root_element, &sc, &[]),
@@ -180,6 +184,7 @@ fn lower_sub_component(
     component: &Rc<Component>,
     state: &LoweringState,
     parent_context: Option<&ExpressionContext>,
+    compiler_config: &CompilerConfiguration,
 ) -> LoweredSubComponent {
     let mut sub_component = SubComponent {
         name: component_id(component),
@@ -325,9 +330,11 @@ fn lower_sub_component(
         for (prop, expr) in &elem.change_callbacks {
             change_callbacks.push((NamedReference::new(element, prop), expr.borrow().clone()));
         }
-        let element_infos = elem.element_infos();
-        if !element_infos.is_empty() {
-            sub_component.element_ids.insert(*elem.item_index.get().unwrap(), element_infos);
+        if compiler_config.debug_info {
+            let element_infos = elem.element_infos();
+            if !element_infos.is_empty() {
+                sub_component.element_ids.insert(*elem.item_index.get().unwrap(), element_infos);
+            }
         }
 
         Some(element.clone())
@@ -411,8 +418,10 @@ fn lower_sub_component(
             lower_component_container(&component_container, &sub_component, &ctx)
         })
         .collect();
-    sub_component.repeated =
-        repeated.into_iter().map(|elem| lower_repeated_component(&elem, &ctx)).collect();
+    sub_component.repeated = repeated
+        .into_iter()
+        .map(|elem| lower_repeated_component(&elem, &ctx, &compiler_config))
+        .collect();
     for s in &mut sub_component.sub_components {
         s.repeater_offset +=
             (sub_component.repeated.len() + sub_component.component_containers.len()) as u32;
@@ -422,7 +431,7 @@ fn lower_sub_component(
         .popup_windows
         .borrow()
         .iter()
-        .map(|popup| lower_popup_component(&popup.component, &ctx))
+        .map(|popup| lower_popup_component(&popup.component, &ctx, &compiler_config))
         .collect();
 
     crate::generator::for_each_const_properties(component, |elem, n| {
@@ -557,12 +566,17 @@ fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::Prope
     }
 }
 
-fn lower_repeated_component(elem: &ElementRc, ctx: &ExpressionContext) -> RepeatedElement {
+fn lower_repeated_component(
+    elem: &ElementRc,
+    ctx: &ExpressionContext,
+    compiler_config: &CompilerConfiguration,
+) -> RepeatedElement {
     let e = elem.borrow();
     let component = e.base_type.as_component().clone();
     let repeated = e.repeated.as_ref().unwrap();
 
-    let sc: LoweredSubComponent = lower_sub_component(&component, ctx.state, Some(ctx));
+    let sc: LoweredSubComponent =
+        lower_sub_component(&component, ctx.state, Some(ctx), &compiler_config);
 
     let geom = component.root_element.borrow().geometry_props.clone().unwrap();
 
@@ -612,8 +626,12 @@ fn lower_component_container(
     }
 }
 
-fn lower_popup_component(component: &Rc<Component>, ctx: &ExpressionContext) -> ItemTree {
-    let sc = lower_sub_component(component, ctx.state, Some(ctx));
+fn lower_popup_component(
+    component: &Rc<Component>,
+    ctx: &ExpressionContext,
+    compiler_config: &CompilerConfiguration,
+) -> ItemTree {
+    let sc = lower_sub_component(component, ctx.state, Some(ctx), &compiler_config);
     ItemTree {
         tree: make_tree(ctx.state, &component.root_element, &sc, &[]),
         root: Rc::try_unwrap(sc.sub_component).unwrap(),

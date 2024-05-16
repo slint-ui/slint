@@ -334,6 +334,7 @@ use crate::llr::{
 };
 use crate::object_tree::Document;
 use crate::parser::syntax_nodes;
+use crate::CompilerConfiguration;
 use cpp_ast::*;
 use itertools::{Either, Itertools};
 use std::cell::Cell;
@@ -534,7 +535,11 @@ fn handle_property_init(
 }
 
 /// Returns the text of the C++ code produced by the given root component
-pub fn generate(doc: &Document, config: Config) -> impl std::fmt::Display {
+pub fn generate(
+    doc: &Document,
+    config: Config,
+    compiler_config: &CompilerConfiguration,
+) -> impl std::fmt::Display {
     let mut file = File { namespace: config.namespace.clone(), ..Default::default() };
 
     file.includes.push("<array>".into());
@@ -764,7 +769,7 @@ pub fn generate(doc: &Document, config: Config) -> impl std::fmt::Display {
         return file;
     }
 
-    let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component);
+    let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component, compiler_config);
 
     // Forward-declare the root so that sub-components can access singletons, the window, etc.
     file.declarations.push(Declaration::Struct(Struct {

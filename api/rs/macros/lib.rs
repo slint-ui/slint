@@ -394,14 +394,14 @@ pub fn slint(stream: TokenStream) -> TokenStream {
 
     //println!("{:#?}", syntax_node);
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
-    let (root_component, diag, _) =
+    let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     //println!("{:#?}", tree);
     if diag.has_error() {
         return diag.report_macro_diagnostic(&tokens);
     }
 
-    let mut result = generator::rust::generate(&root_component);
+    let mut result = generator::rust::generate(&root_component, &loader.compiler_config);
 
     // Make sure to recompile if any of the external files changes
     let reload = diag
