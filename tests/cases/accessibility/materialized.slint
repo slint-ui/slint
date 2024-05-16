@@ -24,6 +24,15 @@ Cb := Rectangle {
     accessible-checked: true;
 }
 
+component ComboBox inherits Rectangle {
+    accessible-role: combobox;
+    accessible-label: "mycombo";
+    Rectangle {
+        accessible-role: text;
+        accessible-label: "innerlabel";
+    }
+}
+
 TestCase := Rectangle {
     width: 300phx;
     height: 300phx;
@@ -43,6 +52,8 @@ TestCase := Rectangle {
         }
 
         cb := Cb { text: "hello"; }
+
+        ComboBox {}
     }
 
     for t in ["abc"] : Text { text: t; accessible-description: t;  }
@@ -74,6 +85,9 @@ assert(instance.get_test());
 ```rust
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
+
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "mycombo").collect::<Vec<_>>().len(), 1);
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "innerlabel").collect::<Vec<_>>().len(), 1);
 ```
 
 ```js
