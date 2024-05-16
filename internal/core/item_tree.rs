@@ -14,7 +14,6 @@ use crate::lengths::{LogicalPoint, LogicalRect};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use crate::SharedString;
-use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::pin::Pin;
 use vtable::*;
@@ -369,27 +368,19 @@ impl ItemRc {
         comp_ref_pin.as_ref().supported_accessibility_actions(self.index)
     }
 
-    pub fn element_ids(&self) -> Vec<String> {
+    pub fn element_type_names_and_ids(&self) -> Vec<(SharedString, SharedString)> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let mut result = SharedString::new();
         comp_ref_pin.as_ref().item_element_infos(self.index, &mut result);
         result
             .as_str()
             .split(";")
-            .filter_map(|encoded_elem_info| {
-                encoded_elem_info.split(',').nth(1).map(ToString::to_string)
+            .map(|encoded_elem_info| {
+                let mut decoder = encoded_elem_info.split(',');
+                let type_name = decoder.next().unwrap().into();
+                let id = decoder.next().map(Into::into).unwrap_or_default();
+                (type_name, id)
             })
-            .collect()
-    }
-
-    pub fn element_type_names(&self) -> Vec<String> {
-        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
-        let mut result = SharedString::new();
-        comp_ref_pin.as_ref().item_element_infos(self.index, &mut result);
-        result
-            .as_str()
-            .split(";")
-            .map(|encoded_elem_info| encoded_elem_info.split(',').next().unwrap().to_string())
             .collect()
     }
 
