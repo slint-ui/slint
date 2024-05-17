@@ -426,7 +426,7 @@ impl TypeLoader {
         ok.then_some(path_canon)
     }
 
-    /// Load a file, and its dependency not run the passes.
+    /// Load a file, and its dependency, running only the import passes.
     ///
     /// the path must be the canonical path
     pub async fn load_file(
@@ -451,7 +451,7 @@ impl TypeLoader {
         .await;
     }
 
-    /// Load a file, and its dependency not run the passes.
+    /// Load a file, and its dependency, running the full set of passes.
     ///
     /// the path must be the canonical path
     pub async fn load_root_file(
