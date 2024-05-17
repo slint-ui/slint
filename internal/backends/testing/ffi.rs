@@ -35,6 +35,18 @@ pub extern "C" fn slint_testing_element_find_by_element_id(
 }
 
 #[no_mangle]
+pub extern "C" fn slint_testing_element_find_by_element_type_name(
+    root: &ItemTreeRc,
+    type_name: &Slice<u8>,
+    out: &mut SharedVector<crate::search_api::ElementHandle>,
+) {
+    let Ok(type_name) = core::str::from_utf8(type_name.as_slice()) else { return };
+    *out = crate::search_api::search_item(root, |elem| {
+        elem.element_type_names_and_ids().unwrap().any(|(tid, _)| tid == type_name)
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn slint_testing_element_type_names_and_ids(
     element: &crate::search_api::ElementHandle,
     type_names: &mut SharedVector<SharedString>,

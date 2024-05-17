@@ -60,6 +60,23 @@ public:
         return result;
     }
 
+    /// Find all elements matching the given type name.
+    template<typename T>
+    static SharedVector<ElementHandle>
+    find_by_element_type_name(const ComponentHandle<T> &component, std::string_view type_name)
+    {
+        cbindgen_private::Slice<uint8_t> element_type_name_view {
+            const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(type_name.data())),
+            type_name.size()
+        };
+        auto vrc = component.into_dyn();
+        SharedVector<ElementHandle> result;
+        cbindgen_private::slint_testing_element_find_by_element_type_name(
+                &vrc, &element_type_name_view,
+                reinterpret_cast<SharedVector<cbindgen_private::ElementHandle> *>(&result));
+        return result;
+    }
+
     /// Returns true if the underlying element still exists; false otherwise.
     bool is_valid() const { return private_api::upgrade_item_weak(inner.item).has_value(); }
 
