@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+import { DatePicker, Date, Button } from "std-widgets.slint";
+export { Date }
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 600px;
+
+    date-picker := datePicker {
+        x: 0;
+        y: 0;
+    }
+
+    in property <Date> date <=> date-picker.date;
+}
+
+/*
+
+```rust
+use i_slint_backend_testing::mock_elapsed_time;
+
+let instance = TestCase::new().unwrap();
+
+instance.set_time(Date{ day: 17, month: 5, year: 2024});
+
+mock_elapsed_time(500);
+
+
+*/

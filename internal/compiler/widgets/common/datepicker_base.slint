@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+export struct Date {
+    year: int,
+    month: int,
+    day: int,
+}
+
+export component DatePickerBase {
+    in property <Date> date;
+
+    property <Date> current-date;
+
+    pure public function ok-enabled() -> bool {
+        true
+    }
+
+    public function get-current-date() -> Date {
+        root.current-date
+    }
+}
