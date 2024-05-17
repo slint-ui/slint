@@ -628,7 +628,7 @@ pub fn set_binding(
         let expr_context_info = element.with_element_node(|node| {
             util::ExpressionContextInfo::new(node.clone(), property_name.to_string(), false)
         });
-        util::with_property_lookup_ctx(&document_cache, &expr_context_info, |ctx| {
+        util::with_property_lookup_ctx(document_cache, &expr_context_info, |ctx| {
             let expression =
                 i_slint_compiler::expression_tree::Expression::from_binding_expression_node(
                     expression_node,
@@ -721,14 +721,16 @@ pub fn set_bindings(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 fn element_at_source_code_position(
-    dc: &mut language::DocumentCache,
+    document_cache: &mut language::DocumentCache,
     position: &common::VersionedPosition,
 ) -> Result<common::ElementRcNode> {
-    if &dc.document_version(position.url()) != position.version() {
+    if &document_cache.document_version(position.url()) != position.version() {
         return Err("Document version mismatch.".into());
     }
 
-    let doc = dc.get_document(position.url()).ok_or_else(|| "Document not found".to_string())?;
+    let doc = document_cache
+        .get_document(position.url())
+        .ok_or_else(|| "Document not found".to_string())?;
 
     let source_file = doc
         .node
@@ -737,9 +739,10 @@ fn element_at_source_code_position(
         .ok_or_else(|| "Document had no node".to_string())?;
     let element_position = util::map_position(&source_file, position.offset().into());
 
-    Ok(language::element_at_position(&dc, position.url(), &element_position).ok_or_else(|| {
-        format!("No element found at the given start position {:?}", &element_position)
-    })?)
+    Ok(language::element_at_position(document_cache, position.url(), &element_position)
+        .ok_or_else(|| {
+            format!("No element found at the given start position {:?}", &element_position)
+        })?)
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]

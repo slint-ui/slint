@@ -62,6 +62,11 @@ impl DocumentCache {
         Self(type_loader)
     }
 
+    pub fn snapshot(&self) -> Option<Self> {
+        let type_loader = i_slint_compiler::typeloader::snapshot(&self.0)?;
+        Some(Self::new_from_type_loader(type_loader))
+    }
+
     pub fn resolve_import_path(
         &self,
         import_token: Option<&i_slint_compiler::parser::NodeOrToken>,
@@ -82,7 +87,7 @@ impl DocumentCache {
     }
 
     pub fn get_document_by_path(&self, path: &Path) -> Option<&Document> {
-        self.0.get_document(&path)
+        self.0.get_document(path)
     }
 
     pub fn get_document_for_source_file(&self, source_file: &SourceFile) -> Option<&Document> {
@@ -408,7 +413,6 @@ pub fn create_workspace_edit_from_source_files(
                 .entry((url, sf.version()))
                 .and_modify(|v| v.push(edit.clone()))
                 .or_insert_with(|| vec![edit]);
-        } else {
         }
     });
 

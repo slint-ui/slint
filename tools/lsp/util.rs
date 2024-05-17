@@ -147,7 +147,7 @@ pub fn with_property_lookup_ctx<R>(
     let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
-        .and_then(|sf| document_cache.get_document_for_source_file(&sf))
+        .and_then(|sf| document_cache.get_document_for_source_file(sf))
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
 

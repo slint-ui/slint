@@ -74,24 +74,23 @@ struct PreviewState {
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
-// I will be needing this again soon...
-// struct DummyWaker();
+struct DummyWaker();
 
-// impl std::task::Wake for DummyWaker {
-//     fn wake(self: std::sync::Arc<Self>) {}
-// }
+impl std::task::Wake for DummyWaker {
+    fn wake(self: std::sync::Arc<Self>) {}
+}
 
-// pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
-//     let waker = std::sync::Arc::new(DummyWaker()).into();
-//     let mut ctx = std::task::Context::from_waker(&waker);
+pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
+    let waker = std::sync::Arc::new(DummyWaker()).into();
+    let mut ctx = std::task::Context::from_waker(&waker);
 
-//     let future = std::pin::pin!(future);
+    let future = std::pin::pin!(future);
 
-//     match future.poll(&mut ctx) {
-//         std::task::Poll::Ready(result) => Some(result),
-//         std::task::Poll::Pending => None,
-//     }
-// }
+    match future.poll(&mut ctx) {
+        std::task::Poll::Ready(result) => Some(result),
+        std::task::Poll::Pending => None,
+    }
+}
 
 pub fn set_contents(url: &common::VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
@@ -321,8 +320,8 @@ fn resize_selected_element_impl(rect: LogicalRect) {
 }
 
 // triggered from the UI, running in UI thread
-fn can_move_selected_element(_x: f32, _y: f32, mouse_x: f32, mouse_y: f32) -> bool {
-    // let position = LogicalPoint::new(x, y);
+fn can_move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) -> bool {
+    let position = LogicalPoint::new(x, y);
     let mouse_position = LogicalPoint::new(mouse_x, mouse_y);
     let Some(selected) = selected_element() else {
         return false;
@@ -330,8 +329,11 @@ fn can_move_selected_element(_x: f32, _y: f32, mouse_x: f32, mouse_y: f32) -> bo
     let Some(selected_element_node) = selected.as_element_node() else {
         return false;
     };
+    let Some(document_cache) = document_cache() else {
+        return false;
+    };
 
-    drop_location::can_move_to(mouse_position, selected_element_node)
+    drop_location::can_move_to(&document_cache, position, mouse_position, selected_element_node)
 }
 
 // triggered from the UI, running in UI thread
@@ -344,10 +346,16 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
     let Some(selected_element_node) = selected.as_element_node() else {
         return;
     };
+    let Some(document_cache) = document_cache() else {
+        return;
+    };
 
-    if let Some((edit, drop_data)) =
-        drop_location::move_element_to(selected_element_node, position, mouse_position)
-    {
+    if let Some((edit, drop_data)) = drop_location::move_element_to(
+        &document_cache,
+        selected_element_node,
+        position,
+        mouse_position,
+    ) {
         element_selection::select_element_at_source_code_position(
             drop_data.path,
             drop_data.selection_offset,
@@ -812,6 +820,12 @@ fn component_instance() -> Option<ComponentInstance> {
 
 fn document_cache() -> Option<common::DocumentCache> {
     let component_instance = component_instance()?;
+    Some(common::DocumentCache::new_from_type_loader(
+        component_instance.definition().raw_type_loader()?,
+    ))
+}
+
+fn document_cache_from(component_instance: &ComponentInstance) -> Option<common::DocumentCache> {
     Some(common::DocumentCache::new_from_type_loader(
         component_instance.definition().raw_type_loader()?,
     ))

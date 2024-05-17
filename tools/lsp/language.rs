@@ -454,7 +454,7 @@ pub fn query_properties_command(
         .expect("Failed to serialize none-element property query result!"));
     };
 
-    if let Some(element) = element_at_position(&document_cache, &text_document_uri, &position) {
+    if let Some(element) = element_at_position(document_cache, &text_document_uri, &position) {
         properties::query_properties(&text_document_uri, source_version, &element)
             .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
     } else {
@@ -507,7 +507,7 @@ pub async fn set_binding_command(
         }
 
         let element =
-            element_at_position(&document_cache, &uri, &element_range.start).ok_or_else(|| {
+            element_at_position(document_cache, &uri, &element_range.start).ok_or_else(|| {
                 format!("No element found at the given start position {:?}", &element_range.start)
             })?;
 
@@ -592,7 +592,7 @@ pub async fn remove_binding_command(
         }
 
         let element =
-            element_at_position(&document_cache, &uri, &element_range.start).ok_or_else(|| {
+            element_at_position(document_cache, &uri, &element_range.start).ok_or_else(|| {
                 format!("No element found at the given start position {:?}", &element_range.start)
             })?;
 
@@ -707,7 +707,7 @@ fn get_document_and_offset<'a>(
     text_document_uri: &'_ Url,
     pos: &'_ Position,
 ) -> Option<(&'a i_slint_compiler::object_tree::Document, u32)> {
-    let doc = document_cache.get_document(&text_document_uri)?;
+    let doc = document_cache.get_document(text_document_uri)?;
     let o = doc.node.as_ref()?.source_file.offset(pos.line as usize + 1, pos.character as usize + 1)
         as u32;
     doc.node.as_ref()?.text_range().contains_inclusive(o.into()).then_some((doc, o))
@@ -769,7 +769,7 @@ fn token_descr(
     text_document_uri: &Url,
     pos: &Position,
 ) -> Option<(SyntaxToken, u32)> {
-    let (doc, o) = get_document_and_offset(&document_cache, text_document_uri, pos)?;
+    let (doc, o) = get_document_and_offset(document_cache, text_document_uri, pos)?;
     let node = doc.node.as_ref()?;
 
     let token = token_at_offset(node, o)?;
@@ -874,7 +874,7 @@ fn get_code_actions(
             let text = token.text();
             completion::build_import_statements_edits(
                 &token,
-                &document_cache,
+                document_cache,
                 &mut |ci| !ci.is_global && ci.is_exported && ci.name == text,
                 &mut |_name, file, edit| {
                     result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {

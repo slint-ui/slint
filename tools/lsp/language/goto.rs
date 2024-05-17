@@ -46,7 +46,7 @@ pub fn goto_definition(
                     if token.kind() != SyntaxKind::Identifier {
                         return None;
                     }
-                    let lr = with_lookup_ctx(&document_cache, node, |ctx| {
+                    let lr = with_lookup_ctx(document_cache, node, |ctx| {
                         let mut it = n
                             .children_with_tokens()
                             .filter_map(|t| t.into_token())
@@ -188,7 +188,7 @@ fn find_property_declaration_in_base(
     let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
-        .and_then(|sf| document_cache.get_document_for_source_file(&sf))
+        .and_then(|sf| document_cache.get_document_for_source_file(sf))
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
 

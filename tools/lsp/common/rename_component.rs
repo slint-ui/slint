@@ -252,7 +252,7 @@ fn fix_exports(
 
                 if update_imports {
                     let my_path = document_node.source_file.path();
-                    fix_imports(document_cache, &my_path, old_type, new_type, edits);
+                    fix_imports(document_cache, my_path, old_type, new_type, edits);
                 }
             }
         }
@@ -310,7 +310,7 @@ pub fn rename_component_from_definition(
     if export_names.contains(&component_type) {
         let my_path = source_file.path();
 
-        fix_imports(document_cache, &my_path, &component_type, &new_name, &mut edits);
+        fix_imports(document_cache, my_path, &component_type, &new_name, &mut edits);
     }
 
     common::create_workspace_edit_from_source_files(edits)
