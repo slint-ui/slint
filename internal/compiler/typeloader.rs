@@ -16,7 +16,7 @@ use core::future::Future;
 use itertools::Itertools;
 
 /// Storage for a cache of all loaded documents
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct LoadedDocuments {
     /// maps from the canonical file name to the object_tree::Document
     docs: HashMap<PathBuf, Document>,
@@ -68,6 +68,7 @@ impl ImportedName {
     }
 }
 
+#[derive(Clone)]
 pub struct TypeLoader {
     pub global_type_registry: Rc<RefCell<TypeRegister>>,
     pub compiler_config: CompilerConfiguration,
@@ -426,7 +427,7 @@ impl TypeLoader {
         ok.then_some(path_canon)
     }
 
-    /// Load a file, and its dependency not run the passes.
+    /// Load a file, and its dependency, running only the import passes.
     ///
     /// the path must be the canonical path
     pub async fn load_file(
@@ -451,7 +452,7 @@ impl TypeLoader {
         .await;
     }
 
-    /// Load a file, and its dependency not run the passes.
+    /// Load a file, and its dependency, running the full set of passes.
     ///
     /// the path must be the canonical path
     pub async fn load_root_file(

@@ -216,7 +216,7 @@ pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
     None
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TypeRegister {
     /// The set of property types.
     types: HashMap<String, Type>,
