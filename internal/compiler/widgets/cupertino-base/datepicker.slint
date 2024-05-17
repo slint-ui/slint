@@ -33,7 +33,25 @@ export component DatePicker {
             color: CupertinoPalette.foreground;
         }
 
-        base := DatePickerBase {}
+        base := DatePickerBase {
+            style: {
+                  calendar-style: {
+                      spacing: 8px,
+                      delegate-style: {
+                          font-size: CupertinoFontSettings.body-strong.font-size,
+                          font-weight: CupertinoFontSettings.body-strong.font-weight,
+                          foreground: CupertinoPalette.foreground,
+                          state-brush: CupertinoPalette.state,
+                          background-selected: CupertinoPalette.accent-background,
+                          foreground-selected: CupertinoPalette.accent-foreground,
+                          state-brush-selected: CupertinoPalette.state-secondary,
+                          border-color-today: CupertinoPalette.accent-background,
+                          foreground-today: CupertinoPalette.accent-background,
+                          state-brush-today: CupertinoPalette.state,
+                      }
+                  }  
+            };
+        }
 
         HorizontalLayout {
             spacing: 8px;
