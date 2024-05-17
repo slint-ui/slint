@@ -129,7 +129,7 @@ pub(crate) fn completion_at(
             }
 
             if !is_global && snippet_support {
-                add_components_to_import(&token, &document_cache, available_types, &mut r);
+                add_components_to_import(&token, document_cache, available_types, &mut r);
             }
 
             r
@@ -137,8 +137,8 @@ pub(crate) fn completion_at(
     } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
         if let Some(colon) = n.child_token(SyntaxKind::Colon) {
             if offset >= colon.text_range().end().into() {
-                return with_lookup_ctx(&document_cache, node, |ctx| {
-                    resolve_expression_scope(ctx, &document_cache, snippet_support).map(Into::into)
+                return with_lookup_ctx(document_cache, node, |ctx| {
+                    resolve_expression_scope(ctx, document_cache, snippet_support).map(Into::into)
                 })?;
             }
         }
@@ -157,8 +157,8 @@ pub(crate) fn completion_at(
         if offset < double_arrow_range.end().into() {
             return None;
         }
-        return with_lookup_ctx(&document_cache, node, |ctx| {
-            resolve_expression_scope(ctx, &document_cache, snippet_support)
+        return with_lookup_ctx(document_cache, node, |ctx| {
+            resolve_expression_scope(ctx, document_cache, snippet_support)
         })?;
     } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
@@ -230,8 +230,8 @@ pub(crate) fn completion_at(
             );
         }
 
-        return with_lookup_ctx(&document_cache, node, |ctx| {
-            resolve_expression_scope(ctx, &document_cache, snippet_support).map(Into::into)
+        return with_lookup_ctx(document_cache, node, |ctx| {
+            resolve_expression_scope(ctx, document_cache, snippet_support).map(Into::into)
         })?;
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
@@ -263,7 +263,7 @@ pub(crate) fn completion_at(
 
                 if snippet_support {
                     let available_types = result.iter().map(|c| c.label.clone()).collect();
-                    add_components_to_import(&token, &document_cache, available_types, &mut result);
+                    add_components_to_import(&token, document_cache, available_types, &mut result);
                 }
 
                 return Some(result);
@@ -272,14 +272,14 @@ pub(crate) fn completion_at(
                 return resolve_type_scope(token, document_cache).map(Into::into);
             }
             SyntaxKind::Expression => {
-                return with_lookup_ctx(&document_cache, node, |ctx| {
+                return with_lookup_ctx(document_cache, node, |ctx| {
                     let it = q.children_with_tokens().filter_map(|t| t.into_token());
                     let mut it = it.skip_while(|t| {
                         t.kind() != SyntaxKind::Identifier && t.token != token.token
                     });
                     let first = it.next();
                     if first.as_ref().map_or(true, |f| f.token == token.token) {
-                        return resolve_expression_scope(ctx, &document_cache, snippet_support)
+                        return resolve_expression_scope(ctx, document_cache, snippet_support)
                             .map(Into::into);
                     }
                     let first = i_slint_compiler::parser::normalize_identifier(first?.text());
@@ -537,9 +537,7 @@ fn resolve_expression_scope(
                 &token,
                 document_cache,
                 &mut |ci: &common::ComponentInformation| {
-                    if !ci.is_global || !ci.is_exported {
-                        false
-                    } else if available_types.contains(&ci.name) {
+                    if !ci.is_global || !ci.is_exported || available_types.contains(&ci.name) {
                         false
                     } else {
                         available_types.insert(ci.name.clone());
@@ -676,9 +674,7 @@ fn add_components_to_import(
         token,
         document_cache,
         &mut |ci: &common::ComponentInformation| {
-            if ci.is_global || !ci.is_exported {
-                false
-            } else if available_types.contains(&ci.name) {
+            if ci.is_global || !ci.is_exported || available_types.contains(&ci.name) {
                 false
             } else {
                 available_types.insert(ci.name.clone());
