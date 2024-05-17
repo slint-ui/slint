@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_compiler::diagnostics::SourceFile;
+use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
+use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
@@ -522,7 +523,7 @@ fn find_drop_location(
 fn find_move_location(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    selected_element: common::ElementRcNode,
+    selected_element: &common::ElementRcNode,
     component_type: &str,
 ) -> Option<DropInformation> {
     let se = selected_element.clone();
@@ -608,13 +609,64 @@ pub fn can_drop_at(position: LogicalPoint, component_type: &str) -> bool {
     dm.is_some()
 }
 
+pub fn workspace_edit_compiles(
+    type_loader: &TypeLoader,
+    workspace_edit: &lsp_types::WorkspaceEdit,
+) -> bool {
+    let Ok(mut result) = text_edit::apply_workspace_edit(type_loader, workspace_edit) else {
+        return false;
+    };
+
+    let mut tmp_typeloader = type_loader.clone();
+
+    let mut diag = BuildDiagnostics::default();
+
+    // Fill in changed sources:
+    for (p, c) in result.drain(..).filter_map(|mut r| {
+        let path = r.url.to_file_path().ok()?;
+        let contents = std::mem::take(&mut r.contents);
+        Some((path, contents))
+    }) {
+        spin_on::spin_on(async {
+            tmp_typeloader.load_file(&p, None, &p, c, false, &mut diag).await;
+        });
+
+        if diag.has_error() {
+            diag.print();
+            return false;
+        }
+    }
+
+    true
+}
+
 /// Find the Element to insert into. None means we can not insert at this point.
-pub fn can_move_to(mouse_position: LogicalPoint, element_node: common::ElementRcNode) -> bool {
+pub fn can_move_to(
+    position: LogicalPoint,
+    mouse_position: LogicalPoint,
+    element_node: common::ElementRcNode,
+) -> bool {
+    let Some(component_instance) = preview::component_instance() else {
+        return false;
+    };
     let component_type = element_node.component_type();
     let dm = &super::component_instance()
-        .and_then(|ci| find_move_location(&ci, mouse_position, element_node, &component_type));
+        .and_then(|ci| find_move_location(&ci, mouse_position, &element_node, &component_type));
 
-    preview::set_drop_mark(&dm.as_ref().and_then(|dm| dm.drop_mark.clone()));
+    if let Some(dm) = dm {
+        if let Some((edit, _)) =
+            create_move_element_workspace_edit(&component_instance, dm, &element_node, position)
+        {
+            if !workspace_edit_compiles(&component_instance.definition().type_loader(), &edit) {
+                preview::set_drop_mark(&None);
+                return false;
+            }
+        }
+        preview::set_drop_mark(&dm.drop_mark);
+    } else {
+        preview::set_drop_mark(&None);
+    }
+
     dm.is_some()
 }
 
@@ -846,7 +898,7 @@ fn node_removal_text_edit(
 pub fn create_move_element_workspace_edit(
     component_instance: &ComponentInstance,
     drop_info: &DropInformation,
-    element: common::ElementRcNode,
+    element: &common::ElementRcNode,
     position: LogicalPoint,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let component_type = element.component_type();
@@ -864,7 +916,7 @@ pub fn create_move_element_workspace_edit(
             let children = drop_info.target_element_node.children();
             let child_index = {
                 let tmp =
-                    children.iter().position(|c| c == &element).expect("We have the same parent");
+                    children.iter().position(|c| c == element).expect("We have the same parent");
                 if tmp == children.len() {
                     usize::MAX
                 } else {
@@ -873,7 +925,6 @@ pub fn create_move_element_workspace_edit(
             };
 
             if child_index == drop_info.child_index {
-                element_selection::reselect_element();
                 // Dropped onto myself: Ignore the move
                 return None;
             }
@@ -978,7 +1029,6 @@ pub fn create_move_element_workspace_edit(
     ))
 }
 
-
 /// Find a location in a file that would be a good place to insert the new component at
 ///
 /// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
@@ -989,13 +1039,146 @@ pub fn move_element_to(
     mouse_position: LogicalPoint,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let component_instance = preview::component_instance()?;
-    let Some(drop_info) =
-        find_move_location(&component_instance, mouse_position, element.clone(), &element.component_type())
-    else {
+    let Some(drop_info) = find_move_location(
+        &component_instance,
+        mouse_position,
+        &element,
+        &element.component_type(),
+    ) else {
         element_selection::reselect_element();
         // Can not drop here: Ignore the move
         return None;
     };
 
-    create_move_element_workspace_edit(&component_instance, &drop_info, element, position)
+    create_move_element_workspace_edit(&component_instance, &drop_info, &element, position)
+        .and_then(|(e, d)| {
+            workspace_edit_compiles(&component_instance.definition().type_loader(), &e)
+                .then_some((e, d))
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use i_slint_compiler::typeloader::TypeLoader;
+
+    use crate::{common::test, util};
+
+    pub const DEMO_CODE: &str = r#"import { Button } from "std-widgets.slint";
+
+component SomeComponent { // 69
+    @children
+}
+
+component Main { // 109
+    width: 200px;
+    height: 200px;
+
+    HorizontalLayout { // 160
+        Rectangle { // 194
+            SomeComponent { // 225
+                property <length> button-width: 80px;
+                Button { // 318
+                    width: parent.button-width;
+                    text: "Press me";
+                }
+            }
+        }
+        Rectangle { // 470
+            background: Colors.blue;
+        }
+    }
+}
+
+export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
+"#;
+
+    fn workspace_edit_setup(
+        edits: Vec<(usize, usize, &str)>,
+    ) -> (TypeLoader, lsp_types::WorkspaceEdit) {
+        let type_loader = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(test::main_test_file_name(), DEMO_CODE.to_string())]),
+        );
+        let doc = type_loader.get_document(&test::main_test_file_name()).unwrap();
+        let source_file = &doc.node.as_ref().unwrap().source_file;
+
+        let edits = edits
+            .iter()
+            .map(|(so, eo, t)| {
+                let range = util::map_range(
+                    source_file,
+                    rowan::TextRange::new(
+                        rowan::TextSize::new(*so as u32),
+                        rowan::TextSize::new(*eo as u32),
+                    ),
+                );
+                lsp_types::TextEdit { range, new_text: t.to_string() }
+            })
+            .collect();
+
+        let workspace_edit =
+            crate::common::create_workspace_edit_from_source_file(source_file, edits).unwrap();
+
+        (type_loader, workspace_edit)
+    }
+
+    #[test]
+    fn test_workspace_edit_compiles_ok() {
+        let (type_loader, workspace_edit) = workspace_edit_setup(vec![(194, 194, "foo := ")]);
+
+        assert_eq!(super::workspace_edit_compiles(&type_loader, &workspace_edit,), true);
+    }
+
+    #[test]
+    fn test_workspace_edit_compiles_parse_fails() {
+        let (type_loader, workspace_edit) = workspace_edit_setup(vec![(194, 194, "FOOBAR ")]);
+
+        assert_eq!(super::workspace_edit_compiles(&type_loader, &workspace_edit,), false);
+    }
+
+    #[test]
+    fn test_workspace_edit_compiles_passes_fail() {
+        let (type_loader, workspace_edit) = workspace_edit_setup(vec![(
+            194,
+            194,
+            "property <bool> foobar: root.foobar;\n        ",
+        )]);
+
+        assert_eq!(super::workspace_edit_compiles(&type_loader, &workspace_edit,), false);
+    }
+
+    #[test]
+    fn test_workspace_edit_compiles_move_element_fail() {
+        let (type_loader, workspace_edit) = workspace_edit_setup(vec![(
+            314,
+            450,
+            "",
+        ),
+        (
+            460,
+            461,
+            "    Button { // 318\n                width: parent.button_width;\n                text: \"Press me\";\n            }\n        "
+        )]);
+
+        assert_eq!(super::workspace_edit_compiles(&type_loader, &workspace_edit,), false);
+    }
+
+    #[test]
+    fn test_workspace_edit_compiles_move_element_ok() {
+        let (type_loader, workspace_edit) =
+            workspace_edit_setup(vec![(
+            466,
+            540,
+            "",
+        ),
+        (
+            194,
+            194,
+            "Rectangle { // 470\n              background: Colors.blue;\n        }\n        "
+        ),]);
+
+        assert_eq!(super::workspace_edit_compiles(&type_loader, &workspace_edit,), true);
+    }
 }

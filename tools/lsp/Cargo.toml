@@ -86,6 +86,7 @@ lsp-types = { version = "0.95.0", features = ["proposed"] }
 rowan = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+spin_on = { workspace = true }
 
 # for the preview-engine feature
 i-slint-backend-selector = { workspace = true, optional = true }
@@ -113,7 +114,6 @@ wasm-bindgen-futures = "0.4.30"
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
-spin_on = "0.1"
 
 [build-dependencies]
 slint-build = { workspace = true, features = ["default"], optional = true }

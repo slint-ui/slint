@@ -3,7 +3,6 @@
 
 use crate::common::{self, ComponentInformation, ElementRcNode, PreviewComponent, PreviewConfig};
 use crate::lsp_ext::Health;
-use crate::preview::element_selection::ElementSelection;
 use crate::util;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
@@ -298,8 +297,8 @@ fn resize_selected_element_impl(rect: LogicalRect) {
 }
 
 // triggered from the UI, running in UI thread
-fn can_move_selected_element(_x: f32, _y: f32, mouse_x: f32, mouse_y: f32) -> bool {
-    // let position = LogicalPoint::new(x, y);
+fn can_move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) -> bool {
+    let position = LogicalPoint::new(x, y);
     let mouse_position = LogicalPoint::new(mouse_x, mouse_y);
     let Some(selected) = selected_element() else {
         return false;
@@ -308,7 +307,7 @@ fn can_move_selected_element(_x: f32, _y: f32, mouse_x: f32, mouse_y: f32) -> bo
         return false;
     };
 
-    drop_location::can_move_to(mouse_position, selected_element_node)
+    drop_location::can_move_to(position, mouse_position, selected_element_node)
 }
 
 // triggered from the UI, running in UI thread
@@ -337,6 +336,8 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
             edit,
         });
     }
+
+    element_selection::reselect_element()
 }
 
 fn change_style() {
@@ -766,7 +767,7 @@ fn set_selected_element(
     })
 }
 
-fn selected_element() -> Option<ElementSelection> {
+fn selected_element() -> Option<element_selection::ElementSelection> {
     PREVIEW_STATE.with(move |preview_state| {
         let preview_state = preview_state.borrow();
         preview_state.selected.clone()
