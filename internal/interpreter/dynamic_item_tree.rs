@@ -2024,7 +2024,6 @@ extern "C" fn item_element_infos(
     *result = instance_ref.description.original_elements[item_index as usize]
         .borrow()
         .element_infos()
-        .join(";")
         .into();
 }
 

@@ -837,10 +837,7 @@ fn generate_sub_component(
     let mut item_element_infos_branch = component
         .element_infos
         .iter()
-        .map(|(item_index, ids)| {
-            let ids = ids.join(";");
-            quote!(#item_index => { return #ids.into(); })
-        })
+        .map(|(item_index, ids)| quote!(#item_index => { return #ids.into(); }))
         .collect::<Vec<_>>();
 
     let mut user_init_code: Vec<TokenStream> = Vec::new();

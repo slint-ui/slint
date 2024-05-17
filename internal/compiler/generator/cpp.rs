@@ -2038,7 +2038,7 @@ fn generate_sub_component(
         component
             .element_infos
             .iter()
-            .map(|(index, ids)| format!("    case {index}: return \"{}\";", ids.join(";"))),
+            .map(|(index, ids)| format!("    case {index}: return \"{}\";", ids)),
     );
     element_infos_cases.push("}".into());
 

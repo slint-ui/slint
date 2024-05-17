@@ -254,7 +254,7 @@ pub struct SubComponent {
     pub accessible_prop: BTreeMap<(u32, String), MutExpression>,
 
     /// Maps item index to a list of encoded element infos of the element  (type name, qualified ids).
-    pub element_infos: BTreeMap<u32, Vec<String>>,
+    pub element_infos: BTreeMap<u32, String>,
 
     pub prop_analysis: HashMap<PropertyReference, PropAnalysis>,
 }

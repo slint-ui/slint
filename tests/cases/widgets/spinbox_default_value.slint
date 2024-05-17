@@ -6,23 +6,23 @@ import { SpinBox } from "std-widgets.slint";
 export component TestCase inherits Window {
     width: 100px;
     height: 100px;
-    
     spin_min_pos := SpinBox {
-       accessible-label: "spinbox";
-       minimum: 10;
+        accessible-label: "spinbox";
+        minimum: 10;
     }
+
     out property <int> pos-val <=> spin-min-pos.value;
-    
-    spin_min_default := SpinBox {}
-    out property <int> default-min <=> spin-min-default.minimum;    
+    spin_min_default := SpinBox { }
+
+    out property <int> default-min <=> spin-min-default.minimum;
     out property <int> default-val <=> spin-min-default.value;
 
     spin_min_neg := SpinBox {
         minimum: -10;
     }
+
     out property <int> neg-val <=> spin-min-neg.value;
 }
-
 
 /*
 
@@ -34,7 +34,7 @@ assert_eq!(instance.get_default_min(), 0);
 assert_eq!(instance.get_default_val(), 0);
 assert_eq!(instance.get_neg_val(), -10);
 
-let mut label_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "spinbox").collect::<Vec<_>>();
+let mut label_search = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::spin-min-pos").collect::<Vec<_>>();
 assert_eq!(label_search.len(), 1);
 let spinbox = label_search.pop().unwrap();
 assert_eq!(spinbox.accessible_value_maximum(), Some(100f32));
@@ -53,7 +53,7 @@ assert_eq!(spinbox.accessible_value().unwrap(), "10");
 ```cpp
 auto handle = TestCase::create();
 
-auto label_search = slint::testing::ElementHandle::find_by_accessible_label(handle, "spinbox");
+auto label_search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::spin-min-pos");
 assert(label_search.size() == 1);
 auto spinbox = label_search[0];
 assert_eq(spinbox.accessible_value_maximum().value(), 100);

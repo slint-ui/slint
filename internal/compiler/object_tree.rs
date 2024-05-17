@@ -603,6 +603,10 @@ pub struct ElementDebugInfo {
     // Field to indicate wether this element was a layout that had
     // been lowered into a rectangle in the lower_layouts pass.
     pub layout: Option<crate::layout::Layout>,
+    /// Set to true if the ElementDebugInfo following this one in the debug vector
+    /// in Element::debug is the last one and the next entry belongs to an other element.
+    /// This can happen as a result of rectangle optimization, for example.
+    pub element_boundary: bool,
 }
 
 impl ElementDebugInfo {
@@ -952,6 +956,7 @@ impl Element {
                 type_name,
                 node: node.clone(),
                 layout: None,
+                element_boundary: false,
             }],
             is_legacy_syntax,
             ..Default::default()
@@ -1788,18 +1793,28 @@ impl Element {
         }
     }
 
-    pub fn element_infos(&self) -> Vec<String> {
-        let mut infos = self
-            .debug
-            .iter()
-            .map(|debug_info| debug_info.encoded_element_info())
-            .collect::<Vec<_>>();
+    pub fn element_infos(&self) -> String {
+        let mut debug_infos = self.debug.clone();
         let mut base = self.base_type.clone();
         while let ElementType::Component(b) = base {
             let elem = b.root_element.borrow();
             base = elem.base_type.clone();
-            infos.extend(elem.debug.iter().map(|debug_info| debug_info.encoded_element_info()));
+            debug_infos.extend(elem.debug.iter().cloned());
         }
+
+        let (infos, _, _) = debug_infos.into_iter().fold(
+            (String::new(), false, true),
+            |(mut infos, elem_boundary, first), debug_info| {
+                if elem_boundary {
+                    infos.push('/');
+                } else if !first {
+                    infos.push(';');
+                }
+
+                infos.push_str(&debug_info.encoded_element_info());
+                (infos, debug_info.element_boundary, false)
+            },
+        );
         infos
     }
 }
