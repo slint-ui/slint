@@ -33,7 +33,25 @@ export component DatePicker {
             color: CosmicPalette.foreground;
         }
 
-        base := DatePickerBase {}
+        base := DatePickerBase {
+            style: {
+                  calendar-style: {
+                      spacing: 8px,
+                      delegate-style: {
+                          font-size: CosmicFontSettings.body-strong.font-size,
+                          font-weight: CosmicFontSettings.body-strong.font-weight,
+                          foreground: CosmicPalette.foreground,
+                          state-brush: CosmicPalette.state,
+                          background-selected: CosmicPalette.accent-background,
+                          foreground-selected: CosmicPalette.accent-foreground,
+                          state-brush-selected: CosmicPalette.state-secondary,
+                          border-color-today: CosmicPalette.accent-background,
+                          foreground-today: CosmicPalette.accent-background,
+                          state-brush-today: CosmicPalette.state,
+                      }
+                  }  
+            };
+        }
 
         HorizontalLayout {
             spacing: 8px;

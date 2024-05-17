@@ -14,6 +14,9 @@ export component DatePicker {
     in property <string> ok-text: "Ok";
     in property <Date> date <=> base.date;
 
+    property <brush> state: Palette.color-scheme == ColorScheme.dark ? #ffffff : #000000;
+    property <brush> state-secondary: Palette.color-scheme == ColorScheme.dark ? #000000 : #ffffff;
+
     callback canceled();
     callback accepted(/* current-date */ Date);
 
@@ -35,7 +38,24 @@ export component DatePicker {
             color: Palette.foreground;
         }
    
-        base := DatePickerBase {}
+        base := DatePickerBase {           
+            style: {
+                  calendar-style: {
+                      delegate-style: {
+                          font-size: 14px,
+                          font-weight: 500,
+                          foreground: Palette.foreground,
+                          state-brush: root.state,
+                          background-selected: Palette.accent-background,
+                          foreground-selected: Palette.accent-foreground,
+                          state-brush-selected: root.state-secondary,
+                          border-color-today: Palette.accent-background,
+                          foreground-today: Palette.accent-background,
+                          state-brush-today: root.state,
+                      }
+                  }  
+            };
+        }
 
         HorizontalLayout {
             spacing: 8px;
