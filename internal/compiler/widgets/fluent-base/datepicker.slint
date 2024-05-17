@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+import { VerticalBox } from "./layouts.slint";
+import { Button } from "./button.slint";
+import { FluentPalette, FluentFontSettings, Icons } from "styling.slint";
+import { MenuBorder } from "./components.slint";
+
+import { Date, DatePickerBase } from "../common/datepicker_base.slint";
+export { Date } 
+
+export component DatePicker {
+    in property <string> title: "Select date";
+    in property <string> cancel-text: "Cancel";
+    in property <string> ok-text: "Ok";
+    in property <Date> date <=> base.date;
+
+    callback canceled();
+    callback accepted(/* current-date */ Date);
+
+    min-width: content-layer.min-width;
+    min-height: content-layer.min-height;
+    
+    background-layer := MenuBorder { }
+
+    content-layer := VerticalBox {        
+        Text {
+            text: root.title;
+            horizontal-alignment: left;
+            overflow: elide;
+            font-size: FluentFontSettings.body.font-size;
+            font-weight: FluentFontSettings.body.font-weight;
+            color: FluentPalette.foreground;
+        }
+
+        base := DatePickerBase {}
+
+        HorizontalLayout {
+            spacing: 8px;
+        
+            Rectangle { }
+
+            Button {
+                text: root.cancel-text;
+
+                clicked => {
+                    root.canceled();
+                }
+            }
+
+            Button {
+                text: root.ok-text;
+                enabled: base.ok-enabled();
+
+                clicked => {
+                    root.accepted(base.get-current-date());
+                }
+            }
+        }
+    }
+}

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { Button, GroupBox, SpinBox, ComboBox, CheckBox, LineEdit, TabWidget, VerticalBox, HorizontalBox,
-    Slider, ProgressIndicator, SpinBox, Switch, Spinner, GridBox, TimePicker } from "std-widgets.slint";
+    Slider, ProgressIndicator, SpinBox, Switch, Spinner, GridBox, TimePicker, DatePicker } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
@@ -87,7 +87,7 @@ export component ControlsPage inherits Page {
     }
 
     GroupBox {
-        title: @tr("LineEdit - SpinBox - TimePicker");
+        title: @tr("LineEdit - SpinBox - TimePicker - DatePicker");
         vertical-stretch: 0;
 
         HorizontalBox {
@@ -110,6 +110,13 @@ export component ControlsPage inherits Page {
 
                 clicked => {
                     time-picker.show();
+                }
+            }
+
+            Button {
+                text: @tr("Open date picker");
+                clicked => {
+                    date-picker.show();
                 }
             }
         }
@@ -237,5 +244,24 @@ export component ControlsPage inherits Page {
                 time-picker.close();
             }
         }
+    }
+
+    date-picker := PopupWindow {
+        x: (root.width - 360px) / 2;
+        y: (root.height - 360px) / 2;
+        width: 360px;
+        height: 524px;
+        close-on-click: false;
+
+        DatePicker {
+            canceled => {
+                date-picker.close();
+            }
+
+            accepted(date) => {
+                debug(date);
+                date-picker.close();
+            }
+        }      
     }
 }
