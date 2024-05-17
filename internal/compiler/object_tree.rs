@@ -39,7 +39,7 @@ macro_rules! unwrap_or_continue {
 }
 
 /// The full document (a complete file)
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct Document {
     pub node: Option<syntax_nodes::Document>,
     pub inner_components: Vec<Rc<Component>>,
@@ -2333,7 +2333,7 @@ impl ExportedName {
     }
 }
 
-#[derive(Default, Debug, derive_more::Deref)]
+#[derive(Clone, Default, Debug, derive_more::Deref)]
 pub struct Exports {
     #[deref]
     components_or_types: Vec<(ExportedName, Either<Rc<Component>, Type>)>,
