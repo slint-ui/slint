@@ -843,32 +843,19 @@ fn node_removal_text_edit(
     Some((source_file, lsp_types::TextEdit::new(range, replace_with)))
 }
 
-/// Find a location in a file that would be a good place to insert the new component at
-///
-/// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
-/// the DropData struct.
-pub fn move_element_to(
+pub fn create_move_element_workspace_edit(
+    component_instance: &ComponentInstance,
+    drop_info: &DropInformation,
     element: common::ElementRcNode,
     position: LogicalPoint,
-    mouse_position: LogicalPoint,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let component_type = element.component_type();
-    let component_instance = preview::component_instance()?;
-    let tl = component_instance.definition().type_loader();
-    let Some(drop_info) =
-        find_move_location(&component_instance, mouse_position, element.clone(), &component_type)
-    else {
-        element_selection::reselect_element();
-        // Can not drop here: Ignore the move
-        return None;
-    };
-
     let parent_of_element = element.parent();
 
     let placeholder_text = if Some(&drop_info.target_element_node) == parent_of_element.as_ref() {
         // We are moving within ourselves!
 
-        let size = element.geometries(&component_instance).first().map(|g| g.size)?;
+        let size = element.geometries(component_instance).first().map(|g| g.size)?;
 
         if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
             preview::resize_selected_element_impl(LogicalRect::new(position, size));
@@ -931,6 +918,7 @@ pub fn move_element_to(
 
     let (path, _) = drop_info.target_element_node.path_and_offset();
 
+    let tl = component_instance.definition().type_loader();
     let doc = tl.get_document(&path)?;
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
 
@@ -988,4 +976,26 @@ pub fn move_element_to(
         common::create_workspace_edit_from_source_files(edits)?,
         DropData { selection_offset, path },
     ))
+}
+
+
+/// Find a location in a file that would be a good place to insert the new component at
+///
+/// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
+/// the DropData struct.
+pub fn move_element_to(
+    element: common::ElementRcNode,
+    position: LogicalPoint,
+    mouse_position: LogicalPoint,
+) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+    let component_instance = preview::component_instance()?;
+    let Some(drop_info) =
+        find_move_location(&component_instance, mouse_position, element.clone(), &element.component_type())
+    else {
+        element_selection::reselect_element();
+        // Can not drop here: Ignore the move
+        return None;
+    };
+
+    create_move_element_workspace_edit(&component_instance, &drop_info, element, position)
 }
