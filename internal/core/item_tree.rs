@@ -368,12 +368,25 @@ impl ItemRc {
         comp_ref_pin.as_ref().supported_accessibility_actions(self.index)
     }
 
-    pub fn element_type_names_and_ids(&self) -> Vec<(SharedString, SharedString)> {
+    pub fn element_count(&self) -> usize {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        let mut result = SharedString::new();
+        comp_ref_pin.as_ref().item_element_infos(self.index, &mut result);
+        result.as_str().split("/").count()
+    }
+
+    pub fn element_type_names_and_ids(
+        &self,
+        element_index: usize,
+    ) -> Vec<(SharedString, SharedString)> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let mut result = SharedString::new();
         comp_ref_pin.as_ref().item_element_infos(self.index, &mut result);
         result
             .as_str()
+            .split("/")
+            .nth(element_index)
+            .unwrap()
             .split(";")
             .map(|encoded_elem_info| {
                 let mut decoder = encoded_elem_info.split(',');

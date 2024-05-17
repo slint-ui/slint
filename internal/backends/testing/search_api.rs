@@ -36,11 +36,13 @@ pub(crate) fn search_item(
 #[repr(C)]
 pub struct ElementHandle {
     item: ItemWeak,
+    element_index: usize, // When multiple elements get optimized into a single ItemRc, this index separates.
 }
 
 impl ElementHandle {
     fn collect_elements(item: ItemRc) -> impl Iterator<Item = ElementHandle> {
-        core::iter::once(ElementHandle { item: item.downgrade() })
+        (0..item.element_count())
+            .map(move |element_index| ElementHandle { item: item.downgrade(), element_index })
     }
 
     /// Returns true if the element still exists in the in UI and is valid to access; false otherwise.
@@ -133,7 +135,9 @@ impl ElementHandle {
     pub fn element_type_names_and_ids(
         &self,
     ) -> Option<impl Iterator<Item = (SharedString, SharedString)>> {
-        self.item.upgrade().map(|item| item.element_type_names_and_ids().into_iter())
+        self.item
+            .upgrade()
+            .map(|item| item.element_type_names_and_ids(self.element_index).into_iter())
     }
 
     /// Invokes the default accessible action on the element. For example a `MyButton` element might declare
@@ -268,4 +272,47 @@ impl ElementHandle {
             item.accessible_action(&AccessibilityAction::Decrement)
         }
     }
+}
+
+#[test]
+fn test_optimized() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        export component App inherits Window {
+            first := Rectangle {
+                second := Rectangle {
+                    third := Rectangle {}
+                }
+            }
+        }
+    }
+
+    let app = App::new().unwrap();
+    let mut it = ElementHandle::find_by_element_id(&app, "App::first");
+    let first = it.next().unwrap();
+    assert!(it.next().is_none());
+
+    assert_eq!(
+        first.element_type_names_and_ids().unwrap().collect::<Vec<_>>(),
+        vec![("Rectangle".into(), "App::first".into())]
+    );
+
+    it = ElementHandle::find_by_element_id(&app, "App::second");
+    let second = it.next().unwrap();
+    assert!(it.next().is_none());
+
+    assert_eq!(
+        second.element_type_names_and_ids().unwrap().collect::<Vec<_>>(),
+        vec![("Rectangle".into(), "App::second".into())]
+    );
+
+    it = ElementHandle::find_by_element_id(&app, "App::third");
+    let third = it.next().unwrap();
+    assert!(it.next().is_none());
+
+    assert_eq!(
+        third.element_type_names_and_ids().unwrap().collect::<Vec<_>>(),
+        vec![("Rectangle".into(), "App::third".into())]
+    );
 }
