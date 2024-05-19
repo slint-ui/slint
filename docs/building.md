@@ -42,6 +42,7 @@ For Linux a few additional packages beyond the usual build essentials are needed
 - fontconfig library (`libfontconfig-dev` on debian based distributions)
 - (optional) Qt will be used when `qmake` is found in `PATH`
 - FFMPEG library `clang` `libavcodec-dev` `libavformat-dev` `libavutil-dev` `libavfilter-dev` `libavdevice-dev` `libasound2-dev` `pkg-config`
+- openssl (`libssl-dev` on debian based distributions)
 
 `xcb` and `xcbcommon` aren't needed if you are only using `backend-winit-wayland` without `backend-winit-x11`.
 
