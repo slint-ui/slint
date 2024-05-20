@@ -1,0 +1,5 @@
+/{
+	aliases {
+		slint-input = &gt911_rk055hdmipi4ma0;
+	};
+};
