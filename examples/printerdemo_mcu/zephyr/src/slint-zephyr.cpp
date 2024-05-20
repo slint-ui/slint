@@ -148,7 +148,7 @@ std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device
                 LOG_ERR("Failed to set pixel format: %d", result);
             }
         } else {
-            LOG_ERR("No supported pixel formats!");
+            LOG_WRN("No supported pixel formats!");
         }
     }
 
@@ -334,7 +334,9 @@ void zephyr_process_input_event(struct input_event *event)
                  "Expected touch press/release events to be driving the sync status");
 
         if (!button.has_value()) {
-            __ASSERT(event->value, "Expected press event");
+            if (!event->value)
+                return;
+
             LOG_DBG("Press");
             button = slint::PointerEventButton::Left;
             slint::invoke_from_event_loop([=, button = button.value()] {
@@ -360,7 +362,7 @@ void zephyr_process_input_event(struct input_event *event)
     }
 }
 
-INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_NODELABEL(input_sdl_touch)), zephyr_process_input_event);
+INPUT_CALLBACK_DEFINE(DEVICE_DT_GET(DT_ALIAS(slint_input)), zephyr_process_input_event);
 
 void slint_zephyr_init(const struct device *display)
 {
