@@ -11,7 +11,6 @@ LOG_MODULE_REGISTER(zephyrSlint, LOG_LEVEL_DBG);
 
 #include <chrono>
 #include <deque>
-#include <mutex>
 
 namespace {
 bool is_supported_pixel_format(display_pixel_format current_pixel_format)
@@ -30,6 +29,13 @@ bool is_supported_pixel_format(display_pixel_format current_pixel_format)
     }
     assert(false);
 }
+
+struct k_unique_lock
+{
+    k_unique_lock(struct k_mutex *m) : mutex(m) { k_mutex_lock(mutex, K_FOREVER); }
+    ~k_unique_lock() { k_mutex_unlock(mutex); }
+    struct k_mutex *mutex = nullptr;
+};
 }
 
 using namespace std::chrono_literals;
@@ -53,7 +59,7 @@ private:
     const struct device *m_display;
     class ZephyrWindowAdapter *m_window = nullptr;
 
-    std::mutex m_queue_mutex;
+    struct k_mutex m_queue_mutex;
     std::deque<slint::platform::Platform::Task> m_queue; // protected by m_queue_mutex
     bool m_quit = false; // protected by m_queue_mutex
 };
@@ -208,7 +214,10 @@ void ZephyrWindowAdapter::maybe_redraw()
     }
 }
 
-ZephyrPlatform::ZephyrPlatform(const struct device *display) : m_display(display) { }
+ZephyrPlatform::ZephyrPlatform(const struct device *display) : m_display(display)
+{
+    k_mutex_init(&m_queue_mutex);
+}
 
 std::unique_ptr<slint::platform::WindowAdapter> ZephyrPlatform::create_window_adapter()
 {
@@ -240,7 +249,7 @@ void ZephyrPlatform::run_event_loop()
 
         std::optional<slint::platform::Platform::Task> event;
         {
-            std::unique_lock lock(m_queue_mutex);
+            k_unique_lock lock(&m_queue_mutex);
             if (m_queue.empty()) {
                 if (m_quit) {
                     m_quit = false;
@@ -282,7 +291,7 @@ void ZephyrPlatform::run_event_loop()
 void ZephyrPlatform::quit_event_loop()
 {
     {
-        const std::unique_lock lock(m_queue_mutex);
+        k_unique_lock lock(&m_queue_mutex);
         m_quit = true;
     }
     k_sem_give(&SLINT_SEM);
@@ -291,7 +300,7 @@ void ZephyrPlatform::quit_event_loop()
 void ZephyrPlatform::run_in_event_loop(Task event)
 {
     {
-        const std::unique_lock lock(m_queue_mutex);
+        k_unique_lock lock(&m_queue_mutex);
         m_queue.push_back(std::move(event));
     }
     k_sem_give(&SLINT_SEM);
