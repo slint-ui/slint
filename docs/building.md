@@ -1,11 +1,10 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Slint Build Guide
 
 This page explains how to build and test Slint.
 
 ## Prerequisites
-
-
 
 ### Installing Rust
 
@@ -14,11 +13,13 @@ have Rust installed, make sure that it's at least version 1.73 or newer. You can
 by running `rustc --version`.
 
 Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your path.
-### Dependencies
-* **FFMPEG**
 
-* **Skia** (only few available binaries): 
-<center> 
+### Dependencies
+
+-   **FFMPEG**
+
+-   **Skia** (only few available binaries):
+<center>
 
 | Platform                          | Binaries                                           |
 | --------------------------------- | -------------------------------------------------- |
@@ -28,61 +29,61 @@ Once this is done, you should have the `rustc` compiler and the `cargo` build sy
 | Android                           | `aarch64-linux-android`<br/>`x86_64-linux-android` |
 | iOS                               | `aarch64-apple-ios`<br/>`x86_64-apple-ios`         |
 | WebAssembly                       | `wasm32-unknown-emscripten`                        |
-  
-</center> 
 
-  - Use Skia capable toolchain `rustup default stable-x86_64-pc-windows-msvc`
+</center>
+
+-   Use Skia capable toolchain `rustup default stable-x86_64-pc-windows-msvc`
 
 ### Linux
 
 For Linux a few additional packages beyond the usual build essentials are needed for development and running apps:
 
-- xcb (`libxcb-shape0-dev` `libxcb-xfixes0-dev` on debian based distributions)
-- xkbcommon (`libxkbcommon-dev` on debian based distributions)
-- fontconfig library (`libfontconfig-dev` on debian based distributions)
-- (optional) Qt will be used when `qmake` is found in `PATH`
-- FFMPEG library `clang` `libavcodec-dev` `libavformat-dev` `libavutil-dev` `libavfilter-dev` `libavdevice-dev` `libasound2-dev` `pkg-config`
+-   xcb (`libxcb-shape0-dev` `libxcb-xfixes0-dev` on debian based distributions)
+-   xkbcommon (`libxkbcommon-dev` on debian based distributions)
+-   fontconfig library (`libfontconfig-dev` on debian based distributions)
+-   (optional) Qt will be used when `qmake` is found in `PATH`
+-   FFMPEG library `clang` `libavcodec-dev` `libavformat-dev` `libavutil-dev` `libavfilter-dev` `libavdevice-dev` `libasound2-dev` `pkg-config`
 
 `xcb` and `xcbcommon` aren't needed if you are only using `backend-winit-wayland` without `backend-winit-x11`.
 
 ### macOS
 
-- Make sure the "Xcode Command Line Tools" are installed: `xcode-select --install`
-- (optional) Qt will be used when `qmake` is found in `PATH`
-- FFMPEG `brew install pkg-config ffmpeg`
-
-
+-   Make sure the "Xcode Command Line Tools" are installed: `xcode-select --install`
+-   (optional) Qt will be used when `qmake` is found in `PATH`
+-   FFMPEG `brew install pkg-config ffmpeg`
 
 ### Windows
-- See [System Link](#symlinks-in-the-repository-windows) 
-- Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2022.BuildTools`
-- (optional) make sure Qt is installed and `qmake` is in the `Path`
-- FFMPEG 
-  -  Option 1:
-      - install [vcpkg](https://github.com/microsoft/vcpkg#quick-start-windows)
-      - `vcpkg install ffmpeg --triplet x64-windows`
-      - Make sure `VCPKG_ROOT` is set to where `vcpkg` is installed
-      - Make sure `%VCPKG_ROOT%\installed\x64-windows\bin` is in your path 
 
-    - Option 2: 
-      - Download FFMPEG 4.4 shared and extract (https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest) 
-      - Add FFMPEG to path: `*\ffmpeg\bin` `*\ffmpeg\include\libavutil` `*\ffmpeg\lib`
+-   See [System Link](#symlinks-in-the-repository-windows)
+-   Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2022.BuildTools`
+-   (optional) make sure Qt is installed and `qmake` is in the `Path`
+-   FFMPEG
 
+    -   Option 1:
+
+        -   install [vcpkg](https://github.com/microsoft/vcpkg#quick-start-windows)
+        -   `vcpkg install ffmpeg --triplet x64-windows`
+        -   Make sure `VCPKG_ROOT` is set to where `vcpkg` is installed
+        -   Make sure `%VCPKG_ROOT%\installed\x64-windows\bin` is in your path
+
+    -   Option 2:
+        -   Download FFMPEG 4.4 shared and extract (https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest)
+        -   Add FFMPEG to path: `*\ffmpeg\bin` `*\ffmpeg\include\libavutil` `*\ffmpeg\lib`
 
 ### C++ API (optional)
 
 To use Slint from C++, the following extra dependencies are needed:
 
-- **[cmake](https://cmake.org/download/)** (3.21 or newer)
-- **[Ninja](https://ninja-build.org)** (Optional, or remove the `-GNinja` when invoking `cmake`)
-- A C++ compiler that supports C++20 (e.g., **MSVC 2022 17.3** on Windows, or **GCC 10**)
+-   **[cmake](https://cmake.org/download/)** (3.21 or newer)
+-   **[Ninja](https://ninja-build.org)** (Optional, or remove the `-GNinja` when invoking `cmake`)
+-   A C++ compiler that supports C++20 (e.g., **MSVC 2022 17.3** on Windows, or **GCC 10**)
 
 ### Node.js API (optional)
 
 To use Slint from Node.js, the following extra dependencies are needed.
 
-- **[Node.js](https://nodejs.org/en/)** (including npm) At this time you will need to use the version 16.
-- **[Python](https://www.python.org)**
+-   **[Node.js](https://nodejs.org/en/)** (including npm) At this time you will need to use the version 16.
+-   **[Python](https://www.python.org)**
 
 ### Symlinks in the repository (Windows)
 
@@ -110,16 +111,13 @@ cargo test
 
 <center> **  <strong> Not recommended</strong>  **    </center>
 
-
-To build all examples install the entire workplace to executables 
+To build all examples install the entire workplace to executables
 (excluding [UEFI-demo](https://github.com/slint-ui/slint/tree/master/examples/uefi-demo) - different target)
 
-
- - Build workspace
+-   Build workspace
     ```sh
         cargo build --workspace --exclude uefi-demo --release
     ```
-
 
 **Important:** Note that `cargo test` does not work without first calling `cargo build` because the
 the required dynamic library won't be found.
@@ -146,8 +144,6 @@ cargo build -p test-driver-nodejs
 ### More Info About Tests
 
 For more details about the tests and how they are implemented, see [testing.md](./testing.md).
-
-
 
 ## C++ API Build
 
@@ -224,51 +220,28 @@ cargo run --release --bin slint-viewer -- examples/printerdemo/ui/printerdemo.sl
 
 The Slint documentation consists of five parts:
 
-- The tutorials
-- The Rust API documentation
-- The C++ API documentation
-- The Node.js API documentation
-- The DSL documentation
+-   The quickstart guide
+-   The Rust API documentation
+-   The C++ API documentation
+-   The Node.js API documentation
+-   The DSL documentation
 
-### Tutorials
+The quickstart guide is part of the DSL documentation.
 
-There are three tutorials built with mdbook, one for each of the three languages supported by Slint.
+### Quickstart and DSL docs
 
-**Prerequisites**:
-
-- [mdbook](https://rust-lang.github.io/mdBook/guide/installation.html)
-
-#### Rust tutorial
-
-```shell
-mdbook build docs/quickstart/rust
-```
-
-#### C++ tutorial
-
-```shell
-mdbook build docs/quickstart/cpp
-```
-
-#### NodeJS tutorial
-
-```shell
-mdbook build docs/quickstart/node
-```
-
-### Slint DSL docs
+The quickstart and DSL docs are written in markdown and built with Sphinx, using the myst parser extension.
 
 **Prerequisites**:
 
-- [pipenv](https://pipenv.pypa.io/en/latest/)
-- [Python](https://www.python.org/downloads/)
+-   [pipenv](https://pipenv.pypa.io/en/latest/)
+-   [Python](https://www.python.org/downloads/)
 
-Use the following command line to build the documentation for the Slint DSL using `rustdoc` to the `target/slintdocs/html` folder:
+Use the following command line to build the documentation using `rustdoc` to the `target/slintdocs/html` folder:
 
 ```shell
 cargo xtask slintdocs --show-warnings
 ```
-
 
 ### Rust API docs
 
@@ -278,12 +251,13 @@ Run the following command to generate the documentation using rustdoc in the `ta
 RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/slint-docs-preview.html --html-in-header=$PWD/docs/resources/slint-docs-highlight.html" cargo doc --no-deps --features slint/document-features,slint/log
 ```
 
- Note: `--html-in-header` arguments passed to rustdoc via `RUSTDOCFLAGS` are used to enable syntax highlighting and live-preview for Slint example snippets.
+Note: `--html-in-header` arguments passed to rustdoc via `RUSTDOCFLAGS` are used to enable syntax highlighting and live-preview for Slint example snippets.
+
 ### C++ API docs
 
 **Prerequisites**:
 
-- [Doxygen](https://www.doxygen.nl/download.html)
+-   [Doxygen](https://www.doxygen.nl/download.html)
 
 Run the following command to generate the documentation using sphinx/exhale/breathe/doxygen/myst_parser in the `target/cppdocs` sub-folder:
 
