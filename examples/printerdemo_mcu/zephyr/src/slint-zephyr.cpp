@@ -195,6 +195,7 @@ void ZephyrWindowAdapter::maybe_redraw()
     auto s = region.bounding_box_size();
     LOG_DBG("Rendering x: %d y: %d w: %d h: %d", o.x, o.y, s.width, s.height);
     if (s.width > 0 && s.height > 0) {
+#ifdef CONFIG_BOARD_NATIVE_SIM
         for (int y = o.y; y < o.y + s.height; y++) {
             for (int x = o.x; x < o.x + s.width; x++) {
                 // Swap endianess to big endian
@@ -202,6 +203,7 @@ void ZephyrWindowAdapter::maybe_redraw()
                 *px = (*px << 8) | (*px >> 8);
             }
         }
+#endif
 
         m_buffer_descriptor.width = s.width;
         m_buffer_descriptor.height = s.height;
