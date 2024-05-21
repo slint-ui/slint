@@ -190,10 +190,11 @@ void ZephyrWindowAdapter::maybe_redraw()
         return;
 
     auto rotated = false;
+    auto start = k_uptime_get();
     auto region = m_renderer.render(m_buffer, rotated ? m_size.height : m_size.width);
+    const auto slintRenderDelta = k_uptime_delta(&start);
     auto o = region.bounding_box_origin();
     auto s = region.bounding_box_size();
-    LOG_DBG("Rendering x: %d y: %d w: %d h: %d", o.x, o.y, s.width, s.height);
     if (s.width > 0 && s.height > 0) {
 #ifdef CONFIG_BOARD_NATIVE_SIM
         for (int y = o.y; y < o.y + s.height; y++) {
@@ -214,6 +215,10 @@ void ZephyrWindowAdapter::maybe_redraw()
             LOG_WRN("display_write returned non-zero: %d", ret);
         }
     }
+    const auto displayWriteDelta = k_uptime_delta(&start);
+    LOG_DBG("Rendered x: %d y: %d w: %d h: %d", o.x, o.y, s.width, s.height);
+    LOG_DBG(" - total: %lld ms, slint: %lld ms, write: %lld ms",
+            slintRenderDelta + displayWriteDelta, slintRenderDelta, displayWriteDelta);
 }
 
 ZephyrPlatform::ZephyrPlatform(const struct device *display) : m_display(display)
