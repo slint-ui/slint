@@ -60,6 +60,13 @@ pub enum BuiltinFunction {
     Rgb,
     Hsv,
     ColorScheme,
+    MonthForDate,
+    MonthOffset,
+    FormatDate,
+    DateNow,
+    WeekDaysShort,
+    ValidDate,
+    ParseDate,
     TextInputFocused,
     SetTextInputFocused,
     ImplicitLayoutInfo(Orientation),
@@ -245,9 +252,37 @@ impl BuiltinFunction {
                 )),
                 args: vec![],
             },
+            BuiltinFunction::MonthForDate => Type::Function {
+                return_type: Box::new(Type::Array(Box::new(Type::Array(Box::new(Type::Int32))))),
+                args: vec![Type::Int32, Type::Int32],
+            },
+            BuiltinFunction::MonthOffset => Type::Function {
+                return_type: Box::new(Type::Int32),
+                args: vec![Type::Int32, Type::Int32],
+            },
+            BuiltinFunction::FormatDate => Type::Function {
+                return_type: Box::new(Type::String),
+                args: vec![Type::String, Type::Int32, Type::Int32, Type::Int32],
+            },
+            BuiltinFunction::WeekDaysShort => Type::Function {
+                return_type: Box::new(Type::Array(Box::new(Type::String))),
+                args: vec![],
+            },
             BuiltinFunction::TextInputFocused => {
                 Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
             }
+            BuiltinFunction::DateNow => Type::Function {
+                return_type: Box::new(Type::Array(Box::new(Type::Int32))),
+                args: vec![],
+            },
+            BuiltinFunction::ValidDate => Type::Function {
+                return_type: Box::new(Type::Bool),
+                args: vec![Type::String, Type::String],
+            },
+            BuiltinFunction::ParseDate => Type::Function {
+                return_type: Box::new(Type::Array(Box::new(Type::Int32))),
+                args: vec![Type::String, Type::String],
+            },
             BuiltinFunction::SetTextInputFocused => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::Bool] }
             }
@@ -287,6 +322,13 @@ impl BuiltinFunction {
             BuiltinFunction::GetWindowDefaultFontSize => false,
             BuiltinFunction::AnimationTick => false,
             BuiltinFunction::ColorScheme => false,
+            BuiltinFunction::MonthForDate => false,
+            BuiltinFunction::MonthOffset => false,
+            BuiltinFunction::FormatDate => false,
+            BuiltinFunction::DateNow => false,
+            BuiltinFunction::WeekDaysShort => false,
+            BuiltinFunction::ValidDate => false,
+            BuiltinFunction::ParseDate => false,
             // Even if it is not pure, we optimize it away anyway
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod
@@ -345,6 +387,13 @@ impl BuiltinFunction {
             BuiltinFunction::GetWindowDefaultFontSize => true,
             BuiltinFunction::AnimationTick => true,
             BuiltinFunction::ColorScheme => true,
+            BuiltinFunction::MonthForDate => true,
+            BuiltinFunction::MonthOffset => true,
+            BuiltinFunction::FormatDate => true,
+            BuiltinFunction::DateNow => true,
+            BuiltinFunction::WeekDaysShort => true,
+            BuiltinFunction::ValidDate => true,
+            BuiltinFunction::ParseDate => true,
             // Even if it has technically side effect, we still consider it as pure for our purpose
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod

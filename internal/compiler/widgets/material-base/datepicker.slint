@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { VerticalBox } from "./layouts.slint";
 import { Button } from "./button.slint";
@@ -13,6 +13,9 @@ export component DatePicker {
     in property <string> cancel-text: "Cancel";
     in property <string> ok-text: "Ok";
     in property <Date> date <=> base.date;
+    in property <string> input-title: "Enter date";
+    in property <string> input-placeholder-text: "mm/dd/yyyy";
+    in property <string> input-format: "%m/%d/%Y";
 
     callback canceled();
     callback accepted(/* current-date */ Date);
@@ -25,18 +28,18 @@ export component DatePicker {
         border-radius: 28px;
     }
 
-    content-layer := VerticalBox {        
-        Text { 
-            text: root.title;
-            horizontal-alignment: left;
-            overflow: elide;
-            font-size: MaterialFontSettings.label-medium.font-size;
-            font-weight: MaterialFontSettings.label-medium.font-weight;
-            color: MaterialPalette.foreground;
-        }
+    content-layer := VerticalBox {    
+        padding-left: 0px;
+        padding-right: 0px;
 
         base := DatePickerBase {
+            title: root.title;
+            input-title: root.input-title;
+            input-placeholder-text: root.input-placeholder-text;
+            input-format: root.input-format;
             style: {
+                border-brush: MaterialPalette.border,
+                padding: 8px,
                 calendar-style: {
                     spacing: 8px,
                     delegate-style: {
@@ -51,12 +54,41 @@ export component DatePicker {
                         foreground-today: MaterialPalette.accent-background,
                         state-brush-today: MaterialPalette.state-tertiary,
                     }
-                }
+                },
+                icon-button-style: {
+                    foreground: MaterialPalette.foreground,
+                    state-brush: MaterialPalette.state-default,
+                    icon-size: 12px,
+                },
+                current-day-style: {
+                    font-size: MaterialFontSettings.headline-large.font-size,
+                    font-weight: MaterialFontSettings.headline-large.font-weight,
+                    foreground: MaterialPalette.foreground,  
+                },
+                title-style: {
+                    font-size: MaterialFontSettings.label-medium.font-size,
+                    font-weight: MaterialFontSettings.label-medium.font-weight,
+                    foreground: MaterialPalette.foreground,  
+                },
+                previous-icon: Icons.arrow-back,
+                next-icon: Icons.arrow-forward,
+                drop-down-icon: Icons.arrow-drop-down,
+                input-icon: Icons.edit,
+                calendar-icon: Icons.calendar,
+                selection-button-style: {
+                    foreground: MaterialPalette.foreground,
+                    state-brush: MaterialPalette.state-default,
+                    icon-size: 10px,
+                    font-size: MaterialFontSettings.label-large.font-size,
+                    font-weight: MaterialFontSettings.label-large.font-weight
+                } 
             };
         }
 
         HorizontalLayout {
             spacing: 8px;
+            padding-left: 8px;
+            padding-right: 8px;
         
             Rectangle { }
 

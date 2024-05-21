@@ -828,21 +828,91 @@ impl LookupObject for SlintInternal {
                 }
                 .into(),
             )
-            .or_else(|| {
-                f(
-                    "use-24-hour-format",
-                    Expression::FunctionCall {
-                        function: Expression::BuiltinFunctionReference(
-                            BuiltinFunction::Use24HourFormat,
-                            None,
-                        )
-                        .into(),
-                        arguments: vec![],
-                        source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                    }
+        })
+        .or_else(|| {
+            f(
+                "use-24-hour-format",
+                Expression::FunctionCall {
+                    function: Expression::BuiltinFunctionReference(
+                        BuiltinFunction::Use24HourFormat,
+                        None,
+                    )
                     .into(),
+                    arguments: vec![],
+                    source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                }
+                .into(),
+            )
+        })
+        .or_else(|| {
+            f(
+                "month-for-date",
+                Expression::BuiltinFunctionReference(
+                    BuiltinFunction::MonthForDate,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
                 )
-            })
+                .into(),
+            )
+        })
+        .or_else(|| {
+            f(
+                "month-offset",
+                Expression::BuiltinFunctionReference(
+                    BuiltinFunction::MonthOffset,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                )
+                .into(),
+            )
+        })
+        .or_else(|| {
+            f(
+                "format-date",
+                Expression::BuiltinFunctionReference(
+                    BuiltinFunction::FormatDate,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                )
+                .into(),
+            )
+        })
+        .or_else(|| {
+            f(
+                "date-now",
+                Expression::BuiltinFunctionReference(
+                    BuiltinFunction::DateNow,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                )
+                .into(),
+            )
+        })
+        .or_else(|| {
+            f(
+                "week-days-short",
+                Expression::BuiltinFunctionReference(
+                    BuiltinFunction::WeekDaysShort,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                )
+                .into(),
+            )
+        })
+        .or_else(|| {
+            f(
+                "valid-date",
+                Expression::BuiltinFunctionReference(
+                    BuiltinFunction::ValidDate,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                )
+                .into(),
+            )
+        })
+        .or_else(|| {
+            f(
+                "parse-date",
+                Expression::BuiltinFunctionReference(
+                    BuiltinFunction::ParseDate,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                )
+                .into(),
+            )
         })
     }
 }

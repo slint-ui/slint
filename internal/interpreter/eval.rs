@@ -6,7 +6,7 @@ use crate::dynamic_item_tree::InstanceRef;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
 use corelib::items::{ColorScheme, ItemRef, PropertyAnimation};
-use corelib::model::{Model, ModelExt, ModelRc};
+use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
@@ -955,6 +955,80 @@ fn call_builtin_function(
                 panic!("Cannot get the window from a global component")
             }
         },
+        BuiltinFunction::MonthForDate => {
+            let m: u32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let y: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+
+            let month = i_slint_core::date_time::month_for_date(m, y);
+            let month_model = Rc::new(VecModel::default());
+
+            for i in 0..month.row_count() {
+                let current_month = Rc::new(VecModel::default());
+
+                for j in 0..month.row_data(i).unwrap().row_count() {
+                    current_month.push(Value::Number(
+                        month.row_data(i).unwrap().row_data(j).unwrap() as f64,
+                    ));
+                }
+
+                month_model.push(Value::Model(ModelRc::new(current_month)));
+            }
+
+            Value::Model(ModelRc::new(month_model))
+        }
+        BuiltinFunction::MonthOffset => {
+            let m: u32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let y: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+
+            Value::Number(i_slint_core::date_time::month_offset(m, y) as f64)
+        }
+        BuiltinFunction::FormatDate => {
+            let f: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let d: u32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let m: u32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
+            let y: i32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
+
+            Value::String(i_slint_core::date_time::format_date(&f, d, m, y))
+        }
+        BuiltinFunction::WeekDaysShort => {
+            let weekdays = i_slint_core::date_time::week_days_short();
+            let model = Rc::new(VecModel::default());
+
+            for i in 0..weekdays.row_count() {
+                model.push(Value::String(weekdays.row_data(i).unwrap()));
+            }
+
+            Value::Model(ModelRc::new(model))
+        }
+        BuiltinFunction::DateNow => {
+            let date = i_slint_core::date_time::date_now();
+            let model = Rc::new(VecModel::default());
+
+            for i in 0..date.row_count() {
+                model.push(Value::Number(date.row_data(i).unwrap() as f64));
+            }
+
+            Value::Model(ModelRc::new(model))
+        }
+        BuiltinFunction::ValidDate => {
+            let d: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let f: SharedString = eval_expression(&arguments[1], local_context).try_into().unwrap();
+
+            Value::Bool(i_slint_core::date_time::valid_date(d.as_str(), f.as_str()))
+        }
+        BuiltinFunction::ParseDate => {
+            let d: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let f: SharedString = eval_expression(&arguments[1], local_context).try_into().unwrap();
+
+            let date = i_slint_core::date_time::parse_date(d.as_str(), f.as_str());
+            let model = Rc::new(VecModel::default());
+
+            for i in 0..date.row_count() {
+                model.push(Value::Number(date.row_data(i).unwrap() as f64));
+            }
+
+            Value::Model(ModelRc::new(model))
+        }
         BuiltinFunction::TextInputFocused => match local_context.component_instance {
             ComponentInstance::InstanceRef(component) => {
                 Value::Bool(component.access_window(|window| window.text_input_focused()) as _)

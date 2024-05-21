@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { DatePicker, Date, Button } from "std-widgets.slint";
 export { Date }
@@ -8,12 +8,18 @@ export component TestCase inherits Window {
     width: 600px;
     height: 600px;
 
-    date-picker := datePicker {
+    date-picker := DatePicker {
+        ok-text: "OK-BUTTON";
         x: 0;
         y: 0;
+
+        accepted(date) => {
+            root.result-date = date;
+        }
     }
 
     in property <Date> date <=> date-picker.date;
+    out property <Date> result-date;
 }
 
 /*
@@ -23,9 +29,12 @@ use i_slint_backend_testing::mock_elapsed_time;
 
 let instance = TestCase::new().unwrap();
 
-instance.set_time(Date{ day: 17, month: 5, year: 2024});
+instance.set_date(Date{ day: 17, month: 5, year: 2024});
 
-mock_elapsed_time(500);
+let mut ok_button_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "OK-BUTTON");
+let ok_button = ok_button_search.next().unwrap();
+ok_button.invoke_accessible_action_default();
 
+assert_eq!(instance-result-date, Date { day: 17, month: 5; year: 2024});
 
 */
