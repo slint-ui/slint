@@ -21,6 +21,8 @@ pub(crate) struct SlintContextInner {
     /// This property is read by all translations, and marked dirty when the language change
     /// so that every translated string gets re-translated
     pub(crate) translations_dirty: core::pin::Pin<Box<Property<()>>>,
+    pub(crate) window_shown_hook:
+        core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -36,6 +38,7 @@ impl SlintContext {
             platform,
             window_count: 0.into(),
             translations_dirty: Box::pin(Property::new_named((), "SlintContext::translations")),
+            window_shown_hook: Default::default(),
         }))
     }
 
@@ -72,5 +75,16 @@ pub fn with_platform<R>(
             crate::platform::set_platform(factory()?).map_err(PlatformError::SetPlatformError)?;
             f(&*p.get().unwrap().0.platform)
         }
+    })
+}
+
+/// Internal function to set a hook that's invoked whenever a slint::Window is shown. This
+/// is used by the system testing module. Returns a previously set hook, if any.
+pub fn set_window_shown_hook(
+    hook: Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>,
+) -> Result<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>, PlatformError> {
+    GLOBAL_CONTEXT.with(|p| match p.get() {
+        Some(ctx) => Ok(ctx.0.window_shown_hook.replace(hook)),
+        None => Err(PlatformError::NoPlatform),
     })
 }

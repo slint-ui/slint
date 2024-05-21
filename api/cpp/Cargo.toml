@@ -42,6 +42,7 @@ renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "render
 renderer-software = ["i-slint-backend-selector/renderer-software"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
+system-testing = ["i-slint-backend-selector/system-testing"]
 
 std = ["image", "i-slint-core/default", "i-slint-backend-selector"]
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]

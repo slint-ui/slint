@@ -133,5 +133,20 @@ cfg_if::cfg_if! {
 pub fn with_platform<R>(
     f: impl FnOnce(&dyn Platform) -> Result<R, PlatformError>,
 ) -> Result<R, PlatformError> {
-    i_slint_core::with_platform(create_backend, f)
+    let mut platform_created = false;
+    let result = i_slint_core::with_platform(
+        || {
+            let backend = create_backend();
+            platform_created = backend.is_ok();
+            backend
+        },
+        f,
+    );
+
+    #[cfg(feature = "system-testing")]
+    if result.is_ok() && platform_created {
+        i_slint_backend_testing::systest::init();
+    }
+
+    result
 }

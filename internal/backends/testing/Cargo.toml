@@ -12,6 +12,7 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 publish = false
+build = "build.rs"
 
 [lib]
 path = "lib.rs"
@@ -21,10 +22,19 @@ path = "lib.rs"
 internal = []
 # ffi for C++ bindings
 ffi = []
+system-testing = ["quick-protobuf", "pb-rs", "generational-arena", "async-net", "futures-lite", "byteorder"]
 
 [dependencies]
 i-slint-core = { workspace = true }
 vtable = { workspace = true }
+quick-protobuf = { version = "0.8.1", optional = true }
+generational-arena = { version = "0.2.9", optional = true }
+async-net = { version = "2.0.0", optional = true }
+futures-lite = { version = "2.3.0", optional = true }
+byteorder = { version = "1.5.0", optional = true }
+
+[build-dependencies]
+pb-rs = { version = "0.10.0", optional = true, default-features = false }
 
 [dev-dependencies]
 slint = { workspace = true, default-features = false, features = ["std", "compat-1-2"] }
