@@ -283,7 +283,7 @@ void ZephyrPlatform::run_event_loop()
         if (auto next_timer_update = slint::platform::duration_until_next_timer_update()) {
             wait_time = std::min(wait_time, next_timer_update.value());
         }
-        LOG_DBG("Sleeping for %ims", wait_time.count());
+        LOG_DBG("Sleeping for %llims", wait_time.count());
         k_sem_take(&SLINT_SEM, K_MSEC(wait_time.count()));
     }
 }
