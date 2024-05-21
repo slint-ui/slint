@@ -3229,6 +3229,27 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorScheme => {
             format!("{}.color_scheme()", access_window_field(ctx))
         }
+        BuiltinFunction::MonthForDate => {
+            format!("{}.month_for_date()", access_window_field(ctx))
+        }
+        BuiltinFunction::MonthOffset => {
+            format!("{}.month_offset()", access_window_field(ctx))
+        }
+        BuiltinFunction::FormatDate => {
+            format!("{}.format_date()", access_window_field(ctx))
+        }
+        BuiltinFunction::DateNow => {
+            format!("{}.date_now()", access_window_field(ctx))
+        }
+        BuiltinFunction::WeekDaysShort => {
+            format!("{}.week_days_short()", access_window_field(ctx))
+        }
+        BuiltinFunction::ValidDate => {
+            format!("{}.valid_date()", access_window_field(ctx))
+        }
+        BuiltinFunction::ParseDate => {
+            format!("{}.parse_date()", access_window_field(ctx))
+        }
         BuiltinFunction::SetTextInputFocused => {
             format!("{}.set_text_input_focused({})", access_window_field(ctx), a.next().unwrap())
         }

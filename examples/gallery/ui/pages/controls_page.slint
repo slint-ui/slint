@@ -254,12 +254,12 @@ export component ControlsPage inherits Page {
         close-on-click: false;
 
         DatePicker {
+            date: { year: 2024, month: 5, day: 27 };
             canceled => {
                 date-picker.close();
             }
 
             accepted(date) => {
-                debug(date);
                 date-picker.close();
             }
         }      

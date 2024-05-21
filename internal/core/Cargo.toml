@@ -25,7 +25,7 @@ libm = ["num-traits/libm", "euclid/libm"]
 # Allow the viewer to query at runtime information about item types
 rtti = []
 # Use the standard library
-std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algorithms", "lyon_geom", "lyon_extra", "dep:web-time", "image-decoders", "svg", "raw-window-handle-06?/std"]
+std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algorithms", "lyon_geom", "lyon_extra", "dep:web-time", "image-decoders", "svg", "raw-window-handle-06?/std", "chrono/std", "chrono/wasmbind", "chrono/clock"]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
 # from a single core, and not in a interrupt or signal handler.
@@ -90,7 +90,9 @@ fontdb = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 
 raw-window-handle-06 = { workspace = true, optional = true }
-bitflags = { version = "2.4.2" }
+bitflags = { version = "2.4.2"}
+
+chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7", optional = true, features = ["gettext-system"] }

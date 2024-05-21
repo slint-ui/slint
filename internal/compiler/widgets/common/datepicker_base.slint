@@ -1,5 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollView, LineEdit } from "std-widgets-impl.slint";
+import { StateLayer, IconButton, IconButtonStyle, SelectionButton, SelectionButtonStyle, TextStyle } from "./internal-components.slint";
 
 export struct Date {
     year: int,
@@ -18,23 +21,6 @@ export struct CalendarDelegateStyle {
     border-color-today: brush,
     foreground-today: brush,
     state-brush-today: brush,
-}
-
-component StateLayer inherits Rectangle {
-    in property <bool> pressed;
-    in property <bool> has-hover;
-    in property <bool> has-focus;
-    in property <bool> enabled;
-    in property <brush> state-brush;
-
-    states [
-        highlighted when root.enabled && (root.pressed || root.has-focus) : {
-            root.background: root.state-brush.with_alpha(0.12);
-        }
-        hovered when root.enabled && root.has-hover : {
-            root.background: root.state-brush.with_alpha(0.08);   
-        }
-    ]
 }
 
 component CalendarHeaderDelegate {
@@ -95,10 +81,10 @@ component CalendarDelegate {
     }
     
     background-layer := Rectangle {
-        border-radius: max(self.width, self.height) / 2;
+        border-radius: self.height / 2;
     }
 
-    content-layer := VerticalLayout {
+    content-layer := HorizontalLayout {
         text-label := Text {
             vertical-alignment: center;
             horizontal-alignment: center;
@@ -140,21 +126,17 @@ export struct CalendarStyle {
 }
 
 export component Calendar {
-    property <int> column-count: 7;
-    property <int> row-count: 6;
-    property <length> delegate-size: 40px;
-
+    in property <int> column-count;
+    in property <int> row-count;
+    in property <length> delegate-size;
     in property <CalendarStyle> style;
     in property <int> start-column;
     in property <[string]> header-model;
-    in property <[Date]> model;
+    in property <[[int]]> model;
     in property <Date> today;
     in property <Date> selected-date;
 
     callback select-date(/* date */ Date);
-
-    min-width: root.delegate-size * root.column-count + (root.column-count - 1) * root.style.spacing;
-    min-height: root.delegate-size * root.row-count + (root.row-count - 1) * root.style.spacing;
 
     // header
     for day[index] in root.header-model : CalendarHeaderDelegate {
@@ -168,17 +150,19 @@ export component Calendar {
 
     // items
     for date[index] in root.model : CalendarDelegate {
+        property <Date> d: { day: date[0], month: date[1], year: date[2] };
+        
         x: root.delegate-x(root.index-on-calendar(index));
         y: root.delegate-y(root.index-on-calendar(index));
         width: root.delegate-size;
         height: root.delegate-size;
-        text: date.day;
+        text: date[0];
         style: root.style.delegate-style;
-        selected: root.selected-date == date;
-        today: root.today == date;
+        selected: root.selected-date == self.d;
+        today: root.today == self.d;
 
         clicked => {
-            root.select-date(date);
+            root.select-date(self.d);
         }
     }
 
@@ -204,81 +188,321 @@ export component Calendar {
     }
 }
 
-export struct DatePickerStyle {
-    calendar-style: CalendarStyle,
-}
+component YearSelection {
+    in property <[int]> model;
+    in property <length> spacing;
+    in property <int> visible-row-count;
+    in property <int> column-count;
+    in property <length> delegate-width;
+    in property <length> delegate-height;
+    in property <CalendarDelegateStyle> delegate-style;
+    in property <int> selected-year;
+    in property <int> today-year;
 
-export component DatePickerBase {
-    property <Date> current-date;
-    
-    in property <Date> date;
-    in property <DatePickerStyle> style;
+    callback select-year(/* year */ int);
 
-    min-width: content-layer.min-width;
-    min-height: content-layer.min-height;
+    property <length> row-height: root.height / root.visible-row-count;
+    property <int> row-count: root.model.length / root.column-count;
+    property <length> viewport-height: root.row-count * root.row-height;
+    property <length> start-x: root.width / (root.column-count + 1);
+    property <length> start-y: root.height / (root.visible-row-count + 1);
 
-    content-layer := VerticalLayout {        
-        calendar := Calendar {
-            style: root.style.calendar-style;
+    ScrollView {
+        width: 100%;
+        height: 100%;
+        viewport-width: root.width;
+        viewport-height: root.viewport-height;
 
-            // FIXME: replace this after SlintInternal helper is ready
-            header-model: DummyGenerator.calendar-header-model;
-            model: DummyGenerator.calendar-model;
-            today: DummyGenerator.today;
-            selected-date <=> DummyGenerator.selected-date;
-            start-column: DummyGenerator.start-column;
+        for year[index] in root.model: CalendarDelegate {
+            x: root.delegate-center-x(index) - self.width / 2;
+            y: root.delegate-center-y(index) - self.height / 2;
+            width: root.delegate-width;
+            height: root.delegate-height;
+            text: year;
+            style: root.delegate-style;
+            selected: year == root.selected-year;
+            today: year == root.today-year;
 
-            select-date(date) => {
-                DummyGenerator.selected-date = date;
+            clicked => {
+                root.select-year(year);
             }
         }
     }
 
-    pure public function ok-enabled() -> bool {
-        true
+    function delegate-center-x(index: int) -> length {
+        root.start-x * (root.column-for-index(index) + 1)
     }
 
-    public function get-current-date() -> Date {
-        root.current-date
+    function delegate-center-y(index: int) -> length {
+        root.start-y * (root.row-for-index(index) + 1)
+    }
+
+    function row-for-index(index: int) -> int {
+        floor(index / root.column-count)
+    }
+
+    function column-for-index(index: int) -> int {
+        mod(index, root.column-count)
     }
 }
 
-global DummyGenerator {
-    out property <int> start-column: 3;
-    out property <Date> today: { year: 2024, month: 5, day: 17 };
-    in-out property <Date> selected-date: { year: 2024, month: 5, day: 2 };
-    out property <[string]> calendar-header-model: ["S", "M", "T", "W", "T", "F", "S"];
-    out property <[Date]> calendar-model : [
-          { year: 2024, month: 5, day: 1 },  
-          { year: 2024, month: 5, day: 2 },  
-          { year: 2024, month: 5, day: 3 },  
-          { year: 2024, month: 5, day: 4 },  
-          { year: 2024, month: 5, day: 5 },  
-          { year: 2024, month: 5, day: 6 },  
-          { year: 2024, month: 5, day: 7 },  
-          { year: 2024, month: 5, day: 8 },  
-          { year: 2024, month: 5, day: 9 },  
-          { year: 2024, month: 5, day: 10 },  
-          { year: 2024, month: 5, day: 11 },  
-          { year: 2024, month: 5, day: 12 },  
-          { year: 2024, month: 5, day: 13 },  
-          { year: 2024, month: 5, day: 14 },  
-          { year: 2024, month: 5, day: 15 },  
-          { year: 2024, month: 5, day: 16 },  
-          { year: 2024, month: 5, day: 17 },  
-          { year: 2024, month: 5, day: 18 },  
-          { year: 2024, month: 5, day: 19 },  
-          { year: 2024, month: 5, day: 20 },  
-          { year: 2024, month: 5, day: 21 },  
-          { year: 2024, month: 5, day: 22 },  
-          { year: 2024, month: 5, day: 23 },  
-          { year: 2024, month: 5, day: 24 },  
-          { year: 2024, month: 5, day: 25 },  
-          { year: 2024, month: 5, day: 26 },  
-          { year: 2024, month: 5, day: 27 },  
-          { year: 2024, month: 5, day: 28 },  
-          { year: 2024, month: 5, day: 29 },  
-          { year: 2024, month: 5, day: 30 },  
-          { year: 2024, month: 5, day: 31 },  
-    ];
+export struct DatePickerStyle {
+    border-brush: brush,
+    padding: length,
+    calendar-style: CalendarStyle,
+    icon-button-style: IconButtonStyle,
+    selection-button-style: SelectionButtonStyle,
+    current-day-style: TextStyle,
+    title-style: TextStyle,
+    next-icon: image,
+    previous-icon: image,
+    drop-down-icon: image,
+    input-icon: image,
+    calendar-icon: image,
+}
+
+export component DatePickerBase {
+    in property <Date> date;
+    in property <DatePickerStyle> style;
+    in property <string> title;
+    in property <string> input-title;
+    in property <string> input-placeholder-text;
+    in property <string> input-format;
+
+    // this is used for the navigation between months
+    property <Date> display-date: root.date;
+    property <Date> current-date: root.date;
+    property <length> delegate-size: 40px;
+    property <length> year-delegate-width: 72px;
+    property <int> calendar-column-count: 7;
+    property <int> calendar-row-count: 6;
+    property <length> calendar-min-width: root.delegate-size * root.calendar-column-count + (root.calendar-column-count - 1) * root.style.calendar-style.spacing;
+    property <length> calendar-min-height: root.delegate-size *(root.calendar-row-count + 1) + (root.calendar-row-count - 1) * root.style.calendar-style.spacing;
+    property <int> year-selection-column-count: 3;
+    property <int> year-selection-row-count: 5;
+    property <bool> year-selection;
+    property <bool> selection-mode: true;
+    property <string> current-input;
+    
+    property <[[int]]> calendar-model: SlintInternal.month_for_date(root.display-date.month, root.display-date.year);
+    property <[string]> calendar-header-model: SlintInternal.week_days_short();
+    property <[int]> today: SlintInternal.date_now();
+    property <int> start-column: SlintInternal.month_offset(root.display-date.month, root.display-date.year);
+    property <string> current-month: SlintInternal.format_date("%B %Y", root.display-date.day, root.display-date.month, root.display-date.year);
+    property <[int]> year-model: [2024, 2025, 2026, 2027, 2028, 2029, 2031, 2032, 2033, 2034, 2035, 2036, 2037, 2038, 2039, 2040, 2041, 2042, 2043];
+    property <int> selected-year: root.display-date.year;
+    property <int> today-year: root.today[2];
+    property <string> current-day: SlintInternal.format_date("%a, %b %d", root.current-date.day, root.current-date.month, root.current-date.year);
+    property <[int]> input-formatted: SlintInternal.parse_date(root.current-input, root.input-format);
+
+    min-width: content-layer.min-width;
+    min-height: content-layer.min-height;
+
+    content-layer := VerticalLayout {  
+        spacing: root.style.padding;
+        
+        HorizontalLayout { 
+            padding-left: root.style.padding;
+            padding-right: root.style.padding;
+            
+            Text {
+                text: root.title;
+                horizontal-alignment: left;
+                overflow: elide;
+                font-size: root.style.title-style.font-size;
+                font-weight: root.style.title-style.font-weight;
+                color: root.style.title-style.foreground;
+            }
+        }   
+
+        header := HorizontalLayout {
+            padding-left: root.style.padding;
+            padding-right: root.style.padding;
+            
+            Text {
+                text: root.selection-mode ? root.current-day : root.input-title;
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                font-size: root.style.current-day-style.font-size;
+                font-weight: root.style.current-day-style.font-weight;
+                color: root.style.current-day-style.foreground;
+            }
+
+            IconButton {
+                icon: root.selection-mode ? root.style.input-icon : root.style.calendar-icon;
+                style: root.style.icon-button-style;
+                accessible-label: "Toggle selection mode";
+
+                clicked => {
+                    root.toggle-selection-mode();
+                }
+            }
+        }
+         
+        Rectangle {
+            width: 100%;
+            height: 1px;
+            background: root.style.border-brush;
+        }
+
+        if root.selection-mode : HorizontalLayout {
+            padding-left: root.style.padding;
+            padding-right: root.style.padding;
+            
+            VerticalLayout {
+                horizontal-stretch: 0;
+                alignment: center;
+
+                SelectionButton {
+                    text: root.current-month;
+                    style: root.style.selection-button-style;
+                    icon: root.style.drop-down-icon;
+                    checked <=> root.year-selection;
+                }
+            }
+
+            Rectangle {}
+          
+            IconButton {
+                icon: root.style.previous-icon;
+                style: root.style.icon-button-style;
+                accessible-label: "Previous month";
+
+                clicked => {
+                    root.show-previous();
+                }
+            }
+            
+            IconButton {
+                icon: root.style.next-icon;
+                style: root.style.icon-button-style;
+                accessible-label: "Next month";
+
+                clicked => {
+                    root.show-next();
+                }
+            }            
+        }    
+
+        if root.selection-mode : VerticalLayout {
+            padding-left: root.style.padding;
+            padding-right: root.style.padding;
+            
+            if !root.year-selection : Calendar {
+                min-width: root.calendar-min-width;
+                min-height: root.calendar-min-height;
+                column-count: root.calendar-column-count;
+                row-count: root.calendar-row-count;
+                delegate-size: root.delegate-size;
+                style: root.style.calendar-style;
+                header-model: root.calendar-header-model;
+                model: root.calendar-model;
+                today: { day: root.today[0], month: root.today[1], year: root.today[2] };
+                selected-date <=> root.current-date;
+                start-column: root.start-column;
+
+                select-date(date) => {
+                    root.select-date(date);
+                }
+            }
+
+            if root.year-selection : YearSelection {
+                min-width: root.calendar-min-width;
+                min-height: root.calendar-min-height;
+                spacing: root.style.calendar-style.spacing;
+                column-count: root.year-selection-column-count;
+                visible-row-count: root.year-selection-row-count;
+                delegate-width: root.year-delegate-width;
+                delegate-height: root.delegate-size;
+                model: root.year-model;
+                delegate-style: root.style.calendar-style.delegate-style;
+                selected-year: root.selected-year;
+                today-year: root.today-year;
+
+                select-year(year) => {
+                    root.select-year(year);
+                }
+            }
+        } 
+        
+        Rectangle {
+            width: 100%;
+            height: 1px;
+            background: root.style.border-brush;
+            visible: root.year-selection;
+        }
+
+        
+        if !root.selection-mode : HorizontalLayout {
+            padding-left: root.style.padding;
+            padding-right: root.style.padding;
+            padding-bottom: root.style.padding;
+
+            LineEdit {
+                text <=> root.current-input;
+                placeholder-text: root.input-placeholder-text;
+            }
+        }
+    }
+
+    changed date => {
+        root.display-date = root.date;
+        root.current-date = root.date;
+    }
+
+    changed selection-mode => {
+        // check switch from input mode if input is valid
+        if root.ok-enabled() {
+            root.current-date = root.input-as-date();
+        }
+    }
+
+    pure public function ok-enabled() -> bool {
+        root.selection-mode || SlintInternal.valid_date(root.current-input, root.input-format)
+    }
+
+    public function get-current-date() -> Date {
+        if root.selection-mode {
+            return root.current-date;
+        }
+
+        root.input-as-date()
+    }
+
+    pure function input-as-date() -> Date {
+        
+        { day: root.input-formatted[0], month: root.input-formatted[1], year: root.input-formatted[2] }
+    }
+
+    function select-date(date: Date) {
+        root.current-date = date;
+    }
+
+    function select-year(year: int) {
+        root.current-date = { day: 1, month: 1, year: year };
+        root.display-date = root.current-date;
+        root.year-selection = false;
+    }
+
+    function show-next() {
+        if root.display-date.month >= 12 {
+            root.display-date = { day: 1, month: 1, year: root.display-date.year + 1 };
+            return;
+        }
+
+        root.display-date = { day: 1, month: root.display-date.month + 1, year: root.display-date.year };
+    }
+
+    function show-previous() { 
+        if root.display-date.month <= 1 {
+            root.display-date = { day: 1, month: 12, year: root.display-date.year - 1 };
+            return;
+        }
+
+        root.display-date = { day: 1, month: root.display-date.month - 1, year: root.display-date.year };
+    }
+
+    function toggle-selection-mode() {
+        root.selection-mode = !root.selection-mode;
+    }
 }
