@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+syntax = "proto3";
+
+// Common messages
+
+// Index in generational arena in AUT
+message Handle {
+    uint64 index = 1; // ### should use uint128 if only it were available
+    uint64 generation = 2;
+}
+
+// Requests
+
+message RequestWindowListMessage {
+}
+
+message RequestWindowProperties {
+    Handle window_handle = 1;
+}
+
+message RequestToAUT {
+    oneof msg {
+        RequestWindowListMessage request_window_list = 1;
+        RequestWindowProperties request_window_properties = 2;
+    }
+}
+
+// Responses
+
+message ErrorResponse {
+    string message = 1;
+}
+
+message WindowListResponse {
+    repeated Handle window_handles = 1;
+}
+
+message PhysicalSize {
+    uint32 width = 1;
+    uint32 height = 2;
+}
+
+message PhysicalPosition {
+    int32 x = 1;
+    int32 y = 2;
+}
+
+message WindowPropertiesResponse {
+    bool is_fullscreen = 1;
+    bool is_maximized = 2;
+    bool is_minimized = 3;
+    PhysicalSize size = 4;
+    PhysicalPosition position = 5;
+}
+
+message AUTResponse {
+    oneof msg {
+        ErrorResponse error = 1;
+        WindowListResponse window_list = 2;
+        WindowPropertiesResponse window_properties = 3;
+    }
+}

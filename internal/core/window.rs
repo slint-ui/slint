@@ -903,6 +903,9 @@ impl WindowInner {
         let size = self.window_adapter().size();
         self.set_window_item_geometry(size.to_logical(self.scale_factor()).to_euclid());
         self.window_adapter().renderer().resize(size).unwrap();
+        if let Some(hook) = self.ctx.0.window_shown_hook.borrow_mut().as_mut() {
+            hook(&self.window_adapter());
+        }
         Ok(())
     }
 
