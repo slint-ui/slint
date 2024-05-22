@@ -69,7 +69,7 @@
 //! cargo install cargo-apk
 //! ```
 //!  
-//! When all enviroment variables are set, you can then build and run your application with the following command:
+//! Build and run your application with the following command:
 //!
 //! ```sh
 //! cargo apk run --target aarch64-linux-android --lib
