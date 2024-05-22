@@ -52,7 +52,7 @@
 //! rustup target add aarch64-linux-android
 //! ```
 //!
-//! Please ensure that you have the Android NDK and SDK installed and properly set up in your development environment for the above command to work as expected.
+//! Make sure that you have the Android NDK and SDK installed and set up in your development environment.
 //! For detailed instructions on how to set up the Android NDK and SDK, please refer to the [Android Developer's guide](https://developer.android.com/studio/projects/install-ndk).
 //! The following environment variables need to be set:
 //! * `ANDROID_HOME`: The directory in which your Android SDK is located. Usually `$HOME/Android/Sdk`.
