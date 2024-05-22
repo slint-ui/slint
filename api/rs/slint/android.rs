@@ -46,6 +46,20 @@
 //!
 //! ## Building and Deploying
 //!
+//! Building a Rust application requires the target toolchain to be installed. You can install it via *rustup*:
+//!
+//! ```sh
+//! rustup target add aarch64-linux-android
+//! ```
+//!
+//! Please ensure that you have the Android NDK and SDK installed and properly set up in your development environment for the above command to work as expected.
+//! For detailed instructions on how to set up the Android NDK and SDK, please refer to the [Android Developer's guide](https://developer.android.com/studio/projects/install-ndk).
+//! The following environment variables need to be set:
+//! * `ANDROID_HOME`: The directory in which your Android SDK is located. Usually `$HOME/Android/Sdk`.
+//! * `ANDROID_NDK_ROOT`: The directory in which your Android NDK is located. Usually `$HOME/Android/Sdk/ndk/${NDK_VERSION}`. ${NDK_VERSION} is the version of the NDK you have installed.
+//! * `JAVA_HOME`: The directory in which your Java compiler (`javac`) is located. This variable is optional if a proper `javac` is found in your `$PATH`. 
+//!   Otherwise you can use the one provided by your Android Studio installation in `android-studio/jbr`.
+//!
 //! To build and deploy your application, we suggest the usage of [cargo-apk](https://github.com/rust-mobile/cargo-apk),
 //! a cargo subcommand that allows you to build, sign, and deploy Android APKs made in Rust.
 //!
@@ -53,12 +67,14 @@
 //!
 //! ```sh
 //! cargo install cargo-apk
+//! ```
+//!  
+//! When all enviroment variables are set, you can then build and run your application with the following command:
+//!
+//! ```sh
 //! cargo apk run --target aarch64-linux-android --lib
 //! ```
 //!
-//! Please ensure that you have the Android NDK and SDK installed and properly set up in your development environment for the above command to work as expected.
-//! For detailed instructions on how to set up the Android NDK and SDK, please refer to the [Android Developer's guide](https://developer.android.com/studio/projects/install-ndk).
-//! The `ANDROID_HOME` and `ANDROID_NDK_ROOT` environment variable need to be set to the right path.
 //!
 //! Note Slint does not require a specific build tool and can work with others, such as [xbuild](https://github.com/rust-mobile/xbuild).
 
