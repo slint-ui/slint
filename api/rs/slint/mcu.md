@@ -29,7 +29,7 @@ Start by adding a dependency to the `slint` and the `slint-build` crates to your
 Start with the `slint` crate like this:
 
 ```sh
-cargo add slint@1.6.0 --no-default-features --features "compat-1-2 unsafe-single-threaded libm"
+cargo add slint@1.6.0 --no-default-features --features "compat-1-2 unsafe-single-threaded libm renderer-software"
 ```
 
 The default features of the `slint` crate are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
@@ -43,6 +43,7 @@ In the snippet above, three features are selected:
    feature changes Slint to use unsafe static for storage. This way, you guarantee to use Slint API only from a single thread, and not from interrupt handlers.
  * `libm`: We select this feature to enable the use of the [libm](https://crates.io/crates/libm) crate to provide traits and functions for floating point arithmetic.
    They're typically provided by the Rust Standard Library (std), but that's not available in bare metal environments.
+ * `renderer-software`: This feature is selected to use Slint's built-in software renderer. You may implement or use a different renderer, but the default software renderer should cover most use cases for an MCU environment. 
 
 It might be necessary to enable the [Feature resolver version 2](https://doc.rust-lang.org/cargo/reference/features.html#feature-resolver-version-2)
 in your Cargo.toml if you notice that your dependencies are attempting to build with `std` support even when disabled.
