@@ -46,7 +46,7 @@
 //!
 //! ## Building and Deploying
 //!
-//! Building a Rust application requires the target toolchain to be installed. You can install it via *rustup*:
+//! Building a Rust application requires the target toolchain to be installed. You can install it via `rustup`. For example, to target AArch64 Android, use the following command:
 //!
 //! ```sh
 //! rustup target add aarch64-linux-android
