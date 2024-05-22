@@ -21,10 +21,31 @@ bool is_supported_pixel_format(display_pixel_format current_pixel_format)
     case PIXEL_FORMAT_RGB_888:
         // Slint supports this format, but it uses more space.
         return false;
+    case PIXEL_FORMAT_BGR_565:
+#ifdef CONFIG_SHIELD_RK055HDMIPI4MA0
+        // Zephyr expects pixel data to be big endian [1].
+
+        // The display driver expects RGB 565 pixel data [2], and appears to expect it to be little
+        // endian.
+
+        // By passing Slint's little endian, RGB 565 pixel data without converting to big endian as
+        // Zephyr expects, we get colors that work.
+
+        // [1]
+        // https://docs.zephyrproject.org/latest/hardware/peripherals/display/index.html#c.display_pixel_format
+        // [2]
+        // https://github.com/zephyrproject-rtos/zephyr/blob/c211cb347e0af0a4931e0e7af3d93577bcc7af8f/drivers/display/display_mcux_elcdif.c#L256
+
+        // See also:
+        // https://github.com/zephyrproject-rtos/zephyr/issues/53642
+        return true;
+#else
+        return false;
+#endif
+        return false;
     case PIXEL_FORMAT_MONO01:
     case PIXEL_FORMAT_MONO10:
     case PIXEL_FORMAT_ARGB_8888:
-    case PIXEL_FORMAT_BGR_565:
         return false;
     }
     assert(false);
@@ -196,10 +217,11 @@ void ZephyrWindowAdapter::maybe_redraw()
     auto o = region.bounding_box_origin();
     auto s = region.bounding_box_size();
     if (s.width > 0 && s.height > 0) {
-#ifdef CONFIG_BOARD_NATIVE_SIM
+#ifndef CONFIG_SHIELD_RK055HDMIPI4MA0
+        // Convert to big endian pixel data for Zephyr, unless we are using the RK055HDMIPI4MA0
+        // shield. See is_supported_pixel_format above.
         for (int y = o.y; y < o.y + s.height; y++) {
             for (int x = o.x; x < o.x + s.width; x++) {
-                // Swap endianess to big endian
                 auto px = reinterpret_cast<uint16_t *>(&m_buffer[y * m_size.width + x]);
                 *px = (*px << 8) | (*px >> 8);
             }
