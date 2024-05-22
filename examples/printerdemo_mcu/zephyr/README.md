@@ -36,7 +36,7 @@ This sample has been tested on the [NXP MIMXRT1170-EVKB](https://docs.zephyrproj
     source <path/to>/zephyrproject/.venv/bin/activate
 
     # Configure for NXP MIMXRT1170-EVKB + RK055HDMIPI4MA0 MIPI Display
-    cmake -GNinja -S . -B ./build-imxrt1170 -DBOARD=mimxrt1170_evk@B/mimxrt1176/cm7 -DSHIELD=rk055hdmipi4ma0
+    cmake -GNinja -S . -B ./build-imxrt1170 -DCMAKE_BUILD_TYPE=Release -DBOARD=mimxrt1170_evk@B/mimxrt1176/cm7 -DSHIELD=rk055hdmipi4ma0
 
     # Build
     cmake --build ./build-imxrt1170
