@@ -391,7 +391,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         {
             let p = tk.parent();
             let version = p.source_file.version();
-            if let Some(value) = find_element_id_for_highlight(&tk, &tk.parent()) {
+            if let Some(value) = find_element_id_for_highlight(&tk, &p) {
                 let edits: Vec<_> = value
                     .into_iter()
                     .map(|r| TextEdit {
@@ -401,8 +401,20 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     .collect();
                 return Ok(Some(common::create_workspace_edit(uri, version, edits)));
             }
-        };
-        Err("This symbol cannot be renamed. (Only element id can be renamed at the moment)".into())
+            match p.kind() {
+                SyntaxKind::DeclaredIdentifier => {
+                    common::rename_component::rename_component_from_definition(
+                        &document_cache.documents,
+                        &p.into(),
+                        params.new_name,
+                    )
+                    .map(Some)
+                }
+                _ => Err("This symbol cannot be renamed.".into()),
+            }
+        } else {
+            Err("This symbol cannot be renamed.".into())
+        }
     });
     rh.register::<PrepareRenameRequest, _>(|params, ctx| async move {
         let mut document_cache = ctx.document_cache.borrow_mut();
@@ -411,7 +423,15 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             if find_element_id_for_highlight(&tk, &tk.parent()).is_some() {
                 return Ok(util::map_token(&tk).map(PrepareRenameResponse::Range));
             }
-        };
+            let p = tk.parent();
+            if matches!(p.kind(), SyntaxKind::DeclaredIdentifier) {
+                if let Some(gp) = p.parent() {
+                    if gp.kind() == SyntaxKind::Component {
+                        return Ok(util::map_node(&p).map(PrepareRenameResponse::Range));
+                    }
+                }
+            }
+        }
         Ok(None)
     });
     rh.register::<Formatting, _>(|params, ctx| async move {

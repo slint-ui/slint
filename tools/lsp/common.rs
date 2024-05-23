@@ -10,6 +10,12 @@ use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
 use std::{collections::HashMap, path::PathBuf};
 
+pub mod rename_component;
+#[cfg(test)]
+pub mod test;
+#[cfg(any(test, feature = "preview-engine"))]
+pub mod text_edit;
+
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
 pub type UrlVersion = Option<i32>;
@@ -258,7 +264,6 @@ pub fn create_workspace_edit_from_source_file(
     ))
 }
 
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn create_workspace_edit_from_source_files(
     mut inputs: Vec<(SourceFile, TextEdit)>,
 ) -> Option<WorkspaceEdit> {
@@ -274,6 +279,7 @@ pub fn create_workspace_edit_from_source_files(
                 .entry((url, sf.version()))
                 .and_modify(|v| v.push(edit.clone()))
                 .or_insert_with(|| vec![edit]);
+        } else {
         }
     });
 
