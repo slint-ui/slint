@@ -35,7 +35,6 @@ pub use wasm::*;
 mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
-mod text_edit;
 
 #[derive(Default, Copy, Clone, PartialEq, Eq, Debug)]
 enum PreviewFutureState {
@@ -908,26 +907,49 @@ pub fn is_element_node_ignored(node: &syntax_nodes::Element) -> bool {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
+    use std::{collections::HashMap, path::PathBuf, rc::Rc};
+
     use slint_interpreter::ComponentInstance;
 
-    #[track_caller]
-    pub fn compile_test(style: &str, source_code: &str) -> ComponentInstance {
-        i_slint_backend_testing::init_no_event_loop();
+    use crate::common::test::main_test_file_name;
 
-        let path = std::path::PathBuf::from("/test_data.slint");
+    #[track_caller]
+    pub fn interpret_test_with_sources(
+        style: &str,
+        code: HashMap<PathBuf, String>,
+    ) -> ComponentInstance {
+        i_slint_backend_testing::init_no_event_loop();
+        reinterpret_test_with_sources(style, code)
+    }
+
+    #[track_caller]
+    pub fn reinterpret_test_with_sources(
+        style: &str,
+        code: HashMap<PathBuf, String>,
+    ) -> ComponentInstance {
+        let code = Rc::new(code);
+
+        let path = main_test_file_name();
+        let source_code = code.get(&path).unwrap().clone();
         let (diagnostics, component_definition) = spin_on::spin_on(super::parse_source(
             vec![],
             std::collections::HashMap::new(),
             path,
             source_code.to_string(),
             style.to_string(),
-            |_path| {
+            move |path| {
+                let code = code.clone();
+                let path = path.to_owned();
+
                 Box::pin(async move {
-                    Some(Result::Err(std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "Not supported in tests",
-                    )))
+                    let Some(source) = code.get(&path) else {
+                        return Some(Result::Err(std::io::Error::new(
+                            std::io::ErrorKind::NotFound,
+                            "path not found",
+                        )));
+                    };
+                    Some(Ok(source.clone()))
                 })
             },
         ));
@@ -936,5 +958,11 @@ mod test {
         assert!(diagnostics.is_empty());
 
         component_definition.unwrap().create().unwrap()
+    }
+
+    #[track_caller]
+    pub fn interpret_test(style: &str, source_code: &str) -> ComponentInstance {
+        let code = HashMap::from([(main_test_file_name(), source_code.to_string())]);
+        interpret_test_with_sources(style, code)
     }
 }

@@ -6,9 +6,9 @@ use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
-use crate::common;
+use crate::common::{self, text_edit};
 use crate::language::completion;
-use crate::preview::{self, element_selection, text_edit, ui};
+use crate::preview::{self, element_selection, ui};
 use crate::util;
 
 use crate::preview::ext::ElementRcNodeExt;
@@ -465,7 +465,7 @@ fn is_recursive_inclusion(
         .and_then(|rn| {
             rn.with_element_node(|node| {
                 node.parent()
-                    .map(|p| Into::<syntax_nodes::Component>::into(p))
+                    .map(Into::<syntax_nodes::Component>::into)
                     .map(|c| c.DeclaredIdentifier().text().to_string())
             })
         })

@@ -403,13 +403,15 @@ pub fn reselect_element() {
 
 #[cfg(test)]
 mod tests {
+    use crate::common::test;
+
     use std::path::PathBuf;
 
     use i_slint_core::lengths::LogicalPoint;
     use slint_interpreter::ComponentInstance;
 
     fn demo_app() -> ComponentInstance {
-        crate::preview::test::compile_test(
+        crate::preview::test::interpret_test(
             "fluent",
             r#"import { Button } from "std-widgets.slint";
 
@@ -439,11 +441,11 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
     #[test]
     fn test_find_covering_elements() {
-        let component_instance = demo_app();
+        let type_loader = demo_app();
 
         let mut covers_center = super::collect_all_element_nodes_covering(
             LogicalPoint::new(100.0, 100.0),
-            &component_instance,
+            &type_loader,
         );
 
         // Remove the "button" implementation details. They must be at the start:
@@ -456,7 +458,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             .unwrap();
         covers_center.drain(0..first_non_button);
 
-        let test_file = PathBuf::from("/test_data.slint");
+        let test_file = test::test_file_name("test_data.slint");
 
         let expected_offsets = [264_u32, 69, 225, 194, 160, 109, 401];
         assert_eq!(covers_center.len(), expected_offsets.len());
@@ -469,7 +471,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
         let covers_below = super::collect_all_element_nodes_covering(
             LogicalPoint::new(100.0, 180.0),
-            &component_instance,
+            &type_loader,
         );
 
         // All but the button itself as well as the SomeComponent (impl and use)

@@ -1,9 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
+
 use std::collections::HashMap;
 
-use slint_interpreter::ComponentInstance;
+use i_slint_compiler::typeloader::TypeLoader;
 
 use crate::common;
 
@@ -80,7 +83,7 @@ enum EditIteratorState<'a> {
 }
 
 #[derive(Clone)]
-struct EditIterator<'a> {
+pub struct EditIterator<'a> {
     workspace_edit: &'a lsp_types::WorkspaceEdit,
     state: EditIteratorState<'a>,
 }
@@ -231,7 +234,11 @@ impl TextEditor {
     }
 
     pub fn finalize(self) -> Option<(String, TextOffsetAdjustments, (usize, usize))> {
-        (!self.adjustments.is_empty()).then_some((self.contents, self.adjustments, self.original_offset_range))
+        (!self.adjustments.is_empty()).then_some((
+            self.contents,
+            self.adjustments,
+            self.original_offset_range,
+        ))
     }
 }
 
@@ -243,10 +250,9 @@ pub struct EditedText {
 }
 
 pub fn apply_workspace_edit(
-    component_instance: &ComponentInstance,
+    type_loader: &TypeLoader,
     workspace_edit: &lsp_types::WorkspaceEdit,
 ) -> common::Result<Vec<EditedText>> {
-    let tl = component_instance.definition().type_loader();
     let mut processing = HashMap::new();
 
     for (doc, edit) in EditIterator::new(workspace_edit) {
@@ -256,7 +262,7 @@ pub fn apply_workspace_edit(
 
         // This is ugly but necessary since the constructor might error out:-/
         if !processing.contains_key(&path) {
-            let Some(document) = tl.get_document(&path) else {
+            let Some(document) = type_loader.get_document(&path) else {
                 continue;
             };
             let Some(document_node) = &document.node else {
