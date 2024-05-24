@@ -11,6 +11,7 @@ export component SpinBoxBase {
     in property <color> selection-background-color <=> text-input.selection-background-color;
     in property <color> selection-foreground-color <=> text-input.selection-foreground-color;
     in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
+    in property <int> step-size: 1;
     out property <bool> has-focus <=> text-input.has-focus;
     in-out property <int> value: minimum;
 
@@ -24,11 +25,11 @@ export component SpinBoxBase {
     }
 
     public function increment() {
-        root.update-value(root.value + 1);
+        root.update-value(root.value + root.step-size);
     }
 
     public function decrement() {
-        root.update-value(root.value - 1);
+        root.update-value(root.value - root.step-size);
     }
 
     private property <length> scroll-delta: 2px;

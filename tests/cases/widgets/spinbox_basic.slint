@@ -14,6 +14,7 @@ export component TestCase inherits Window {
     out property <bool> spinbox-focused <=> box.has_focus;
     callback edited <=> box.edited;
     in-out property value <=> box.value;
+    in property <int> step-size <=> box.step-size;
 }
 
 /*
@@ -63,6 +64,18 @@ assert_eq!(instance.get_value(), 40);
 assert_eq!(&*edits.borrow(), &[40]);
 edits.borrow_mut().clear();
 
+// step size
+instance.set_step_size(2);
+
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: 50.0 });
+assert_eq!(instance.get_value(), 42);
+assert_eq!(&*edits.borrow(), &[42]);
+edits.borrow_mut().clear();
+
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: -10.0 });
+assert_eq!(instance.get_value(), 40);
+assert_eq!(&*edits.borrow(), &[40]);
+edits.borrow_mut().clear();
 
 instance.set_value(0);
 // scroll down should do nothing when the value is 0
@@ -78,7 +91,6 @@ let mut text_input_search = slint_testing::ElementHandle::find_by_accessible_lab
 let text_input = text_input_search.next().unwrap();
 assert_eq!(text_input.accessible_value().unwrap(), "30");
 edits.borrow_mut().clear();
-
 
 ```
 
