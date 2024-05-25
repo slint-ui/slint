@@ -106,23 +106,25 @@ impl TestingClient {
             }
             proto::mod_RequestToAUT::OneOfmsg::request_element_properties(
                 proto::RequestElementProperties { element_handle },
-            ) => proto::mod_AUTResponse::OneOfmsg::element_properties(self.element_properties(
-                handle_to_index(element_handle.ok_or_else(|| {
-                    "element properties request missing element handle".to_string()
-                })?),
-            )?),
+            ) => proto::mod_AUTResponse::OneOfmsg::element_properties(
+                self.element_properties(element_handle)?,
+            ),
             proto::mod_RequestToAUT::OneOfmsg::request_invoke_element_accessibility_action(
                 proto::RequestInvokeElementAccessibilityAction { element_handle, action },
             ) => {
-                self.invoke_element_accessibility_action(
-                    handle_to_index(element_handle.ok_or_else(|| {
-                        "invoke element accessibiliy action request missing element handle"
-                            .to_string()
-                    })?),
-                    action,
-                )?;
+                self.invoke_element_accessibility_action(element_handle, action)?;
                 proto::mod_AUTResponse::OneOfmsg::invoke_element_accessibility_action_response(
                     proto::InvokeElementAccessibilityActionResponse {},
+                )
+            }
+            proto::mod_RequestToAUT::OneOfmsg::request_set_element_accessible_value(
+                proto::RequestSetElementAccessibleValue { element_handle, value },
+            ) => {
+                let element =
+                    self.element("set element accessible value request", element_handle)?;
+                element.set_accessible_value(value);
+                proto::mod_AUTResponse::OneOfmsg::set_element_accessible_value_response(
+                    proto::SetElementAccessibleValueResponse {},
                 )
             }
             proto::mod_RequestToAUT::OneOfmsg::None => return Err("Unknown request".into()),
@@ -157,19 +159,33 @@ impl TestingClient {
             .into_iter())
     }
 
-    fn element_properties(
+    fn element(
         &self,
-        element_index: generational_arena::Index,
-    ) -> Result<proto::ElementPropertiesResponse, String> {
+        request: &'static str,
+        element_handle: Option<proto::Handle>,
+    ) -> Result<ElementHandle, String> {
+        let index = handle_to_index(
+            element_handle.ok_or_else(|| format!("{request} missing element handle"))?,
+        );
         let element = self
             .element_handles
             .borrow()
-            .get(element_index)
-            .ok_or_else(|| "Invalid element handle".to_string())?
+            .get(index)
+            .ok_or_else(|| format!("Invalid element handle for {request}"))?
             .clone();
         if !element.is_valid() {
-            return Err("Element handle refers to element that was destroyed".to_string());
+            return Err(format!(
+                "Element handle for {request} refers to element that was destroyed"
+            ));
         }
+        Ok(element)
+    }
+
+    fn element_properties(
+        &self,
+        element_handle: Option<proto::Handle>,
+    ) -> Result<proto::ElementPropertiesResponse, String> {
+        let element = self.element("element properties request", element_handle)?;
         let type_names_and_ids = core::iter::once(proto::ElementTypeNameAndId {
             type_name: element.type_name().unwrap().into(),
             id: element.id().unwrap().into(),
@@ -201,18 +217,11 @@ impl TestingClient {
 
     fn invoke_element_accessibility_action(
         &self,
-        element_index: generational_arena::Index,
+        element_handle: Option<proto::Handle>,
         action: proto::ElementAccessibilityAction,
     ) -> Result<(), String> {
-        let element = self
-            .element_handles
-            .borrow()
-            .get(element_index)
-            .ok_or_else(|| "Invalid element handle".to_string())?
-            .clone();
-        if !element.is_valid() {
-            return Err("Element handle refers to element that was destroyed".to_string());
-        }
+        let element =
+            self.element("invoke element accessibility action request", element_handle)?;
         match action {
             proto::ElementAccessibilityAction::Default_ => {
                 element.invoke_accessible_default_action()
