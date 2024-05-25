@@ -6,11 +6,25 @@ use futures_lite::AsyncReadExt;
 use futures_lite::AsyncWriteExt;
 use i_slint_core::api::EventLoopError;
 use i_slint_core::debug_log;
+use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::window::WindowAdapter;
+use i_slint_core::window::WindowInner;
 use quick_protobuf::{MessageRead, MessageWrite};
 use std::cell::RefCell;
 use std::io::Cursor;
 use std::rc::{Rc, Weak};
+
+use crate::{ElementHandle, ElementRoot};
+
+struct RootWrapper<'a>(&'a ItemTreeRc);
+
+impl ElementRoot for RootWrapper<'_> {
+    fn item_tree(&self) -> ItemTreeRc {
+        self.0.clone()
+    }
+}
+
+impl super::Sealed for RootWrapper<'_> {}
 
 #[allow(non_snake_case, unused_imports, non_camel_case_types)]
 mod proto {
@@ -19,6 +33,7 @@ mod proto {
 
 struct TestingClient {
     windows: RefCell<generational_arena::Arena<Weak<dyn WindowAdapter>>>,
+    element_handles: RefCell<generational_arena::Arena<ElementHandle>>,
     message_loop_future: std::cell::OnceCell<i_slint_core::future::JoinHandle<()>>,
     server_addr: String,
 }
@@ -31,6 +46,7 @@ impl TestingClient {
 
         Some(Rc::new(Self {
             windows: Default::default(),
+            element_handles: Default::default(),
             message_loop_future: Default::default(),
             server_addr,
         }))
@@ -73,6 +89,28 @@ impl TestingClient {
                     "window properties request missing window handle".to_string()
                 })?),
             )?),
+            proto::mod_RequestToAUT::OneOfmsg::request_find_elements_by_id(
+                proto::RequestFindElementsById { window_handle, elements_id },
+            ) => {
+                let elements = self.find_elements_by_id(
+                    handle_to_index(window_handle.ok_or_else(|| {
+                        "find elements by id request missing window handle".to_string()
+                    })?),
+                    &elements_id,
+                )?;
+                proto::mod_AUTResponse::OneOfmsg::elements(proto::ElementsResponse {
+                    element_handles: elements
+                        .map(|elem| index_to_handle(self.element_handles.borrow_mut().insert(elem)))
+                        .collect(),
+                })
+            }
+            proto::mod_RequestToAUT::OneOfmsg::request_element_properties(
+                proto::RequestElementProperties { element_handle },
+            ) => proto::mod_AUTResponse::OneOfmsg::element_properties(self.element_properties(
+                handle_to_index(element_handle.ok_or_else(|| {
+                    "element properties request missing element handle".to_string()
+                })?),
+            )?),
             proto::mod_RequestToAUT::OneOfmsg::None => return Err("Unknown request".into()),
         })
     }
@@ -81,13 +119,7 @@ impl TestingClient {
         &self,
         window_index: generational_arena::Index,
     ) -> Result<proto::WindowPropertiesResponse, String> {
-        let adapter = self
-            .windows
-            .borrow()
-            .get(window_index)
-            .ok_or_else(|| "Invalid window handle".to_string())?
-            .upgrade()
-            .ok_or_else(|| "Attempting to access deleted window".to_string())?;
+        let adapter = self.window_adapter(window_index)?;
         let window = adapter.window();
         Ok(proto::WindowPropertiesResponse {
             is_fullscreen: window.is_fullscreen(),
@@ -96,6 +128,73 @@ impl TestingClient {
             size: send_physical_size(window.size()).into(),
             position: send_physical_position(window.position()).into(),
         })
+    }
+
+    fn find_elements_by_id(
+        &self,
+        window_index: generational_arena::Index,
+        elements_id: &str,
+    ) -> Result<impl Iterator<Item = crate::ElementHandle>, String> {
+        let adapter = self.window_adapter(window_index)?;
+        let window = adapter.window();
+        let item_tree = WindowInner::from_pub(window).component();
+        Ok(ElementHandle::find_by_element_id(&RootWrapper(&item_tree), elements_id)
+            .collect::<Vec<_>>()
+            .into_iter())
+    }
+
+    fn element_properties(
+        &self,
+        element_index: generational_arena::Index,
+    ) -> Result<proto::ElementPropertiesResponse, String> {
+        let element = self
+            .element_handles
+            .borrow()
+            .get(element_index)
+            .ok_or_else(|| "Invalid element handle".to_string())?
+            .clone();
+        if !element.is_valid() {
+            return Err("Element handle refers to element that was destroyed".to_string());
+        }
+        let type_names_and_ids = core::iter::once(proto::ElementTypeNameAndId {
+            type_name: element.type_name().unwrap().into(),
+            id: element.id().unwrap().into(),
+        })
+        .chain(element.bases().unwrap().map(|base_type_name| proto::ElementTypeNameAndId {
+            type_name: base_type_name.into(),
+            id: "root".into(),
+        }))
+        .collect();
+        Ok(proto::ElementPropertiesResponse {
+            type_names_and_ids,
+            accessible_label: element
+                .accessible_label()
+                .map_or(Default::default(), |s| s.to_string()),
+            accessible_value: element.accessible_value().unwrap_or_default().to_string(),
+            accessible_value_maximum: element.accessible_value_maximum().unwrap_or_default(),
+            accessible_value_minimum: element.accessible_value_minimum().unwrap_or_default(),
+            accessible_value_step: element.accessible_value_step().unwrap_or_default(),
+            accessible_description: element
+                .accessible_description()
+                .unwrap_or_default()
+                .to_string(),
+            accessible_checked: element.accessible_checked().unwrap_or_default(),
+            accessible_checkable: element.accessible_checkable().unwrap_or_default(),
+            size: send_logical_size(element.size()).into(),
+            absolute_position: send_logical_position(element.absolute_position()).into(),
+        })
+    }
+
+    fn window_adapter(
+        &self,
+        window_index: generational_arena::Index,
+    ) -> Result<Rc<dyn WindowAdapter>, String> {
+        self.windows
+            .borrow()
+            .get(window_index)
+            .ok_or_else(|| "Invalid window handle".to_string())?
+            .upgrade()
+            .ok_or_else(|| "Attempting to access deleted window".to_string())
     }
 }
 
@@ -178,4 +277,12 @@ fn send_physical_size(sz: i_slint_core::api::PhysicalSize) -> proto::PhysicalSiz
 
 fn send_physical_position(pos: i_slint_core::api::PhysicalPosition) -> proto::PhysicalPosition {
     proto::PhysicalPosition { x: pos.x, y: pos.y }
+}
+
+fn send_logical_size(sz: i_slint_core::api::LogicalSize) -> proto::LogicalSize {
+    proto::LogicalSize { width: sz.width, height: sz.height }
+}
+
+fn send_logical_position(pos: i_slint_core::api::LogicalPosition) -> proto::LogicalPosition {
+    proto::LogicalPosition { x: pos.x, y: pos.y }
 }
