@@ -28,7 +28,7 @@ impl super::Sealed for RootWrapper<'_> {}
 
 #[allow(non_snake_case, unused_imports, non_camel_case_types)]
 mod proto {
-    include!(concat!(env!("OUT_DIR"), "/slint_systest.rs"));
+    include!(concat!(env!("OUT_DIR"), "/proto.rs"));
 }
 
 struct TestingClient {
@@ -111,6 +111,20 @@ impl TestingClient {
                     "element properties request missing element handle".to_string()
                 })?),
             )?),
+            proto::mod_RequestToAUT::OneOfmsg::request_invoke_element_accessibility_action(
+                proto::RequestInvokeElementAccessibilityAction { element_handle, action },
+            ) => {
+                self.invoke_element_accessibility_action(
+                    handle_to_index(element_handle.ok_or_else(|| {
+                        "invoke element accessibiliy action request missing element handle"
+                            .to_string()
+                    })?),
+                    action,
+                )?;
+                proto::mod_AUTResponse::OneOfmsg::invoke_element_accessibility_action_response(
+                    proto::InvokeElementAccessibilityActionResponse {},
+                )
+            }
             proto::mod_RequestToAUT::OneOfmsg::None => return Err("Unknown request".into()),
         })
     }
@@ -183,6 +197,34 @@ impl TestingClient {
             size: send_logical_size(element.size()).into(),
             absolute_position: send_logical_position(element.absolute_position()).into(),
         })
+    }
+
+    fn invoke_element_accessibility_action(
+        &self,
+        element_index: generational_arena::Index,
+        action: proto::ElementAccessibilityAction,
+    ) -> Result<(), String> {
+        let element = self
+            .element_handles
+            .borrow()
+            .get(element_index)
+            .ok_or_else(|| "Invalid element handle".to_string())?
+            .clone();
+        if !element.is_valid() {
+            return Err("Element handle refers to element that was destroyed".to_string());
+        }
+        match action {
+            proto::ElementAccessibilityAction::Default_ => {
+                element.invoke_accessible_default_action()
+            }
+            proto::ElementAccessibilityAction::Increment => {
+                element.invoke_accessible_increment_action()
+            }
+            proto::ElementAccessibilityAction::Decrement => {
+                element.invoke_accessible_decrement_action()
+            }
+        }
+        Ok(())
     }
 
     fn window_adapter(

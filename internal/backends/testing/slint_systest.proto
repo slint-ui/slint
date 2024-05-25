@@ -3,12 +3,19 @@
 
 syntax = "proto3";
 
+package proto;
 // Common messages
 
 // Index in generational arena in AUT
 message Handle {
     uint64 index = 1; // ### should use uint128 if only it were available
     uint64 generation = 2;
+}
+
+enum ElementAccessibilityAction {
+    Default_ = 0;
+    Increment = 1;
+    Decrement = 2;
 }
 
 // Requests
@@ -29,12 +36,18 @@ message RequestElementProperties {
     Handle element_handle = 1;
 }
 
+message RequestInvokeElementAccessibilityAction {
+    Handle element_handle = 1;
+    ElementAccessibilityAction action = 2;
+}
+
 message RequestToAUT {
     oneof msg {
         RequestWindowListMessage request_window_list = 1;
         RequestWindowProperties request_window_properties = 2;
         RequestFindElementsById request_find_elements_by_id = 3;
         RequestElementProperties request_element_properties = 4;
+        RequestInvokeElementAccessibilityAction request_invoke_element_accessibility_action = 5;
     }
 }
 
@@ -99,6 +112,9 @@ message ElementPropertiesResponse {
     LogicalPosition absolute_position = 11;
 }
 
+message InvokeElementAccessibilityActionResponse {
+}
+
 message AUTResponse {
     oneof msg {
         ErrorResponse error = 1;
@@ -106,5 +122,6 @@ message AUTResponse {
         WindowPropertiesResponse window_properties = 3;
         ElementsResponse elements = 4;
         ElementPropertiesResponse element_properties = 5;
+        InvokeElementAccessibilityActionResponse invoke_element_accessibility_action_response = 6;
     }
 }
