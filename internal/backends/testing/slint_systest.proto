@@ -41,6 +41,11 @@ message RequestInvokeElementAccessibilityAction {
     ElementAccessibilityAction action = 2;
 }
 
+message RequestSetElementAccessibleValue {
+    Handle element_handle = 1;
+    string value = 2;
+}
+
 message RequestToAUT {
     oneof msg {
         RequestWindowListMessage request_window_list = 1;
@@ -48,6 +53,7 @@ message RequestToAUT {
         RequestFindElementsById request_find_elements_by_id = 3;
         RequestElementProperties request_element_properties = 4;
         RequestInvokeElementAccessibilityAction request_invoke_element_accessibility_action = 5;
+        RequestSetElementAccessibleValue request_set_element_accessible_value = 6;
     }
 }
 
@@ -115,6 +121,9 @@ message ElementPropertiesResponse {
 message InvokeElementAccessibilityActionResponse {
 }
 
+message SetElementAccessibleValueResponse {
+}
+
 message AUTResponse {
     oneof msg {
         ErrorResponse error = 1;
@@ -123,5 +132,6 @@ message AUTResponse {
         ElementsResponse elements = 4;
         ElementPropertiesResponse element_properties = 5;
         InvokeElementAccessibilityActionResponse invoke_element_accessibility_action_response = 6;
+        SetElementAccessibleValueResponse set_element_accessible_value_response = 7;
     }
 }
