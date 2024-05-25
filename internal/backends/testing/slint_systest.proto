@@ -20,10 +20,21 @@ message RequestWindowProperties {
     Handle window_handle = 1;
 }
 
+message RequestFindElementsById {
+    Handle window_handle = 1;
+    string elements_id = 2;
+}
+
+message RequestElementProperties {
+    Handle element_handle = 1;
+}
+
 message RequestToAUT {
     oneof msg {
         RequestWindowListMessage request_window_list = 1;
         RequestWindowProperties request_window_properties = 2;
+        RequestFindElementsById request_find_elements_by_id = 3;
+        RequestElementProperties request_element_properties = 4;
     }
 }
 
@@ -47,6 +58,16 @@ message PhysicalPosition {
     int32 y = 2;
 }
 
+message LogicalSize {
+    float width = 1;
+    float height = 2;
+}
+
+message LogicalPosition {
+    float x = 1;
+    float y = 2;
+}
+
 message WindowPropertiesResponse {
     bool is_fullscreen = 1;
     bool is_maximized = 2;
@@ -55,10 +76,35 @@ message WindowPropertiesResponse {
     PhysicalPosition position = 5;
 }
 
+message ElementsResponse {
+    repeated Handle element_handles = 1;
+}
+
+message ElementTypeNameAndId {
+    string type_name = 1;
+    string id = 2;
+}
+
+message ElementPropertiesResponse {
+    repeated ElementTypeNameAndId type_names_and_ids = 1;
+    string accessible_label = 2;
+    string accessible_value = 3;
+    float accessible_value_maximum = 4;
+    float accessible_value_minimum = 5;
+    float accessible_value_step = 6;
+    string accessible_description = 7;
+    bool accessible_checked = 8;
+    bool accessible_checkable = 9;
+    LogicalSize size = 10;
+    LogicalPosition absolute_position = 11;
+}
+
 message AUTResponse {
     oneof msg {
         ErrorResponse error = 1;
         WindowListResponse window_list = 2;
         WindowPropertiesResponse window_properties = 3;
+        ElementsResponse elements = 4;
+        ElementPropertiesResponse element_properties = 5;
     }
 }
