@@ -972,6 +972,7 @@ fn generate_sub_component(
         let change_tracker = format_ident!("change_tracker{idx}");
         quote! {
             let self_weak = sp::VRcMapped::downgrade(&self_rc);
+            #[allow(dead_code, unused)]
             _self.#change_tracker.init(
                 self_weak,
                 move |self_weak| {

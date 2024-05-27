@@ -5,6 +5,7 @@ export component TestCase {
     in-out property <string> result;
     in property <int> value: 56;
     changed value => {
+        if false { return; }
         result += "value(" + value + ")";
     }
     property <int> other: clamp(value + 1, 50, 100);
