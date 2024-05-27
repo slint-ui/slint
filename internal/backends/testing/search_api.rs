@@ -437,3 +437,35 @@ fn test_optimized() {
     assert_eq!(third.id().unwrap(), "App::third");
     assert_eq!(third.bases().unwrap().count(), 0);
 }
+
+#[test]
+fn test_conditional() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        export component App inherits Window {
+            in property <bool> condition: false;
+            if condition: dynamic-elem := Rectangle {}
+        }
+    }
+
+    let app = App::new().unwrap();
+    let mut it = ElementHandle::find_by_element_id(&app, "App::dynamic-elem");
+    assert!(it.next().is_none());
+
+    app.set_condition(true);
+
+    it = ElementHandle::find_by_element_id(&app, "App::dynamic-elem");
+    let elem = it.next().unwrap();
+    assert!(it.next().is_none());
+
+    assert_eq!(elem.id().unwrap(), "App::dynamic-elem");
+    assert_eq!(elem.type_name().unwrap(), "Rectangle");
+    assert_eq!(elem.bases().unwrap().count(), 0);
+
+    app.set_condition(false);
+
+    // traverse the item tree before testing elem.is_valid()
+    assert!(ElementHandle::find_by_element_id(&app, "App::dynamic-elem").next().is_none());
+    assert!(!elem.is_valid());
+}
