@@ -13,6 +13,7 @@ use super::statements::parse_statement;
 /// ```test,Element
 /// Item { }
 /// Item { property: value; SubElement { } }
+/// Item { if true: Rectangle {} }
 /// ```
 pub fn parse_element(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Element);
