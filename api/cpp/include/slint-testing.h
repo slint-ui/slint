@@ -80,50 +80,74 @@ public:
     /// Returns true if the underlying element still exists; false otherwise.
     bool is_valid() const { return private_api::upgrade_item_weak(inner.item).has_value(); }
 
-    /// Helper struct for use with element_type_names_and_ids() to describe an element's type name
-    /// and qualified id;
-    struct ElementTypeNameAndId
-    {
-        /// The type name this element instantiates, such as `Rectangle` or `MyComponent`
-        SharedString type_name;
-        /// The id of the element qualified with the surrounding component.
-        SharedString id;
-
-        friend bool operator==(const ElementTypeNameAndId &lhs,
-                               const ElementTypeNameAndId &rhs) = default;
-    };
-
-    /// Returns a vector over a struct of element type names and their ids. Returns an empty vector
-    /// if the element is not valid anymore.
+    /// Returns the element's qualified id. Returns None if the element is not valid anymore or the
+    /// element does not have an id.
+    /// A qualified id consists of the name of the surrounding component as well as the provided
+    /// local name, separate by a double colon.
     ///
-    /// Elements can have multiple type names and ids, due to inheritance.
-    /// In the following example, the `PushButton` element returns for `element_type_names_and_ids`
-    /// the following ElementTypeNameAndId structs:
-    /// entries:
-    ///   * type_name: "PushButton", id: "App::mybutton"
-    ///   * type_name: "ButtonBase", id: "PushButton::root"
-    ///   * type_name: "", id: "ButtonBase::root"
+    /// ```slint,no-preview
+    /// component PushButton {
+    ///     /* .. */
+    /// }
+    ///
+    /// export component App {
+    ///    mybutton := PushButton { } // known as `App::mybutton`
+    ///    PushButton { } // no id
+    /// }
+    /// ```
+    std::optional<SharedString> id() const
+    {
+        SharedString id;
+        if (cbindgen_private::slint_testing_element_id(&inner, &id)) {
+            return id;
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    /// Returns the element's type name; std::nullopt if the element is not valid anymore.
+    /// ```slint,no-preview
+    /// component PushButton {
+    ///     /* .. */
+    /// }
+    ///
+    /// export component App {
+    ///    mybutton := PushButton { } // type_name is "PushButton"
+    /// }
+    /// ```
+    std::optional<SharedString> type_name() const
+    {
+        SharedString type_name;
+        if (cbindgen_private::slint_testing_element_type_name(&inner, &type_name)) {
+            return type_name;
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    /// Returns the element's base types as an iterator; None if the element is not valid anymore.
     ///
     /// ```slint,no-preview
     /// component ButtonBase {
-    ///    // ...
+    ///     /* .. */
     /// }
+    ///
     /// component PushButton inherits ButtonBase {
+    ///     /* .. */
     /// }
+    ///
     /// export component App {
-    ///     mybutton := PushButton {}
+    ///    mybutton := PushButton { } // bases will be ["ButtonBase"]
     /// }
     /// ```
-    SharedVector<ElementTypeNameAndId> element_type_names_and_ids() const
+    std::optional<SharedVector<SharedString>> bases() const
     {
-        SharedVector<SharedString> type_names;
-        SharedVector<SharedString> ids;
-        cbindgen_private::slint_testing_element_type_names_and_ids(&inner, &type_names, &ids);
-        SharedVector<ElementTypeNameAndId> result(type_names.size());
-        for (std::size_t i = 0; i < type_names.size(); ++i) {
-            result[i] = { type_names[i], ids[i] };
+        SharedVector<SharedString> bases;
+        if (cbindgen_private::slint_testing_element_bases(&inner, &bases)) {
+            return bases;
+        } else {
+            return std::nullopt;
         }
-        return result;
     }
 
     /// Returns the accessible-label of that element, if any.

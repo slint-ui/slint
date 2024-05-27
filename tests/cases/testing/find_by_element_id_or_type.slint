@@ -39,12 +39,11 @@ assert!(button.is_valid());
 assert_eq!(button.accessible_label().unwrap(), "third");
 assert!(button_search.next().is_none());
 
-assert_eq!(slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::second").flat_map(|elem| elem.element_type_names_and_ids().unwrap()).collect::<Vec<_>>(),
-           vec![
-                ("Button".into(), "TestCase::second".into()),
-                ("ButtonBase".into(), "Button::root".into()),
-                ("Text".into(), "ButtonBase::root".into()),
-           ]);
+let id_search_result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::second").collect::<Vec<_>>();
+assert_eq!(id_search_result.len(), 1);
+assert_eq!(id_search_result[0].type_name().unwrap(), "Button");
+assert_eq!(id_search_result[0].id().unwrap(), "TestCase::second");
+assert_eq!(id_search_result[0].bases().unwrap().collect::<Vec<_>>(), ["ButtonBase", "Text"]);
 
 let texts = slint_testing::ElementHandle::find_by_element_type_name(&instance, "Text").filter_map(|elem| elem.accessible_label()).collect::<Vec<_>>();
 assert_eq!(texts, vec!["optimized", "extra", "plain", "extra", "third", "extra"]);
@@ -68,13 +67,10 @@ assert_eq(button.accessible_label().value(), "third");
 
 auto id_search_result = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::second");
 assert_eq(id_search_result.size(), 1);
-auto type_names_and_ids = id_search_result[0].element_type_names_and_ids();
-assert_eq(type_names_and_ids.size(), 3);
-assert_eq(type_names_and_ids[0].type_name, "Button");
-assert_eq(type_names_and_ids[0].id, "TestCase::second");
-assert_eq(type_names_and_ids[1].type_name, "ButtonBase");
-assert_eq(type_names_and_ids[1].id, "Button::root");
-assert_eq(type_names_and_ids[2].type_name, "Text");
-assert_eq(type_names_and_ids[2].id, "ButtonBase::root");
+assert_eq(*id_search_result[0].type_name(), "Button");
+assert_eq(*id_search_result[0].id(), "TestCase::second");
+assert_eq((*id_search_result[0].bases()).size(), 2);
+assert_eq((*id_search_result[0].bases())[0], "ButtonBase");
+assert_eq((*id_search_result[0].bases())[1], "Text");
 ```
 */
