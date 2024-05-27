@@ -174,6 +174,7 @@ impl TestingClient {
             .ok_or_else(|| format!("Invalid element handle for {request}"))?
             .clone();
         if !element.is_valid() {
+            self.element_handles.borrow_mut().remove(index);
             return Err(format!(
                 "Element handle for {request} refers to element that was destroyed"
             ));
