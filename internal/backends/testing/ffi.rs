@@ -29,9 +29,7 @@ pub extern "C" fn slint_testing_element_find_by_element_id(
     out: &mut SharedVector<crate::search_api::ElementHandle>,
 ) {
     let Ok(element_id) = core::str::from_utf8(element_id.as_slice()) else { return };
-    *out = crate::search_api::search_item(root, |elem| {
-        elem.element_type_names_and_ids().unwrap().any(|(_, eid)| eid == element_id)
-    })
+    out.extend(crate::ElementHandle::find_by_element_id_with_tree(&root, element_id));
 }
 
 #[no_mangle]
@@ -41,21 +39,44 @@ pub extern "C" fn slint_testing_element_find_by_element_type_name(
     out: &mut SharedVector<crate::search_api::ElementHandle>,
 ) {
     let Ok(type_name) = core::str::from_utf8(type_name.as_slice()) else { return };
-    *out = crate::search_api::search_item(root, |elem| {
-        elem.element_type_names_and_ids().unwrap().any(|(tid, _)| tid == type_name)
-    })
+    out.extend(crate::ElementHandle::find_by_element_type_name_with_tree(&root, type_name));
 }
 
 #[no_mangle]
-pub extern "C" fn slint_testing_element_type_names_and_ids(
+pub extern "C" fn slint_testing_element_id(
     element: &crate::search_api::ElementHandle,
-    type_names: &mut SharedVector<SharedString>,
-    ids: &mut SharedVector<SharedString>,
-) {
-    if let Some(it) = element.element_type_names_and_ids() {
-        for (type_name, id) in it {
-            type_names.push(type_name);
-            ids.push(id);
-        }
+    out: &mut SharedString,
+) -> bool {
+    if let Some(id) = element.id() {
+        *out = id;
+        true
+    } else {
+        false
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn slint_testing_element_type_name(
+    element: &crate::search_api::ElementHandle,
+    out: &mut SharedString,
+) -> bool {
+    if let Some(type_name) = element.type_name() {
+        *out = type_name;
+        true
+    } else {
+        false
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn slint_testing_element_bases(
+    element: &crate::search_api::ElementHandle,
+    out: &mut SharedVector<SharedString>,
+) -> bool {
+    if let Some(bases_it) = element.bases() {
+        out.extend(bases_it);
+        true
+    } else {
+        false
     }
 }

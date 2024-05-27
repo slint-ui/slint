@@ -64,16 +64,51 @@ impl ElementHandle {
         result.into_iter()
     }
 
-    /// This function searches through the entire tree of elements of `component`, looks for
-    /// elements by their name.
+    /// This function searches through the entire tree of elements of this window and looks for
+    /// elements by their id. The id is a qualified string consisting of the name of the component
+    /// and the assigned name within the component. In the following examples, the first Button
+    /// has the id "MyView::submit-button" and the second button "App::close":
+    ///
+    /// ```slint,no-preview
+    /// component MyView {
+    ///    submit-button := Button {}
+    /// }
+    /// export component App {
+    ///     VerticalLayout {
+    ///         close := Button {}
+    ///     }
+    /// }
+    /// ```
     pub fn find_by_element_id(
         component: &impl i_slint_core::api::ComponentHandle,
         id: &str,
     ) -> impl Iterator<Item = Self> {
         // dirty way to get the ItemTreeRc:
         let item_tree = WindowInner::from_pub(component.window()).component();
+        Self::find_by_element_id_with_tree(&item_tree, id)
+    }
+
+    pub(crate) fn find_by_element_id_with_tree(
+        item_tree: &ItemTreeRc,
+        id: &str,
+    ) -> impl Iterator<Item = Self> {
+        let mut id_split = id.split("::");
+        let type_name = id_split.next();
+        let local_id = id_split.next();
+        let root_base = if local_id == Some("root") { type_name } else { None };
+
         let result = search_item(&item_tree, |elem| {
-            elem.element_type_names_and_ids().unwrap().any(|(_, eid)| eid == id)
+            if elem.id().unwrap() == id {
+                return true;
+            }
+            if let Some(root_base) = root_base {
+                if elem.type_name().unwrap() == root_base {
+                    return true;
+                }
+                elem.bases().unwrap().any(|base| base == root_base)
+            } else {
+                false
+            }
         });
         result.into_iter()
     }
@@ -86,58 +121,122 @@ impl ElementHandle {
     ) -> impl Iterator<Item = Self> {
         // dirty way to get the ItemTreeRc:
         let item_tree = WindowInner::from_pub(component.window()).component();
+        Self::find_by_element_type_name_with_tree(&item_tree, type_name)
+    }
+
+    pub(crate) fn find_by_element_type_name_with_tree(
+        item_tree: &ItemTreeRc,
+        type_name: &str,
+    ) -> impl Iterator<Item = Self> {
         let result = search_item(&item_tree, |elem| {
-            elem.element_type_names_and_ids().unwrap().any(|(tn, _)| tn == type_name)
+            if elem.type_name().unwrap() == type_name {
+                return true;
+            }
+            elem.bases().unwrap().any(|tn| tn == type_name)
         });
         result.into_iter()
     }
 
-    /// Returns an iterator over tuples of element type names and their ids. Returns None if the
-    /// element is not valid anymore.
-    ///
-    /// Elements can have multiple type names and ids, due to inheritance.
-    /// In the following example, the `PushButton` element returns for `element_type_names_and_ids`
-    /// the following tuples:
-    /// entries:
-    ///   * ("PushButton", "App::mybutton")
-    ///   * ("ButtonBase", "PushButton::root")
-    ///   * ("", "ButtonBase::root")
-    ///
-    /// ```slint,no-preview
-    /// component ButtonBase {
-    ///    // ...
-    /// }
-    /// component PushButton inherits ButtonBase {
-    /// }
-    /// export component App {
-    ///     mybutton := PushButton {}
-    /// }
-    /// ```
+    /// Returns the element's qualified id. Returns None if the element is not valid anymore or the
+    /// element does not have an id.
+    /// A qualified id consists of the name of the surrounding component as well as the provided local
+    /// name, separate by a double colon.
     ///
     /// ```rust
     /// # i_slint_backend_testing::init_no_event_loop();
-    /// # slint::slint!{
-    /// # component ButtonBase { }
-    /// # component PushButton inherits ButtonBase { }
-    /// # export component App {
-    /// #    mybutton := PushButton {}
-    /// # }
-    /// # }
+    /// slint::slint!{
+    ///
+    /// component PushButton {
+    ///     /* .. */
+    /// }
+    ///
+    /// export component App {
+    ///    mybutton := PushButton { } // known as `App::mybutton`
+    ///    PushButton { } // no id
+    /// }
+    ///
+    /// }
+    ///
     /// let app = App::new().unwrap();
     /// let button = i_slint_backend_testing::ElementHandle::find_by_element_id(&app, "App::mybutton")
     ///              .next().unwrap();
-    /// assert_eq!(button.element_type_names_and_ids().unwrap().collect::<Vec<_>>(),
-    ///           [("PushButton".into(), "App::mybutton".into()),
-    ///            ("ButtonBase".into(), "PushButton::root".into()),
-    ///            ("".into(), "ButtonBase::root".into())
-    ///           ]);
+    /// assert_eq!(button.id().unwrap(), "App::mybutton");
     /// ```
-    pub fn element_type_names_and_ids(
-        &self,
-    ) -> Option<impl Iterator<Item = (SharedString, SharedString)>> {
-        self.item
-            .upgrade()
-            .map(|item| item.element_type_names_and_ids(self.element_index).into_iter())
+    pub fn id(&self) -> Option<SharedString> {
+        self.item.upgrade().and_then(|item| {
+            item.element_type_names_and_ids(self.element_index).into_iter().next().map(|(_, id)| id)
+        })
+    }
+
+    /// Returns the element's type name; None if the element is not valid anymore.
+    ///
+    /// ```rust
+    /// # i_slint_backend_testing::init_no_event_loop();
+    /// slint::slint!{
+    ///
+    /// component PushButton {
+    ///     /* .. */
+    /// }
+    ///
+    /// export component App {
+    ///    mybutton := PushButton { }
+    /// }
+    ///
+    /// }
+    ///
+    /// let app = App::new().unwrap();
+    /// let button = i_slint_backend_testing::ElementHandle::find_by_element_id(&app, "App::mybutton")
+    ///              .next().unwrap();
+    /// assert_eq!(button.type_name().unwrap(), "PushButton");
+    /// ```
+    pub fn type_name(&self) -> Option<SharedString> {
+        self.item.upgrade().and_then(|item| {
+            item.element_type_names_and_ids(self.element_index)
+                .into_iter()
+                .next()
+                .map(|(type_name, _)| type_name)
+        })
+    }
+
+    /// Returns the element's base types as an iterator; None if the element is not valid anymore.
+    ///
+    /// ```rust
+    /// # i_slint_backend_testing::init_no_event_loop();
+    /// slint::slint!{
+    ///
+    /// component ButtonBase {
+    ///     /* .. */
+    /// }
+    ///
+    /// component PushButton inherits ButtonBase {
+    ///     /* .. */
+    /// }
+    ///
+    /// export component App {
+    ///    mybutton := PushButton { }
+    /// }
+    ///
+    /// }
+    ///
+    /// let app = App::new().unwrap();
+    /// let button = i_slint_backend_testing::ElementHandle::find_by_element_id(&app, "App::mybutton")
+    ///              .next().unwrap();
+    /// assert_eq!(button.type_name().unwrap(), "PushButton");
+    /// assert_eq!(button.bases().unwrap().collect::<Vec<_>>(),
+    ///           ["ButtonBase"]);
+    /// ```
+    pub fn bases(&self) -> Option<impl Iterator<Item = SharedString>> {
+        self.item.upgrade().map(|item| {
+            item.element_type_names_and_ids(self.element_index).into_iter().skip(1).filter_map(
+                |(type_name, _)| {
+                    if !type_name.is_empty() {
+                        Some(type_name)
+                    } else {
+                        None
+                    }
+                },
+            )
+        })
     }
 
     /// Invokes the default accessible action on the element. For example a `MyButton` element might declare
@@ -293,26 +392,23 @@ fn test_optimized() {
     let first = it.next().unwrap();
     assert!(it.next().is_none());
 
-    assert_eq!(
-        first.element_type_names_and_ids().unwrap().collect::<Vec<_>>(),
-        vec![("Rectangle".into(), "App::first".into())]
-    );
+    assert_eq!(first.type_name().unwrap(), "Rectangle");
+    assert_eq!(first.id().unwrap(), "App::first");
+    assert_eq!(first.bases().unwrap().count(), 0);
 
     it = ElementHandle::find_by_element_id(&app, "App::second");
     let second = it.next().unwrap();
     assert!(it.next().is_none());
 
-    assert_eq!(
-        second.element_type_names_and_ids().unwrap().collect::<Vec<_>>(),
-        vec![("Rectangle".into(), "App::second".into())]
-    );
+    assert_eq!(second.type_name().unwrap(), "Rectangle");
+    assert_eq!(second.id().unwrap(), "App::second");
+    assert_eq!(second.bases().unwrap().count(), 0);
 
     it = ElementHandle::find_by_element_id(&app, "App::third");
     let third = it.next().unwrap();
     assert!(it.next().is_none());
 
-    assert_eq!(
-        third.element_type_names_and_ids().unwrap().collect::<Vec<_>>(),
-        vec![("Rectangle".into(), "App::third".into())]
-    );
+    assert_eq!(third.type_name().unwrap(), "Rectangle");
+    assert_eq!(third.id().unwrap(), "App::third");
+    assert_eq!(third.bases().unwrap().count(), 0);
 }
