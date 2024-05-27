@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CheckBox } from "std-widgets.slint";
+export component TestCase inherits Window {
+
+    in-out property <string> toggled;
+    in-out property <bool> checked <=> a.checked;
+
+    HorizontalLayout {
+        alignment: start;
+        a := CheckBox {
+            text: "Aaa";
+            toggled => {
+                root.toggled += "a";
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::{SharedString};
+
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_checked(), false);
+
+let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::a").collect::<Vec<_>>();
+assert_eq!(result.len(), 1);
+let aaa = result.pop().unwrap();
+assert_eq!(aaa.accessible_label().unwrap(), "Aaa");
+assert_eq!(aaa.accessible_value(), None);
+assert_eq!(aaa.accessible_value_maximum(), None);
+assert_eq!(aaa.accessible_value_minimum(), None);
+assert_eq!(aaa.accessible_value_step(), None);
+assert_eq!(aaa.accessible_checked(), Some(false));
+assert_eq!(aaa.accessible_checkable(), Some(true));
+aaa.invoke_accessible_default_action();
+assert_eq!(instance.get_checked(), true, "CheckBox a was not checked");
+assert_eq!(aaa.accessible_checked(), Some(true));
+assert_eq!(instance.get_toggled(), SharedString::from("a"));
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+auto label_search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::a");
+assert(label_search.size() == 1);
+auto aaa = label_search[0];
+assert_eq(aaa.accessible_label().value(), "Aaa");
+assert(!aaa.accessible_value());
+assert(!aaa.accessible_value_maximum());
+assert(!aaa.accessible_value_minimum());
+assert(!aaa.accessible_value_step());
+assert_eq(aaa.accessible_checked().value(), false);
+assert_eq(aaa.accessible_checkable().value(), true);
+aaa.invoke_accessible_default_action();
+assert_eq(instance.get_checked(), true);
+assert_eq(aaa.accessible_checked().value(), true);
+assert_eq(instance.get_toggled(), "a");
+
+```
+
+*/
