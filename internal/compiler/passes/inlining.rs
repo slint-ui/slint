@@ -202,15 +202,8 @@ fn inline_element(
         .inlined_init_code
         .values()
         .cloned()
-        .chain(
-            inlined_component
-                .init_code
-                .borrow()
-                .constructor_code
-                .iter()
-                .cloned()
-                .map(fixup_init_expression),
-        )
+        .chain(inlined_component.init_code.borrow().constructor_code.iter().cloned())
+        .map(fixup_init_expression)
         .collect();
 
     root_component
