@@ -1,8 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
 
+use std::collections::HashSet;
+
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::Expression;
+use crate::expression_tree::{Expression, NamedReference};
 
 /// Check that pure expression only call pure functions
 pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {
@@ -21,11 +23,11 @@ pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnost
                         if lookup.declared_pure.unwrap_or(false)
                             || lookup.property_type.is_property_type()
                         {
-                            ensure_pure(expr, Some(diag), level);
+                            ensure_pure(expr, Some(diag), level, &mut Default::default());
                         }
                     } else {
                         // model expression must be pure
-                        ensure_pure(expr, Some(diag), level);
+                        ensure_pure(expr, Some(diag), level, &mut Default::default());
                     };
                 })
             },
@@ -37,6 +39,7 @@ fn ensure_pure(
     expr: &Expression,
     mut diag: Option<&mut BuildDiagnostics>,
     level: crate::diagnostics::DiagnosticLevel,
+    recursion_test: &mut HashSet<NamedReference>,
 ) -> bool {
     let mut r = true;
     expr.visit_recursive(&mut |e| match e {
@@ -66,25 +69,29 @@ fn ensure_pure(
                     r = false;
                 }
                 None => {
-                    if !ensure_pure(
-                        &nr.element()
-                            .borrow()
-                            .bindings
-                            .get(nr.name())
-                            .expect("private function must be local and defined")
-                            .borrow()
-                            .expression,
-                        None,
-                        level,
-                    ) {
-                        if let Some(diag) = diag.as_deref_mut() {
-                            diag.push_diagnostic(
-                                format!("Call of impure function '{}'", nr.name()),
-                                node,
-                                level,
-                            );
+                    if recursion_test.insert(nr.clone()) {
+                        if !ensure_pure(
+                            &nr.element()
+                                .borrow()
+                                .bindings
+                                .get(nr.name())
+                                .expect("private function must be local and defined")
+                                .borrow()
+                                .expression,
+                            None,
+                            level,
+                            recursion_test,
+                        ) {
+                            if let Some(diag) = diag.as_deref_mut() {
+                                diag.push_diagnostic(
+                                    format!("Call of impure function '{}'", nr.name()),
+                                    node,
+                                    level,
+                                );
+                            }
+                            r = false;
                         }
-                        r = false;
+                        recursion_test.remove(&nr);
                     }
                 }
             }
