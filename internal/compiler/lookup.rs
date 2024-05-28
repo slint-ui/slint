@@ -499,8 +499,14 @@ impl LookupType {
                     Some(LookupResult::Expression {
                         expression: Expression::ElementReference(Rc::downgrade(&c.root_element)),
                         deprecated: (name == "StyleMetrics"
-                            && !ctx.type_register.expose_internal_types)
-                            .then(|| "Palette".to_string()),
+                            && !ctx.type_register.expose_internal_types
+                            && c.root_element
+                                .borrow()
+                                .debug
+                                .get(0)
+                                .and_then(|x| x.0.source_file())
+                                .map_or(false, |x| x.path().starts_with("builtin:")))
+                        .then(|| "Palette".to_string()),
                     })
                 }
             }

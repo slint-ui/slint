@@ -16,6 +16,10 @@ global my_lowercase := {
 }
 
 
+global StyleMetrics {
+    out property <length> padding: 3px;
+}
+
 export X := Rectangle {
     x: MyGlobal.custom_prop;
     background: MyGlobal.blue;
@@ -28,6 +32,8 @@ export X := Rectangle {
         //    ^error{Cannot access id 'NativeStyleMetrics'}
         visible: SlintInternal.color-scheme;
         //       ^error{Cannot access id 'SlintInternal'}
+
+        height: StyleMetrics.padding;
     }
 
     property <int> my_lowercase: 45;
