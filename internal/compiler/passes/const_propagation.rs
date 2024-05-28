@@ -186,7 +186,9 @@ fn extract_constant_property_reference(nr: &NamedReference) -> Option<Expression
         }
 
         // There is no binding for this property, return the default value
-        return Some(Expression::default_value_for_type(&nr.ty()));
+        let ty = nr.ty();
+        debug_assert!(!matches!(ty, Type::Invalid));
+        return Some(Expression::default_value_for_type(&ty));
     };
     if !(simplify_expression(&mut expression)) {
         return None;
