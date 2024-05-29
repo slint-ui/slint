@@ -5,7 +5,8 @@ export struct TimeSelectorStyle {
     foreground: brush,
     foreground-selected: brush,
     font-size: length,
-    font-weight: float}
+    font-weight: float
+}
 
 component TimeSelector inherits Rectangle {
     in property <bool> selected;
@@ -13,15 +14,15 @@ component TimeSelector inherits Rectangle {
     in property <TimeSelectorStyle> style;
     callback clicked <=> touch-area.clicked;
 
-    width: max(48px, label.min-width);
-    height: max(48px, label.min-height);
+    width: max(48px, text-label.min-width);
+    height: max(48px, text-label.min-height);
     border-radius: max(root.width, root.height) / 2;
     vertical-stretch: 0;
     horizontal-stretch: 0;
 
     touch-area := TouchArea { }
 
-    label := Text {
+    text-label := Text {
         text: root.value;
         vertical-alignment: center;
         horizontal-alignment: center;
@@ -32,7 +33,7 @@ component TimeSelector inherits Rectangle {
 
     states [
         selected when root.selected: {
-            label.color: root.style.foreground-selected;
+            text-label.color: root.style.foreground-selected;
         }
     ]
 }
@@ -40,7 +41,8 @@ component TimeSelector inherits Rectangle {
 export struct ClockStyle {
     background: brush,
     foreground: brush,
-    time-selector-style: TimeSelectorStyle}
+    time-selector-style: TimeSelectorStyle
+}
 
 export component Clock {
     in property <[int]> model;
@@ -178,7 +180,8 @@ export struct TimePickerInputStyle {
     foreground: brush,
     border-radius: length,
     font-size: length,
-    font-weight: float}
+    font-weight: float
+}
 
 export component TimePickerInput {
     in property <TimePickerInputStyle> style;
@@ -195,6 +198,7 @@ export component TimePickerInput {
     horizontal-stretch: 0;
 
     forward-focus: text-input;
+
     background-layer := Rectangle {
         border-radius: root.style.border-radius;
         background: root.style.background;
@@ -232,7 +236,8 @@ export struct PeriodSelectorItemStyle {
     font-weight: float,
     foreground: brush,
     background-selected: brush,
-    foreground-selected: brush}
+    foreground-selected: brush
+}
 
 export component PeriodSelectorItem {
     in property <PeriodSelectorItemStyle> style;
@@ -325,7 +330,8 @@ export component PeriodSelector {
 
 export struct Time {
     hour: int,
-    minute: int}
+    minute: int
+}
 
 export struct TimePickerStyle {
     foreground: brush,
@@ -378,34 +384,12 @@ export component TimePickerBase {
     property <int> time-picker-hour: hour-time-picker.text.to-float();
     property <int> time-picker-minute: minute-time-picker.text.to-float();
 
-    pure public function ok-enabled() -> bool {
-        if root.selection-mode {
-            return root.current-time.hour <= 23 && root.current-time.minute <= 60;
-        }
-        if root.twenty-four-hour {
-            return root.time-picker-hour <= 23 && root.time-picker-minute <= 60;
-        }
-        root.time-picker-hour <= 12 && root.time-picker-minute <= 60
-    }
+    min-width: content-layer.min-width;
+    min-height: content-layer.min-height;
 
-    public function get-current-time() -> Time {
-        if root.selection-mode {
-            if !root.twenty-four-hour && !root.am-selected {
-                if root.current-time.hour == 12 {
-                    return { hour: 0, minute: root.current-time.minute };
-                }
-                return { hour: root.current-time.hour + 12, minute: root.current-time.minute };
-            }
-            return root.current-time;
-        }
-        return { hour: root.time-picker-hour, minute: root.time-picker-minute };
-    }
-
-    min-width: layout.min-width;
-    min-height: layout.min-height;
-
-    layout := VerticalLayout {
+    content-layer := VerticalLayout {
         spacing: root.style.vertical-spacing;
+        
         HorizontalLayout {
             spacing: root.style.horizontal-spacing;
             alignment: center;
@@ -482,15 +466,38 @@ export component TimePickerBase {
         }
     }
 
+    pure public function ok-enabled() -> bool {
+        if root.selection-mode {
+            return root.current-time.hour <= 23 && root.current-time.minute <= 59;
+        }
+        if root.twenty-four-hour {
+            return root.time-picker-hour <= 23 && root.time-picker-minute <= 59;
+        }
+        root.time-picker-hour <= 12 && root.time-picker-minute <= 59
+    }
+
+    public function get-current-time() -> Time {
+        if root.selection-mode {
+            if !root.twenty-four-hour && !root.am-selected {
+                if root.current-time.hour == 12 {
+                    return { hour: 0, minute: root.current-time.minute };
+                }
+                return { hour: root.current-time.hour + 12, minute: root.current-time.minute };
+            }
+            return root.current-time;
+        }
+        return { hour: root.time-picker-hour, minute: root.time-picker-minute };
+    }
+
     changed selection-mode => {
         if !root.selection-mode {
             return;
         }
         if root.twenty-four-hour {
-            root.update-time(root.time-picker-hour <= 23 ? root.time-picker-hour : 23, root.time-picker-minute <= 60 ? root.time-picker-minute : 60);
+            root.update-time(root.time-picker-hour <= 23 ? root.time-picker-hour : 23, root.time-picker-minute <= 59 ? root.time-picker-minute : 59);
         }
 
-        root.update-time(root.time-picker-hour <= 12 ? root.time-picker-hour : 12, root.time-picker-minute <= 60 ? root.time-picker-minute : 60);
+        root.update-time(root.time-picker-hour <= 12 ? root.time-picker-hour : 12, root.time-picker-minute <= 59 ? root.time-picker-minute : 59);
     }
     
     changed time => {
