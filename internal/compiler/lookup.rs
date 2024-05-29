@@ -796,6 +796,9 @@ impl LookupObject for MathFunctions {
             .or_else(|| f("sqrt", BuiltinFunctionReference(BuiltinFunction::Sqrt, sl())))
             .or_else(|| f("max", BuiltinMacroReference(BuiltinMacroFunction::Max, t.clone())))
             .or_else(|| f("min", BuiltinMacroReference(BuiltinMacroFunction::Min, t.clone())))
+            .or_else(|| {
+                f("normalize", BuiltinMacroReference(BuiltinMacroFunction::Normalize, t.clone()))
+            })
             .or_else(|| f("sin", BuiltinFunctionReference(BuiltinFunction::Sin, sl())))
             .or_else(|| f("cos", BuiltinFunctionReference(BuiltinFunction::Cos, sl())))
             .or_else(|| f("tan", BuiltinFunctionReference(BuiltinFunction::Tan, sl())))

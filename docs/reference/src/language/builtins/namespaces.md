@@ -120,6 +120,10 @@ Return the arguments with the minimum (or maximum) value. All arguments must be 
 
 Perform a modulo operation, where T is some numeric type.
 
+### `normalize(T, T, T) -> T`
+
+Normalizes a `value` in the range of `minimum` and `maximum` and returns a new value in the range [0,1].
+
 ### `round(float) -> int`
 
 Return the value rounded to the nearest integer

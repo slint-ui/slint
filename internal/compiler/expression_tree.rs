@@ -83,6 +83,8 @@ pub enum BuiltinMacroFunction {
     Max,
     /// Transforms `clamp(v, min, max)` into a series of min/max calls
     Clamp,
+    /// Normalizes a value between min and max in to a range [0;1]
+    Normalize,
     /// Add the right conversion operations so that the return type is the same as the argument type
     Mod,
     /// Add the right conversion operations so that the return type is the same as the argument type

@@ -25,6 +25,7 @@ pub fn lower_macro(
         BuiltinMacroFunction::Min => min_max_macro(n, MinMaxOp::Min, sub_expr.collect(), diag),
         BuiltinMacroFunction::Max => min_max_macro(n, MinMaxOp::Max, sub_expr.collect(), diag),
         BuiltinMacroFunction::Clamp => clamp_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::Normalize => normalize_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Mod => mod_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Abs => abs_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag),
@@ -137,6 +138,50 @@ fn clamp_macro(
 
     let value = min_max_expression(value, max, MinMaxOp::Min);
     min_max_expression(min, value, MinMaxOp::Max)
+}
+
+/// Unfolds into (value - min) / (max - min)
+fn normalize_macro(
+    node: Option<NodeOrToken>,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() != 3 {
+        diag.push_error(
+            "`normalize` needs three values: the `value` to normalize, the `minimum` and the `maximum`"
+                .into(),
+            &node,
+        );
+        return Expression::Invalid;
+    }
+    let (value, value_node) = args.first().unwrap().clone();
+    let ty = match value.ty() {
+        Type::Float32
+        | Type::Int32
+        | Type::PhysicalLength
+        | Type::LogicalLength
+        | Type::Duration
+        | Type::Angle => Type::Float32,
+        Type::Percent => Type::Percent,
+        _ => {
+            diag.push_error("Invalid argument type".into(), &value_node);
+            return Expression::Invalid;
+        }
+    };
+
+    let (min, min_node) = args.get(1).unwrap().clone();
+    let min = min.maybe_convert_to(ty.clone(), &min_node, diag);
+    let (max, max_node) = args.get(2).unwrap().clone();
+    let max = max.maybe_convert_to(ty.clone(), &max_node, diag);
+
+    let value = Expression::BinaryExpression {
+        lhs: Box::new(value.maybe_convert_to(ty.clone(), &value_node, diag)),
+        rhs: Box::new(min.clone()),
+        op: '-',
+    };
+    let d = Expression::BinaryExpression { lhs: Box::new(max), rhs: Box::new(min), op: '-' };
+
+    Expression::BinaryExpression { lhs: Box::new(value), rhs: Box::new(d), op: '/' }
 }
 
 fn mod_macro(

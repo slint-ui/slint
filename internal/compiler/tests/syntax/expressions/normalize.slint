@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+export component SuperNormalized {
+    property <int> ok1: normalize(42, 0, 42);
+    property <float> ok2: normalize(42.0, 0.0, 42.0);
+    property <length> ok3: normalize(42px, 0px, 42px);
+    property <physical-length> ok4: normalize(42phx, 0phx, 42phx);
+    property <duration> ok5: normalize(42s, 0s, 42s);
+    property <angle> ok6: normalize(42deg, 0deg, 42deg);
+    property <percent> ok7: normalize(42%, 0%, 42%);
+    property <float> a: normalize + normalize() + normalize(42.0, 41, "hello");
+    //                      ^error{Builtin function must be called}
+//                              ^^error{`normalize` needs three values}
+//                                                        ^^^error{Cannot convert string to float}
+    property <length> b: normalize(41px, 41phx, 42phx);
+    property <string> c: normalize("a", "b", "c");
+    //                             ^error{Invalid argument type}
+    property <float> d: normalize(42, 42 - 1, 42 + 1) + max(1px, 2phx);
+    //                      ^error{Cannot convert float to length}
+    property <float> e: normalize(42.0, 23.0, 84.0, 32.0);
+    //                      ^error{`normalize` needs three values}
+}
