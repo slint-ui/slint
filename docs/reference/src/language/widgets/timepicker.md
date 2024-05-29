@@ -7,8 +7,8 @@ Defines a time with hour minutes and seconds.
 ### Fields
 
 -   **`hour`(int)**: The hour value (range from 0 to 23).
--   **`minute`(int)**: The minute value (range from 0 to 60).
--   **`second`(int)**: The second value (range form 0 to 60).
+-   **`minute`(int)**: The minute value (range from 1 to 59).
+-   **`second`(int)**: The second value (range form 1 to 59).
 
 ## `TimePicker`
 
