@@ -12,7 +12,7 @@ Defines a time with hours, minutes, and seconds.
 
 ## `TimePicker`
 
-A timer picker that is usd for selecting the time, in either 24-hour or AM/PM mode. 
+Use the timer picker to select the time, in either 24-hour or 12-hour mode (AM/PM). 
 
 ### Properties
 
