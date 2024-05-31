@@ -21,21 +21,14 @@ export component TimePicker {
 
     min-width: content-layer.min-width;
     min-height: content-layer.min-height;
+
     background-layer := MenuBorder { }
 
     content-layer := VerticalBox {
         spacing: 8px;
 
-        Text {
-            text: root.title;
-            horizontal-alignment: left;
-            overflow: elide;
-            font-size: CupertinoFontSettings.body.font-size;
-            font-weight: CupertinoFontSettings.body.font-weight;
-            color: CupertinoPalette.foreground;
-        }
-
         base := TimePickerBase {
+            title: root.title;
             style: {
                 foreground: CupertinoPalette.foreground,
                 vertical-spacing: 8px,
@@ -69,7 +62,12 @@ export component TimePicker {
                         background-selected: CupertinoPalette.accent-background,
                         foreground-selected: CupertinoPalette.accent-foreground
                     }
-                }
+                },
+                title-style: {
+                      font-size: CupertinoFontSettings.body.font-size,
+                      font-weight: CupertinoFontSettings.body.font-weight,
+                      foreground: CupertinoPalette.foreground,  
+                },
             };
         }
 

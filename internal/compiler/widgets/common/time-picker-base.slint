@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-commercial
 
+import { TextStyle } from "./internal-components.slint";
+
 export struct TimeSelectorStyle {
     foreground: brush,
     foreground-selected: brush,
@@ -340,6 +342,7 @@ export struct TimePickerStyle {
     clock-style: ClockStyle,
     input-style: TimePickerInputStyle,
     period-selector-style: PeriodSelectorStyle, 
+    title-style: TextStyle,
 }
 
 export component TimePickerBase {
@@ -347,6 +350,7 @@ export component TimePickerBase {
     in property <bool> selection-mode: true;
     in property <TimePickerStyle> style;
     in property <Time> time: { hour: 12 };
+    in property <string> title;
 
     property <bool> minutes-selected;
     property <bool> am-selected: true;
@@ -389,6 +393,17 @@ export component TimePickerBase {
 
     content-layer := VerticalLayout {
         spacing: root.style.vertical-spacing;
+ 
+        HorizontalLayout { 
+            Text {
+                text: root.title;
+                horizontal-alignment: left;
+                overflow: elide;
+                font-size: root.style.title-style.font-size;
+                font-weight: root.style.title-style.font-weight;
+                color: root.style.title-style.foreground;
+            }
+        }   
         
         HorizontalLayout {
             spacing: root.style.horizontal-spacing;

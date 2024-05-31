@@ -22,21 +22,14 @@ export component TimePicker {
 
     min-width: content-layer.min-width;
     min-height: content-layer.min-height;
+
     background-layer := MenuBorder { }
 
     content-layer := VerticalBox {
         spacing: 8px;
 
-        Text {
-            text: root.title;
-            horizontal-alignment: left;
-            overflow: elide;
-            font-size: CosmicFontSettings.body.font-size;
-            font-weight: CosmicFontSettings.body.font-weight;
-            color: CosmicPalette.foreground;
-        }
-
         base := TimePickerBase {
+            title: root.title;
             style: {
                 foreground: CosmicPalette.foreground,
                 vertical-spacing: 8px,
@@ -70,7 +63,12 @@ export component TimePicker {
                         background-selected: CosmicPalette.accent-background,
                         foreground-selected: CosmicPalette.accent-foreground
                     }
-                }
+                },
+                title-style: {
+                    font-size: CosmicFontSettings.body.font-size,
+                    font-weight: CosmicFontSettings.body.font-weight,
+                    foreground: CosmicPalette.foreground,  
+                },
             };
         }
 

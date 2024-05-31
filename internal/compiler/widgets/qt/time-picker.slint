@@ -28,14 +28,8 @@ export component TimePicker {
     content-layer := VerticalBox {
         spacing: 8px;
 
-        Text {
-            text: root.title;
-            horizontal-alignment: left;
-            overflow: elide;
-            color: Palette.foreground;
-        }
-
         base := TimePickerBase {
+            title: root.title;
             style: {
                 foreground: Palette.foreground,
                 vertical-spacing: 8px,
@@ -69,7 +63,12 @@ export component TimePicker {
                         background-selected: Palette.accent-background,
                         foreground-selected: Palette.accent-foreground
                     }
-                }
+                },
+                title-style: {
+                    font-size: 12 * 0.0625rem,
+                    font-weight: 300,
+                    foreground: Palette.foreground,  
+                },
             };
         }
 
