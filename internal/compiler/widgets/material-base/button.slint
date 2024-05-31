@@ -19,7 +19,7 @@ component MaterialButtonBase {
     out property <bool> pressed <=> state-layer.pressed;
     in-out property <bool> checked;
 
-    callback clicked;
+    callback clicked <=> state-layer.clicked;
 
     min-width: layout.min-width;
     min-height: layout.min-height;
@@ -32,12 +32,6 @@ component MaterialButtonBase {
         checked-background: MaterialPalette.accent-background;
         focusable: true;
 
-        clicked => {
-            if (root.checkable) {
-                root.checked = !root.checked;
-            }
-            root.clicked();
-        }
     }
 
     layout := HorizontalLayout {
@@ -45,14 +39,14 @@ component MaterialButtonBase {
         padding-left: root.layout-padding-left;
         padding-right: root.layout-padding-right;
 
-        if (root.icon.width > 0 && root.icon.height > 0): Image {
+        if root.icon.width > 0 && root.icon.height > 0: Image {
             source <=> root.icon;
             width: 24px;
             opacity: root.text-opacity;
             colorize: root.colorize-icon ? root.text-color : transparent;
         }
 
-        if (root.text != ""): Text {
+        if root.text != "": Text {
             text: root.text;
             color: root.text-color;
             opacity: root.text-opacity;
@@ -73,15 +67,15 @@ component MaterialButtonBase {
 export component Button {
     in property <string> text <=> base.text;
     in property <bool> enabled <=> base.enabled;
-    in property <bool> checkable <=> base.checkable;
+    in property <bool> checkable;
     in property <image> icon <=> base.icon;
     in property <bool> primary;
     in property <bool> colorize-icon <=> base.colorize-icon;
     out property <bool> has-focus: base.has-focus;
     out property <bool> pressed: self.enabled && base.pressed;
-    in-out property <bool> checked <=> base.checked;
+    in-out property <bool> checked;
 
-    callback clicked <=> base.clicked;
+    callback clicked;
 
     min-height: max(40px, base.min-height);
     min-width: max(40px, base.min-width);
@@ -124,19 +118,23 @@ export component Button {
         border-radius: background.border-radius;
         text-color: root.primary ? MaterialPalette.accent-foreground : MaterialPalette.control-foreground;
         text-opacity: 1.0;
+        
+        clicked => {
+            if root.checkable {
+                root.checked = !root.checked;
+            }
+            root.clicked();
+        }
     }
 }
 
 export component TextButton {
     in property <string> text <=> base.text;
     in property <bool> enabled <=> base.enabled;
-    in property <bool> checkable <=> base.checkable;
     in property <image> icon <=> base.icon;
-
     in property <bool> colorize-icon <=> base.colorize-icon;
     out property <bool> has-focus: base.has-focus;
     out property <bool> pressed: self.enabled && base.pressed;
-    in-out property <bool> checked <=> base.checked;
 
     callback clicked <=> base.clicked;
 
@@ -145,8 +143,6 @@ export component TextButton {
     forward-focus: base;
 
     accessible-role: button;
-    accessible-checkable: root.checkable;
-    accessible-checked: root.checked;
     accessible-label: root.text;
     accessible-action-default => {
         clicked();
