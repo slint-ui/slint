@@ -2,7 +2,7 @@
 
 ## struct `Time`
 
-Defines a time with hour minutes and seconds.
+Defines a time with hours, minutes, and seconds.
 
 ### Fields
 
