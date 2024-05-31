@@ -706,8 +706,8 @@ fn report_known_components(document_cache: &mut DocumentCache, ctx: &Rc<Context>
     let mut components = Vec::new();
     component_catalog::builtin_components(document_cache, &mut components);
     component_catalog::all_exported_components(
-        document_cache,
-        &mut |ci| ci.is_global,
+        &document_cache.documents,
+        &mut |ci| !ci.is_global,
         &mut components,
     );
 
@@ -923,8 +923,8 @@ fn get_code_actions(
             let text = token.text();
             completion::build_import_statements_edits(
                 &token,
-                document_cache,
-                &mut |name| name == text,
+                &document_cache.documents,
+                &mut |ci| !ci.is_global && ci.is_exported && ci.name == text,
                 &mut |_name, file, edit| {
                     result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                         title: format!("Add import from \"{file}\""),

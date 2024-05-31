@@ -204,6 +204,7 @@ pub fn with_property_lookup_ctx<R>(
     lookup_context.property_name = Some(prop_name);
     lookup_context.property_type = ty.unwrap_or_default();
     lookup_context.component_scope = &scope;
+    lookup_context.current_token = Some((**element).clone().into());
 
     if let Some(cb) = element
         .CallbackConnection()
