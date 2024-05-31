@@ -195,7 +195,9 @@ pub enum SetPlatformError {
 impl core::fmt::Display for SetPlatformError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            SetPlatformError::AlreadySet => f.write_str("The platform has already been initialized."),
+            SetPlatformError::AlreadySet => {
+                f.write_str("The platform has already been initialized.")
+            }
         }
     }
 }
