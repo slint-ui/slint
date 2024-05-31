@@ -5,10 +5,9 @@
 
 use crate::common::{ComponentInformation, Position, PropertyChange};
 use crate::language::DocumentCache;
-
 use i_slint_compiler::langtype::{DefaultSizeBinding, ElementType};
+use i_slint_compiler::typeloader::TypeLoader;
 use lsp_types::Url;
-
 use std::{path::Path, rc::Rc};
 
 #[cfg(target_arch = "wasm32")]
@@ -129,13 +128,14 @@ pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<Compo
     }));
 }
 
+/// Fill the result with all exported components that matches the given filter
 pub fn all_exported_components(
-    document_cache: &DocumentCache,
+    documents: &TypeLoader,
     filter: &mut dyn FnMut(&ComponentInformation) -> bool,
     result: &mut Vec<ComponentInformation>,
 ) {
-    for file in document_cache.documents.all_files() {
-        let Some(doc) = document_cache.documents.get_document(file) else { continue };
+    for file in documents.all_files() {
+        let Some(doc) = documents.get_document(file) else { continue };
         let is_builtin = file.starts_with("builtin:/");
         let is_std_widget = is_builtin
             && file.file_name().map(|f| f.to_str() == Some("std-widgets.slint")).unwrap_or(false);
@@ -166,7 +166,7 @@ pub fn all_exported_components(
                 continue;
             };
 
-            if filter(&to_push) {
+            if !filter(&to_push) {
                 continue;
             }
 
@@ -229,7 +229,7 @@ mod tests {
         let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
 
         let mut result = Default::default();
-        all_exported_components(&dc, &mut |_| false, &mut result);
+        all_exported_components(&dc.documents, &mut |_| true, &mut result);
 
         assert!(result.iter().all(|ci| ci.is_std_widget));
         assert!(result.iter().all(|ci| ci.is_exported));
@@ -245,7 +245,7 @@ mod tests {
         let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
 
         let mut result = Default::default();
-        all_exported_components(&dc, &mut |_| true, &mut result);
+        all_exported_components(&dc.documents, &mut |_| false, &mut result);
 
         assert!(result.is_empty());
     }
@@ -256,7 +256,7 @@ mod tests {
             let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
 
             let mut result = Default::default();
-            all_exported_components(&dc, &mut |_| false, &mut result);
+            all_exported_components(&dc.documents, &mut |_| true, &mut result);
             result.len()
         };
 
@@ -265,7 +265,7 @@ mod tests {
         );
 
         let mut result = Default::default();
-        all_exported_components(&dc, &mut |_| false, &mut result);
+        all_exported_components(&dc.documents, &mut |_| true, &mut result);
 
         assert!(result.iter().any(|ci| &ci.name == "Test1"));
         assert!(!result.iter().any(|ci| &ci.name == "TouchArea"));
