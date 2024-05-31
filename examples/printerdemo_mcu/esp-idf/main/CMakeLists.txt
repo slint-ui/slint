@@ -5,7 +5,7 @@
 idf_component_register(
     SRCS "main.cpp"
     INCLUDE_DIRS "."
-    REQUIRES slint esp-box
+    REQUIRES slint esp-box-3
 )
 
 slint_target_sources(${COMPONENT_LIB} ../../ui/printerdemo.slint)
