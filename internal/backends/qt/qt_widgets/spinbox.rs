@@ -26,6 +26,7 @@ pub struct NativeSpinBox {
     pub value: Property<i32>,
     pub minimum: Property<i32>,
     pub maximum: Property<i32>,
+    pub step_size: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
     pub edited: Callback<IntArg>,
     data: Property<NativeSpinBoxData>,
@@ -136,6 +137,7 @@ impl Item for NativeSpinBox {
         let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
+        let step_size = self.step_size();
         let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let pos = event
@@ -179,8 +181,9 @@ impl Item for NativeSpinBox {
                     {
                         let v = self.value();
                         if v < self.maximum() {
-                            self.value.set(v + 1);
-                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(v + 1,));
+                            let new_val = v + step_size;
+                            self.value.set(new_val);
+                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
                         }
                     }
                     if new_control
@@ -190,8 +193,9 @@ impl Item for NativeSpinBox {
                     {
                         let v = self.value();
                         if v > self.minimum() {
-                            self.value.set(v - 1);
-                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(v - 1,));
+                            let new_val = v - step_size;
+                            self.value.set(new_val);
+                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
                         }
                     }
                     true
@@ -201,14 +205,16 @@ impl Item for NativeSpinBox {
                     if delta_y > 0. {
                         let v = self.value();
                         if v < self.maximum() {
-                            self.value.set(v + 1);
-                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(v + 1,));
+                            let new_val = v + step_size;
+                            self.value.set(new_val);
+                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
                         }
                     } else if delta_y < 0. {
                         let v = self.value();
                         if v > self.minimum() {
-                            self.value.set(v - 1);
-                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(v - 1,));
+                            let new_val = v - step_size;
+                            self.value.set(new_val);
+                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
                         }
                     }
 
@@ -240,14 +246,14 @@ impl Item for NativeSpinBox {
         if event.text.starts_with(i_slint_core::input::key_codes::UpArrow)
             && self.value() < self.maximum()
         {
-            let new_val = self.value() + 1;
+            let new_val = self.value() + self.step_size();
             self.value.set(new_val);
             Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
             KeyEventResult::EventAccepted
         } else if event.text.starts_with(i_slint_core::input::key_codes::DownArrow)
             && self.value() > self.minimum()
         {
-            let new_val = self.value() - 1;
+            let new_val = self.value() - self.step_size();
             self.value.set(new_val);
             Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
             KeyEventResult::EventAccepted
