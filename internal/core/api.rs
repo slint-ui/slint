@@ -324,6 +324,22 @@ pub enum SetRenderingNotifierError {
     AlreadySet,
 }
 
+impl core::fmt::Display for SetRenderingNotifierError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Unsupported => {
+                f.write_str("The rendering backend does not support rendering notifiers.")
+            }
+            Self::AlreadySet => f.write_str(
+                "There is already a rendering notifier set, multiple notifiers are not supported.",
+            ),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for SetRenderingNotifierError {}
+
 /// This struct represents a persistent handle to a window and implements the
 /// [`raw_window_handle_06::HasWindowHandle`] and [`raw_window_handle_06::HasDisplayHandle`]
 /// traits for accessing exposing raw window and display handles.
@@ -910,6 +926,9 @@ impl core::fmt::Display for EventLoopError {
         }
     }
 }
+
+#[cfg(feature = "std")]
+impl std::error::Error for EventLoopError {}
 
 /// The platform encountered a fatal error.
 ///
