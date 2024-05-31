@@ -1,6 +1,6 @@
 # Slint Royalty-free Desktop, Mobile, and Web Applications License
 
-Version 1.2
+Version 2.0
 
 ## Preamble
 
@@ -14,7 +14,7 @@ A **Desktop Application** is a computer program that is designed to run on a gen
 
 A **Mobile Application** is a computer program that is designed to run on a general-purpose mobile computer (mobile phone or tablet), typically installed and executed locally on the computer's operating system.
 
-A **Web Application** is a computer program that is running on a server and accessed using a web browser or client program.
+A **Web Application** is a computer program that is designed to run in the sandbox environment provided by a web browser.
 
 Desktop Application, Mobile Application, and Web Application are hereafter referred to as **Application**.
 
@@ -28,9 +28,11 @@ You may distribute the Software as part of an Application, modified or unmodifie
 
 ## 3. Limitations
 
-The license does not permit to distribute or make the Software publicly available alone and without integration into an Application. For this purpose you may use the Software under the GNU General Public License, version 3.
+The License does not permit to distribute or make the Software publicly available alone and without integration into an Application. For this purpose you may use the Software under the GNU General Public License, version 3.
 
-The license does not permit the use of the Software within Embedded Systems. An **Embedded System** is a computer system designed to perform a specific task within a larger mechanical or electrical system.
+The License does not permit the use of the Software within Embedded Systems. An **Embedded System** is a computer system designed to perform a specific task within a larger mechanical or electrical system.
+
+The License does not permit the distribution of Application that exposes the APIs, in part or in total, of the Software.
 
 You may not remove or alter any license notices (including copyright notices, disclaimers of warranty, or limitations of liability) contained within the source code form of the Software.
 
