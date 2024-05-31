@@ -24,7 +24,7 @@ Use the timer picker to select the time, in either 24-hour or 12-hour mode (AM/P
 
 ### Callbacks
 
--   **`cancled()`**: The cancel button was clicked.
+-   **`canceled()`**: The cancel button was clicked.
 -   **`accepted(Time)`** The ok button was clicked.
 
 ### Example
