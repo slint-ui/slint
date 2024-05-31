@@ -8,6 +8,7 @@
 -   **`value`** (_in-out_ _int_): The value. Defaults to the minimum.
 -   **`minimum`** (_in_ _int_): The minimum value (default: 0).
 -   **`maximum`** (_in_ _int_): The maximum value (default: 100).
+-   **`step-size`** (_in_ _int_): The size that is used on increment or decrement of `value` (default: 1).
 
 ### Callbacks
 

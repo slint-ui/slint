@@ -5,44 +5,44 @@ import { MaterialPalette, MaterialFontSettings, Icons } from "styling.slint";
 import { SpinBoxBase } from "../common/spinbox-base.slint";
 
 component SpinBoxButton inherits Rectangle {
-    in-out property <bool> pressed: self.enabled && i-touch-area.pressed;
-    in-out property <bool> enabled <=> i-touch-area.enabled;
+    in-out property <bool> pressed: self.enabled && touch-area.pressed;
+    in-out property <bool> enabled <=> touch-area.enabled;
     in-out property <float> icon-opacity: 1;
     in-out property <brush> icon-fill: MaterialPalette.accent-foreground;
 
-    callback clicked <=> i-touch-area.clicked;
+    callback clicked <=> touch-area.clicked;
 
     width: root.height;
 
     states [
         disabled when !root.enabled : {
-            i-background.background: MaterialPalette.control-foreground;
-            i-background.opacity: 0.12;
+            background.background: MaterialPalette.control-foreground;
+            background.opacity: 0.12;
             icon-opacity: 0.38;
             icon-fill: MaterialPalette.control-foreground;
         }
-        pressed when i-touch-area.pressed : {
-            i-state-layer.opacity: 0.12;
+        pressed when touch-area.pressed : {
+            state-layer.opacity: 0.12;
         }
-        hover when i-touch-area.has-hover : {
-            i-state-layer.opacity: 0.08;
+        hover when touch-area.has-hover : {
+            state-layer.opacity: 0.08;
         }
     ]
 
-    i-background := Rectangle {
+    background := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: max(self.width, self.height) / 2;
         background: MaterialPalette.accent-background;
     }
 
-    i-state-layer := Rectangle {
+    state-layer := Rectangle {
         x: 0;
         y: 0;
         opacity: 0;
-        width: i-background.width;
-        height: i-background.height;
-        border-radius: i-background.border-radius;
+        width: background.width;
+        height: background.height;
+        border-radius: background.border-radius;
         background: MaterialPalette.accent-foreground;
 
         animate opacity { duration: 250ms; easing: ease; }
@@ -55,53 +55,54 @@ component SpinBoxButton inherits Rectangle {
         @children
     }
 
-    i-touch-area := TouchArea { }
+    touch-area := TouchArea { }
 }
 
 // Increment and decrement a value in the given range.
 export component SpinBox {
-    in property <int> minimum <=> i-base.minimum;
-    in property <int> maximum <=> i-base.maximum;
-    in property <bool> enabled <=> i-base.enabled;
-    out property <bool> has-focus <=> i-base.has-focus;
-    in-out property <int> value <=> i-base.value;
+    in property <int> minimum <=> base.minimum;
+    in property <int> maximum <=> base.maximum;
+    in property <bool> enabled <=> base.enabled;
+    in property <int> step-size <=> base.step-size;
+    out property <bool> has-focus <=> base.has-focus;
+    in-out property <int> value <=> base.value;
 
-    callback edited <=> i-base.edited;
+    callback edited <=> base.edited;
 
-    forward-focus: i-base;
+    forward-focus: base;
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    min-width: i-layout.min-width;
-    min-height: max(56px, i-layout.min-height);
+    min-width: layout.min-width;
+    min-height: max(56px, layout.min-height);
 
     accessible-role: spinbox;
     accessible-value: root.value;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
-    accessible-action-set-value(v) => { if v.is-float() { i-base.update-value(v.to-float()); } }
-    accessible-action-increment => { i-base.increment(); }
-    accessible-action-decrement => { i-base.decrement(); }
+    accessible-action-set-value(v) => { if v.is-float() { base.update-value(v.to-float()); } }
+    accessible-action-increment => { base.increment(); }
+    accessible-action-decrement => { base.decrement(); }
 
     states [
         disabled when !root.enabled : {
-            i-background.border-color: MaterialPalette.control-foreground;
-            i-background.opacity: 0.38;
-            i-base.opacity: 0.38;
+            background.border-color: MaterialPalette.control-foreground;
+            background.opacity: 0.38;
+            base.opacity: 0.38;
         }
         focused when root.has-focus : {
-            i-background.border-width: 2px;
-            i-background.border-color: MaterialPalette.accent-background;
-            i-base.color: MaterialPalette.accent-background;
+            background.border-width: 2px;
+            background.border-color: MaterialPalette.accent-background;
+            base.color: MaterialPalette.accent-background;
         }
     ]
 
-    i-background := Rectangle {
+    background := Rectangle {
         border-radius: 4px;
         border-width: 1px;
         border-color: MaterialPalette.border;
 
-        i-layout := HorizontalLayout {
+        layout := HorizontalLayout {
             padding-top: 8px;
             padding-bottom: 8px;
             padding-left: 16px;
@@ -112,7 +113,7 @@ export component SpinBox {
                 clip: true;
                 horizontal-stretch: 1;
 
-                i-base := SpinBoxBase {
+                base := SpinBoxBase {
                     width: 100%;
                     color: MaterialPalette.control-foreground;
                     font-size: MaterialFontSettings.body-large.font-size;
@@ -135,7 +136,7 @@ export component SpinBox {
                     }
 
                     clicked => {
-                        i-base.increment();
+                        base.increment();
                     }
                 }
 
@@ -151,7 +152,7 @@ export component SpinBox {
                     }
 
                     clicked => {
-                        i-base.decrement();
+                        base.decrement();
                     }
                 }
             }

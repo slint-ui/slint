@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-commercial
 
 export component SpinBox inherits NativeSpinBox {
+    in property <int> step-size: 1;
+    
     value: root.minimum;
     accessible-role: spinbox;
     accessible-value: root.value;
@@ -10,8 +12,16 @@ export component SpinBox inherits NativeSpinBox {
     accessible-value-step: (root.maximum - root.minimum) / 100;
 
     accessible-action-set-value(v) => { if v.is-float() {update-value(v.to-float());} }
-    accessible-action-increment => { update-value(root.value + 1); }
-    accessible-action-decrement => { update-value(root.value - 1); }
+    accessible-action-increment => { root.increment(); }
+    accessible-action-decrement => { root.decrement(); }
+    
+    function increment() {
+        root.update-value(root.value + root.step-size);
+    }
+
+    function decrement() {
+        root.update-value(root.value - root.step-size);
+    }
 
     function update-value(value: int) {
         if (value >= root.minimum && value <= root.maximum) {
