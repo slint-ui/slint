@@ -187,7 +187,7 @@ You can use Slint under ***any*** of the following licenses, at your choice:
 
 1. [Royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
 2. [GNU GPLv3](LICENSES/GPL-3.0-only.txt),
-3. [Paid license](https://slint.dev/pricing.html).
+3. [Paid license](LICENSES/LicenseRef-Slint-Software-3.0.md).
 
 See also the [Licensing FAQ](FAQ.md#licensing)
 
