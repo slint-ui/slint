@@ -459,22 +459,23 @@ impl AccessKitAdapter {
             builder.add_action(Action::Focus);
         }
 
-        let min = item
+        if let Some(Ok(min)) = item
             .accessible_string_property(AccessibleStringProperty::ValueMinimum)
-            .unwrap_or_default();
-        let max = item
+            .map(|min| min.parse())
+        {
+            builder.set_min_numeric_value(min);
+        }
+        if let Some(Ok(max)) = item
             .accessible_string_property(AccessibleStringProperty::ValueMaximum)
-            .unwrap_or_default();
-        let step = item
+            .map(|max| max.parse())
+        {
+            builder.set_max_numeric_value(max);
+        }
+        if let Some(Ok(step)) = item
             .accessible_string_property(AccessibleStringProperty::ValueStep)
-            .unwrap_or_default();
-        match (min.parse(), max.parse(), step.parse()) {
-            (Ok(min), Ok(max), Ok(step)) => {
-                builder.set_min_numeric_value(min);
-                builder.set_max_numeric_value(max);
-                builder.set_numeric_value_step(step);
-            }
-            _ => {}
+            .map(|step| step.parse())
+        {
+            builder.set_numeric_value_step(step);
         }
 
         if let Some(value) = item.accessible_string_property(AccessibleStringProperty::Value) {
