@@ -3,5 +3,7 @@
 
 export component ProgressIndicator inherits NativeProgressIndicator {
     accessible-role: progress-indicator;
-    accessible-value: root.progress;
+    accessible-value: !root.indeterminate ? root.progress : "";
+    accessible-value-minimum: 0.0;
+    accessible-value-maximum: 1.0;
 }
