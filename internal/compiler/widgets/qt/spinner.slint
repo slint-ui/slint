@@ -12,7 +12,9 @@ export component Spinner {
     horizontal-stretch: 0;
     vertical-stretch: 0;
     accessible-role: progress-indicator;
-    accessible-value: root.progress;
+    accessible-value: !root.indeterminate ? root.progress : "";
+    accessible-value-minimum: 0.0;
+    accessible-value-maximum: 1.0;
 
     for i in count : Path {
         property <angle> angle: -90deg + i*1turn / count;
