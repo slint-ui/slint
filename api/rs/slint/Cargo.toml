@@ -182,7 +182,7 @@ once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1.1", default-features = false }
 num-traits = { version = "0.2", default-features = false }
 
-log = { version = "0.4.17", optional = true }
+log = { workspace = true, optional = true }
 
 raw-window-handle-06 = { workspace = true, optional = true }
 
@@ -196,9 +196,10 @@ i-slint-backend-android-activity = { workspace = true, optional = true }
 
 [dev-dependencies]
 slint-build = { path = "../build" }
-i-slint-backend-testing = { path = "../../../internal/backends/testing", features = ["internal"] }
-serde_json = "1.0.96"
-serde = { version = "1.0.163", features = ["derive"] }
+# The next can not be a workspace dependency because it may not have a version
+i-slint-backend-testing = {  path = "../../../internal/backends/testing", features = ["internal"] }
+serde_json = { workspace = true }
+serde = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux

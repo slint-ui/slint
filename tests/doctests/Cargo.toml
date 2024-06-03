@@ -21,4 +21,4 @@ walkdir = "2"
 
 [dev-dependencies]
 slint-interpreter = { workspace = true, features = ["default", "display-diagnostics"] }
-spin_on = "0.1"
+spin_on = { workspace = true }
