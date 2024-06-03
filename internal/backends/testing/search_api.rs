@@ -26,6 +26,10 @@ pub(crate) fn search_item(
     result
 }
 
+fn warn_missing_debug_info() {
+    i_slint_core::debug_log!("The use of the ElementHandle API requires the presence of debug info in Slint compiler generated code. Set the `SLINT_EMIT_DEBUG_INFO=1` environment variable at application build time")
+}
+
 /// `ElementHandle`` wraps an existing element in a Slint UI. An ElementHandle does not keep
 /// the corresponding element in the UI alive. Use [`Self::is_valid()`] to verify that
 /// it is still alive.
@@ -41,7 +45,10 @@ pub struct ElementHandle {
 
 impl ElementHandle {
     fn collect_elements(item: ItemRc) -> impl Iterator<Item = ElementHandle> {
-        (0..item.element_count())
+        (0..item.element_count().unwrap_or_else(|| {
+            warn_missing_debug_info();
+            0
+        }))
             .map(move |element_index| ElementHandle { item: item.downgrade(), element_index })
     }
 
@@ -164,7 +171,14 @@ impl ElementHandle {
     /// ```
     pub fn id(&self) -> Option<SharedString> {
         self.item.upgrade().and_then(|item| {
-            item.element_type_names_and_ids(self.element_index).into_iter().next().map(|(_, id)| id)
+            item.element_type_names_and_ids(self.element_index)
+                .unwrap_or_else(|| {
+                    warn_missing_debug_info();
+                    Default::default()
+                })
+                .into_iter()
+                .next()
+                .map(|(_, id)| id)
         })
     }
 
@@ -192,6 +206,10 @@ impl ElementHandle {
     pub fn type_name(&self) -> Option<SharedString> {
         self.item.upgrade().and_then(|item| {
             item.element_type_names_and_ids(self.element_index)
+                .unwrap_or_else(|| {
+                    warn_missing_debug_info();
+                    Default::default()
+                })
                 .into_iter()
                 .next()
                 .map(|(type_name, _)| type_name)
@@ -227,15 +245,22 @@ impl ElementHandle {
     /// ```
     pub fn bases(&self) -> Option<impl Iterator<Item = SharedString>> {
         self.item.upgrade().map(|item| {
-            item.element_type_names_and_ids(self.element_index).into_iter().skip(1).filter_map(
-                |(type_name, _)| {
-                    if !type_name.is_empty() {
-                        Some(type_name)
-                    } else {
-                        None
-                    }
-                },
-            )
+            item.element_type_names_and_ids(self.element_index)
+                .unwrap_or_else(|| {
+                    warn_missing_debug_info();
+                    Default::default()
+                })
+                .into_iter()
+                .skip(1)
+                .filter_map(
+                    |(type_name, _)| {
+                        if !type_name.is_empty() {
+                            Some(type_name)
+                        } else {
+                            None
+                        }
+                    },
+                )
         })
     }
 

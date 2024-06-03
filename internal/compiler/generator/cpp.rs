@@ -1410,10 +1410,10 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "element_infos".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::SharedString *result) -> void"
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::SharedString *result) -> bool"
                     .into(),
             is_static: true,
-            statements: Some(vec![format!("*result = reinterpret_cast<const {}*>(component.instance)->element_infos(index);", item_tree_class_name)]),
+            statements: Some(vec![format!("if (auto infos = reinterpret_cast<const {}*>(component.instance)->element_infos(index)) {{ *result = *infos; return true; }};", item_tree_class_name), "return false;".into()]),
             ..Default::default()
         }),
     ));
@@ -2044,7 +2044,7 @@ fn generate_sub_component(
 
     dispatch_item_function(
         "element_infos",
-        "(uint32_t index) const -> slint::SharedString",
+        "(uint32_t index) const -> std::optional<slint::SharedString>",
         "",
         element_infos_cases,
     );

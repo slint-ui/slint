@@ -837,7 +837,7 @@ fn generate_sub_component(
     let mut item_element_infos_branch = component
         .element_infos
         .iter()
-        .map(|(item_index, ids)| quote!(#item_index => { return #ids.into(); }))
+        .map(|(item_index, ids)| quote!(#item_index => { return sp::Some(#ids.into()); }))
         .collect::<Vec<_>>();
 
     let mut user_init_code: Vec<TokenStream> = Vec::new();
@@ -1158,7 +1158,7 @@ fn generate_sub_component(
                 }
             }
 
-            fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SharedString {
+            fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
                 #![allow(unused)]
                 let _self = self;
                 match index {
@@ -1628,8 +1628,13 @@ fn generate_item_tree(
                 self: ::core::pin::Pin<&Self>,
                 index: u32,
                 result: &mut sp::SharedString,
-            )  {
-                *result = self.item_element_infos(index);
+            ) -> bool {
+                if let Some(infos) = self.item_element_infos(index) {
+                    *result = infos;
+                    true
+                } else {
+                    false
+                }
             }
 
             fn window_adapter(

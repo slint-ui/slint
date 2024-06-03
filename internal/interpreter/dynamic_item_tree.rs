@@ -256,7 +256,11 @@ impl ItemTree for ErasedItemTreeBox {
         self.borrow().as_ref().supported_accessibility_actions(index)
     }
 
-    fn item_element_infos(self: core::pin::Pin<&Self>, index: u32, result: &mut SharedString) {
+    fn item_element_infos(
+        self: core::pin::Pin<&Self>,
+        index: u32,
+        result: &mut SharedString,
+    ) -> bool {
         self.borrow().as_ref().item_element_infos(index, result)
     }
 }
@@ -2018,13 +2022,14 @@ extern "C" fn item_element_infos(
     component: ItemTreeRefPin,
     item_index: u32,
     result: &mut SharedString,
-) {
+) -> bool {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     *result = instance_ref.description.original_elements[item_index as usize]
         .borrow()
         .element_infos()
         .into();
+    true
 }
 
 extern "C" fn window_adapter(
