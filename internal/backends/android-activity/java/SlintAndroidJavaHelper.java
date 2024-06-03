@@ -6,6 +6,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.content.ClipData;
@@ -466,6 +467,16 @@ public class SlintAndroidJavaHelper {
     public Rect get_view_rect() {
         Rect rect = new Rect();
         mActivity.getWindow().getDecorView().getWindowVisibleDisplayFrame(rect);
+        WindowInsets insets = mActivity.getWindow().getDecorView().getRootView().getRootWindowInsets();
+        if (insets != null) {
+            int dx = rect.left - insets.getSystemWindowInsetLeft();
+            int dy = rect.top - insets.getSystemWindowInsetTop();
+
+            rect.left -= dx;
+            rect.right -= dx;
+            rect.top -= dy;
+            rect.bottom -= dy;
+        }
         return rect;
     }
 
