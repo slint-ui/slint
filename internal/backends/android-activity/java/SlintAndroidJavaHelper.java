@@ -409,6 +409,7 @@ public class SlintAndroidJavaHelper {
             public void run() {
                 InputMethodManager imm = (InputMethodManager) mActivity.getSystemService(Context.INPUT_METHOD_SERVICE);
                 imm.hideSoftInputFromWindow(mInputView.getWindowToken(), 0);
+                mInputView.setCursorPos(0, 0, 0, 0, 0, 0);
             }
         });
     }
