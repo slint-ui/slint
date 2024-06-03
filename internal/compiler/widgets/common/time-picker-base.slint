@@ -346,7 +346,7 @@ export struct TimePickerStyle {
 }
 
 export component TimePickerBase {
-    in property <bool> twenty-four-hour;
+    in property <bool> use-24-hour-format;
     in property <bool> selection-mode: true;
     in property <TimePickerStyle> style;
     in property <Time> time: { hour: 12 };
@@ -355,7 +355,7 @@ export component TimePickerBase {
     property <bool> minutes-selected;
     property <bool> am-selected: true;
     property <[int]> twelf-hour-model: [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-    property <[int]> twenty-four-hour-model: [
+    property <[int]> use-24-hour-format-model: [
         12,
         1,
         2,
@@ -447,7 +447,7 @@ export component TimePickerBase {
                 }
             }
 
-            if !root.twenty-four-hour: PeriodSelector {
+            if !root.use-24-hour-format: PeriodSelector {
                 am-selected: root.am-selected;
                 style: root.style.period-selector-style;
 
@@ -465,9 +465,9 @@ export component TimePickerBase {
                 height: 256px;
                 model: root.current-model;
                 style: root.style.clock-style;
-                two-columns: !root.minutes-selected && root.twenty-four-hour;
+                two-columns: !root.minutes-selected && root.use-24-hour-format;
                 current-item: root.current-item;
-                total: root.minutes-selected ? 60 : root.twenty-four-hour ? 24 : 12;
+                total: root.minutes-selected ? 60 : root.use-24-hour-format ? 24 : 12;
                 current-value: root.minutes-selected ? root.current-time.minute : root.current-time.hour;
 
                 curren-item-changed(index) => {
@@ -485,7 +485,7 @@ export component TimePickerBase {
         if root.selection-mode {
             return root.current-time.hour <= 23 && root.current-time.minute <= 59;
         }
-        if root.twenty-four-hour {
+        if root.use-24-hour-format {
             return root.time-picker-hour <= 23 && root.time-picker-minute <= 59;
         }
         root.time-picker-hour <= 12 && root.time-picker-minute <= 59
@@ -493,7 +493,7 @@ export component TimePickerBase {
 
     public function get-current-time() -> Time {
         if root.selection-mode {
-            if !root.twenty-four-hour && !root.am-selected {
+            if !root.use-24-hour-format && !root.am-selected {
                 if root.current-time.hour == 12 {
                     return { hour: 0, minute: root.current-time.minute };
                 }
@@ -508,7 +508,7 @@ export component TimePickerBase {
         if !root.selection-mode {
             return;
         }
-        if root.twenty-four-hour {
+        if root.use-24-hour-format {
             root.update-time(root.time-picker-hour <= 23 ? root.time-picker-hour : 23, root.time-picker-minute <= 59 ? root.time-picker-minute : 59);
         }
 
@@ -551,7 +551,7 @@ export component TimePickerBase {
         if hour == 0 {
             return 12;
         }
-        if !root.twenty-four-hour && hour > 12 {
+        if !root.use-24-hour-format && hour > 12 {
             return hour - 12;
         }
         return hour;
@@ -561,8 +561,8 @@ export component TimePickerBase {
         if root.minutes-selected {
             return root.minute-model;
         }
-        if root.twenty-four-hour {
-            return root.twenty-four-hour-model;
+        if root.use-24-hour-format {
+            return root.use-24-hour-format-model;
         }
         root.twelf-hour-model;
     }

@@ -16,11 +16,11 @@ A timer picker that is usd for selecting the time, in either 24-hour or AM/PM mo
 
 ### Properties
 
--   **`twenty-four-hour`**: (_in_ _bool_): Sets to true to enable 24 hour selection otherwise it is displayed in AM/PM mode.  
+-   **`use-24-hour-format`**: (_in_ _bool_): If set to `true` 24 hours are displayed otherwise it is displayed in AM/PM mode. (default: system default, if cannot be determined then `true`) 
 -   **`title`** (_in_ _string_): The text that is displayed at the top of the picker.
 -   **`cancel-label`** (_in_ _string_): The text written in the cancel button.
 -   **`ok-label`** (_in_ _string_): The text written in the ok button.
--   **`time`**: (_in_ _Time_): Set the initinal displayed time. 
+-   **`time`**: (_in_ _Time_): Set the initinal displayed time.
 
 ### Callbacks
 
