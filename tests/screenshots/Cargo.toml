@@ -27,5 +27,5 @@ crossterm = "0.27"
 [build-dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer"] }
 walkdir = "2.3"
-spin_on = { version = "0.1" }
+spin_on = { workspace = true }
 test_driver_lib = { path = "../driver/driverlib" }

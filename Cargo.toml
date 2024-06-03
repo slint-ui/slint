@@ -128,18 +128,26 @@ vtable = { version = "0.2", path = "helper_crates/vtable", default-features = fa
 
 bytemuck = { version = "1.13.1" }
 cbindgen = { version = "0.26", default-features = false }
+cfg_aliases = { version = "0.2.0" }
+clap = { version = "4.0", features = ["derive", "wrap_help"] }
 css-color-parser2 = { version = "1.0.1" }
+derive_more = { version = "0.99.17" }
+euclid = { version = "0.22.1", default-features = false }
 fontdb = { version = "0.16.0", default-features = false }
 fontdue = { version = "0.8.0" }
 glutin = { version = "0.31.1", default-features = false }
 image = { version = "0.24", default-features = false, features = [ "png", "jpeg" ] }
 itertools = { version = "0.12" }
+log = { version = "0.4.17" }
 resvg = { version= "0.41.0", default-features = false, features = ["text"] }
+rowan = { version = "0.15" }
 send_wrapper = { version = "0.6.0" }
+serde = { version = "1.0.163", default-features = false, features = ["derive"] }
+serde_json = { version = "1.0.96" }
 softbuffer = { version = "0.3.3", default-features = false }
+spin_on = { version = "0.1" }
 strum = { version = "0.26.1", default-features = false, features = ["derive"] }
 toml_edit = { version = "0.22.7" }
-cfg_aliases = { version = "0.2.0" }
 
 raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
 

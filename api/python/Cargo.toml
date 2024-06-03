@@ -24,7 +24,7 @@ slint-interpreter = { workspace = true, features = ["default", "display-diagnost
 pyo3 = { version = "0.21.0", features = ["extension-module", "indexmap", "chrono", "abi3-py310"] }
 indexmap = { version = "2.1.0" }
 chrono = "0.4"
-spin_on = "0.1"
+spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }
 
 [package.metadata.maturin]

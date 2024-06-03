@@ -47,7 +47,7 @@ i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default"] }
 i-slint-backend-selector = { workspace = true }
 slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-2"] }
-spin_on = "0.1"
+spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }
 itertools = { workspace = true }
 send_wrapper = { workspace = true }

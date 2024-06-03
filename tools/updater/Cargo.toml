@@ -19,10 +19,10 @@ categories = ["gui", "development-tools", "command-line-utilities"]
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics"] }
 
-clap = { version = "4.0", features = ["derive", "wrap_help"] }
+clap = { workspace = true }
 codemap = "0.1"
 codemap-diagnostic = "0.1.1"
-spin_on = "0.1"
+spin_on = { workspace = true }
 by_address = "1.0.4"
 
 [[bin]]

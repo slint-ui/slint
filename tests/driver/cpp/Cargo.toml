@@ -25,7 +25,7 @@ i-slint-compiler = { workspace = true, features = ["default", "cpp", "display-di
 
 cc = "1.0.54"
 scopeguard = "1.1.0"
-spin_on = "0.1"
+spin_on = { workspace = true }
 tempfile = "3"
 test_driver_lib = { path = "../driverlib" }
 

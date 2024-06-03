@@ -14,15 +14,15 @@ version.workspace = true
 publish = false
 
 [dependencies]
-const_format = "0.2"
-clap = { version = "4.0", features = ["derive", "wrap_help"] }
 anyhow = "1.0"
-lazy_static = "1.4.0"
-regex = "1.4"
-toml_edit = { workspace = true }
-xshell = "0.2.1"
-serde_json = "1.0"
 cbindgen = { workspace = true }
-proc-macro2 = "1.0.11"
-which = "6.0"
+clap = { workspace = true }
+const_format = "0.2"
 i-slint-common = { workspace = true, features = ["default"] }
+lazy_static = "1.4.0"
+proc-macro2 = "1.0.11"
+regex = "1.4"
+serde_json = { workspace = true }
+toml_edit = { workspace = true }
+which = "6.0"
+xshell = "0.2.1"
