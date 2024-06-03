@@ -493,6 +493,7 @@ lazy_static! {
 
 lazy_static! {
     static ref LICENSE_FOR_FILE: Vec<(regex::Regex, &'static str)> = [
+        ("^editors/tree-sitter-slint/grammar.js$", MIT_LICENSE),
         ("^helper_crates/const-field-offset/", MIT_OR_APACHE2_LICENSE),
         ("^helper_crates/vtable/", MIT_OR_APACHE2_LICENSE),
         ("^api/cpp/esp-idf/LICENSE$", TRIPLE_LICENSE),
