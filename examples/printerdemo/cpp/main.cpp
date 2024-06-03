@@ -80,9 +80,6 @@ int main()
     printer_demo->global<PrinterSettings>().on_change_language([](int l) {
         static const char *langs[] = { "en", "fr" };
         setenv("LANGUAGE", langs[l], true);
-        // trick from https://www.gnu.org/software/gettext/manual/html_node/gettext-grok.html
-        extern int _nl_msg_cat_cntr;
-        ++_nl_msg_cat_cntr;
         slint::update_all_translations();
     });
 #endif
