@@ -134,7 +134,7 @@ pub struct ItemTreeVTable {
         core::pin::Pin<VRef<ItemTreeVTable>>,
         item_index: u32,
         result: &mut SharedString,
-    ),
+    ) -> bool,
 
     /// Returns a Window, creating a fresh one if `do_create` is true.
     pub window_adapter: extern "C" fn(
@@ -368,33 +368,36 @@ impl ItemRc {
         comp_ref_pin.as_ref().supported_accessibility_actions(self.index)
     }
 
-    pub fn element_count(&self) -> usize {
+    pub fn element_count(&self) -> Option<usize> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let mut result = SharedString::new();
-        comp_ref_pin.as_ref().item_element_infos(self.index, &mut result);
-        result.as_str().split("/").count()
+        comp_ref_pin
+            .as_ref()
+            .item_element_infos(self.index, &mut result)
+            .then(|| result.as_str().split("/").count())
     }
 
     pub fn element_type_names_and_ids(
         &self,
         element_index: usize,
-    ) -> Vec<(SharedString, SharedString)> {
+    ) -> Option<Vec<(SharedString, SharedString)>> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let mut result = SharedString::new();
-        comp_ref_pin.as_ref().item_element_infos(self.index, &mut result);
-        result
-            .as_str()
-            .split("/")
-            .nth(element_index)
-            .unwrap()
-            .split(";")
-            .map(|encoded_elem_info| {
-                let mut decoder = encoded_elem_info.split(',');
-                let type_name = decoder.next().unwrap().into();
-                let id = decoder.next().map(Into::into).unwrap_or_default();
-                (type_name, id)
-            })
-            .collect()
+        comp_ref_pin.as_ref().item_element_infos(self.index, &mut result).then(|| {
+            result
+                .as_str()
+                .split("/")
+                .nth(element_index)
+                .unwrap()
+                .split(";")
+                .map(|encoded_elem_info| {
+                    let mut decoder = encoded_elem_info.split(',');
+                    let type_name = decoder.next().unwrap().into();
+                    let id = decoder.next().map(Into::into).unwrap_or_default();
+                    (type_name, id)
+                })
+                .collect()
+        })
     }
 
     pub fn geometry(&self) -> LogicalRect {
@@ -1189,7 +1192,9 @@ mod tests {
             false
         }
 
-        fn item_element_infos(self: Pin<&Self>, _: u32, _: &mut SharedString) {}
+        fn item_element_infos(self: Pin<&Self>, _: u32, _: &mut SharedString) -> bool {
+            false
+        }
 
         fn window_adapter(
             self: Pin<&Self>,
