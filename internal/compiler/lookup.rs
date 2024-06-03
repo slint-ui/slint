@@ -814,16 +814,36 @@ impl LookupObject for SlintInternal {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        f(
-            "color-scheme",
-            Expression::FunctionCall {
-                function: Expression::BuiltinFunctionReference(BuiltinFunction::ColorScheme, None)
+        None.or_else(|| {
+            f(
+                "color-scheme",
+                Expression::FunctionCall {
+                    function: Expression::BuiltinFunctionReference(
+                        BuiltinFunction::ColorScheme,
+                        None,
+                    )
                     .into(),
-                arguments: vec![],
-                source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
-            }
-            .into(),
-        )
+                    arguments: vec![],
+                    source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                }
+                .into(),
+            )
+            .or_else(|| {
+                f(
+                    "use-24-hour-format",
+                    Expression::FunctionCall {
+                        function: Expression::BuiltinFunctionReference(
+                            BuiltinFunction::Use24HourFormat,
+                            None,
+                        )
+                        .into(),
+                        arguments: vec![],
+                        source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                    }
+                    .into(),
+                )
+            })
+        })
     }
 }
 

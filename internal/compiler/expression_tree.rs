@@ -68,6 +68,7 @@ pub enum BuiltinFunction {
     RegisterCustomFontByMemory,
     RegisterBitmapFont,
     Translate,
+    Use24HourFormat,
 }
 
 #[derive(Debug, Clone)]
@@ -273,6 +274,9 @@ impl BuiltinFunction {
                     Type::Array(Type::String.into()),
                 ],
             },
+            BuiltinFunction::Use24HourFormat => {
+                Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
+            }
         }
     }
 
@@ -330,6 +334,7 @@ impl BuiltinFunction {
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
             BuiltinFunction::Translate => false,
+            BuiltinFunction::Use24HourFormat => false,
         }
     }
 
@@ -380,6 +385,7 @@ impl BuiltinFunction {
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
             BuiltinFunction::Translate => true,
+            BuiltinFunction::Use24HourFormat => true,
         }
     }
 }

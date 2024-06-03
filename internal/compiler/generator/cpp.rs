@@ -3321,6 +3321,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::Translate => {
             format!("slint::private_api::translate({})", a.join(","))
         }
+        BuiltinFunction::Use24HourFormat => {
+            format!("slint::private_api::use_24_hour_format()")
+        }
     }
 }
 

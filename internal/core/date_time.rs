@@ -1,0 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-commercial
+
+pub fn use_24_hour_format() -> bool {
+    true
+}
