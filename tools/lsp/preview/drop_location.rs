@@ -527,7 +527,7 @@ fn find_move_location(
 ) -> Option<DropInformation> {
     let se = selected_element.clone();
     let filter =
-        Box::new(move |e: &common::ElementRcNode| *e == se && !e.is_same_component_as(&se));
+        Box::new(move |e: &common::ElementRcNode| *e == se || !e.is_same_component_as(&se));
     let se = selected_element.clone();
     let mark = Box::new(move |e: &common::ElementRcNode| *e == se);
 
