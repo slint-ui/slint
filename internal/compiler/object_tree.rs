@@ -756,7 +756,7 @@ pub fn pretty_print(
         indent!();
         pretty_print(f, &c.borrow(), indentation)?
     }
-    for g in &e.geometry_props {
+    if let Some(g) = &e.geometry_props {
         indent!();
         writeln!(f, "geometry {:?} ", g)?;
     }
