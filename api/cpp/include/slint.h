@@ -1276,10 +1276,7 @@ inline SharedString translate(const SharedString &original, const SharedString &
 /// Example
 /// ```cpp
 ///     my_ui->global<LanguageSettings>().on_french_selected([] {
-///        // trick from https://www.gnu.org/software/gettext/manual/html_node/gettext-grok.html
 ///        setenv("LANGUAGE", langs[l], true);
-///        extern int _nl_msg_cat_cntr;
-///        ++_nl_msg_cat_cntr;
 ///        slint::update_all_translations();
 ///    });
 /// ```
