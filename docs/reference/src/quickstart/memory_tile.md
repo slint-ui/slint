@@ -38,7 +38,7 @@ Copy the following code inside of the `slint!` macro, replacing the current cont
 ::::
 
 :::{literalinclude} memory_tile.slint
-:language: slint
+:language: slint,no-preview
 :lines: 5-19
 :::
 
@@ -64,6 +64,8 @@ loads an icon with the <span class="hljs-built_in">@image-url()</span> macro. Th
 :::{tab-item} Rust
 :sync: rust
 
+Inside the <span class="hljs-built_in">Rectangle</span> place an <span class="hljs-built_in">Image</span> element that
+loads an icon with the <span class="hljs-built_in">@image-url()</span> macro.
 When using the `slint!` macro, the path is relative to the folder that contains the `Cargo.toml` file.
 When using Slint files, it's relative to the folder of the Slint file containing it.
 

@@ -18,7 +18,7 @@ the location of the icons, and then closes the curtains again.
 Add the following code inside the <span class="hljs-title">MainWindow</span> component to signal to the C++ code when the user clicks on a tile.
 
 :::{literalinclude} main_game_logic_in_rust.rs
-:language: slint
+:language: slint,no-preview
 :lines: 107-115
 :::
 
@@ -31,7 +31,7 @@ The last change to the code is to act when the <span class="hljs-title">MemoryTi
 Add the following handler in the <span class="hljs-title">MainWindow</span> `for` loop `clicked` handler:
 
 :::{literalinclude} main_game_logic_in_rust.rs
-:language: slint
+:language: slint,no-preview
 :lines: 126-143
 :::
 
@@ -60,7 +60,7 @@ instead of strong to avoid a memory leak.
 Change the contents of `memory.slint` to signal to the JavaScript code when the user clicks on a tile.
 
 :::{literalinclude} main_game_logic_in_rust.rs
-:language: slint
+:language: slint,no-preview
 :lines: 107-115
 :::
 

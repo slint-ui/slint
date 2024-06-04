@@ -41,7 +41,7 @@ add the `appwindow.slint` file to the target.
 Change the contents of `ui/appwindow.slint` to the following:
 
 :::{literalinclude} appwindow.slint
-:language: slint
+:language: slint,no-preview
 :lines: 6-11
 :::
 
@@ -118,7 +118,7 @@ The `slint.loadFile` method resolves files from the process's current working di
 Replace the contents of `ui/appwindow.slint` with the following:
 
 :::{literalinclude} memory.slint
-:language: slint
+:language: slint,no-preview
 :lines: 6-11
 :::
 
@@ -135,7 +135,7 @@ We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our edi
 
 Slint has an application template you can use to create a project with dependencies already set up that follows recommended best practices.
 
-Before using the template, install `[cargo-generate](https://github.com/cargo-generate/cargo-generate)`:
+Before using the template, install [`cargo-generate`](https://github.com/cargo-generate/cargo-generate):
 
 ```sh
 cargo install cargo-generate

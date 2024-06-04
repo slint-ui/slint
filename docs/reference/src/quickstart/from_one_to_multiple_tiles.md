@@ -30,7 +30,7 @@ First, add the tile data structure definition at the top of the `ui/appwindow.sl
 :::{tab-item} NodeJS
 :sync: nodejs
 
-First, add the tile data structure definition at the top of the `memory.slint` file:
+First, add the tile data structure definition at the top of the `ui/appwindow.slint` file:
 
 :::
 
@@ -44,7 +44,7 @@ First, add the tile data structure definition at the top of the `slint!` macro:
 ::::
 
 :::{literalinclude} main_multiple_tiles.rs
-:language: slint
+:language: slint,no-preview
 :lines: 11-15
 :::
 
@@ -59,7 +59,7 @@ Next, replace the _export component <span class="hljs-title">MainWindow</span> i
 :::{tab-item} NodeJS
 :sync: nodejs
 
-Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `memory.slint` file with the following:
+Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `ui/appwindow.slint` file with the following:
 
 :::
 
@@ -73,7 +73,7 @@ Next, replace the _export component <span class="hljs-title">MainWindow</span> i
 ::::
 
 :::{literalinclude} main_multiple_tiles.rs
-:language: slint
+:language: slint,no-preview
 :lines: 63-90
 :::
 
