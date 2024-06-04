@@ -18,7 +18,7 @@ the location of the icons, and then closes the curtains again.
 Add the following code inside the <span class="hljs-title">MainWindow</span> component to signal to the C++ code when the user clicks on a tile.
 
 :::{literalinclude} main_game_logic_in_rust.rs
-:language: slint
+:language: slint,no-preview
 :lines: 107-115
 :::
 
