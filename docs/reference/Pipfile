@@ -10,7 +10,9 @@ verify_ssl = true
 
 [packages]
 sphinx = "==7.1.2"
-myst_parser = ">=0.17.2"
+myst_parser = ">=2.0.0"
+sphinx-design = ">=0.5.0"
+sphinx-tabs = ">=3.4.5"
 sphinx-markdown-tables = ">=0.0.15"
 furo = ">=2022.12.7"
 sphinxcontrib-jquery = ">=4.1"

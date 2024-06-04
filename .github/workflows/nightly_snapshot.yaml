@@ -385,7 +385,7 @@ jobs:
                   # Fix up link to Slint language documentation
                   sed -i "s!https://slint.dev/releases/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
 
-                  for lang in rust cpp node; do
+                  for lang in canon; do
                       mkdir -p $output_path/docs/quickstart/$lang
                       cp -a ../docs/quickstart/$lang/book/html/* $output_path/docs/quickstart/$lang
                   done

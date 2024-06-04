@@ -11,6 +11,7 @@
 
    src/introduction/index.rst
    src/introduction/supported_platforms.md
+   src/quickstart/index.rst
 
 .. toctree::
    :hidden:
