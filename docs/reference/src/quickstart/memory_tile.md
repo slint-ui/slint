@@ -38,7 +38,7 @@ Copy the following code inside of the `slint!` macro, replacing the current cont
 ::::
 
 :::{literalinclude} memory_tile.slint
-:language: slint
+:language: slint,no-preview
 :lines: 5-19
 :::
 
