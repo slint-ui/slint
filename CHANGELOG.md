@@ -14,6 +14,11 @@ All notable changes to this project are documented in this file.
  - Added `step-size` to `SpinBox`
  - Added `TimePicker` widget.
 
+## C++ API
+
+ - Added `LIBRARY_PATHS` multi-value argument to `slint_target_sources` that takes a list of
+   `name=path` items, to allow for the use of component libraries.
+
 ## [1.6.0] - 2024-05-13
 
 ## General
