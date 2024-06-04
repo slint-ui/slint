@@ -118,7 +118,7 @@ The `slint.loadFile` method resolves files from the process's current working di
 Replace the contents of `ui/appwindow.slint` with the following:
 
 :::{literalinclude} memory.slint
-:language: slint
+:language: slint,no-preview
 :lines: 6-11
 :::
 
