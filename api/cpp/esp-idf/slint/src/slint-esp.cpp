@@ -273,6 +273,13 @@ void EspPlatform::run_event_loop()
                         std::span<slint::platform::Rgb565Pixel> view { lb.get(),
                                                                        line_end - line_start };
                         render_fn(view);
+#    ifdef CONFIG_SLINT_COLOR_16_SWAP
+                        // Swap endianess to big endian
+                        std::for_each(view.begin(), view.end(), [](auto &rgbpix) {
+                            auto px = reinterpret_cast<uint16_t *>(&rgbpix);
+                            *px = (*px << 8) | (*px >> 8);
+                        });
+#    endif
                         esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y, line_end,
                                                   line_y + 1, lb.get());
                     });
