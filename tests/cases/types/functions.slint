@@ -30,4 +30,9 @@ const TestCase &instance = *handle;
 assert_eq(instance.invoke_fn1(Foo2{ Foo1{ 123 } }).b, 124);
 ```
 
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.fn1({ a: { member: 123 } }).b, 124);
+```
+
 */

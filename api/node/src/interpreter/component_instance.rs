@@ -239,29 +239,32 @@ impl JsComponentInstance {
                 )
             })?;
 
-        let args = if let Type::Callback { args, .. } = ty {
-            let count = args.len();
-            let args = arguments
-                .into_iter()
-                .zip(args.into_iter())
-                .map(|(a, ty)| super::value::to_value(&env, a, &ty))
-                .collect::<Result<Vec<_>, _>>()?;
-            if args.len() != count {
+        let args = match ty {
+            Type::Callback { args, .. } | Type::Function { args, .. } => {
+                let count = args.len();
+                let args = arguments
+                    .into_iter()
+                    .zip(args.into_iter())
+                    .map(|(a, ty)| super::value::to_value(&env, a, &ty))
+                    .collect::<Result<Vec<_>, _>>()?;
+                if args.len() != count {
+                    return Err(napi::Error::from_reason(
+                        format!(
+                            "{} expect {} arguments, but {} where provided",
+                            callback_name,
+                            count,
+                            args.len()
+                        )
+                        .as_str(),
+                    ));
+                }
+                args
+            }
+            _ => {
                 return Err(napi::Error::from_reason(
-                    format!(
-                        "{} expect {} arguments, but {} where provided",
-                        callback_name,
-                        count,
-                        args.len()
-                    )
-                    .as_str(),
+                    format!("{} is not a callback or a function", callback_name).as_str(),
                 ));
             }
-            args
-        } else {
-            return Err(napi::Error::from_reason(
-                format!("{} is not a callback", callback_name).as_str(),
-            ));
         };
 
         let result = self
@@ -296,29 +299,36 @@ impl JsComponentInstance {
                 )
             })?;
 
-        let args = if let Type::Callback { args, .. } = ty {
-            let count = args.len();
-            let args = arguments
-                .into_iter()
-                .zip(args.into_iter())
-                .map(|(a, ty)| super::value::to_value(&env, a, &ty))
-                .collect::<Result<Vec<_>, _>>()?;
-            if args.len() != count {
+        let args = match ty {
+            Type::Callback { args, .. } | Type::Function { args, .. } => {
+                let count = args.len();
+                let args = arguments
+                    .into_iter()
+                    .zip(args.into_iter())
+                    .map(|(a, ty)| super::value::to_value(&env, a, &ty))
+                    .collect::<Result<Vec<_>, _>>()?;
+                if args.len() != count {
+                    return Err(napi::Error::from_reason(
+                        format!(
+                            "{} expect {} arguments, but {} where provided",
+                            callback_name,
+                            count,
+                            args.len()
+                        )
+                        .as_str(),
+                    ));
+                }
+                args
+            }
+            _ => {
                 return Err(napi::Error::from_reason(
                     format!(
-                        "{} expect {} arguments, but {} where provided",
-                        callback_name,
-                        count,
-                        args.len()
+                        "{} is not a callback or a function on global {}",
+                        callback_name, global_name
                     )
                     .as_str(),
                 ));
             }
-            args
-        } else {
-            return Err(napi::Error::from_reason(
-                format!("{} is not a callback on global {}", callback_name, global_name).as_str(),
-            ));
         };
 
         let result = self

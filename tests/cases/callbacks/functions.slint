@@ -60,6 +60,7 @@ assert_eq(instance.global<PubGlob>().invoke_beh(2, 2), 14);
 ```js
 var instance = new slint.TestCase();
 assert(instance.test);
-// TODO: function call
+assert.equal(instance.pub(20, 2), 100022);
+assert.equal(instance.PubGlob.beh(2, 2), 14);
 ```
 */
