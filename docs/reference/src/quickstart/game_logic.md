@@ -60,7 +60,7 @@ instead of strong to avoid a memory leak.
 Change the contents of `memory.slint` to signal to the JavaScript code when the user clicks on a tile.
 
 :::{literalinclude} main_game_logic_in_rust.rs
-:language: slint
+:language: slint,no-preview
 :lines: 107-115
 :::
 
