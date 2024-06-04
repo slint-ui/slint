@@ -112,7 +112,7 @@ fn lower_element_layout(
             );
             return;
         }
-        "GridLayout" => lower_grid_layout(component, elem, diag),
+        "GridLayout" => lower_grid_layout(component, elem, diag, type_register),
         "HorizontalLayout" => lower_box_layout(elem, diag, Orientation::Horizontal),
         "VerticalLayout" => lower_box_layout(elem, diag, Orientation::Vertical),
         "Dialog" => {
@@ -146,6 +146,7 @@ fn lower_grid_layout(
     component: &Rc<Component>,
     grid_layout_element: &ElementRc,
     diag: &mut BuildDiagnostics,
+    type_register: &TypeRegister,
 ) {
     let mut grid = GridLayout {
         elems: Default::default(),
@@ -194,7 +195,13 @@ fn lower_grid_layout(
                 row += 1;
                 col = 0;
             }
-            component.optimized_elements.borrow_mut().push(layout_child);
+            if layout_child.borrow().has_popup_child {
+                // We need to keep that element otherwise the popup will malfunction
+                layout_child.borrow_mut().base_type = type_register.empty_type();
+                collected_children.push(layout_child);
+            } else {
+                component.optimized_elements.borrow_mut().push(layout_child);
+            }
         } else {
             grid.add_element(
                 &layout_child,
