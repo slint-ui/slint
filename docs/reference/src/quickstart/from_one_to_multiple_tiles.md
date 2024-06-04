@@ -73,7 +73,7 @@ Next, replace the _export component <span class="hljs-title">MainWindow</span> i
 ::::
 
 :::{literalinclude} main_multiple_tiles.rs
-:language: slint
+:language: slint,no-preview
 :lines: 63-90
 :::
 
