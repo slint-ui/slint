@@ -30,7 +30,7 @@ First, add the tile data structure definition at the top of the `ui/appwindow.sl
 :::{tab-item} NodeJS
 :sync: nodejs
 
-First, add the tile data structure definition at the top of the `memory.slint` file:
+First, add the tile data structure definition at the top of the `ui/appwindow.slint` file:
 
 :::
 
