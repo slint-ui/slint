@@ -6,7 +6,7 @@ use crate::dynamic_item_tree::InstanceRef;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
 use corelib::items::{ColorScheme, ItemRef, PropertyAnimation};
-use corelib::model::{Model, ModelRc};
+use corelib::model::{Model, ModelRc, ModelExt};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
@@ -176,12 +176,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             let index = eval_expression(index, local_context);
             match (array, index) {
                 (Value::Model(model), Value::Number(index)) => {
-                    if (index as usize) < model.row_count() {
-                        model.model_tracker().track_row_data_changes(index as usize);
-                        model.row_data(index as usize).unwrap_or_else(|| default_value_for_type(&expression.ty()))
-                    } else {
-                        default_value_for_type(&expression.ty())
-                    }
+                    model.row_data_tracked(index as usize).unwrap_or_else(|| default_value_for_type(&expression.ty()))
                 }
                 _ => {
                     Value::Void
