@@ -3,6 +3,7 @@
 
 use napi::Result;
 use slint_interpreter::ComponentDefinition;
+use i_slint_compiler::langtype::Type;
 
 use super::{JsComponentInstance, JsProperty};
 
@@ -40,6 +41,15 @@ impl JsComponentDefinition {
     }
 
     #[napi(getter)]
+    pub fn functions(&self) -> Vec<String> {
+        self.internal
+            .properties_and_callbacks()
+            .filter(|(_, ty)| matches!(ty, Type::Function { .. }))
+            .map(|(s, _)| s)
+            .collect()
+    }
+
+    #[napi(getter)]
     pub fn globals(&self) -> Vec<String> {
         self.internal.globals().collect()
     }
@@ -55,6 +65,13 @@ impl JsComponentDefinition {
     #[napi]
     pub fn global_callbacks(&self, global_name: String) -> Option<Vec<String>> {
         self.internal.global_callbacks(global_name.as_str()).map(|iter| iter.collect())
+    }
+
+    #[napi]
+    pub fn global_functions(&self, global_name: String) -> Option<Vec<String>> {
+        self.internal.global_properties_and_callbacks(global_name.as_str()).map(|iter| {
+            iter.filter(|(_, ty)| matches!(ty, Type::Function { .. })).map(|(s, _)| s).collect()
+        })
     }
 
     #[napi]
