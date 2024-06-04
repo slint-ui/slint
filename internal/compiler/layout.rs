@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Datastructures used to represent layouts in the compiler
 
@@ -578,5 +578,16 @@ pub fn create_new_prop(elem: &ElementRc, tentative_name: &str, ty: Type) -> Name
                 return NamedReference::new(elem, &name);
             }
         }
+    }
+}
+
+/// Return true if this type is a layout that has constraints
+pub fn is_layout(base_type: &ElementType) -> bool {
+    match base_type {
+        ElementType::Builtin(b) => {
+            matches!(b.name.as_str(), "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "Row")
+        }
+        ElementType::Component(c) => is_layout(&c.root_element.borrow().base_type),
+        _ => false,
     }
 }

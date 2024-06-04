@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! After inlining and moving declarations, all Element::base_type should be Type::BuiltinElement. This pass resolves them
 //! to NativeClass and picking a variant that only contains the used properties.
@@ -71,7 +71,7 @@ fn select_minimal_class_based_on_property_usage<'a>(
         minimal_class = class;
     }
     let (_min_distance, minimal_class) = properties_used.fold(
-        (std::usize::MAX, minimal_class),
+        (usize::MAX, minimal_class),
         |(current_distance, current_class), prop_name| {
             let (prop_distance, prop_class) = lookup_property_distance(class.clone(), prop_name);
 

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /*!
 The backend is the abstraction for crates that need to do the actual drawing and event loop
@@ -188,9 +188,22 @@ pub(crate) fn event_loop_proxy() -> Option<&'static dyn EventLoopProxy> {
 #[repr(C)]
 #[non_exhaustive]
 pub enum SetPlatformError {
-    /// The platform has been initialized in an earlier call to [`set_platform`].
+    /// The platform has already been initialized in an earlier call to [`set_platform`].
     AlreadySet,
 }
+
+impl core::fmt::Display for SetPlatformError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            SetPlatformError::AlreadySet => {
+                f.write_str("The platform has already been initialized.")
+            }
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for SetPlatformError {}
 
 /// Set the Slint platform abstraction.
 ///
@@ -221,6 +234,7 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
 pub fn update_timers_and_animations() {
     crate::animations::update_animations();
     crate::timers::TimerList::maybe_activate_timers(crate::animations::Instant::now());
+    crate::properties::ChangeTracker::run_change_handlers();
 }
 
 /// Returns the duration before the next timer is expected to be activated. This is the

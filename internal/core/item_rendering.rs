@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![warn(missing_docs)]
 //! module for rendering the tree of items
@@ -485,7 +485,7 @@ impl DirtyRegion {
             if r.contains_box(&b) {
                 // the rectangle is already in the union
                 return;
-            } else if b.contains_box(&r) {
+            } else if b.contains_box(r) {
                 self.rectangles.swap(i, self.count - 1);
                 self.count -= 1;
                 continue;

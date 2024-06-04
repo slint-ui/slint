@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use cocoa::{appkit::NSView, base::id as cocoa_id};
 use core_graphics_types::geometry::CGSize;
@@ -57,11 +57,11 @@ impl super::Surface for MetalSurface {
             mtl::BackendContext::new(
                 device.as_ptr() as mtl::Handle,
                 command_queue.as_ptr() as mtl::Handle,
-                std::ptr::null(),
             )
         };
 
-        let gr_context = skia_safe::gpu::DirectContext::new_metal(&backend, None).unwrap().into();
+        let gr_context =
+            skia_safe::gpu::direct_contexts::make_metal(&backend, None).unwrap().into();
 
         Ok(Self { command_queue, layer, gr_context })
     }
@@ -103,7 +103,7 @@ impl super::Surface for MetalSurface {
                 let texture_info =
                     mtl::TextureInfo::new(drawable.texture().as_ptr() as mtl::Handle);
 
-                let backend_render_target = skia_safe::gpu::BackendRenderTarget::new_metal(
+                let backend_render_target = skia_safe::gpu::backend_render_targets::make_mtl(
                     (size.width as i32, size.height as i32),
                     &texture_info,
                 );

@@ -1,20 +1,49 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Unsafe module that is only enabled when the `std` feature is off.
 //! It re-implements the thread_local macro with statics
 
 #![allow(unsafe_code)]
 #[macro_export]
-macro_rules! thread_local_ {
-    ($(#[$($meta:tt)*])* $vis:vis static $ident:ident : $ty:ty = $expr:expr) => {
+macro_rules! SLINT__thread_local_inner {
+    ($(#[$($meta:tt)*])* $vis:vis $ident:ident $ty:ty $block:block) => {
         $(#[$($meta)*])*
         $vis static $ident: crate::unsafe_single_threaded::FakeThreadStorage<$ty> = {
-            fn init() -> $ty { $expr }
+            fn init() -> $ty $block
             crate::unsafe_single_threaded::FakeThreadStorage::new(init)
         };
     };
 }
+
+#[macro_export]
+macro_rules! thread_local_ {
+    // Taken from stdlib!
+
+    // empty (base case for the recursion)
+    () => {};
+
+    ($(#[$attr:meta])* $vis:vis static $name:ident: $t:ty = const $init:block; $($rest:tt)*) => (
+        $crate::SLINT__thread_local_inner!($(#[$attr])* $vis $name $t $init);
+        $crate::thread_local!($($rest)*);
+    );
+
+    ($(#[$attr:meta])* $vis:vis static $name:ident: $t:ty = const $init:block) => (
+        $crate::SLINT__thread_local_inner!($(#[$attr])* $vis $name $t $init);
+    );
+
+    // process multiple declarations
+    ($(#[$attr:meta])* $vis:vis static $name:ident: $t:ty = $init:expr; $($rest:tt)*) => (
+        $crate::SLINT__thread_local_inner!($(#[$attr])* $vis $name $t  { $init });
+        $crate::thread_local!($($rest)*);
+    );
+
+    // handle a single declaration
+    ($(#[$attr:meta])* $vis:vis static $name:ident: $t:ty = $init:expr) => (
+        $crate::SLINT__thread_local_inner!($(#[$attr])* $vis $name $t { $init });
+    );
+}
+
 pub struct FakeThreadStorage<T, F = fn() -> T>(once_cell::unsync::OnceCell<T>, F);
 impl<T, F> FakeThreadStorage<T, F> {
     pub const fn new(f: F) -> Self {

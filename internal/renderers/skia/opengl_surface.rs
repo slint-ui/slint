@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::{cell::RefCell, num::NonZeroU32};
 
@@ -68,7 +68,7 @@ impl super::Surface for OpenGLSurface {
         })?;
 
         let mut gr_context =
-            skia_safe::gpu::DirectContext::new_gl(gl_interface, None).ok_or_else(|| {
+            skia_safe::gpu::direct_contexts::make_gl(gl_interface, None).ok_or_else(|| {
                 format!("Skia Renderer: Internal Error: Could not create Skia Direct Context from GL interface")
             })?;
 

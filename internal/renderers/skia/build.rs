@@ -1,9 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use cfg_aliases::cfg_aliases;
 
 fn main() {
+    // Remove when cfg_aliases supports this
+    println!("cargo:rustc-check-cfg=cfg(skia_backend_opengl)");
+    println!("cargo:rustc-check-cfg=cfg(skia_backend_metal)");
+    println!("cargo:rustc-check-cfg=cfg(skia_backend_d3d)");
+    println!("cargo:rustc-check-cfg=cfg(skia_backend_vulkan)");
+    println!("cargo:rustc-check-cfg=cfg(skia_backend_software)");
+
     // Setup cfg aliases
     cfg_aliases! {
        skia_backend_opengl: { any(feature = "opengl", not(any(target_os = "macos", target_family = "windows", target_arch = "wasm32"))) },

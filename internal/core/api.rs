@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /*!
 This module contains types that are public and re-exported in the slint-rs as well as the slint-interpreter crate as public API.
@@ -323,6 +323,22 @@ pub enum SetRenderingNotifierError {
     /// There is already a rendering notifier set, multiple notifiers are not supported.
     AlreadySet,
 }
+
+impl core::fmt::Display for SetRenderingNotifierError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Unsupported => {
+                f.write_str("The rendering backend does not support rendering notifiers.")
+            }
+            Self::AlreadySet => f.write_str(
+                "There is already a rendering notifier set, multiple notifiers are not supported.",
+            ),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for SetRenderingNotifierError {}
 
 /// This struct represents a persistent handle to a window and implements the
 /// [`raw_window_handle_06::HasWindowHandle`] and [`raw_window_handle_06::HasDisplayHandle`]
@@ -910,6 +926,9 @@ impl core::fmt::Display for EventLoopError {
         }
     }
 }
+
+#[cfg(feature = "std")]
+impl std::error::Error for EventLoopError {}
 
 /// The platform encountered a fatal error.
 ///

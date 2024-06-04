@@ -7,9 +7,9 @@ Files: */slint-icon-*.svg */slint-icon-*.png */slint-icon-*.pdf */slint-logo-*.s
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: CC-BY-ND-4.0
 
-Files: .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock */.npmignore
+Files: .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock */.npmignore espflash.toml
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Files: api/cpp/docs/*/*.html api/cpp/docs/*/*.css docs/*/*.css docs/*/*.html docs/*/book.toml docs/*/package.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
@@ -26,11 +26,11 @@ License: MIT
 
 Files: api/*/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Files:  examples/*.json examples/*/README examples/*/README.txt examples/cpp/qt_viewer/interface.ui
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Files: examples/memory/icons/*.svg examples/memory/icons/*.png
 Copyright: Fontawesome project <https://fontawesome.com/license/free>
@@ -46,15 +46,15 @@ License: LicenseRef-qskinny
 
 Files: editors/sublime/LSP.sublime-settings
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Files: tools/slintpad/*.html tools/slintpad/styles/*.css tools/slintpad/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Files: editors/vscode/*.json editors/vscode/css/*.css editors/tree-sitter-slint/corpus/*.txt editors/vscode/static/**/*.html editors/vscode/static/assets/img/bg-dark.svg editors/vscode/static/assets/img/slint-*.svg
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Files: editors/vscode/static/assets/img/cpp_logo.svg
 Copyright: Copyright © 2017 Jeremy Kratz
@@ -70,11 +70,11 @@ License: CC0-1.0
 
 Files: tests/screenshots/**/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Files: api/node/__test__/resources/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Files: examples/carousel/icons/*.svg
 Copyright: Material Icons <https://fonts.google.com/icons?selected=Material+Iconse>
@@ -84,7 +84,7 @@ Files: examples/carousel/fonts/*.ttf
 Copyright: Roboto <https://fonts.google.com/specimen/Roboto/about>
 License: Apache-2.0
 
-Files: examples/*/esp-idf/*/partitions.csv examples/*/esp-idf/partitions.csv
+Files: examples/*/esp-idf/*/partitions.csv examples/*/esp-idf/partitions.csv examples/mcu-board-support/partitions.csv
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 

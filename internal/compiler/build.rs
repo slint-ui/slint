@@ -1,11 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::fs::read_dir;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 fn main() -> std::io::Result<()> {
+    println!("cargo:rustc-check-cfg=cfg(slint_debug_property)");
+
     let mut library_dir = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
     library_dir.push("widgets");
 

@@ -1,83 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { StyleMetrics, Palette, ScrollView, Palette } from "std-widgets-impl.slint";
 
-export component TextEdit inherits ScrollView {
-    in property <TextWrap> wrap <=> i-text-input.wrap;
-    in property horizontal-alignment <=> i-text-input.horizontal-alignment;
-    in property read-only <=> i-text-input.read-only;
-    in property <length> font-size <=> i-text-input.font-size;
-    in-out property <string> text <=> i-text-input.text;
-
-    accessible-role: AccessibleRole.text-input;
-    accessible-value <=> text;
-
-    callback edited(/* text */ string);
-
-    public function set-selection-offsets(start: int, end: int) {
-        i-text-input.set-selection-offsets(start, end);
-    }
-
-    public function select-all() {
-        i-text-input.select-all();
-    }
-
-    public function clear-selection() {
-        i-text-input.clear-selection();
-    }
-
-    public function cut() {
-        i-text-input.cut();
-    }
-
-    public function copy() {
-        i-text-input.copy();
-    }
-
-    public function paste() {
-        i-text-input.paste();
-    }
-
-    forward-focus: i-text-input;
-    has-focus: i-text-input.has-focus;
-    enabled <=> i-text-input.enabled;
-    horizontal-stretch: 1;
-    vertical-stretch: 1;
-    viewport-width: root.wrap == TextWrap.word-wrap ? root.visible-width : max(root.visible-width, i-text-input.preferred-width);
-    viewport-height: max(self.visible-height, i-text-input.preferred-height);
-
-    Rectangle {
-        background: root.enabled ? StyleMetrics.textedit-background : StyleMetrics.textedit-background-disabled;
-    }
-
-    i-text-input := TextInput {
-        enabled: true;
-        color: self.enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
-        single-line: false;
-        wrap: word-wrap;
-        selection-background-color: Palette.selection-background;
-        selection-foreground-color: Palette.selection-foreground;
-
-        edited => {
-            root.edited(self.text);
-        }
-
-        cursor-position-changed(cpos) => {
-            if (cpos.x + root.viewport-x < StyleMetrics.layout-padding) {
-                root.viewport-x = min(0px, max(parent.visible-width - self.width,  - cpos.x + StyleMetrics.layout-padding ));
-            } else if (cpos.x + root.viewport-x > parent.visible-width - StyleMetrics.layout-padding) {
-                root.viewport-x = min(0px, max(parent.visible-width - self.width,  parent.visible-width - cpos.x - StyleMetrics.layout-padding ));
-            }
-            if (cpos.y + root.viewport-y < StyleMetrics.layout-padding) {
-                root.viewport-y = min(0px, max(parent.visible-height - self.height,  - cpos.y + StyleMetrics.layout-padding ));
-            } else if (cpos.y + root.viewport-y > parent.visible-height - StyleMetrics.layout-padding - 20px) {
-                // FIXME: font-height hardcoded to 20px
-                root.viewport-y = min(0px, max(parent.visible-height - self.height,  parent.visible-height - cpos.y - StyleMetrics.layout-padding - 20px));
-            }
-        }
-    }
-}
 export component AboutSlint {
     preferred-height: 100%;
     preferred-width: 100%;

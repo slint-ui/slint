@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Module containing the private api that is used by the generated code.
 //!
@@ -203,7 +203,9 @@ pub mod re_exports {
         logical_position_to_api, LogicalLength, LogicalPoint, LogicalRect,
     };
     pub use i_slint_core::model::*;
-    pub use i_slint_core::properties::{set_state_binding, Property, PropertyTracker, StateInfo};
+    pub use i_slint_core::properties::{
+        set_state_binding, ChangeTracker, Property, PropertyTracker, StateInfo,
+    };
     pub use i_slint_core::slice::Slice;
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,

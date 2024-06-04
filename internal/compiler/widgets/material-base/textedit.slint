@@ -1,0 +1,80 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { MaterialFontSettings, MaterialPalette } from "styling.slint";
+import { ScrollView } from "scrollview.slint";
+import { TextEditBase } from "../common/textedit-base.slint";
+
+export component TextEdit {
+    in property <TextWrap> wrap <=> base.wrap;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
+    in property <bool> read-only <=> base.read-only;
+    in property <length> font-size <=> base.font-size;
+    in property <bool> enabled <=> base.enabled;
+    in property <string> placeholder-text <=> base.placeholder-text;
+    in-out property <bool> has-focus: base.has-focus;
+    out property <length> visible-width <=> base.visible-width;
+    out property <length> visible-height <=> base.visible-height;
+    in-out property <string> text <=> base.text;
+    in-out property <length> viewport-x <=> base.viewport-x;
+    in-out property <length> viewport-y <=> base.viewport-y;
+    in-out property <length> viewport-width <=> base.viewport-width;
+    in-out property <length> viewport-height <=> base.viewport-height;
+
+    callback edited(/* text */ string);
+    accessible-role: AccessibleRole.text-input;
+    accessible-value <=> text;
+
+    public function set-selection-offsets(start: int,end: int){
+        base.set-selection-offsets(start, end);
+    }
+
+    public function select-all(){
+        base.select-all();
+    }
+
+    public function clear-selection(){
+        base.clear-selection();
+    }
+
+    public function cut(){
+        base.cut();
+    }
+
+    public function copy(){
+        base.copy();
+    }
+
+    public function paste(){
+        base.paste();
+    }
+
+    forward-focus: base;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    states [
+        disabled when !root.enabled: {
+            root.opacity: 0.5;
+        }
+        focused when base.has-focus: {
+            base.border-width: 2px;
+            base.border-color: MaterialPalette.accent-background;
+        }
+    ]
+
+    base := TextEditBase {
+        width: 100%;
+        height: 100%;
+        border-radius: 2px;
+        border-width: 1px;
+        border-color: MaterialPalette.border;
+        scroll-view-padding: 12px;
+        foreground: MaterialPalette.foreground;
+        font-size: MaterialFontSettings.body-large.font-size;
+        font-weight: MaterialFontSettings.body-large.font-weight;
+        placeholder-color: MaterialPalette.border-variant;
+        selection-background-color: MaterialPalette.selection-background;
+        selection-foreground-color: MaterialPalette.selection-foreground;
+    }
+}

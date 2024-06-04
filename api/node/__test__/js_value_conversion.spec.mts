@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import test from 'ava';
 import * as path from 'node:path';
@@ -153,18 +153,6 @@ test('set struct properties', (t) => {
     "energy_level": 0.8
   });
 
-  // Missing properties throw an exception (TODO: the message is not very helpful, should say which one)
-  const incomplete_struct_err = t.throws(() => {
-    instance!.setProperty("player", {
-      "name": "Incomplete Player"
-    })
-  }, {
-    instanceOf: Error
-  }
-  ) as any;
-  t.is(incomplete_struct_err!.code, 'InvalidArg');
-  t.is(incomplete_struct_err!.message, 'expect Number, got: Undefined');
-
   // Extra properties are thrown away
   instance!.setProperty("player", {
     "name": "Excessive Player",
@@ -177,6 +165,15 @@ test('set struct properties', (t) => {
     "age": 100,
     "energy_level": 0.8
   });
+
+  // Missing properties are defaulted
+  instance!.setProperty("player", { "age": 39 });
+  t.deepEqual(instance!.getProperty("player"), {
+    "name": "",
+    "age": 39,
+    "energy_level": 0.0
+  });
+
 })
 
 test('get/set image properties', async (t) => {
@@ -217,9 +214,9 @@ test('get/set image properties', async (t) => {
       message: "Cannot convert object to image, because the provided object does not have an u32 `height` property"
     });
     t.throws(() => {
-      instance!.setProperty("external-image", { width: 1, height: 1, data: new Uint8ClampedArray() });
+      instance!.setProperty("external-image", { width: 1, height: 1, data: new Uint8ClampedArray(1) });
     }, {
-      message: "data property does not have the correct size; expected 1 (width) * 1 (height) * 4 = 0; got 4"
+      message: "data property does not have the correct size; expected 1 (width) * 1 (height) * 4 = 1; got 4"
     });
 
     t.is(image.bitmap.width, 64);
@@ -670,14 +667,8 @@ test('invoke callback', (t) => {
   instance!.invoke("great-person", [{ "name": "simon" }]);
   t.deepEqual(speakTest, "hello simon");
 
-  t.throws(() => {
-    instance!.invoke("great-person", [{ "hello": "simon" }]);
-  },
-    {
-      code: "InvalidArg",
-      message: "expect String, got: Undefined"
-    }
-  );
+  instance!.invoke("great-person", [{ "hello": "simon" }]);
+  t.deepEqual(speakTest, "hello ");
 
   t.deepEqual(instance!.invoke("get-string", []), "string");
   t.deepEqual(instance!.invoke("person", []), { "name": "florian" });

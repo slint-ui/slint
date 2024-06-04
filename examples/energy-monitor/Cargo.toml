@@ -30,6 +30,6 @@ console_error_panic_hook = "0.1.5"
 slint-build = { path = "../../api/rs/build" }
 
 [features]
-default = ["slint/default", "network", "chrono", "slint/backend-android-activity-05"]
+default = ["slint/default", "network", "chrono", "slint/backend-android-activity-06"]
 simulator = ["mcu-board-support", "slint/renderer-software", "slint/backend-winit", "slint/std"]
 network = ["dep:weer_api", "tokio", "futures"]

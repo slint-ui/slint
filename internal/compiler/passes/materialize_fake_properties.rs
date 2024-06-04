@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! This pass creates properties that are used but are otherwise not real.
 //!
@@ -103,6 +103,9 @@ fn should_materialize(
         let ty = crate::typeregister::reserved_property(prop).property_type;
         if ty != Type::Invalid {
             return Some(ty);
+        } else if prop == "close-on-click" {
+            // PopupWindow::close-on-click
+            return Some(Type::Bool);
         }
     }
     None

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::langtype::ElementType;
@@ -40,7 +40,7 @@ fn rename_globals(component: &Rc<Component>, mut count: u32) {
         let mut root = g.root_element.borrow_mut();
         if matches!(&root.base_type, ElementType::Builtin(_)) {
             // builtin global keeps its name
-            root.id = g.id.clone();
+            root.id.clone_from(&g.id);
         } else if let Some(s) = g.exported_global_names.borrow().first() {
             root.id = s.to_string();
         } else {

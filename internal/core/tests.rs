@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Functions useful for testing
 #![warn(missing_docs)]
@@ -22,6 +22,7 @@ pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
         tick
     });
     crate::timers::TimerList::maybe_activate_timers(tick);
+    crate::properties::ChangeTracker::run_change_handlers();
 }
 
 /// Return the current mocked time.

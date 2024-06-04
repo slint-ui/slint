@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore fillcolor fontcolor graphviz tpdf
 
@@ -117,8 +117,7 @@ impl State {
 /// to generate a PDF file out of it.
 #[allow(unused)]
 pub fn as_dot(element: &ElementRc, mark_up: Option<ElementRc>) -> ElementMap {
-    let mut state = State::default();
-    state.mark_up = mark_up;
+    let mut state = State { mark_up, ..State::default() };
     state.register_component(
         &Weak::upgrade(&element.borrow().enclosing_component).unwrap(),
         "root".to_string(),

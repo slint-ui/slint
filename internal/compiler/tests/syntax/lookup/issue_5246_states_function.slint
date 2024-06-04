@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Ball inherits HorizontalLayout{
+    in property <bool> replaceAll: false;
+    property <bool> replaceable: true;
+    in property <string> name:"";
+    spacing: 10px;
+    height: 30px;
+    animate height { duration: 300ms; easing: linear; delay: 200ms;}
+
+
+    function animate() {
+        root.height = 0px;
+    }
+
+    callback clicked;
+
+    states [
+        replaced when replaceable && replaceAll: {
+            root.height: 50px;
+            root.animate: 30px;
+//          ^error{'root.animate' is not a property}
+            root.clicked: "blue";
+//          ^error{'root.clicked' is not a property}
+        }
+    ]
+}

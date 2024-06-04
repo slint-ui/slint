@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component App inherits Window{
+    background: blue;
+    //          ^error{'blue' must be called}
+    //          ^^error{Cannot convert function\(\) -> color to brush}
+    function blue()->color {
+//  ^error{The binding for the property 'blue' is part of a binding loop}
+//  ^^error{Cannot convert function\(\) -> color to color}
+
+       blue
+//     ^error{'blue' must be called}
+    }
+
+
+
+    in property <int> abc: get_abc1();
+    function get_abc1() -> int { return get_abc2(); }
+//  ^error{The binding for the property 'get-abc1' is part of a binding loop}
+    function get_abc2() -> int { return get_abc1(); }
+//  ^error{The binding for the property 'get-abc2' is part of a binding loop}
+
+}
+

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -459,22 +459,23 @@ impl AccessKitAdapter {
             builder.add_action(Action::Focus);
         }
 
-        let min = item
+        if let Some(min) = item
             .accessible_string_property(AccessibleStringProperty::ValueMinimum)
-            .unwrap_or_default();
-        let max = item
+            .and_then(|min| min.parse().ok())
+        {
+            builder.set_min_numeric_value(min);
+        }
+        if let Some(max) = item
             .accessible_string_property(AccessibleStringProperty::ValueMaximum)
-            .unwrap_or_default();
-        let step = item
+            .and_then(|max| max.parse().ok())
+        {
+            builder.set_max_numeric_value(max);
+        }
+        if let Some(step) = item
             .accessible_string_property(AccessibleStringProperty::ValueStep)
-            .unwrap_or_default();
-        match (min.parse(), max.parse(), step.parse()) {
-            (Ok(min), Ok(max), Ok(step)) => {
-                builder.set_min_numeric_value(min);
-                builder.set_max_numeric_value(max);
-                builder.set_numeric_value_step(step);
-            }
-            _ => {}
+            .and_then(|step| step.parse().ok())
+        {
+            builder.set_numeric_value_step(step);
         }
 
         if let Some(value) = item.accessible_string_property(AccessibleStringProperty::Value) {
@@ -511,7 +512,7 @@ struct AccessibilitiesPropertyTracker {
 }
 
 impl i_slint_core::properties::PropertyDirtyHandler for AccessibilitiesPropertyTracker {
-    fn notify(&self) {
+    fn notify(self: Pin<&Self>) {
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = win.upgrade() {

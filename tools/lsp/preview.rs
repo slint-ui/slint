@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::common::{self, ComponentInformation, ElementRcNode, PreviewComponent, PreviewConfig};
 use crate::lsp_ext::Health;
@@ -158,11 +158,7 @@ fn drop_component(component_type: slint::SharedString, x: f32, y: f32) {
 }
 
 fn placeholder_node_text(selected: &common::ElementRcNode) -> String {
-    let Some(component_instance) = component_instance() else {
-        return Default::default();
-    };
-    let root_element = element_selection::root_element(&component_instance);
-    let Some(parent) = selected.parent(root_element) else {
+    let Some(parent) = selected.parent() else {
         return Default::default();
     };
 
@@ -192,14 +188,7 @@ fn delete_selected_element() {
         return;
     };
 
-    let Some(range) = selected_node.with_element_node(|n| {
-        if let Some(parent) = &n.parent() {
-            if parent.kind() == SyntaxKind::SubElement {
-                return util::map_node(parent);
-            }
-        }
-        util::map_node(n)
-    }) else {
+    let Some(range) = selected_node.with_decorated_node(|n| util::map_node(&n)) else {
         return;
     };
 
@@ -310,6 +299,8 @@ fn resize_selected_element_impl(rect: LogicalRect) {
 
 // triggered from the UI, running in UI thread
 fn can_move_selected_element(_x: f32, _y: f32, mouse_x: f32, mouse_y: f32) -> bool {
+    // let position = LogicalPoint::new(x, y);
+    let mouse_position = LogicalPoint::new(mouse_x, mouse_y);
     let Some(selected) = selected_element() else {
         return false;
     };
@@ -317,7 +308,6 @@ fn can_move_selected_element(_x: f32, _y: f32, mouse_x: f32, mouse_y: f32) -> bo
         return false;
     };
 
-    let mouse_position = LogicalPoint::new(mouse_x, mouse_y);
     drop_location::can_move_to(mouse_position, selected_element_node)
 }
 
@@ -546,6 +536,8 @@ async fn parse_source(
     (builder.diagnostics().clone(), compiled)
 }
 
+pub const SLINT_LIVEPREVIEW_COMPONENT: &str = "_SLINT_LivePreview";
+
 // Must be inside the thread running the slint event loop
 async fn reload_preview_impl(
     preview_component: PreviewComponent,
@@ -561,8 +553,7 @@ async fn reload_preview_impl(
         let (_, from_cache) = get_url_from_cache(&component.url).unwrap_or_default();
         if let Some(component_name) = &component.component {
             format!(
-                "{from_cache}\nexport component _SLINT_LivePreview inherits {component_name} {{ /* {} */ }}\n",
-                NODE_IGNORE_COMMENT,
+                "{from_cache}\nexport component {SLINT_LIVEPREVIEW_COMPONENT} inherits {component_name} {{ /* {NODE_IGNORE_COMMENT} */ }}\n",
             )
         } else {
             from_cache
@@ -764,7 +755,7 @@ fn set_selected_element(
             preview_state.ui.as_ref(),
             selection.as_ref().map(|s| s.instance_index).unwrap_or_default(),
             layout_kind,
-            !is_layout,
+            true,
             !is_in_layout && !is_layout,
             positions,
         );
@@ -916,26 +907,49 @@ pub fn is_element_node_ignored(node: &syntax_nodes::Element) -> bool {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
+    use std::{collections::HashMap, path::PathBuf, rc::Rc};
+
     use slint_interpreter::ComponentInstance;
 
-    #[track_caller]
-    pub fn compile_test(style: &str, source_code: &str) -> ComponentInstance {
-        i_slint_backend_testing::init_no_event_loop();
+    use crate::common::test::main_test_file_name;
 
-        let path = std::path::PathBuf::from("/test_data.slint");
+    #[track_caller]
+    pub fn interpret_test_with_sources(
+        style: &str,
+        code: HashMap<PathBuf, String>,
+    ) -> ComponentInstance {
+        i_slint_backend_testing::init_no_event_loop();
+        reinterpret_test_with_sources(style, code)
+    }
+
+    #[track_caller]
+    pub fn reinterpret_test_with_sources(
+        style: &str,
+        code: HashMap<PathBuf, String>,
+    ) -> ComponentInstance {
+        let code = Rc::new(code);
+
+        let path = main_test_file_name();
+        let source_code = code.get(&path).unwrap().clone();
         let (diagnostics, component_definition) = spin_on::spin_on(super::parse_source(
             vec![],
             std::collections::HashMap::new(),
             path,
             source_code.to_string(),
             style.to_string(),
-            |_path| {
+            move |path| {
+                let code = code.clone();
+                let path = path.to_owned();
+
                 Box::pin(async move {
-                    Some(Result::Err(std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "Not supported in tests",
-                    )))
+                    let Some(source) = code.get(&path) else {
+                        return Some(Result::Err(std::io::Error::new(
+                            std::io::ErrorKind::NotFound,
+                            "path not found",
+                        )));
+                    };
+                    Some(Ok(source.clone()))
                 })
             },
         ));
@@ -944,5 +958,11 @@ mod test {
         assert!(diagnostics.is_empty());
 
         component_definition.unwrap().create().unwrap()
+    }
+
+    #[track_caller]
+    pub fn interpret_test(style: &str, source_code: &str) -> ComponentInstance {
+        let code = HashMap::from([(main_test_file_name(), source_code.to_string())]);
+        interpret_test_with_sources(style, code)
     }
 }

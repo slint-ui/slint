@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /*!
  This module contains the intermediate representation of the code in the form of an object tree
@@ -337,6 +337,9 @@ pub struct Component {
     pub used_types: RefCell<UsedSubTypes>,
     pub popup_windows: RefCell<Vec<PopupWindow>>,
 
+    /// This component actually inherits PopupWindow (although that has been changed to a Window by the lower_popups pass)
+    pub inherits_popup_window: Cell<bool>,
+
     /// The names under which this component should be accessible
     /// if it is a global singleton and exported.
     pub exported_global_names: RefCell<Vec<ExportedName>>,
@@ -599,6 +602,7 @@ pub struct Element {
     pub base_type: ElementType,
     /// Currently contains also the callbacks. FIXME: should that be changed?
     pub bindings: BindingsMap,
+    pub change_callbacks: BTreeMap<String, RefCell<Vec<Expression>>>,
     pub property_analysis: RefCell<HashMap<String, PropertyAnalysis>>,
 
     pub children: Vec<ElementRc>,
@@ -732,6 +736,14 @@ pub fn pretty_print(
             writeln!(f, "{} <=> {:?};", name, nr)?;
         }
     }
+    for (name, ch) in &e.change_callbacks {
+        for ex in &*ch.borrow() {
+            indent!();
+            writeln!(f, "changed {name} => {{ ")?;
+            expression_tree::pretty_print(f, ex)?;
+            writeln!(f, "  }}")?;
+        }
+    }
     if !e.states.is_empty() {
         indent!();
         writeln!(f, "states {:?}", e.states)?;
@@ -744,7 +756,7 @@ pub fn pretty_print(
         indent!();
         pretty_print(f, &c.borrow(), indentation)?
     }
-    for g in &e.geometry_props {
+    if let Some(g) = &e.geometry_props {
         indent!();
         writeln!(f, "geometry {:?} ", g)?;
     }
@@ -1037,22 +1049,6 @@ impl Element {
                 sig_decl.child_token(SyntaxKind::Identifier).map_or(false, |t| t.text() == "pure"),
             );
 
-            if let Some(csn) = sig_decl.TwoWayBinding() {
-                r.bindings
-                    .insert(name.clone(), BindingExpression::new_uncompiled(csn.into()).into());
-                r.property_declarations.insert(
-                    name,
-                    PropertyDeclaration {
-                        property_type: Type::InferredCallback,
-                        node: Some(sig_decl.into()),
-                        visibility: PropertyVisibility::InOut,
-                        pure,
-                        ..Default::default()
-                    },
-                );
-                continue;
-            }
-
             let PropertyLookupResult {
                 resolved_name: existing_name,
                 property_type: maybe_existing_prop_type,
@@ -1080,6 +1076,22 @@ impl Element {
                         &sig_decl.DeclaredIdentifier(),
                     );
                 }
+                continue;
+            }
+
+            if let Some(csn) = sig_decl.TwoWayBinding() {
+                r.bindings
+                    .insert(name.clone(), BindingExpression::new_uncompiled(csn.into()).into());
+                r.property_declarations.insert(
+                    name,
+                    PropertyDeclaration {
+                        property_type: Type::InferredCallback,
+                        node: Some(sig_decl.into()),
+                        visibility: PropertyVisibility::InOut,
+                        pure,
+                        ..Default::default()
+                    },
+                );
                 continue;
             }
 
@@ -1284,6 +1296,38 @@ impl Element {
             }
         }
 
+        for ch in node.PropertyChangedCallback() {
+            if !diag.enable_experimental && !tr.expose_internal_types {
+                diag.push_error(
+                    "Change callbacks are experimental and not yet implemented in this version of Slint".into(),
+                    &ch,
+                );
+            }
+            let Some(prop) = parser::identifier_text(&ch.DeclaredIdentifier()) else { continue };
+            let lookup_result = r.lookup_property(&prop);
+            if lookup_result.property_visibility == PropertyVisibility::Private
+                && !lookup_result.is_local_to_component
+            {
+                diag.push_error(
+                    format!("Change callback on a private property '{prop}'"),
+                    &ch.DeclaredIdentifier(),
+                );
+            }
+            let handler = Expression::Uncompiled(ch.clone().into());
+            match r.change_callbacks.entry(prop) {
+                Entry::Vacant(e) => {
+                    e.insert(vec![handler].into());
+                }
+                Entry::Occupied(mut e) => {
+                    diag.push_error(
+                        format!("Duplicated change callback on '{}'", e.key()),
+                        &ch.DeclaredIdentifier(),
+                    );
+                    e.get_mut().get_mut().push(handler);
+                }
+            }
+        }
+
         let mut children_placeholder = None;
         let r = r.make_rc();
 
@@ -1363,7 +1407,16 @@ impl Element {
                     .StatePropertyChange()
                     .filter_map(|s| {
                         lookup_property_from_qualified_name_for_state(s.QualifiedName(), &r, diag)
-                            .map(|(ne, _)| {
+                            .map(|(ne, ty)| {
+                                if !ty.is_property_type() && !matches!(ty, Type::Invalid) {
+                                    diag.push_error(
+                                        format!(
+                                            "'{}' is not a property",
+                                            s.QualifiedName().to_string()
+                                        ),
+                                        &s,
+                                    );
+                                }
                                 (ne, Expression::Uncompiled(s.BindingExpression().into()), s)
                             })
                     })
@@ -1371,7 +1424,7 @@ impl Element {
             };
             for trs in state.Transition() {
                 let mut t = Transition::from_node(trs, &r, tr, diag);
-                t.state_id = s.id.clone();
+                t.state_id.clone_from(&s.id);
                 r.borrow_mut().transitions.push(t);
             }
             r.borrow_mut().states.push(s);
@@ -2047,6 +2100,13 @@ pub fn visit_element_expressions(
         elem.borrow_mut().repeated.as_mut().unwrap().model = model;
     }
     visit_element_expressions_simple(elem, &mut vis);
+
+    for (_, expr) in &elem.borrow().change_callbacks {
+        for expr in expr.borrow_mut().iter_mut() {
+            vis(expr, Some("$change callback$"), &|| Type::Void);
+        }
+    }
+
     let mut states = std::mem::take(&mut elem.borrow_mut().states);
     for s in &mut states {
         if let Some(cond) = s.condition.as_mut() {
@@ -2573,7 +2633,7 @@ pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem
     );
     let mut old_elem_mut = old_elem.borrow_mut();
     injected_parent_mut.default_fill_parent = std::mem::take(&mut old_elem_mut.default_fill_parent);
-    injected_parent_mut.geometry_props = old_elem_mut.geometry_props.clone();
+    injected_parent_mut.geometry_props.clone_from(&old_elem_mut.geometry_props);
     drop(injected_parent_mut);
     old_elem_mut.geometry_props.as_mut().unwrap().x = NamedReference::new(injected_parent, "dummy");
     old_elem_mut.geometry_props.as_mut().unwrap().y = NamedReference::new(injected_parent, "dummy");

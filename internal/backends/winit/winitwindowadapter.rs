@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! This module contains the GraphicsWindow that used to be within corelib.
 
@@ -173,7 +173,11 @@ impl WinitWindowAdapter {
             ),
         });
 
-        let id = self_rc.winit_window().id();
+        let winit_window = self_rc.winit_window();
+        if let Err(e) = self_rc.renderer.resumed(&winit_window) {
+            i_slint_core::debug_log!("Error initialing renderer in winit backend with window: {e}");
+        }
+        let id = winit_window.id();
         crate::event_loop::register_window(id, (self_rc.clone()) as _);
 
         let scale_factor = std::env::var("SLINT_SCALE_FACTOR")

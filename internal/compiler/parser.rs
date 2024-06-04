@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /*! The Slint Language Parser
 
@@ -332,7 +332,8 @@ declare_syntax! {
         /// `id := Element { ... }`
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
-                     *CallbackDeclaration, *Function, *SubElement, *RepeatedElement, *PropertyAnimation,
+                     *CallbackDeclaration, *ConditionalElement, *Function, *SubElement,
+                     *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
                      *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
@@ -347,6 +348,8 @@ declare_syntax! {
         PropertyDeclaration-> [ ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
+        /// `changed xxx => {...}`  where `xxx` is the DeclaredIdentifier
+        PropertyChangedCallback-> [ DeclaredIdentifier, CodeBlock ],
         /// wraps Identifiers, like `Rectangle` or `SomeModule.SomeType`
         QualifiedName-> [],
         /// Wraps single identifier (to disambiguate when there are other identifier in the production)
@@ -554,7 +557,7 @@ mod parser_trait {
             let mut brackets = 0;
             loop {
                 match self.nth(0).kind() {
-                    k @ _ if k == kind && parens == 0 && braces == 0 && brackets == 0 => break,
+                    k if k == kind && parens == 0 && braces == 0 && brackets == 0 => break,
                     SyntaxKind::Eof => break,
                     SyntaxKind::LParent => parens += 1,
                     SyntaxKind::LBrace => braces += 1,

@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 # Use cross-image once https://github.com/rust-embedded/cross/pull/591 is merged & released
 #FROM rustembedded/cross:armv7-unknown-linux-gnueabihf-0.2.1
@@ -7,7 +7,7 @@ FROM ghcr.io/slint-ui/cross-armv7-base:1.0
 
 RUN dpkg --add-architecture armhf && \
     apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libfontconfig1-dev:armhf libxcb1-dev:armhf libxcb-render0-dev:armhf libxcb-shape0-dev:armhf libxcb-xfixes0-dev:armhf libxkbcommon-dev:armhf libinput-dev:armhf libgbm-dev:armhf python3 \
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libfontconfig1-dev:armhf libxcb1-dev:armhf libxcb-render0-dev:armhf libxcb-shape0-dev:armhf libxcb-xfixes0-dev:armhf libxkbcommon-dev:armhf libinput-dev:armhf libgbm-dev:armhf libssl-dev:armhf python3 \
     libfontconfig1-dev \
     clang libstdc++-10-dev:armhf
 

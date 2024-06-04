@@ -51,32 +51,39 @@ types of programming languages.
 
 ## Licensing
 
-Slint is available under a [royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free-1.2.md) or [GNU GPLv3](LICENSES/GPL-3.0-only.txt), at your choice. For paid plans, visit our website [https://slint.dev](https://slint.dev) or contact us at [info@slint.dev](mailto:info@slint.dev).
+You can use Slint under ***any*** of the following licenses, at your choice:
+
+1. [Royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
+2. [GNU GPLv3](LICENSES/GPL-3.0-only.txt),
+3. [Paid license](LICENSES/LicenseRef-Slint-Software-3.0.md).
 
 ### Royalty-free license
 
 #### Who can use the Royalty-free license?
 
-This license is suitable for those who develop desktop or web applications and do not want to use open-source components under copyleft licenses.
+This license is suitable for those who develop desktop, mobile, or web applications and do not want to use open-source components under copyleft licenses.
 
 #### What obligations do I need to fulfil to use the Royalty-free license?
 
-You need to do all of the following:
+You need to do one of the following:
 
-1. Display the [`AboutSlint`](https://slint.dev/docs/slint/src/language/widgets/aboutslint) widget in an "About" screen or dialog that is accessible from the top level menu of your application.
-2. Display the [Slint attribution badge](https://github.com/slint-ui/slint/tree/master/logo/madewithslint) on a public webpage, where the binaries of your application can be downloaded from, in such a way that it can be easily found by any visitor to that page.
-3. You may not remove or alter any license notices (including copyright notices, disclaimers of warranty, or limitations of liability) contained within the source code form of Slint.
+1. Display the [`AboutSlint`](https://slint.dev/snapshots/master/docs/slint/src/language/widgets/aboutslint.html) widget in an "About" screen or dialog that is accessible from the top level menu of the Application. In the absence of such a screen or dialog, display the widget in the "Splash Screen" of the Application.
+
+2. Display the [Slint attribution badge](https://github.com/slint-ui/slint/tree/master/logo/MadeWithSlint-logo-whitebg.png) on a public webpage, preferably where the binaries of your Application can be downloaded from, in such a way that it can be easily found by any visitor to that page.
 
 #### Are there any limitations with the Royalty-free license?
 
-There are 2 limitations:
-
 1. You are not permitted to distribute or make Slint publicly available alone and without integration into an application. For this purpose you may use the Software under the GNU General Public License, version 3.
-2. You are not permitted the use Slint within Embedded Systems. An Embedded System is a computer system designed to perform a specific task within a larger mechanical or electrical system. For the purposes of this license, mobile phones are not considered to be Embedded Systems.
+
+2. You are not permitted to use Slint within Embedded Systems. An Embedded System is a computer system designed to perform a specific task within a larger mechanical or electrical system.
+
+3. You are not permitted to distribute an Application that exposes the APIs, in part or in total, of Slint.
+
+4. You are not permitted to remove or alter any license notices (including copyright notices, disclaimers of warranty, or limitations of liability) contained within the source code form of Slint.
 
 #### Scenario: What happens if my application is open-source (e.g. under MIT), forked by a different person and then redistributed?
 
-The license does not restrict users on how they license their application. In the above scenario, the user may choose to use MIT-license for their application, which can be forked by a different person and then redistributed. If the forked application also uses Slint, then the person forking the application can also use the Royalty-free license as long as the obligations are fulfilled. Alternatively, the person may use one of the other Slint license options such as commercial or GPLv3.
+The license does not restrict users on how they license their application. In the above scenario, the user may choose to use MIT-license for their application, which can be forked by a different person and then redistributed. If the forked application also uses Slint, then the person forking the application can choose to use Slint under any one of the licenses - Royalty-free, GPLv3, or paid license.
 
 #### How are modifications to Slint itself covered under this license?
 
@@ -120,8 +127,14 @@ Under GPLv3. While the different software modules can remain under any license c
 
 Alice can add a note that Bob can distribute BobApp under a proprietary license if he either acquires a Slint proprietary license or removes the dependency to Slint.
 
+### Paid License
+
+#### What are the paid license options?
+
+Check out the pricing plans on our website <https://slint.dev/pricing>.
+
 ## Miscellaneous
 
 ### Do you provide Support?
 
-Yes, we offer paid support in addition to the community support on [GitHub Discussions](https://github.com/slint-ui/slint/discussions) and on our [Mattermost chat](https://chat.slint.dev). For more information, please contact us at [info@slint.dev](mailto:info@slint.dev).
+Yes, check out our support options on our website <https://slint.dev/pricing#support>.

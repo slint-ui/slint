@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{api::Value, dynamic_type, eval};
 
@@ -28,7 +28,7 @@ use i_slint_core::lengths::{LogicalLength, LogicalRect};
 use i_slint_core::model::RepeatedItemTree;
 use i_slint_core::model::Repeater;
 use i_slint_core::platform::PlatformError;
-use i_slint_core::properties::InterpolatedPropertyValue;
+use i_slint_core::properties::{ChangeTracker, InterpolatedPropertyValue};
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::{WindowAdapterRc, WindowInner};
@@ -389,6 +389,10 @@ pub struct ItemTreeDescription<'id> {
     pub(crate) original_elements: Vec<ElementRc>,
     /// Copy of original.root_element.property_declarations, without a guarded refcell
     public_properties: BTreeMap<String, PropertyDeclaration>,
+    change_trackers: Option<(
+        FieldOffset<Instance<'id>, OnceCell<Vec<ChangeTracker>>>,
+        Vec<(NamedReference, Expression)>,
+    )>,
 
     /// compiled globals
     compiled_globals: Vec<crate::global_component::CompiledGlobal>,
@@ -900,6 +904,7 @@ pub(crate) fn generate_item_tree<'id>(
         repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
         repeater_names: HashMap<String, usize>,
         rtti: Rc<HashMap<&'static str, Rc<ItemRTTI>>>,
+        change_callbacks: Vec<(NamedReference, Expression)>,
     }
     impl<'id> generator::ItemTreeBuilder for TreeBuilder<'id> {
         type SubComponentState = ();
@@ -967,6 +972,12 @@ pub(crate) fn generate_item_tree<'id>(
                 item.id.clone(),
                 ItemWithinItemTree { offset, rtti: rt.clone(), elem: rc_item.clone() },
             );
+            for (prop, expr) in &item.change_callbacks {
+                self.change_callbacks.push((
+                    NamedReference::new(rc_item, prop),
+                    Expression::CodeBlock(expr.borrow().clone()),
+                ));
+            }
         }
 
         fn enter_component(
@@ -999,6 +1010,7 @@ pub(crate) fn generate_item_tree<'id>(
         repeater: vec![],
         repeater_names: HashMap::new(),
         rtti: Rc::new(rtti),
+        change_callbacks: vec![],
     };
 
     if !component.is_global() {
@@ -1128,6 +1140,13 @@ pub(crate) fn generate_item_tree<'id>(
 
     let extra_data_offset = builder.type_builder.add_field_type::<ComponentExtraData>();
 
+    let change_trackers = (!builder.change_callbacks.is_empty()).then(|| {
+        (
+            builder.type_builder.add_field_type::<OnceCell<Vec<ChangeTracker>>>(),
+            builder.change_callbacks,
+        )
+    });
+
     let public_properties = component.root_element.borrow().property_declarations.clone();
 
     let mut exported_globals_by_name: BTreeMap<String, usize> = Default::default();
@@ -1197,6 +1216,7 @@ pub(crate) fn generate_item_tree<'id>(
         public_properties,
         compiled_globals,
         exported_globals_by_name,
+        change_trackers,
         #[cfg(feature = "highlight")]
         type_loader: std::cell::OnceCell::new(),
     };
@@ -1608,6 +1628,44 @@ impl ErasedItemTreeBox {
                 &mut eval::EvalLocalContext::from_component_instance(instance_ref),
             );
         }
+        if let Some(cts) = instance_ref.description.change_trackers.as_ref() {
+            let self_weak = instance_ref.self_weak().get().unwrap();
+            let v = cts
+                .1
+                .iter()
+                .enumerate()
+                .map(|(idx, _)| {
+                    let ct = ChangeTracker::default();
+                    ct.init(
+                        self_weak.clone(),
+                        move |self_weak| {
+                            let s = self_weak.upgrade().unwrap();
+                            generativity::make_guard!(guard);
+                            let compo_box = s.unerase(guard);
+                            let instance_ref = compo_box.borrow_instance();
+                            let nr = &s.0.description.change_trackers.as_ref().unwrap().1[idx].0;
+                            eval::load_property(instance_ref, &nr.element(), nr.name()).unwrap()
+                        },
+                        move |self_weak, _| {
+                            let s = self_weak.upgrade().unwrap();
+                            generativity::make_guard!(guard);
+                            let compo_box = s.unerase(guard);
+                            let instance_ref = compo_box.borrow_instance();
+                            let e = &s.0.description.change_trackers.as_ref().unwrap().1[idx].1;
+                            eval::eval_expression(
+                                e,
+                                &mut eval::EvalLocalContext::from_component_instance(instance_ref),
+                            );
+                        },
+                    );
+                    ct
+                })
+                .collect::<Vec<_>>();
+            cts.0
+                .apply_pin(instance_ref.instance)
+                .set(v)
+                .unwrap_or_else(|_| panic!("run_setup_code called twice?"));
+        }
     }
 }
 impl<'id> From<ItemTreeBox<'id>> for ErasedItemTreeBox {
@@ -1755,7 +1813,7 @@ extern "C" fn subtree_index(component: ItemTreeRefPin) -> usize {
     if let Ok(value) = instance_ref.description.get_property(component, SPECIAL_PROPERTY_INDEX) {
         value.try_into().unwrap()
     } else {
-        core::usize::MAX
+        usize::MAX
     }
 }
 

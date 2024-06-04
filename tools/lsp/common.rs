@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Data structures common between LSP and previewer
 
@@ -9,6 +9,12 @@ use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
 use std::{collections::HashMap, path::PathBuf};
+
+pub mod rename_component;
+#[cfg(test)]
+pub mod test;
+#[cfg(any(test, feature = "preview-engine"))]
+pub mod text_edit;
 
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
@@ -26,6 +32,36 @@ pub fn extract_element(node: SyntaxNode) -> Option<syntax_nodes::Element> {
         }
         _ => None,
     }
+}
+
+fn find_element_with_decoration(element: &syntax_nodes::Element) -> SyntaxNode {
+    let this_node: SyntaxNode = element.clone().into();
+    element
+        .parent()
+        .and_then(|p| match p.kind() {
+            SyntaxKind::SubElement => p.parent().map(|gp| {
+                if gp.kind() == SyntaxKind::ConditionalElement
+                    || gp.kind() == SyntaxKind::RepeatedElement
+                {
+                    gp
+                } else {
+                    p
+                }
+            }),
+            _ => Some(this_node.clone()),
+        })
+        .unwrap_or(this_node)
+}
+
+fn find_parent_component(node: &SyntaxNode) -> Option<SyntaxNode> {
+    let mut current = Some(node.clone());
+    while let Some(p) = current {
+        if matches!(p.kind(), SyntaxKind::Component) {
+            return Some(p);
+        }
+        current = p.parent();
+    }
+    None
 }
 
 #[derive(Clone)]
@@ -52,6 +88,11 @@ impl ElementRcNode {
         let _ = element.borrow().debug.get(debug_index)?;
 
         Some(Self { element, debug_index })
+    }
+
+    /// Some nodes get merged into the same ElementRc with no real connections between them...
+    pub fn next_element_rc_node(&self) -> Option<Self> {
+        Self::new(self.element.clone(), self.debug_index + 1)
     }
 
     pub fn find_in(element: ElementRc, path: &std::path::Path, offset: u32) -> Option<Self> {
@@ -83,6 +124,7 @@ impl ElementRcNode {
         }
     }
 
+    /// Run with all the debug information on the node
     pub fn with_element_debug<R>(
         &self,
         func: impl Fn(
@@ -95,12 +137,19 @@ impl ElementRcNode {
         func(n, l)
     }
 
+    /// Run with the `Element` node
     pub fn with_element_node<R>(
         &self,
         func: impl Fn(&i_slint_compiler::parser::syntax_nodes::Element) -> R,
     ) -> R {
         let elem = self.element.borrow();
         func(&elem.debug.get(self.debug_index).unwrap().0)
+    }
+
+    /// Run with the SyntaxNode incl. any id, condition, etc.
+    pub fn with_decorated_node<R>(&self, func: impl Fn(SyntaxNode) -> R) -> R {
+        let elem = self.element.borrow();
+        func(find_element_with_decoration(&elem.debug.get(self.debug_index).unwrap().0))
     }
 
     pub fn path_and_offset(&self) -> (PathBuf, u32) {
@@ -113,7 +162,7 @@ impl ElementRcNode {
         &self.element
     }
 
-    pub fn parent(&self, root_element: ElementRc) -> Option<ElementRcNode> {
+    pub fn parent(&self) -> Option<ElementRcNode> {
         let parent = self.with_element_node(|node| {
             let mut ancestor = node.parent()?;
             loop {
@@ -126,6 +175,27 @@ impl ElementRcNode {
 
         let (parent_path, parent_offset) =
             (parent.source_file.path().to_owned(), u32::from(parent.text_range().start()));
+        let root_element = {
+            let component = self.element.borrow().enclosing_component.upgrade().unwrap();
+            let current_root = component.root_element.clone();
+
+            if std::rc::Rc::ptr_eq(&current_root, &self.element)
+                && !component.is_root_component.get()
+            {
+                component
+                    .parent_element
+                    .upgrade()?
+                    .borrow()
+                    .enclosing_component
+                    .upgrade()
+                    .unwrap()
+                    .root_element
+                    .clone()
+            } else {
+                current_root
+            }
+        };
+
         Self::find_in_or_below(root_element, &parent_path, parent_offset)
     }
 
@@ -144,7 +214,6 @@ impl ElementRcNode {
                     ) else {
                         continue;
                     };
-
                     children.push(child_node);
                 }
             }
@@ -157,6 +226,17 @@ impl ElementRcNode {
         self.with_element_node(|node| {
             node.QualifiedName().map(|qn| qn.text().to_string()).unwrap_or_default()
         })
+    }
+
+    pub fn is_same_component_as(&self, other: &Self) -> bool {
+        let Some(s) = self.with_element_node(|n| find_parent_component(n)) else {
+            return false;
+        };
+        let Some(o) = other.with_element_node(|n| find_parent_component(n)) else {
+            return false;
+        };
+
+        std::rc::Rc::ptr_eq(&s.source_file, &o.source_file) && s.text_range() == o.text_range()
     }
 }
 
@@ -184,7 +264,6 @@ pub fn create_workspace_edit_from_source_file(
     ))
 }
 
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn create_workspace_edit_from_source_files(
     mut inputs: Vec<(SourceFile, TextEdit)>,
 ) -> Option<WorkspaceEdit> {
@@ -200,6 +279,7 @@ pub fn create_workspace_edit_from_source_files(
                 .entry((url, sf.version()))
                 .and_modify(|v| v.push(edit.clone()))
                 .or_insert_with(|| vec![edit]);
+        } else {
         }
     });
 

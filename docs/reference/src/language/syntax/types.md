@@ -10,7 +10,7 @@ All properties in Slint have a type. Slint knows these basic types:
 | `brush`              | A brush is a special type that can be either initialized from a color or a gradient specification. See the [Colors and Brushes Section](#colors-and-brushes) for more information.                                                                                                                                                               | transparent   |
 | `color`              | RGB color with an alpha channel, with 8 bit precision for each channel. CSS color names as well as the hexadecimal color encodings are supported, such as `#RRGGBBAA` or `#RGB`.                                                                                                                                                                 | transparent   |
 | `duration`           | Type for the duration of animations. A suffix like `ms` (millisecond) or `s` (second) is used to indicate the precision.                                                                                                                                                                                                                         | 0ms           |
-| `easing`             | Property animation allow specifying an easing curve. Valid values are `linear` (values are interpolated linearly) and the [four common cubiz-bezier functions known from CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function#Keywords_for_common_cubic-bezier_easing_functions): `ease`, `ease_in`, `ease_in_out`, `ease_out`. | linear        |
+| `easing`             | Property animation allow specifying an easing curve. See [animations](animations.md) for list of values.                                                                                                                                                                                                                                         | linear        |
 | `float`              | Signed, 32-bit floating point number. Numbers with a `%` suffix are automatically divided by 100, so for example `30%` is the same as `0.30`.                                                                                                                                                                                                    | 0             |
 | `image`              | A reference to an image, can be initialized with the `@image-url("...")` construct                                                                                                                                                                                                                                                               | empty image   |
 | `int`                | Signed integral number.                                                                                                                                                                                                                                                                                                                          | 0             |
@@ -105,7 +105,7 @@ All colors and brushes define the following methods:
     Returns a new color with the opacity decreased by `factor`.
     The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
 
--  **`with_alpha(alpha: float) -> brush`**
+-  **`with-alpha(alpha: float) -> brush`**
 
     Returns a new color with the alpha value set to `alpha` (between 0 and 1)
 
@@ -146,12 +146,12 @@ export component Example inherits Window {
 
 ### Radial Gradients
 
-Linear gradiants are like real gradiant but the colors is interpolated in a circle instead of
-along a line. To describe a readial gradiant, use the `@radial-gradient` macro with the following signature:
+Radial gradients are like linear gradients but the colors are interpolated circularly instead of
+along a line. To describe a radial gradient, use the `@radial-gradient` macro with the following signature:
 
 **`@radial-gradient(circle, color percentage, color percentage, ...)`**
 
-The first parameter to the macro is always `circle` because only circular radients are supported.
+The first parameter to the macro is always `circle` because only circular gradients are supported.
 The syntax is otherwise based on the CSS `radial-gradient` function.
 
 Example:

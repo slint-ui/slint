@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Uri } from "vscode";
 
@@ -202,7 +202,7 @@ function map_url(webview: vscode.Webview, url_: string) {
 
     try {
         const url = Uri.parse(url_, false);
-        if (vscode.workspace.getWorkspaceFolder(url) && url.scheme === "file") {
+        if (vscode.workspace.getWorkspaceFolder(url)) {
             result = previewPanel?.webview.asWebviewUri(url)?.toString();
         }
     } catch (_) {

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore rfind
 
@@ -16,6 +16,7 @@ use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
+use i_slint_compiler::typeloader::TypeLoader;
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
     Range, TextEdit,
@@ -130,7 +131,12 @@ pub(crate) fn completion_at(
             }
 
             if !is_global && snippet_support {
-                add_components_to_import(&token, document_cache, available_types, &mut r);
+                add_components_to_import(
+                    &token,
+                    &document_cache.documents,
+                    available_types,
+                    &mut r,
+                );
             }
 
             r
@@ -139,7 +145,8 @@ pub(crate) fn completion_at(
         if let Some(colon) = n.child_token(SyntaxKind::Colon) {
             if offset >= colon.text_range().end().into() {
                 return with_lookup_ctx(&document_cache.documents, node, |ctx| {
-                    resolve_expression_scope(ctx).map(Into::into)
+                    resolve_expression_scope(ctx, &document_cache.documents, snippet_support)
+                        .map(Into::into)
                 })?;
             }
         }
@@ -159,7 +166,7 @@ pub(crate) fn completion_at(
             return None;
         }
         return with_lookup_ctx(&document_cache.documents, node, |ctx| {
-            resolve_expression_scope(ctx)
+            resolve_expression_scope(ctx, &document_cache.documents, snippet_support)
         })?;
     } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
@@ -232,7 +239,8 @@ pub(crate) fn completion_at(
         }
 
         return with_lookup_ctx(&document_cache.documents, node, |ctx| {
-            resolve_expression_scope(ctx).map(Into::into)
+            resolve_expression_scope(ctx, &document_cache.documents, snippet_support)
+                .map(Into::into)
         })?;
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
@@ -264,7 +272,12 @@ pub(crate) fn completion_at(
 
                 if snippet_support {
                     let available_types = result.iter().map(|c| c.label.clone()).collect();
-                    add_components_to_import(&token, document_cache, available_types, &mut result);
+                    add_components_to_import(
+                        &token,
+                        &document_cache.documents,
+                        available_types,
+                        &mut result,
+                    );
                 }
 
                 return Some(result);
@@ -280,7 +293,12 @@ pub(crate) fn completion_at(
                     });
                     let first = it.next();
                     if first.as_ref().map_or(true, |f| f.token == token.token) {
-                        return resolve_expression_scope(ctx).map(Into::into);
+                        return resolve_expression_scope(
+                            ctx,
+                            &document_cache.documents,
+                            snippet_support,
+                        )
+                        .map(Into::into);
                     }
                     let first = i_slint_compiler::parser::normalize_identifier(first?.text());
                     let global = i_slint_compiler::lookup::global_lookup();
@@ -517,13 +535,51 @@ fn de_normalize_property_name_with_element<'a>(element: &ElementRc, prop: &'a st
     }
 }
 
-fn resolve_expression_scope(lookup_context: &LookupCtx) -> Option<Vec<CompletionItem>> {
+fn resolve_expression_scope(
+    lookup_context: &LookupCtx,
+    documents: &TypeLoader,
+    snippet_support: bool,
+) -> Option<Vec<CompletionItem>> {
     let mut r = Vec::new();
     let global = i_slint_compiler::lookup::global_lookup();
     global.for_each_entry(lookup_context, &mut |str, expr| -> Option<()> {
         r.push(completion_item_from_expression(str, expr));
         None
     });
+    if snippet_support {
+        if let Some(token) = lookup_context.current_token.as_ref().and_then(|t| match t {
+            i_slint_compiler::parser::NodeOrToken::Node(n) => n.first_token(),
+            i_slint_compiler::parser::NodeOrToken::Token(t) => Some(t.clone()),
+        }) {
+            let mut available_types: HashSet<String> = r.iter().map(|c| c.label.clone()).collect();
+            build_import_statements_edits(
+                &token,
+                documents,
+                &mut |ci: &ComponentInformation| {
+                    if !ci.is_global || !ci.is_exported {
+                        false
+                    } else if available_types.contains(&ci.name) {
+                        false
+                    } else {
+                        available_types.insert(ci.name.clone());
+                        true
+                    }
+                },
+                &mut |exported_name, file, the_import| {
+                    r.push(CompletionItem {
+                        label: format!("{} (import from \"{}\")", exported_name, file),
+                        insert_text: Some(exported_name.to_string()),
+                        insert_text_format: Some(InsertTextFormat::SNIPPET),
+                        filter_text: Some(exported_name.to_string()),
+                        kind: Some(CompletionItemKind::CLASS),
+                        detail: Some(format!("(import from \"{}\")", file)),
+                        additional_text_edits: Some(vec![the_import]),
+                        ..Default::default()
+                    });
+                },
+            );
+        }
+    }
     Some(r)
 }
 
@@ -631,18 +687,20 @@ fn complete_path_in_string(base: &Path, text: &str, offset: u32) -> Option<Vec<C
 /// import and should already be in result
 fn add_components_to_import(
     token: &SyntaxToken,
-    document_cache: &mut DocumentCache,
+    documents: &TypeLoader,
     mut available_types: HashSet<String>,
     result: &mut Vec<CompletionItem>,
 ) {
     build_import_statements_edits(
         token,
-        document_cache,
-        &mut |exported_name| {
-            if available_types.contains(exported_name) {
+        documents,
+        &mut |ci: &ComponentInformation| {
+            if ci.is_global || !ci.is_exported {
+                false
+            } else if available_types.contains(&ci.name) {
                 false
             } else {
-                available_types.insert(exported_name.to_string());
+                available_types.insert(ci.name.clone());
                 true
             }
         },
@@ -779,25 +837,19 @@ pub fn create_import_edit(
 /// Call `add_edit` with the component name and file name and TextEdit for every component for which the `filter` callback returns true
 pub fn build_import_statements_edits(
     token: &SyntaxToken,
-    document_cache: &mut DocumentCache,
-    filter: &mut dyn FnMut(&str) -> bool,
+    documents: &TypeLoader,
+    filter: &mut dyn FnMut(&ComponentInformation) -> bool,
     add_edit: &mut dyn FnMut(&str, &str, TextEdit),
 ) -> Option<()> {
     // Find out types that can be imported
     let current_file = token.source_file.path().to_owned();
     let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
-    let current_doc = document_cache.documents.get_document(&current_file)?.node.as_ref()?;
+    let current_doc = documents.get_document(&current_file)?.node.as_ref()?;
     let (missing_import_location, known_import_locations) = find_import_locations(current_doc);
 
     let exports = {
         let mut tmp = Vec::new();
-        all_exported_components(
-            document_cache,
-            &mut move |ci: &ComponentInformation| {
-                !filter(&ci.name) || ci.is_global || !ci.is_exported
-            },
-            &mut tmp,
-        );
+        all_exported_components(documents, filter, &mut tmp);
         tmp
     };
 
@@ -894,6 +946,14 @@ mod tests {
             res.iter().find(|ci| ci.label == "self").unwrap();
             res.iter().find(|ci| ci.label == "root").unwrap();
             res.iter().find(|ci| ci.label == "TextInputInterface").unwrap();
+            let palette = res
+                .iter()
+                .find(|ci| ci.insert_text.as_ref().is_some_and(|t| t == "Palette"))
+                .unwrap();
+            assert_eq!(
+                palette.additional_text_edits.as_ref().unwrap()[0].new_text,
+                "import { Palette } from \"std-widgets.slint\";\n"
+            );
 
             assert!(!res.iter().any(|ci| ci.label == "text"));
             assert!(!res.iter().any(|ci| ci.label == "red"));
@@ -1045,7 +1105,7 @@ mod tests {
         "#;
         let res = get_completions(source).unwrap();
         res.iter().find(|ci| ci.label == "LineEdit").unwrap();
-        res.iter().find(|ci| ci.label == "StyleMetrics").unwrap();
+        res.iter().find(|ci| ci.label == "Palette").unwrap();
 
         let source = r#"
             import { Foo, 🔺} from "std-widgets.slint"

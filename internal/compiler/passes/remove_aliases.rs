@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! This pass removes the property used in a two ways bindings
 
@@ -159,6 +159,14 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 }
             }
         };
+
+        // Adjust the change callbacks
+        {
+            let mut elem = elem.borrow_mut();
+            if let Some(old_change_callback) = elem.change_callbacks.remove(remove.name()) {
+                elem.change_callbacks.insert(to.name().to_owned(), old_change_callback);
+            }
+        }
 
         // Remove the declaration
         {

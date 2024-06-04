@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import test from 'ava';
 
@@ -158,14 +158,8 @@ test('invoke global callback', (t) => {
   instance!.invokeGlobal("Global", "great-person", [{ "name": "simon" }]);
   t.deepEqual(speakTest, "hello simon");
 
-  t.throws(() => {
-    instance!.invokeGlobal("Global", "great-person", [{ "hello": "simon" }]);
-  },
-    {
-      code: "InvalidArg",
-      message: "expect String, got: Undefined"
-    }
-  );
+  instance!.invokeGlobal("Global", "great-person", [{ "hello": "simon" }]);
+  t.deepEqual(speakTest, "hello ");
 
   t.deepEqual(instance!.invokeGlobal("Global", "get-string", []), "string");
   t.deepEqual(instance!.invokeGlobal("Global", "person", []), { "name": "florian" });

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::{Cell, RefCell};
 use std::sync::Arc;
@@ -134,7 +134,7 @@ impl VulkanSurface {
             )
         };
 
-        let gr_context = skia_safe::gpu::DirectContext::new_vulkan(&backend_context, None)
+        let gr_context = skia_safe::gpu::direct_contexts::make_vulkan(&backend_context, None)
             .ok_or_else(|| format!("Error creating Skia Vulkan context"))?;
 
         let previous_frame_end = RefCell::new(Some(sync::now(device.clone()).boxed()));

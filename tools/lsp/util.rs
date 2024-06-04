@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::diagnostics::{DiagnosticLevel, SourceFile, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
@@ -23,6 +23,11 @@ pub fn map_node_and_url(node: &SyntaxNode) -> Option<(lsp_types::Url, lsp_types:
 
 pub fn map_node(node: &SyntaxNode) -> Option<lsp_types::Range> {
     let range = node.text_range();
+    // shorten range to not include trailing WS:
+    let range = TextRange::new(
+        range.start(),
+        last_non_ws_token(node).map(|t| t.text_range().end()).unwrap_or(range.end()),
+    );
     node.source_file().map(|sf| map_range(sf, range))
 }
 
@@ -199,6 +204,7 @@ pub fn with_property_lookup_ctx<R>(
     lookup_context.property_name = Some(prop_name);
     lookup_context.property_type = ty.unwrap_or_default();
     lookup_context.component_scope = &scope;
+    lookup_context.current_token = Some((**element).clone().into());
 
     if let Some(cb) = element
         .CallbackConnection()

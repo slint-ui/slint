@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! This module contains the implementation of the builtin macros.
 //! They are just transformations that convert into some more complicated expression tree
@@ -26,6 +26,7 @@ pub fn lower_macro(
         BuiltinMacroFunction::Max => min_max_macro(n, MinMaxOp::Max, sub_expr.collect(), diag),
         BuiltinMacroFunction::Clamp => clamp_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Mod => mod_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::Abs => abs_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::CubicBezier => {
             let mut has_error = None;
@@ -183,6 +184,47 @@ fn mod_macro(
     }
 }
 
+fn abs_macro(
+    node: Option<NodeOrToken>,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() != 1 {
+        diag.push_error("Needs 1 argument".into(), &node);
+        return Expression::Invalid;
+    }
+    let ty = args[0].0.ty();
+    let ty = if ty.default_unit().is_some() || matches!(ty, Type::UnitProduct(_)) {
+        ty
+    } else {
+        Type::Float32
+    };
+
+    let source_location = node.map(|n| n.to_source_location());
+    let function = Box::new(Expression::BuiltinFunctionReference(
+        BuiltinFunction::Abs,
+        source_location.clone(),
+    ));
+    if matches!(ty, Type::Float32) {
+        let arguments =
+            args.into_iter().map(|(e, n)| e.maybe_convert_to(ty.clone(), &n, diag)).collect();
+        Expression::FunctionCall { function, arguments, source_location }
+    } else {
+        Expression::Cast {
+            from: Expression::FunctionCall {
+                function,
+                arguments: args
+                    .into_iter()
+                    .map(|(a, _)| Expression::Cast { from: a.into(), to: Type::Float32 })
+                    .collect(),
+                source_location,
+            }
+            .into(),
+            to: ty,
+        }
+    }
+}
+
 fn rgb_macro(
     node: Option<NodeOrToken>,
     args: Vec<(Expression, Option<NodeOrToken>)>,
@@ -239,17 +281,8 @@ fn hsv_macro(
         );
         return Expression::Invalid;
     }
-    let mut arguments: Vec<_> = args
-        .into_iter()
-        .enumerate()
-        .map(|(i, (expr, n))| {
-            if i < 3 {
-                expr.maybe_convert_to(Type::Float32, &n, diag)
-            } else {
-                expr.maybe_convert_to(Type::Float32, &n, diag)
-            }
-        })
-        .collect();
+    let mut arguments: Vec<_> =
+        args.into_iter().map(|(expr, n)| expr.maybe_convert_to(Type::Float32, &n, diag)).collect();
     if arguments.len() < 4 {
         arguments.push(Expression::NumberLiteral(1., Unit::None))
     }

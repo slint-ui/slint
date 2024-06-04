@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 # Build various demo binaries, c++ packages and documentation and publish them on the website
 name: Nightly snapshot
@@ -405,13 +405,17 @@ jobs:
 
             - name: Update versions.txt
               if: github.event.inputs.release == 'true'
-              run: ls -1 | grep -v versions.txt | sort --version-sort -r > versions.txt
+              run: ls -1d */ | cut -f1 -d'/' | sort --version-sort -r > versions.txt
               working-directory: www-releases/releases
 
             - name: Update SlintPad
               if: github.event.inputs.release == 'true'
               run: |
+                  rm -rf www-releases/slintpad
                   cp -r www-releases/releases/${{ steps.version.outputs.VERSION }}/editor www-releases/slintpad
+                  for f in 404.html script.js LICENSE.md; do
+                      cp www-releases/releases/$f www-releases/slintpad
+                  done                  
                   echo "${{ steps.version.outputs.VERSION }}" > www-releases/slintpad/versions.txt
 
             - name: commit and push

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
 import { Slider } from "std-widgets.slint";
@@ -10,10 +10,13 @@ export component TestCase inherits Window {
         minimum: 0;
         maximum: 100;
         value: 10;
+        width: 100%;
+        height: 100%;
     }
 
     forward-focus: slider;
     out property <bool> slider-focused <=> slider.has_focus;
+    in-out property <float> value <=> slider.value;
     callback released <=> slider.released;
     callback changed <=> slider.changed;
 }
@@ -27,6 +30,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+instance.set_value(10.);
 
 let edits = Rc::new(RefCell::new(Vec::new()));
 let changes = Rc::new(RefCell::new(Vec::new()));
@@ -43,7 +48,6 @@ instance.on_changed({
     changes.borrow_mut().push(val);
 }});
 
-slint_testing::send_mouse_click(&instance, 5., 5.);
 assert!(edits.borrow().is_empty());
 assert!(changes.borrow().is_empty());
 assert!(instance.get_slider_focused());
@@ -60,6 +64,23 @@ slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(edits.borrow().clone(), vec![14f32]);
 assert_eq!(changes.borrow().clone(), vec![11f32, 12f32, 13f32, 14f32]);
 
+edits.borrow_mut().clear();
+
+// Reset to center
+instance.set_value(50.);
+
+// Press center and then drag outside
+let mut position = slint::LogicalPosition::new(50., 50.);
+let button = slint::platform::PointerEventButton::Left;
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerPressed { position, button });
+slint_testing::mock_elapsed_time(50);
+for x in (position.x as usize..200).step_by(10) {
+    position.x = x as _;
+    instance.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+}
+instance.window().dispatch_event(slint::platform::WindowEvent::PointerReleased { position, button });
+assert_eq!(edits.borrow().clone(), vec![100f32]);
 ```
 
 */

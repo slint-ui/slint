@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Passes that fills the Property::use_count
 //!
@@ -109,6 +109,12 @@ pub fn count_property_use(root: &PublicComponent) {
         // 8.functions (TODO: only visit used function)
         for f in &sc.functions {
             f.code.visit_recursive(&mut |e| visit_expression(e, ctx));
+        }
+
+        // 9. change callbacks
+        for (p, e) in &sc.change_callbacks {
+            visit_property(p, ctx);
+            e.visit_recursive(&mut |e| visit_expression(e, ctx));
         }
     });
 

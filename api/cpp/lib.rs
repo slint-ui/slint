@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /*! This crate just expose the function used by the C++ integration */
 
@@ -9,6 +9,7 @@ extern crate alloc;
 use alloc::rc::Rc;
 use core::ffi::c_void;
 use i_slint_core::window::{ffi::WindowAdapterRcOpaque, WindowAdapter};
+use i_slint_core::SharedString;
 
 pub mod platform;
 
@@ -100,8 +101,8 @@ pub unsafe extern "C" fn slint_quit_event_loop() {
 #[no_mangle]
 pub unsafe extern "C" fn slint_register_font_from_path(
     win: *const WindowAdapterRcOpaque,
-    path: &i_slint_core::SharedString,
-    error_str: *mut i_slint_core::SharedString,
+    path: &SharedString,
+    error_str: *mut SharedString,
 ) {
     let window_adapter = &*(win as *const Rc<dyn WindowAdapter>);
     core::ptr::write(
@@ -119,7 +120,7 @@ pub unsafe extern "C" fn slint_register_font_from_path(
 pub unsafe extern "C" fn slint_register_font_from_data(
     win: *const WindowAdapterRcOpaque,
     data: i_slint_core::slice::Slice<'static, u8>,
-    error_str: *mut i_slint_core::SharedString,
+    error_str: *mut SharedString,
 ) {
     let window_adapter = &*(win as *const Rc<dyn WindowAdapter>);
     core::ptr::write(
@@ -138,6 +139,17 @@ pub unsafe extern "C" fn slint_register_bitmap_font(
 ) {
     let window_adapter = &*(win as *const Rc<dyn WindowAdapter>);
     window_adapter.renderer().register_bitmap_font(font_data);
+}
+
+#[no_mangle]
+pub extern "C" fn slint_string_to_float(string: &SharedString, value: &mut f32) -> bool {
+    match string.as_str().parse::<f32>() {
+        Ok(v) => {
+            *value = v;
+            true
+        }
+        Err(_) => false,
+    }
 }
 
 #[cfg(not(feature = "std"))]

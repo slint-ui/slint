@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::{
     input::key_codes,
@@ -217,8 +217,10 @@ impl Item for NativeSlider {
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+                if data.pressed != 0 {
+                    Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
+                }
                 data.pressed = 0;
-                Self::FIELD_OFFSETS.released.apply_pin(self).call(&(self.value(),));
                 InputEventResult::EventAccepted
             }
             MouseEvent::Moved { position: pos } => {

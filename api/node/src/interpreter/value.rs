@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{
     js_into_rust_model, rust_into_js_model, ReadOnlyRustModel, RgbaColor, SlintBrush,
@@ -221,16 +221,14 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: &Type) -> Result<Value> {
                 fields
                     .iter()
                     .map(|(pro_name, pro_ty)| {
-                        Ok((
-                            pro_name.clone(),
-                            to_value(
-                                env,
-                                js_object.get_property(
-                                    env.create_string(&pro_name.replace('-', "_"))?,
-                                )?,
-                                pro_ty,
-                            )?,
-                        ))
+                        let prop: JsUnknown = js_object
+                            .get_property(env.create_string(&pro_name.replace('-', "_"))?)?;
+                        let prop_value = if prop.get_type()? == napi::ValueType::Undefined {
+                            slint_interpreter::default_value_for_type(pro_ty)
+                        } else {
+                            to_value(env, prop, pro_ty)?
+                        };
+                        Ok((pro_name.clone(), prop_value))
                     })
                     .collect::<Result<_, _>>()?,
             ))

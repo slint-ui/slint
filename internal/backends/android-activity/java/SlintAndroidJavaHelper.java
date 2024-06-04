@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.content.ClipData;
@@ -409,6 +410,8 @@ public class SlintAndroidJavaHelper {
             public void run() {
                 InputMethodManager imm = (InputMethodManager) mActivity.getSystemService(Context.INPUT_METHOD_SERVICE);
                 imm.hideSoftInputFromWindow(mInputView.getWindowToken(), 0);
+                mInputView.clearFocus();
+                mInputView.setCursorPos(0, 0, 0, 0, 0, 0);
             }
         });
     }
@@ -464,6 +467,16 @@ public class SlintAndroidJavaHelper {
     public Rect get_view_rect() {
         Rect rect = new Rect();
         mActivity.getWindow().getDecorView().getWindowVisibleDisplayFrame(rect);
+        WindowInsets insets = mActivity.getWindow().getDecorView().getRootView().getRootWindowInsets();
+        if (insets != null) {
+            int dx = rect.left - insets.getSystemWindowInsetLeft();
+            int dy = rect.top - insets.getSystemWindowInsetTop();
+
+            rect.left -= dx;
+            rect.right -= dx;
+            rect.top -= dy;
+            rect.bottom -= dy;
+        }
         return rect;
     }
 

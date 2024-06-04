@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #pragma once
 #include "slint-testing.h"
@@ -51,6 +51,9 @@ void assert_eq_impl(const A &a, const B &b, const char *a_str, const char *b_str
         // Do a cast to the common type to avoid warning about signed vs. unsigned compare
         using T = std::common_type_t<A, B>;
         nok = T(a) != T(b);
+    } else if constexpr (std::is_floating_point_v<A> && std::is_floating_point_v<B>) {
+        const double dEpsilon = 0.000001; // or some other small number
+        nok = fabs(a - b) > dEpsilon * fabs(a);
     } else {
         nok = a != b;
     }

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::{Cell, RefCell};
 use std::os::fd::{AsFd, BorrowedFd, OwnedFd};
@@ -22,17 +22,6 @@ impl AsFd for SharedFd {
 impl drm::Device for SharedFd {}
 
 impl drm::control::Device for SharedFd {}
-
-struct OwnedFramebufferHandle {
-    handle: drm::control::framebuffer::Handle,
-    device: SharedFd,
-}
-
-impl Drop for OwnedFramebufferHandle {
-    fn drop(&mut self) {
-        self.device.destroy_framebuffer(self.handle).ok();
-    }
-}
 
 #[derive(Default)]
 enum PageFlipState {

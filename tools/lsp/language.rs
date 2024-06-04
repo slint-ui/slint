@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore descr rfind unindented
 
@@ -391,7 +391,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         {
             let p = tk.parent();
             let version = p.source_file.version();
-            if let Some(value) = find_element_id_for_highlight(&tk, &tk.parent()) {
+            if let Some(value) = find_element_id_for_highlight(&tk, &p) {
                 let edits: Vec<_> = value
                     .into_iter()
                     .map(|r| TextEdit {
@@ -401,8 +401,20 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     .collect();
                 return Ok(Some(common::create_workspace_edit(uri, version, edits)));
             }
-        };
-        Err("This symbol cannot be renamed. (Only element id can be renamed at the moment)".into())
+            match p.kind() {
+                SyntaxKind::DeclaredIdentifier => {
+                    common::rename_component::rename_component_from_definition(
+                        &document_cache.documents,
+                        &p.into(),
+                        params.new_name,
+                    )
+                    .map(Some)
+                }
+                _ => Err("This symbol cannot be renamed.".into()),
+            }
+        } else {
+            Err("This symbol cannot be renamed.".into())
+        }
     });
     rh.register::<PrepareRenameRequest, _>(|params, ctx| async move {
         let mut document_cache = ctx.document_cache.borrow_mut();
@@ -411,7 +423,15 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             if find_element_id_for_highlight(&tk, &tk.parent()).is_some() {
                 return Ok(util::map_token(&tk).map(PrepareRenameResponse::Range));
             }
-        };
+            let p = tk.parent();
+            if matches!(p.kind(), SyntaxKind::DeclaredIdentifier) {
+                if let Some(gp) = p.parent() {
+                    if gp.kind() == SyntaxKind::Component {
+                        return Ok(util::map_node(&p).map(PrepareRenameResponse::Range));
+                    }
+                }
+            }
+        }
         Ok(None)
     });
     rh.register::<Formatting, _>(|params, ctx| async move {
@@ -706,8 +726,8 @@ fn report_known_components(document_cache: &mut DocumentCache, ctx: &Rc<Context>
     let mut components = Vec::new();
     component_catalog::builtin_components(document_cache, &mut components);
     component_catalog::all_exported_components(
-        document_cache,
-        &mut |ci| ci.is_global,
+        &document_cache.documents,
+        &mut |ci| !ci.is_global,
         &mut components,
     );
 
@@ -715,11 +735,10 @@ fn report_known_components(document_cache: &mut DocumentCache, ctx: &Rc<Context>
 
     let url = ctx.to_show.borrow().as_ref().map(|pc| {
         let url = pc.url.clone();
-        let file = PathBuf::from(url.to_string());
         let version = document_cache.document_version(&url);
-
-        component_catalog::file_local_components(document_cache, &file, &mut components);
-
+        if let Ok(file) = url.to_file_path() {
+            component_catalog::file_local_components(document_cache, &file, &mut components);
+        }
         common::VersionedUrl::new(url, version)
     });
 
@@ -924,8 +943,8 @@ fn get_code_actions(
             let text = token.text();
             completion::build_import_statements_edits(
                 &token,
-                document_cache,
-                &mut |name| name == text,
+                &document_cache.documents,
+                &mut |ci| !ci.is_global && ci.is_exported && ci.name == text,
                 &mut |_name, file, edit| {
                     result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                         title: format!("Add import from \"{file}\""),

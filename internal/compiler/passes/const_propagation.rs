@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Try to simplify property bindings by propagating constant expressions
 
@@ -186,7 +186,9 @@ fn extract_constant_property_reference(nr: &NamedReference) -> Option<Expression
         }
 
         // There is no binding for this property, return the default value
-        return Some(Expression::default_value_for_type(&nr.ty()));
+        let ty = nr.ty();
+        debug_assert!(!matches!(ty, Type::Invalid));
+        return Some(Expression::default_value_for_type(&ty));
     };
     if !(simplify_expression(&mut expression)) {
         return None;

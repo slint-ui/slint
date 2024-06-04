@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 mod apply_default_properties_from_style;
 mod binding_analysis;
@@ -78,6 +78,7 @@ pub async fn run_passes(
 
     let global_type_registry = type_loader.global_type_registry.clone();
     let root_component = &doc.root_component;
+    root_component.is_root_component.set(true);
     run_import_passes(doc, type_loader, diag);
     check_public_api::check_public_api(doc, diag);
 
@@ -271,8 +272,6 @@ pub async fn run_passes(
             );
         }
     }
-
-    root_component.is_root_component.set(true);
 }
 
 /// Run the passes on imported documents

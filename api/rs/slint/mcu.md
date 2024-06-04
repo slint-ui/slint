@@ -29,7 +29,7 @@ Start by adding a dependency to the `slint` and the `slint-build` crates to your
 Start with the `slint` crate like this:
 
 ```sh
-cargo add slint@1.5.0 --no-default-features --features "compat-1-2 unsafe-single-threaded libm"
+cargo add slint@1.6.0 --no-default-features --features "compat-1-2 unsafe-single-threaded libm renderer-software"
 ```
 
 The default features of the `slint` crate are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
@@ -43,6 +43,7 @@ In the snippet above, three features are selected:
    feature changes Slint to use unsafe static for storage. This way, you guarantee to use Slint API only from a single thread, and not from interrupt handlers.
  * `libm`: We select this feature to enable the use of the [libm](https://crates.io/crates/libm) crate to provide traits and functions for floating point arithmetic.
    They're typically provided by the Rust Standard Library (std), but that's not available in bare metal environments.
+ * `renderer-software`: We select this feature to use Slint's built-in software renderer. 
 
 It might be necessary to enable the [Feature resolver version 2](https://doc.rust-lang.org/cargo/reference/features.html#feature-resolver-version-2)
 in your Cargo.toml if you notice that your dependencies are attempting to build with `std` support even when disabled.
@@ -51,7 +52,7 @@ This is the default when using the Rust 2021 Edition, but not if you use a works
 Then add the `slint-build` crate as a build dependency:
 
 ```sh
-cargo add --build slint-build@1.5.0
+cargo add --build slint-build@1.6.0
 ```
 
 For reference: These are the relevant parts of your `Cargo.toml` file,
@@ -67,11 +68,11 @@ edition = "2021"
 ## ... your other dependencies
 
 [dependencies.slint]
-version = "1.5.0"
+version = "1.6.0"
 default-features = false
-features = ["compat-1-2", "unsafe-single-threaded", "libm"]
+features = ["compat-1-2", "unsafe-single-threaded", "libm", "renderer-software"]
 [build-dependencies]
-slint-build = "1.5.0"
+slint-build = "1.6.0"
 ```
 
 ## Changes to `build.rs`

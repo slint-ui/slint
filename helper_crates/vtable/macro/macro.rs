@@ -396,7 +396,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     return Error::new(a.span(), "invalid ABI").to_compile_error().into();
                 }
             } else {
-                f.abi = sig_extern.abi.clone();
+                f.abi.clone_from(&sig_extern.abi);
             }
 
             let mut wrap_trait_call = None;

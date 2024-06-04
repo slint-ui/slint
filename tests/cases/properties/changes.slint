@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    in-out property <string> result;
+    in property <int> value: 56;
+    changed value => {
+        if false { return; }
+        result += "value(" + value + ")";
+    }
+    property <int> other: clamp(value + 1, 50, 100);
+    changed other => {
+        result += "other(" + other + ")";
+        debug("Other changed");
+    }
+}
+
+
+/*
+
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), "");
+instance.set_value(56);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), ""); // so far, nothing have changed
+instance.set_value(142);
+assert_eq!(instance.get_result(), "");
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_result(), "other(100)value(142)");
+instance.set_value(8); // this one is going to be merged in the other
+instance.set_value(141);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_result(), "other(100)value(142)value(141)");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result(), "");
+instance.set_value(56);
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result(), ""); // so far, nothing have changed
+instance.set_value(142);
+assert_eq(instance.get_result(), "");
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_result(), "other(100)value(142)");
+instance.set_value(8); // this one is going to be merged in the other
+instance.set_value(141);
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_result(), "other(100)value(142)value(141)");
+```
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.result, "");
+instance.value = 56;
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.result, ""); // so far, nothing have changed
+instance.value = 142;
+assert.equal(instance.result, "");
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.result, "other(100)value(142)");
+instance.value = 8; // this one is going to be merged in the other
+instance.value = 141;
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.result, "other(100)value(142)value(141)");
+```
+
+*/

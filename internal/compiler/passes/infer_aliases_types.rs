@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Passes that resolve the type of two way bindings.
 //!
@@ -96,7 +96,7 @@ fn resolve_alias(
         let same_element = Rc::ptr_eq(&element, elem);
         if same_element && nr.name() == prop {
             diag.push_error(
-                format!("Cannot alias to itself"),
+                "Cannot alias to itself".to_string(),
                 &elem.borrow().property_declarations[prop].type_node(),
             );
             return;

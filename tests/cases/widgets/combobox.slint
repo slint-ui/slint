@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { ComboBox } from "std-widgets.slint";
 export component TestCase inherits Window {
@@ -23,6 +23,7 @@ export component TestCase inherits Window {
 
     in-out property current-index <=> box.current-index;
     in-out property current-value <=> box.current-value;
+    in-out property model <=> box.model;
     out property has-focus <=> box.has-focus;
 }
 
@@ -30,8 +31,11 @@ export component TestCase inherits Window {
 
 
 ```rust
+use std::rc::Rc;
 use slint::platform::Key;
 use slint::SharedString;
+use slint::VecModel;
+use i_slint_backend_testing::mock_elapsed_time;
 
 let instance = TestCase::new().unwrap();
 
@@ -86,6 +90,16 @@ assert_eq!(instance.get_current_index(), 1);
 assert_eq!(instance.get_output(), "selected(Bbb,1)\nselected(Ccc,2)\nselected(Bbb,1)\n");
 instance.set_output(Default::default());
 
+// Set current-index to -1
+instance.set_current_index(-1);
+mock_elapsed_time(500);
+assert_eq!(instance.get_current_value(), &SharedString::from(""));
+
+// Replace model
+instance.set_model(Rc::new(VecModel::from_slice(&[SharedString::from("A"), SharedString::from("B")])).into());
+mock_elapsed_time(500);
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_current_value(), &SharedString::from("A"));
 
 ```
 

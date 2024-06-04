@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::{path::PathBuf, rc::Rc};
 
@@ -8,6 +8,8 @@ use i_slint_core::lengths::LogicalPoint;
 use slint_interpreter::ComponentInstance;
 
 use crate::{common, preview};
+
+use super::{ext::ElementRcNodeExt, ui};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
@@ -142,14 +144,15 @@ fn select_element_node(
     }
 }
 
-// Return the real root element, skipping any WindowElement that got added
+// Return the real root element, skipping the WindowElement that might got added
 pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
     let root_element = component_instance.definition().root_component().root_element.clone();
-    if !root_element.borrow().debug.is_empty() {
-        return root_element;
+    if root_element.borrow().debug.is_empty() {
+        let child = root_element.borrow().children.first().cloned();
+        child.unwrap_or(root_element)
+    } else {
+        root_element
     }
-    let child = root_element.borrow().children.first().cloned();
-    child.unwrap_or(root_element)
 }
 
 #[derive(Clone)]
@@ -241,38 +244,13 @@ pub fn collect_all_element_nodes_covering(
     elements
 }
 
-pub fn is_root_element_node(
-    component_instance: &ComponentInstance,
-    element_node: &common::ElementRcNode,
-) -> bool {
-    let root_element = root_element(component_instance);
-    let Some((root_path, root_offset)) = root_element
-        .borrow()
-        .debug
-        .iter()
-        .find(|(n, _)| !preview::is_element_node_ignored(n))
-        .map(|(n, _)| (n.source_file.path().to_owned(), u32::from(n.text_range().start())))
-    else {
-        return false;
-    };
-
-    let (path, offset) = element_node.path_and_offset();
-    path == root_path && offset == root_offset
-}
-
-pub fn is_same_file_as_root_node(
-    component_instance: &ComponentInstance,
-    element_node: &common::ElementRcNode,
-) -> bool {
-    let root_element = root_element(component_instance);
-    let Some(root_path) =
-        root_element.borrow().debug.first().map(|(n, _)| n.source_file.path().to_owned())
-    else {
-        return false;
-    };
-
-    let (path, _) = element_node.path_and_offset();
-    path == root_path
+fn find_main_node(root_node: &common::ElementRcNode) -> common::ElementRcNode {
+    if root_node.children().is_empty() {
+        // Things got merged into one ElementRc, no real connection remains:-/
+        root_node.next_element_rc_node().unwrap_or_else(|| root_node.clone())
+    } else {
+        root_node.clone()
+    }
 }
 
 fn select_element_at_impl(
@@ -280,8 +258,13 @@ fn select_element_at_impl(
     position: LogicalPoint,
     enter_component: bool,
 ) -> Option<common::ElementRcNode> {
+    let root_node = common::ElementRcNode::new(root_element(component_instance), 0)?;
+    // The main node is the first non-ignored node below the root
+    // This is to find the first "real" eleemnt in the preview, ignoring the
+    // synthetic nodes we added on top to make the preview work.
+    let main_node = find_main_node(&root_node);
     for sc in &collect_all_element_nodes_covering(position, component_instance) {
-        if let Some(en) = filter_nodes_for_selection(component_instance, sc, enter_component) {
+        if let Some(en) = filter_nodes_for_selection(sc, enter_component, &root_node, &main_node) {
             return Some(en);
         }
     }
@@ -312,32 +295,14 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
 }
 
 pub fn is_element_node_in_layout(element: &common::ElementRcNode) -> bool {
-    if element.debug_index > 0 {
-        // If we are not the first node, then we might have been inlined right
-        // after a layout managing us
-        element
-            .element
-            .borrow()
-            .debug
-            .get(element.debug_index - 1)
-            .map(|d| d.1.is_some())
-            .unwrap_or_default()
-    } else {
-        // If we are the first node, then we might be a child of a layout stored
-        // in the last node of our parent element.
-        let Some(parent) = i_slint_compiler::object_tree::find_parent_element(&element.element)
-        else {
-            return false;
-        };
-        let r = parent.borrow().debug.last().map(|d| d.1.is_some()).unwrap_or_default();
-        r
-    }
+    element.parent().map(|p| p.layout_kind() != ui::LayoutKind::None).unwrap_or(false)
 }
 
 fn filter_nodes_for_selection(
-    component_instance: &ComponentInstance,
     selection_candidate: &SelectionCandidate,
     enter_component: bool,
+    root_node: &common::ElementRcNode,
+    main_node: &common::ElementRcNode,
 ) -> Option<common::ElementRcNode> {
     let en = selection_candidate.as_element_node()?;
 
@@ -345,11 +310,11 @@ fn filter_nodes_for_selection(
         return None;
     }
 
-    if !enter_component && !is_same_file_as_root_node(component_instance, &en) {
+    if root_node == &en || main_node == &en {
         return None;
     }
 
-    if is_root_element_node(component_instance, &en) {
+    if !enter_component && !main_node.is_same_component_as(&en) {
         return None;
     }
 
@@ -375,6 +340,9 @@ pub fn select_element_behind_impl(
         (start_position, elements.len().saturating_sub(current_selection_position + 1))
     };
 
+    let root_node = common::ElementRcNode::new(root_element(component_instance), 0)?;
+    let main_node = find_main_node(&root_node);
+
     for i in 0..iterations {
         let mapped_index = if reverse {
             assert!(i <= start_position);
@@ -384,9 +352,10 @@ pub fn select_element_behind_impl(
             start_position + i
         };
         if let Some(en) = filter_nodes_for_selection(
-            component_instance,
             elements.get(mapped_index).unwrap(),
             enter_component,
+            &root_node,
+            &main_node,
         ) {
             return Some(en);
         }
@@ -434,13 +403,15 @@ pub fn reselect_element() {
 
 #[cfg(test)]
 mod tests {
+    use crate::common::test;
+
     use std::path::PathBuf;
 
     use i_slint_core::lengths::LogicalPoint;
     use slint_interpreter::ComponentInstance;
 
     fn demo_app() -> ComponentInstance {
-        crate::preview::test::compile_test(
+        crate::preview::test::interpret_test(
             "fluent",
             r#"import { Button } from "std-widgets.slint";
 
@@ -470,11 +441,11 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
     #[test]
     fn test_find_covering_elements() {
-        let component_instance = demo_app();
+        let type_loader = demo_app();
 
         let mut covers_center = super::collect_all_element_nodes_covering(
             LogicalPoint::new(100.0, 100.0),
-            &component_instance,
+            &type_loader,
         );
 
         // Remove the "button" implementation details. They must be at the start:
@@ -487,7 +458,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             .unwrap();
         covers_center.drain(0..first_non_button);
 
-        let test_file = PathBuf::from("/test_data.slint");
+        let test_file = test::test_file_name("test_data.slint");
 
         let expected_offsets = [264_u32, 69, 225, 194, 160, 109, 401];
         assert_eq!(covers_center.len(), expected_offsets.len());
@@ -500,7 +471,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
         let covers_below = super::collect_all_element_nodes_covering(
             LogicalPoint::new(100.0, 180.0),
-            &component_instance,
+            &type_loader,
         );
 
         // All but the button itself as well as the SomeComponent (impl and use)
@@ -530,7 +501,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let first_non_button = covers_center.iter().position(|(p, _)| p != &button_path).unwrap();
         covers_center.drain(1..(first_non_button - 1)); // strip all but first/last of button
 
-        // Select without crossing file boundaries
+        // Select without crossing  boundaries
         let select = super::select_element_at_impl(
             &component_instance,
             LogicalPoint::new(100.0, 100.0),
@@ -543,15 +514,6 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let next = super::select_element_behind_impl(
             &component_instance,
             &select,
-            LogicalPoint::new(100.0, 100.0),
-            false,
-            false,
-        )
-        .unwrap();
-        assert_eq!(&next.path_and_offset(), covers_center.get(3).unwrap());
-        let next = super::select_element_behind_impl(
-            &component_instance,
-            &next,
             LogicalPoint::new(100.0, 100.0),
             false,
             false,
@@ -612,15 +574,6 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             true,
         )
         .unwrap();
-        assert_eq!(&prev.path_and_offset(), covers_center.get(3).unwrap());
-        let prev = super::select_element_behind_impl(
-            &component_instance,
-            &prev,
-            LogicalPoint::new(100.0, 100.0),
-            false,
-            true,
-        )
-        .unwrap();
         assert_eq!(&prev.path_and_offset(), covers_center.get(2).unwrap());
         assert!(super::select_element_behind_impl(
             &component_instance,
@@ -642,7 +595,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             None
         );
 
-        // Select with crossing file boundaries
+        // Select with crossing component boundaries
         let select = super::select_element_at_impl(
             &component_instance,
             LogicalPoint::new(100.0, 100.0),

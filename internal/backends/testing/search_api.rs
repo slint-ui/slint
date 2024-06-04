@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty};
 use i_slint_core::item_tree::{ItemTreeRc, ItemVisitorResult, ItemWeak, TraversalOrder};
@@ -55,7 +55,7 @@ impl ElementHandle {
             item.accessible_string_property(AccessibleStringProperty::Label)
                 .is_some_and(|x| x == label)
         });
-        result.into_iter().map(|x| ElementHandle(x))
+        result.into_iter().map(ElementHandle)
     }
 
     /// Invokes the default accessible action on the element. For example a `MyButton` element might declare
@@ -96,6 +96,30 @@ impl ElementHandle {
         }
     }
 
+    /// Returns the value of the element's `accessible-value-maximum` property, if present.
+    pub fn accessible_value_maximum(&self) -> Option<f32> {
+        self.0.upgrade().and_then(|item| {
+            item.accessible_string_property(AccessibleStringProperty::ValueMaximum)
+                .and_then(|item| item.parse().ok())
+        })
+    }
+
+    /// Returns the value of the element's `accessible-value-minimum` property, if present.
+    pub fn accessible_value_minimum(&self) -> Option<f32> {
+        self.0.upgrade().and_then(|item| {
+            item.accessible_string_property(AccessibleStringProperty::ValueMinimum)
+                .and_then(|item| item.parse().ok())
+        })
+    }
+
+    /// Returns the value of the element's `accessible-value-step` property, if present.
+    pub fn accessible_value_step(&self) -> Option<f32> {
+        self.0.upgrade().and_then(|item| {
+            item.accessible_string_property(AccessibleStringProperty::ValueStep)
+                .and_then(|item| item.parse().ok())
+        })
+    }
+
     /// Returns the value of the `accessible-label` property, if present.
     pub fn accessible_label(&self) -> Option<SharedString> {
         self.0
@@ -115,6 +139,14 @@ impl ElementHandle {
         self.0
             .upgrade()
             .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Checked))
+            .and_then(|item| item.parse().ok())
+    }
+
+    /// Returns the value of the `accessible-checkable` property, if present
+    pub fn accessible_checkable(&self) -> Option<bool> {
+        self.0
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Checkable))
             .and_then(|item| item.parse().ok())
     }
 
@@ -141,5 +173,21 @@ impl ElementHandle {
                 i_slint_core::lengths::logical_position_to_api(p)
             })
             .unwrap_or_default()
+    }
+
+    /// Invokes the element's `accessible-action-increment` callback, if declared. On widgets such as spinboxes, this
+    /// typically increments the value.
+    pub fn invoke_accessible_increment_action(&self) {
+        if let Some(item) = self.0.upgrade() {
+            item.accessible_action(&AccessibilityAction::Increment)
+        }
+    }
+
+    /// Invokes the element's `accessible-action-decrement` callback, if declared. On widgets such as spinboxes, this
+    /// typically decrements the value.
+    pub fn invoke_accessible_decrement_action(&self) {
+        if let Some(item) = self.0.upgrade() {
+            item.accessible_action(&AccessibilityAction::Decrement)
+        }
     }
 }

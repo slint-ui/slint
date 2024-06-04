@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 use std::error::Error;
@@ -26,6 +26,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let mut compiler_config = CompilerConfiguration::new(output_format.clone());
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
+    compiler_config.style = testcase.requested_style.map(str::to_string);
     let (root_component, diag, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 

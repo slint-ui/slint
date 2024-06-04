@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -301,6 +301,9 @@ impl std::fmt::Display for Diagnostic {
 #[derive(Default)]
 pub struct BuildDiagnostics {
     inner: Vec<Diagnostic>,
+
+    /// When false, throw error for experimental features
+    pub enable_experimental: bool,
 
     /// This is the list of all loaded files (with or without diagnostic)
     /// does not include the main file.

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
@@ -85,10 +85,10 @@ fn default_renderer_factory(
     window_builder: winit::window::WindowBuilder,
 ) -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError> {
     cfg_if::cfg_if! {
-        if #[cfg(feature = "renderer-femtovg")] {
-            renderer::femtovg::GlutinFemtoVGRenderer::new(window_builder)
-        } else if #[cfg(enable_skia_renderer)] {
+        if #[cfg(enable_skia_renderer)] {
             renderer::skia::WinitSkiaRenderer::new(window_builder)
+        } else if #[cfg(feature = "renderer-femtovg")] {
+            renderer::femtovg::GlutinFemtoVGRenderer::new(window_builder)
         } else if #[cfg(feature = "renderer-software")] {
             renderer::sw::WinitSoftwareRenderer::new(window_builder)
         } else {

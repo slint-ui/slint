@@ -1,12 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::diagnostics::SourceFile;
-use i_slint_compiler::parser::{SyntaxKind, SyntaxNode};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
-use crate::common;
+use crate::common::{self, text_edit};
 use crate::language::completion;
 use crate::preview::{self, element_selection, ui};
 use crate::util;
@@ -16,41 +16,11 @@ use crate::preview::ext::ElementRcNodeExt;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
-#[derive(Clone, Debug)]
-pub struct TextOffsetAdjustment {
-    pub start_offset: u32,
-    pub end_offset: u32,
-    pub new_text_length: u32,
-}
-
-impl TextOffsetAdjustment {
-    pub fn new(
-        edit: &lsp_types::TextEdit,
-        source_file: &i_slint_compiler::diagnostics::SourceFile,
-    ) -> Self {
-        let new_text_length = edit.new_text.len() as u32;
-        let (start_offset, end_offset) = {
-            let so = source_file
-                .offset(edit.range.start.line as usize, edit.range.start.character as usize);
-            let eo =
-                source_file.offset(edit.range.end.line as usize, edit.range.end.character as usize);
-            (std::cmp::min(so, eo) as u32, std::cmp::max(so, eo) as u32)
-        };
-
-        Self { start_offset, end_offset, new_text_length }
-    }
-
-    pub fn adjust(&self, offset: u32) -> u32 {
-        // This is a bit simplistic: We ignore special cases like the offset
-        // being in the area that gets removed.
-        // Worst case: Some unexpected element gets selected. We can live with that.
-        if offset >= self.start_offset {
-            let old_length = self.end_offset - self.start_offset;
-            offset + self.new_text_length - old_length
-        } else {
-            offset
-        }
-    }
+pub fn placeholder() -> String {
+    format!(
+        " Rectangle {{ min-width: 16px; min-height: 16px; /* {} */ }}",
+        preview::NODE_IGNORE_COMMENT
+    )
 }
 
 #[derive(Clone, Debug)]
@@ -180,6 +150,7 @@ impl<'a> Iterator for DropZoneIterator<'a> {
             if is_selected {
                 if let Some((_, (next_is_selected, (next_start, next_end)))) = self.input.next() {
                     assert!(!next_is_selected); // We can not handle the same element twice in the same layout:-)
+                    self.state = DropZoneIteratorState::InProgress;
 
                     let next_mid = next_start + (next_end - next_start) / 2.0;
 
@@ -476,10 +447,6 @@ fn drop_target_element_nodes(
             continue;
         }
 
-        if !element_selection::is_same_file_as_root_node(component_instance, &en) {
-            continue;
-        }
-
         if (filter)(&en) {
             continue;
         }
@@ -490,15 +457,33 @@ fn drop_target_element_nodes(
     result
 }
 
+fn is_recursive_inclusion(
+    root_node: &Option<&common::ElementRcNode>,
+    component_type: &str,
+) -> bool {
+    let declared_identifier = root_node
+        .and_then(|rn| {
+            rn.with_element_node(|node| {
+                node.parent()
+                    .map(Into::<syntax_nodes::Component>::into)
+                    .map(|c| c.DeclaredIdentifier().text().to_string())
+            })
+        })
+        .unwrap_or_default();
+
+    declared_identifier == component_type
+}
+
 fn find_element_to_drop_into(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    selected_element: &Option<common::ElementRcNode>,
+    filter: Box<dyn Fn(&common::ElementRcNode) -> bool>,
+    component_type: &str,
 ) -> Option<common::ElementRcNode> {
-    let se = selected_element.clone();
-    let filter = Box::new(move |e: &common::ElementRcNode| Some(e.clone()) == se);
-
     let all_element_nodes = drop_target_element_nodes(component_instance, position, filter);
+    if is_recursive_inclusion(&all_element_nodes.last(), component_type) {
+        return None;
+    }
 
     let mut tmp = None;
     for element_node in &all_element_nodes {
@@ -521,10 +506,43 @@ fn find_drop_location(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
     component_type: &str,
-    selected_element: Option<common::ElementRcNode>,
+) -> Option<DropInformation> {
+    let root_node_path = element_selection::root_element(component_instance)
+        .borrow()
+        .debug
+        .first()
+        .map(|(n, _)| n.source_file.path().to_owned());
+    let filter = Box::new(move |e: &common::ElementRcNode| {
+        e.with_element_node(|n| Some(n.source_file.path()) != root_node_path.as_deref())
+    });
+    let mark = Box::new(move |_: &common::ElementRcNode| false);
+    find_filtered_location(component_instance, position, filter, mark, component_type)
+}
+
+fn find_move_location(
+    component_instance: &ComponentInstance,
+    position: LogicalPoint,
+    selected_element: common::ElementRcNode,
+    component_type: &str,
+) -> Option<DropInformation> {
+    let se = selected_element.clone();
+    let filter =
+        Box::new(move |e: &common::ElementRcNode| *e == se || !e.is_same_component_as(&se));
+    let se = selected_element.clone();
+    let mark = Box::new(move |e: &common::ElementRcNode| *e == se);
+
+    find_filtered_location(component_instance, position, filter, mark, component_type)
+}
+
+fn find_filtered_location(
+    component_instance: &ComponentInstance,
+    position: LogicalPoint,
+    filter: Box<dyn Fn(&common::ElementRcNode) -> bool>,
+    mark: Box<dyn Fn(&common::ElementRcNode) -> bool>,
+    component_type: &str,
 ) -> Option<DropInformation> {
     let drop_target_node =
-        find_element_to_drop_into(component_instance, position, &selected_element)?;
+        find_element_to_drop_into(component_instance, position, filter, component_type)?;
 
     let (path, _) = drop_target_node.path_and_offset();
     let tl = component_instance.definition().type_loader();
@@ -546,10 +564,7 @@ fn find_drop_location(
             .children()
             .iter()
             .filter(|c| !c.with_element_node(preview::is_element_node_ignored))
-            .filter_map(|c| {
-                c.geometry_in(component_instance, &geometry)
-                    .map(|g| (Some(c.clone()) == selected_element, g))
-            })
+            .filter_map(|c| c.geometry_in(component_instance, &geometry).map(|g| ((mark)(c), g)))
             .collect();
 
         let (drop_mark, child_index) = calculate_drop_information_for_layout(
@@ -587,17 +602,17 @@ fn find_drop_location(
 /// Find the Element to insert into. None means we can not insert at this point.
 pub fn can_drop_at(position: LogicalPoint, component_type: &str) -> bool {
     let dm = &super::component_instance()
-        .and_then(|ci| find_drop_location(&ci, position, component_type, None));
+        .and_then(|ci| find_drop_location(&ci, position, component_type));
 
     preview::set_drop_mark(&dm.as_ref().and_then(|dm| dm.drop_mark.clone()));
     dm.is_some()
 }
 
 /// Find the Element to insert into. None means we can not insert at this point.
-pub fn can_move_to(position: LogicalPoint, element_node: common::ElementRcNode) -> bool {
+pub fn can_move_to(mouse_position: LogicalPoint, element_node: common::ElementRcNode) -> bool {
     let component_type = element_node.component_type();
     let dm = &super::component_instance()
-        .and_then(|ci| find_drop_location(&ci, position, &component_type, Some(element_node)));
+        .and_then(|ci| find_move_location(&ci, mouse_position, element_node, &component_type));
 
     preview::set_drop_mark(&dm.as_ref().and_then(|dm| dm.drop_mark.clone()));
     dm.is_some()
@@ -627,7 +642,7 @@ fn pretty_node_removal_range(node: &SyntaxNode) -> Option<rowan::TextRange> {
         first_et.text_range().start() // Nothing to cut away
     };
 
-    let last_et = util::last_non_ws_token(&node)?;
+    let last_et = util::last_non_ws_token(node)?;
     let after_et = last_et.next_token()?;
     let end_pos = if after_et.kind() == SyntaxKind::Whitespace && after_et.text().contains('\n') {
         after_et.text_range().start()
@@ -672,7 +687,7 @@ pub fn drop_at(
     let component_type = &component.name;
     let component_instance = preview::component_instance()?;
     let tl = component_instance.definition().type_loader();
-    let drop_info = find_drop_location(&component_instance, position, component_type, None)?;
+    let drop_info = find_drop_location(&component_instance, position, component_type)?;
 
     let properties = {
         let mut props = component.default_properties.clone();
@@ -696,11 +711,7 @@ pub fn drop_at(
 
         props
     };
-    let placeholder = if component.is_layout {
-        format!(" Rectangle {{ /* {} */ }}", preview::NODE_IGNORE_COMMENT)
-    } else {
-        String::new()
-    };
+    let placeholder = if component.is_layout { placeholder() } else { String::new() };
 
     let new_text = if properties.is_empty() {
         format!(
@@ -731,7 +742,8 @@ pub fn drop_at(
     let import_file = component.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
     if let Some(edit) = completion::create_import_edit(doc, component_type, &import_file) {
         if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
-            selection_offset = TextOffsetAdjustment::new(&edit, sf).adjust(selection_offset);
+            selection_offset =
+                text_edit::TextOffsetAdjustment::new(&edit, sf).adjust(selection_offset);
         }
         edits.push(edit);
     }
@@ -741,8 +753,8 @@ pub fn drop_at(
             .drain(..)
             .map(|te| {
                 // Abuse map somewhat...
-                selection_offset =
-                    TextOffsetAdjustment::new(&te, &source_file).adjust(selection_offset);
+                selection_offset = text_edit::TextOffsetAdjustment::new(&te, &source_file)
+                    .adjust(selection_offset);
                 te
             }),
     );
@@ -788,7 +800,7 @@ fn extract_text_of_element(
     element: &common::ElementRcNode,
     remove_properties: &[&str],
 ) -> Vec<String> {
-    let (start_offset, mut text) = element.with_element_node(|node| {
+    let (start_offset, mut text) = element.with_decorated_node(|node| {
         (usize::from(node.text_range().start()), node.text().to_string())
     });
 
@@ -799,7 +811,7 @@ fn extract_text_of_element(
         let start = usize::from(dr.start()) - offset;
         let end = usize::from(dr.end()) - offset;
 
-        offset = offset + (end - start);
+        offset += end - start;
 
         text.drain(start..end);
     }
@@ -822,10 +834,13 @@ fn extract_text_of_element(
     lines
 }
 
-fn node_removal_text_edit(node: &SyntaxNode) -> Option<(SourceFile, lsp_types::TextEdit)> {
+fn node_removal_text_edit(
+    node: &SyntaxNode,
+    replace_with: String,
+) -> Option<(SourceFile, lsp_types::TextEdit)> {
     let source_file = node.source_file.clone();
     let range = util::map_range(&source_file, pretty_node_removal_range(node)?);
-    Some((source_file, lsp_types::TextEdit::new(range, String::new())))
+    Some((source_file, lsp_types::TextEdit::new(range, replace_with)))
 }
 
 /// Find a location in a file that would be a good place to insert the new component at
@@ -840,20 +855,17 @@ pub fn move_element_to(
     let component_type = element.component_type();
     let component_instance = preview::component_instance()?;
     let tl = component_instance.definition().type_loader();
-    let Some(drop_info) = find_drop_location(
-        &component_instance,
-        mouse_position,
-        &component_type,
-        Some(element.clone()),
-    ) else {
+    let Some(drop_info) =
+        find_move_location(&component_instance, mouse_position, element.clone(), &component_type)
+    else {
         element_selection::reselect_element();
         // Can not drop here: Ignore the move
         return None;
     };
 
-    let parent_of_element = element.parent(element_selection::root_element(&component_instance));
+    let parent_of_element = element.parent();
 
-    if Some(&drop_info.target_element_node) == parent_of_element.as_ref() {
+    let placeholder_text = if Some(&drop_info.target_element_node) == parent_of_element.as_ref() {
         // We are moving within ourselves!
 
         let size = element.geometries(&component_instance).first().map(|g| g.size)?;
@@ -881,7 +893,12 @@ pub fn move_element_to(
         }
 
         /* fall trough to the general case here */
-    }
+        String::new()
+    } else if parent_of_element.map(|p| p.children().len()).unwrap_or_default() == 1 {
+        placeholder()
+    } else {
+        String::new()
+    };
 
     let new_text = {
         let element_text_lines = extract_text_of_element(&element, &["x", "y"]);
@@ -923,10 +940,11 @@ pub fn move_element_to(
 
     let mut edits = Vec::with_capacity(3);
 
-    let remove_me = element.with_element_node(|node| node_removal_text_edit(&node))?;
+    let remove_me = element
+        .with_decorated_node(|node| node_removal_text_edit(&node, placeholder_text.clone()))?;
     if remove_me.0.path() == source_file.path() {
-        selection_offset =
-            TextOffsetAdjustment::new(&remove_me.1, &source_file).adjust(selection_offset);
+        selection_offset = text_edit::TextOffsetAdjustment::new(&remove_me.1, &source_file)
+            .adjust(selection_offset);
     }
     edits.push(remove_me);
 
@@ -935,7 +953,8 @@ pub fn move_element_to(
             component_info.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
         if let Some(edit) = completion::create_import_edit(doc, &component_type, &import_file) {
             if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
-                selection_offset = TextOffsetAdjustment::new(&edit, sf).adjust(selection_offset);
+                selection_offset =
+                    text_edit::TextOffsetAdjustment::new(&edit, sf).adjust(selection_offset);
             }
             edits.push((source_file.clone(), edit));
         }
@@ -946,8 +965,8 @@ pub fn move_element_to(
             .drain(..)
             .map(|te| {
                 // Abuse map somewhat...
-                selection_offset =
-                    TextOffsetAdjustment::new(&te, &source_file).adjust(selection_offset);
+                selection_offset = text_edit::TextOffsetAdjustment::new(&te, &source_file)
+                    .adjust(selection_offset);
                 (source_file.clone(), te)
             }),
     );

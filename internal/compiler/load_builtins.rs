@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /*!
     Parse the contents of builtins.slint and fill the builtin type registry
@@ -197,7 +197,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             .collect();
         if let Some(builtin_name) = exports.get(&id) {
             if !matches!(&base, Base::Global) {
-                builtin.name = builtin_name.clone();
+                builtin.name.clone_from(&builtin_name);
                 register.add_builtin(Rc::new(builtin));
             } else {
                 let glob = Rc::new(Component {

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 Sub := Rectangle {
     callback compute(int) -> int;
@@ -30,5 +30,8 @@ export Xxx := Rectangle {
             return "hello";
 //          ^error{Cannot convert string to int}
         }
+
+        callback x <=> compute_alias;
+//               ^error{Cannot declare callback 'x' when a property with the same name exists}
     }
 }

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Pass that lowers synthetic `drop-shadow-*` properties to proper shadow elements
 // At the moment only shadows on `Rectangle` elements are supported, i.e. the drop shadow
@@ -163,7 +163,7 @@ pub fn lower_shadow_properties(
                     }
                 };
 
-                shadow_elem.geometry_props = child.borrow().geometry_props.clone();
+                shadow_elem.geometry_props.clone_from(&child.borrow().geometry_props);
                 elem.borrow_mut().children.push(ElementRc::new(shadow_elem.into()));
             }
             elem.borrow_mut().children.push(child);

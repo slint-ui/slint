@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cspell:ignore descendents qobject qwidget
 
@@ -36,7 +36,7 @@ pub struct AccessibleItemPropertiesTracker {
 }
 
 impl PropertyDirtyHandler for AccessibleItemPropertiesTracker {
-    fn notify(&self) {
+    fn notify(self: Pin<&Self>) {
         let obj = self.obj;
         cpp!(unsafe [obj as "QObject*"] {
             QTimer::singleShot(0, [obj = QPointer(obj)]() {
@@ -63,7 +63,7 @@ pub struct ValuePropertyTracker {
 }
 
 impl PropertyDirtyHandler for ValuePropertyTracker {
-    fn notify(&self) {
+    fn notify(self: Pin<&Self>) {
         let obj = self.obj;
         cpp!(unsafe [obj as "QObject*"] {
             QTimer::singleShot(0, [ obj = QPointer(obj)]() {
@@ -88,7 +88,7 @@ pub struct LabelPropertyTracker {
 }
 
 impl PropertyDirtyHandler for LabelPropertyTracker {
-    fn notify(&self) {
+    fn notify(self: Pin<&Self>) {
         let obj = self.obj;
         cpp!(unsafe [obj as "QObject*"] {
             QTimer::singleShot(0, [obj = QPointer(obj)]() {
@@ -113,7 +113,7 @@ pub struct DescriptionPropertyTracker {
 }
 
 impl PropertyDirtyHandler for DescriptionPropertyTracker {
-    fn notify(&self) {
+    fn notify(self: Pin<&Self>) {
         let obj = self.obj;
         cpp!(unsafe [obj as "QObject*"] {
             QTimer::singleShot(0, [obj = QPointer(obj)]() {
@@ -138,7 +138,7 @@ pub struct FocusDelegationPropertyTracker {
 }
 
 impl PropertyDirtyHandler for FocusDelegationPropertyTracker {
-    fn notify(&self) {
+    fn notify(self: Pin<&Self>) {
         let obj = self.obj;
         cpp!(unsafe [obj as "QObject*"] {
             QTimer::singleShot(0, [obj = QPointer(obj)]() {

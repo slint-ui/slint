@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #include "slint.h"
 #include "slint_testing_internal.h"
@@ -7,6 +7,7 @@
 #include <string_view>
 
 #ifdef SLINT_FEATURE_TESTING
+#    ifdef SLINT_FEATURE_EXPERIMENTAL
 
 namespace slint::testing {
 /// Init the testing backend.
@@ -87,6 +88,57 @@ public:
         return std::nullopt;
     }
 
+    /// Returns the accessible-value-maximum of that element, if any.
+    std::optional<float> accessible_value_maximum() const
+    {
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            SharedString result;
+            if (item->item_tree.vtable()->accessible_string_property(
+                        item->item_tree.borrow(), item->index,
+                        cbindgen_private::AccessibleStringProperty::ValueMaximum, &result)) {
+                float value = 0.0;
+                if (cbindgen_private::slint_string_to_float(&result, &value)) {
+                    return value;
+                }
+            }
+        }
+        return std::nullopt;
+    }
+
+    /// Returns the accessible-value-minimum of that element, if any.
+    std::optional<float> accessible_value_minimum() const
+    {
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            SharedString result;
+            if (item->item_tree.vtable()->accessible_string_property(
+                        item->item_tree.borrow(), item->index,
+                        cbindgen_private::AccessibleStringProperty::ValueMinimum, &result)) {
+                float value = 0.0;
+                if (cbindgen_private::slint_string_to_float(&result, &value)) {
+                    return value;
+                }
+            }
+        }
+        return std::nullopt;
+    }
+
+    /// Returns the accessible-value-step of that element, if any.
+    std::optional<float> accessible_value_step() const
+    {
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            SharedString result;
+            if (item->item_tree.vtable()->accessible_string_property(
+                        item->item_tree.borrow(), item->index,
+                        cbindgen_private::AccessibleStringProperty::ValueStep, &result)) {
+                float value = 0.0;
+                if (cbindgen_private::slint_string_to_float(&result, &value)) {
+                    return value;
+                }
+            }
+        }
+        return std::nullopt;
+    }
+
     /// Returns the accessible-checked of that element, if any.
     std::optional<bool> accessible_checked() const
     {
@@ -95,6 +147,23 @@ public:
             if (item->item_tree.vtable()->accessible_string_property(
                         item->item_tree.borrow(), item->index,
                         cbindgen_private::AccessibleStringProperty::Checked, &result)) {
+                if (result == "true")
+                    return true;
+                else if (result == "false")
+                    return false;
+            }
+        }
+        return std::nullopt;
+    }
+
+    /// Returns the accessible-checkable of that element, if any.
+    std::optional<bool> accessible_checkable() const
+    {
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            SharedString result;
+            if (item->item_tree.vtable()->accessible_string_property(
+                        item->item_tree.borrow(), item->index,
+                        cbindgen_private::AccessibleStringProperty::Checkable, &result)) {
                 if (result == "true")
                     return true;
                 else if (result == "false")
@@ -121,6 +190,44 @@ public:
                 ~SetValueHelper() { action.set_value.~SetValue_Body(); }
 
             } action(std::move(value));
+            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
+                                                           &action.action);
+        }
+    }
+
+    /// Invokes the increase accessibility action of that element
+    /// (`accessible-action-increment`).
+    void invoke_accessible_increment_action() const
+    {
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            union IncreaseActionHelper {
+                cbindgen_private::AccessibilityAction action;
+                IncreaseActionHelper()
+                {
+                    action.tag = cbindgen_private::AccessibilityAction::Tag::Increment;
+                }
+                ~IncreaseActionHelper() { }
+
+            } action;
+            item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
+                                                           &action.action);
+        }
+    }
+
+    /// Invokes the decrease accessibility action of that element
+    /// (`accessible-action-decrement`).
+    void invoke_accessible_decrement_action() const
+    {
+        if (auto item = private_api::upgrade_item_weak(inner)) {
+            union DecreaseActionHelper {
+                cbindgen_private::AccessibilityAction action;
+                DecreaseActionHelper()
+                {
+                    action.tag = cbindgen_private::AccessibilityAction::Tag::Decrement;
+                }
+                ~DecreaseActionHelper() { }
+
+            } action;
             item->item_tree.vtable()->accessibility_action(item->item_tree.borrow(), item->index,
                                                            &action.action);
         }
@@ -173,4 +280,5 @@ public:
 
 }
 
+#    endif // SLINT_FEATURE_EXPERIMENTAL
 #endif // SLINT_FEATURE_TESTING

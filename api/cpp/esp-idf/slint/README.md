@@ -1,4 +1,4 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial -->
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
 
 # Slint
 
@@ -172,12 +172,11 @@ Make sure that the stack is big enough (~8KiB), and that all the RAM was made av
 
 You can use Slint under ***any*** of the following licenses, at your choice:
 
-1. [GNU GPLv3](https://github.com/slint-ui/slint/blob/master/LICENSES/GPL-3.0-only.txt),
-2. [Paid license](https://slint.dev/pricing.html).
+1. [Royalty-free license](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
+2. [GNU GPLv3](https://github.com/slint-ui/slint/blob/master/LICENSES/GPL-3.0-only.txt),
+3. [Paid license](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Software-3.0.md).
 
 See also the [Licensing FAQ](https://github.com/slint-ui/slint/blob/master/FAQ.md#licensing).
-
-Slint is also available with a third license (Royalty Free) for desktop applications.
 
 ## Links
 

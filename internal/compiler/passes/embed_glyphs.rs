@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::diagnostics::BuildDiagnostics;
 #[cfg(not(target_arch = "wasm32"))]
@@ -312,7 +312,7 @@ fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> Vec<fontdue::Font>
         target_arch = "wasm32"
     )))]
     {
-        fallback_families = fontdb.fontconfig_fallback_families.clone();
+        fallback_families.clone_from(&fontdb.fontconfig_fallback_families);
     }
 
     let fallback_fonts = fallback_families

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore buildrs
 
@@ -71,11 +71,11 @@ build = "build.rs"
 edition = "2021"
 
 [dependencies]
-slint = "1.5.0"
+slint = "1.6.0"
 ...
 
 [build-dependencies]
-slint-build = "1.5.0"
+slint-build = "1.6.0"
 ```
 
 Use the API of the slint-build crate in the `build.rs` file:
@@ -318,7 +318,13 @@ pub mod platform {
     }
 }
 
-#[cfg(any(doc, all(target_os = "android", feature = "backend-android-activity-05")))]
+#[cfg(any(
+    doc,
+    all(
+        target_os = "android",
+        any(feature = "backend-android-activity-05", feature = "backend-android-activity-06")
+    )
+))]
 pub mod android;
 
 /// Helper type that helps checking that the generated code is generated for the right version

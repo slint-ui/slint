@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use by_address::ByAddress;
 
@@ -191,6 +191,7 @@ fn lower_sub_component(
         popup_windows: Default::default(),
         sub_components: Default::default(),
         property_init: Default::default(),
+        change_callbacks: Default::default(),
         animations: Default::default(),
         two_way_bindings: Default::default(),
         const_properties: Default::default(),
@@ -206,6 +207,7 @@ fn lower_sub_component(
     let mut repeated = vec![];
     let mut component_container_data = vec![];
     let mut accessible_prop = Vec::new();
+    let mut change_callbacks = Vec::new();
 
     if let Some(parent) = component.parent_element.upgrade() {
         // Add properties for the model data and index
@@ -318,6 +320,11 @@ fn lower_sub_component(
                 crate::generator::to_pascal_case(key.strip_prefix("accessible-").unwrap());
             accessible_prop.push((*elem.item_index.get().unwrap(), enum_value, nr.clone()));
         }
+
+        for (prop, expr) in &elem.change_callbacks {
+            change_callbacks.push((NamedReference::new(element, prop), expr.borrow().clone()));
+        }
+
         Some(element.clone())
     });
     let ctx = ExpressionContext { mapping: &mapping, state, parent: parent_context, component };
@@ -468,6 +475,16 @@ fn lower_sub_component(
             };
 
             ((idx, key), expr.into())
+        })
+        .collect();
+
+    sub_component.change_callbacks = change_callbacks
+        .into_iter()
+        .map(|(nr, exprs)| {
+            let prop = ctx.map_property_reference(&nr);
+            let expr =
+                super::lower_expression::lower_expression(&tree_Expression::CodeBlock(exprs), &ctx);
+            (prop, expr.into())
         })
         .collect();
 

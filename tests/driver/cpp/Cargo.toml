@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 [package]
 name = "test-driver-cpp"
@@ -18,7 +18,7 @@ path = "main.rs"
 name = "test-driver-cpp"
 
 [dependencies]
-slint-cpp = { workspace = true, features = ["testing", "std"] }
+slint-cpp = { workspace = true, features = ["testing", "std", "experimental"] }
 
 [dev-dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "cpp", "display-diagnostics"] }

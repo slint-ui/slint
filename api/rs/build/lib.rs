@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /*!
 This crate serves as a companion crate of the slint crate.
@@ -17,11 +17,11 @@ In your Cargo.toml:
 build = "build.rs"
 
 [dependencies]
-slint = "1.5.0"
+slint = "1.6.0"
 ...
 
 [build-dependencies]
-slint-build = "1.5.0"
+slint-build = "1.6.0"
 ```
 
 In the `build.rs` file:

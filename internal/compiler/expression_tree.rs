@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::langtype::{BuiltinElement, EnumerationValue, Type};
@@ -85,6 +85,8 @@ pub enum BuiltinMacroFunction {
     Clamp,
     /// Add the right conversion operations so that the return type is the same as the argument type
     Mod,
+    /// Add the right conversion operations so that the return type is the same as the argument type
+    Abs,
     CubicBezier,
     /// The argument can be r,g,b,a or r,g,b and they can be percentages or integer.
     /// transform the argument so it is always rgb(r, g, b, a) with r, g, b between 0 and 255.
@@ -1487,7 +1489,7 @@ impl BindingExpression {
     /// Returns true if the other expression was taken
     pub fn merge_with(&mut self, other: &Self) -> bool {
         if self.animation.is_none() {
-            self.animation = other.animation.clone();
+            self.animation.clone_from(&other.animation);
         }
         let has_binding = self.has_binding();
         self.two_way_bindings.extend_from_slice(&other.two_way_bindings);

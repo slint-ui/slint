@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore backtab
 
@@ -324,7 +324,7 @@ struct WindowPropertiesTracker {
 }
 
 impl crate::properties::PropertyDirtyHandler for WindowPropertiesTracker {
-    fn notify(&self) {
+    fn notify(self: Pin<&Self>) {
         let win = self.window_adapter_weak.clone();
         crate::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = win.upgrade() {
@@ -339,7 +339,7 @@ struct WindowRedrawTracker {
 }
 
 impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
-    fn notify(&self) {
+    fn notify(self: Pin<&Self>) {
         if let Some(window_adapter) = self.window_adapter_weak.upgrade() {
             window_adapter.request_redraw();
         };
@@ -618,6 +618,8 @@ impl WindowInner {
         {
             self.close_popup();
         }
+
+        crate::properties::ChangeTracker::run_change_handlers();
     }
 
     /// Called by the input code's internal timer to send an event that was delayed
@@ -657,6 +659,7 @@ impl WindowInner {
                 &focus_item,
             ) == crate::input::KeyEventResult::EventAccepted
             {
+                crate::properties::ChangeTracker::run_change_handlers();
                 return;
             }
             item = focus_item.parent_item();
@@ -674,6 +677,7 @@ impl WindowInner {
         {
             self.focus_previous_item();
         }
+        crate::properties::ChangeTracker::run_change_handlers();
     }
 
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.

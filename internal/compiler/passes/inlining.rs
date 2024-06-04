@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Inline each object_tree::Component within the main Component
 
@@ -167,6 +167,16 @@ fn inline_element(
             }
         }
     }
+    for (k, val) in inlined_component.root_element.borrow().change_callbacks.iter() {
+        match elem_mut.change_callbacks.entry(k.clone()) {
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert(val.clone());
+            }
+            std::collections::btree_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().get_mut().extend_from_slice(&*val.borrow());
+            }
+        }
+    }
 
     if let Some(orig) = &inlined_component.root_element.borrow().layout_info_prop {
         if let Some(_new) = &mut elem_mut.layout_info_prop {
@@ -192,15 +202,8 @@ fn inline_element(
         .inlined_init_code
         .values()
         .cloned()
-        .chain(
-            inlined_component
-                .init_code
-                .borrow()
-                .constructor_code
-                .iter()
-                .cloned()
-                .map(fixup_init_expression),
-        )
+        .chain(inlined_component.init_code.borrow().constructor_code.iter().cloned())
+        .map(fixup_init_expression)
         .collect();
 
     root_component
@@ -238,6 +241,7 @@ fn duplicate_element_with_mapping(
             .iter()
             .map(|b| duplicate_binding(b, mapping, root_component, priority_delta))
             .collect(),
+        change_callbacks: elem.change_callbacks.clone(),
         property_analysis: elem.property_analysis.clone(),
         children: elem
             .children
@@ -320,6 +324,7 @@ fn duplicate_sub_component(
         exported_global_names: component_to_duplicate.exported_global_names.clone(),
         is_root_component: Default::default(),
         private_properties: Default::default(),
+        inherits_popup_window: core::cell::Cell::new(false),
     };
 
     let new_component = Rc::new(new_component);

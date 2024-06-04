@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Android backend.
 //!
-//! **Note:** This module is only available on Android with the "backend-android-activity-05" feature
+//! **Note:** This module is only available on Android with the "backend-android-activity-06" feature
 //!
 //! Slint uses the [android-activity crate](https://github.com/rust-mobile/android-activity) as a backend.
 //!
@@ -33,7 +33,7 @@
 //! }
 //! ```
 //!
-//! That function must be in a `cdylib` library, and you should enable the "backend-android-activity-05"`
+//! That function must be in a `cdylib` library, and you should enable the "backend-android-activity-06"`
 //! feature of the slint crate in your Cargo.toml:
 //!
 //! ```toml
@@ -41,10 +41,24 @@
 //! crate-type = ["cdylib"]
 //!
 //! [dependencies]
-//! slint = { version = "1.5", features = ["backend-android-activity-05"] }
+//! slint = { version = "1.6", features = ["backend-android-activity-06"] }
 //! ```
 //!
 //! ## Building and Deploying
+//!
+//! Building a Rust application requires the target toolchain to be installed. You can install it via `rustup`. For example, to target AArch64 Android, use the following command:
+//!
+//! ```sh
+//! rustup target add aarch64-linux-android
+//! ```
+//!
+//! Make sure that you have the Android NDK and SDK installed and set up in your development environment.
+//! For detailed instructions on how to set up the Android NDK and SDK, please refer to the [Android Developer's guide](https://developer.android.com/studio/projects/install-ndk).
+//! The following environment variables need to be set:
+//! * `ANDROID_HOME`: The directory in which your Android SDK is located. Usually `$HOME/Android/Sdk`.
+//! * `ANDROID_NDK_ROOT`: The directory in which your Android NDK is located. Usually `$HOME/Android/Sdk/ndk/${NDK_VERSION}`. ${NDK_VERSION} is the version of the NDK you have installed.
+//! * `JAVA_HOME`: The directory in which your Java compiler (`javac`) is located. This variable is optional if a `javac` is found in your `$PATH`.
+//!   Otherwise you can set `JAVA_HOME` to the `javac` installation shipped with Android Studio in `android-studio/jbr`.
 //!
 //! To build and deploy your application, we suggest the usage of [cargo-apk](https://github.com/rust-mobile/cargo-apk),
 //! a cargo subcommand that allows you to build, sign, and deploy Android APKs made in Rust.
@@ -53,20 +67,28 @@
 //!
 //! ```sh
 //! cargo install cargo-apk
+//! ```
+//!  
+//! Build and run your application with the following command:
+//!
+//! ```sh
 //! cargo apk run --target aarch64-linux-android --lib
 //! ```
 //!
-//! Please ensure that you have the Android NDK and SDK installed and properly set up in your development environment for the above command to work as expected.
-//! For detailed instructions on how to set up the Android NDK and SDK, please refer to the [Android Developer's guide](https://developer.android.com/studio/projects/install-ndk).
-//! The `ANDROID_HOME` and `ANDROID_NDK_ROOT` environment variable need to be set to the right path.
 //!
 //! Note Slint does not require a specific build tool and can work with others, such as [xbuild](https://github.com/rust-mobile/xbuild).
 
 /// Re-export of the android-activity crate.
-#[cfg(all(target_os = "android", feature = "backend-android-activity-05"))]
+#[cfg(all(
+    target_os = "android",
+    any(feature = "backend-android-activity-05", feature = "backend-android-activity-06")
+))]
 pub use i_slint_backend_android_activity::android_activity;
 
-#[cfg(not(all(target_os = "android", feature = "backend-android-activity-05")))]
+#[cfg(not(all(
+    target_os = "android",
+    any(feature = "backend-android-activity-05", feature = "backend-android-activity-06")
+)))]
 /// Re-export of the [android-activity](https://docs.rs/android-activity) crate.
 pub mod android_activity {
     #[doc(hidden)]
@@ -83,7 +105,7 @@ use crate::platform::SetPlatformError;
 
 /// Initializes the Android backend.
 ///
-/// **Note:** This function is only available on Android with the "backend-android-activity-05" feature
+/// **Note:** This function is only available on Android with the "backend-android-activity-06" feature
 ///
 /// This function must be called from the `android_main` function before any call to Slint that needs a backend.
 ///
@@ -98,7 +120,7 @@ pub fn init(app: android_activity::AndroidApp) -> Result<(), SetPlatformError> {
 
 /// Similar to [`init()`], which allow to listen to android-activity's event
 ///
-/// **Note:** This function is only available on Android with the "backend-android-activity-05" feature
+/// **Note:** This function is only available on Android with the "backend-android-activity-06" feature
 ///
 /// The listener argument is a function that takes a [`android_activity::PollEvent`](https://docs.rs/android-activity/latest/android_activity/enum.PollEvent.html)
 ///

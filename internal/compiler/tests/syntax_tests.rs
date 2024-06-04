@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! This test is trying to compile all the *.slint files in the sub directories and check that compilation
 //! errors are properly reported
@@ -189,7 +189,7 @@ fn process_file_source(
     let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::Interpreter,
     );
-    compiler_config.enable_component_containers = true;
+    compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".into());
     let compile_diagnostics = if !parse_diagnostics.has_error() {
         let (_, build_diags, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(

@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::SharedString;
 use core::fmt::Display;
@@ -225,6 +225,20 @@ fn translate_gettext(string: &str, ctx: &str, domain: &str, n: i32, plural: &str
 }
 
 pub fn mark_all_translations_dirty() {
+    #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
+    {
+        // SAFETY: This trick from https://www.gnu.org/software/gettext/manual/html_node/gettext-grok.html
+        // is merely incrementing a generational counter that will invalidate gettext's internal cache for translations.
+        // If in the worst case it won't invalidate, then old translations are shown.
+        #[allow(unsafe_code)]
+        unsafe {
+            extern "C" {
+                static mut _nl_msg_cat_cntr: std::ffi::c_int;
+            }
+            _nl_msg_cat_cntr += 1;
+        }
+    }
+
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
         ctx.0.translations_dirty.mark_dirty();

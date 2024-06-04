@@ -38,11 +38,12 @@ Once this is done, you should have the `rustc` compiler and the `cargo` build sy
 
 For Linux a few additional packages beyond the usual build essentials are needed for development and running apps:
 
--   xcb (`libxcb-shape0-dev` `libxcb-xfixes0-dev` on debian based distributions)
--   xkbcommon (`libxkbcommon-dev` on debian based distributions)
--   fontconfig library (`libfontconfig-dev` on debian based distributions)
--   (optional) Qt will be used when `qmake` is found in `PATH`
--   FFMPEG library `clang` `libavcodec-dev` `libavformat-dev` `libavutil-dev` `libavfilter-dev` `libavdevice-dev` `libasound2-dev` `pkg-config`
+- xcb (`libxcb-shape0-dev` `libxcb-xfixes0-dev` on debian based distributions)
+- xkbcommon (`libxkbcommon-dev` on debian based distributions)
+- fontconfig library (`libfontconfig-dev` on debian based distributions)
+- (optional) Qt will be used when `qmake` is found in `PATH`
+- FFMPEG library `clang` `libavcodec-dev` `libavformat-dev` `libavutil-dev` `libavfilter-dev` `libavdevice-dev` `libasound2-dev` `pkg-config`
+- openssl (`libssl-dev` on debian based distributions)
 
 `xcb` and `xcbcommon` aren't needed if you are only using `backend-winit-wayland` without `backend-winit-x11`.
 

@@ -1,10 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore listviewitem stylemetrics
 
 #[cfg(feature = "enable")]
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(no_qt)");
+
     println!("cargo:rerun-if-env-changed=SLINT_NO_QT");
     if std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"))
         || std::env::var("SLINT_NO_QT").is_ok()

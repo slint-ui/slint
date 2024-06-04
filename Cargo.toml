@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 [workspace]
 members = [
@@ -100,7 +100,7 @@ documentation = "https://slint.dev/docs"
 edition = "2021"
 homepage = "https://slint.dev"
 keywords = ["gui", "toolkit", "graphics", "design", "ui"]
-license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial"
+license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
 repository = "https://github.com/slint-ui/slint"
 rust-version = "1.73"
 version = "1.6.0"
@@ -121,7 +121,7 @@ i-slint-renderer-skia = { version = "=1.6.0", path = "internal/renderers/skia", 
 slint = { version = "=1.6.0", path = "api/rs/slint", default-features = false }
 slint-build = { version = "=1.6.0", path = "api/rs/build", default-features = false }
 slint-cpp = { version = "=1.6.0", path = "api/cpp", default-features = false }
-slint-interpreter = { version = "=1.6.0", path = "internal/interpreter", default_features = false }
+slint-interpreter = { version = "=1.6.0", path = "internal/interpreter", default-features = false }
 slint-macros = { version = "=1.6.0", path = "api/rs/macros", default-features = false }
 
 vtable = { version = "0.2", path = "helper_crates/vtable", default-features = false }
@@ -149,3 +149,7 @@ panic = "abort"
 
 [profile.dev]
 panic = "abort"
+
+# Temporary patch until https://github.com/Peternator7/strum/pull/360 is merged and released
+[patch.crates-io]
+strum_macros = { git = "https://github.com/Peternator7/strum", rev = "refs/pull/360/head" }

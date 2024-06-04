@@ -20,7 +20,7 @@ crate-type = ["lib", "cdylib"]
 name = "printerdemo_lib"
 
 [dependencies]
-slint = { path = "../../../api/rs/slint", features = ["backend-android-activity-05"] }
+slint = { path = "../../../api/rs/slint", features = ["backend-android-activity-06"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}
 
 # Disable gettext on macOS due to https://github.com/Koka/gettext-rs/issues/114

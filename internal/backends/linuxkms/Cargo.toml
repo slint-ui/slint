@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 [package]
 name = "i-slint-backend-linuxkms"
@@ -16,7 +16,7 @@ version.workspace = true
 path = "lib.rs"
 
 [features]
-renderer-skia = ["renderer-skia-vulkan", "renderer-skia-opengl"]
+renderer-skia = ["renderer-skia-opengl"]
 renderer-skia-vulkan = ["i-slint-renderer-skia/vulkan", "vulkano"]
 renderer-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "gbm-sys", "glutin", "raw-window-handle"]
 renderer-femtovg = ["i-slint-renderer-femtovg", "drm", "gbm", "gbm-sys", "glutin", "raw-window-handle"]

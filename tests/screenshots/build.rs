@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::io::{BufWriter, Write};
 use std::path::Path;
@@ -160,7 +160,7 @@ fn generate_source(
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
     compiler_config.include_paths = include_paths;
     compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
-    compiler_config.enable_component_containers = true;
+    compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".to_string());
     compiler_config.scale_factor = scale_factor.into();
     let (root_component, diag, _) =

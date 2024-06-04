@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Helper to do lookup in expressions
 
@@ -496,12 +496,18 @@ impl LookupType {
                 {
                     None
                 } else {
-                    return Some(LookupResult::Expression {
+                    Some(LookupResult::Expression {
                         expression: Expression::ElementReference(Rc::downgrade(&c.root_element)),
                         deprecated: (name == "StyleMetrics"
-                            && !ctx.type_register.expose_internal_types)
-                            .then(|| "Palette".to_string()),
-                    });
+                            && !ctx.type_register.expose_internal_types
+                            && c.root_element
+                                .borrow()
+                                .debug
+                                .get(0)
+                                .and_then(|x| x.0.source_file())
+                                .map_or(false, |x| x.path().starts_with("builtin:")))
+                        .then(|| "Palette".to_string()),
+                    })
                 }
             }
             _ => None,
@@ -786,7 +792,7 @@ impl LookupObject for MathFunctions {
             .or_else(|| f("ceil", BuiltinFunctionReference(BuiltinFunction::Ceil, sl())))
             .or_else(|| f("floor", BuiltinFunctionReference(BuiltinFunction::Floor, sl())))
             .or_else(|| f("clamp", BuiltinMacroReference(BuiltinMacroFunction::Clamp, t.clone())))
-            .or_else(|| f("abs", BuiltinFunctionReference(BuiltinFunction::Abs, sl())))
+            .or_else(|| f("abs", BuiltinMacroReference(BuiltinMacroFunction::Abs, t.clone())))
             .or_else(|| f("sqrt", BuiltinFunctionReference(BuiltinFunction::Sqrt, sl())))
             .or_else(|| f("max", BuiltinMacroReference(BuiltinMacroFunction::Max, t.clone())))
             .or_else(|| f("min", BuiltinMacroReference(BuiltinMacroFunction::Min, t.clone())))

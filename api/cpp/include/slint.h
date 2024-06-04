@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #pragma once
 
@@ -763,7 +763,7 @@ struct MapModelInner : private_api::ModelChangeListener
     {
         target_model.row_removed(index, count);
     }
-    void reset() override { target_model.Model<SourceModelData>::reset(); }
+    void reset() override { target_model.Model<MappedModelData>::reset(); }
 
     slint::MapModel<SourceModelData, MappedModelData> &target_model;
 };
@@ -1276,10 +1276,7 @@ inline SharedString translate(const SharedString &original, const SharedString &
 /// Example
 /// ```cpp
 ///     my_ui->global<LanguageSettings>().on_french_selected([] {
-///        // trick from https://www.gnu.org/software/gettext/manual/html_node/gettext-grok.html
 ///        setenv("LANGUAGE", langs[l], true);
-///        extern int _nl_msg_cat_cntr;
-///        ++_nl_msg_cat_cntr;
 ///        slint::update_all_translations();
 ///    });
 /// ```

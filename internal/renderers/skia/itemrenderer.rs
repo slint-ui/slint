@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore rrect
 
@@ -273,7 +273,12 @@ impl<'a> SkiaItemRenderer<'a> {
         }) {
             let mut tint = skia_safe::Paint::default();
             tint.set_alpha_f(self.current_state.alpha);
-            self.canvas.draw_image(layer_image, skia_safe::Point::default(), Some(&tint));
+            self.canvas.draw_image_with_sampling_options(
+                layer_image,
+                skia_safe::Point::default(),
+                skia_safe::sampling_options::FilterMode::Linear,
+                Some(&tint),
+            );
         }
         RenderingResult::ContinueRenderingWithoutChildren
     }
