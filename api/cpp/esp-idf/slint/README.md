@@ -168,6 +168,14 @@ using [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/ws
 One reason could be that you don't have enough ram for the heap or the stack.
 Make sure that the stack is big enough (~8KiB), and that all the RAM was made available for the heap allocator.
 
+# Wrong colors shown
+
+If colors look inverted on your display, it may be an incompatibility between how RGB565 colors are ordered in little-endian
+and your display expecting a different byte order. Typically, esp32 devices are little ending and display controllers often
+expect big-endian or `esp_lcd` configures them accordingly. Therefore, by default Slint converts pixels to big-endian.
+If your display controller expects little endian, uncheck the `SLINT_COLOR_16_SWAP` Kconfig option in `idf.py menuconfig`
+under `Component config --> Slint`.
+
 ## License
 
 You can use Slint under ***any*** of the following licenses, at your choice:

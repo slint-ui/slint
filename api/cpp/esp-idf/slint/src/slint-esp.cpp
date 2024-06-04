@@ -244,12 +244,14 @@ void EspPlatform::run_event_loop()
                     } else {
                         for (auto [o, s] : region.rectangles()) {
                             for (int y = o.y; y < o.y + s.height; y++) {
+#ifdef CONFIG_SLINT_COLOR_16_SWAP
                                 for (int x = o.x; x < o.x + s.width; x++) {
                                     // Swap endianess to big endian
                                     auto px = reinterpret_cast<uint16_t *>(
                                             &buffer1.value()[y * size.width + x]);
                                     *px = (*px << 8) | (*px >> 8);
                                 }
+#endif
                                 esp_lcd_panel_draw_bitmap(panel_handle, o.x, y, o.x + s.width,
                                                           y + 1,
                                                           buffer1->data() + y * size.width + o.x);

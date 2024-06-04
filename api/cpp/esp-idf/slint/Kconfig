@@ -1,0 +1,9 @@
+menu "Slint"
+
+    config SLINT_COLOR_16_SWAP
+        bool "Swap the 2 bytes of RGB 565 pixels before sending to the display"
+        default y
+        help
+            Use this if your CPU is little endian but the display expects big-endian.
+    
+endmenu
