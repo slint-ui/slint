@@ -135,7 +135,7 @@ We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our edi
 
 Slint has an application template you can use to create a project with dependencies already set up that follows recommended best practices.
 
-Before using the template, install `[cargo-generate](https://github.com/cargo-generate/cargo-generate)`:
+Before using the template, install [`cargo-generate`](https://github.com/cargo-generate/cargo-generate):
 
 ```sh
 cargo install cargo-generate
