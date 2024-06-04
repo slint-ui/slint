@@ -59,7 +59,7 @@ Next, replace the _export component <span class="hljs-title">MainWindow</span> i
 :::{tab-item} NodeJS
 :sync: nodejs
 
-Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `memory.slint` file with the following:
+Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `ui/appwindow.slint` file with the following:
 
 :::
 
