@@ -58,7 +58,15 @@ fn lower_popup_window(
             parent_component.inherits_popup_window.set(true);
             return;
         }
-        Some(parent_element) => parent_element,
+        Some(parent_element) => {
+            if crate::layout::is_layout(&parent_element.borrow().base_type) {
+                diag.push_warning(
+                    "PopupWindow shouldn't be a children of a layout".into(),
+                    &*popup_window_element.borrow(),
+                )
+            }
+            parent_element
+        }
     };
 
     if Rc::ptr_eq(&parent_component.root_element, popup_window_element) {
