@@ -39,7 +39,9 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::UnaryOp { .. } => 1,
         Expression::ImageReference { .. } => 1,
         Expression::Condition { .. } => 10,
-        Expression::Array { .. } => ALLOC_COST,
+        // Never inline an array because it is a model and when shared it needs to keep its identity
+        // (cf #5249)  (otherwise it would be `ALLOC_COST`)
+        Expression::Array { .. } => return isize::MAX,
         Expression::Struct { .. } => 1,
         Expression::EasingCurve(_) => 1,
         Expression::LinearGradient { .. } => ALLOC_COST,

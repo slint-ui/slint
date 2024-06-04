@@ -1069,7 +1069,10 @@ impl Expression {
             }
             Expression::BinaryExpression { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
             Expression::UnaryOp { sub, .. } => sub.is_constant(),
-            Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
+            // Array will turn into model, and they can't be considered as constant if the model
+            // is used and the model is changed. CF issue #5249
+            //Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
+            Expression::Array { .. } => false,
             Expression::Struct { values, .. } => values.iter().all(|(_, v)| v.is_constant()),
             Expression::PathData(data) => match data {
                 Path::Elements(elements) => elements
