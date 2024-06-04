@@ -190,19 +190,9 @@ pub fn generate(doc: &Document) -> TokenStream {
     let named_exports = generate_named_exports(doc);
 
     quote! {
-        #[allow(non_snake_case)]
-        #[allow(non_camel_case_types)]
-         // These make code generation easier
-        #[allow(clippy::style)]
-        #[allow(clippy::complexity)]
+        #[allow(non_snake_case, non_camel_case_types)]
         #[allow(unused_braces, unused_parens)]
-        #[allow(clippy::erasing_op)]
-        #[allow(clippy::approx_constant)] // We may get those from .slint inputs!
-        #[allow(clippy::eq_op)] // The generated code will compare/subtract/etc. equal values
-        #[allow(clippy::cmp_owned)] // The generated code will do this
-        #[allow(clippy::redundant_clone)] // TODO: We clone properties more often then needed
-                                          // according to clippy!
-        #[allow(clippy::overly_complex_bool_expr)]
+        #[allow(clippy::all)]
         mod #compo_module {
             use slint::private_unstable_api::re_exports as sp;
             #[allow(unused_imports)]
