@@ -15,6 +15,10 @@ Files: api/cpp/docs/*/*.html api/cpp/docs/*/*.css docs/*/*.css docs/*/*.html doc
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
+Files: api/cpp/esp-idf/slint/Kconfig
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 Files: examples/*/LC_MESSAGES/*.mo examples/*/sdkconfig*
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
