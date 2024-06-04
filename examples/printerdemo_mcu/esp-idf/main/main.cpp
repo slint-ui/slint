@@ -51,8 +51,12 @@ extern "C" void app_main(void)
 
     static std::vector<slint::platform::Rgb565Pixel> buffer(BSP_LCD_H_RES * BSP_LCD_V_RES);
 
-    slint_esp_init(slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }), panel_handle,
-                   touch_handle, buffer);
+    slint_esp_init(SlintPlatformConfiguration {
+            .size = slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }),
+            .panel = panel_handle,
+            .touch = touch_handle,
+            .buffer1 = buffer,
+            .color_swap_16 = true });
 
     auto printer_demo = MainWindow::create();
     printer_demo->set_ink_levels(std::make_shared<InkLevelModel>());
