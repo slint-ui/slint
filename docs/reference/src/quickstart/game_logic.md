@@ -31,7 +31,7 @@ The last change to the code is to act when the <span class="hljs-title">MemoryTi
 Add the following handler in the <span class="hljs-title">MainWindow</span> `for` loop `clicked` handler:
 
 :::{literalinclude} main_game_logic_in_rust.rs
-:language: slint
+:language: slint,no-preview
 :lines: 126-143
 :::
 
