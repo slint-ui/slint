@@ -41,7 +41,7 @@ add the `appwindow.slint` file to the target.
 Change the contents of `ui/appwindow.slint` to the following:
 
 :::{literalinclude} appwindow.slint
-:language: slint
+:language: slint,no-preview
 :lines: 6-11
 :::
 
