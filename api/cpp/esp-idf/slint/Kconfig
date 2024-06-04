@@ -5,5 +5,7 @@ menu "Slint"
         default y
         help
             Use this if your CPU is little endian but the display expects big-endian.
+            At the moment this is only supported for single-buffer rendering as well
+            as the (experimental) line-by-line rendering.
     
 endmenu
