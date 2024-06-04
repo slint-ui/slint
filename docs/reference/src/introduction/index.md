@@ -20,6 +20,6 @@ There are three different pathways to get started with Slint:
 3. As a **Software Developer**, integrating Slint into a new or existing code base, choose one of these languages to
    get started:
 
-    - [C++](slint-cpp:index.html)
-    - [Rust](slint-rust:index.html)
-    - [JavaScript](slint-node:index.html)
+    - [C++](slint-qs:index.html)
+    - [Rust](slint-qs:index.html)
+    - [JavaScript](slint-qs:index.html)
