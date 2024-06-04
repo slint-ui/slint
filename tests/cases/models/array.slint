@@ -1,21 +1,22 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export TestCase := Rectangle {
-    property<[int]> ints: [1, 2, 3, 4, 5];
-    property<int> num_ints: ints.length;
-    property<int> n: ints[ints[4] - ints[1]];
-    property<int> operations: ints.length < 1 ? ints.length : ints.length + ints.length;
-    property<[{a: [int]}]> empty_model;
-    property<[{a: [int]}]> empty_model2 : [];
-    property<[{a: [int]}]> empty_model3 : [{a:[]}];
-    property<[[int]]> array_of_array: [ints, ints, ints, []];
+export component TestCase {
+    in-out property<[int]> ints: [1, 2, 3, 4, 5];
+    out property<int> num_ints: ints.length;
+    out property<int> n: ints[ints[4] - ints[1]];
+    out property<int> operations: ints.length < 1 ? ints.length : ints.length + ints.length;
+    out property<[{a: [int]}]> empty_model;
+    in-out property<[{a: [int]}]> empty_model2 : [];
+    in-out property<[{a: [int]}]> empty_model3 : [{a:[]}];
+    in-out property<[[int]]> array_of_array: [ints, ints, ints, []];
 
-    property<bool> test: num_ints == 5 && operations == 10
+    out property<bool> test: num_ints == 5 && operations == 10
         && hello_world == (["", "world"])[1] && empty_model.length == 0 && empty_model[45].a.length == 0
-        && array_of_array[1][1] == 2 && [].length == 0;
-    property<int> third_int: ints[2];
-    property<string> hello_world: [{t: "hello"}, {t: "world"}][1].t;
+        && array_of_array[1][1] == 2 && [].length == 0 && ninth_int == 0;
+    out property<int> third_int: ints[2];
+    out property<int> ninth_int: ints[8];
+    out property<string> hello_world: [{t: "hello"}, {t: "world"}][1].t;
 
     for xxx in (third_int == 0) ? ints : [] : Rectangle {}
 }
@@ -28,6 +29,7 @@ const TestCase &instance = *handle;
 assert_eq(instance.get_num_ints(), 5);
 assert_eq(instance.get_n(), 4);
 assert_eq(instance.get_third_int(), 3);
+assert_eq(instance.get_ninth_int(), 0);
 assert_eq(instance.get_test(), true);
 
 auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int>{1, 2, 3, 4, 5, 6, 7});
@@ -38,6 +40,11 @@ model->push_back(8);
 assert_eq(instance.get_num_ints(), 8);
 model->set_row_data(2, 100);
 assert_eq(instance.get_third_int(), 100);
+assert_eq(instance.get_ninth_int(), 0);
+
+model->push_back(9);
+assert_eq(instance.get_ninth_int(), 9);
+
 
 assert_eq(instance.get_hello_world(), "world");
 ```
@@ -50,6 +57,7 @@ let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_num_ints(), 5);
 assert_eq!(instance.get_n(), 4);
 assert_eq!(instance.get_third_int(), 3);
+assert_eq!(instance.get_ninth_int(), 0);
 assert_eq!(instance.get_test(), true);
 
 let model: std::rc::Rc<slint::VecModel<i32>> = std::rc::Rc::new(vec![1, 2, 3, 4, 5, 6, 7].into());
@@ -60,6 +68,11 @@ model.push(8);
 assert_eq!(instance.get_num_ints(), 8);
 model.set_row_data(2, 100);
 assert_eq!(instance.get_third_int(), 100);
+assert_eq!(instance.get_ninth_int(), 0);
+
+model.push(9);
+assert_eq!(instance.get_ninth_int(), 9);
+
 
 assert_eq!(instance.get_hello_world(), slint::SharedString::from("world"));
 ```
@@ -70,6 +83,7 @@ var instance = new slint.TestCase();
 assert.equal(instance.num_ints, 5);
 assert.equal(instance.n, 4);
 assert.equal(instance.third_int, 3);
+assert.equal(instance.ninth_int, 0);
 
 let model = new slintlib.ArrayModel([1, 2, 3, 4, 5, 6, 7]);
 instance.ints = model;
@@ -79,6 +93,10 @@ model.push(8);
 assert.equal(instance.num_ints, 8);
 model.setRowData(2, 100);
 assert.equal(instance.third_int, 100);
+assert.equal(instance.ninth_int, 0);
+
+model.push(9);
+assert.equal(instance.ninth_int, 9);
 
 assert.equal(instance.hello_world, "world");
 ```
