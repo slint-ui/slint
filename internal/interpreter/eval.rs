@@ -6,7 +6,7 @@ use crate::dynamic_item_tree::InstanceRef;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
 use corelib::items::{ColorScheme, ItemRef, PropertyAnimation};
-use corelib::model::{Model, ModelRc, ModelExt};
+use corelib::model::{Model, ModelExt, ModelRc};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
