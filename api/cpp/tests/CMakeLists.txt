@@ -53,6 +53,7 @@ endif()
 
 if(SLINT_FEATURE_COMPILER OR SLINT_COMPILER)
     add_subdirectory(multiple-includes)
+    add_subdirectory(libraries)
 endif()
 
 slint_test(platform_eventloop)
