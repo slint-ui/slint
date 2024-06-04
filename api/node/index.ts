@@ -846,7 +846,7 @@ function loadSlint(loadData: LoadData): Object {
                         let functionName = cb.replace(/-/g, "_");
 
                         if (globalObject[functionName] !== undefined) {
-                            console.warn("Duplicated property name " + cb + " on global " + global);
+                            console.warn("Duplicated function name " + cb + " on global " + global);
                         } else {
                             Object.defineProperty(globalObject, cb.replace(/-/g, "_"), {
                                 get() {
