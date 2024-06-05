@@ -347,7 +347,7 @@ export struct TimePickerStyle {
 }
 
 export component TimePickerBase {
-    in property <bool> use-24-hour-format;
+    in property <bool> use-24-hour-format: SlintInternal.use-24-hour-format;
     in property <bool> selection-mode: true;
     in property <TimePickerStyle> style;
     in property <Time> time: { hour: 12 };

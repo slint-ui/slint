@@ -4,3 +4,14 @@
 pub fn use_24_hour_format() -> bool {
     true
 }
+
+#[cfg(feature = "ffi")]
+mod ffi {
+    #![allow(unsafe_code)]
+
+    /// Perform the translation and formatting.
+    #[no_mangle]
+    pub extern "C" fn slint_use_24_hour_format() -> bool {
+        super::use_24_hour_format()
+    }
+}
