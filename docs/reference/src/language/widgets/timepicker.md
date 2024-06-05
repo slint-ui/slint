@@ -20,7 +20,7 @@ Use the timer picker to select the time, in either 24-hour or 12-hour mode (AM/P
 -   **`title`** (_in_ _string_): The text that is displayed at the top of the picker.
 -   **`cancel-label`** (_in_ _string_): The text written in the cancel button.
 -   **`ok-label`** (_in_ _string_): The text written in the ok button.
--   **`time`**: (_in_ _Time_): Set the initinal displayed time.
+-   **`time`**: (_in_ _Time_): Set the initial displayed time.
 
 ### Callbacks
 
