@@ -9,7 +9,8 @@ use std::rc::Weak;
 use std::sync::{Arc, Condvar, Mutex};
 
 use accesskit::{
-    Action, ActionRequest, Checked, Node, NodeBuilder, NodeId, Role, Tree, TreeUpdate,
+    Action, ActionRequest, Checked, DefaultActionVerb, Node, NodeBuilder, NodeId, Role, Tree,
+    TreeUpdate,
 };
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
@@ -428,17 +429,12 @@ impl AccessKitAdapter {
             y1: physical_origin.y + physical_size.height,
         });
 
+        let is_checked = is_checkable
+            && item
+                .accessible_string_property(AccessibleStringProperty::Checked)
+                .is_some_and(|x| x == "true");
         if is_checkable {
-            builder.set_checked(
-                if item
-                    .accessible_string_property(AccessibleStringProperty::Checked)
-                    .is_some_and(|x| x == "true")
-                {
-                    Checked::True
-                } else {
-                    Checked::False
-                },
-            );
+            builder.set_checked(if is_checked { Checked::True } else { Checked::False });
         }
 
         if let Some(description) =
@@ -488,19 +484,38 @@ impl AccessKitAdapter {
 
         let supported = item.supported_accessibility_actions();
         if supported.contains(SupportedAccessibilityAction::Default) {
-            builder.add_action(accesskit::Action::Default)
+            builder.add_action(accesskit::Action::Default);
+            builder.set_default_action_verb(if is_checked {
+                DefaultActionVerb::Uncheck
+            } else if is_checkable {
+                DefaultActionVerb::Check
+            } else {
+                DefaultActionVerb::Click
+            });
         }
         if supported.contains(SupportedAccessibilityAction::Decrement) {
-            builder.add_action(accesskit::Action::Decrement)
+            builder.add_action(accesskit::Action::Decrement);
+            if builder.default_action_verb().is_none() {
+                builder.set_default_action_verb(DefaultActionVerb::Click);
+            }
         }
         if supported.contains(SupportedAccessibilityAction::Increment) {
-            builder.add_action(accesskit::Action::Increment)
+            builder.add_action(accesskit::Action::Increment);
+            if builder.default_action_verb().is_none() {
+                builder.set_default_action_verb(DefaultActionVerb::Click);
+            }
         }
         if supported.contains(SupportedAccessibilityAction::SetValue) {
-            builder.add_action(accesskit::Action::SetValue)
+            builder.add_action(accesskit::Action::SetValue);
+            if builder.default_action_verb().is_none() {
+                builder.set_default_action_verb(DefaultActionVerb::Focus);
+            }
         }
         if supported.contains(SupportedAccessibilityAction::ReplaceSelectedText) {
-            builder.add_action(accesskit::Action::ReplaceSelectedText)
+            builder.add_action(accesskit::Action::ReplaceSelectedText);
+            if builder.default_action_verb().is_none() {
+                builder.set_default_action_verb(DefaultActionVerb::Focus);
+            }
         }
 
         builder
