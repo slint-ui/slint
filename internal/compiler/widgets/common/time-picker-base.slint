@@ -332,7 +332,8 @@ export component PeriodSelector {
 
 export struct Time {
     hour: int,
-    minute: int
+    minute: int,
+    second: int
 }
 
 export struct TimePickerStyle {
@@ -341,7 +342,7 @@ export struct TimePickerStyle {
     vertical-spacing: length,
     clock-style: ClockStyle,
     input-style: TimePickerInputStyle,
-    period-selector-style: PeriodSelectorStyle, 
+    period-selector-style: PeriodSelectorStyle,
     title-style: TextStyle,
 }
 
@@ -393,8 +394,8 @@ export component TimePickerBase {
 
     content-layer := VerticalLayout {
         spacing: root.style.vertical-spacing;
- 
-        HorizontalLayout { 
+
+        HorizontalLayout {
             Text {
                 text: root.title;
                 horizontal-alignment: left;
@@ -403,8 +404,8 @@ export component TimePickerBase {
                 font-weight: root.style.title-style.font-weight;
                 color: root.style.title-style.foreground;
             }
-        }   
-        
+        }
+
         HorizontalLayout {
             spacing: root.style.horizontal-spacing;
             alignment: center;
@@ -514,11 +515,11 @@ export component TimePickerBase {
 
         root.update-time(root.time-picker-hour <= 12 ? root.time-picker-hour : 12, root.time-picker-minute <= 59 ? root.time-picker-minute : 59);
     }
-    
+
     changed time => {
         root.current-time = root.time;
     }
-    
+
     function update-time-by-item(index: int) {
         root.update-time-by-value(root.current-model[index]);
     }
