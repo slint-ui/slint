@@ -157,7 +157,3 @@ panic = "abort"
 
 [profile.dev]
 panic = "abort"
-
-# Temporary patch until https://github.com/Peternator7/strum/pull/360 is merged and released
-[patch.crates-io]
-strum_macros = { git = "https://github.com/Peternator7/strum", rev = "refs/pull/360/head" }
