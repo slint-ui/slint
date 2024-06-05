@@ -217,6 +217,7 @@ pub fn create(
     Ok(SlintServer {
         ctx: Rc::new(Context {
             document_cache,
+            preview_config: RefCell::new(Default::default()),
             init_param,
             server_notifier,
             to_show: Default::default(),
