@@ -60,6 +60,7 @@ pub enum BuiltinFunction {
     Rgb,
     Hsv,
     ColorScheme,
+    Use24HourFormat,
     MonthDayCount,
     MonthOffset,
     FormatDate,
@@ -74,7 +75,6 @@ pub enum BuiltinFunction {
     RegisterCustomFontByMemory,
     RegisterBitmapFont,
     Translate,
-    Use24HourFormat,
 }
 
 #[derive(Debug, Clone)]

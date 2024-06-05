@@ -3229,6 +3229,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorScheme => {
             format!("{}.color_scheme()", access_window_field(ctx))
         }
+        BuiltinFunction::Use24HourFormat => {
+            format!("slint::cbindgen_private::slint_date_time_use_24_hour_format()")
+        }
         BuiltinFunction::MonthDayCount => {
             format!("slint::cbindgen_private::slint_date_time_month_day_count({}, {})", a.next().unwrap(), a.next().unwrap())
         }
@@ -3380,9 +3383,6 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::Translate => {
             format!("slint::private_api::translate({})", a.join(","))
-        }
-        BuiltinFunction::Use24HourFormat => {
-            format!("slint::private_api::use_24_hour_format()")
         }
     }
 }
