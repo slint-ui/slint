@@ -58,7 +58,7 @@ using slint_testing::mock_elapsed_time;
 
 auto instance = TestCase::create();
 
-instance->set_time(Time{ .hour = 8, .minute = 45});
+instance->set_time(Time{ .hour = 8, .minute = 45, .second = 0});
 
 mock_elapsed_time(500);
 
@@ -71,7 +71,7 @@ auto minute = minute_search[0];
 assert_eq(*minute.accessible_value(), "45");
 
 // hour and minute selection
-instance->set_time(Time{ .hour = 0, .minute = 0});
+instance->set_time(Time{ .hour = 0, .minute = 0, .second = 0});
 
 auto hour_selection_search = slint::testing::ElementHandle::find_by_accessible_label(instance, "6 Hours or minutes of 24");
 auto hour_selection = hour_selection_search[0];
