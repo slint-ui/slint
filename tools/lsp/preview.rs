@@ -5,6 +5,7 @@ use crate::common::{self, ComponentInformation, ElementRcNode, PreviewComponent,
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
+use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFileVersion};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
 use i_slint_core::component_factory::FactoryContext;
@@ -69,8 +70,55 @@ struct PreviewState {
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
     known_components: Vec<ComponentInformation>,
+    document_cache: Option<common::DocumentCache>,
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
+
+impl PreviewState {
+    fn refresh_document_cache(
+        &mut self,
+        path: &Path,
+        version: SourceFileVersion,
+        source_code: String,
+    ) {
+        let Some(dc) = self.document_cache.as_mut() else {
+            return;
+        };
+
+        let mut diag = BuildDiagnostics::default();
+        spin_on::spin_on(dc.documents.load_file(
+            path,
+            version,
+            path,
+            source_code,
+            false,
+            &mut diag,
+        ));
+
+        eprintln!("Updated Document Cache in Live Preview: has_error: {}", diag.has_error());
+    }
+
+    fn recreate_document_cache(&mut self, config: &PreviewConfig, style: String) {
+        let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(
+            i_slint_compiler::generator::OutputFormat::Interpreter,
+        );
+
+        if style.is_empty() {
+            compiler_config.style = None;
+        } else {
+            compiler_config.style = Some(style);
+        }
+
+        compiler_config.include_paths = config.include_paths.clone();
+        compiler_config.library_paths = config.library_paths.clone();
+        compiler_config.open_import_fallback = Some(Rc::new(|path| {
+            let path = PathBuf::from(path);
+            Box::pin(async move { get_path_from_cache(&path).map(|(_, c)| Ok(c)) })
+        }));
+
+        self.document_cache = Some(common::DocumentCache::new(compiler_config));
+    }
+}
 
 pub fn set_contents(url: &common::VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
@@ -81,10 +129,26 @@ pub fn set_contents(url: &common::VersionedUrl, content: String) {
                 return;
             }
         }
+
+        let Some(path) = common::uri_to_file(&url.url()) else { return Default::default() };
+
+        let fp = path.clone();
+        let fv = url.version().clone();
+        let fc = content.clone();
+
+        let _ = i_slint_core::api::invoke_from_event_loop(move || {
+            let path = fp;
+            let version = fv;
+            let content = fc;
+
+            PREVIEW_STATE
+                .with(move |ps| ps.borrow_mut().refresh_document_cache(&path, version, content))
+        });
+
+        let ui_is_visible = cache.ui_is_visible;
         let Some(current) = cache.current.clone() else {
             return;
         };
-        let ui_is_visible = cache.ui_is_visible;
 
         drop(cache);
 
@@ -345,6 +409,13 @@ fn change_style() {
     let Some(current) = cache.current.clone() else {
         return;
     };
+
+    let config = cache.config.clone();
+    let style = get_current_style();
+    let _ = i_slint_core::api::invoke_from_event_loop(move || {
+        PREVIEW_STATE.with(|ps| ps.borrow_mut().recreate_document_cache(&config, style))
+    });
+
     drop(cache);
 
     if ui_is_visible {
@@ -371,12 +442,18 @@ pub fn config_changed(config: PreviewConfig) {
     if let Some(cache) = CONTENT_CACHE.get() {
         let mut cache = cache.lock().unwrap();
         if cache.config != config {
-            cache.config = config;
+            cache.config = config.clone();
+
             let current = cache.current.clone();
             let ui_is_visible = cache.ui_is_visible;
             let hide_ui = cache.config.hide_ui;
 
             drop(cache);
+
+            let style = get_current_style();
+            let _ = i_slint_core::api::invoke_from_event_loop(move || {
+                PREVIEW_STATE.with(|ps| ps.borrow_mut().recreate_document_cache(&config, style))
+            });
 
             if ui_is_visible {
                 if let Some(hide_ui) = hide_ui {
@@ -408,6 +485,7 @@ pub fn load_preview(preview_component: PreviewComponent) {
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.current = Some(preview_component.clone());
+
         if !cache.ui_is_visible {
             return;
         }
