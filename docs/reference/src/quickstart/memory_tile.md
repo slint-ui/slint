@@ -30,6 +30,7 @@ Copy the following code into `ui/appwindow.slint` file, replacing the current co
 
 :::{tab-item} Rust
 :sync: rust
+:selected: true
 
 Copy the following code inside of the `slint!` macro, replacing the current content:
 
@@ -63,6 +64,7 @@ loads an icon with the <span class="hljs-built_in">@image-url()</span> macro. Th
 
 :::{tab-item} Rust
 :sync: rust
+:selected: true
 
 Inside the <span class="hljs-built_in">Rectangle</span> place an <span class="hljs-built_in">Image</span> element that
 loads an icon with the <span class="hljs-built_in">@image-url()</span> macro.
@@ -113,6 +115,7 @@ Running the program with `npm start` opens a window that shows the icon of a bus
 
 :::{tab-item} Rust
 :sync: rust
+:selected: true
 
 Running the program with `cargo run` opens a window that shows the icon of a bus on a blue background.
 
