@@ -48,5 +48,5 @@ assert_eq!(hour.accessible_value().unwrap(), "6");
 let mut minute_selection_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "25 Hours or minutes of 60");
 let minute_selection = minute_selection_search.next().unwrap();
 minute_selection.invoke_accessible_action_default();
-
+```
 */
