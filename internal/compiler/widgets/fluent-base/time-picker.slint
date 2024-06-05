@@ -1,0 +1,106 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Time, TimePickerBase } from "../common/time-picker-base.slint";
+import { VerticalBox } from "./layouts.slint";
+import { Button } from "./button.slint";
+import { FluentPalette, FluentFontSettings, Icons } from "styling.slint";
+import { MenuBorder } from "./components.slint";
+
+export { Time }
+
+export component TimePicker {
+    in property <bool> use-24-hour-format <=> base.use-24-hour-format;
+    in property <string> title: "Select time";
+    in property <string> cancel-text: "Cancel";
+    in property <string> ok-text: "Ok";
+    in property <Time> time <=> base.time;
+
+    callback canceled();
+    callback accepted(/* current-time */ Time);
+
+    min-width: content-layer.min-width;
+    min-height: content-layer.min-height;
+    background-layer := MenuBorder { }
+
+    content-layer := VerticalBox {
+        spacing: 8px;
+
+        base := TimePickerBase {
+            title: root.title;
+            style: {
+                foreground: FluentPalette.foreground,
+                vertical-spacing: 8px,
+                horizontal-spacing: 4px,
+                clock-style: {
+                    background: FluentPalette.control-background,
+                    foreground: FluentPalette.accent-background,
+                    time-selector-style: {
+                        foreground: FluentPalette.foreground,
+                        foreground-selected: FluentPalette.accent-foreground,
+                        font-size: FluentFontSettings.body-strong.font-size,
+                        font-weight: FluentFontSettings.body-strong.font-weight
+                    }
+                },
+                input-style: {
+                    background: FluentPalette.control-background,
+                    background-selected: FluentPalette.accent-background,
+                    foreground: FluentPalette.foreground,
+                    border-radius: 8px,
+                    font-size: 57 * 0.0625rem,
+                    font-weight: 400
+                },
+                period-selector-style: {
+                    border-radius: 8px,
+                    border-width: 1px,
+                    border-brush: FluentPalette.border,
+                    item-style: {
+                        font-size: FluentFontSettings.body-strong.font-size,
+                        font-weight: FluentFontSettings.body-strong.font-weight,
+                        foreground: FluentPalette.foreground,
+                        background-selected: FluentPalette.accent-background,
+                        foreground-selected: FluentPalette.accent-foreground
+                    }
+                },
+                title-style: {
+                    font-size: FluentFontSettings.body.font-size,
+                    font-weight: FluentFontSettings.body.font-weight,
+                    foreground: FluentPalette.foreground,  
+                },
+            };
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            Button {
+                icon: base.selection-mode ? Icons.keyboard : Icons.clock;
+                colorize-icon: true;
+
+                clicked => {
+                    base.selection-mode = !base.selection-mode;
+                }
+            }
+
+            Rectangle { }
+
+            Button {
+                text: root.cancel-text;
+
+                clicked => {
+                    root.canceled();
+                }
+            }
+
+            Button {
+                text: root.ok-text;
+                enabled: base.ok-enabled();
+                accessible-label: "Toggle input picker";
+
+                clicked => {
+                    root.accepted(base.get-current-time());
+                }
+            }
+        }
+    }
+}

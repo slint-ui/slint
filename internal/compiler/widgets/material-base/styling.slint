@@ -7,30 +7,14 @@ import { ColorSchemeSelector } from "color-scheme.slint";
 // typo settings
 struct TextStyle  {
     font-size: relative-font-size,
-    font-weight: int
-}
+    font-weight: int}
 
 export global MaterialFontSettings {
-    out property <TextStyle> label-large: {
-        font-size: 14 * 0.0625rem,
-        font-weight: 500
-    };
-    out property <TextStyle> label-medium: {
-        font-size: 12 * 0.0625rem,
-        font-weight: 500
-    };
-    out property <TextStyle> body-large: {
-        font-size: 16 * 0.0625rem,
-        font-weight: 400
-    };
-    out property <TextStyle> body-small: {
-        font-size: 12 * 0.0625rem,
-        font-weight: 400
-    };
-    out property <TextStyle> title-small: {
-        font-size: 14 * 0.0625rem,
-        font-weight: 500
-    };
+    out property <TextStyle> label-large: { font-size: 14 * 0.0625rem, font-weight: 500 };
+    out property <TextStyle> label-medium: { font-size: 12 * 0.0625rem, font-weight: 500 };
+    out property <TextStyle> body-large: { font-size: 16 * 0.0625rem, font-weight: 400 };
+    out property <TextStyle> body-small: { font-size: 12 * 0.0625rem, font-weight: 400 };
+    out property <TextStyle> title-small: { font-size: 14 * 0.0625rem, font-weight: 500 };
 }
 
 export global Elevation {
@@ -63,6 +47,10 @@ export global MaterialPalette {
     out property <brush> border-variant: !root.dark-color-scheme ? #C4C7C5 : #444746;
     out property <brush> foreground-alt: !root.dark-color-scheme ? #1C1B1F : #E6E1E5;
     out property <brush> secondary-ripple: !root.dark-color-scheme ? #fffc : #000000;
+    out property <brush> surface-container-high: !root.dark-color-scheme ? #ECE6F0 : #2B2930;
+    out property <brush> surface-container-highest: !root.dark-color-scheme ? #E6E0E9 : #36343B;
+    out property <brush> tertiary-container: !root.dark-color-scheme ? #FFD8E4 : #633B48;
+    out property <brush> on-tertiary-container: !root.dark-color-scheme ? #31111D : #FFD8E4;
     in-out property <ColorScheme> color-scheme: ColorSchemeSelector.color-scheme;
     property <bool> dark-color-scheme: {
         if (color-scheme == ColorScheme.unknown) {
@@ -79,4 +67,6 @@ export global Icons {
     out property <image> arrow-upward: @image-url("_arrow-upward.svg");
     out property <image> check-mark: @image-url("_check-mark.svg");
     out property <image> expand-more: @image-url("_expand-more.svg");
+    out property <image> keyboard: @image-url("_keyboard.svg");
+    out property <image> clock: @image-url("_clock.svg");
 }

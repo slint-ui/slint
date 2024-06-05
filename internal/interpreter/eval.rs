@@ -1087,6 +1087,7 @@ fn call_builtin_function(
                 &SharedString::try_from(eval_expression(&arguments[5], local_context)).unwrap(),
             ))
         }
+        BuiltinFunction::Use24HourFormat => Value::Bool(corelib::date_time::use_24_hour_format()),
     }
 }
 

@@ -24,6 +24,7 @@ pub mod api;
 pub mod callbacks;
 pub mod component_factory;
 pub mod context;
+pub mod date_time;
 pub mod future;
 pub mod graphics;
 pub mod input;
