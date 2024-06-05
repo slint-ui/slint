@@ -886,6 +886,15 @@ public:
         return callbacks;
     }
 
+    /// Returns a vector of strings that describe the list of public functions that can be invoked
+    /// using ComponentInstance::invoke.
+    slint::SharedVector<slint::SharedString> functions() const
+    {
+        slint::SharedVector<slint::SharedString> functions;
+        cbindgen_private::slint_interpreter_component_definition_functions(&inner, &functions);
+        return functions;
+    }
+
     /// Returns the name of this Component as written in the .slint file
     slint::SharedString name() const
     {
@@ -924,6 +933,20 @@ public:
     {
         slint::SharedVector<slint::SharedString> names;
         if (cbindgen_private::slint_interpreter_component_definition_global_callbacks(
+                    &inner, slint::private_api::string_to_slice(global_name), &names)) {
+            return names;
+        }
+        return {};
+    }
+
+    /// Returns a vector of the names of the functions of the specified publicly exported global
+    /// singleton. An empty optional is returned if there exists no exported global singleton
+    /// under the specified name.
+    std::optional<slint::SharedVector<slint::SharedString>>
+    global_functions(std::string_view global_name) const
+    {
+        slint::SharedVector<slint::SharedString> names;
+        if (cbindgen_private::slint_interpreter_component_definition_global_functions(
                     &inner, slint::private_api::string_to_slice(global_name), &names)) {
             return names;
         }
