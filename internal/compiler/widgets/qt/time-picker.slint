@@ -5,6 +5,7 @@ import { Time, TimePickerBase } from "../common/time-picker-base.slint";
 import { VerticalBox } from "./layouts.slint";
 import { Button } from "./button.slint";
 import { Palette } from "./std-widgets-impl.slint";
+import { Icons } from "./styling.slint";
 
 export { Time }
 
@@ -76,6 +77,7 @@ export component TimePicker {
             spacing: 8px;
 
             Button {
+                icon: base.selection-mode ? Icons.keyboard : Icons.clock;
                 colorize-icon: true;
                 accessible-label: "Toggle input picker";
 
