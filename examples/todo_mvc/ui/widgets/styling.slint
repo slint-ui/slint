@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette } from "std-widgets.slint";
+
+export global AnimationSettings {
+    out property <duration> color-duration: 200ms;
+    out property <duration> move-duration: 400ms;
+    out property <easing> move-easing: cubic-bezier(0.3, 0.0, 0.8, 0.15);
+}
+
+export global TodoPalette {
+    out property <brush> foreground: Palette.foreground;
+    out property <brush> accent-background: Palette.accent-background;
+    out property <brush> accent-foreground: Palette.accent-foreground;
+    out property <brush> focus-border: Palette.accent-background;
+    out property <brush> state-pressed: root.dark-color-scheme ? #ffffff.with-alpha(0.3) : #000000.with-alpha(0.3);
+    out property <brush> state-hovered: root.dark-color-scheme ? #ffffff.with-alpha(0.2) : #000000.with-alpha(0.2);
+
+    property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+}
+
+export struct TextStyle {
+    font-size: relative-font-size,
+    font-weight: int,
+}
+
+export global FontSettings {
+    out property <int> light-font-weight: 300;
+    out property <int> regular-font-weight: 500;
+    out property <int> semi-bold-font-weight: 600;
+    out property <TextStyle> body: {
+        font-size: 14 * 0.0769rem,
+        font-weight: root.light-font-weight,
+    };
+    out property <TextStyle> body-strong: {
+        font-size: 16 * 0.0769rem,
+        font-weight: root.semi-bold-font-weight,
+    };
+}
+
+export global SizeSettings {
+    out property <length> control-icon-height: 16px;
+    out property <length> control-icon-big-height: 32px;
+    out property <length> control-height: 32px;
+    out property <length> control-big-height: 48px;
+}
+
+export global SpaceSettings {
+    out property <length> default-spacing: 4px;
+    out property <length> default-padding: 8px;
+}
+
+export global Icons {
+    out property <image> add: @image-url("../../assets/add.svg");
+    out property <image> remove: @image-url("../../assets/remove.svg");
+    out property <image> close: @image-url("../../assets/close.svg");
+}

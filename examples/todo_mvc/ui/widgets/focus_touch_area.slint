@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component FocusTouchArea {
+    in property <bool> enabled: true;
+    out property <bool> has-focus <=> focus-scope.has-focus;
+    out property <bool> pressed <=> touch-area.pressed;
+    out property <bool> has-hover <=> touch-area.has-hover;
+    out property <bool> enter-pressed;
+
+    in property <MouseCursor> mouse-cursor <=> touch-area.mouse-cursor;
+
+    callback clicked <=> touch-area.clicked;
+
+    forward-focus: focus-scope;
+
+    focus-scope := FocusScope {
+        x: 0;
+        width: 0px;
+        enabled: root.enabled;
+
+        key-pressed(event) => {
+            if !root.enabled {
+                return reject;
+            }
+            
+            if (event.text == " " || event.text == "\n") && !root.enter-pressed {
+                root.enter-pressed = true;
+                touch-area.clicked();
+                return accept;
+            }
+            
+            reject
+        }
+
+        key-released(event) => {
+            if !root.enabled {
+                return reject;
+            }
+            
+            if (event.text == " " || event.text == "\n") && root.enter-pressed {
+                root.enter-pressed = false;
+                return accept;
+            }
+
+            reject
+        }
+    }
+
+    touch-area := TouchArea {
+        enabled: root.enabled;
+    }
+}
