@@ -44,6 +44,7 @@ in a [`slint.ArrayModel`](https://slint.dev/docs/node/classes/arraymodel.html) w
 
 ::::{tab-item} Rust
 :sync: rust
+:selected: true
 
 The code uses the `rand` dependency for the randomization. Add it to the `Cargo.toml` file using the `cargo` command.
 

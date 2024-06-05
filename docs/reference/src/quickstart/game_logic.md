@@ -90,6 +90,7 @@ Insert this code before the `mainWindow.run()` call:
 
 ::::{tab-item} Rust
 :sync: rust
+:selected: true
 
 Add the following code inside the <span class="hljs-title">MainWindow</span> component to signal to the Rust code when the user clicks on a tile.
 

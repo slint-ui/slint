@@ -130,6 +130,7 @@ Run the example with `npm start` and a window appears with the green "Hello Worl
 
 ::::{tab-item} Rust
 :sync: rust
+:selected: true
 
 We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our editor integrations for Slint](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
 

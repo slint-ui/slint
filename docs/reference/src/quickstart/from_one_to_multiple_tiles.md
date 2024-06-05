@@ -36,6 +36,7 @@ First, add the tile data structure definition at the top of the `ui/appwindow.sl
 
 :::{tab-item} Rust
 :sync: rust
+:selected: true
 
 First, add the tile data structure definition at the top of the `slint!` macro:
 
@@ -65,6 +66,7 @@ Next, replace the _export component <span class="hljs-title">MainWindow</span> i
 
 :::{tab-item} Rust
 :sync: rust
+:selected: true
 
 Next, replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `slint!` macro with the following:
 
