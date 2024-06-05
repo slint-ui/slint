@@ -60,11 +60,10 @@ pub enum BuiltinFunction {
     Rgb,
     Hsv,
     ColorScheme,
-    MonthForDate,
+    MonthDayCount,
     MonthOffset,
     FormatDate,
     DateNow,
-    WeekDaysShort,
     ValidDate,
     ParseDate,
     TextInputFocused,
@@ -252,8 +251,8 @@ impl BuiltinFunction {
                 )),
                 args: vec![],
             },
-            BuiltinFunction::MonthForDate => Type::Function {
-                return_type: Box::new(Type::Array(Box::new(Type::Array(Box::new(Type::Int32))))),
+            BuiltinFunction::MonthDayCount => Type::Function {
+                return_type: Box::new(Type::Int32),
                 args: vec![Type::Int32, Type::Int32],
             },
             BuiltinFunction::MonthOffset => Type::Function {
@@ -263,10 +262,6 @@ impl BuiltinFunction {
             BuiltinFunction::FormatDate => Type::Function {
                 return_type: Box::new(Type::String),
                 args: vec![Type::String, Type::Int32, Type::Int32, Type::Int32],
-            },
-            BuiltinFunction::WeekDaysShort => Type::Function {
-                return_type: Box::new(Type::Array(Box::new(Type::String))),
-                args: vec![],
             },
             BuiltinFunction::TextInputFocused => {
                 Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
@@ -322,11 +317,10 @@ impl BuiltinFunction {
             BuiltinFunction::GetWindowDefaultFontSize => false,
             BuiltinFunction::AnimationTick => false,
             BuiltinFunction::ColorScheme => false,
-            BuiltinFunction::MonthForDate => false,
+            BuiltinFunction::MonthDayCount => false,
             BuiltinFunction::MonthOffset => false,
             BuiltinFunction::FormatDate => false,
             BuiltinFunction::DateNow => false,
-            BuiltinFunction::WeekDaysShort => false,
             BuiltinFunction::ValidDate => false,
             BuiltinFunction::ParseDate => false,
             // Even if it is not pure, we optimize it away anyway
@@ -387,11 +381,10 @@ impl BuiltinFunction {
             BuiltinFunction::GetWindowDefaultFontSize => true,
             BuiltinFunction::AnimationTick => true,
             BuiltinFunction::ColorScheme => true,
-            BuiltinFunction::MonthForDate => true,
+            BuiltinFunction::MonthDayCount => true,
             BuiltinFunction::MonthOffset => true,
             BuiltinFunction::FormatDate => true,
             BuiltinFunction::DateNow => true,
-            BuiltinFunction::WeekDaysShort => true,
             BuiltinFunction::ValidDate => true,
             BuiltinFunction::ParseDate => true,
             // Even if it has technically side effect, we still consider it as pure for our purpose

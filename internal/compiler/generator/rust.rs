@@ -2687,32 +2687,29 @@ fn compile_builtin_function_call(
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).color_scheme())
         }
-        BuiltinFunction::MonthForDate => {
+        BuiltinFunction::MonthDayCount => {
             let (m, y) = (a.next().unwrap(), a.next().unwrap());
-            quote!(slint::private_unstable_api::month_for_date(#m as u32, #y as i32))
+            quote!(sp::month_day_count(#m as u32, #y as i32).unwrap_or(0))
         }
         BuiltinFunction::MonthOffset => {
             let (m, y) = (a.next().unwrap(), a.next().unwrap());
-            quote!(slint::private_unstable_api::month_offset(#m as u32, #y as i32))
+            quote!(sp::month_offset(#m as u32, #y as i32))
         }
         BuiltinFunction::FormatDate => {
             let (f, d, m, y) =
                 (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!(slint::private_unstable_api::format_date(&#f, #d as u32, #m as u32, #y as i32))
+            quote!(sp::format_date(&#f, #d as u32, #m as u32, #y as i32))
         }
         BuiltinFunction::ValidDate => {
             let (d, f) = (a.next().unwrap(), a.next().unwrap());
-            quote!(slint::private_unstable_api::valid_date(#d.as_str(), #f.as_str()))
+            quote!(sp::parse_date(#d.as_str(), #f.as_str()).is_some())
         }
         BuiltinFunction::ParseDate => {
             let (d, f) = (a.next().unwrap(), a.next().unwrap());
-            quote!(slint::private_unstable_api::parse_date(#d.as_str(), #f.as_str()))
-        }
-        BuiltinFunction::WeekDaysShort => {
-            quote!(slint::private_unstable_api::week_days_short())
+            quote!(sp::ModelRc::new(sp::parse_date(#d.as_str(), #f.as_str()).map(|d| sp::VecModel::from_slice(&d)).unwrap_or_default()))
         }
         BuiltinFunction::DateNow => {
-            quote!(slint::private_unstable_api::date_now())
+            quote!(sp::ModelRc::new(sp::VecModel::from_slice(&sp::date_now())))
         }
         BuiltinFunction::TextInputFocused => {
             let window_adapter_tokens = access_window_adapter_field(ctx);

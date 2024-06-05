@@ -3229,26 +3229,31 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorScheme => {
             format!("{}.color_scheme()", access_window_field(ctx))
         }
-        BuiltinFunction::MonthForDate => {
-            format!("{}.month_for_date()", access_window_field(ctx))
+        BuiltinFunction::MonthDayCount => {
+            format!("slint::cbindgen_private::slint_date_time_month_day_count({}, {})", a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::MonthOffset => {
-            format!("{}.month_offset()", access_window_field(ctx))
+            format!("slint::cbindgen_private::slint_date_time_month_offset({}, {})", a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::FormatDate => {
-            format!("{}.format_date()", access_window_field(ctx))
+            format!("[](const auto &format, int d, int m, int y) {{ slint::SharedString out; slint::cbindgen_private::slint_date_time_format_date(&format, d, m, y, &out); return out; }}({}, {}, {}, {})",
+                a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap()
+            )
         }
         BuiltinFunction::DateNow => {
-            format!("{}.date_now()", access_window_field(ctx))
-        }
-        BuiltinFunction::WeekDaysShort => {
-            format!("{}.week_days_short()", access_window_field(ctx))
+            "[] { int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_date_now(&d, &m, &y); return std::make_shared<slint::private_api::ArrayModel<3,int32_t>>(d, m, y); }()".into()
         }
         BuiltinFunction::ValidDate => {
-            format!("{}.valid_date()", access_window_field(ctx))
+            format!(
+                "[](const auto &a, const auto &b) {{ int32_t d=0, m=0, y=0; return slint::cbindgen_private::slint_date_time_parse_date(&a, &b, &d, &m, &y); }}({}, {})",
+                a.next().unwrap(), a.next().unwrap()
+            )
         }
         BuiltinFunction::ParseDate => {
-            format!("{}.parse_date()", access_window_field(ctx))
+            format!(
+                "[](const auto &a, const auto &b) {{ int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_parse_date(&a, &b, &d, &m, &y); return std::make_shared<slint::private_api::ArrayModel<3,int32_t>>(d, m, y); }}({}, {})",
+                a.next().unwrap(), a.next().unwrap()
+            )
         }
         BuiltinFunction::SetTextInputFocused => {
             format!("{}.set_text_input_focused({})", access_window_field(ctx), a.next().unwrap())

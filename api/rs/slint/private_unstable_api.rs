@@ -169,34 +169,6 @@ pub fn use_24_hour_format() -> bool {
     i_slint_core::date_time::use_24_hour_format()
 }
 
-pub fn month_for_date(month: u32, year: i32) -> ModelRc<ModelRc<i32>> {
-    i_slint_core::date_time::month_for_date(month, year)
-}
-
-pub fn month_offset(month: u32, year: i32) -> i32 {
-    i_slint_core::date_time::month_offset(month, year)
-}
-
-pub fn format_date(format: &SharedString, day: u32, month: u32, year: i32) -> SharedString {
-    i_slint_core::date_time::format_date(format, day, month, year)
-}
-
-pub fn date_now() -> ModelRc<i32> {
-    i_slint_core::date_time::date_now()
-}
-
-pub fn week_days_short() -> ModelRc<SharedString> {
-    i_slint_core::date_time::week_days_short()
-}
-
-pub fn valid_date(date: &str, format: &str) -> bool {
-    i_slint_core::date_time::valid_date(date, format)
-}
-
-pub fn parse_date(date: &str, format: &str) -> ModelRc<i32> {
-    i_slint_core::date_time::parse_date(date, format)
-}
-
 /// internal re_exports used by the macro generated
 pub mod re_exports {
     pub use alloc::boxed::Box;
@@ -216,6 +188,7 @@ pub mod re_exports {
     };
     pub use i_slint_core::animations::{animation_tick, EasingCurve};
     pub use i_slint_core::callbacks::Callback;
+    pub use i_slint_core::date_time::*;
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
         key_codes::Key, FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
