@@ -11,10 +11,10 @@ pub mod lsp_ext;
 mod preview;
 pub mod util;
 
-use common::{LspToPreviewMessage, Result, VersionedUrl};
+use common::{DocumentCache, LspToPreviewMessage, Result, VersionedUrl};
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
-pub use language::{Context, DocumentCache, RequestHandler};
+pub use language::{Context, RequestHandler};
 use lsp_types::Url;
 use serde::Serialize;
 use std::cell::RefCell;

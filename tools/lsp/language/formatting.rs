@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::DocumentCache;
+use crate::common;
 use crate::fmt::{fmt, writer};
 use crate::util::map_range;
 use dissimilar::Chunk;
@@ -35,7 +36,7 @@ pub fn format_document(
     params: DocumentFormattingParams,
     document_cache: &DocumentCache,
 ) -> Option<Vec<TextEdit>> {
-    let file_path = super::uri_to_file(&params.text_document.uri)?;
+    let file_path = common::uri_to_file(&params.text_document.uri)?;
     let doc = document_cache.documents.get_document(&file_path)?;
     let doc = doc.node.as_ref()?;
 

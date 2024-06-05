@@ -4,8 +4,7 @@
 // cSpell: ignore rfind
 
 use super::component_catalog::all_exported_components;
-use super::DocumentCache;
-use crate::common::ComponentInformation;
+use crate::common::{ComponentInformation, DocumentCache};
 use crate::util::{lookup_current_element_type, map_position, with_lookup_ctx};
 
 #[cfg(target_arch = "wasm32")]
@@ -884,7 +883,7 @@ fn is_followed_by_brace(token: &SyntaxToken) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::language::uri_to_file;
+    use crate::common::uri_to_file;
 
     /// Given a source text containing the unicode emoji `🔺`, the emoji will be removed and then an autocompletion request will be done as if the cursor was there
     fn get_completions(file: &str) -> Option<Vec<CompletionItem>> {

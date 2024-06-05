@@ -12,20 +12,15 @@ mod semantic_tokens;
 #[cfg(test)]
 pub mod test;
 
-use crate::common::{self, Result};
+use crate::common::{self, DocumentCache, Result};
 use crate::util;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken};
-use i_slint_compiler::pathutils::clean_path;
-use i_slint_compiler::CompilerConfiguration;
-use i_slint_compiler::{
-    diagnostics::{BuildDiagnostics, SourceFileVersion},
-    langtype::Type,
-};
-use i_slint_compiler::{typeloader::TypeLoader, typeregister::TypeRegister};
+use i_slint_compiler::typeloader::TypeLoader;
+use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
     DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting, GotoDefinition,
@@ -50,12 +45,6 @@ const QUERY_PROPERTIES_COMMAND: &str = "slint/queryProperties";
 const REMOVE_BINDING_COMMAND: &str = "slint/removeBinding";
 const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
 const SET_BINDING_COMMAND: &str = "slint/setBinding";
-
-pub fn uri_to_file(uri: &lsp_types::Url) -> Option<PathBuf> {
-    let path = uri.to_file_path().ok()?;
-    let cleaned_path = clean_path(&path);
-    Some(cleaned_path)
-}
 
 fn command_list() -> Vec<String> {
     vec![
@@ -104,26 +93,6 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
     });
     if let Some(c) = ctx.to_show.borrow().clone() {
         ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::ShowPreview(c))
-    }
-}
-
-/// A cache of loaded documents
-pub struct DocumentCache {
-    pub(crate) documents: TypeLoader,
-    preview_config: common::PreviewConfig,
-}
-
-impl DocumentCache {
-    pub fn new(config: CompilerConfiguration) -> Self {
-        let documents =
-            TypeLoader::new(TypeRegister::builtin(), config, &mut BuildDiagnostics::default());
-        Self { documents, preview_config: Default::default() }
-    }
-
-    pub fn document_version(&self, target_uri: &lsp_types::Url) -> SourceFileVersion {
-        self.documents
-            .get_document(&uri_to_file(target_uri).unwrap_or_default())
-            .and_then(|doc| doc.node.as_ref()?.source_file.version())
     }
 }
 
@@ -449,7 +418,7 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
 
     let url: Url = serde_json::from_value(params.first().ok_or_else(e)?.clone())?;
     // Normalize the URL to make sure it is encoded the same way as what the preview expect from other URLs
-    let url = Url::from_file_path(uri_to_file(&url).ok_or_else(e)?).map_err(|_| e())?;
+    let url = Url::from_file_path(common::uri_to_file(&url).ok_or_else(e)?).map_err(|_| e())?;
 
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
@@ -681,7 +650,7 @@ pub(crate) async fn reload_document_impl(
     version: Option<i32>,
     document_cache: &mut DocumentCache,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
-    let Some(path) = uri_to_file(&url) else { return Default::default() };
+    let Some(path) = common::uri_to_file(&url) else { return Default::default() };
     // Normalize the URL
     let Ok(url) = Url::from_file_path(path.clone()) else { return Default::default() };
     if path.extension().map_or(false, |e| e == "rs") {
@@ -774,7 +743,7 @@ fn get_document_and_offset<'a>(
     text_document_uri: &'a Url,
     pos: &'a Position,
 ) -> Option<(&'a i_slint_compiler::object_tree::Document, u32)> {
-    let path = uri_to_file(text_document_uri)?;
+    let path = common::uri_to_file(text_document_uri)?;
     let doc = type_loader.get_document(&path)?;
     let o = doc.node.as_ref()?.source_file.offset(pos.line as usize + 1, pos.character as usize + 1)
         as u32;
@@ -1097,7 +1066,7 @@ fn get_document_color(
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<ColorInformation>> {
     let mut result = Vec::new();
-    let uri_path = uri_to_file(&text_document.uri)?;
+    let uri_path = common::uri_to_file(&text_document.uri)?;
     let doc = document_cache.documents.get_document(&uri_path)?;
     let root_node = doc.node.as_ref()?;
     let mut token = root_node.first_token()?;
@@ -1131,7 +1100,7 @@ fn get_document_symbols(
     document_cache: &mut DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<DocumentSymbolResponse> {
-    let uri_path = uri_to_file(&text_document.uri)?;
+    let uri_path = common::uri_to_file(&text_document.uri)?;
     let doc = document_cache.documents.get_document(&uri_path)?;
 
     // DocumentSymbol doesn't implement default and some field depends on features or are deprecated
@@ -1226,7 +1195,7 @@ fn get_code_lenses(
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<CodeLens>> {
     if cfg!(any(feature = "preview-builtin", feature = "preview-external")) {
-        let filepath = uri_to_file(&text_document.uri)?;
+        let filepath = common::uri_to_file(&text_document.uri)?;
         let doc = document_cache.documents.get_document(&filepath)?;
 
         let inner_components = doc.inner_components.clone();
