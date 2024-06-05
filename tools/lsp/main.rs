@@ -306,7 +306,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
     }));
 
     let ctx = Rc::new(Context {
-        document_cache: RefCell::new(DocumentCache::new(compiler_config)),
+        document_cache: RefCell::new(crate::common::DocumentCache::new(compiler_config)),
         server_notifier,
         init_param,
         to_show: Default::default(),

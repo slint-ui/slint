@@ -238,7 +238,7 @@ export component Test {
     let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
     let doc = dc
         .documents
-        .get_document(&crate::language::uri_to_file(&uri).unwrap())
+        .get_document(&crate::common::uri_to_file(&uri).unwrap())
         .unwrap()
         .node
         .clone()

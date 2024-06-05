@@ -1410,7 +1410,7 @@ component MainWindow inherits Window {
             "#.to_string());
         let file_url = url.clone();
 
-        let doc = dc.documents.get_document(&crate::language::uri_to_file(&url).unwrap()).unwrap();
+        let doc = dc.documents.get_document(&crate::common::uri_to_file(&url).unwrap()).unwrap();
         let source = &doc.node.as_ref().unwrap().source_file;
         let (l, c) = source.line_column(source.source().unwrap().find("base2 :=").unwrap());
         let (_, result) =

@@ -3,9 +3,11 @@
 
 //! Data structures common between LSP and previewer
 
-use i_slint_compiler::diagnostics::SourceFile;
+use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile, SourceFileVersion};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
+use i_slint_compiler::typeloader::TypeLoader;
+use i_slint_compiler::CompilerConfiguration;
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
 use std::{collections::HashMap, path::PathBuf};
@@ -22,6 +24,35 @@ pub type UrlVersion = Option<i32>;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
+
+pub fn uri_to_file(uri: &lsp_types::Url) -> Option<PathBuf> {
+    let path = uri.to_file_path().ok()?;
+    let cleaned_path = i_slint_compiler::pathutils::clean_path(&path);
+    Some(cleaned_path)
+}
+
+/// A cache of loaded documents
+pub struct DocumentCache {
+    pub(crate) documents: TypeLoader,
+    pub(crate) preview_config: PreviewConfig,
+}
+
+impl DocumentCache {
+    pub fn new(config: CompilerConfiguration) -> Self {
+        let documents = TypeLoader::new(
+            i_slint_compiler::typeregister::TypeRegister::builtin(),
+            config,
+            &mut BuildDiagnostics::default(),
+        );
+        Self { documents, preview_config: Default::default() }
+    }
+
+    pub fn document_version(&self, target_uri: &lsp_types::Url) -> SourceFileVersion {
+        self.documents
+            .get_document(&uri_to_file(target_uri).unwrap_or_default())
+            .and_then(|doc| doc.node.as_ref()?.source_file.version())
+    }
+}
 
 pub fn extract_element(node: SyntaxNode) -> Option<syntax_nodes::Element> {
     match node.kind() {
