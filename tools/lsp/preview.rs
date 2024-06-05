@@ -77,7 +77,7 @@ thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default:
 impl PreviewState {
     fn refresh_document_cache(
         &mut self,
-        path: &Path,
+        url: &lsp_types::Url,
         version: SourceFileVersion,
         source_code: String,
     ) {
@@ -86,14 +86,7 @@ impl PreviewState {
         };
 
         let mut diag = BuildDiagnostics::default();
-        spin_on::spin_on(dc.documents.load_file(
-            path,
-            version,
-            path,
-            source_code,
-            false,
-            &mut diag,
-        ));
+        let _ = spin_on::spin_on(dc.load_url(url, version, source_code, &mut diag)); // ignore url conversion errors
 
         eprintln!("Updated Document Cache in Live Preview: has_error: {}", diag.has_error());
     }
@@ -130,19 +123,16 @@ pub fn set_contents(url: &common::VersionedUrl, content: String) {
             }
         }
 
-        let Some(path) = common::uri_to_file(&url.url()) else { return Default::default() };
-
-        let fp = path.clone();
-        let fv = url.version().clone();
+        let fu = url.clone();
         let fc = content.clone();
 
         let _ = i_slint_core::api::invoke_from_event_loop(move || {
-            let path = fp;
-            let version = fv;
+            let url = fu;
             let content = fc;
 
-            PREVIEW_STATE
-                .with(move |ps| ps.borrow_mut().refresh_document_cache(&path, version, content))
+            PREVIEW_STATE.with(move |ps| {
+                ps.borrow_mut().refresh_document_cache(url.url(), url.version().clone(), content)
+            })
         });
 
         let ui_is_visible = cache.ui_is_visible;

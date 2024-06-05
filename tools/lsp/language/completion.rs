@@ -4,7 +4,7 @@
 // cSpell: ignore rfind
 
 use super::component_catalog::all_exported_components;
-use crate::common::{ComponentInformation, DocumentCache};
+use crate::common::{self, DocumentCache};
 use crate::util::{lookup_current_element_type, map_position, with_lookup_ctx};
 
 #[cfg(target_arch = "wasm32")]
@@ -15,7 +15,6 @@ use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
-use i_slint_compiler::typeloader::TypeLoader;
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
     Range, TextEdit,
@@ -130,12 +129,7 @@ pub(crate) fn completion_at(
             }
 
             if !is_global && snippet_support {
-                add_components_to_import(
-                    &token,
-                    &document_cache.documents,
-                    available_types,
-                    &mut r,
-                );
+                add_components_to_import(&token, &document_cache, available_types, &mut r);
             }
 
             r
@@ -143,9 +137,8 @@ pub(crate) fn completion_at(
     } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
         if let Some(colon) = n.child_token(SyntaxKind::Colon) {
             if offset >= colon.text_range().end().into() {
-                return with_lookup_ctx(&document_cache.documents, node, |ctx| {
-                    resolve_expression_scope(ctx, &document_cache.documents, snippet_support)
-                        .map(Into::into)
+                return with_lookup_ctx(&document_cache, node, |ctx| {
+                    resolve_expression_scope(ctx, &document_cache, snippet_support).map(Into::into)
                 })?;
             }
         }
@@ -164,8 +157,8 @@ pub(crate) fn completion_at(
         if offset < double_arrow_range.end().into() {
             return None;
         }
-        return with_lookup_ctx(&document_cache.documents, node, |ctx| {
-            resolve_expression_scope(ctx, &document_cache.documents, snippet_support)
+        return with_lookup_ctx(&document_cache, node, |ctx| {
+            resolve_expression_scope(ctx, &document_cache, snippet_support)
         })?;
     } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
@@ -237,18 +230,17 @@ pub(crate) fn completion_at(
             );
         }
 
-        return with_lookup_ctx(&document_cache.documents, node, |ctx| {
-            resolve_expression_scope(ctx, &document_cache.documents, snippet_support)
-                .map(Into::into)
+        return with_lookup_ctx(&document_cache, node, |ctx| {
+            resolve_expression_scope(ctx, &document_cache, snippet_support).map(Into::into)
         })?;
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
             SyntaxKind::Element => {
                 // auto-complete the components
-                let global_tr = document_cache.documents.global_type_registry.borrow();
+                let global_tr = document_cache.global_type_registry();
                 let tr = q
                     .source_file()
-                    .and_then(|sf| document_cache.documents.get_document(sf.path()))
+                    .and_then(|sf| document_cache.get_document_for_source_file(sf))
                     .map(|doc| &doc.local_registry)
                     .unwrap_or(&global_tr);
 
@@ -271,12 +263,7 @@ pub(crate) fn completion_at(
 
                 if snippet_support {
                     let available_types = result.iter().map(|c| c.label.clone()).collect();
-                    add_components_to_import(
-                        &token,
-                        &document_cache.documents,
-                        available_types,
-                        &mut result,
-                    );
+                    add_components_to_import(&token, &document_cache, available_types, &mut result);
                 }
 
                 return Some(result);
@@ -285,19 +272,15 @@ pub(crate) fn completion_at(
                 return resolve_type_scope(token, document_cache).map(Into::into);
             }
             SyntaxKind::Expression => {
-                return with_lookup_ctx(&document_cache.documents, node, |ctx| {
+                return with_lookup_ctx(&document_cache, node, |ctx| {
                     let it = q.children_with_tokens().filter_map(|t| t.into_token());
                     let mut it = it.skip_while(|t| {
                         t.kind() != SyntaxKind::Identifier && t.token != token.token
                     });
                     let first = it.next();
                     if first.as_ref().map_or(true, |f| f.token == token.token) {
-                        return resolve_expression_scope(
-                            ctx,
-                            &document_cache.documents,
-                            snippet_support,
-                        )
-                        .map(Into::into);
+                        return resolve_expression_scope(ctx, &document_cache, snippet_support)
+                            .map(Into::into);
                     }
                     let first = i_slint_compiler::parser::normalize_identifier(first?.text());
                     let global = i_slint_compiler::lookup::global_lookup();
@@ -331,13 +314,12 @@ pub(crate) fn completion_at(
         let import = syntax_nodes::ImportSpecifier::new(node.parent()?)?;
 
         let path = document_cache
-            .documents
             .resolve_import_path(
                 Some(&token.into()),
                 import.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'),
             )?
             .0;
-        let doc = document_cache.documents.get_document(&path)?;
+        let doc = document_cache.get_document_by_path(&path)?;
         return Some(
             doc.exports
                 .iter()
@@ -404,7 +386,7 @@ pub(crate) fn completion_at(
             .collect();
         return Some(r);
     } else if node.kind() == SyntaxKind::PropertyAnimation {
-        let global_tr = document_cache.documents.global_type_registry.borrow();
+        let global_tr = document_cache.global_type_registry();
         let r = global_tr
             .property_animation_type_for_property(Type::Float32)
             .property_list()
@@ -440,10 +422,10 @@ fn resolve_element_scope(
     element: syntax_nodes::Element,
     document_cache: &DocumentCache,
 ) -> Option<Vec<CompletionItem>> {
-    let global_tr = document_cache.documents.global_type_registry.borrow();
+    let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
-        .and_then(|sf| document_cache.documents.get_document(sf.path()))
+        .and_then(|sf| document_cache.get_document_for_source_file(sf))
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
     let element_type = lookup_current_element_type((*element).clone(), tr).unwrap_or_default();
@@ -536,7 +518,7 @@ fn de_normalize_property_name_with_element<'a>(element: &ElementRc, prop: &'a st
 
 fn resolve_expression_scope(
     lookup_context: &LookupCtx,
-    documents: &TypeLoader,
+    document_cache: &common::DocumentCache,
     snippet_support: bool,
 ) -> Option<Vec<CompletionItem>> {
     let mut r = Vec::new();
@@ -553,8 +535,8 @@ fn resolve_expression_scope(
             let mut available_types: HashSet<String> = r.iter().map(|c| c.label.clone()).collect();
             build_import_statements_edits(
                 &token,
-                documents,
-                &mut |ci: &ComponentInformation| {
+                document_cache,
+                &mut |ci: &common::ComponentInformation| {
                     if !ci.is_global || !ci.is_exported {
                         false
                     } else if available_types.contains(&ci.name) {
@@ -630,10 +612,10 @@ fn resolve_type_scope(
     token: SyntaxToken,
     document_cache: &DocumentCache,
 ) -> Option<Vec<CompletionItem>> {
-    let global_tr = document_cache.documents.global_type_registry.borrow();
+    let global_tr = document_cache.global_type_registry();
     let tr = token
         .source_file()
-        .and_then(|sf| document_cache.documents.get_document(sf.path()))
+        .and_then(|sf| document_cache.get_document_for_source_file(sf))
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
     Some(
@@ -686,14 +668,14 @@ fn complete_path_in_string(base: &Path, text: &str, offset: u32) -> Option<Vec<C
 /// import and should already be in result
 fn add_components_to_import(
     token: &SyntaxToken,
-    documents: &TypeLoader,
+    document_cache: &common::DocumentCache,
     mut available_types: HashSet<String>,
     result: &mut Vec<CompletionItem>,
 ) {
     build_import_statements_edits(
         token,
-        documents,
-        &mut |ci: &ComponentInformation| {
+        document_cache,
+        &mut |ci: &common::ComponentInformation| {
             if ci.is_global || !ci.is_exported {
                 false
             } else if available_types.contains(&ci.name) {
@@ -836,19 +818,20 @@ pub fn create_import_edit(
 /// Call `add_edit` with the component name and file name and TextEdit for every component for which the `filter` callback returns true
 pub fn build_import_statements_edits(
     token: &SyntaxToken,
-    documents: &TypeLoader,
-    filter: &mut dyn FnMut(&ComponentInformation) -> bool,
+    document_cache: &common::DocumentCache,
+    filter: &mut dyn FnMut(&common::ComponentInformation) -> bool,
     add_edit: &mut dyn FnMut(&str, &str, TextEdit),
 ) -> Option<()> {
     // Find out types that can be imported
     let current_file = token.source_file.path().to_owned();
     let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
-    let current_doc = documents.get_document(&current_file)?.node.as_ref()?;
+    let current_doc =
+        document_cache.get_document_for_source_file(&token.source_file)?.node.as_ref()?;
     let (missing_import_location, known_import_locations) = find_import_locations(current_doc);
 
     let exports = {
         let mut tmp = Vec::new();
-        all_exported_components(documents, filter, &mut tmp);
+        all_exported_components(document_cache, filter, &mut tmp);
         tmp
     };
 
@@ -883,7 +866,6 @@ fn is_followed_by_brace(token: &SyntaxToken) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::uri_to_file;
 
     /// Given a source text containing the unicode emoji `🔺`, the emoji will be removed and then an autocompletion request will be done as if the cursor was there
     fn get_completions(file: &str) -> Option<Vec<CompletionItem>> {
@@ -892,7 +874,7 @@ mod tests {
         let source = file.replace(CURSOR_EMOJI, "");
         let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source);
 
-        let doc = dc.documents.get_document(&uri_to_file(&uri).unwrap()).unwrap();
+        let doc = dc.get_document(&uri).unwrap();
         let token = crate::language::token_at_offset(doc.node.as_ref().unwrap(), offset)?;
         let caps = CompletionClientCapabilities {
             completion_item: Some(lsp_types::CompletionItemCapability {

@@ -9,8 +9,11 @@ use i_slint_compiler::{
     diagnostics::{SourceFile, Spanned},
     object_tree,
     parser::{syntax_nodes, SyntaxKind},
-    typeloader::TypeLoader,
 };
+use lsp_types::Url;
+
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
 
 fn symbol_export_names(document_node: &syntax_nodes::Document, type_name: &str) -> Vec<String> {
     let mut result = vec![];
@@ -85,30 +88,26 @@ fn replace_element_types(
 }
 
 fn fix_imports(
-    type_loader: &TypeLoader,
+    document_cache: &common::DocumentCache,
     exporter_path: &Path,
     old_type: &str,
     new_type: &str,
     edits: &mut Vec<(SourceFile, lsp_types::TextEdit)>,
 ) {
-    for doc in type_loader.all_documents() {
-        let Some(doc_path) =
-            doc.node.as_ref().and_then(|n| n.source_file()).map(|sf| sf.path().to_owned())
-        else {
-            continue;
-        };
-        if doc_path.starts_with("builtin:") {
+    let Ok(exporter_url) = Url::from_file_path(exporter_path) else {
+        return;
+    };
+    for (url, doc) in document_cache.all_url_documents() {
+        if url.scheme() == "builtin" || url.path() == exporter_url.path() {
             continue;
         }
-        if doc_path == exporter_path {
-            continue;
-        }
-        fix_import_in_document(type_loader, doc, exporter_path, old_type, new_type, edits);
+
+        fix_import_in_document(document_cache, doc, exporter_path, old_type, new_type, edits);
     }
 }
 
 fn fix_import_in_document(
-    type_loader: &TypeLoader,
+    document_cache: &common::DocumentCache,
     document: &object_tree::Document,
     exporter_path: &Path,
     old_type: &str,
@@ -182,7 +181,7 @@ fn fix_import_in_document(
             }
 
             // Change exports
-            fix_exports(type_loader, document_node, old_type, new_type, edits);
+            fix_exports(document_cache, document_node, old_type, new_type, edits);
 
             // Change all local usages:
             change_local_element_type(document_node, old_type, new_type, edits);
@@ -207,7 +206,7 @@ fn change_local_element_type(
 }
 
 fn fix_exports(
-    type_loader: &TypeLoader,
+    document_cache: &common::DocumentCache,
     document_node: &syntax_nodes::Document,
     old_type: &str,
     new_type: &str,
@@ -252,8 +251,8 @@ fn fix_exports(
                 };
 
                 if update_imports {
-                    let my_path = document_node.source_file.path().to_owned();
-                    fix_imports(type_loader, &my_path, old_type, new_type, edits);
+                    let my_path = document_node.source_file.path();
+                    fix_imports(document_cache, &my_path, old_type, new_type, edits);
                 }
             }
         }
@@ -262,13 +261,14 @@ fn fix_exports(
 
 /// Rename a component by providing the `DeclaredIdentifier` in the component definition.
 pub fn rename_component_from_definition(
-    type_loader: &TypeLoader,
+    document_cache: &common::DocumentCache,
     identifier: &syntax_nodes::DeclaredIdentifier,
     new_name: String,
 ) -> crate::Result<lsp_types::WorkspaceEdit> {
     let source_file = identifier.source_file().expect("Identifier had no source file");
-    let document =
-        type_loader.get_document(source_file.path()).expect("Identifier is in unknown document");
+    let document = document_cache
+        .get_document_for_source_file(source_file)
+        .expect("Identifier is in unknown document");
 
     if document.local_registry.lookup(&new_name) != i_slint_compiler::langtype::Type::Invalid {
         return Err(format!("{new_name} is already a registered type").into());
@@ -304,13 +304,13 @@ pub fn rename_component_from_definition(
     change_local_element_type(document_node, &component_type, &new_name, &mut edits);
 
     // Change exports
-    fix_exports(type_loader, document_node, &component_type, &new_name, &mut edits);
+    fix_exports(document_cache, document_node, &component_type, &new_name, &mut edits);
 
     let export_names = symbol_export_names(document_node, &component_type);
     if export_names.contains(&component_type) {
-        let my_path = source_file.path().to_owned();
+        let my_path = source_file.path();
 
-        fix_imports(type_loader, &my_path, &component_type, &new_name, &mut edits);
+        fix_imports(document_cache, &my_path, &component_type, &new_name, &mut edits);
     }
 
     common::create_workspace_edit_from_source_files(edits)
@@ -319,17 +319,18 @@ pub fn rename_component_from_definition(
 
 #[cfg(test)]
 mod tests {
+    use lsp_types::Url;
+
     use super::*;
 
     use std::collections::HashMap;
-    use std::path::PathBuf;
 
     use crate::common::test;
     use crate::common::text_edit;
 
     #[track_caller]
     fn compile_test_changes(
-        type_loader: &TypeLoader,
+        document_cache: &common::DocumentCache,
         edit: &lsp_types::WorkspaceEdit,
     ) -> Vec<text_edit::EditedText> {
         eprintln!("Edit:");
@@ -338,7 +339,7 @@ mod tests {
         }
         eprintln!("*** All edits reported ***");
 
-        let changed_text = text_edit::apply_workspace_edit(&type_loader, &edit).unwrap();
+        let changed_text = text_edit::apply_workspace_edit(&document_cache, &edit).unwrap();
         assert!(!changed_text.is_empty()); // there was a change!
 
         eprintln!("After changes were applied:");
@@ -352,14 +353,14 @@ mod tests {
         eprintln!("*** All changes reported ***");
 
         let code = {
-            let mut map: HashMap<PathBuf, String> = type_loader
-                .all_documents()
-                .filter_map(|doc| doc.node.as_ref())
-                .map(|dn| dn.source_file.as_ref())
-                .map(|sf| (sf.path().to_owned(), sf.source().unwrap().to_string()))
+            let mut map: HashMap<Url, String> = document_cache
+                .all_url_documents()
+                .filter_map(|(url, doc)| Some((url, doc.node.as_ref()?)))
+                .map(|(url, dn)| (url, dn.source_file.as_ref()))
+                .map(|(url, sf)| (url, sf.source().unwrap().to_string()))
                 .collect();
             for ct in &changed_text {
-                map.insert(ct.url.to_file_path().unwrap(), ct.contents.clone());
+                map.insert(ct.url.clone(), ct.contents.clone());
             }
             map
         };
@@ -393,10 +394,10 @@ mod tests {
 
     #[test]
     fn test_rename_component_from_definition_ok() {
-        let type_loader = test::compile_test_with_sources(
+        let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                test::main_test_file_name(),
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
                 r#"
 component Foo { }
 
@@ -422,18 +423,18 @@ export component Bar {
             )]),
         );
 
-        let doc = type_loader.get_document(&test::main_test_file_name()).unwrap();
+        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
 
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
         let edit = rename_component_from_definition(
-            &type_loader,
+            &document_cache,
             &foo_identifier,
             "XxxYyyZzz".to_string(),
         )
         .unwrap();
 
-        let edited_text = compile_test_changes(&type_loader, &edit);
+        let edited_text = compile_test_changes(&document_cache, &edit);
 
         assert_eq!(edited_text.len(), 1);
         assert!(edited_text[0].contents.contains("XxxYyyZzz"));
@@ -442,11 +443,11 @@ export component Bar {
 
     #[test]
     fn test_rename_component_from_definition_with_renaming_export_ok() {
-        let type_loader = test::compile_test_with_sources(
+        let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([
                 (
-                    test::main_test_file_name(),
+                    Url::from_file_path(test::main_test_file_name()).unwrap(),
                     r#"
 import { FExport} from "source.slint";
 
@@ -457,7 +458,7 @@ export component Foo {
                     .to_string(),
                 ),
                 (
-                    test::test_file_name("source.slint"),
+                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
                     r#"
 component Foo { }
 
@@ -468,18 +469,19 @@ export { Foo as FExport }
             ]),
         );
 
-        let doc = type_loader.get_document(&test::test_file_name("source.slint")).unwrap();
+        let doc =
+            document_cache.get_document_by_path(&test::test_file_name("source.slint")).unwrap();
 
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
         let edit = rename_component_from_definition(
-            &type_loader,
+            &document_cache,
             &foo_identifier,
             "XxxYyyZzz".to_string(),
         )
         .unwrap();
 
-        let edited_text = compile_test_changes(&type_loader, &edit);
+        let edited_text = compile_test_changes(&document_cache, &edit);
 
         assert_eq!(edited_text.len(), 1);
         assert_eq!(
@@ -492,11 +494,11 @@ export { Foo as FExport }
 
     #[test]
     fn test_rename_component_from_definition_with_export_ok() {
-        let type_loader = test::compile_test_with_sources(
+        let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([
                 (
-                    test::main_test_file_name(),
+                    Url::from_file_path(test::main_test_file_name()).unwrap(),
                     r#"
 import { Foo } from "source.slint";
 import { UserComponent } from "user.slint";
@@ -513,14 +515,14 @@ export component Main {
                     .to_string(),
                 ),
                 (
-                    test::test_file_name("source.slint"),
+                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
                     r#"
 export component Foo { }
                 "#
                     .to_string(),
                 ),
                 (
-                    test::test_file_name("user.slint"),
+                    Url::from_file_path(test::test_file_name("user.slint")).unwrap(),
                     r#"
 import { Foo as Bar } from "source.slint";
 
@@ -533,7 +535,7 @@ export { Bar }
                     .to_string(),
                 ),
                 (
-                    test::test_file_name("user2.slint"),
+                    Url::from_file_path(test::test_file_name("user2.slint")).unwrap(),
                     r#"
 import { Foo as XxxYyyZzz } from "source.slint";
 
@@ -544,7 +546,7 @@ export component User2Component {
                     .to_string(),
                 ),
                 (
-                    test::test_file_name("user3.slint"),
+                    Url::from_file_path(test::test_file_name("user3.slint")).unwrap(),
                     r#"
 import { Foo } from "source.slint";
 
@@ -553,7 +555,7 @@ export { Foo }
                     .to_string(),
                 ),
                 (
-                    test::test_file_name("user4.slint"),
+                    Url::from_file_path(test::test_file_name("user4.slint")).unwrap(),
                     r#"
 import { Foo } from "source.slint";
 
@@ -564,18 +566,19 @@ export { Foo as User4Fxx }
             ]),
         );
 
-        let doc = type_loader.get_document(&test::test_file_name("source.slint")).unwrap();
+        let doc =
+            document_cache.get_document_by_path(&test::test_file_name("source.slint")).unwrap();
 
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
         let edit = rename_component_from_definition(
-            &type_loader,
+            &document_cache,
             &foo_identifier,
             "XxxYyyZzz".to_string(),
         )
         .unwrap();
 
-        let edited_text = compile_test_changes(&type_loader, &edit);
+        let edited_text = compile_test_changes(&document_cache, &edit);
 
         for ed in &edited_text {
             let ed_path = ed.url.to_file_path().unwrap();
@@ -609,11 +612,11 @@ export { Foo as User4Fxx }
 
     #[test]
     fn test_rename_component_from_definition_import_confusion_ok() {
-        let type_loader = test::compile_test_with_sources(
+        let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([
                 (
-                    test::main_test_file_name(),
+                    Url::from_file_path(test::main_test_file_name()).unwrap(),
                     r#"
 import { Foo as User1Fxx } from "user1.slint";
 import { Foo as User2Fxx } from "user2.slint";
@@ -626,14 +629,14 @@ export component Main {
                     .to_string(),
                 ),
                 (
-                    test::test_file_name("user1.slint"),
+                    Url::from_file_path(test::test_file_name("user1.slint")).unwrap(),
                     r#"
 export component Foo { }
                 "#
                     .to_string(),
                 ),
                 (
-                    test::test_file_name("user2.slint"),
+                    Url::from_file_path(test::test_file_name("user2.slint")).unwrap(),
                     r#"
 export component Foo { }
                 "#
@@ -642,18 +645,19 @@ export component Foo { }
             ]),
         );
 
-        let doc = type_loader.get_document(&test::test_file_name("user1.slint")).unwrap();
+        let doc =
+            document_cache.get_document_by_path(&test::test_file_name("user1.slint")).unwrap();
 
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
         let edit = rename_component_from_definition(
-            &type_loader,
+            &document_cache,
             &foo_identifier,
             "XxxYyyZzz".to_string(),
         )
         .unwrap();
 
-        let edited_text = compile_test_changes(&type_loader, &edit);
+        let edited_text = compile_test_changes(&document_cache, &edit);
 
         for ed in &edited_text {
             let ed_path = ed.url.to_file_path().unwrap();
@@ -668,18 +672,19 @@ export component Foo { }
             }
         }
 
-        let doc = type_loader.get_document(&test::test_file_name("user2.slint")).unwrap();
+        let doc =
+            document_cache.get_document_by_path(&test::test_file_name("user2.slint")).unwrap();
 
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
         let edit = rename_component_from_definition(
-            &type_loader,
+            &document_cache,
             &foo_identifier,
             "XxxYyyZzz".to_string(),
         )
         .unwrap();
 
-        let edited_text = compile_test_changes(&type_loader, &edit);
+        let edited_text = compile_test_changes(&document_cache, &edit);
 
         for ed in &edited_text {
             let ed_path = ed.url.to_file_path().unwrap();
@@ -697,10 +702,10 @@ export component Foo { }
 
     #[test]
     fn test_rename_component_from_definition_redefinition_error() {
-        let type_loader = test::compile_test_with_sources(
+        let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                test::main_test_file_name(),
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
                 r#"
 struct UsedStruct { value: int, }
 enum UsedEnum { x, y }
@@ -723,29 +728,37 @@ export component Bar {
             )]),
         );
 
-        let doc = type_loader.get_document(&test::main_test_file_name()).unwrap();
+        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
 
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
 
-        assert!(rename_component_from_definition(&type_loader, &foo_identifier, "Foo".to_string())
-            .is_err());
         assert!(rename_component_from_definition(
-            &type_loader,
+            &document_cache,
+            &foo_identifier,
+            "Foo".to_string()
+        )
+        .is_err());
+        assert!(rename_component_from_definition(
+            &document_cache,
             &foo_identifier,
             "UsedStruct".to_string()
         )
         .is_err());
         assert!(rename_component_from_definition(
-            &type_loader,
+            &document_cache,
             &foo_identifier,
             "UsedEnum".to_string()
         )
         .is_err());
-        assert!(rename_component_from_definition(&type_loader, &foo_identifier, "Baz".to_string())
-            .is_err());
         assert!(rename_component_from_definition(
-            &type_loader,
+            &document_cache,
+            &foo_identifier,
+            "Baz".to_string()
+        )
+        .is_err());
+        assert!(rename_component_from_definition(
+            &document_cache,
             &foo_identifier,
             "HorizontalLayout".to_string()
         )
@@ -754,10 +767,10 @@ export component Bar {
 
     #[test]
     fn test_exported_type_names() {
-        let type_loader = test::compile_test_with_sources(
+        let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                test::main_test_file_name(),
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
                 r#"
 export component Foo {}
 export component Baz {}
@@ -775,7 +788,7 @@ export enum EnumBar { bar }
             )]),
         );
 
-        let doc = type_loader.get_document(&test::main_test_file_name()).unwrap();
+        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
         let doc = doc.node.as_ref().unwrap();
 
         assert!(symbol_export_names(doc, "Foobar").is_empty());

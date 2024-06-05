@@ -6,8 +6,6 @@ use crate::wasm_prelude::*;
 
 use std::collections::HashMap;
 
-use i_slint_compiler::typeloader::TypeLoader;
-
 use crate::common;
 
 #[derive(Clone, Debug)]
@@ -250,39 +248,34 @@ pub struct EditedText {
 }
 
 pub fn apply_workspace_edit(
-    type_loader: &TypeLoader,
+    document_cache: &common::DocumentCache,
     workspace_edit: &lsp_types::WorkspaceEdit,
 ) -> common::Result<Vec<EditedText>> {
     let mut processing = HashMap::new();
 
     for (doc, edit) in EditIterator::new(workspace_edit) {
-        let Ok(path) = doc.uri.to_file_path() else {
-            continue;
-        };
-
         // This is ugly but necessary since the constructor might error out:-/
-        if !processing.contains_key(&path) {
-            let Some(document) = type_loader.get_document(&path) else {
+        if !processing.contains_key(&doc.uri) {
+            let Some(document) = document_cache.get_document(&doc.uri) else {
                 continue;
             };
             let Some(document_node) = &document.node else {
                 continue;
             };
             let editor = TextEditor::new(document_node.source_file.clone())?;
-            processing.insert(path.clone(), editor);
+            processing.insert(doc.uri.clone(), editor);
         }
 
         processing
-            .get_mut(&path)
+            .get_mut(&doc.uri)
             .expect("just added if missing")
             .apply_versioned(edit, doc.version)?;
     }
 
     Ok(processing
         .drain()
-        .filter_map(|(k, v)| {
+        .filter_map(|(url, v)| {
             let edit_result = v.finalize()?;
-            let url = lsp_types::Url::from_file_path(k).ok()?;
             Some(EditedText {
                 url,
                 contents: edit_result.0,

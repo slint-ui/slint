@@ -3,12 +3,9 @@
 
 // cSpell: ignore descr rfind unindented
 
-use crate::common::{ComponentInformation, Position, PropertyChange};
-use crate::language::DocumentCache;
+use crate::common::{ComponentInformation, DocumentCache, Position, PropertyChange};
 use i_slint_compiler::langtype::{DefaultSizeBinding, ElementType};
-use i_slint_compiler::typeloader::TypeLoader;
 use lsp_types::Url;
-use std::{path::Path, rc::Rc};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::UrlWasm;
@@ -117,7 +114,7 @@ fn file_local_component_info(name: &str, position: Position) -> ComponentInforma
 }
 
 pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<ComponentInformation>) {
-    let registry = document_cache.documents.global_type_registry.borrow();
+    let registry = document_cache.global_type_registry();
     result.extend(registry.all_elements().iter().filter_map(|(name, ty)| match ty {
         ElementType::Builtin(b) if !b.is_internal => {
             let fills_parent =
@@ -130,15 +127,14 @@ pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<Compo
 
 /// Fill the result with all exported components that matches the given filter
 pub fn all_exported_components(
-    documents: &TypeLoader,
+    document_cache: &DocumentCache,
     filter: &mut dyn FnMut(&ComponentInformation) -> bool,
     result: &mut Vec<ComponentInformation>,
 ) {
-    for file in documents.all_files() {
-        let Some(doc) = documents.get_document(file) else { continue };
-        let is_builtin = file.starts_with("builtin:/");
-        let is_std_widget = is_builtin
-            && file.file_name().map(|f| f.to_str() == Some("std-widgets.slint")).unwrap_or(false);
+    for url in document_cache.all_urls() {
+        let Some(doc) = document_cache.get_document(&url) else { continue };
+        let is_builtin = url.scheme() == "builtin";
+        let is_std_widget = is_builtin && url.path().ends_with("/std-widgets.slint");
 
         for (exported_name, ty) in &*doc.exports {
             let Some(c) = ty.as_ref().left() else {
@@ -148,15 +144,12 @@ pub fn all_exported_components(
             let to_push = if is_std_widget && !exported_name.as_str().ends_with("Impl") {
                 Some(std_widgets_info(exported_name.as_str(), c.is_global()))
             } else if !is_builtin {
-                let Ok(url) = Url::from_file_path(file) else {
-                    continue;
-                };
                 let offset =
                     c.node.as_ref().map(|n| n.text_range().start().into()).unwrap_or_default();
                 Some(exported_project_component_info(
                     exported_name.as_str(),
                     c.is_global(),
-                    Position { url, offset },
+                    Position { url: url.clone(), offset },
                 ))
             } else {
                 continue;
@@ -180,20 +173,16 @@ pub fn all_exported_components(
 
 pub fn file_local_components(
     document_cache: &DocumentCache,
-    file: &Path,
+    url: &Url,
     result: &mut Vec<ComponentInformation>,
 ) {
-    let Ok(url) = Url::from_file_path(file) else {
-        return;
-    };
-
-    let Some(doc) = document_cache.documents.get_document(file) else { return };
+    let Some(doc) = document_cache.get_document(url) else { return };
     let exported_components =
         doc.exports.iter().filter_map(|(_, e)| e.as_ref().left()).cloned().collect::<Vec<_>>();
     for component in &*doc.inner_components {
         // component.exported_global_names is always empty since the pass populating it has not
         // run.
-        if !exported_components.iter().any(|rc| Rc::ptr_eq(rc, component)) {
+        if !exported_components.iter().any(|rc| std::rc::Rc::ptr_eq(rc, component)) {
             let offset =
                 component.node.as_ref().map(|n| n.text_range().start().into()).unwrap_or_default();
             result.push(file_local_component_info(
@@ -229,7 +218,7 @@ mod tests {
         let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
 
         let mut result = Default::default();
-        all_exported_components(&dc.documents, &mut |_| true, &mut result);
+        all_exported_components(&dc, &mut |_| true, &mut result);
 
         assert!(result.iter().all(|ci| ci.is_std_widget));
         assert!(result.iter().all(|ci| ci.is_exported));
@@ -245,7 +234,7 @@ mod tests {
         let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
 
         let mut result = Default::default();
-        all_exported_components(&dc.documents, &mut |_| false, &mut result);
+        all_exported_components(&dc, &mut |_| false, &mut result);
 
         assert!(result.is_empty());
     }
@@ -256,7 +245,7 @@ mod tests {
             let (dc, _, _) = crate::language::test::loaded_document_cache(r#""#.to_string());
 
             let mut result = Default::default();
-            all_exported_components(&dc.documents, &mut |_| true, &mut result);
+            all_exported_components(&dc, &mut |_| true, &mut result);
             result.len()
         };
 
@@ -265,7 +254,7 @@ mod tests {
         );
 
         let mut result = Default::default();
-        all_exported_components(&dc.documents, &mut |_| true, &mut result);
+        all_exported_components(&dc, &mut |_| true, &mut result);
 
         assert!(result.iter().any(|ci| &ci.name == "Test1"));
         assert!(!result.iter().any(|ci| &ci.name == "TouchArea"));
@@ -280,7 +269,7 @@ mod tests {
             crate::language::test::loaded_document_cache(r#"component Test1 {}"#.to_string());
 
         let mut result = Default::default();
-        file_local_components(&dc, &url.to_file_path().unwrap(), &mut result);
+        file_local_components(&dc, &url, &mut result);
         assert!(result.is_empty()); // Test1 is implicitly exported!
     }
 
@@ -294,7 +283,7 @@ mod tests {
         );
 
         let mut result = Default::default();
-        file_local_components(&dc, &url.to_file_path().unwrap(), &mut result);
+        file_local_components(&dc, &url, &mut result);
         assert_eq!(result.len(), 1);
 
         let test1 = result.iter().find(|ci| &ci.name == "Test1").unwrap();
@@ -315,7 +304,7 @@ mod tests {
         );
 
         let mut result = Default::default();
-        file_local_components(&dc, &url.to_file_path().unwrap(), &mut result);
+        file_local_components(&dc, &url, &mut result);
         assert_eq!(result.len(), 2);
 
         let test1 = result.iter().find(|ci| &ci.name == "Test1").unwrap();

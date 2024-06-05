@@ -7,7 +7,6 @@ use i_slint_compiler::lookup::LookupCtx;
 use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::parser::{TextRange, TextSize};
-use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
 
 use crate::common;
@@ -126,17 +125,17 @@ impl ExpressionContextInfo {
 
 /// Run the function with the LookupCtx associated with the token
 pub fn with_lookup_ctx<R>(
-    type_loader: &TypeLoader,
+    document_cache: &common::DocumentCache,
     node: SyntaxNode,
     f: impl FnOnce(&mut LookupCtx) -> R,
 ) -> Option<R> {
     let expr_context_info = lookup_expression_context(node)?;
-    with_property_lookup_ctx::<R>(type_loader, &expr_context_info, f)
+    with_property_lookup_ctx::<R>(document_cache, &expr_context_info, f)
 }
 
 /// Run the function with the LookupCtx associated with the token
 pub fn with_property_lookup_ctx<R>(
-    type_loader: &TypeLoader,
+    document_cache: &common::DocumentCache,
     expr_context_info: &ExpressionContextInfo,
     f: impl FnOnce(&mut LookupCtx) -> R,
 ) -> Option<R> {
@@ -145,10 +144,10 @@ pub fn with_property_lookup_ctx<R>(
         expr_context_info.property_name.as_str(),
         expr_context_info.is_animate,
     );
-    let global_tr = type_loader.global_type_registry.borrow();
+    let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
-        .and_then(|sf| type_loader.get_document(sf.path()))
+        .and_then(|sf| document_cache.get_document_for_source_file(&sf))
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
 
@@ -320,16 +319,13 @@ mod tests {
             .to_string(),
         );
 
-        let window =
-            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(0, 30));
+        let window = language::element_at_position(&dc, &url, &lsp_types::Position::new(0, 30));
         assert_eq!(find_element_indent(&window.unwrap()), None);
 
-        let vbox =
-            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(1, 4));
+        let vbox = language::element_at_position(&dc, &url, &lsp_types::Position::new(1, 4));
         assert_eq!(find_element_indent(&vbox.unwrap()), Some("    ".to_string()));
 
-        let label =
-            language::element_at_position(&dc.documents, &url, &lsp_types::Position::new(2, 17));
+        let label = language::element_at_position(&dc, &url, &lsp_types::Position::new(2, 17));
         assert_eq!(find_element_indent(&label.unwrap()), Some("        ".to_string()));
     }
 }

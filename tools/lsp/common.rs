@@ -4,14 +4,17 @@
 //! Data structures common between LSP and previewer
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile, SourceFileVersion};
-use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::object_tree::{Document, ElementRc};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use i_slint_compiler::typeloader::TypeLoader;
+use i_slint_compiler::typeregister::TypeRegister;
 use i_slint_compiler::CompilerConfiguration;
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
+use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
 
+pub mod component_catalog;
 pub mod rename_component;
 #[cfg(test)]
 pub mod test;
@@ -25,31 +28,141 @@ pub type UrlVersion = Option<i32>;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
-pub fn uri_to_file(uri: &lsp_types::Url) -> Option<PathBuf> {
-    let path = uri.to_file_path().ok()?;
-    let cleaned_path = i_slint_compiler::pathutils::clean_path(&path);
-    Some(cleaned_path)
+pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {
+    if uri.scheme() == "builtin" {
+        let path = String::from("builtin:") + uri.path();
+        Some(PathBuf::from(path))
+    } else {
+        let path = uri.to_file_path().ok()?;
+        let cleaned_path = i_slint_compiler::pathutils::clean_path(&path);
+        Some(cleaned_path)
+    }
+}
+
+pub fn file_to_uri(path: &Path) -> Option<Url> {
+    if path.starts_with("builtin:/") {
+        let p_str = path.to_string_lossy();
+        let p_str = if &p_str[9..11] == "///" {
+            p_str.to_string()
+        } else {
+            let mut r = p_str.to_string();
+            r.insert_str(8, "//");
+            r
+        };
+        Url::parse(&p_str).ok()
+    } else {
+        Url::from_file_path(path).ok()
+    }
 }
 
 /// A cache of loaded documents
-pub struct DocumentCache {
-    pub(crate) documents: TypeLoader,
-}
+pub struct DocumentCache(TypeLoader);
 
 impl DocumentCache {
     pub fn new(config: CompilerConfiguration) -> Self {
-        let documents = TypeLoader::new(
+        Self(TypeLoader::new(
             i_slint_compiler::typeregister::TypeRegister::builtin(),
             config,
             &mut BuildDiagnostics::default(),
-        );
-        Self { documents }
+        ))
     }
 
-    pub fn document_version(&self, target_uri: &lsp_types::Url) -> SourceFileVersion {
-        self.documents
+    pub fn new_from_typeloader(type_loader: TypeLoader) -> Self {
+        Self(type_loader)
+    }
+
+    pub fn resolve_import_path(
+        &self,
+        import_token: Option<&i_slint_compiler::parser::NodeOrToken>,
+        maybe_relative_path_or_url: &str,
+    ) -> Option<(PathBuf, Option<&'static [u8]>)> {
+        self.0.resolve_import_path(import_token, maybe_relative_path_or_url)
+    }
+
+    pub fn document_version(&self, target_uri: &Url) -> SourceFileVersion {
+        self.0
             .get_document(&uri_to_file(target_uri).unwrap_or_default())
             .and_then(|doc| doc.node.as_ref()?.source_file.version())
+    }
+
+    pub fn get_document(&self, url: &Url) -> Option<&Document> {
+        let path = uri_to_file(url)?;
+        self.0.get_document(&path)
+    }
+
+    pub fn get_document_by_path(&self, path: &Path) -> Option<&Document> {
+        self.0.get_document(&path)
+    }
+
+    pub fn get_document_for_source_file(&self, source_file: &SourceFile) -> Option<&Document> {
+        self.0.get_document(source_file.path())
+    }
+
+    pub fn all_url_documents(&self) -> impl Iterator<Item = (Url, &Document)> + '_ {
+        self.0.all_file_documents().filter_map(|(p, d)| Some((file_to_uri(p)?, d)))
+    }
+
+    pub fn all_urls(&self) -> impl Iterator<Item = Url> + '_ {
+        self.0.all_files().filter_map(|p| file_to_uri(p))
+    }
+
+    pub fn global_type_registry(&self) -> std::cell::Ref<TypeRegister> {
+        self.0.global_type_registry.borrow()
+    }
+
+    pub async fn reconfigure(
+        &mut self,
+        style: Option<String>,
+        include_paths: Option<Vec<PathBuf>>,
+        library_paths: Option<HashMap<String, PathBuf>>,
+    ) -> Result<CompilerConfiguration> {
+        if style.is_none() && include_paths.is_none() && library_paths.is_none() {
+            return Ok(self.0.compiler_config.clone());
+        }
+
+        if let Some(s) = style {
+            if s.is_empty() {
+                self.0.compiler_config.style = None;
+            } else {
+                self.0.compiler_config.style = Some(s);
+            }
+        }
+
+        if let Some(ip) = include_paths {
+            self.0.compiler_config.include_paths = ip;
+        }
+
+        if let Some(lp) = library_paths {
+            self.0.compiler_config.library_paths = lp;
+        }
+
+        self.preload_builtins().await;
+
+        Ok(self.0.compiler_config.clone())
+    }
+
+    pub async fn preload_builtins(&mut self) {
+        // Always load the widgets so we can auto-complete them
+        let mut diag = BuildDiagnostics::default();
+        self.0.import_component("std-widgets.slint", "StyleMetrics", &mut diag).await;
+        assert!(!diag.has_error());
+    }
+
+    pub async fn load_url(
+        &mut self,
+        url: &Url,
+        version: SourceFileVersion,
+        content: String,
+        diag: &mut BuildDiagnostics,
+    ) -> Result<()> {
+        let path =
+            uri_to_file(url).ok_or::<Error>(String::from("Failed to convert path").into())?;
+        self.0.load_file(&path, version, &path, content, false, diag).await;
+        Ok(())
+    }
+
+    pub fn compiler_configuration(&self) -> &CompilerConfiguration {
+        &self.0.compiler_config
     }
 }
 
@@ -125,7 +238,7 @@ impl ElementRcNode {
         Self::new(self.element.clone(), self.debug_index + 1)
     }
 
-    pub fn find_in(element: ElementRc, path: &std::path::Path, offset: u32) -> Option<Self> {
+    pub fn find_in(element: ElementRc, path: &Path, offset: u32) -> Option<Self> {
         let debug_index = element.borrow().debug.iter().position(|d| {
             u32::from(d.node.text_range().start()) == offset && d.node.source_file.path() == path
         })?;
@@ -133,11 +246,7 @@ impl ElementRcNode {
         Some(Self { element, debug_index })
     }
 
-    pub fn find_in_or_below(
-        element: ElementRc,
-        path: &std::path::Path,
-        offset: u32,
-    ) -> Option<Self> {
+    pub fn find_in_or_below(element: ElementRc, path: &Path, offset: u32) -> Option<Self> {
         let debug_index = element.borrow().debug.iter().position(|d| {
             u32::from(d.node.text_range().start()) == offset && d.node.source_file.path() == path
         });
@@ -577,5 +686,22 @@ pub mod lsp_to_editor {
         };
 
         let _ = fut.await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_uri_conversion_of_builtins() {
+        let builtin_path = PathBuf::from("builtin:/fluent/button.slint");
+        let url = file_to_uri(&builtin_path).unwrap();
+        assert_eq!(url.scheme(), "builtin");
+
+        let back_conversion = uri_to_file(&url).unwrap();
+        assert_eq!(back_conversion, builtin_path);
+
+        assert!(Url::from_file_path(&builtin_path).is_err());
     }
 }
