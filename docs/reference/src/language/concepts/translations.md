@@ -68,7 +68,7 @@ to the name of the surrounding component.
 
 ```slint,no-preview
 export component MenuItem {
-    property <string> name : @tr("Name" => "Default Name"); // Default: `MenuItem` will be the context.
+    property <string> name : @tr("Default Name"); // Default: `MenuItem` will be the context.
     property <string> tooltip : @tr("ToolTip" => "ToolTip for {}", name); // Specified: The context will be `ToolTip`.
 }
 ```
