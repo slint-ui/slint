@@ -1,23 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use alloc::rc::Rc;
-use alloc::string::ToString;
-use chrono::{Datelike, NaiveDate};
-
+use crate::SharedString;
 #[cfg(feature = "std")]
 use chrono::Local;
-
-use crate::{
-    model::{ModelRc, VecModel},
-    SharedString,
-};
+use chrono::{Datelike, NaiveDate};
 
 pub fn use_24_hour_format() -> bool {
     true
 }
 
-fn month_day_count(year: i32, month: u32) -> Option<i64> {
+/// Returns the number of days in a given month
+pub fn month_day_count(month: u32, year: i32) -> Option<i32> {
     Some(
         NaiveDate::from_ymd_opt(
             match month {
@@ -31,24 +25,8 @@ fn month_day_count(year: i32, month: u32) -> Option<i64> {
             1,
         )?
         .signed_duration_since(NaiveDate::from_ymd_opt(year, month, 1)?)
-        .num_days(),
+        .num_days() as i32,
     )
-}
-
-pub fn month_for_date(month: u32, year: i32) -> ModelRc<ModelRc<i32>> {
-    let days = Rc::new(VecModel::default());
-
-    // The result is only None if month == 0, it should not happen because the function is only
-    // used internal and not directly by the user. So it is ok to return an empty list if it
-    // is none
-    if let Some(count) = month_day_count(year, month) {
-        for d in 1..(count + 1) {
-            let day = Rc::new(VecModel::from_slice(&[d as i32, month as i32, year]));
-            days.push(day.into());
-        }
-    }
-
-    days.into()
 }
 
 pub fn month_offset(month: u32, year: i32) -> i32 {
@@ -68,64 +46,83 @@ pub fn month_offset(month: u32, year: i32) -> i32 {
     0
 }
 
-pub fn format_date(format: &SharedString, day: u32, month: u32, year: i32) -> SharedString {
+pub fn format_date(format: &str, day: u32, month: u32, year: i32) -> SharedString {
     if let Some(date) = NaiveDate::from_ymd_opt(year, month, day) {
-        return date.format(format.as_str()).to_string().into();
+        return crate::format!("{}", date.format(format));
     }
 
     // Don't panic, this function is used only internal
     SharedString::default()
 }
 
-pub fn valid_date(date: &str, format: &str) -> bool {
-    NaiveDate::parse_from_str(date, format).is_ok()
-}
-
-pub fn parse_date(date: &str, format: &str) -> ModelRc<i32> {
-    let date_model = Rc::new(VecModel::default());
-
-    if let Ok(date) = NaiveDate::parse_from_str(date, format) {
-        date_model.push(date.day() as i32);
-        date_model.push(date.month() as i32);
-        date_model.push(date.year());
-    }
-
-    date_model.into()
+pub fn parse_date(date: &str, format: &str) -> Option<[i32; 3]> {
+    NaiveDate::parse_from_str(date, format)
+        .ok()
+        .map(|date| [date.day() as i32, date.month() as i32, date.year()])
 }
 
 #[cfg(feature = "std")]
-pub fn date_now() -> ModelRc<i32> {
+pub fn date_now() -> [i32; 3] {
     let now = Local::now().date_naive();
-    Rc::new(VecModel::from_slice(&[now.day() as i32, now.month() as i32, now.year()])).into()
+    [now.day() as i32, now.month() as i32, now.year()]
 }
 
 // display the today date is currently not implemented for no_std
 #[cfg(not(feature = "std"))]
-pub fn date_now() -> ModelRc<i32> {
-    Rc::new(VecModel::from_slice(&[-1, -1, -1])).into()
-}
-
-pub fn week_days_short() -> ModelRc<SharedString> {
-    let format = SharedString::from("%a");
-    Rc::new(VecModel::from_slice(&[
-        SharedString::from(&format_date(&format, 26, 5, 2024).as_str()[0..1]),
-        SharedString::from(&format_date(&format, 27, 5, 2024).as_str()[0..1]),
-        SharedString::from(&format_date(&format, 28, 5, 2024).as_str()[0..1]),
-        SharedString::from(&format_date(&format, 29, 5, 2024).as_str()[0..1]),
-        SharedString::from(&format_date(&format, 30, 5, 2024).as_str()[0..1]),
-        SharedString::from(&format_date(&format, 31, 5, 2024).as_str()[0..1]),
-        SharedString::from(&format_date(&format, 1, 6, 2024).as_str()[0..1]),
-    ]))
-    .into()
+pub fn date_now() -> [i32; 3] {
+    [-1, -1, -1]
 }
 
 #[cfg(feature = "ffi")]
 mod ffi {
     #![allow(unsafe_code)]
 
-    /// Perform the translation and formatting.
+    use super::*;
+
     #[no_mangle]
     pub extern "C" fn slint_use_24_hour_format() -> bool {
-        super::use_24_hour_format()
+        use_24_hour_format()
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_date_time_month_day_count(month: u32, year: i32) -> i32 {
+        month_day_count(month, year).unwrap_or(0)
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_date_time_month_offset(month: u32, year: i32) -> i32 {
+        month_offset(month, year)
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_date_time_format_date(
+        format: &SharedString,
+        day: u32,
+        month: u32,
+        year: i32,
+        out: &mut SharedString,
+    ) {
+        *out = format_date(format, day, month, year)
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_date_time_date_now(d: &mut i32, m: &mut i32, y: &mut i32) {
+        [*d, *m, *y] = date_now();
+    }
+
+    #[no_mangle]
+    pub extern "C" fn slint_date_time_parse_date(
+        date: &SharedString,
+        format: &SharedString,
+        d: &mut i32,
+        m: &mut i32,
+        y: &mut i32,
+    ) -> bool {
+        if let Some(x) = parse_date(date, format) {
+            [*d, *m, *y] = x;
+            true
+        } else {
+            false
+        }
     }
 }

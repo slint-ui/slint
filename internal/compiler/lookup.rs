@@ -846,9 +846,9 @@ impl LookupObject for SlintInternal {
         })
         .or_else(|| {
             f(
-                "month-for-date",
+                "month-day-count",
                 Expression::BuiltinFunctionReference(
-                    BuiltinFunction::MonthForDate,
+                    BuiltinFunction::MonthDayCount,
                     ctx.current_token.as_ref().map(|t| t.to_source_location()),
                 )
                 .into(),
@@ -879,16 +879,6 @@ impl LookupObject for SlintInternal {
                 "date-now",
                 Expression::BuiltinFunctionReference(
                     BuiltinFunction::DateNow,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )
-                .into(),
-            )
-        })
-        .or_else(|| {
-            f(
-                "week-days-short",
-                Expression::BuiltinFunctionReference(
-                    BuiltinFunction::WeekDaysShort,
                     ctx.current_token.as_ref().map(|t| t.to_source_location()),
                 )
                 .into(),
