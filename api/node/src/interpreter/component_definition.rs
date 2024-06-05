@@ -42,11 +42,7 @@ impl JsComponentDefinition {
 
     #[napi(getter)]
     pub fn functions(&self) -> Vec<String> {
-        self.internal
-            .properties_and_callbacks()
-            .filter(|(_, ty)| matches!(ty, Type::Function { .. }))
-            .map(|(s, _)| s)
-            .collect()
+        self.internal.functions().collect()
     }
 
     #[napi(getter)]
@@ -69,9 +65,7 @@ impl JsComponentDefinition {
 
     #[napi]
     pub fn global_functions(&self, global_name: String) -> Option<Vec<String>> {
-        self.internal.global_properties_and_callbacks(global_name.as_str()).map(|iter| {
-            iter.filter(|(_, ty)| matches!(ty, Type::Function { .. })).map(|(s, _)| s).collect()
-        })
+        self.internal.global_functions(global_name.as_str()).map(|iter| iter.collect())
     }
 
     #[napi]
