@@ -80,7 +80,7 @@ mod ffi {
     use super::*;
 
     #[no_mangle]
-    pub extern "C" fn slint_use_24_hour_format() -> bool {
+    pub extern "C" fn slint_date_time_use_24_hour_format() -> bool {
         use_24_hour_format()
     }
 

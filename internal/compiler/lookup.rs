@@ -814,17 +814,15 @@ impl LookupObject for SlintInternal {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
+        use Expression::BuiltinFunctionReference as BFR;
+        let sl = || ctx.current_token.as_ref().map(|t| t.to_source_location());
         None.or_else(|| {
             f(
                 "color-scheme",
                 Expression::FunctionCall {
-                    function: Expression::BuiltinFunctionReference(
-                        BuiltinFunction::ColorScheme,
-                        None,
-                    )
-                    .into(),
+                    function: BFR(BuiltinFunction::ColorScheme, None).into(),
                     arguments: vec![],
-                    source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                    source_location: sl(),
                 }
                 .into(),
             )
@@ -833,77 +831,19 @@ impl LookupObject for SlintInternal {
             f(
                 "use-24-hour-format",
                 Expression::FunctionCall {
-                    function: Expression::BuiltinFunctionReference(
-                        BuiltinFunction::Use24HourFormat,
-                        None,
-                    )
-                    .into(),
+                    function: BFR(BuiltinFunction::Use24HourFormat, None).into(),
                     arguments: vec![],
-                    source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                    source_location: sl(),
                 }
                 .into(),
             )
         })
-        .or_else(|| {
-            f(
-                "month-day-count",
-                Expression::BuiltinFunctionReference(
-                    BuiltinFunction::MonthDayCount,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )
-                .into(),
-            )
-        })
-        .or_else(|| {
-            f(
-                "month-offset",
-                Expression::BuiltinFunctionReference(
-                    BuiltinFunction::MonthOffset,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )
-                .into(),
-            )
-        })
-        .or_else(|| {
-            f(
-                "format-date",
-                Expression::BuiltinFunctionReference(
-                    BuiltinFunction::FormatDate,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )
-                .into(),
-            )
-        })
-        .or_else(|| {
-            f(
-                "date-now",
-                Expression::BuiltinFunctionReference(
-                    BuiltinFunction::DateNow,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )
-                .into(),
-            )
-        })
-        .or_else(|| {
-            f(
-                "valid-date",
-                Expression::BuiltinFunctionReference(
-                    BuiltinFunction::ValidDate,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )
-                .into(),
-            )
-        })
-        .or_else(|| {
-            f(
-                "parse-date",
-                Expression::BuiltinFunctionReference(
-                    BuiltinFunction::ParseDate,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )
-                .into(),
-            )
-        })
+        .or_else(|| f("month-day-count", BFR(BuiltinFunction::MonthDayCount, sl()).into()))
+        .or_else(|| f("month-offset", BFR(BuiltinFunction::MonthOffset, sl()).into()))
+        .or_else(|| f("format-date", BFR(BuiltinFunction::FormatDate, sl()).into()))
+        .or_else(|| f("date-now", BFR(BuiltinFunction::DateNow, sl()).into()))
+        .or_else(|| f("valid-date", BFR(BuiltinFunction::ValidDate, sl()).into()))
+        .or_else(|| f("parse-date", BFR(BuiltinFunction::ParseDate, sl()).into()))
     }
 }
 

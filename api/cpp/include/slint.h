@@ -1266,11 +1266,6 @@ inline SharedString translate(const SharedString &original, const SharedString &
     return result;
 }
 
-inline bool use_24_hour_format()
-{
-    return cbindgen_private::slint_use_24_hour_format();
-}
-
 } // namespace private_api
 
 #ifdef SLINT_FEATURE_GETTEXT
