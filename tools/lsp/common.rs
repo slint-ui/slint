@@ -34,7 +34,6 @@ pub fn uri_to_file(uri: &lsp_types::Url) -> Option<PathBuf> {
 /// A cache of loaded documents
 pub struct DocumentCache {
     pub(crate) documents: TypeLoader,
-    pub(crate) preview_config: PreviewConfig,
 }
 
 impl DocumentCache {
@@ -44,7 +43,7 @@ impl DocumentCache {
             config,
             &mut BuildDiagnostics::default(),
         );
-        Self { documents, preview_config: Default::default() }
+        Self { documents }
     }
 
     pub fn document_version(&self, target_uri: &lsp_types::Url) -> SourceFileVersion {

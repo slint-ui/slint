@@ -89,7 +89,7 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
         }
     }
     ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetConfiguration {
-        config: cache.preview_config.clone(),
+        config: ctx.preview_config.borrow().clone(),
     });
     if let Some(c) = ctx.to_show.borrow().clone() {
         ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::ShowPreview(c))
@@ -98,6 +98,7 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
 
 pub struct Context {
     pub document_cache: RefCell<DocumentCache>,
+    pub preview_config: RefCell<common::PreviewConfig>,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
     /// The last component for which the user clicked "show preview"
@@ -1347,7 +1348,7 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
         include_paths: cc.include_paths.clone(),
         library_paths: cc.library_paths.clone(),
     };
-    document_cache.preview_config = config.clone();
+    *ctx.preview_config.borrow_mut() = config.clone();
     ctx.server_notifier
         .send_message_to_preview(common::LspToPreviewMessage::SetConfiguration { config });
     Ok(())
