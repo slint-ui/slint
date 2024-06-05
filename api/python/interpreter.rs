@@ -155,6 +155,11 @@ impl ComponentDefinition {
     }
 
     #[getter]
+    fn functions(&self) -> Vec<String> {
+        self.definition.functions().collect()
+    }
+
+    #[getter]
     fn globals(&self) -> Vec<String> {
         self.definition.globals().collect()
     }
@@ -167,6 +172,10 @@ impl ComponentDefinition {
 
     fn global_callbacks(&self, name: &str) -> Option<Vec<String>> {
         self.definition.global_callbacks(name).map(|callbackiter| callbackiter.collect())
+    }
+
+    fn global_functions(&self, name: &str) -> Option<Vec<String>> {
+        self.definition.global_functions(name).map(|functioniter| functioniter.collect())
     }
 
     fn create(&self) -> Result<ComponentInstance, crate::errors::PyPlatformError> {

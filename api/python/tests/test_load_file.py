@@ -35,7 +35,11 @@ def test_load_file_wrapper():
     instance.say_hello = lambda x: "from here: " + x
     assert instance.say_hello("wohoo") == "from here: wohoo"
 
+    assert instance.plus_one(42) == 43
+
     assert instance.MyGlobal.global_prop == "This is global"
+
+    assert instance.MyGlobal.minus_one(100) == 99
 
     del instance
 
