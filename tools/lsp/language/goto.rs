@@ -25,7 +25,7 @@ pub fn goto_definition(
             return match parent.kind() {
                 SyntaxKind::Type => {
                     let qual = i_slint_compiler::object_tree::QualifiedTypeName::from_node(n);
-                    let doc = document_cache.documents.get_document(node.source_file.path())?;
+                    let doc = document_cache.get_document_for_source_file(&node.source_file)?;
                     match doc.local_registry.lookup_qualified(&qual.members) {
                         Type::Struct { node: Some(node), .. } => goto_node(node.parent().as_ref()?),
                         Type::Enumeration(e) => goto_node(e.node.as_ref()?),
@@ -34,7 +34,7 @@ pub fn goto_definition(
                 }
                 SyntaxKind::Element => {
                     let qual = i_slint_compiler::object_tree::QualifiedTypeName::from_node(n);
-                    let doc = document_cache.documents.get_document(node.source_file.path())?;
+                    let doc = document_cache.get_document_for_source_file(&node.source_file)?;
                     match doc.local_registry.lookup_element(&qual.to_string()) {
                         Ok(ElementType::Component(c)) => {
                             goto_node(&c.root_element.borrow().debug.first()?.node)
@@ -46,7 +46,7 @@ pub fn goto_definition(
                     if token.kind() != SyntaxKind::Identifier {
                         return None;
                     }
-                    let lr = with_lookup_ctx(&document_cache.documents, node, |ctx| {
+                    let lr = with_lookup_ctx(&document_cache, node, |ctx| {
                         let mut it = n
                             .children_with_tokens()
                             .filter_map(|t| t.into_token())
@@ -104,7 +104,7 @@ pub fn goto_definition(
                 _ => None,
             };
         } else if let Some(n) = syntax_nodes::ImportIdentifier::new(node.clone()) {
-            let doc = document_cache.documents.get_document(node.source_file.path())?;
+            let doc = document_cache.get_document_for_source_file(&node.source_file)?;
             let imp_name = i_slint_compiler::typeloader::ImportedName::from_node(n);
             return match doc.local_registry.lookup_element(&imp_name.internal_name) {
                 Ok(ElementType::Component(c)) => {
@@ -120,7 +120,7 @@ pub fn goto_definition(
                 .unwrap_or_else(|| Path::new("/"))
                 .join(n.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'));
             let import_file = clean_path(&import_file);
-            let doc = document_cache.documents.get_document(&import_file)?;
+            let doc = document_cache.get_document_by_path(&import_file)?;
             let doc_node = doc.node.clone()?;
             return goto_node(&doc_node);
         } else if syntax_nodes::BindingExpression::new(node.clone()).is_some() {
@@ -185,10 +185,10 @@ fn find_property_declaration_in_base(
     element: syntax_nodes::Element,
     prop_name: &str,
 ) -> Option<SyntaxNode> {
-    let global_tr = document_cache.documents.global_type_registry.borrow();
+    let global_tr = document_cache.global_type_registry();
     let tr = element
         .source_file()
-        .and_then(|sf| document_cache.documents.get_document(sf.path()))
+        .and_then(|sf| document_cache.get_document_for_source_file(&sf))
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
 
@@ -236,13 +236,7 @@ export component Test {
 }"#;
 
     let (mut dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
-    let doc = dc
-        .documents
-        .get_document(&crate::common::uri_to_file(&uri).unwrap())
-        .unwrap()
-        .node
-        .clone()
-        .unwrap();
+    let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
 
     // Jump to the definition of Abc
     let offset = source.find("abc := Abc").unwrap() as u32;

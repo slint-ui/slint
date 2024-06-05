@@ -6,7 +6,7 @@ use lsp_types::{
     SemanticToken, SemanticTokenModifier, SemanticTokenType, SemanticTokens, SemanticTokensResult,
 };
 
-use crate::common::{self, DocumentCache};
+use crate::common::DocumentCache;
 
 /// Give all the used types/modifier a number in an indexed array
 macro_rules! declare_legend {
@@ -30,8 +30,7 @@ pub fn get_semantic_tokens(
     document_cache: &mut DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<SemanticTokensResult> {
-    let filepath = common::uri_to_file(&text_document.uri)?;
-    let doc = document_cache.documents.get_document(&filepath)?;
+    let doc = document_cache.get_document(&text_document.uri)?;
     let doc_node = doc.node.as_ref()?;
     let mut token = doc_node.first_token()?;
     let mut data = vec![];

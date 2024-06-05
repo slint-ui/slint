@@ -7,12 +7,14 @@ use std::{
     rc::Rc,
 };
 
-use i_slint_compiler::{diagnostics::BuildDiagnostics, typeloader::TypeLoader};
+use i_slint_compiler::diagnostics::BuildDiagnostics;
+
+use crate::common;
 
 async fn parse_source(
     include_paths: Vec<PathBuf>,
     library_paths: HashMap<String, PathBuf>,
-    path: PathBuf,
+    url: lsp_types::Url,
     source_code: String,
     style: String,
     file_loader_fallback: impl Fn(
@@ -20,7 +22,7 @@ async fn parse_source(
         ) -> core::pin::Pin<
             Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
-) -> (BuildDiagnostics, TypeLoader) {
+) -> (BuildDiagnostics, common::DocumentCache) {
     let config = {
         let mut tmp = i_slint_compiler::CompilerConfiguration::new(
             i_slint_compiler::generator::OutputFormat::Llr,
@@ -38,15 +40,13 @@ async fn parse_source(
         }
         tmp
     };
+
+    let mut document_cache = common::DocumentCache::new(config);
     let mut diag = i_slint_compiler::diagnostics::BuildDiagnostics::default();
 
-    let global_type_registry = i_slint_compiler::typeregister::TypeRegister::builtin();
+    document_cache.load_url(&url, None, source_code, &mut diag).await.unwrap();
 
-    let mut type_loader = TypeLoader::new(global_type_registry, config, &mut diag);
-
-    type_loader.load_file(&path, None, &path, source_code, false, &mut diag).await;
-
-    (diag, type_loader)
+    (diag, document_cache)
 }
 
 pub fn test_file_prefix() -> PathBuf {
@@ -64,35 +64,48 @@ pub fn test_file_name(name: &str) -> PathBuf {
 }
 
 #[track_caller]
-pub fn compile_test_with_sources(style: &str, code: HashMap<PathBuf, String>) -> TypeLoader {
+pub fn compile_test_with_sources(
+    style: &str,
+    code: HashMap<lsp_types::Url, String>,
+) -> common::DocumentCache {
     i_slint_backend_testing::init_no_event_loop();
     recompile_test_with_sources(style, code)
 }
 
 #[track_caller]
-pub fn recompile_test_with_sources(style: &str, code: HashMap<PathBuf, String>) -> TypeLoader {
+pub fn recompile_test_with_sources(
+    style: &str,
+    code: HashMap<lsp_types::Url, String>,
+) -> common::DocumentCache {
     let code = Rc::new(code);
 
-    let path = main_test_file_name();
-    let source_code = code.get(&path).unwrap().clone();
+    let url = lsp_types::Url::from_file_path(main_test_file_name()).unwrap();
+    let source_code = code.get(&url).unwrap().clone();
     let (diagnostics, type_loader) = spin_on::spin_on(parse_source(
         vec![],
         std::collections::HashMap::new(),
-        path,
+        url,
         source_code.to_string(),
         style.to_string(),
         move |path| {
             let code = code.clone();
-            let path = path.to_owned();
+            let url = lsp_types::Url::from_file_path(path);
 
             Box::pin(async move {
-                let Some(source) = code.get(&path) else {
-                    return Some(Result::Err(std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "path not found",
-                    )));
-                };
-                Some(Ok(source.clone()))
+                if let Ok(url) = url {
+                    let Some(source) = code.get(&url) else {
+                        return Some(Result::Err(std::io::Error::new(
+                            std::io::ErrorKind::NotFound,
+                            "path not found",
+                        )));
+                    };
+                    Some(Ok(source.clone()))
+                } else {
+                    Some(Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "URL conversion failed",
+                    )))
+                }
             })
         },
     ));

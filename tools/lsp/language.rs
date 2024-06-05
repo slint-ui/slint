@@ -4,7 +4,6 @@
 // cSpell: ignore descr rfind unindented
 
 pub mod completion;
-mod component_catalog;
 mod formatting;
 mod goto;
 pub mod properties;
@@ -12,14 +11,13 @@ mod semantic_tokens;
 #[cfg(test)]
 pub mod test;
 
-use crate::common::{self, DocumentCache, Result};
+use crate::common::{self, component_catalog, DocumentCache, Result};
 use crate::util;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken};
-use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
@@ -71,17 +69,10 @@ fn create_show_preview_command(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn request_state(ctx: &std::rc::Rc<Context>) {
-    let cache = ctx.document_cache.borrow();
-    let documents = &cache.documents;
+    let document_cache = ctx.document_cache.borrow();
 
-    for (p, d) in documents.all_file_documents() {
+    for (url, d) in document_cache.all_url_documents() {
         if let Some(node) = &d.node {
-            if p.starts_with("builtin:/") {
-                continue; // The preview knows these, too.
-            }
-            let Ok(url) = Url::from_file_path(p) else {
-                continue;
-            };
             ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
                 url: common::VersionedUrl::new(url, node.source_file.version()),
                 contents: node.text().to_string(),
@@ -374,7 +365,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             match p.kind() {
                 SyntaxKind::DeclaredIdentifier => {
                     common::rename_component::rename_component_from_definition(
-                        &document_cache.documents,
+                        &document_cache,
                         &p.into(),
                         params.new_name,
                     )
@@ -413,7 +404,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<()> {
     let document_cache = &mut ctx.document_cache.borrow_mut();
-    let config = &document_cache.documents.compiler_config;
+    let config = document_cache.compiler_configuration();
 
     let e = || "InvalidParameter";
 
@@ -462,9 +453,7 @@ pub fn query_properties_command(
         .expect("Failed to serialize none-element property query result!"));
     };
 
-    if let Some(element) =
-        element_at_position(&document_cache.documents, &text_document_uri, &position)
-    {
+    if let Some(element) = element_at_position(&document_cache, &text_document_uri, &position) {
         properties::query_properties(&text_document_uri, source_version, &element)
             .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
     } else {
@@ -516,8 +505,8 @@ pub async fn set_binding_command(
             }
         }
 
-        let element = element_at_position(&document_cache.documents, &uri, &element_range.start)
-            .ok_or_else(|| {
+        let element =
+            element_at_position(&document_cache, &uri, &element_range.start).ok_or_else(|| {
                 format!("No element found at the given start position {:?}", &element_range.start)
             })?;
 
@@ -601,8 +590,8 @@ pub async fn remove_binding_command(
             }
         }
 
-        let element = element_at_position(&document_cache.documents, &uri, &element_range.start)
-            .ok_or_else(|| {
+        let element =
+            element_at_position(&document_cache, &uri, &element_range.start).ok_or_else(|| {
                 format!("No element found at the given start position {:?}", &element_range.start)
             })?;
 
@@ -664,12 +653,12 @@ pub(crate) async fn reload_document_impl(
 
     if let Some(ctx) = ctx {
         ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
-            url: common::VersionedUrl::new(url, version),
+            url: common::VersionedUrl::new(url.clone(), version),
             contents: content.clone(),
         });
     }
     let mut diag = BuildDiagnostics::default();
-    document_cache.documents.load_file(&path, version, &path, content, false, &mut diag).await;
+    let _ = document_cache.load_url(&url, version, content, &mut diag).await; // ignore url conversion errors
 
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
     let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = core::iter::once(&path)
@@ -696,7 +685,7 @@ fn report_known_components(document_cache: &mut DocumentCache, ctx: &Rc<Context>
     let mut components = Vec::new();
     component_catalog::builtin_components(document_cache, &mut components);
     component_catalog::all_exported_components(
-        &document_cache.documents,
+        &document_cache,
         &mut |ci| !ci.is_global,
         &mut components,
     );
@@ -706,9 +695,7 @@ fn report_known_components(document_cache: &mut DocumentCache, ctx: &Rc<Context>
     let url = ctx.to_show.borrow().as_ref().map(|pc| {
         let url = pc.url.clone();
         let version = document_cache.document_version(&url);
-        if let Ok(file) = url.to_file_path() {
-            component_catalog::file_local_components(document_cache, &file, &mut components);
-        }
+        component_catalog::file_local_components(document_cache, &url, &mut components);
         common::VersionedUrl::new(url, version)
     });
 
@@ -740,12 +727,11 @@ pub async fn reload_document(
 }
 
 fn get_document_and_offset<'a>(
-    type_loader: &'a TypeLoader,
-    text_document_uri: &'a Url,
-    pos: &'a Position,
+    document_cache: &'a DocumentCache,
+    text_document_uri: &'_ Url,
+    pos: &'_ Position,
 ) -> Option<(&'a i_slint_compiler::object_tree::Document, u32)> {
-    let path = common::uri_to_file(text_document_uri)?;
-    let doc = type_loader.get_document(&path)?;
+    let doc = document_cache.get_document(&text_document_uri)?;
     let o = doc.node.as_ref()?.source_file.offset(pos.line as usize + 1, pos.character as usize + 1)
         as u32;
     doc.node.as_ref()?.text_range().contains_inclusive(o.into()).then_some((doc, o))
@@ -769,11 +755,11 @@ fn element_node_contains(element: &common::ElementRcNode, offset: u32) -> bool {
 }
 
 pub fn element_at_position(
-    type_loader: &TypeLoader,
+    document_cache: &DocumentCache,
     text_document_uri: &Url,
     pos: &Position,
 ) -> Option<common::ElementRcNode> {
-    let (doc, offset) = get_document_and_offset(type_loader, text_document_uri, pos)?;
+    let (doc, offset) = get_document_and_offset(document_cache, text_document_uri, pos)?;
 
     for component in &doc.inner_components {
         let root_element = component.root_element.clone();
@@ -807,7 +793,7 @@ fn token_descr(
     text_document_uri: &Url,
     pos: &Position,
 ) -> Option<(SyntaxToken, u32)> {
-    let (doc, o) = get_document_and_offset(&document_cache.documents, text_document_uri, pos)?;
+    let (doc, o) = get_document_and_offset(&document_cache, text_document_uri, pos)?;
     let node = doc.node.as_ref()?;
 
     let token = token_at_offset(node, o)?;
@@ -900,10 +886,9 @@ fn get_code_actions(
         && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Element)
     {
         let is_lookup_error = {
-            let global_tr = document_cache.documents.global_type_registry.borrow();
+            let global_tr = document_cache.global_type_registry();
             let tr = document_cache
-                .documents
-                .get_document(token.source_file.path())
+                .get_document_for_source_file(&token.source_file)
                 .map(|doc| &doc.local_registry)
                 .unwrap_or(&global_tr);
             util::lookup_current_element_type(node.clone(), tr).is_none()
@@ -913,7 +898,7 @@ fn get_code_actions(
             let text = token.text();
             completion::build_import_statements_edits(
                 &token,
-                &document_cache.documents,
+                &document_cache,
                 &mut |ci| !ci.is_global && ci.is_exported && ci.name == text,
                 &mut |_name, file, edit| {
                     result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
@@ -931,7 +916,7 @@ fn get_code_actions(
 
         if has_experimental_client_capability(client_capabilities, "snippetTextEdit") {
             let r = util::map_range(&token.source_file, node.parent().unwrap().text_range());
-            let element = element_at_position(&document_cache.documents, &uri, &r.start);
+            let element = element_at_position(&document_cache, &uri, &r.start);
             let element_indent = element.as_ref().and_then(util::find_element_indent);
             let indented_lines = node
                 .parent()
@@ -1067,8 +1052,7 @@ fn get_document_color(
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<ColorInformation>> {
     let mut result = Vec::new();
-    let uri_path = common::uri_to_file(&text_document.uri)?;
-    let doc = document_cache.documents.get_document(&uri_path)?;
+    let doc = document_cache.get_document(&text_document.uri)?;
     let root_node = doc.node.as_ref()?;
     let mut token = root_node.first_token()?;
     loop {
@@ -1101,8 +1085,7 @@ fn get_document_symbols(
     document_cache: &mut DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<DocumentSymbolResponse> {
-    let uri_path = common::uri_to_file(&text_document.uri)?;
-    let doc = document_cache.documents.get_document(&uri_path)?;
+    let doc = document_cache.get_document(&text_document.uri)?;
 
     // DocumentSymbol doesn't implement default and some field depends on features or are deprecated
     let ds: DocumentSymbol = serde_json::from_value(
@@ -1196,8 +1179,7 @@ fn get_code_lenses(
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<CodeLens>> {
     if cfg!(any(feature = "preview-builtin", feature = "preview-external")) {
-        let filepath = common::uri_to_file(&text_document.uri)?;
-        let doc = document_cache.documents.get_document(&filepath)?;
+        let doc = document_cache.get_document(&text_document.uri)?;
 
         let inner_components = doc.inner_components.clone();
 
@@ -1308,40 +1290,47 @@ pub async fn load_configuration(ctx: &Context) -> Result<()> {
         )?
         .await?;
 
-    let document_cache = &mut ctx.document_cache.borrow_mut();
-    let mut hide_ui = None;
-    for v in r {
-        if let Some(o) = v.as_object() {
-            if let Some(ip) = o.get("includePaths").and_then(|v| v.as_array()) {
-                if !ip.is_empty() {
-                    document_cache.documents.compiler_config.include_paths =
-                        ip.iter().filter_map(|x| x.as_str()).map(PathBuf::from).collect();
+    let (hide_ui, include_paths, library_paths, style) = {
+        let mut hide_ui = None;
+        let mut include_paths = None;
+        let mut library_paths = None;
+        let mut style = None;
+
+        for v in r {
+            if let Some(o) = v.as_object() {
+                if let Some(ip) = o.get("includePaths").and_then(|v| v.as_array()) {
+                    if !ip.is_empty() {
+                        include_paths =
+                            Some(ip.iter().filter_map(|x| x.as_str()).map(PathBuf::from).collect());
+                    }
                 }
-            }
-            if let Some(lp) = o.get("libraryPaths").and_then(|v| v.as_object()) {
-                if !lp.is_empty() {
-                    document_cache.documents.compiler_config.library_paths = lp
-                        .iter()
-                        .filter_map(|(k, v)| v.as_str().map(|v| (k.to_string(), PathBuf::from(v))))
-                        .collect();
+                if let Some(lp) = o.get("libraryPaths").and_then(|v| v.as_object()) {
+                    if !lp.is_empty() {
+                        library_paths = Some(
+                            lp.iter()
+                                .filter_map(|(k, v)| {
+                                    v.as_str().map(|v| (k.to_string(), PathBuf::from(v)))
+                                })
+                                .collect(),
+                        );
+                    }
                 }
-            }
-            if let Some(style) =
-                o.get("preview").and_then(|v| v.as_object()?.get("style")?.as_str())
-            {
-                if !style.is_empty() {
-                    document_cache.documents.compiler_config.style = Some(style.into());
+                if let Some(s) =
+                    o.get("preview").and_then(|v| v.as_object()?.get("style")?.as_str())
+                {
+                    if !s.is_empty() {
+                        style = Some(s.to_string());
+                    }
                 }
+                hide_ui = o.get("preview").and_then(|v| v.as_object()?.get("hide_ui")?.as_bool());
             }
-            hide_ui = o.get("preview").and_then(|v| v.as_object()?.get("hide_ui")?.as_bool());
         }
-    }
+        (hide_ui, include_paths, library_paths, style)
+    };
 
-    // Always load the widgets so we can auto-complete them
-    let mut diag = BuildDiagnostics::default();
-    document_cache.documents.import_component("std-widgets.slint", "StyleMetrics", &mut diag).await;
+    let document_cache = &mut ctx.document_cache.borrow_mut();
+    let cc = document_cache.reconfigure(style, include_paths, library_paths).await?;
 
-    let cc = &document_cache.documents.compiler_config;
     let config = common::PreviewConfig {
         hide_ui,
         style: cc.style.clone().unwrap_or_default(),
@@ -1434,7 +1423,7 @@ pub mod tests {
         line: u32,
         character: u32,
     ) -> Option<String> {
-        let result = element_at_position(&dc.documents, url, &Position { line, character })?;
+        let result = element_at_position(&dc, url, &Position { line, character })?;
         let element = result.element.borrow();
         Some(element.id.clone())
     }
@@ -1445,7 +1434,7 @@ pub mod tests {
         line: u32,
         character: u32,
     ) -> Option<String> {
-        let result = element_at_position(&dc.documents, url, &Position { line, character })?;
+        let result = element_at_position(&dc, url, &Position { line, character })?;
         let element = result.element.borrow();
         Some(format!("{}", &element.base_type))
     }
@@ -1619,7 +1608,7 @@ enum {}
                 .unwrap();
 
         let check_start_with = |pos, str: &str| {
-            let (_, offset) = get_document_and_offset(&dc.documents, &uri, &pos).unwrap();
+            let (_, offset) = get_document_and_offset(&dc, &uri, &pos).unwrap();
             assert_eq!(&source[offset as usize..][..str.len()], str);
         };
 
