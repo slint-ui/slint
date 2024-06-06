@@ -7,7 +7,7 @@ import { StateLayer } from "components.slint";
 export component Switch {
     in property <bool> enabled: true;
     in property <string> text;
-    in-out property <bool> checked: true;
+    in-out property <bool> checked;
     out property <bool> has-focus: state-layer.has-focus;
 
     callback toggled;
@@ -31,6 +31,10 @@ export component Switch {
     accessible-checkable: true;
     accessible-checked <=> root.checked;
     accessible-role: switch;
+    accessible-action-default => {
+        root.checked = !root.checked;
+        root.toggled();
+    }    
     forward-focus: state-layer;
 
     states [

@@ -28,6 +28,10 @@ export component Switch {
     accessible-checkable: true;
     accessible-checked <=> root.checked;
     accessible-role: switch;
+    accessible-action-default => {
+        root.checked = !root.checked;
+        root.toggled();
+    }    
 
     states [
         disabled-selected when !root.enabled && root.checked  : {
