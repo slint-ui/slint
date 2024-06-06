@@ -689,11 +689,9 @@ public:
     ///
     /// Note: Since the ComponentInstance holds the handler, the handler itself should not
     /// capture a strong reference to the instance.
-    // clang-format off
     template<std::invocable<std::span<const Value>> F>
         requires(std::is_convertible_v<std::invoke_result_t<F, std::span<const Value>>, Value>)
     auto set_callback(std::string_view name, F callback) const -> bool
-    // clang-format on
     {
         using namespace cbindgen_private;
         auto actual_cb =

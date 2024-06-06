@@ -5,6 +5,7 @@
 #include "slint_testing_internal.h"
 #include <optional>
 #include <string_view>
+#include <type_traits>
 
 #ifdef SLINT_FEATURE_TESTING
 #    ifdef SLINT_FEATURE_EXPERIMENTAL
@@ -18,14 +19,68 @@ inline void init()
     cbindgen_private::slint_testing_init_backend();
 }
 
-/// A Handle to an element to query accessible property for testing purposes.
-///
-/// Use find_by_accessible_label() to obtain all elements matching the given accessible label.
+/// A handle to an element for querying accessible properties, intended for testing purposes.
 class ElementHandle
 {
     cbindgen_private::ElementHandle inner;
 
+    explicit ElementHandle(const cbindgen_private::ElementHandle *inner) : inner(*inner) { }
+
 public:
+    /// Visits visible elements within a component and call the visitor for each of them.
+    ///
+    /// The visitor must be a callable object that accepts an `ElementHandle` and returns either
+    /// `void`, or a type that can be converted to `bool`.
+    /// - If the visitor returns `void`, the visitation continues until all elements have been
+    ///   visited.
+    /// - If the visitor returns a type that can be converted to `bool`, the visitation continues as
+    ///   long as the conversion result is false; otherwise, it stops, returning that value.
+    ///   If the visitor never returns something that convertts to true, then the function returns a
+    ///   default constructed value;
+    ///
+    /// ```cpp
+    /// auto element = ElementHandle::visit_elements(component, [&](const ElementHandle& eh)
+    ///          -> std::optional<ElementHandle> {
+    ///      return eh.id() == "Foo::bar" ? std::make_optional(eh) : std::nullopt;
+    /// });
+    /// ```
+    template<typename T, std::invocable<ElementHandle> Visitor,
+             typename R = std::invoke_result_t<Visitor, ElementHandle>>
+        requires((std::is_constructible_v<bool, R> && std::is_default_constructible_v<R>)
+                 || std::is_void_v<R>)
+    static auto visit_elements(const ComponentHandle<T> &component,
+                               Visitor visitor) -> std::invoke_result_t<Visitor, ElementHandle>
+    {
+        // using R = std::invoke_result_t<Visitor, ElementHandle>;
+        auto vrc = component.into_dyn();
+        if constexpr (std::is_void_v<R>) {
+            cbindgen_private::slint_testing_element_visit_elements(
+                    &vrc, &visitor,
+                    [](void *visitor, const cbindgen_private::ElementHandle *element) {
+                        (*reinterpret_cast<Visitor *>(visitor))(ElementHandle(element));
+                        return false;
+                    });
+            return;
+        } else {
+            struct VisitorAndResult
+            {
+                Visitor &visitor;
+                R result;
+            } visitor_and_result { visitor, R {} };
+            cbindgen_private::slint_testing_element_visit_elements(
+                    &vrc, &visitor_and_result,
+                    [](void *user_data, const cbindgen_private::ElementHandle *element) {
+                        auto visitor_and_result = reinterpret_cast<VisitorAndResult *>(user_data);
+                        if (auto r = visitor_and_result->visitor(ElementHandle(element))) {
+                            visitor_and_result->result = std::move(r);
+                            return true;
+                        };
+                        return false;
+                    });
+            return visitor_and_result.result;
+        }
+    }
+
     /// Find all elements matching the given accessible label.
     template<typename T>
     static SharedVector<ElementHandle> find_by_accessible_label(const ComponentHandle<T> &component,
