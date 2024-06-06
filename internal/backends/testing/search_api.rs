@@ -1,34 +1,38 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use core::ops::ControlFlow;
 use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty};
+use i_slint_core::api::ComponentHandle;
 use i_slint_core::item_tree::{ItemTreeRc, ItemVisitorResult, ItemWeak, TraversalOrder};
 use i_slint_core::items::ItemRc;
 use i_slint_core::window::WindowInner;
-use i_slint_core::{SharedString, SharedVector};
-
-pub(crate) fn search_item(
-    item_tree: &ItemTreeRc,
-    mut filter: impl FnMut(&ElementHandle) -> bool,
-) -> SharedVector<ElementHandle> {
-    let mut result = SharedVector::default();
-    i_slint_core::item_tree::visit_items(
-        item_tree,
-        TraversalOrder::BackToFront,
-        |parent_tree, _, index, _| {
-            let item_rc = ItemRc::new(parent_tree.clone(), index);
-            let elements = ElementHandle::collect_elements(item_rc);
-            result.extend(elements.filter(|elem| filter(elem)));
-            ItemVisitorResult::Continue(())
-        },
-        (),
-    );
-    result
-}
+use i_slint_core::SharedString;
 
 fn warn_missing_debug_info() {
     i_slint_core::debug_log!("The use of the ElementHandle API requires the presence of debug info in Slint compiler generated code. Set the `SLINT_EMIT_DEBUG_INFO=1` environment variable at application build time")
 }
+
+mod internal {
+    /// Used as base of another trait so it cannot be re-implemented
+    pub trait Sealed {}
+}
+
+pub(crate) use internal::Sealed;
+
+/// Trait for type that can be searched for element. This is implemented for everything that implements [`ComponentHandle`]
+pub trait ElementRoot: Sealed {
+    #[doc(hidden)]
+    fn item_tree(&self) -> ItemTreeRc;
+}
+
+impl<T: ComponentHandle> ElementRoot for T {
+    fn item_tree(&self) -> ItemTreeRc {
+        WindowInner::from_pub(self.window()).component()
+    }
+}
+
+impl<T: ComponentHandle> Sealed for T {}
 
 /// `ElementHandle`` wraps an existing element in a Slint UI. An ElementHandle does not keep
 /// the corresponding element in the UI alive. Use [`Self::is_valid()`] to verify that
@@ -52,22 +56,50 @@ impl ElementHandle {
             .map(move |element_index| ElementHandle { item: item.downgrade(), element_index })
     }
 
-    /// Returns true if the element still exists in the in UI and is valid to access; false otherwise.
-    pub fn is_valid(&self) -> bool {
-        self.item.upgrade().is_some()
+    /// Visit elements of a component and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
+    /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
+    pub fn visit_elements<R>(
+        component: &impl ElementRoot,
+        mut visitor: impl FnMut(ElementHandle) -> ControlFlow<R>,
+    ) -> Option<R> {
+        let mut result = None;
+        let item_tree = component.item_tree();
+        i_slint_core::item_tree::visit_items(
+            &item_tree,
+            TraversalOrder::BackToFront,
+            |parent_tree, _, index, _| {
+                let item_rc = ItemRc::new(parent_tree.clone(), index);
+                let elements = ElementHandle::collect_elements(item_rc);
+                for e in elements {
+                    match visitor(e) {
+                        ControlFlow::Continue(_) => (),
+                        ControlFlow::Break(x) => {
+                            result = Some(x);
+                            return ItemVisitorResult::Abort;
+                        }
+                    }
+                }
+                ItemVisitorResult::Continue(())
+            },
+            (),
+        );
+        result
     }
 
     /// This function searches through the entire tree of elements of `component`, looks for
     /// elements that have a `accessible-label` property with the provided value `label`,
     /// and returns an iterator over the found elements.
     pub fn find_by_accessible_label(
-        component: &impl i_slint_core::api::ComponentHandle,
+        component: &impl ElementRoot,
         label: &str,
     ) -> impl Iterator<Item = Self> {
-        // dirty way to get the ItemTreeRc:
-        let item_tree = WindowInner::from_pub(component.window()).component();
-        let result =
-            search_item(&item_tree, |elem| elem.accessible_label().is_some_and(|x| x == label));
+        let mut result = Vec::new();
+        Self::visit_elements::<()>(component, |elem| {
+            if elem.accessible_label().is_some_and(|x| x == label) {
+                result.push(elem);
+            }
+            ControlFlow::Continue(())
+        });
         result.into_iter()
     }
 
@@ -87,16 +119,7 @@ impl ElementHandle {
     /// }
     /// ```
     pub fn find_by_element_id(
-        component: &impl i_slint_core::api::ComponentHandle,
-        id: &str,
-    ) -> impl Iterator<Item = Self> {
-        // dirty way to get the ItemTreeRc:
-        let item_tree = WindowInner::from_pub(component.window()).component();
-        Self::find_by_element_id_with_tree(&item_tree, id)
-    }
-
-    pub(crate) fn find_by_element_id_with_tree(
-        item_tree: &ItemTreeRc,
+        component: &impl ElementRoot,
         id: &str,
     ) -> impl Iterator<Item = Self> {
         let mut id_split = id.split("::");
@@ -104,18 +127,18 @@ impl ElementHandle {
         let local_id = id_split.next();
         let root_base = if local_id == Some("root") { type_name } else { None };
 
-        let result = search_item(&item_tree, |elem| {
+        let mut result = Vec::new();
+        Self::visit_elements::<()>(component, |elem| {
             if elem.id().unwrap() == id {
-                return true;
-            }
-            if let Some(root_base) = root_base {
-                if elem.type_name().unwrap() == root_base {
-                    return true;
+                result.push(elem);
+            } else if let Some(root_base) = root_base {
+                if elem.type_name().unwrap() == root_base
+                    || elem.bases().unwrap().any(|base| base == root_base)
+                {
+                    result.push(elem);
                 }
-                elem.bases().unwrap().any(|base| base == root_base)
-            } else {
-                false
             }
+            ControlFlow::Continue(())
         });
         result.into_iter()
     }
@@ -123,25 +146,24 @@ impl ElementHandle {
     /// This function searches through the entire tree of elements of `component`, looks for
     /// elements with given type name.
     pub fn find_by_element_type_name(
-        component: &impl i_slint_core::api::ComponentHandle,
+        component: &impl ElementRoot,
         type_name: &str,
     ) -> impl Iterator<Item = Self> {
-        // dirty way to get the ItemTreeRc:
-        let item_tree = WindowInner::from_pub(component.window()).component();
-        Self::find_by_element_type_name_with_tree(&item_tree, type_name)
-    }
-
-    pub(crate) fn find_by_element_type_name_with_tree(
-        item_tree: &ItemTreeRc,
-        type_name: &str,
-    ) -> impl Iterator<Item = Self> {
-        let result = search_item(&item_tree, |elem| {
-            if elem.type_name().unwrap() == type_name {
-                return true;
+        let mut result = Vec::new();
+        Self::visit_elements::<()>(component, |elem| {
+            if elem.type_name().unwrap() == type_name
+                || elem.bases().unwrap().any(|tn| tn == type_name)
+            {
+                result.push(elem);
             }
-            elem.bases().unwrap().any(|tn| tn == type_name)
+            ControlFlow::Continue(())
         });
         result.into_iter()
+    }
+
+    /// Returns true if the element still exists in the in UI and is valid to access; false otherwise.
+    pub fn is_valid(&self) -> bool {
+        self.item.upgrade().is_some()
     }
 
     /// Returns the element's qualified id. Returns None if the element is not valid anymore or the
