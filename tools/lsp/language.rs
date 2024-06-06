@@ -11,7 +11,7 @@ mod semantic_tokens;
 #[cfg(test)]
 pub mod test;
 
-use crate::common::{self, component_catalog, DocumentCache, Result};
+use crate::common::{self, DocumentCache, Result};
 use crate::util;
 
 #[cfg(target_arch = "wasm32")]
@@ -93,6 +93,7 @@ pub struct Context {
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
     /// The last component for which the user clicked "show preview"
+    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     pub to_show: RefCell<Option<common::PreviewComponent>>,
 }
 
@@ -423,9 +424,6 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
     ctx.to_show.replace(Some(c.clone()));
     ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::ShowPreview(c));
 
-    // Update known Components
-    report_known_components(document_cache, ctx);
-
     Ok(())
 }
 
@@ -681,28 +679,6 @@ pub(crate) async fn reload_document_impl(
     lsp_diags
 }
 
-fn report_known_components(document_cache: &mut DocumentCache, ctx: &Rc<Context>) {
-    let mut components = Vec::new();
-    component_catalog::builtin_components(document_cache, &mut components);
-    component_catalog::all_exported_components(
-        &document_cache,
-        &mut |ci| !ci.is_global,
-        &mut components,
-    );
-
-    components.sort_by(|a, b| a.name.cmp(&b.name));
-
-    let url = ctx.to_show.borrow().as_ref().map(|pc| {
-        let url = pc.url.clone();
-        let version = document_cache.document_version(&url);
-        component_catalog::file_local_components(document_cache, &url, &mut components);
-        common::VersionedUrl::new(url, version)
-    });
-
-    ctx.server_notifier
-        .send_message_to_preview(common::LspToPreviewMessage::KnownComponents { url, components });
-}
-
 pub async fn reload_document(
     ctx: &Rc<Context>,
     content: String,
@@ -719,9 +695,6 @@ pub async fn reload_document(
             PublishDiagnosticsParams { uri, diagnostics, version: None },
         )?;
     }
-
-    // Tell Preview about the Components:
-    report_known_components(document_cache, ctx);
 
     Ok(())
 }

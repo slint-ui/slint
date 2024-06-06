@@ -4,12 +4,12 @@
 // cSpell: ignore descr rfind unindented
 
 use crate::common::{ComponentInformation, DocumentCache, Position, PropertyChange};
+#[cfg(feature = "preview-engine")]
 use i_slint_compiler::langtype::{DefaultSizeBinding, ElementType};
+#[cfg(feature = "preview-engine")]
 use lsp_types::Url;
 
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::UrlWasm;
-
+#[cfg(feature = "preview-engine")]
 fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformation {
     let (category, is_layout) = match name {
         "GridLayout" | "HorizontalLayout" | "VerticalLayout" => ("Layout", true),
@@ -98,6 +98,7 @@ fn exported_project_component_info(
     }
 }
 
+#[cfg(feature = "preview-engine")]
 fn file_local_component_info(name: &str, position: Position) -> ComponentInformation {
     ComponentInformation {
         name: name.to_string(),
@@ -113,6 +114,7 @@ fn file_local_component_info(name: &str, position: Position) -> ComponentInforma
     }
 }
 
+#[cfg(feature = "preview-engine")]
 pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<ComponentInformation>) {
     let registry = document_cache.global_type_registry();
     result.extend(registry.all_elements().iter().filter_map(|(name, ty)| match ty {
@@ -171,6 +173,7 @@ pub fn all_exported_components(
     result.dedup_by(|a, b| a.name == b.name);
 }
 
+#[cfg(feature = "preview-engine")]
 pub fn file_local_components(
     document_cache: &DocumentCache,
     url: &Url,

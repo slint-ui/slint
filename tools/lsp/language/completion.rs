@@ -3,7 +3,7 @@
 
 // cSpell: ignore rfind
 
-use super::component_catalog::all_exported_components;
+use crate::common::component_catalog::all_exported_components;
 use crate::common::{self, DocumentCache};
 use crate::util::{lookup_current_element_type, map_position, with_lookup_ctx};
 

@@ -30,8 +30,7 @@ use crate::wasm_prelude::*;
 
 pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {
     if uri.scheme() == "builtin" {
-        let path = String::from("builtin:") + uri.path();
-        Some(PathBuf::from(path))
+        Some(PathBuf::from(uri.to_string()))
     } else {
         let path = uri.to_file_path().ok()?;
         let cleaned_path = i_slint_compiler::pathutils::clean_path(&path);
@@ -41,15 +40,7 @@ pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {
 
 pub fn file_to_uri(path: &Path) -> Option<Url> {
     if path.starts_with("builtin:/") {
-        let p_str = path.to_string_lossy();
-        let p_str = if &p_str[9..11] == "///" {
-            p_str.to_string()
-        } else {
-            let mut r = p_str.to_string();
-            r.insert_str(8, "//");
-            r
-        };
-        Url::parse(&p_str).ok()
+        Url::parse(path.to_str()?).ok()
     } else {
         Url::from_file_path(path).ok()
     }
@@ -155,8 +146,7 @@ impl DocumentCache {
         content: String,
         diag: &mut BuildDiagnostics,
     ) -> Result<()> {
-        let path =
-            uri_to_file(url).ok_or::<Error>(String::from("Failed to convert path").into())?;
+        let path = uri_to_file(url).ok_or("Failed to convert path")?;
         self.0.load_file(&path, version, &path, content, false, diag).await;
         Ok(())
     }
@@ -531,7 +521,6 @@ pub enum LspToPreviewMessage {
     SetConfiguration { config: PreviewConfig },
     ShowPreview(PreviewComponent),
     HighlightFromEditor { url: Option<Url>, offset: u32 },
-    KnownComponents { url: Option<VersionedUrl>, components: Vec<ComponentInformation> },
 }
 
 #[allow(unused)]
@@ -703,5 +692,21 @@ mod tests {
         assert_eq!(back_conversion, builtin_path);
 
         assert!(Url::from_file_path(&builtin_path).is_err());
+    }
+
+    #[test]
+    fn test_uri_conversion_of_slashed_builtins() {
+        let builtin_path1 = PathBuf::from("builtin:/fluent/button.slint");
+        let builtin_path3 = PathBuf::from("builtin:///fluent/button.slint");
+
+        let url1 = file_to_uri(&builtin_path1).unwrap();
+        let url3 = file_to_uri(&builtin_path3).unwrap();
+        assert_ne!(url1, url3);
+
+        let back_conversion1 = uri_to_file(&url1).unwrap();
+        let back_conversion3 = uri_to_file(&url3).unwrap();
+        assert_eq!(back_conversion1, back_conversion3);
+
+        assert_eq!(back_conversion1, builtin_path1);
     }
 }

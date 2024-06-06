@@ -310,6 +310,7 @@ fn main_loop(connection: Connection, init_param: InitializeParams, cli_args: Cli
         preview_config: RefCell::new(Default::default()),
         server_notifier,
         init_param,
+        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: Default::default(),
     });
 

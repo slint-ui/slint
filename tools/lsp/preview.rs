@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common::{self, ComponentInformation, ElementRcNode, PreviewComponent, PreviewConfig};
+use crate::common::{
+    self, component_catalog, ComponentInformation, ElementRcNode, PreviewComponent, PreviewConfig,
+};
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
@@ -74,34 +76,77 @@ struct PreviewState {
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
+struct DummyWaker();
+
+impl std::task::Wake for DummyWaker {
+    fn wake(self: std::sync::Arc<Self>) {}
+}
+
+pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
+    let waker = std::sync::Arc::new(DummyWaker()).into();
+    let mut ctx = std::task::Context::from_waker(&waker);
+
+    let future = std::pin::pin!(future);
+
+    match future.poll(&mut ctx) {
+        std::task::Poll::Ready(result) => Some(result),
+        std::task::Poll::Pending => None,
+    }
+}
+
 impl PreviewState {
     fn refresh_document_cache(
         &mut self,
-        url: &lsp_types::Url,
+        url: &Url,
         version: SourceFileVersion,
         source_code: String,
     ) {
-        let Some(dc) = self.document_cache.as_mut() else {
+        let Some(document_cache) = self.document_cache.as_mut() else {
             return;
         };
 
         let mut diag = BuildDiagnostics::default();
-        let _ = spin_on::spin_on(dc.load_url(url, version, source_code, &mut diag)); // ignore url conversion errors
+        let _ = poll_once(document_cache.load_url(url, version, source_code, &mut diag)); // ignore url conversion errors
 
-        eprintln!("Updated Document Cache in Live Preview: has_error: {}", diag.has_error());
+        let mut components = Vec::new();
+        component_catalog::builtin_components(document_cache, &mut components);
+        component_catalog::all_exported_components(
+            &document_cache,
+            &mut |ci| !ci.is_global,
+            &mut components,
+        );
+
+        components.sort_by(|a, b| a.name.cmp(&b.name));
+
+        self.known_components = components;
+
+        if let Some(ui) = &self.ui {
+            ui::ui_set_known_components(ui, &self.known_components)
+        }
     }
 
-    fn recreate_document_cache(&mut self, config: &PreviewConfig, style: String) {
+    fn recreate_document_cache(
+        &mut self,
+        config: &PreviewConfig,
+        style: String,
+        preview_url: &Url,
+    ) {
+        let style = if style.is_empty() { None } else { Some(style) };
+
+        if let Some(dc) = &self.document_cache {
+            let cc = dc.compiler_configuration();
+            if cc.style == style
+                && cc.include_paths == config.include_paths
+                && cc.library_paths == config.library_paths
+            {
+                return;
+            }
+        }
         let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(
             i_slint_compiler::generator::OutputFormat::Interpreter,
         );
 
-        if style.is_empty() {
-            compiler_config.style = None;
-        } else {
-            compiler_config.style = Some(style);
-        }
-
+        compiler_config.style = style;
         compiler_config.include_paths = config.include_paths.clone();
         compiler_config.library_paths = config.library_paths.clone();
         compiler_config.open_import_fallback = Some(Rc::new(|path| {
@@ -110,31 +155,43 @@ impl PreviewState {
         }));
 
         self.document_cache = Some(common::DocumentCache::new(compiler_config));
+
+        if let Some((version, contents)) = CONTENT_CACHE
+            .get_or_init(Default::default)
+            .lock()
+            .unwrap()
+            .source_code
+            .get(&preview_url)
+            .cloned()
+        {
+            self.refresh_document_cache(preview_url, version, contents);
+        }
     }
 }
 
 pub fn set_contents(url: &common::VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let old = cache.source_code.insert(url.url().clone(), (*url.version(), content.clone()));
-    if cache.dependency.contains(url.url()) {
-        if let Some((old_version, old)) = old {
-            if content == old && old_version == *url.version() {
-                return;
-            }
+
+    if let Some((old_version, old)) = old {
+        if content == old && old_version == *url.version() {
+            return;
         }
+    }
 
-        let fu = url.clone();
-        let fc = content.clone();
+    let fu = url.clone();
+    let fc = content.clone();
 
-        let _ = i_slint_core::api::invoke_from_event_loop(move || {
-            let url = fu;
-            let content = fc;
+    let _ = i_slint_core::api::invoke_from_event_loop(move || {
+        let url = fu;
+        let content = fc;
 
-            PREVIEW_STATE.with(move |ps| {
-                ps.borrow_mut().refresh_document_cache(url.url(), url.version().clone(), content)
-            })
-        });
+        PREVIEW_STATE.with(move |ps| {
+            ps.borrow_mut().refresh_document_cache(url.url(), url.version().clone(), content)
+        })
+    });
 
+    if cache.dependency.contains(url.url()) {
         let ui_is_visible = cache.ui_is_visible;
         let Some(current) = cache.current.clone() else {
             return;
@@ -400,12 +457,6 @@ fn change_style() {
         return;
     };
 
-    let config = cache.config.clone();
-    let style = get_current_style();
-    let _ = i_slint_core::api::invoke_from_event_loop(move || {
-        PREVIEW_STATE.with(|ps| ps.borrow_mut().recreate_document_cache(&config, style))
-    });
-
     drop(cache);
 
     if ui_is_visible {
@@ -439,11 +490,6 @@ pub fn config_changed(config: PreviewConfig) {
             let hide_ui = cache.config.hide_ui;
 
             drop(cache);
-
-            let style = get_current_style();
-            let _ = i_slint_core::api::invoke_from_event_loop(move || {
-                PREVIEW_STATE.with(|ps| ps.borrow_mut().recreate_document_cache(&config, style))
-            });
 
             if ui_is_visible {
                 if let Some(hide_ui) = hide_ui {
@@ -612,9 +658,15 @@ async fn reload_preview_impl(
     style: String,
     config: PreviewConfig,
 ) {
+    let preview_url = preview_component.url.clone();
+
     let component = PreviewComponent { style: String::new(), ..preview_component };
 
     start_parsing();
+
+    PREVIEW_STATE.with(|preview_state| {
+        preview_state.borrow_mut().recreate_document_cache(&config, style.clone(), &preview_url);
+    });
 
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
     let source = {
@@ -699,24 +751,6 @@ pub fn highlight(url: Option<Url>, offset: u32) {
     }
 }
 
-pub fn known_components(
-    _url: &Option<common::VersionedUrl>,
-    mut components: Vec<ComponentInformation>,
-) {
-    components.sort_unstable_by_key(|ci| ci.name.clone());
-
-    run_in_ui_thread(move || async move {
-        PREVIEW_STATE.with(|preview_state| {
-            let mut preview_state = preview_state.borrow_mut();
-            preview_state.known_components = components;
-
-            if let Some(ui) = &preview_state.ui {
-                ui::ui_set_known_components(ui, &preview_state.known_components)
-            }
-        })
-    });
-}
-
 pub fn get_component_info(component_type: &str) -> Option<ComponentInformation> {
     PREVIEW_STATE.with(|preview_state| {
         let preview_state = preview_state.borrow();
@@ -730,15 +764,15 @@ pub fn get_component_info(component_type: &str) -> Option<ComponentInformation> 
 
 fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
-) -> HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> {
-    let mut result: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> = Default::default();
+) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
+    let mut result: HashMap<Url, Vec<lsp_types::Diagnostic>> = Default::default();
     for d in diagnostics {
         if d.source_file().map_or(true, |f| !i_slint_compiler::pathutils::is_absolute(f)) {
             continue;
         }
-        let uri = lsp_types::Url::from_file_path(d.source_file().unwrap())
+        let uri = Url::from_file_path(d.source_file().unwrap())
             .ok()
-            .unwrap_or_else(|| lsp_types::Url::parse("file:/unknown").unwrap());
+            .unwrap_or_else(|| Url::parse("file:/unknown").unwrap());
         result.entry(uri).or_default().push(crate::util::to_lsp_diag(d));
     }
     result
@@ -953,9 +987,6 @@ pub fn lsp_to_preview_message(
         }
         M::HighlightFromEditor { url, offset } => {
             highlight(url, offset);
-        }
-        M::KnownComponents { url, components } => {
-            known_components(&url, components);
         }
     }
 }

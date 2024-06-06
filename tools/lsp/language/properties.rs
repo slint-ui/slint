@@ -12,9 +12,6 @@ use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};
 
 use std::collections::HashSet;
 
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
-
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
 pub(crate) struct DefinitionInformation {
     property_definition_range: lsp_types::Range,
