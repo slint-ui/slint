@@ -194,8 +194,11 @@ impl SkiaRenderer {
         window_handle: raw_window_handle::WindowHandle<'_>,
         display_handle: raw_window_handle::DisplayHandle<'_>,
         size: PhysicalWindowSize,
+        scale_factor: f32,
     ) -> Result<(), PlatformError> {
-        self.set_surface((self.surface_factory)(window_handle, display_handle, size)?);
+        let surface = (self.surface_factory)(window_handle, display_handle, size)?;
+        surface.set_scale_factor(scale_factor);
+        self.set_surface(surface);
         Ok(())
     }
 
@@ -233,6 +236,8 @@ impl SkiaRenderer {
         let window_adapter = self.window_adapter()?;
         let window = window_adapter.window();
         let window_inner = WindowInner::from_pub(window);
+
+        surface.set_scale_factor(window.scale_factor());
 
         surface.render(
             surace_size,
@@ -554,6 +559,8 @@ pub trait Surface {
     fn supports_graphics_api_with_self(&self) -> bool {
         false
     }
+
+    fn set_scale_factor(&self, _scale_factor: f32) {}
 
     /// If supported, this invokes the specified callback with access to the platform graphics API.
     fn with_graphics_api(&self, _callback: &mut dyn FnMut(GraphicsAPI<'_>)) {}
