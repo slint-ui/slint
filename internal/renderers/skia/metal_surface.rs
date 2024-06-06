@@ -49,6 +49,9 @@ impl super::Surface for MetalSurface {
             } as cocoa_id;
             view.setWantsLayer(YES);
             view.setLayer(layer.as_ref() as *const _ as _);
+            view.setLayerContentsPlacement(
+                cocoa::appkit::NSViewLayerContentsPlacement::NSViewLayerContentsPlacementTopLeft,
+            );
         }
 
         let command_queue = device.new_command_queue();
@@ -76,6 +79,10 @@ impl super::Surface for MetalSurface {
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.layer.set_drawable_size(CGSize::new(size.width as f64, size.height as f64));
         Ok(())
+    }
+
+    fn set_scale_factor(&self, scale_factor: f32) {
+        self.layer.set_contents_scale(scale_factor.into());
     }
 
     fn render(

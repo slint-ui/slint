@@ -235,7 +235,12 @@ impl AndroidWindowAdapter {
                             ),
                         )
                     };
-                    self.renderer.set_window_handle(window_handle, display_handle, size)?;
+                    self.renderer.set_window_handle(
+                        window_handle,
+                        display_handle,
+                        size,
+                        scale_factor,
+                    )?;
                     self.resize();
                 }
             }
