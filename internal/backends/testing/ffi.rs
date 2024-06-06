@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{ElementHandle, ElementRoot};
+use core::ops::ControlFlow;
 use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::slice::Slice;
 use i_slint_core::{SharedString, SharedVector};
+use std::os::raw::c_void;
 
 struct RootWrapper<'a>(&'a ItemTreeRc);
 
@@ -19,6 +21,22 @@ impl super::Sealed for RootWrapper<'_> {}
 #[no_mangle]
 pub extern "C" fn slint_testing_init_backend() {
     crate::init_integration_test();
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn slint_testing_element_visit_elements(
+    root: &ItemTreeRc,
+    user_data: *mut c_void,
+    visitor: unsafe extern "C" fn(*mut c_void, &ElementHandle) -> bool,
+) -> bool {
+    ElementHandle::visit_elements(&RootWrapper(root), |element| {
+        if visitor(user_data, &element) {
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    })
+    .is_some()
 }
 
 #[no_mangle]
