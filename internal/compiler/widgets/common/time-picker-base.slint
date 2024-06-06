@@ -180,6 +180,7 @@ export struct TimePickerInputStyle {
     background: brush,
     background-selected: brush,
     foreground: brush,
+    foreground-selected: brush,
     border-radius: length,
     font-size: length,
     font-weight: float
@@ -229,6 +230,7 @@ export component TimePickerInput {
     states [
         checked when root.checked: {
             background-layer.background: root.style.background-selected;
+            text-input.color: root.style.foreground-selected;
         }
     ]
 }
