@@ -22,7 +22,7 @@ Use a date picker to let the user select a date.
 -   **`date`**: (_in_ _Date_): Set the initial displayed date.
 -   **`input-title`**: (_in_ _string_): Title that displayed on the date input `LineEdit`.
 -   **`input-placeholder`**: (_in_ _string_): Placeholder text that is displayed on the date input `LineEdit`.
--   **`input-format`**: (_in_ _string_): Defines the format that is used to parse the text of `LineEdit`. For more details check the [https://docs.rs/chrono/latest/chrono/format/strftime/index.html](). (default `"%m/%d/%Y"`)
+-   **`input-format`**: (_in_ _string_): Defines the format that is used to parse the text of `LineEdit`. For more details check the <https://docs.rs/chrono/latest/chrono/format/strftime/index.html>. (default `"%m/%d/%Y"`)
 
 ### Callbacks
 
