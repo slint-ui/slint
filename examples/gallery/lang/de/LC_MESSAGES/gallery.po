@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-06-06 03:04+0000\n"
+"POT-Creation-Date: 2024-06-07 03:04+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: German (https://app.transifex.com/slint/teams/170022/de/)\n"
@@ -107,7 +107,7 @@ msgstr "Flugmodus"
 
 #: ui/pages/controls_page.slint:90
 msgctxt "ControlsPage"
-msgid "LineEdit - SpinBox - TimePicker"
+msgid "LineEdit - SpinBox - TimePicker - DatePicker"
 msgstr ""
 
 #: ui/pages/controls_page.slint:98
@@ -120,62 +120,67 @@ msgctxt "ControlsPage"
 msgid "Open TimePicker"
 msgstr ""
 
-#: ui/pages/controls_page.slint:119
+#: ui/pages/controls_page.slint:117
+msgctxt "ControlsPage"
+msgid "Open date picker"
+msgstr ""
+
+#: ui/pages/controls_page.slint:126
 msgctxt "ControlsPage"
 msgid "Slider"
 msgstr ""
 
-#: ui/pages/controls_page.slint:132
+#: ui/pages/controls_page.slint:139
 msgctxt "ControlsPage"
 msgid "ProgressIndicator | Spinner"
 msgstr ""
 
-#: ui/pages/controls_page.slint:160
+#: ui/pages/controls_page.slint:167
 msgctxt "ControlsPage"
 msgid "indeterminate"
 msgstr ""
 
-#: ui/pages/controls_page.slint:167
+#: ui/pages/controls_page.slint:174
 msgctxt "ControlsPage"
 msgid "TabWidget"
 msgstr ""
 
-#: ui/pages/controls_page.slint:171
+#: ui/pages/controls_page.slint:178
 msgctxt "ControlsPage"
 msgid "Tab 1"
 msgstr ""
 
-#: ui/pages/controls_page.slint:177
+#: ui/pages/controls_page.slint:184
 msgctxt "ControlsPage"
 msgid "Content of tab 1"
 msgstr ""
 
-#: ui/pages/controls_page.slint:183
+#: ui/pages/controls_page.slint:190
 msgctxt "ControlsPage"
 msgid "Click me"
 msgstr ""
 
-#: ui/pages/controls_page.slint:192
+#: ui/pages/controls_page.slint:199
 msgctxt "ControlsPage"
 msgid "Tab 2"
 msgstr ""
 
-#: ui/pages/controls_page.slint:198
+#: ui/pages/controls_page.slint:205
 msgctxt "ControlsPage"
 msgid "Content of tab 2"
 msgstr ""
 
-#: ui/pages/controls_page.slint:204
+#: ui/pages/controls_page.slint:211
 msgctxt "ControlsPage"
 msgid "Check me"
 msgstr ""
 
-#: ui/pages/controls_page.slint:213
+#: ui/pages/controls_page.slint:220
 msgctxt "ControlsPage"
 msgid "Tab 3"
 msgstr ""
 
-#: ui/pages/controls_page.slint:217
+#: ui/pages/controls_page.slint:224
 msgctxt "ControlsPage"
 msgid "Content of tab 3"
 msgstr ""
