@@ -153,57 +153,30 @@ public:
     /// Returns the accessible-label of that element, if any.
     std::optional<SharedString> accessible_label() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            SharedString result;
-            if (item->item_tree.vtable()->accessible_string_property(
-                        item->item_tree.borrow(), item->index,
-                        cbindgen_private::AccessibleStringProperty::Label, &result)) {
-                return result;
-            }
-        }
-        return std::nullopt;
+        return get_accessible_string_property(cbindgen_private::AccessibleStringProperty::Label);
     }
 
     /// Returns the accessible-value of that element, if any.
     std::optional<SharedString> accessible_value() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            SharedString result;
-            if (item->item_tree.vtable()->accessible_string_property(
-                        item->item_tree.borrow(), item->index,
-                        cbindgen_private::AccessibleStringProperty::Value, &result)) {
-                return result;
-            }
-        }
-        return std::nullopt;
+        return get_accessible_string_property(cbindgen_private::AccessibleStringProperty::Value);
     }
 
     /// Returns the accessible-description of that element, if any.
     std::optional<SharedString> accessible_description() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            SharedString result;
-            if (item->item_tree.vtable()->accessible_string_property(
-                        item->item_tree.borrow(), item->index,
-                        cbindgen_private::AccessibleStringProperty::Description, &result)) {
-                return result;
-            }
-        }
-        return std::nullopt;
+        return get_accessible_string_property(
+                cbindgen_private::AccessibleStringProperty::Description);
     }
 
     /// Returns the accessible-value-maximum of that element, if any.
     std::optional<float> accessible_value_maximum() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            SharedString result;
-            if (item->item_tree.vtable()->accessible_string_property(
-                        item->item_tree.borrow(), item->index,
-                        cbindgen_private::AccessibleStringProperty::ValueMaximum, &result)) {
-                float value = 0.0;
-                if (cbindgen_private::slint_string_to_float(&result, &value)) {
-                    return value;
-                }
+        if (auto result = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::ValueMaximum)) {
+            float value = 0.0;
+            if (cbindgen_private::slint_string_to_float(&*result, &value)) {
+                return value;
             }
         }
         return std::nullopt;
@@ -212,15 +185,11 @@ public:
     /// Returns the accessible-value-minimum of that element, if any.
     std::optional<float> accessible_value_minimum() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            SharedString result;
-            if (item->item_tree.vtable()->accessible_string_property(
-                        item->item_tree.borrow(), item->index,
-                        cbindgen_private::AccessibleStringProperty::ValueMinimum, &result)) {
-                float value = 0.0;
-                if (cbindgen_private::slint_string_to_float(&result, &value)) {
-                    return value;
-                }
+        if (auto result = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::ValueMinimum)) {
+            float value = 0.0;
+            if (cbindgen_private::slint_string_to_float(&*result, &value)) {
+                return value;
             }
         }
         return std::nullopt;
@@ -229,15 +198,11 @@ public:
     /// Returns the accessible-value-step of that element, if any.
     std::optional<float> accessible_value_step() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            SharedString result;
-            if (item->item_tree.vtable()->accessible_string_property(
-                        item->item_tree.borrow(), item->index,
-                        cbindgen_private::AccessibleStringProperty::ValueStep, &result)) {
-                float value = 0.0;
-                if (cbindgen_private::slint_string_to_float(&result, &value)) {
-                    return value;
-                }
+        if (auto result = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::ValueStep)) {
+            float value = 0.0;
+            if (cbindgen_private::slint_string_to_float(&*result, &value)) {
+                return value;
             }
         }
         return std::nullopt;
@@ -246,16 +211,12 @@ public:
     /// Returns the accessible-checked of that element, if any.
     std::optional<bool> accessible_checked() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            SharedString result;
-            if (item->item_tree.vtable()->accessible_string_property(
-                        item->item_tree.borrow(), item->index,
-                        cbindgen_private::AccessibleStringProperty::Checked, &result)) {
-                if (result == "true")
-                    return true;
-                else if (result == "false")
-                    return false;
-            }
+        if (auto result = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::Checked)) {
+            if (*result == "true")
+                return true;
+            else if (*result == "false")
+                return false;
         }
         return std::nullopt;
     }
@@ -263,16 +224,12 @@ public:
     /// Returns the accessible-checkable of that element, if any.
     std::optional<bool> accessible_checkable() const
     {
-        if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            SharedString result;
-            if (item->item_tree.vtable()->accessible_string_property(
-                        item->item_tree.borrow(), item->index,
-                        cbindgen_private::AccessibleStringProperty::Checkable, &result)) {
-                if (result == "true")
-                    return true;
-                else if (result == "false")
-                    return false;
-            }
+        if (auto result = get_accessible_string_property(
+                    cbindgen_private::AccessibleStringProperty::Checkable)) {
+            if (*result == "true")
+                return true;
+            else if (*result == "false")
+                return false;
         }
         return std::nullopt;
     }
@@ -282,6 +239,8 @@ public:
     /// Setting the value will invoke the `accessible-action-set-value` callback.
     void set_accessible_value(SharedString value) const
     {
+        if (inner.element_index != 0)
+            return;
         if (auto item = private_api::upgrade_item_weak(inner.item)) {
             union SetValueHelper {
                 cbindgen_private::AccessibilityAction action;
@@ -303,6 +262,8 @@ public:
     /// (`accessible-action-increment`).
     void invoke_accessible_increment_action() const
     {
+        if (inner.element_index != 0)
+            return;
         if (auto item = private_api::upgrade_item_weak(inner.item)) {
             union IncreaseActionHelper {
                 cbindgen_private::AccessibilityAction action;
@@ -322,6 +283,8 @@ public:
     /// (`accessible-action-decrement`).
     void invoke_accessible_decrement_action() const
     {
+        if (inner.element_index != 0)
+            return;
         if (auto item = private_api::upgrade_item_weak(inner.item)) {
             union DecreaseActionHelper {
                 cbindgen_private::AccessibilityAction action;
@@ -341,6 +304,8 @@ public:
     /// (`accessible-action-default`).
     void invoke_accessible_default_action() const
     {
+        if (inner.element_index != 0)
+            return;
         if (auto item = private_api::upgrade_item_weak(inner.item)) {
             union DefaultActionHelper {
                 cbindgen_private::AccessibilityAction action;
@@ -380,8 +345,23 @@ public:
         }
         return LogicalPosition({ 0, 0 });
     }
-};
 
+private:
+    std::optional<SharedString>
+    get_accessible_string_property(cbindgen_private::AccessibleStringProperty what) const
+    {
+        if (inner.element_index != 0)
+            return std::nullopt;
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
+            SharedString result;
+            if (item->item_tree.vtable()->accessible_string_property(item->item_tree.borrow(),
+                                                                     item->index, what, &result)) {
+                return result;
+            }
+        }
+        return std::nullopt;
+    }
+};
 }
 
 #    endif // SLINT_FEATURE_EXPERIMENTAL

@@ -731,7 +731,7 @@ pub fn pretty_print(
     if e.is_component_placeholder {
         write!(f, "/* Component Placeholder */ ")?;
     }
-    writeln!(f, "{} := {} {{", e.id, e.base_type)?;
+    writeln!(f, "{} := {} {{  /* {} */", e.id, e.base_type, e.element_infos())?;
     let mut indentation = indentation + 1;
     macro_rules! indent {
         () => {
