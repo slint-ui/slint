@@ -176,7 +176,7 @@ impl<T: Clone> ItemCache<T> {
 }
 
 /// Return true if the item might be a clipping item
-pub(crate) fn is_clipping_item(item: Pin<ItemRef>) -> bool {
+pub fn is_clipping_item(item: Pin<ItemRef>) -> bool {
     //(FIXME: there should be some flag in the vtable instead of down-casting)
     ItemRef::downcast_pin::<Flickable>(item).is_some()
         || ItemRef::downcast_pin::<Clip>(item).map_or(false, |clip_item| clip_item.as_ref().clip())
