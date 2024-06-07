@@ -29,6 +29,9 @@ jobs:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
+            - name: Upgrade LLVM for Skia build on Windows
+              if: runner.os == 'Windows'
+              run: choco upgrade llvm
             # Setup .npmrc file to publish to npm
             - uses: actions/setup-node@v4
               with:
