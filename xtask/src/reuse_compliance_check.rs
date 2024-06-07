@@ -21,12 +21,6 @@ pub fn find_reuse() -> Result<PathBuf> {
     which::which("reuse").context("Failed to find reuse")
 }
 
-pub fn install_reuse(sh: &Shell) -> Result<PathBuf> {
-    cmd(sh, "pip", &["install", "reuse"])?.run().context("Failed to pip install reuse.")?;
-
-    find_reuse().context("Could not find reuse after pip installing it")
-}
-
 pub fn reuse_download(sh: &Shell, reuse: &Path) -> Result<String> {
     Ok(cmd(sh, reuse, &["download", "--all"])?
         .read()
@@ -371,7 +365,7 @@ impl ReuseComplianceCheck {
 
         let sh = Shell::new()?;
 
-        let reuse = find_reuse().or_else(|_| install_reuse(&sh))?;
+        let reuse = find_reuse().context("Can not find reuse. Please make sure it is installed")?;
 
         println!("Reuse binary \"{}\".", reuse.to_string_lossy());
 

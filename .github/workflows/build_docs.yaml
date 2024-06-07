@@ -9,7 +9,7 @@ on:
 
 jobs:
     docs:
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-24.04
         env:
             # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
             # for which the stable alternative is not yet available.
@@ -42,19 +42,10 @@ jobs:
             - name: Install mdbook-linkcheck
               run: cargo install mdbook-linkcheck || true
             - name: Install apt dependencies
-              run: sudo apt-get install doxygen clang-format
+              run: sudo apt-get install doxygen
             - name: Upgrade pip and install pipenv
               run: |
-                  python -m pip install --upgrade pip
-                  pip install --user pipenv
-            - name: Cache Pipenv virtualenv
-              uses: actions/cache@v4
-              id: pipenv-cache
-              with:
-                  path: ~/.local/share/virtualenvs
-                  key: ${{ runner.os }}-pipenv-v1-${{ hashFiles('**/Pipfile') }}
-                  restore-keys: |
-                      ${{ runner.os }}-pipenv-v1
+                  sudo apt-get install python3-pip pipenv
             - name: Remove docs from cache # Avoid stale docs
               run: |
                   rm -rf target/doc target/cppdocs api/node/docs
@@ -77,6 +68,7 @@ jobs:
                   tool_name: xtask license_header
                   level: error
                   fail_on_error: true
+            - run: sudo apt-get install reuse
             - name: Check reuse compliance
               run: cargo xtask check_reuse_compliance
 
