@@ -304,6 +304,9 @@ impl ElementHandle {
     /// }
     /// ```
     pub fn invoke_accessible_default_action(&self) {
+        if self.element_index != 0 {
+            return;
+        }
         if let Some(item) = self.item.upgrade() {
             item.accessible_action(&AccessibilityAction::Default)
         }
@@ -311,6 +314,9 @@ impl ElementHandle {
 
     /// Returns the value of the element's `accessible-value` property, if present.
     pub fn accessible_value(&self) -> Option<SharedString> {
+        if self.element_index != 0 {
+            return None;
+        }
         self.item
             .upgrade()
             .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Value))
@@ -319,6 +325,9 @@ impl ElementHandle {
     /// Sets the value of the element's `accessible-value` property. Note that you can only set this
     /// property if it is declared in your Slint code.
     pub fn set_accessible_value(&self, value: impl Into<SharedString>) {
+        if self.element_index != 0 {
+            return;
+        }
         if let Some(item) = self.item.upgrade() {
             item.accessible_action(&AccessibilityAction::SetValue(value.into()))
         }
@@ -326,6 +335,9 @@ impl ElementHandle {
 
     /// Returns the value of the element's `accessible-value-maximum` property, if present.
     pub fn accessible_value_maximum(&self) -> Option<f32> {
+        if self.element_index != 0 {
+            return None;
+        }
         self.item.upgrade().and_then(|item| {
             item.accessible_string_property(AccessibleStringProperty::ValueMaximum)
                 .and_then(|item| item.parse().ok())
@@ -334,6 +346,9 @@ impl ElementHandle {
 
     /// Returns the value of the element's `accessible-value-minimum` property, if present.
     pub fn accessible_value_minimum(&self) -> Option<f32> {
+        if self.element_index != 0 {
+            return None;
+        }
         self.item.upgrade().and_then(|item| {
             item.accessible_string_property(AccessibleStringProperty::ValueMinimum)
                 .and_then(|item| item.parse().ok())
@@ -342,6 +357,9 @@ impl ElementHandle {
 
     /// Returns the value of the element's `accessible-value-step` property, if present.
     pub fn accessible_value_step(&self) -> Option<f32> {
+        if self.element_index != 0 {
+            return None;
+        }
         self.item.upgrade().and_then(|item| {
             item.accessible_string_property(AccessibleStringProperty::ValueStep)
                 .and_then(|item| item.parse().ok())
@@ -350,6 +368,9 @@ impl ElementHandle {
 
     /// Returns the value of the `accessible-label` property, if present.
     pub fn accessible_label(&self) -> Option<SharedString> {
+        if self.element_index != 0 {
+            return None;
+        }
         self.item
             .upgrade()
             .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Label))
@@ -357,6 +378,9 @@ impl ElementHandle {
 
     /// Returns the value of the `accessible-description` property, if present
     pub fn accessible_description(&self) -> Option<SharedString> {
+        if self.element_index != 0 {
+            return None;
+        }
         self.item
             .upgrade()
             .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Description))
@@ -364,6 +388,9 @@ impl ElementHandle {
 
     /// Returns the value of the `accessible-checked` property, if present
     pub fn accessible_checked(&self) -> Option<bool> {
+        if self.element_index != 0 {
+            return None;
+        }
         self.item
             .upgrade()
             .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Checked))
@@ -372,6 +399,9 @@ impl ElementHandle {
 
     /// Returns the value of the `accessible-checkable` property, if present
     pub fn accessible_checkable(&self) -> Option<bool> {
+        if self.element_index != 0 {
+            return None;
+        }
         self.item
             .upgrade()
             .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Checkable))
@@ -406,6 +436,9 @@ impl ElementHandle {
     /// Invokes the element's `accessible-action-increment` callback, if declared. On widgets such as spinboxes, this
     /// typically increments the value.
     pub fn invoke_accessible_increment_action(&self) {
+        if self.element_index != 0 {
+            return;
+        }
         if let Some(item) = self.item.upgrade() {
             item.accessible_action(&AccessibilityAction::Increment)
         }
@@ -414,6 +447,9 @@ impl ElementHandle {
     /// Invokes the element's `accessible-action-decrement` callback, if declared. On widgets such as spinboxes, this
     /// typically decrements the value.
     pub fn invoke_accessible_decrement_action(&self) {
+        if self.element_index != 0 {
+            return;
+        }
         if let Some(item) = self.item.upgrade() {
             item.accessible_action(&AccessibilityAction::Decrement)
         }

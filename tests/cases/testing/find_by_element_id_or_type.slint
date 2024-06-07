@@ -9,6 +9,7 @@ component Button inherits ButtonBase {
     extra-label := Text {
         accessible-label: "extra";
     }
+    inner-rect := Rectangle {}
 }
 
 export component TestCase {
@@ -47,6 +48,16 @@ assert_eq!(id_search_result[0].bases().unwrap().collect::<Vec<_>>(), ["ButtonBas
 
 let texts = slint_testing::ElementHandle::find_by_element_type_name(&instance, "Text").filter_map(|elem| elem.accessible_label()).collect::<Vec<_>>();
 assert_eq!(texts, vec!["optimized", "extra", "plain", "extra", "third", "extra"]);
+
+let inner_rects = slint_testing::ElementHandle::find_by_element_id(&instance, "Button::inner-rect").collect::<Vec<_>>();
+assert_eq!(inner_rects.len(), 3);
+for x in inner_rects {
+    assert_eq!(x.type_name().unwrap(), "Rectangle");
+    assert_eq!(x.id().unwrap(), "Button::inner-rect");
+    assert_eq!(x.bases().unwrap().next(), None);
+    assert_eq!(x.accessible_label(), None);
+    assert_eq!(x.accessible_description(), None);
+}
 ```
 
 ```cpp
@@ -72,5 +83,15 @@ assert_eq(*id_search_result[0].id(), "TestCase::second");
 assert_eq((*id_search_result[0].bases()).size(), 2);
 assert_eq((*id_search_result[0].bases())[0], "ButtonBase");
 assert_eq((*id_search_result[0].bases())[1], "Text");
+
+auto inner_rects = slint::testing::ElementHandle::find_by_element_id(handle, "Button::inner-rect");
+assert_eq(inner_rects.size(), 3);
+for (auto x : inner_rects) {
+    assert_eq(*x.type_name(), "Rectangle");
+    assert_eq(*x.id(), "Button::inner-rect");
+    assert_eq(x.bases()->size(), 0);
+    assert(!x.accessible_label());
+    assert(!x.accessible_description());
+}
 ```
 */
