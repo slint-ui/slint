@@ -46,6 +46,8 @@ macro_rules! for_each_enums {
                 NoWrap,
                 /// The text will be wrapped at word boundaries.
                 WordWrap,
+                /// The text will be wrapped at any character.
+                CharWrap,
             }
 
             /// This enum describes the how the text appear if it is too wide to fit in the [`Text`](elements.md#text) width.

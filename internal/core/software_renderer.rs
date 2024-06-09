@@ -615,6 +615,7 @@ impl RendererSealed for SoftwareRenderer {
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
+        _wrap_anywhere: bool, //TODO: Add support for char-wrap
     ) -> LogicalSize {
         fonts::text_size(font_request, text, max_width, scale_factor)
     }

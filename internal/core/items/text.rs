@@ -68,12 +68,13 @@ impl Item for Text {
         window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         let window_inner = WindowInner::from_pub(window_adapter.window());
-        let implicit_size = |max_width| {
+        let implicit_size = |max_width, wrap_anywhere| {
             window_adapter.renderer().text_size(
                 self.font_request(window_inner),
                 self.text().as_str(),
                 max_width,
                 ScaleFactor::new(window_adapter.window().scale_factor()),
+                wrap_anywhere,
             )
         };
 
@@ -82,7 +83,7 @@ impl Item for Text {
         // letters will be cut off, apply the ceiling here.
         match orientation {
             Orientation::Horizontal => {
-                let implicit_size = implicit_size(None);
+                let implicit_size = implicit_size(None, false);
                 let min = match self.overflow() {
                     TextOverflow::Elide => implicit_size.width.min(
                         window_adapter
@@ -92,12 +93,13 @@ impl Item for Text {
                                 "…",
                                 None,
                                 ScaleFactor::new(window_inner.scale_factor()),
+                                false,
                             )
                             .width,
                     ),
                     TextOverflow::Clip => match self.wrap() {
                         TextWrap::NoWrap => implicit_size.width,
-                        TextWrap::WordWrap => 0 as Coord,
+                        TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
                     },
                 };
                 LayoutInfo {
@@ -108,8 +110,9 @@ impl Item for Text {
             }
             Orientation::Vertical => {
                 let h = match self.wrap() {
-                    TextWrap::NoWrap => implicit_size(None).height,
-                    TextWrap::WordWrap => implicit_size(Some(self.width())).height,
+                    TextWrap::NoWrap => implicit_size(None, false).height,
+                    TextWrap::WordWrap => implicit_size(Some(self.width()), false).height,
+                    TextWrap::CharWrap => implicit_size(Some(self.width()), true).height,
                 }
                 .ceil();
                 LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -297,7 +300,7 @@ impl Item for TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         let text = self.text();
-        let implicit_size = |max_width| {
+        let implicit_size = |max_width, wrap_anywhere| {
             window_adapter.renderer().text_size(
                 self.font_request(window_adapter),
                 {
@@ -309,6 +312,7 @@ impl Item for TextInput {
                 },
                 max_width,
                 ScaleFactor::new(window_adapter.window().scale_factor()),
+                wrap_anywhere,
             )
         };
 
@@ -317,10 +321,10 @@ impl Item for TextInput {
         // letters will be cut off, apply the ceiling here.
         match orientation {
             Orientation::Horizontal => {
-                let implicit_size = implicit_size(None);
+                let implicit_size = implicit_size(None, false);
                 let min = match self.wrap() {
                     TextWrap::NoWrap => implicit_size.width,
-                    TextWrap::WordWrap => 0 as Coord,
+                    TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
                 };
                 LayoutInfo {
                     min: min.ceil(),
@@ -330,8 +334,9 @@ impl Item for TextInput {
             }
             Orientation::Vertical => {
                 let h = match self.wrap() {
-                    TextWrap::NoWrap => implicit_size(None).height,
-                    TextWrap::WordWrap => implicit_size(Some(self.width())).height,
+                    TextWrap::NoWrap => implicit_size(None, false).height,
+                    TextWrap::WordWrap => implicit_size(Some(self.width()), false).height,
+                    TextWrap::CharWrap => implicit_size(Some(self.width()), true).height,
                 }
                 .ceil();
                 LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -917,6 +922,7 @@ impl TextInput {
                 " ",
                 None,
                 ScaleFactor::new(window_adapter.window().scale_factor()),
+                false,
             )
             .height;
 

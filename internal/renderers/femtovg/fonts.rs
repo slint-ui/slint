@@ -564,7 +564,7 @@ pub(crate) fn layout_text_lines(
     paint: &femtovg::Paint,
     mut layout_line: impl FnMut(&str, PhysicalPoint, usize, &femtovg::TextMetrics),
 ) -> PhysicalLength {
-    let wrap = wrap == TextWrap::WordWrap;
+    let wrap = wrap != TextWrap::NoWrap;
     let elide = overflow == TextOverflow::Elide;
 
     let max_width = max_size.width_length();

@@ -358,7 +358,7 @@ cpp! {{
     // if line_for_y_pos > 0, then the function will return the line at this y position
     static int do_text_layout(QTextLayout &layout, int flags, const QRectF &rect, int line_for_y_pos = -1) {
         QTextOption options;
-        options.setWrapMode((flags & Qt::TextWordWrap) ? QTextOption::WordWrap : QTextOption::NoWrap);
+        options.setWrapMode((flags & Qt::TextWordWrap) ? QTextOption::WordWrap : ((flags & Qt::TextWrapAnywhere) ? QTextOption::WrapAnywhere : QTextOption::NoWrap));
         if (flags & Qt::AlignHCenter)
             options.setAlignment(Qt::AlignCenter);
         else if (flags & Qt::AlignLeft)
@@ -676,7 +676,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
             TextVerticalAlignment::Bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
         };
-        let wrap = text.wrap() == TextWrap::WordWrap;
+        let wrap = text.wrap() != TextWrap::NoWrap;
+        let word_wrap = text.wrap() == TextWrap::WordWrap;
         let elide = text.overflow() == TextOverflow::Elide;
         let stroke_visible = !text.stroke().is_transparent();
         let stroke_outside = text.stroke_style() == TextStrokeStyle::Outside;
@@ -685,7 +686,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextStrokeStyle::Center => text.stroke_width().get(),
         };
         let painter: &mut QPainterPtr = &mut self.painter;
-        cpp! { unsafe [painter as "QPainterPtr*", rect as "QRectF", fill_brush as "QBrush", stroke_brush as "QBrush", mut string as "QString", font as "QFont", elide as "bool", alignment as "Qt::Alignment", wrap as "bool", stroke_visible as "bool", stroke_outside as "bool", stroke_width as "float"] {
+        cpp! { unsafe [painter as "QPainterPtr*", rect as "QRectF", fill_brush as "QBrush", stroke_brush as "QBrush", mut string as "QString", font as "QFont", elide as "bool", alignment as "Qt::Alignment", wrap as "bool", word_wrap as "bool", stroke_visible as "bool", stroke_outside as "bool", stroke_width as "float"] {
             QString elided;
             if (!elide) {
                 elided = string;
@@ -709,7 +710,11 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 QFontMetrics fm(font);
                 QTextLayout layout(string, font);
                 QTextOption options;
-                options.setWrapMode(QTextOption::WordWrap);
+                if (word_wrap) {
+                    options.setWrapMode(QTextOption::WordWrap);
+                } else {
+                    options.setWrapMode(QTextOption::WrapAnywhere);
+                }
                 layout.setTextOption(options);
                 layout.setCacheEnabled(true);
                 layout.beginLayout();
@@ -739,8 +744,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
             if (!stroke_visible) {
                 int flags = alignment;
-                if (wrap)
-                    flags |= Qt::TextWordWrap;
+                if (wrap) {
+                    if (word_wrap) {
+                        flags |= Qt::TextWordWrap;
+                    } else {
+                        flags |= Qt::TextWrapAnywhere;
+                    }
+                }
 
                 (*painter)->setFont(font);
                 (*painter)->setBrush(Qt::NoBrush);
@@ -754,8 +764,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
                 QTextOption options = document.defaultTextOption();
                 options.setAlignment(alignment);
-                if (wrap)
-                    options.setWrapMode(QTextOption::WordWrap);
+                if (wrap) {
+                    if (word_wrap) {
+                        options.setWrapMode(QTextOption::WordWrap);
+                    } else {
+                        options.setWrapMode(QTextOption::WrapAnywhere);
+                    }
+                }
                 document.setDefaultTextOption(options);
 
                 // Workaround for https://bugreports.qt.io/browse/QTBUG-13467
@@ -837,6 +852,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         } | match text_input.wrap() {
             TextWrap::NoWrap => 0,
             TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
+            TextWrap::CharWrap => key_generated::Qt_TextFlag_TextWrapAnywhere,
         };
 
         let visual_representation = text_input.visual_representation(Some(qt_password_character));
@@ -2126,8 +2142,13 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         text: &str,
         max_width: Option<LogicalLength>,
         _scale_factor: ScaleFactor,
+        wrap_anywhere: bool,
     ) -> LogicalSize {
-        get_font(font_request).text_size(text, max_width.map(|logical_width| logical_width.get()))
+        get_font(font_request).text_size(
+            text,
+            max_width.map(|logical_width| logical_width.get()),
+            wrap_anywhere,
+        )
     }
 
     fn text_input_byte_offset_for_position(
@@ -2160,6 +2181,7 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         } | match text_input.wrap() {
             TextWrap::NoWrap => 0,
             TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
+            TextWrap::CharWrap => key_generated::Qt_TextFlag_TextWrapAnywhere,
         };
         let single_line: bool = text_input.single_line();
         let byte_offset = cpp! { unsafe [font as "QFont", string as "QString", pos as "QPointF", flags as "int",
@@ -2217,6 +2239,7 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         } | match text_input.wrap() {
             TextWrap::NoWrap => 0,
             TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
+            TextWrap::CharWrap => key_generated::Qt_TextFlag_TextWrapAnywhere,
         };
         let single_line: bool = text_input.single_line();
         let r = cpp! { unsafe [font as "QFont", mut string as "QString", offset as "int", flags as "int", rect as "QRectF", single_line as "bool"]
@@ -2346,16 +2369,16 @@ fn get_font(request: FontRequest) -> QFont {
 cpp_class! {pub unsafe struct QFont as "QFont"}
 
 impl QFont {
-    fn text_size(&self, text: &str, max_width: Option<f32>) -> LogicalSize {
+    fn text_size(&self, text: &str, max_width: Option<f32>, wrap_anywhere: bool) -> LogicalSize {
         let string = qttypes::QString::from(text);
         let mut r = qttypes::QRectF::default();
         if let Some(max) = max_width {
             r.height = f32::MAX as _;
             r.width = max as _;
         }
-        let size = cpp! { unsafe [self as "const QFont*", string as "QString", r as "QRectF"]
+        let size = cpp! { unsafe [self as "const QFont*", string as "QString", r as "QRectF", wrap_anywhere as "bool"]
                 -> qttypes::QSizeF as "QSizeF"{
-            return QFontMetricsF(*self).boundingRect(r, r.isEmpty() ? 0 : Qt::TextWordWrap , string).size();
+            return QFontMetricsF(*self).boundingRect(r, r.isEmpty() ? 0 : ((wrap_anywhere) ? Qt::TextWrapAnywhere : Qt::TextWordWrap) , string).size();
         }};
         LogicalSize::new(size.width as _, size.height as _)
     }

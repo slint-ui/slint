@@ -355,6 +355,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
+        _wrap_anywhere: bool, //TODO: Add support for char-wrap
     ) -> LogicalSize {
         let (layout, _) = textlayout::create_layout(
             font_request,
