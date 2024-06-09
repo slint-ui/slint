@@ -114,7 +114,7 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
         ) -> core::ops::ControlFlow<R>,
         selection: Option<core::ops::Range<usize>>,
     ) -> Result<Font::Length, R> {
-        let wrap = self.wrap == TextWrap::WordWrap;
+        let wrap = self.wrap != TextWrap::NoWrap;
         let elide = self.overflow == TextOverflow::Elide;
         let elide_glyph = if elide {
             self.layout.font.glyph_for_char('…').filter(|glyph| glyph.glyph_id.is_some())

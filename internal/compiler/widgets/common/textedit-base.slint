@@ -61,7 +61,7 @@ export component TextEditBase inherits Rectangle {
         y: root.scroll-view-padding;
         width: parent.width - 2 * root.scroll-view-padding;
         height: parent.height - 2 * root.scroll-view-padding;
-        viewport-width: root.wrap == TextWrap.word-wrap ? self.visible-width : max(self.visible-width, text-input.preferred-width);
+        viewport-width: root.wrap == TextWrap.no-wrap ? max(self.visible-width, text-input.preferred-width) : self.visible-width;
         viewport-height: max(self.visible-height, text-input.preferred-height);
 
         text-input := TextInput {

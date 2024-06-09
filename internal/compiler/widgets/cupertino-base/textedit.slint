@@ -138,7 +138,7 @@ export component TextEdit {
         y: 8px;
         width: parent.width - 16px;
         height: parent.height - 16px;
-        viewport-width: root.wrap == TextWrap.word-wrap ? self.visible-width : max(self.visible-width, text-input.preferred-width);
+        viewport-width: root.wrap == TextWrap.no-wrap ? max(self.visible-width, text-input.preferred-width) : self.visible-width;
         viewport-height: max(self.visible-height, text-input.preferred-height);
 
         text-input := TextInput {

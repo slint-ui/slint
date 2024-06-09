@@ -150,6 +150,7 @@ impl RendererSealed for TestingWindow {
         text: &str,
         _max_width: Option<LogicalLength>,
         _scale_factor: ScaleFactor,
+        _wrap_anywhere: bool,
     ) -> LogicalSize {
         LogicalSize::new(text.len() as f32 * 10., 10.)
     }

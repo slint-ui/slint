@@ -365,6 +365,7 @@ impl RendererSealed for FemtoVGRenderer {
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
+        _wrap_anywhere: bool, //TODO: Add support for char-wrap
     ) -> LogicalSize {
         crate::fonts::text_size(&font_request, scale_factor, text, max_width)
     }
