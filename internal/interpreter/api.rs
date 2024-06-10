@@ -21,8 +21,7 @@ pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 pub use i_slint_core::api::*;
 // keep in sync with api/rs/slint/lib.rs
 pub use i_slint_core::graphics::{
-    Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedImageBuffer,
-    SharedPixelBuffer,
+    Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
 use i_slint_core::items::*;
 
@@ -927,6 +926,23 @@ impl ComponentDefinition {
     pub fn type_loader(&self) -> std::rc::Rc<i_slint_compiler::typeloader::TypeLoader> {
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner.unerase(guard).type_loader.get().unwrap().clone()
+    }
+
+    /// Return the `TypeLoader` used when parsing the code in the interpreter.
+    ///
+    /// WARNING: this is not part of the public API
+    #[cfg(feature = "highlight")]
+    pub fn raw_type_loader(&self) -> Option<i_slint_compiler::typeloader::TypeLoader> {
+        use i_slint_compiler::typeloader;
+
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner
+            .unerase(guard)
+            .raw_type_loader
+            .get()
+            .unwrap()
+            .as_ref()
+            .map(|tl| typeloader::snapshot(tl).unwrap())
     }
 }
 

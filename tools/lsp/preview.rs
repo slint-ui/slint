@@ -7,7 +7,6 @@ use crate::common::{
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
-use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFileVersion};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
 use i_slint_core::component_factory::FactoryContext;
@@ -72,102 +71,27 @@ struct PreviewState {
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
     known_components: Vec<ComponentInformation>,
-    document_cache: Option<common::DocumentCache>,
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
-struct DummyWaker();
+// I will be needing this again soon...
+// struct DummyWaker();
 
-impl std::task::Wake for DummyWaker {
-    fn wake(self: std::sync::Arc<Self>) {}
-}
+// impl std::task::Wake for DummyWaker {
+//     fn wake(self: std::sync::Arc<Self>) {}
+// }
 
-pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
-    let waker = std::sync::Arc::new(DummyWaker()).into();
-    let mut ctx = std::task::Context::from_waker(&waker);
+// pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
+//     let waker = std::sync::Arc::new(DummyWaker()).into();
+//     let mut ctx = std::task::Context::from_waker(&waker);
 
-    let future = std::pin::pin!(future);
+//     let future = std::pin::pin!(future);
 
-    match future.poll(&mut ctx) {
-        std::task::Poll::Ready(result) => Some(result),
-        std::task::Poll::Pending => None,
-    }
-}
-
-impl PreviewState {
-    fn refresh_document_cache(
-        &mut self,
-        url: &Url,
-        version: SourceFileVersion,
-        source_code: String,
-    ) {
-        let Some(document_cache) = self.document_cache.as_mut() else {
-            return;
-        };
-
-        let mut diag = BuildDiagnostics::default();
-        let _ = poll_once(document_cache.load_url(url, version, source_code, &mut diag)); // ignore url conversion errors
-
-        let mut components = Vec::new();
-        component_catalog::builtin_components(document_cache, &mut components);
-        component_catalog::all_exported_components(
-            &document_cache,
-            &mut |ci| !ci.is_global,
-            &mut components,
-        );
-
-        components.sort_by(|a, b| a.name.cmp(&b.name));
-
-        self.known_components = components;
-
-        if let Some(ui) = &self.ui {
-            ui::ui_set_known_components(ui, &self.known_components)
-        }
-    }
-
-    fn recreate_document_cache(
-        &mut self,
-        config: &PreviewConfig,
-        style: String,
-        preview_url: &Url,
-    ) {
-        let style = if style.is_empty() { None } else { Some(style) };
-
-        if let Some(dc) = &self.document_cache {
-            let cc = dc.compiler_configuration();
-            if cc.style == style
-                && cc.include_paths == config.include_paths
-                && cc.library_paths == config.library_paths
-            {
-                return;
-            }
-        }
-        let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(
-            i_slint_compiler::generator::OutputFormat::Interpreter,
-        );
-
-        compiler_config.style = style;
-        compiler_config.include_paths = config.include_paths.clone();
-        compiler_config.library_paths = config.library_paths.clone();
-        compiler_config.open_import_fallback = Some(Rc::new(|path| {
-            let path = PathBuf::from(path);
-            Box::pin(async move { get_path_from_cache(&path).map(|(_, c)| Ok(c)) })
-        }));
-
-        self.document_cache = Some(common::DocumentCache::new(compiler_config));
-
-        if let Some((version, contents)) = CONTENT_CACHE
-            .get_or_init(Default::default)
-            .lock()
-            .unwrap()
-            .source_code
-            .get(&preview_url)
-            .cloned()
-        {
-            self.refresh_document_cache(preview_url, version, contents);
-        }
-    }
-}
+//     match future.poll(&mut ctx) {
+//         std::task::Poll::Ready(result) => Some(result),
+//         std::task::Poll::Pending => None,
+//     }
+// }
 
 pub fn set_contents(url: &common::VersionedUrl, content: String) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
@@ -178,18 +102,6 @@ pub fn set_contents(url: &common::VersionedUrl, content: String) {
             return;
         }
     }
-
-    let fu = url.clone();
-    let fc = content.clone();
-
-    let _ = i_slint_core::api::invoke_from_event_loop(move || {
-        let url = fu;
-        let content = fc;
-
-        PREVIEW_STATE.with(move |ps| {
-            ps.borrow_mut().refresh_document_cache(url.url(), url.version().clone(), content)
-        })
-    });
 
     if cache.dependency.contains(url.url()) {
         let ui_is_visible = cache.ui_is_visible;
@@ -447,6 +359,8 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
             label: Some("Move element".to_string()),
             edit,
         });
+    } else {
+        element_selection::reselect_element();
     }
 }
 
@@ -476,6 +390,27 @@ fn finish_parsing(ok: bool) {
         send_status("Preview Loaded", Health::Ok);
     } else {
         send_status("Preview not updated", Health::Error);
+    }
+
+    if let Some(document_cache) = document_cache() {
+        let mut components = Vec::new();
+        component_catalog::builtin_components(&document_cache, &mut components);
+        component_catalog::all_exported_components(
+            &document_cache,
+            &mut |ci| !ci.is_global,
+            &mut components,
+        );
+
+        components.sort_by(|a, b| a.name.cmp(&b.name));
+
+        PREVIEW_STATE.with(|preview_state| {
+            let mut preview_state = preview_state.borrow_mut();
+            preview_state.known_components = components;
+
+            if let Some(ui) = &preview_state.ui {
+                ui::ui_set_known_components(ui, &preview_state.known_components)
+            }
+        });
     }
 }
 
@@ -658,15 +593,9 @@ async fn reload_preview_impl(
     style: String,
     config: PreviewConfig,
 ) {
-    let preview_url = preview_component.url.clone();
-
     let component = PreviewComponent { style: String::new(), ..preview_component };
 
     start_parsing();
-
-    PREVIEW_STATE.with(|preview_state| {
-        preview_state.borrow_mut().recreate_document_cache(&config, style.clone(), &preview_url);
-    });
 
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
     let source = {
@@ -879,6 +808,13 @@ fn component_instance() -> Option<ComponentInstance> {
     PREVIEW_STATE.with(move |preview_state| {
         preview_state.borrow().handle.borrow().as_ref().map(|ci| ci.clone_strong())
     })
+}
+
+fn document_cache() -> Option<common::DocumentCache> {
+    let component_instance = component_instance()?;
+    Some(common::DocumentCache::new_from_type_loader(
+        component_instance.definition().raw_type_loader()?,
+    ))
 }
 
 fn set_show_preview_ui(show_preview_ui: bool) {

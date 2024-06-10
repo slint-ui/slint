@@ -227,7 +227,7 @@ pub async fn compile_syntax_node(
     }
 
     if !diagnostics.has_error() {
-        passes::run_passes(&doc, &mut loader, &mut diagnostics).await;
+        passes::run_passes(&doc, &mut loader, false, &mut diagnostics).await;
     } else {
         // Don't run all the passes in case of errors because because some invariants are not met.
         passes::run_import_passes(&doc, &loader, &mut diagnostics);
@@ -238,6 +238,11 @@ pub async fn compile_syntax_node(
     (doc, diagnostics, loader)
 }
 
+/// Pass a file to the compiler and process it fully, applying all the
+/// necessary compilation passes.
+///
+/// This returns a `Tuple` containing the actual cleaned `path` to the file,
+/// a set of `BuildDiagnostics` and a `TypeLoader` with all compilation passes applied.
 pub async fn load_root_file(
     path: &Path,
     version: diagnostics::SourceFileVersion,
@@ -248,8 +253,37 @@ pub async fn load_root_file(
 ) -> (std::path::PathBuf, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
 
-    let path =
-        loader.load_root_file(path, version, source_path, source_code, &mut diagnostics).await;
+    let (path, _) = loader
+        .load_root_file(path, version, source_path, source_code, false, &mut diagnostics)
+        .await;
 
     (path, diagnostics, loader)
+}
+
+/// Pass a file to the compiler and process it fully, applying all the
+/// necessary compilation passes, just like `load_root_file`.
+///
+/// This returns a `Tuple` containing the actual cleaned `path` to the file,
+/// a set of `BuildDiagnostics`, a `TypeLoader` with all compilation passes
+/// applied and another `TypeLoader` with a minimal set of passes applied to it.
+pub async fn load_root_file_with_raw_type_loader(
+    path: &Path,
+    version: diagnostics::SourceFileVersion,
+    source_path: &Path,
+    source_code: String,
+    mut diagnostics: diagnostics::BuildDiagnostics,
+    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
+) -> (
+    std::path::PathBuf,
+    diagnostics::BuildDiagnostics,
+    typeloader::TypeLoader,
+    Option<typeloader::TypeLoader>,
+) {
+    let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
+
+    let (path, raw_type_loader) = loader
+        .load_root_file(path, version, source_path, source_code, true, &mut diagnostics)
+        .await;
+
+    (path, diagnostics, loader, raw_type_loader)
 }

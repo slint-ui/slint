@@ -413,6 +413,11 @@ pub struct ItemTreeDescription<'id> {
     #[cfg(feature = "highlight")]
     pub(crate) type_loader:
         std::cell::OnceCell<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    /// The type loader, which will be available only on the top-most `ItemTreeDescription`.
+    /// All other `ItemTreeDescription`s have `None` here.
+    #[cfg(feature = "highlight")]
+    pub(crate) raw_type_loader:
+        std::cell::OnceCell<Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>>,
 }
 
 fn internal_properties_to_public<'a>(
@@ -816,6 +821,18 @@ pub async fn load(
     }
 
     let diag = BuildDiagnostics::default();
+    #[cfg(feature = "highlight")]
+    let (path, mut diag, loader, raw_type_loader) =
+        i_slint_compiler::load_root_file_with_raw_type_loader(
+            &path,
+            version,
+            &path,
+            source,
+            diag,
+            compiler_config,
+        )
+        .await;
+    #[cfg(not(feature = "highlight"))]
     let (path, mut diag, loader) =
         i_slint_compiler::load_root_file(&path, version, &path, source, diag, compiler_config)
             .await;
@@ -841,6 +858,11 @@ pub async fn load(
         #[cfg(feature = "highlight")]
         {
             let _ = it.type_loader.set(Rc::new(loader));
+            if let Some(ul) = raw_type_loader {
+                let _ = it.raw_type_loader.set(Some(Rc::new(ul)));
+            } else {
+                let _ = it.raw_type_loader.set(None);
+            }
         }
         it
     };
@@ -1228,6 +1250,8 @@ pub(crate) fn generate_item_tree<'id>(
         change_trackers,
         #[cfg(feature = "highlight")]
         type_loader: std::cell::OnceCell::new(),
+        #[cfg(feature = "highlight")]
+        raw_type_loader: std::cell::OnceCell::new(),
     };
 
     Rc::new(t)
@@ -1915,7 +1939,7 @@ extern "C" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -> Logic
     }
 }
 
-// silent the warning despite `AccessibleRole` is a `#[non_exhaustive]` enum from another crate.
+// silence the warning despite `AccessibleRole` is a `#[non_exhaustive]` enum from another crate.
 #[allow(improper_ctypes_definitions)]
 extern "C" fn accessible_role(component: ItemTreeRefPin, item_index: u32) -> AccessibleRole {
     generativity::make_guard!(guard);

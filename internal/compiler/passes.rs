@@ -57,14 +57,15 @@ use crate::namedreference::NamedReference;
 pub async fn run_passes(
     doc: &crate::object_tree::Document,
     type_loader: &mut crate::typeloader::TypeLoader,
+    keep_raw: bool,
     diag: &mut crate::diagnostics::BuildDiagnostics,
-) {
+) -> Option<crate::typeloader::TypeLoader> {
     if matches!(
         doc.root_component.root_element.borrow().base_type,
         ElementType::Error | ElementType::Global
     ) {
         // If there isn't a root component, we shouldn't do any of these passes
-        return;
+        return None;
     }
 
     let style_metrics = {
@@ -81,6 +82,8 @@ pub async fn run_passes(
     root_component.is_root_component.set(true);
     run_import_passes(doc, type_loader, diag);
     check_public_api::check_public_api(doc, diag);
+
+    let raw_type_loader = keep_raw.then(|| crate::typeloader::snapshot(type_loader).unwrap());
 
     collect_subcomponents::collect_subcomponents(root_component);
     for component in (root_component.used_types.borrow().sub_components.iter())
@@ -271,7 +274,9 @@ pub async fn run_passes(
                     == crate::EmbedResourcesKind::EmbedAllResources,
             );
         }
-    }
+    };
+
+    raw_type_loader
 }
 
 /// Run the passes on imported documents

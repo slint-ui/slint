@@ -2602,6 +2602,31 @@ impl Exports {
             .ok()
             .map(|index| self.components_or_types[index].1.clone())
     }
+
+    pub(crate) fn snapshot(&self, snapshotter: &mut crate::typeloader::Snapshotter) -> Self {
+        let components_or_types = self
+            .components_or_types
+            .iter()
+            .map(|(en, either)| {
+                let en = en.clone();
+                let either = match either {
+                    itertools::Either::Left(l) => {
+                        itertools::Either::Left(snapshotter.snapshot_component(l))
+                    }
+                    itertools::Either::Right(r) => itertools::Either::Right(r.clone()),
+                };
+                (en, either)
+            })
+            .collect();
+
+        Self {
+            components_or_types,
+            last_exported_component: self
+                .last_exported_component
+                .as_ref()
+                .map(|lec| snapshotter.snapshot_component(lec)),
+        }
+    }
 }
 
 impl std::iter::IntoIterator for Exports {
