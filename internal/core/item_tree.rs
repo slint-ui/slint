@@ -14,6 +14,7 @@ use crate::lengths::{LogicalPoint, LogicalRect};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use crate::SharedString;
+use alloc::vec::Vec;
 use core::pin::Pin;
 use vtable::*;
 
@@ -127,6 +128,13 @@ pub struct ItemTreeVTable {
         core::pin::Pin<VRef<ItemTreeVTable>>,
         item_index: u32,
     ) -> SupportedAccessibilityAction,
+
+    /// Add the `ElementName::id` entries of the given item
+    pub item_element_infos: extern "C" fn(
+        core::pin::Pin<VRef<ItemTreeVTable>>,
+        item_index: u32,
+        result: &mut SharedString,
+    ) -> bool,
 
     /// Returns a Window, creating a fresh one if `do_create` is true.
     pub window_adapter: extern "C" fn(
@@ -358,6 +366,38 @@ impl ItemRc {
     pub fn supported_accessibility_actions(&self) -> SupportedAccessibilityAction {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         comp_ref_pin.as_ref().supported_accessibility_actions(self.index)
+    }
+
+    pub fn element_count(&self) -> Option<usize> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        let mut result = SharedString::new();
+        comp_ref_pin
+            .as_ref()
+            .item_element_infos(self.index, &mut result)
+            .then(|| result.as_str().split("/").count())
+    }
+
+    pub fn element_type_names_and_ids(
+        &self,
+        element_index: usize,
+    ) -> Option<Vec<(SharedString, SharedString)>> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        let mut result = SharedString::new();
+        comp_ref_pin.as_ref().item_element_infos(self.index, &mut result).then(|| {
+            result
+                .as_str()
+                .split("/")
+                .nth(element_index)
+                .unwrap()
+                .split(";")
+                .map(|encoded_elem_info| {
+                    let mut decoder = encoded_elem_info.split(',');
+                    let type_name = decoder.next().unwrap().into();
+                    let id = decoder.next().map(Into::into).unwrap_or_default();
+                    (type_name, id)
+                })
+                .collect()
+        })
     }
 
     pub fn geometry(&self) -> LogicalRect {
@@ -1149,6 +1189,10 @@ mod tests {
             _: AccessibleStringProperty,
             _: &mut SharedString,
         ) -> bool {
+            false
+        }
+
+        fn item_element_infos(self: Pin<&Self>, _: u32, _: &mut SharedString) -> bool {
             false
         }
 

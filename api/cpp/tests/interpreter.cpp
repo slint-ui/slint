@@ -327,8 +327,10 @@ SCENARIO("Component Definition Properties")
     using namespace slint;
 
     ComponentCompiler compiler;
-    auto comp_def = *compiler.build_from_source(
-            "export component Dummy { in property <string> test; callback dummy; }", "");
+    auto comp_def =
+            *compiler.build_from_source("export component Dummy { in property <string> test; "
+                                        "callback dummy; public function my-fun() {} }",
+                                        "");
     auto properties = comp_def.properties();
     REQUIRE(properties.size() == 1);
     REQUIRE(properties[0].property_name == "test");
@@ -337,6 +339,10 @@ SCENARIO("Component Definition Properties")
     auto callback_names = comp_def.callbacks();
     REQUIRE(callback_names.size() == 1);
     REQUIRE(callback_names[0] == "dummy");
+
+    auto function_names = comp_def.functions();
+    REQUIRE(function_names.size() == 1);
+    REQUIRE(function_names[0] == "my-fun");
 
     auto instance = comp_def.create();
     ComponentDefinition new_comp_def = instance->definition();
@@ -551,6 +557,10 @@ SCENARIO("Global properties")
         auto callbacks = *component_definition.global_callbacks("The-Global");
         REQUIRE(callbacks.size() == 1);
         REQUIRE(callbacks[0] == "to_uppercase");
+
+        auto functions = *component_definition.global_functions("The-Global");
+        REQUIRE(functions.size() == 1);
+        REQUIRE(functions[0] == "ff");
     }
 
     auto instance = component_definition.create();

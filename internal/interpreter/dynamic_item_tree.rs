@@ -255,6 +255,14 @@ impl ItemTree for ErasedItemTreeBox {
     ) -> SupportedAccessibilityAction {
         self.borrow().as_ref().supported_accessibility_actions(index)
     }
+
+    fn item_element_infos(
+        self: core::pin::Pin<&Self>,
+        index: u32,
+        result: &mut SharedString,
+    ) -> bool {
+        self.borrow().as_ref().item_element_infos(index, result)
+    }
 }
 
 i_slint_core::ItemTreeVTable_static!(static COMPONENT_BOX_VT for ErasedItemTreeBox);
@@ -1193,6 +1201,7 @@ pub(crate) fn generate_item_tree<'id>(
         accessible_string_property,
         accessibility_action,
         supported_accessibility_actions,
+        item_element_infos,
         window_adapter,
         drop_in_place,
         dealloc,
@@ -2007,6 +2016,20 @@ extern "C" fn supported_accessibility_actions(
                 | acc
         });
     val
+}
+
+extern "C" fn item_element_infos(
+    component: ItemTreeRefPin,
+    item_index: u32,
+    result: &mut SharedString,
+) -> bool {
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    *result = instance_ref.description.original_elements[item_index as usize]
+        .borrow()
+        .element_infos()
+        .into();
+    true
 }
 
 extern "C" fn window_adapter(

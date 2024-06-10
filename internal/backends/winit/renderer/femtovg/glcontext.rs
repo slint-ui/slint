@@ -149,6 +149,12 @@ impl OpenGLContext {
             })?
         };
 
+        let context = not_current_gl_context.make_current(&surface)
+            .map_err(|glutin_error: glutin::error::Error| -> PlatformError {
+                format!("FemtoVG Renderer: Failed to make newly created OpenGL context current: {glutin_error}")
+            .into()
+        })?;
+
         // Align the GL layer to the top-left, so that resizing only invalidates the bottom/right
         // part of the window.
         #[cfg(target_os = "macos")]
@@ -163,12 +169,6 @@ impl OpenGLContext {
                 NSView::setLayerContentsPlacement(view_id, cocoa::appkit::NSViewLayerContentsPlacement::NSViewLayerContentsPlacementTopLeft)
             }
         }
-
-        let context = not_current_gl_context.make_current(&surface)
-            .map_err(|glutin_error: glutin::error::Error| -> PlatformError {
-                format!("FemtoVG Renderer: Failed to make newly created OpenGL context current: {glutin_error}")
-            .into()
-        })?;
 
         // Sanity check, as all this might succeed on Windows without working GL drivers, but this will fail:
         if context

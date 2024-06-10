@@ -20,6 +20,7 @@ use crate::llr::{
     TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
+use crate::CompilerConfiguration;
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
@@ -138,7 +139,7 @@ fn set_primitive_property_value(ty: &Type, value_expression: TokenStream) -> Tok
 }
 
 /// Generate the rust code for the given component.
-pub fn generate(doc: &Document) -> TokenStream {
+pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> TokenStream {
     let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = doc
         .root_component
         .used_types
@@ -162,7 +163,8 @@ pub fn generate(doc: &Document) -> TokenStream {
         return TokenStream::default();
     }
 
-    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component);
+    let llr =
+        crate::llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component, &compiler_config);
 
     let sub_compos = llr
         .sub_components
@@ -190,19 +192,9 @@ pub fn generate(doc: &Document) -> TokenStream {
     let named_exports = generate_named_exports(doc);
 
     quote! {
-        #[allow(non_snake_case)]
-        #[allow(non_camel_case_types)]
-         // These make code generation easier
-        #[allow(clippy::style)]
-        #[allow(clippy::complexity)]
+        #[allow(non_snake_case, non_camel_case_types)]
         #[allow(unused_braces, unused_parens)]
-        #[allow(clippy::erasing_op)]
-        #[allow(clippy::approx_constant)] // We may get those from .slint inputs!
-        #[allow(clippy::eq_op)] // The generated code will compare/subtract/etc. equal values
-        #[allow(clippy::cmp_owned)] // The generated code will do this
-        #[allow(clippy::redundant_clone)] // TODO: We clone properties more often then needed
-                                          // according to clippy!
-        #[allow(clippy::overly_complex_bool_expr)]
+        #[allow(clippy::all)]
         mod #compo_module {
             use slint::private_unstable_api::re_exports as sp;
             #[allow(unused_imports)]
@@ -832,6 +824,12 @@ fn generate_sub_component(
         })
         .collect::<Vec<_>>();
 
+    let mut item_element_infos_branch = component
+        .element_infos
+        .iter()
+        .map(|(item_index, ids)| quote!(#item_index => { return sp::Some(#ids.into()); }))
+        .collect::<Vec<_>>();
+
     let mut user_init_code: Vec<TokenStream> = Vec::new();
 
     let mut sub_component_names: Vec<Ident> = vec![];
@@ -919,6 +917,9 @@ fn generate_sub_component(
             ));
             supported_accessibility_actions_branch.push(quote!(
                 #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(index - #range_begin + 1),
+            ));
+            item_element_infos_branch.push(quote!(
+                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_infos(index - #range_begin + 1),
             ));
         }
 
@@ -1147,6 +1148,14 @@ fn generate_sub_component(
                 }
             }
 
+            fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
+                #![allow(unused)]
+                let _self = self;
+                match index {
+                    #(#item_element_infos_branch)*
+                    _ => { ::core::default::Default::default() }
+                }
+            }
 
             #(#declared_functions)*
         }
@@ -1603,6 +1612,19 @@ fn generate_item_tree(
 
             fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
                 self.supported_accessibility_actions(index)
+            }
+
+            fn item_element_infos(
+                self: ::core::pin::Pin<&Self>,
+                index: u32,
+                result: &mut sp::SharedString,
+            ) -> bool {
+                if let Some(infos) = self.item_element_infos(index) {
+                    *result = infos;
+                    true
+                } else {
+                    false
+                }
             }
 
             fn window_adapter(
@@ -2655,6 +2677,30 @@ fn compile_builtin_function_call(
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).color_scheme())
         }
+        BuiltinFunction::MonthDayCount => {
+            let (m, y) = (a.next().unwrap(), a.next().unwrap());
+            quote!(sp::month_day_count(#m as u32, #y as i32).unwrap_or(0))
+        }
+        BuiltinFunction::MonthOffset => {
+            let (m, y) = (a.next().unwrap(), a.next().unwrap());
+            quote!(sp::month_offset(#m as u32, #y as i32))
+        }
+        BuiltinFunction::FormatDate => {
+            let (f, d, m, y) =
+                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+            quote!(sp::format_date(&#f, #d as u32, #m as u32, #y as i32))
+        }
+        BuiltinFunction::ValidDate => {
+            let (d, f) = (a.next().unwrap(), a.next().unwrap());
+            quote!(sp::parse_date(#d.as_str(), #f.as_str()).is_some())
+        }
+        BuiltinFunction::ParseDate => {
+            let (d, f) = (a.next().unwrap(), a.next().unwrap());
+            quote!(sp::ModelRc::new(sp::parse_date(#d.as_str(), #f.as_str()).map(|d| sp::VecModel::from_slice(&d)).unwrap_or_default()))
+        }
+        BuiltinFunction::DateNow => {
+            quote!(sp::ModelRc::new(sp::VecModel::from_slice(&sp::date_now())))
+        }
         BuiltinFunction::TextInputFocused => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).text_input_focused())
@@ -2665,6 +2711,9 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::Translate => {
             quote!(slint::private_unstable_api::translate(#((#a) as _),*))
+        }
+        BuiltinFunction::Use24HourFormat => {
+            quote!(slint::private_unstable_api::use_24_hour_format())
         }
         BuiltinFunction::ItemAbsolutePosition => {
             if let [Expression::PropertyReference(pr)] = arguments {

@@ -3,7 +3,8 @@
 
 import pytest
 from slint import slint as native
-from slint.slint import ValueType;
+from slint.slint import ValueType
+
 
 def test_basic_compiler():
     compiler = native.ComponentCompiler()
@@ -18,6 +19,7 @@ def test_basic_compiler():
         export global TestGlobal {
             in property <string> theglobalprop;
             callback globallogic();
+            public function globalfun() {}
         }
 
         export component Test {
@@ -31,6 +33,7 @@ def test_basic_compiler():
             in property <[string]> modelprop;
 
             callback test-callback();
+            public function ff() {}
         }
     """, "")
     assert compdef != None
@@ -38,20 +41,27 @@ def test_basic_compiler():
     assert compdef.name == "Test"
 
     props = [(name, type) for name, type in compdef.properties.items()]
-    assert props == [('boolprop', ValueType.Bool), ('brushprop', ValueType.Brush), ('colprop', ValueType.Brush), ('floatprop', ValueType.Number), ('imgprop', ValueType.Image), ('intprop', ValueType.Number), ('modelprop', ValueType.Model), ('strprop', ValueType.String)]
+    assert props == [('boolprop', ValueType.Bool), ('brushprop', ValueType.Brush), ('colprop', ValueType.Brush), ('floatprop', ValueType.Number),
+                     ('imgprop', ValueType.Image), ('intprop', ValueType.Number), ('modelprop', ValueType.Model), ('strprop', ValueType.String)]
 
     assert compdef.callbacks == ["test-callback"]
+    assert compdef.functions == ["ff"]
 
     assert compdef.globals == ["TestGlobal"]
 
     assert compdef.global_properties("Garbage") == None
-    assert [(name, type) for name, type in compdef.global_properties("TestGlobal").items()] == [('theglobalprop', ValueType.String)]
+    assert [(name, type) for name, type in compdef.global_properties(
+        "TestGlobal").items()] == [('theglobalprop', ValueType.String)]
 
     assert compdef.global_callbacks("Garbage") == None
     assert compdef.global_callbacks("TestGlobal") == ["globallogic"]
 
+    assert compdef.global_functions("Garbage") == None
+    assert compdef.global_functions("TestGlobal") == ["globalfun"]
+
     instance = compdef.create()
     assert instance != None
+
 
 def test_compiler_build_from_path():
     compiler = native.ComponentCompiler()

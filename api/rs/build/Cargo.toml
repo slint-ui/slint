@@ -23,6 +23,6 @@ default = []
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer"] }
 
-spin_on = "0.1"
+spin_on = { workspace = true }
 thiserror = "1"
 toml_edit = { workspace = true }

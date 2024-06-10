@@ -39,7 +39,9 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::UnaryOp { .. } => 1,
         Expression::ImageReference { .. } => 1,
         Expression::Condition { .. } => 10,
-        Expression::Array { .. } => ALLOC_COST,
+        // Never inline an array because it is a model and when shared it needs to keep its identity
+        // (cf #5249)  (otherwise it would be `ALLOC_COST`)
+        Expression::Array { .. } => return isize::MAX,
         Expression::Struct { .. } => 1,
         Expression::EasingCurve(_) => 1,
         Expression::LinearGradient { .. } => ALLOC_COST,
@@ -104,9 +106,16 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::RegisterCustomFontByMemory => isize::MAX,
         BuiltinFunction::RegisterBitmapFont => isize::MAX,
         BuiltinFunction::ColorScheme => isize::MAX,
+        BuiltinFunction::MonthDayCount => isize::MAX,
+        BuiltinFunction::MonthOffset => isize::MAX,
+        BuiltinFunction::FormatDate => isize::MAX,
+        BuiltinFunction::DateNow => isize::MAX,
+        BuiltinFunction::ValidDate => isize::MAX,
+        BuiltinFunction::ParseDate => isize::MAX,
         BuiltinFunction::SetTextInputFocused => PROPERTY_ACCESS_COST,
         BuiltinFunction::TextInputFocused => PROPERTY_ACCESS_COST,
         BuiltinFunction::Translate => 2 * ALLOC_COST + PROPERTY_ACCESS_COST,
+        BuiltinFunction::Use24HourFormat => 2 * ALLOC_COST + PROPERTY_ACCESS_COST,
     }
 }
 

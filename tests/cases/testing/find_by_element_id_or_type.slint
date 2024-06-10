@@ -1,0 +1,97 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component ButtonBase inherits Text { }
+
+component Button inherits ButtonBase {
+    accessible-role: button;
+    accessible-label: "optimized";
+    extra-label := Text {
+        accessible-label: "extra";
+    }
+    inner-rect := Rectangle {}
+}
+
+export component TestCase {
+    first := Button { }
+
+    second := Button {
+        accessible-label: "plain";
+    }
+
+    // third
+    Button {
+        accessible-label: "third";
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let mut button_search = slint_testing::ElementHandle::find_by_element_id(&instance, "Button::root");
+let mut button = button_search.next().unwrap();
+assert!(button.is_valid());
+assert_eq!(button.accessible_label().unwrap(), "optimized");
+button = button_search.next().unwrap();
+assert!(button.is_valid());
+assert_eq!(button.accessible_label().unwrap(), "plain");
+button = button_search.next().unwrap();
+assert!(button.is_valid());
+assert_eq!(button.accessible_label().unwrap(), "third");
+assert!(button_search.next().is_none());
+
+let id_search_result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::second").collect::<Vec<_>>();
+assert_eq!(id_search_result.len(), 1);
+assert_eq!(id_search_result[0].type_name().unwrap(), "Button");
+assert_eq!(id_search_result[0].id().unwrap(), "TestCase::second");
+assert_eq!(id_search_result[0].bases().unwrap().collect::<Vec<_>>(), ["ButtonBase", "Text"]);
+
+let texts = slint_testing::ElementHandle::find_by_element_type_name(&instance, "Text").filter_map(|elem| elem.accessible_label()).collect::<Vec<_>>();
+assert_eq!(texts, vec!["optimized", "extra", "plain", "extra", "third", "extra"]);
+
+let inner_rects = slint_testing::ElementHandle::find_by_element_id(&instance, "Button::inner-rect").collect::<Vec<_>>();
+assert_eq!(inner_rects.len(), 3);
+for x in inner_rects {
+    assert_eq!(x.type_name().unwrap(), "Rectangle");
+    assert_eq!(x.id().unwrap(), "Button::inner-rect");
+    assert_eq!(x.bases().unwrap().next(), None);
+    assert_eq!(x.accessible_label(), None);
+    assert_eq!(x.accessible_description(), None);
+}
+```
+
+```cpp
+auto handle = TestCase::create();
+//const TestCase &instance = *handle;
+
+auto button_search = slint::testing::ElementHandle::find_by_element_id(handle, "Button::root");
+assert_eq(button_search.size(), 3);
+auto button = button_search[0];
+assert(button.is_valid());
+assert_eq(button.accessible_label().value(), "optimized");
+button = button_search[1];
+assert(button.is_valid());
+assert_eq(button.accessible_label().value(), "plain");
+button = button_search[2];
+assert(button.is_valid());
+assert_eq(button.accessible_label().value(), "third");
+
+auto id_search_result = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::second");
+assert_eq(id_search_result.size(), 1);
+assert_eq(*id_search_result[0].type_name(), "Button");
+assert_eq(*id_search_result[0].id(), "TestCase::second");
+assert_eq((*id_search_result[0].bases()).size(), 2);
+assert_eq((*id_search_result[0].bases())[0], "ButtonBase");
+assert_eq((*id_search_result[0].bases())[1], "Text");
+
+auto inner_rects = slint::testing::ElementHandle::find_by_element_id(handle, "Button::inner-rect");
+assert_eq(inner_rects.size(), 3);
+for (auto x : inner_rects) {
+    assert_eq(*x.type_name(), "Rectangle");
+    assert_eq(*x.id(), "Button::inner-rect");
+    assert_eq(x.bases()->size(), 0);
+    assert(!x.accessible_label());
+    assert(!x.accessible_description());
+}
+```
+*/

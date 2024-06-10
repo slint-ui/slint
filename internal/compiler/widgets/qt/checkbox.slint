@@ -6,4 +6,8 @@ export component CheckBox inherits NativeCheckBox {
     accessible-checked <=> root.checked;
     accessible-label <=> root.text;
     accessible-role: checkbox;
+    accessible-action-default => {
+        root.checked = !root.checked;
+        root.toggled();
+    }
 }

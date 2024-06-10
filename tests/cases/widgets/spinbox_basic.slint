@@ -9,7 +9,8 @@ import { SpinBox } from "std-widgets.slint";
 export component TestCase inherits Window {
     width: 100px;
     height: 100px;
-    box := SpinBox {}
+    box := SpinBox { }
+
     forward-focus: box;
     out property <bool> spinbox-focused <=> box.has_focus;
     callback edited <=> box.edited;
@@ -87,7 +88,7 @@ edits.borrow_mut().clear();
 instance.set_value(30);
 mock_elapsed_time(500);
 
-let mut text_input_search = slint_testing::ElementHandle::find_by_accessible_label(&instance, "spinbox-textinput");
+let mut text_input_search = slint_testing::ElementHandle::find_by_element_id(&instance, "SpinBoxBase::text-input");
 let text_input = text_input_search.next().unwrap();
 assert_eq!(text_input.accessible_value().unwrap(), "30");
 edits.borrow_mut().clear();

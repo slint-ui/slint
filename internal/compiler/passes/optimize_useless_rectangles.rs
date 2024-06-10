@@ -22,6 +22,9 @@ pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
             }
 
             parent.children.extend(std::mem::take(&mut elem.borrow_mut().children));
+            if let Some(last) = parent.debug.last_mut() {
+                last.element_boundary = true;
+            }
             parent.debug.extend(std::mem::take(&mut elem.borrow_mut().debug));
 
             let enclosing = parent.enclosing_component.upgrade().unwrap();
@@ -72,5 +75,5 @@ fn can_optimize(elem: &ElementRc) -> bool {
     !e.bindings.keys().chain(analysis.iter().filter(|(_, v)| v.is_set).map(|(k, _)| k)).any(|k| {
         !e.property_declarations.contains_key(k.as_str())
             && base_type.properties.contains_key(k.as_str())
-    })
+    }) && e.accessibility_props.0.is_empty()
 }

@@ -18,6 +18,12 @@ export global CupertinoFontSettings {
         font-weight: regular-font-weight
     };
 
+    
+    out property <TextStyle> title: {
+        font-size: 28 * 0.0769rem,
+        font-weight: light-font-weight
+    };
+
     // needed?
     out property <TextStyle> body-strong: {
         font-size: 14 * 0.0769rem,
@@ -68,6 +74,9 @@ export global CupertinoPalette {
     out property <brush> bar-border: dark-color-scheme ? @linear-gradient(180deg, #484848 0%, #434343 80%, #686868 100%) : #e2e2e2;
     out property <brush> inner-border: dark-color-scheme ? #2e2e2e : #d7d7d7;
     out property <brush> inner-shadow: dark-color-scheme ? #313131 : #ececed;
+    
+    out property <brush> state: dark-color-scheme ? #ffffff : #000000;
+    out property <brush> state-secondary: dark-color-scheme ? #000000 : #ffffff;
 
     // FIXME: dark color
     out property <brush> dimmer: @linear-gradient(180deg, #FFFFFFFF 100%, #FFFFFF00 0%);
@@ -84,4 +93,10 @@ export global Icons {
     out property <image> left: @image-url("_left.svg");
     out property <image> right: @image-url("_right.svg");
     out property <image> up: @image-url("_up.svg");
+    out property <image> keyboard: @image-url("_keyboard.svg");
+    out property <image> clock: @image-url("_clock.svg");
+    out property <image> arrow-back: @image-url("_arrow_back.svg");
+    out property <image> arrow-forward: @image-url("_arrow_forward.svg");
+    out property <image> edit: @image-url("_edit.svg");
+    out property <image> calendar: @image-url("_calendar.svg");
 }

@@ -789,7 +789,7 @@ fn element_contains(
         .borrow()
         .debug
         .iter()
-        .position(|n| n.0.parent().map_or(false, |n| n.text_range().contains(offset.into())))
+        .position(|n| n.node.parent().map_or(false, |n| n.text_range().contains(offset.into())))
 }
 
 fn element_node_contains(element: &common::ElementRcNode, offset: u32) -> bool {
@@ -1147,7 +1147,7 @@ fn get_document_symbols(
         .iter()
         .filter_map(|c| {
             let root_element = c.root_element.borrow();
-            let element_node = &root_element.debug.first()?.0;
+            let element_node = &root_element.debug.first()?.node;
             let component_node = syntax_nodes::Component::new(element_node.parent()?)?;
             let selection_range = util::map_node(&component_node.DeclaredIdentifier())?;
             if c.id.is_empty() {
@@ -1199,7 +1199,7 @@ fn get_document_symbols(
             .iter()
             .filter_map(|child| {
                 let e = child.borrow();
-                let element_node = &e.debug.first()?.0;
+                let element_node = &e.debug.first()?.node;
                 let sub_element_node = element_node.parent()?;
                 debug_assert_eq!(sub_element_node.kind(), SyntaxKind::SubElement);
                 Some(DocumentSymbol {
@@ -1236,7 +1236,7 @@ fn get_code_lenses(
         // Handle preview lens
         r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
-                range: util::map_node(&c.root_element.borrow().debug.first()?.0)?,
+                range: util::map_node(&c.root_element.borrow().debug.first()?.node)?,
                 command: Some(create_show_preview_command(true, &text_document.uri, c.id.as_str())),
                 data: None,
             })

@@ -33,3 +33,5 @@ Widgets
    tabwidget.md
    textedit.md
    verticalbox.md
+   timepicker.md
+   datepicker.md

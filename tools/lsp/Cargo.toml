@@ -10,7 +10,7 @@ homepage = "https://slint.dev"
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-version = "1.6.0"
+version = "1.7.0"
 categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["lsp", "ui", "toolkit"]
 
@@ -79,13 +79,13 @@ default = ["backend-default", "renderer-femtovg", "preview"]
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 
-euclid = "0.22"
+dissimilar = "1.0.7"
+euclid = { workspace = true }
 itertools = { workspace = true }
 lsp-types = { version = "0.95.0", features = ["proposed"] }
-rowan = "0.15.5"
-serde = "1.0.118"
-serde_json = "1.0.60"
-dissimilar = "1.0.7"
+rowan = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 # for the preview-engine feature
 i-slint-backend-selector = { workspace = true, optional = true }
@@ -95,7 +95,7 @@ slint = { workspace = true, features = ["compat-1-2"], optional = true }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "highlight", "internal"], optional = true  }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-clap = { version = "4.0", features = ["derive", "wrap_help"] }
+clap = { workspace = true }
 crossbeam-channel = "0.5"  # must match the version used by lsp-server
 lsp-server = "0.7"
 once_cell = "1.9.0"

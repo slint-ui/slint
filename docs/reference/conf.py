@@ -22,7 +22,7 @@ import textwrap
 # -- Project information -----------------------------------------------------
 
 # The full version, including alpha/beta/rc tags
-version = "1.6.0"
+version = "1.7.0"
 
 project = "Slint Reference"
 html_title = f'Slint {version} Reference' # Set title here, otherwise it will say "Slint Reference documentation"
@@ -34,7 +34,7 @@ author = "Slint Developers <info@slint.dev>"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery"]
+extensions = ["myst_parser", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinxcontrib.jquery", "sphinx_tabs.tabs", "sphinx_design"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -86,7 +86,7 @@ html_theme_options = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-
+html_js_files = ['expand_tabs.js']
 html_show_sourcelink = False
 
 html_logo = "https://slint.dev/logo/slint-logo-small-light.svg"
@@ -96,6 +96,7 @@ myst_enable_extensions = [
 ]
 
 myst_url_schemes = {
+    "slint-qs": f"https://slint.dev/releases/{version}/docs/quickstart/{{{{path}}}}",
     "slint-cpp": f"https://slint.dev/releases/{version}/docs/cpp/{{{{path}}}}",
     "slint-rust": f"https://slint.dev/releases/{version}/docs/rust/slint/{{{{path}}}}",
     "slint-build-rust": f"https://slint.dev/releases/{version}/docs/rust/slint_build/{{{{path}}}}",

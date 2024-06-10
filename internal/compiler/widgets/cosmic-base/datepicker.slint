@@ -1,0 +1,111 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { VerticalBox } from "./layouts.slint";
+import { Button } from "./button.slint";
+import { CosmicPalette, CosmicFontSettings, Icons } from "styling.slint";
+import { MenuBorder } from "./components.slint";
+
+import { Date, DatePickerBase } from "../common/datepicker_base.slint";
+export { Date } 
+
+export component DatePicker {
+    in property <string> title: "Select date";
+    in property <string> cancel-text: "Cancel";
+    in property <string> ok-text: "Ok";
+    in property <Date> date <=> base.date;
+    in property <string> input-title: "Enter date";
+    in property <string> input-placeholder-text: "mm/dd/yyyy";
+    in property <string> input-format: "%m/%d/%Y";
+
+    callback canceled();
+    callback accepted(/* current-date */ Date);
+
+    min-width: content-layer.min-width;
+    min-height: content-layer.min-height;
+    
+    background-layer := MenuBorder { }
+
+    content-layer := VerticalBox {   
+        padding-left: 0px;
+        padding-right: 0px;
+
+        base := DatePickerBase {
+            title: root.title;
+            input-title: root.input-title;
+            input-placeholder-text: root.input-placeholder-text;
+            input-format: root.input-format;
+            style: {
+                  border-brush: CosmicPalette.border,
+                  padding: 8px,
+                  calendar-style: {
+                      spacing: 8px,
+                      delegate-style: {
+                          font-size: CosmicFontSettings.body-strong.font-size,
+                          font-weight: CosmicFontSettings.body-strong.font-weight,
+                          foreground: CosmicPalette.foreground,
+                          state-brush: CosmicPalette.state,
+                          background-selected: CosmicPalette.accent-background,
+                          foreground-selected: CosmicPalette.accent-foreground,
+                          state-brush-selected: CosmicPalette.state-secondary,
+                          border-color-today: CosmicPalette.accent-background,
+                          foreground-today: CosmicPalette.accent-background,
+                          state-brush-today: CosmicPalette.state,
+                      }
+                  },
+                  icon-button-style: {
+                      foreground: CosmicPalette.foreground,
+                      state-brush: CosmicPalette.state,
+                      icon-size: 12px,
+                  },
+                  current-day-style: {
+                      font-size: CosmicFontSettings.title.font-size,
+                      font-weight: CosmicFontSettings.title.font-weight,
+                      foreground: CosmicPalette.foreground,
+                  },
+                  title-style: {
+                      font-size: CosmicFontSettings.body.font-size,
+                      font-weight: CosmicFontSettings.body.font-weight,
+                      foreground: CosmicPalette.foreground,  
+                  },
+                  previous-icon: Icons.arrow-back,
+                  next-icon: Icons.arrow-forward,
+                  drop-down-icon: Icons.dropdown,
+                  input-icon: Icons.edit,
+                  calendar-icon: Icons.calendar,
+                  selection-button-style: {
+                      foreground: CosmicPalette.foreground,
+                      state-brush: CosmicPalette.state,
+                      icon-size: 8px,
+                      font-size: CosmicFontSettings.body.font-size,
+                      font-weight: CosmicFontSettings.body.font-weight
+                  }
+            };
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+            padding-left: 8px;
+            padding-right: 8px;
+        
+            Rectangle { }
+
+            Button {
+                text: root.cancel-text;
+
+                clicked => {
+                    root.canceled();
+                }
+            }
+
+            Button {
+                text: root.ok-text;
+                enabled: base.ok-enabled();
+
+                clicked => {
+                    root.accepted(base.get-current-date());
+                }
+            }
+        }
+    }
+}

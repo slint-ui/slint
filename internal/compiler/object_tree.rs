@@ -383,7 +383,12 @@ impl Component {
         let c = Rc::new(c);
         let weak = Rc::downgrade(&c);
         recurse_elem(&c.root_element, &(), &mut |e, _| {
-            e.borrow_mut().enclosing_component = weak.clone()
+            e.borrow_mut().enclosing_component = weak.clone();
+            if let Some(ref mut qualified_id) =
+                e.borrow_mut().debug.first_mut().unwrap().qualified_id
+            {
+                *qualified_id = format!("{}::{}", c.id, qualified_id);
+            }
         });
         c
     }
@@ -589,6 +594,34 @@ impl GeometryProps {
 
 pub type BindingsMap = BTreeMap<String, RefCell<BindingExpression>>;
 
+#[derive(Clone)]
+pub struct ElementDebugInfo {
+    // The id qualified with the enclosing component name. Given `foo := Bar {}` this is `EnclosingComponent::foo`
+    pub qualified_id: Option<String>,
+    pub type_name: String,
+    pub node: syntax_nodes::Element,
+    // Field to indicate wether this element was a layout that had
+    // been lowered into a rectangle in the lower_layouts pass.
+    pub layout: Option<crate::layout::Layout>,
+    /// Set to true if the ElementDebugInfo following this one in the debug vector
+    /// in Element::debug is the last one and the next entry belongs to an other element.
+    /// This can happen as a result of rectangle optimization, for example.
+    pub element_boundary: bool,
+}
+
+impl ElementDebugInfo {
+    // Returns a comma separate string that encodes the element type name (`Rectangle`, `MyButton`, etc.)
+    // and the qualified id (`SurroundingComponent::my-id`).
+    fn encoded_element_info(&self) -> String {
+        let mut info = self.type_name.clone();
+        info.push(',');
+        if let Some(id) = self.qualified_id.as_ref() {
+            info.push_str(id);
+        }
+        info
+    }
+}
+
 /// An Element is an instantiation of a Component
 #[derive(Default)]
 pub struct Element {
@@ -656,21 +689,19 @@ pub struct Element {
 
     /// Debug information about this element.
     ///
-    /// Contains the AST node if available, as well as wether this element was a layout that had
-    /// been lowered into a rectangle in the lower_layouts pass.
     /// There can be several in case of inlining or optimization (child merged into their parent).
     ///
     /// The order in the list is first the parent, and then the removed children.
-    pub debug: Vec<(syntax_nodes::Element, Option<crate::layout::Layout>)>,
+    pub debug: Vec<ElementDebugInfo>,
 }
 
 impl Spanned for Element {
     fn span(&self) -> crate::diagnostics::Span {
-        self.debug.first().map(|n| n.0.span()).unwrap_or_default()
+        self.debug.first().map(|n| n.node.span()).unwrap_or_default()
     }
 
     fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
-        self.debug.first().map(|n| &n.0.source_file)
+        self.debug.first().map(|n| &n.node.source_file)
     }
 }
 
@@ -700,7 +731,7 @@ pub fn pretty_print(
     if e.is_component_placeholder {
         write!(f, "/* Component Placeholder */ ")?;
     }
-    writeln!(f, "{} := {} {{", e.id, e.base_type)?;
+    writeln!(f, "{} := {} {{  /* {} */", e.id, e.base_type, e.element_infos())?;
     let mut indentation = indentation + 1;
     macro_rules! indent {
         () => {
@@ -910,10 +941,23 @@ impl Element {
         } else {
             tr.empty_type()
         };
+        // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
+        let qualified_id = (!id.is_empty()).then(|| id.clone());
+        let type_name = base_type
+            .type_name()
+            .filter(|_| base_type != tr.empty_type())
+            .unwrap_or_default()
+            .to_string();
         let mut r = Element {
             id,
             base_type,
-            debug: vec![(node.clone(), None)],
+            debug: vec![ElementDebugInfo {
+                qualified_id,
+                type_name,
+                node: node.clone(),
+                layout: None,
+                element_boundary: false,
+            }],
             is_legacy_syntax,
             ..Default::default()
         };
@@ -1690,7 +1734,7 @@ impl Element {
     pub fn original_name(&self) -> String {
         self.debug
             .first()
-            .and_then(|n| n.0.child_token(parser::SyntaxKind::Identifier))
+            .and_then(|n| n.node.child_token(parser::SyntaxKind::Identifier))
             .map(|n| n.to_string())
             .unwrap_or_else(|| self.id.clone())
     }
@@ -1747,6 +1791,31 @@ impl Element {
         } else {
             None
         }
+    }
+
+    pub fn element_infos(&self) -> String {
+        let mut debug_infos = self.debug.clone();
+        let mut base = self.base_type.clone();
+        while let ElementType::Component(b) = base {
+            let elem = b.root_element.borrow();
+            base = elem.base_type.clone();
+            debug_infos.extend(elem.debug.iter().cloned());
+        }
+
+        let (infos, _, _) = debug_infos.into_iter().fold(
+            (String::new(), false, true),
+            |(mut infos, elem_boundary, first), debug_info| {
+                if elem_boundary {
+                    infos.push('/');
+                } else if !first {
+                    infos.push(';');
+                }
+
+                infos.push_str(&debug_info.encoded_element_info());
+                (infos, debug_info.element_boundary, false)
+            },
+        );
+        infos
     }
 }
 
@@ -2201,7 +2270,7 @@ pub fn visit_all_named_references_in_element(
     elem.borrow_mut().layout_info_prop = layout_info_prop;
     let mut debug = std::mem::take(&mut elem.borrow_mut().debug);
     for d in debug.iter_mut() {
-        d.1.as_mut().map(|l| l.visit_named_references(&mut vis));
+        d.layout.as_mut().map(|l| l.visit_named_references(&mut vis));
     }
     elem.borrow_mut().debug = debug;
 

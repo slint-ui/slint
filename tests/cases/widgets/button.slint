@@ -19,7 +19,7 @@ export component TestCase inherits Window {
             clicked => {clicked += "a"; }
         }
 
-        Button {
+        b := Button {
             text: "Bbb";
             accessible-description: "Normal Button";
             clicked => {clicked += "b"; }
@@ -46,7 +46,7 @@ slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key:
 assert_eq!(instance.get_clicked(), SharedString::from(""));
 assert_eq!(instance.get_a_checked(), false);
 
-let mut result = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Aaa").collect::<Vec<_>>();
+let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::a").collect::<Vec<_>>();
 assert_eq!(result.len(), 1);
 let aaa = result.pop().unwrap();
 assert_eq!(aaa.accessible_label().unwrap(), "Aaa");
@@ -79,7 +79,7 @@ assert_eq!(instance.get_a_checked(), true, "button aaa was not toggled on enter"
 assert_eq!(aaa.accessible_checked(), Some(true));
 assert_eq!(instance.get_a_focused(), true);
 
-let mut result = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Bbb").collect::<Vec<_>>();
+let mut result = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::b").collect::<Vec<_>>();
 assert_eq!(result.len(), 1);
 let bbb = result.pop().unwrap();
 assert_eq!(bbb.accessible_label().unwrap(), "Bbb");
@@ -103,7 +103,7 @@ assert_eq!(instance.get_a_focused(), true);
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
-auto label_search = slint::testing::ElementHandle::find_by_accessible_label(handle, "Aaa");
+auto label_search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::a");
 assert(label_search.size() == 1);
 auto aaa = label_search[0];
 assert_eq(aaa.accessible_label().value(), "Aaa");
@@ -131,7 +131,7 @@ assert_eq(instance.get_clicked(), "aa");
 assert_eq(aaa.accessible_checked().value(), true);
 assert_eq(instance.get_a_focused(), true);
 
-label_search = slint::testing::ElementHandle::find_by_accessible_label(handle, "Bbb");
+label_search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::b");
 assert(label_search.size() == 1);
 auto bbb = label_search[0];
 assert_eq(bbb.accessible_label().value(), "Bbb");

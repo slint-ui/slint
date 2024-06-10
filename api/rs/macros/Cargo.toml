@@ -26,4 +26,4 @@ i-slint-compiler = { workspace = true, features = ["default", "proc_macro_span",
 
 proc-macro2 = "1.0.17"
 quote = "1.0"
-spin_on = "0.1"
+spin_on = { workspace = true }

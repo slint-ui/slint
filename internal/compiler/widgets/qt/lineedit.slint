@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { LineEditBase} from "../common/lineedit-base.slint";
-import { StyleMetrics  } from "std-widgets-impl.slint";
 
 export component LineEdit {
     in property <length> font-size <=> inner.font-size;
@@ -65,8 +64,8 @@ export component LineEdit {
         padding-bottom: native.native-padding-bottom;
 
         inner := LineEditBase {
-            placeholder-color: self.enabled ? StyleMetrics.placeholder-color : StyleMetrics.placeholder-color-disabled;
-            text-color: self.enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
+            placeholder-color: self.enabled ? NativeStyleMetrics.placeholder-color : NativeStyleMetrics.placeholder-color-disabled;
+            text-color: self.enabled ? NativeStyleMetrics.textedit-text-color : NativeStyleMetrics.textedit-text-color-disabled;
             enabled: root.enabled;
             margin: layout.padding-left + layout.padding-right;
         }

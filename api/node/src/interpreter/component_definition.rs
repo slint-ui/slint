@@ -40,6 +40,11 @@ impl JsComponentDefinition {
     }
 
     #[napi(getter)]
+    pub fn functions(&self) -> Vec<String> {
+        self.internal.functions().collect()
+    }
+
+    #[napi(getter)]
     pub fn globals(&self) -> Vec<String> {
         self.internal.globals().collect()
     }
@@ -55,6 +60,11 @@ impl JsComponentDefinition {
     #[napi]
     pub fn global_callbacks(&self, global_name: String) -> Option<Vec<String>> {
         self.internal.global_callbacks(global_name.as_str()).map(|iter| iter.collect())
+    }
+
+    #[napi]
+    pub fn global_functions(&self, global_name: String) -> Option<Vec<String>> {
+        self.internal.global_functions(global_name.as_str()).map(|iter| iter.collect())
     }
 
     #[napi]

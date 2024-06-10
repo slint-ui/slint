@@ -74,6 +74,22 @@ def _build_global_class(compdef, global_name):
 
         properties_and_callbacks[python_prop] = mk_setter_getter(callback_name)
 
+    for function_name in compdef.global_functions(global_name):
+        python_prop = _normalize_prop(function_name)
+        if python_prop in properties_and_callbacks:
+            logging.warning(f"Duplicated function {prop_name}")
+            continue
+
+        def mk_getter(function_name):
+            def getter(self):
+                def call(*args):
+                    return self.__instance__.invoke_global(global_name, function_name, *args)
+                return call
+
+            return property(getter)
+
+        properties_and_callbacks[python_prop] = mk_getter(function_name)
+
     return type("SlintGlobalClassWrapper", (), properties_and_callbacks)
 
 
@@ -142,6 +158,22 @@ def _build_class(compdef):
             return property(getter, setter)
 
         properties_and_callbacks[python_prop] = mk_setter_getter(callback_name)
+
+    for function_name in compdef.functions:
+        python_prop = _normalize_prop(function_name)
+        if python_prop in properties_and_callbacks:
+            logging.warning(f"Duplicated function {prop_name}")
+            continue
+
+        def mk_getter(function_name):
+            def getter(self):
+                def call(*args):
+                    return self.__instance__.invoke(function_name, *args)
+                return call
+
+            return property(getter)
+
+        properties_and_callbacks[python_prop] = mk_getter(function_name)
 
     for global_name in compdef.globals:
         global_class = _build_global_class(compdef, global_name)

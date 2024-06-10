@@ -6,7 +6,7 @@ use crate::dynamic_item_tree::InstanceRef;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
 use corelib::items::{ColorScheme, ItemRef, PropertyAnimation};
-use corelib::model::{Model, ModelRc};
+use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
@@ -176,12 +176,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             let index = eval_expression(index, local_context);
             match (array, index) {
                 (Value::Model(model), Value::Number(index)) => {
-                    if (index as usize) < model.row_count() {
-                        model.model_tracker().track_row_data_changes(index as usize);
-                        model.row_data(index as usize).unwrap_or_else(|| default_value_for_type(&expression.ty()))
-                    } else {
-                        default_value_for_type(&expression.ty())
-                    }
+                    model.row_data_tracked(index as usize).unwrap_or_else(|| default_value_for_type(&expression.ty()))
                 }
                 _ => {
                     Value::Void
@@ -960,6 +955,50 @@ fn call_builtin_function(
                 panic!("Cannot get the window from a global component")
             }
         },
+        BuiltinFunction::MonthDayCount => {
+            let m: u32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let y: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+            Value::Number(i_slint_core::date_time::month_day_count(m, y).unwrap_or(0) as f64)
+        }
+        BuiltinFunction::MonthOffset => {
+            let m: u32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let y: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+
+            Value::Number(i_slint_core::date_time::month_offset(m, y) as f64)
+        }
+        BuiltinFunction::FormatDate => {
+            let f: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let d: u32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let m: u32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
+            let y: i32 = eval_expression(&arguments[3], local_context).try_into().unwrap();
+
+            Value::String(i_slint_core::date_time::format_date(&f, d, m, y))
+        }
+        BuiltinFunction::DateNow => Value::Model(ModelRc::new(VecModel::from(
+            i_slint_core::date_time::date_now()
+                .into_iter()
+                .map(|x| Value::Number(x as f64))
+                .collect::<Vec<_>>(),
+        ))),
+        BuiltinFunction::ValidDate => {
+            let d: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let f: SharedString = eval_expression(&arguments[1], local_context).try_into().unwrap();
+            Value::Bool(i_slint_core::date_time::parse_date(d.as_str(), f.as_str()).is_some())
+        }
+        BuiltinFunction::ParseDate => {
+            let d: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let f: SharedString = eval_expression(&arguments[1], local_context).try_into().unwrap();
+
+            Value::Model(ModelRc::new(
+                i_slint_core::date_time::parse_date(d.as_str(), f.as_str())
+                    .map(|x| {
+                        VecModel::from(
+                            x.into_iter().map(|x| Value::Number(x as f64)).collect::<Vec<_>>(),
+                        )
+                    })
+                    .unwrap_or_default(),
+            ))
+        }
         BuiltinFunction::TextInputFocused => match local_context.component_instance {
             ComponentInstance::InstanceRef(component) => {
                 Value::Bool(component.access_window(|window| window.text_input_focused()) as _)
@@ -1092,6 +1131,7 @@ fn call_builtin_function(
                 &SharedString::try_from(eval_expression(&arguments[5], local_context)).unwrap(),
             ))
         }
+        BuiltinFunction::Use24HourFormat => Value::Bool(corelib::date_time::use_24_hour_format()),
     }
 }
 

@@ -37,7 +37,7 @@ pub fn goto_definition(
                     let doc = document_cache.documents.get_document(node.source_file.path())?;
                     match doc.local_registry.lookup_element(&qual.to_string()) {
                         Ok(ElementType::Component(c)) => {
-                            goto_node(&c.root_element.borrow().debug.first()?.0)
+                            goto_node(&c.root_element.borrow().debug.first()?.node)
                         }
                         _ => None,
                     }
@@ -68,7 +68,7 @@ pub fn goto_definition(
                         LookupResult::Expression {
                             expression: Expression::ElementReference(e),
                             ..
-                        } => e.upgrade()?.borrow().debug.first()?.0.clone().into(),
+                        } => e.upgrade()?.borrow().debug.first()?.node.clone().into(),
                         LookupResult::Expression {
                             expression:
                                 Expression::CallbackReference(nr, _)
@@ -108,7 +108,7 @@ pub fn goto_definition(
             let imp_name = i_slint_compiler::typeloader::ImportedName::from_node(n);
             return match doc.local_registry.lookup_element(&imp_name.internal_name) {
                 Ok(ElementType::Component(c)) => {
-                    goto_node(&c.root_element.borrow().debug.first()?.0)
+                    goto_node(&c.root_element.borrow().debug.first()?.node)
                 }
                 _ => None,
             };

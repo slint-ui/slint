@@ -60,6 +60,13 @@ pub enum BuiltinFunction {
     Rgb,
     Hsv,
     ColorScheme,
+    Use24HourFormat,
+    MonthDayCount,
+    MonthOffset,
+    FormatDate,
+    DateNow,
+    ValidDate,
+    ParseDate,
     TextInputFocused,
     SetTextInputFocused,
     ImplicitLayoutInfo(Orientation),
@@ -244,9 +251,33 @@ impl BuiltinFunction {
                 )),
                 args: vec![],
             },
+            BuiltinFunction::MonthDayCount => Type::Function {
+                return_type: Box::new(Type::Int32),
+                args: vec![Type::Int32, Type::Int32],
+            },
+            BuiltinFunction::MonthOffset => Type::Function {
+                return_type: Box::new(Type::Int32),
+                args: vec![Type::Int32, Type::Int32],
+            },
+            BuiltinFunction::FormatDate => Type::Function {
+                return_type: Box::new(Type::String),
+                args: vec![Type::String, Type::Int32, Type::Int32, Type::Int32],
+            },
             BuiltinFunction::TextInputFocused => {
                 Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
             }
+            BuiltinFunction::DateNow => Type::Function {
+                return_type: Box::new(Type::Array(Box::new(Type::Int32))),
+                args: vec![],
+            },
+            BuiltinFunction::ValidDate => Type::Function {
+                return_type: Box::new(Type::Bool),
+                args: vec![Type::String, Type::String],
+            },
+            BuiltinFunction::ParseDate => Type::Function {
+                return_type: Box::new(Type::Array(Box::new(Type::Int32))),
+                args: vec![Type::String, Type::String],
+            },
             BuiltinFunction::SetTextInputFocused => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::Bool] }
             }
@@ -273,6 +304,9 @@ impl BuiltinFunction {
                     Type::Array(Type::String.into()),
                 ],
             },
+            BuiltinFunction::Use24HourFormat => {
+                Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
+            }
         }
     }
 
@@ -283,6 +317,12 @@ impl BuiltinFunction {
             BuiltinFunction::GetWindowDefaultFontSize => false,
             BuiltinFunction::AnimationTick => false,
             BuiltinFunction::ColorScheme => false,
+            BuiltinFunction::MonthDayCount => false,
+            BuiltinFunction::MonthOffset => false,
+            BuiltinFunction::FormatDate => false,
+            BuiltinFunction::DateNow => false,
+            BuiltinFunction::ValidDate => false,
+            BuiltinFunction::ParseDate => false,
             // Even if it is not pure, we optimize it away anyway
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod
@@ -330,6 +370,7 @@ impl BuiltinFunction {
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
             BuiltinFunction::Translate => false,
+            BuiltinFunction::Use24HourFormat => false,
         }
     }
 
@@ -340,6 +381,12 @@ impl BuiltinFunction {
             BuiltinFunction::GetWindowDefaultFontSize => true,
             BuiltinFunction::AnimationTick => true,
             BuiltinFunction::ColorScheme => true,
+            BuiltinFunction::MonthDayCount => true,
+            BuiltinFunction::MonthOffset => true,
+            BuiltinFunction::FormatDate => true,
+            BuiltinFunction::DateNow => true,
+            BuiltinFunction::ValidDate => true,
+            BuiltinFunction::ParseDate => true,
             // Even if it has technically side effect, we still consider it as pure for our purpose
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod
@@ -380,6 +427,7 @@ impl BuiltinFunction {
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
             BuiltinFunction::Translate => true,
+            BuiltinFunction::Use24HourFormat => true,
         }
     }
 }
@@ -1069,7 +1117,10 @@ impl Expression {
             }
             Expression::BinaryExpression { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
             Expression::UnaryOp { sub, .. } => sub.is_constant(),
-            Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
+            // Array will turn into model, and they can't be considered as constant if the model
+            // is used and the model is changed. CF issue #5249
+            //Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
+            Expression::Array { .. } => false,
             Expression::Struct { values, .. } => values.iter().all(|(_, v)| v.is_constant()),
             Expression::PathData(data) => match data {
                 Path::Elements(elements) => elements

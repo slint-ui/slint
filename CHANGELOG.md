@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### General
+
+ - Skia: Fix quality of control rendering when using `cache-rendering-hint: true;`
+ - Several compiler bugfixes (#5260, #5246, #5220, #5259, #5249)
+ - Android: fix cursor handle being visible despite inut loses focus (#5233)
+ - Android: fix keyboard poping up when application moved to foreground without input focus (#5235)
+ - Gettext translation: clear internal gettext cache when changing translations at runtime
+ - Interpreter: Track model lenght change when accessing a model out of bounds
+ - Interpreter: added API to obtain list of functions
+
+### Slint Language
+
+ - Emit a warning if PopupWindow is in a layout
+ - Added `resize-border` to Window
+
 ### Widgets
 
  - Added `placeholder-text` property to `TextEdit`.
@@ -12,10 +27,32 @@ All notable changes to this project are documented in this file.
  - Fixed set current-index of ComboBox to -1 does not reset current-value
  - Fixed issue where the text of `SpinBox` is not updated after value is changed from outside
  - Added `step-size` to `SpinBox`
+ - Added `TimePicker` and `DatePicker` widget.
+ - Fixed accessible value and actions on ProgressIndicator, Spinner, Spinbox, CheckBox, Switch
+
+### C++ API
+
+ - Added `LIBRARY_PATHS` multi-value argument to `slint_target_sources` that takes a list of
+   `name=path` items, to allow for the use of component libraries.
+
+### Rust API
+
+ - Added missing implementation of the `Error` for some of the errors
+ - allow all clippy warnings in generated code
+
+### Node API
+
+ - Functions can now be invoked
+
+### LSP and tooling
+
+ - Added suggestion for imported globals in expression auto-completion
+ - Added ability to rename Component
+ - Design mode: only allow to move element within the same component.
 
 ## [1.6.0] - 2024-05-13
 
-## General
+### General
 
  - The minimum Rust version is now 1.73.
  - When the Skia renderer is enabled at compile time, it is picked as the default at run-time.
@@ -28,7 +65,7 @@ All notable changes to this project are documented in this file.
  - Software renderer: Dirty regions can now be composed of multiple rectangles.
  - Added a function to mark all translations as dirty.
 
-## Slint Language
+### Slint Language
 
  - Text: Added `stroke`, `stroke-width`, and `stroke-style` properties.
  - Added `Colors.hsv()` method to create colors in the HSV color space.
@@ -43,7 +80,7 @@ All notable changes to this project are documented in this file.
  - Fixed compiler panic when an init from a repeater is inlined into the parent component (#5146)
  - Added `clear-focus()` function to focusable elements, to allow for programmatic focus clearing.
 
-## Widgets
+### Widgets
 
  - Palette: Added `color-scheme` in-out property for accessing the style's color scheme.
  - Accessibility: Annotated more widgets with accessible properties and actions.
@@ -56,12 +93,12 @@ All notable changes to this project are documented in this file.
  - Fixed text and selection color of TextEdit and LineEdit.
  - Spinbox and Slider: The value now defaults to the minimum.
 
-## Rust API
+### Rust API
 
  - Added conversion of Color to and from HSV.
  - Added getter to the `raw-window-handle` of a window using the `raw-window-handle-06` feature.
 
-## C++ API
+### C++ API
 
  - Workaround breaking change in the build with Rust 1.79 (see https://github.com/corrosion-rs/corrosion/issues/501)
  - Added conversion of Color to and from HSV.
@@ -70,7 +107,7 @@ All notable changes to this project are documented in this file.
  - Fixed compilation of the generated code when an animated brush property is set in a sling callback.
  - Added include guard to the generated header.
 
-## LSP and tooling
+### LSP and tooling
 
  - Design mode of the live preview can now drag into and from layout. With a drop marker when dragging an element.
  - Fixed formatting of function declarations.

@@ -22,6 +22,7 @@ jobs:
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: 1
+            SLINT_EMIT_DEBUG_INFO: 1
         strategy:
             matrix:
                 os: [ubuntu-22.04, macos-11, windows-2022]
@@ -59,6 +60,9 @@ jobs:
             - name: Install gstreamer and libunwind (Linux)
               if: runner.os == 'Linux'
               run: sudo apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+            - name: Upgrade LLVM for Skia build on Windows
+              if: runner.os == 'Windows'
+              run: choco upgrade llvm
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v1
             - uses: ./.github/actions/setup-rust
@@ -112,6 +116,9 @@ jobs:
                   version: "5.15.2"
                   setup-python: false
                   cache: true
+            - name: Upgrade LLVM for Skia build on Windows
+              if: runner.os == 'Windows'
+              run: choco upgrade llvm
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v1
             - uses: ./.github/actions/install-nodejs
@@ -211,6 +218,7 @@ jobs:
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: 1
             CARGO_PROFILE_DEV_DEBUG: 0
+            SLINT_EMIT_DEBUG_INFO: 1
         strategy:
             matrix:
                 os: [ubuntu-22.04, macos-12, windows-2022]

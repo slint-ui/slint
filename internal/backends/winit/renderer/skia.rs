@@ -116,6 +116,7 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
             window_handle,
             display_handle,
             physical_size_to_slint(&size),
+            winit_window.scale_factor() as f32,
         )
     }
 }

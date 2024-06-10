@@ -869,6 +869,15 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_callbacks(
     callbacks.extend((&*def).as_component_definition().callbacks().map(|name| name.into()))
 }
 
+/// Returns the list of function names of the component the component definition describes
+#[no_mangle]
+pub unsafe extern "C" fn slint_interpreter_component_definition_functions(
+    def: &ComponentDefinitionOpaque,
+    functions: &mut SharedVector<SharedString>,
+) {
+    functions.extend((&*def).as_component_definition().functions().map(|name| name.into()))
+}
+
 /// Return the name of the component definition
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_definition_name(
@@ -920,6 +929,25 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_global_callbacks
     if let Some(name_it) = (&*def)
         .as_component_definition()
         .global_callbacks(std::str::from_utf8(&global_name).unwrap())
+    {
+        names.extend(name_it.map(|name| name.into()));
+        true
+    } else {
+        false
+    }
+}
+
+/// Returns a vector of the names of the functions of the specified publicly exported global
+/// singleton. Returns true if a global exists under the specified name; false otherwise.
+#[no_mangle]
+pub unsafe extern "C" fn slint_interpreter_component_definition_global_functions(
+    def: &ComponentDefinitionOpaque,
+    global_name: Slice<u8>,
+    names: &mut SharedVector<SharedString>,
+) -> bool {
+    if let Some(name_it) = (&*def)
+        .as_component_definition()
+        .global_functions(std::str::from_utf8(&global_name).unwrap())
     {
         names.extend(name_it.map(|name| name.into()));
         true

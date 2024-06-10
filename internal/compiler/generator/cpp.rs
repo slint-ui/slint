@@ -334,6 +334,7 @@ use crate::llr::{
 };
 use crate::object_tree::Document;
 use crate::parser::syntax_nodes;
+use crate::CompilerConfiguration;
 use cpp_ast::*;
 use itertools::{Either, Itertools};
 use std::cell::Cell;
@@ -534,7 +535,11 @@ fn handle_property_init(
 }
 
 /// Returns the text of the C++ code produced by the given root component
-pub fn generate(doc: &Document, config: Config) -> impl std::fmt::Display {
+pub fn generate(
+    doc: &Document,
+    config: Config,
+    compiler_config: &CompilerConfiguration,
+) -> impl std::fmt::Display {
     let mut file = File { namespace: config.namespace.clone(), ..Default::default() };
 
     file.includes.push("<array>".into());
@@ -764,7 +769,7 @@ pub fn generate(doc: &Document, config: Config) -> impl std::fmt::Display {
         return file;
     }
 
-    let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component);
+    let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component, compiler_config);
 
     // Forward-declare the root so that sub-components can access singletons, the window, etc.
     file.declarations.push(Declaration::Struct(Struct {
@@ -1403,6 +1408,19 @@ fn generate_item_tree(
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
+            name: "element_infos".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::SharedString *result) -> bool"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![format!("if (auto infos = reinterpret_cast<const {}*>(component.instance)->element_infos(index)) {{ *result = *infos; return true; }};", item_tree_class_name), "return false;".into()]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
             name: "window_adapter".into(),
             signature:
                 "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] bool do_create, [[maybe_unused]] slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
@@ -1431,7 +1449,7 @@ fn generate_item_tree(
             "{{ visit_children, get_item_ref, get_subtree_range, get_subtree, \
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
                 item_geometry, accessible_role, accessible_string_property, accessibility_action, \
-                supported_accessibility_actions, window_adapter, \
+                supported_accessibility_actions, element_infos, window_adapter, \
                 slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
             item_tree_class_name
         )),
@@ -2013,6 +2031,22 @@ fn generate_sub_component(
         "(uint32_t index) const -> uint32_t",
         "",
         supported_accessibility_actions_cases,
+    );
+
+    let mut element_infos_cases = vec!["switch (index) {".to_string()];
+    element_infos_cases.extend(
+        component
+            .element_infos
+            .iter()
+            .map(|(index, ids)| format!("    case {index}: return \"{}\";", ids)),
+    );
+    element_infos_cases.push("}".into());
+
+    dispatch_item_function(
+        "element_infos",
+        "(uint32_t index) const -> std::optional<slint::SharedString>",
+        "",
+        element_infos_cases,
     );
 
     if !children_visitor_cases.is_empty() {
@@ -3194,6 +3228,35 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ColorScheme => {
             format!("{}.color_scheme()", access_window_field(ctx))
+        }
+        BuiltinFunction::Use24HourFormat => {
+            format!("slint::cbindgen_private::slint_date_time_use_24_hour_format()")
+        }
+        BuiltinFunction::MonthDayCount => {
+            format!("slint::cbindgen_private::slint_date_time_month_day_count({}, {})", a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::MonthOffset => {
+            format!("slint::cbindgen_private::slint_date_time_month_offset({}, {})", a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::FormatDate => {
+            format!("[](const auto &format, int d, int m, int y) {{ slint::SharedString out; slint::cbindgen_private::slint_date_time_format_date(&format, d, m, y, &out); return out; }}({}, {}, {}, {})",
+                a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap()
+            )
+        }
+        BuiltinFunction::DateNow => {
+            "[] { int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_date_now(&d, &m, &y); return std::make_shared<slint::private_api::ArrayModel<3,int32_t>>(d, m, y); }()".into()
+        }
+        BuiltinFunction::ValidDate => {
+            format!(
+                "[](const auto &a, const auto &b) {{ int32_t d=0, m=0, y=0; return slint::cbindgen_private::slint_date_time_parse_date(&a, &b, &d, &m, &y); }}({}, {})",
+                a.next().unwrap(), a.next().unwrap()
+            )
+        }
+        BuiltinFunction::ParseDate => {
+            format!(
+                "[](const auto &a, const auto &b) {{ int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_parse_date(&a, &b, &d, &m, &y); return std::make_shared<slint::private_api::ArrayModel<3,int32_t>>(d, m, y); }}({}, {})",
+                a.next().unwrap(), a.next().unwrap()
+            )
         }
         BuiltinFunction::SetTextInputFocused => {
             format!("{}.set_text_input_focused({})", access_window_field(ctx), a.next().unwrap())

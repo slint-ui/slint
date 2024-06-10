@@ -504,7 +504,7 @@ impl LookupType {
                                 .borrow()
                                 .debug
                                 .get(0)
-                                .and_then(|x| x.0.source_file())
+                                .and_then(|x| x.node.source_file())
                                 .map_or(false, |x| x.path().starts_with("builtin:")))
                         .then(|| "Palette".to_string()),
                     })
@@ -814,16 +814,36 @@ impl LookupObject for SlintInternal {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        f(
-            "color-scheme",
-            Expression::FunctionCall {
-                function: Expression::BuiltinFunctionReference(BuiltinFunction::ColorScheme, None)
-                    .into(),
-                arguments: vec![],
-                source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
-            }
-            .into(),
-        )
+        use Expression::BuiltinFunctionReference as BFR;
+        let sl = || ctx.current_token.as_ref().map(|t| t.to_source_location());
+        None.or_else(|| {
+            f(
+                "color-scheme",
+                Expression::FunctionCall {
+                    function: BFR(BuiltinFunction::ColorScheme, None).into(),
+                    arguments: vec![],
+                    source_location: sl(),
+                }
+                .into(),
+            )
+        })
+        .or_else(|| {
+            f(
+                "use-24-hour-format",
+                Expression::FunctionCall {
+                    function: BFR(BuiltinFunction::Use24HourFormat, None).into(),
+                    arguments: vec![],
+                    source_location: sl(),
+                }
+                .into(),
+            )
+        })
+        .or_else(|| f("month-day-count", BFR(BuiltinFunction::MonthDayCount, sl()).into()))
+        .or_else(|| f("month-offset", BFR(BuiltinFunction::MonthOffset, sl()).into()))
+        .or_else(|| f("format-date", BFR(BuiltinFunction::FormatDate, sl()).into()))
+        .or_else(|| f("date-now", BFR(BuiltinFunction::DateNow, sl()).into()))
+        .or_else(|| f("valid-date", BFR(BuiltinFunction::ValidDate, sl()).into()))
+        .or_else(|| f("parse-date", BFR(BuiltinFunction::ParseDate, sl()).into()))
     }
 }
 

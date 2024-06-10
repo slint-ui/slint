@@ -171,7 +171,7 @@ pub fn with_property_lookup_ctx<R>(
         loop {
             scope.push(it.clone());
             if let Some(c) = it.clone().borrow().children.iter().find(|c| {
-                c.borrow().debug.first().map_or(false, |n| n.0.text_range().contains(offset))
+                c.borrow().debug.first().map_or(false, |n| n.node.text_range().contains(offset))
             }) {
                 it = c.clone();
             } else {

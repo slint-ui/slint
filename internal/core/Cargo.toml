@@ -25,7 +25,7 @@ libm = ["num-traits/libm", "euclid/libm"]
 # Allow the viewer to query at runtime information about item types
 rtti = []
 # Use the standard library
-std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algorithms", "lyon_geom", "lyon_extra", "dep:web-time", "image-decoders", "svg", "raw-window-handle-06?/std"]
+std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algorithms", "lyon_geom", "lyon_extra", "dep:web-time", "image-decoders", "svg", "raw-window-handle-06?/std", "chrono/std", "chrono/wasmbind", "chrono/clock"]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
 # from a single core, and not in a interrupt or signal handler.
@@ -59,8 +59,8 @@ vtable = { workspace = true }
 portable-atomic = { version = "1", features = ["critical-section"] }
 auto_enums = "0.8.0"
 cfg-if = "1"
-derive_more = "0.99.5"
-euclid = { version = "0.22.1", default-features = false }
+derive_more = { workspace = true }
+euclid = { workspace = true }
 lyon_algorithms = { version = "1.0", optional = true }
 lyon_geom = { version = "1.0", optional = true  }
 lyon_path = { version = "1.0", optional = true }
@@ -87,10 +87,12 @@ clru = { version = "0.6.0", optional = true }
 
 resvg = { workspace = true, optional = true }
 fontdb = { workspace = true, optional = true }
-serde = { version = "1.0.163", features = ["derive"], optional = true }
+serde = { workspace = true, optional = true }
 
 raw-window-handle-06 = { workspace = true, optional = true }
-bitflags = { version = "2.4.2" }
+bitflags = { version = "2.4.2"}
+
+chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7", optional = true, features = ["gettext-system"] }
@@ -111,6 +113,6 @@ i-slint-backend-testing = { path="../backends/testing" }
 rustybuzz = "0.13.0"
 ttf-parser = "0.20.0"
 fontdb = { workspace = true, default-features = true }
-serde_json = "1.0.96"
+serde_json = { workspace = true }
 tiny-skia = "0.11.0"
 tokio = { version = "1.35", features = ["rt-multi-thread"] }

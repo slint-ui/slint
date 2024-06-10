@@ -47,8 +47,13 @@ if(NOT SLINT_FEATURE_FREESTANDING)
 endif()
 slint_test(models)
 
+if(SLINT_FEATURE_EXPERIMENTAL AND SLINT_FEATURE_TESTING)
+    slint_test(testing)
+endif()
+
 if(SLINT_FEATURE_COMPILER OR SLINT_COMPILER)
     add_subdirectory(multiple-includes)
+    add_subdirectory(libraries)
 endif()
 
 slint_test(platform_eventloop)

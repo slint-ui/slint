@@ -165,6 +165,10 @@ pub fn init_translations(domain: &str, dirname: impl Into<std::path::PathBuf>) {
     i_slint_core::translations::gettext_bindtextdomain(domain, dirname.into()).unwrap()
 }
 
+pub fn use_24_hour_format() -> bool {
+    i_slint_core::date_time::use_24_hour_format()
+}
+
 /// internal re_exports used by the macro generated
 pub mod re_exports {
     pub use alloc::boxed::Box;
@@ -184,6 +188,7 @@ pub mod re_exports {
     };
     pub use i_slint_core::animations::{animation_tick, EasingCurve};
     pub use i_slint_core::callbacks::Callback;
+    pub use i_slint_core::date_time::*;
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
         key_codes::Key, FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,

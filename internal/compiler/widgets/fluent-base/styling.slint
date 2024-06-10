@@ -20,6 +20,10 @@ export global FluentFontSettings {
         font-size: 14 * 0.0769rem,
         font-weight: semibold-font-weight
     };
+    out property <TextStyle> title: {
+        font-size: 28 * 0.0769rem,
+        font-weight: semibold-font-weight
+    };
 }
 
 export global FluentPalette {
@@ -85,6 +89,8 @@ export global FluentPalette {
     out property <brush> layer-on-mica-base-alt: dark-color-scheme ? #3A3A3A73 : #FFFFFFB3;
     out property <brush> layer-on-mica-base-alt-secondary: dark-color-scheme ? #FFFFFF0F : #0000000A;
     out property <brush> card-stroke: dark-color-scheme ? #0000001A : #0000000F;
+    out property <brush> state: dark-color-scheme ? #ffffff : #000000;
+    out property <brush> state-secondary: dark-color-scheme ? #000000 : #ffffff;
 }
 
 export global Icons {
@@ -98,4 +104,10 @@ export global Icons {
     out property <image> left: @image-url("_left.svg");
     out property <image> right: @image-url("_right.svg");
     out property <image> up: @image-url("_up.svg");
+    out property <image> keyboard: @image-url("_keyboard.svg");
+    out property <image> clock: @image-url("_clock.svg");
+    out property <image> arrow-back: @image-url("_arrow_back.svg");
+    out property <image> arrow-forward: @image-url("_arrow_forward.svg");
+    out property <image> edit: @image-url("_edit.svg");
+    out property <image> calendar: @image-url("_calendar.svg");
 }

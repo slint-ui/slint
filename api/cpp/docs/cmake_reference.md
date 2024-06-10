@@ -5,23 +5,30 @@
 ## `slint_target_sources`
 
 ```
-slint_target_sources(<target> <files>.... [NAMESPACE namespace])
+slint_target_sources(<target> <files>.... [NAMESPACE namespace] [LIBRARY_PATHS name1=lib1 name2=lib2 ...])
 ```
 
 Use this function to tell cmake about the .slint files of your application, similar to the builtin cmake [target_sources](https://cmake.org/cmake/help/latest/command/target_sources.html) function.
 The function takes care of running the slint-compiler to convert `.slint` files to `.h` files in the build directory,
 and extend  the include directories of your target so that the generated file is found when including it in your application.
 
-The optional NAMESPACE argument will put the generated components in the given C++ namespace.
+The optional `NAMESPACE` argument will put the generated components in the given C++ namespace.
+
+Use the `LIBRARY_PATHS` argument to specify the name and paths to [component libraries](slint-reference:src/language/syntax/modules#component-libraries),
+separated by an equals sign (`=`).
 
 Given a file called `the_window.slint`, the following example will create a file called `the_window.h` that can
 be included from your .cpp file. Assuming the `the_window.slint` contains a component `TheWindow`, the output
-C++ class will be put in the namespace `ui`, resulting to `ui::TheWindow`.
+C++ class will be put in the namespace `ui`, resulting to `ui::TheWindow`. Any import from `@mycomponentlib/` will
+be redirected to the specified path.
 
 ```cmake
 add_executable(my_application main.cpp)
 target_link_libraries(my_application PRIVATE Slint::Slint)
-slint_target_sources(my_application the_window.slint NAMESPACE ui)
+slint_target_sources(my_application the_window.slint 
+    NAMESPACE ui
+    LIBRARY_PATHS mycomponentlib=/path/to/customcomponents
+)
 ```
 
 

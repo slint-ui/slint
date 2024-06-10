@@ -812,6 +812,20 @@ impl ComponentDefinition {
         })
     }
 
+    /// Returns the names of all publicly declared functions.
+    pub fn functions(&self) -> impl Iterator<Item = String> + '_ {
+        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
+        // which is not required, but this is safe because there is only one instance of the unerased type
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type)| {
+            if matches!(prop_type, LangType::Function { .. }) {
+                Some(prop_name)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Returns the names of all exported global singletons
     ///
     /// **Note:** Only globals that are exported or re-exported from the main .slint file will
@@ -865,6 +879,22 @@ impl ComponentDefinition {
         self.inner.unerase(guard).global_properties(global_name).map(|iter| {
             iter.filter_map(|(prop_name, prop_type)| {
                 if matches!(prop_type, LangType::Callback { .. }) {
+                    Some(prop_name)
+                } else {
+                    None
+                }
+            })
+        })
+    }
+
+    /// List of publicly declared functions in the exported global singleton specified by its name.
+    pub fn global_functions(&self, global_name: &str) -> Option<impl Iterator<Item = String> + '_> {
+        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
+        // which is not required, but this is safe because there is only one instance of the unerased type
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).global_properties(global_name).map(|iter| {
+            iter.filter_map(|(prop_name, prop_type)| {
+                if matches!(prop_type, LangType::Function { .. }) {
                     Some(prop_name)
                 } else {
                     None
@@ -1627,8 +1657,13 @@ fn call_functions() {
             .into(),
             "".into(),
         ),
-    );
-    let instance = definition.unwrap().create().unwrap();
+    )
+    .unwrap();
+
+    assert_eq!(definition.functions().collect::<Vec<_>>(), ["foo-bar"]);
+    assert_eq!(definition.global_functions("Gl").unwrap().collect::<Vec<_>>(), ["foo-bar"]);
+
+    let instance = definition.create().unwrap();
 
     assert_eq!(
         instance.invoke("foo_bar", &[Value::Number(3.), Value::Number(4.)]),
