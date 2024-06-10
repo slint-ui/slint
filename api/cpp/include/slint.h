@@ -345,18 +345,12 @@ public:
 
     /// \private
     /// Internal function called by the view to register itself
-    void attach_peer(private_api::ModelPeer p)
-    {
-        peers.push_back(std::move(p));
-    }
+    void attach_peer(private_api::ModelPeer p) { peers.push_back(std::move(p)); }
 
     /// \private
     /// Internal function called from within bindings to register with the currently
     /// evaluating dependency and get notified when this model's row count changes.
-    void track_row_count_changes() const
-    {
-        model_row_count_dirty_property.get();
-    }
+    void track_row_count_changes() const { model_row_count_dirty_property.get(); }
 
     /// \private
     /// Internal function called from within bindings to register with the currently
@@ -701,7 +695,7 @@ public:
     FilterModel(std::shared_ptr<Model<ModelData>> source_model,
                 std::function<bool(const ModelData &)> filter_fn)
         : inner(std::make_shared<private_api::FilterModelInner<ModelData>>(
-                std::move(source_model), std::move(filter_fn), *this))
+                  std::move(source_model), std::move(filter_fn), *this))
     {
         inner->source_model->attach_peer(inner);
     }
@@ -789,7 +783,7 @@ public:
     MapModel(std::shared_ptr<Model<SourceModelData>> source_model,
              std::function<MappedModelData(const SourceModelData &)> map_fn)
         : inner(std::make_shared<private_api::MapModelInner<SourceModelData, MappedModelData>>(
-                *this)),
+                  *this)),
           model(source_model),
           map_fn(map_fn)
     {

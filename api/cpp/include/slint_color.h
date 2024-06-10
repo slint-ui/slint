@@ -211,10 +211,7 @@ public:
 
 #if !defined(DOXYGEN)
     // FIXME: we need this to create GradientStop
-    operator const cbindgen_private::types::Color &() const
-    {
-        return inner;
-    }
+    operator const cbindgen_private::types::Color &() const { return inner; }
 #endif
 
 private:

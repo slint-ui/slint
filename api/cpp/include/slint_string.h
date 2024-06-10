@@ -49,10 +49,7 @@ struct SharedString
     }
     /// Destroys this SharedString and frees the memory if this is the last instance
     /// referencing it.
-    ~SharedString()
-    {
-        cbindgen_private::slint_shared_string_drop(this);
-    }
+    ~SharedString() { cbindgen_private::slint_shared_string_drop(this); }
     /// Assigns \a other to this string and returns a reference to this string.
     SharedString &operator=(const SharedString &other)
     {
@@ -71,10 +68,7 @@ struct SharedString
     /// Assigns null-terminated string pointer \a s to this string and returns a reference
     /// to this string. The underlying string data is copied. It is assumed that the string
     /// is UTF-8 encoded.
-    SharedString &operator=(const char *s)
-    {
-        return *this = std::string_view(s);
-    }
+    SharedString &operator=(const char *s) { return *this = std::string_view(s); }
 
     /// Move-assigns \a other to this SharedString instance.
     SharedString &operator=(SharedString &&other)
@@ -85,23 +79,14 @@ struct SharedString
 
     /// Provides a view to the string data. The returned view is only valid as long as at
     /// least this SharedString exists.
-    operator std::string_view() const
-    {
-        return cbindgen_private::slint_shared_string_bytes(this);
-    }
+    operator std::string_view() const { return cbindgen_private::slint_shared_string_bytes(this); }
     /// Provides a raw pointer to the string data. The returned pointer is only valid as long as at
     /// least this SharedString exists.
-    auto data() const -> const char *
-    {
-        return cbindgen_private::slint_shared_string_bytes(this);
-    }
+    auto data() const -> const char * { return cbindgen_private::slint_shared_string_bytes(this); }
 
     /// Returns a pointer to the first character. It is only safe to dereference the pointer if the
     /// string contains at least one character.
-    const char *begin() const
-    {
-        return data();
-    }
+    const char *begin() const { return data(); }
     /// Returns a point past the last character of the string. It is not safe to dereference the
     /// pointer, but it is suitable for comparison.
     const char *end() const
@@ -111,10 +96,7 @@ struct SharedString
     }
 
     /// \return true if the string contains no characters; false otherwise.
-    bool empty() const
-    {
-        return std::string_view(*this).empty();
-    }
+    bool empty() const { return std::string_view(*this).empty(); }
 
     /// \return true if the string starts with the specified prefix string; false otherwise
     bool starts_with(std::string_view prefix) const
@@ -141,10 +123,7 @@ struct SharedString
     ///     auto str = slint::SharedString::from_number(42); // creates "42"
     ///     auto str2 = slint::SharedString::from_number(100.5) // creates "100.5"
     /// \endcode
-    static SharedString from_number(double n)
-    {
-        return SharedString(n);
-    }
+    static SharedString from_number(double n) { return SharedString(n); }
 
     /// Returns true if \a a is equal to \a b; otherwise returns false.
     friend bool operator==(const SharedString &a, const SharedString &b)
@@ -206,10 +185,7 @@ struct SharedString
 
 private:
     /// Use SharedString::from_number
-    explicit SharedString(double n)
-    {
-        cbindgen_private::slint_shared_string_from_number(this, n);
-    }
+    explicit SharedString(double n) { cbindgen_private::slint_shared_string_from_number(this, n); }
     void *inner; // opaque
 };
 

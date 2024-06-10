@@ -19,7 +19,7 @@ struct SharedVector
     /// Creates a new, empty vector.
     SharedVector()
         : inner(const_cast<SharedVectorHeader *>(reinterpret_cast<const SharedVectorHeader *>(
-                cbindgen_private::slint_shared_vector_empty())))
+                  cbindgen_private::slint_shared_vector_empty())))
     {
     }
 
