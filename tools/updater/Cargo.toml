@@ -23,7 +23,7 @@ clap = { workspace = true }
 codemap = "0.1"
 codemap-diagnostic = "0.1.1"
 spin_on = { workspace = true }
-by_address = "1.0.4"
+by_address = { workspace = true }
 
 [[bin]]
 name = "slint-updater"

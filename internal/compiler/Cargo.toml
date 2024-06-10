@@ -47,7 +47,7 @@ proc-macro2 = { version = "1.0.17", optional = true }
 lyon_path = { version = "1.0" }
 lyon_extra = "1.0.1"
 thiserror = "1"
-by_address = "1.0.4"
+by_address = { workspace = true }
 css-color-parser2 = { workspace = true }
 itertools = { workspace = true }
 once_cell = "1"
