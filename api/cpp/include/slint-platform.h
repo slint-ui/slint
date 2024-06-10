@@ -716,6 +716,7 @@ public:
                 &process_line_callback);
         return PhysicalRegion { r };
     }
+#    endif
 
     /// This enum describes the rotation that is applied to the buffer when rendering.
     /// To be used in set_rendering_rotation()
@@ -738,7 +739,6 @@ public:
         cbindgen_private::slint_software_renderer_set_rendering_rotation(
                 inner, static_cast<int>(rotation));
     }
-#    endif
 };
 #endif
 

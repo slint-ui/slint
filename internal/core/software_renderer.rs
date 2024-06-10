@@ -63,32 +63,22 @@ pub enum RepaintBufferType {
     SwappedBuffers,
 }
 
-/// This module is just a trick to make the Window public only when `feature = "software-renderer-rotation"`
-#[allow(unused)]
-mod internal {
-    use super::*;
-    /// This enum describes the rotation that should be applied to the contents rendered by the software renderer.
-    ///
-    /// Argument to be passed in [`SoftwareRenderer::set_rendering_rotation`].
-    #[non_exhaustive]
-    #[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
-    pub enum RenderingRotation {
-        /// No rotation
-        #[default]
-        NoRotation,
-        /// Rotate 90° to the right
-        Rotate90,
-        /// 180° rotation (upside-down)
-        Rotate180,
-        /// Rotate 90° to the left
-        Rotate270,
-    }
+/// This enum describes the rotation that should be applied to the contents rendered by the software renderer.
+///
+/// Argument to be passed in [`SoftwareRenderer::set_rendering_rotation`].
+#[non_exhaustive]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
+pub enum RenderingRotation {
+    /// No rotation
+    #[default]
+    NoRotation,
+    /// Rotate 90° to the right
+    Rotate90,
+    /// 180° rotation (upside-down)
+    Rotate180,
+    /// Rotate 90° to the left
+    Rotate270,
 }
-
-#[cfg(feature = "software-renderer-rotation")]
-pub use internal::RenderingRotation;
-#[cfg(not(feature = "software-renderer-rotation"))]
-use internal::RenderingRotation;
 
 impl RenderingRotation {
     fn is_transpose(self) -> bool {
@@ -405,15 +395,11 @@ impl SoftwareRenderer {
     /// Set how the window need to be rotated in the buffer.
     ///
     /// This is typically used to implement screen rotation in software
-    #[cfg(feature = "software-renderer-rotation")]
-    // This API is under a feature flag because it is experimental for now.
-    // It should be a property of the Window instead (set via dispatch_event?)
     pub fn set_rendering_rotation(&self, rotation: RenderingRotation) {
         self.rotation.set(rotation)
     }
 
     /// Return the current rotation. See [`Self::set_rendering_rotation()`]
-    #[cfg(feature = "software-renderer-rotation")]
     pub fn rendering_rotation(&self) -> RenderingRotation {
         self.rotation.get()
     }
