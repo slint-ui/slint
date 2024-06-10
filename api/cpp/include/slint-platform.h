@@ -392,10 +392,7 @@ public:
     /// Returns a copy of text stored in the system clipboard, if any.
     ///
     /// If the platform doesn't support the specified clipboard, the function should return nullopt
-    virtual std::optional<SharedString> clipboard_text(Clipboard)
-    {
-        return {};
-    }
+    virtual std::optional<SharedString> clipboard_text(Clipboard) { return {}; }
 
     /// Spins an event loop and renders the visible windows.
     virtual void run_event_loop() { }
@@ -698,10 +695,9 @@ public:
     /// to fill it with pixels. After the line buffer is filled with pixels, your implementation is
     /// free to flush that line to the screen for display.
     template<typename Callback>
-    requires requires(Callback callback)
-    {
-        callback(size_t(0), size_t(0), size_t(0), [&callback](std::span<Rgb565Pixel>) {});
-    }
+        requires requires(Callback callback) {
+            callback(size_t(0), size_t(0), size_t(0), [&callback](std::span<Rgb565Pixel>) {});
+        }
     PhysicalRegion render_by_line(Callback process_line_callback) const
     {
         auto r = cbindgen_private::slint_software_renderer_render_by_line_rgb565(

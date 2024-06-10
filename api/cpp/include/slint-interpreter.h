@@ -192,10 +192,7 @@ public:
     }
     /// Returns an iterator that when compared with an iterator returned by begin() can be
     /// used to detect when all fields have been visited.
-    iterator end() const
-    {
-        return iterator();
-    }
+    iterator end() const { return iterator(); }
 
     /// Returns the value of the field with the given \a name; Returns an std::optional without
     /// value if the field does not exist.
@@ -405,8 +402,8 @@ private:
 
 inline Value::Value(const slint::SharedVector<Value> &array)
     : inner(cbindgen_private::slint_interpreter_value_new_array_model(
-            reinterpret_cast<const slint::SharedVector<slint::cbindgen_private::Value *> *>(
-                    &array)))
+              reinterpret_cast<const slint::SharedVector<slint::cbindgen_private::Value *> *>(
+                      &array)))
 {
 }
 
@@ -699,15 +696,16 @@ public:
     // clang-format on
     {
         using namespace cbindgen_private;
-        auto actual_cb = [](void *data,
-                            cbindgen_private::Slice<cbindgen_private::Box<cbindgen_private::Value>>
-                                    arg) {
-            std::span<const Value> args_view { reinterpret_cast<const Value *>(arg.ptr), arg.len };
-            Value r = (*reinterpret_cast<F *>(data))(args_view);
-            auto inner = r.inner;
-            r.inner = cbindgen_private::slint_interpreter_value_new();
-            return inner;
-        };
+        auto actual_cb =
+                [](void *data,
+                   cbindgen_private::Slice<cbindgen_private::Box<cbindgen_private::Value>> arg) {
+                    std::span<const Value> args_view { reinterpret_cast<const Value *>(arg.ptr),
+                                                       arg.len };
+                    Value r = (*reinterpret_cast<F *>(data))(args_view);
+                    auto inner = r.inner;
+                    r.inner = cbindgen_private::slint_interpreter_value_new();
+                    return inner;
+                };
         return cbindgen_private::slint_interpreter_component_instance_set_callback(
                 inner(), slint::private_api::string_to_slice(name), actual_cb,
                 new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
@@ -773,15 +771,16 @@ public:
     bool set_global_callback(std::string_view global, std::string_view name, F callback) const
     {
         using namespace cbindgen_private;
-        auto actual_cb = [](void *data,
-                            cbindgen_private::Slice<cbindgen_private::Box<cbindgen_private::Value>>
-                                    arg) {
-            std::span<const Value> args_view { reinterpret_cast<const Value *>(arg.ptr), arg.len };
-            Value r = (*reinterpret_cast<F *>(data))(args_view);
-            auto inner = r.inner;
-            r.inner = cbindgen_private::slint_interpreter_value_new();
-            return inner;
-        };
+        auto actual_cb =
+                [](void *data,
+                   cbindgen_private::Slice<cbindgen_private::Box<cbindgen_private::Value>> arg) {
+                    std::span<const Value> args_view { reinterpret_cast<const Value *>(arg.ptr),
+                                                       arg.len };
+                    Value r = (*reinterpret_cast<F *>(data))(args_view);
+                    auto inner = r.inner;
+                    r.inner = cbindgen_private::slint_interpreter_value_new();
+                    return inner;
+                };
         return cbindgen_private::slint_interpreter_component_instance_set_global_callback(
                 inner(), slint::private_api::string_to_slice(global),
                 slint::private_api::string_to_slice(name), actual_cb, new F(std::move(callback)),

@@ -173,32 +173,29 @@ public:
     /// Construct an image from a SharedPixelBuffer of RGB pixels.
     Image(SharedPixelBuffer<Rgb8Pixel> buffer)
         : data(Data::ImageInner_EmbeddedImage(
-                cbindgen_private::types::ImageCacheKey::Invalid(),
-                cbindgen_private::types::SharedImageBuffer::RGB8(
-                        cbindgen_private::types::SharedPixelBuffer<Rgb8Pixel> {
-                                .width = buffer.width(),
-                                .height = buffer.height(),
-                                .data = buffer.m_data })))
+                  cbindgen_private::types::ImageCacheKey::Invalid(),
+                  cbindgen_private::types::SharedImageBuffer::RGB8(
+                          cbindgen_private::types::SharedPixelBuffer<Rgb8Pixel> {
+                                  .width = buffer.width(),
+                                  .height = buffer.height(),
+                                  .data = buffer.m_data })))
     {
     }
 
     /// Construct an image from a SharedPixelBuffer of RGBA pixels.
     Image(SharedPixelBuffer<Rgba8Pixel> buffer)
         : data(Data::ImageInner_EmbeddedImage(
-                cbindgen_private::types::ImageCacheKey::Invalid(),
-                cbindgen_private::types::SharedImageBuffer::RGBA8(
-                        cbindgen_private::types::SharedPixelBuffer<Rgba8Pixel> {
-                                .width = buffer.width(),
-                                .height = buffer.height(),
-                                .data = buffer.m_data })))
+                  cbindgen_private::types::ImageCacheKey::Invalid(),
+                  cbindgen_private::types::SharedImageBuffer::RGBA8(
+                          cbindgen_private::types::SharedPixelBuffer<Rgba8Pixel> {
+                                  .width = buffer.width(),
+                                  .height = buffer.height(),
+                                  .data = buffer.m_data })))
     {
     }
 
     /// Returns the size of the Image in pixels.
-    Size<uint32_t> size() const
-    {
-        return cbindgen_private::types::slint_image_size(&data);
-    }
+    Size<uint32_t> size() const { return cbindgen_private::types::slint_image_size(&data); }
 
     /// Returns the path of the image on disk, if it was constructed via Image::load_from_path().
     std::optional<slint::SharedString> path() const
@@ -227,10 +224,7 @@ public:
         return cbindgen_private::types::slint_image_compare_equal(&a.data, &b.data);
     }
     /// Returns false if \a a refers to the same image as \a b; true otherwise.
-    friend bool operator!=(const Image &a, const Image &b)
-    {
-        return !(a == b);
-    }
+    friend bool operator!=(const Image &a, const Image &b) { return !(a == b); }
 
     /// \private
     explicit Image(cbindgen_private::types::Image inner) : data(inner) { }

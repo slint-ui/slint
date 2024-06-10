@@ -53,7 +53,10 @@ static GLint compile_shader(GLuint program, GLuint shader_type, const GLchar *co
             glGetIntegerv(ParamName, (GLint *)&saved_value);                                       \
             BindingFn(TargetName, new_value);                                                      \
         }                                                                                          \
-        ~StructName() { BindingFn(TargetName, saved_value); }                                      \
+        ~StructName()                                                                              \
+        {                                                                                          \
+            BindingFn(TargetName, saved_value);                                                    \
+        }                                                                                          \
     }
 
 DEFINE_SCOPED_BINDING(ScopedTextureBinding, GL_TEXTURE_BINDING_2D, glBindTexture, GL_TEXTURE_2D);

@@ -134,45 +134,21 @@ public:
         return VRc(inner);
     }
 
-    const X *operator->() const
-    {
-        return &inner->data;
-    }
-    const X &operator*() const
-    {
-        return inner->data;
-    }
-    X *operator->()
-    {
-        return &inner->data;
-    }
-    X &operator*()
-    {
-        return inner->data;
-    }
+    const X *operator->() const { return &inner->data; }
+    const X &operator*() const { return inner->data; }
+    X *operator->() { return &inner->data; }
+    X &operator*() { return inner->data; }
 
     const VRc<VTable, Dyn> &into_dyn() const
     {
         return *reinterpret_cast<const VRc<VTable, Dyn> *>(this);
     }
 
-    VRef<VTable> borrow() const
-    {
-        return { inner->vtable, inner->data_ptr() };
-    }
+    VRef<VTable> borrow() const { return { inner->vtable, inner->data_ptr() }; }
 
-    friend bool operator==(const VRc &a, const VRc &b)
-    {
-        return a.inner == b.inner;
-    }
-    friend bool operator!=(const VRc &a, const VRc &b)
-    {
-        return a.inner != b.inner;
-    }
-    const VTable *vtable() const
-    {
-        return inner->vtable;
-    }
+    friend bool operator==(const VRc &a, const VRc &b) { return a.inner == b.inner; }
+    friend bool operator!=(const VRc &a, const VRc &b) { return a.inner != b.inner; }
+    const VTable *vtable() const { return inner->vtable; }
 };
 
 template<typename VTable, typename X = Dyn>

@@ -29,9 +29,9 @@ struct Timer
     template<std::invocable F>
     Timer(std::chrono::milliseconds interval, F callback)
         : id(cbindgen_private::slint_timer_start(
-                0, TimerMode::Repeated, interval.count(),
-                [](void *data) { (*reinterpret_cast<F *>(data))(); }, new F(std::move(callback)),
-                [](void *data) { delete reinterpret_cast<F *>(data); }))
+                  0, TimerMode::Repeated, interval.count(),
+                  [](void *data) { (*reinterpret_cast<F *>(data))(); }, new F(std::move(callback)),
+                  [](void *data) { delete reinterpret_cast<F *>(data); }))
     {
     }
     Timer(const Timer &) = delete;
