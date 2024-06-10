@@ -1,7 +1,8 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # The `.slint` File
 
-User interfaces are written in the Slint language and saved in files with the `.slint` extension.
+You write user interfaces in the Slint language and saved in files with the `.slint` extension.
 
 Each `.slint` file defines one or several components. These components declare
 a tree of elements. Components form the basis of composition in Slint. Use them
@@ -35,15 +36,14 @@ export component MyApp inherits Window {
         text: "world";
     }
 }
-
 ```
 
 Both `MyButton` and `MyApp` are components. `Window` and `Rectangle` are built-in elements
 used by `MyApp`. `MyApp` also re-uses the `MyButton` component as two separate elements.
 
-Elements have properties, which you can assign values to. Here we assign a string
+Elements have properties, which you can assign values to. The example above assigns a string
 constant "hello" to the first `MyButton`'s `text` property. You
-can also assign entire expressions. Slint will re-evaluate the expressions when any
+can also assign entire expressions. Slint re-evaluates the expressions when any
 of the properties they depend on change, which makes the user-interface reactive.
 
 You can name elements using the `:=` syntax:
@@ -69,7 +69,11 @@ export component MyApp inherits Window {
 }
 ```
 
+:::note
+
 Names have to be valid [identifiers](../syntax/identifiers.md).
+
+:::
 
 Some elements are also accessible under pre-defined names:
 
