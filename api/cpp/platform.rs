@@ -485,7 +485,6 @@ mod software_renderer {
         renderer.render_by_line(processor)
     }
 
-    #[cfg(feature = "experimental")]
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_set_rendering_rotation(
         r: SoftwareRendererOpaque,

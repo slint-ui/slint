@@ -35,8 +35,6 @@ unicode = ["unicode-script", "unicode-linebreak"]
 
 software-renderer-systemfonts = ["shared-fontdb", "rustybuzz", "fontdue", "software-renderer"]
 software-renderer = ["bytemuck"]
-# This is under a feature flag because it is experimental feature.
-software-renderer-rotation = []
 
 image-decoders = ["dep:image", "dep:clru"]
 svg = ["dep:resvg", "shared-fontdb"]
