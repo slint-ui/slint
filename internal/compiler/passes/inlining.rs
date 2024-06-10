@@ -105,14 +105,6 @@ fn inline_element(
     let mut mapping = HashMap::new();
     mapping.insert(element_key(inlined_component.root_element.clone()), elem.clone());
 
-    root_component.popup_windows.borrow_mut().extend(
-        inlined_component
-            .popup_windows
-            .borrow()
-            .iter()
-            .map(|p| duplicate_popup(p, &mut mapping, priority_delta)),
-    );
-
     let mut new_children = Vec::with_capacity(
         elem_mut.children.len() + inlined_component.root_element.borrow().children.len(),
     );
@@ -122,38 +114,36 @@ fn inline_element(
         }),
     );
 
-    let mut moved_into_popup = HashSet::new();
+    let mut move_children_into_popup = None;
 
-    match inlined_component.child_insertion_point.borrow().as_ref().and_then(
-        |(elem, index, node)| Some((mapping.get(&element_key(elem.clone()))?, index, node)),
-    ) {
-        Some((insertion_element, index, cip_node)) if !Rc::ptr_eq(elem, insertion_element) => {
-            let children = std::mem::take(&mut elem_mut.children);
-            if !std::rc::Weak::ptr_eq(
-                &insertion_element.borrow().enclosing_component,
-                &elem_mut.enclosing_component,
-            ) {
+    match inlined_component.child_insertion_point.borrow().as_ref() {
+        Some((insertion_element, index, cip_node)) => {
+            if let Some(insertion_element) = mapping.get(&element_key(insertion_element.clone())) {
+                if !Rc::ptr_eq(elem, insertion_element) {
+                    debug_assert!(std::rc::Weak::ptr_eq(
+                        &insertion_element.borrow().enclosing_component,
+                        &elem_mut.enclosing_component,
+                    ));
+                    let children = std::mem::take(&mut elem_mut.children);
+                    insertion_element.borrow_mut().children.splice(index..index, children);
+                    let mut cip = root_component.child_insertion_point.borrow_mut();
+                    if let Some(cip) = cip.as_mut() {
+                        if Rc::ptr_eq(&cip.0, elem) {
+                            *cip = (insertion_element.clone(), index + cip.1, cip_node.clone());
+                        }
+                    } else {
+                        *cip = Some((insertion_element.clone(), *index, cip_node.clone()));
+                    };
+                } else {
+                    new_children.append(&mut elem_mut.children);
+                }
+            } else {
                 // @children was into a PopupWindow
-                debug_assert!(root_component.popup_windows.borrow().iter().any(|p| Rc::ptr_eq(
+                debug_assert!(inlined_component.popup_windows.borrow().iter().any(|p| Rc::ptr_eq(
                     &p.component,
                     &insertion_element.borrow().enclosing_component.upgrade().unwrap()
                 )));
-                for c in &children {
-                    recurse_elem(&c, &(), &mut |e, _| {
-                        e.borrow_mut().enclosing_component =
-                            insertion_element.borrow().enclosing_component.clone();
-                        moved_into_popup.insert(element_key(e.clone()));
-                    });
-                }
-            }
-            insertion_element.borrow_mut().children.splice(index..index, children);
-            let mut cip = root_component.child_insertion_point.borrow_mut();
-            if let Some(cip) = cip.as_mut() {
-                if Rc::ptr_eq(&cip.0, elem) {
-                    *cip = (insertion_element.clone(), index + cip.1, cip_node.clone());
-                }
-            } else {
-                *cip = Some((insertion_element.clone(), *index, cip_node.clone()));
+                move_children_into_popup = Some(std::mem::take(&mut elem_mut.children));
             };
         }
         _ => {
@@ -176,6 +166,45 @@ fn inline_element(
             duplicate_element_with_mapping(x, &mut mapping, root_component, priority_delta)
         }),
     );
+    root_component.popup_windows.borrow_mut().extend(
+        inlined_component
+            .popup_windows
+            .borrow()
+            .iter()
+            .map(|p| duplicate_popup(p, &mut mapping, priority_delta)),
+    );
+
+    let mut moved_into_popup = HashSet::new();
+    if let Some(children) = move_children_into_popup {
+        let child_insertion_point = inlined_component.child_insertion_point.borrow();
+        let (insertion_element, index, cip_node) = child_insertion_point.as_ref().unwrap();
+
+        let insertion_element = mapping.get(&element_key(insertion_element.clone())).unwrap();
+        debug_assert!(!std::rc::Weak::ptr_eq(
+            &insertion_element.borrow().enclosing_component,
+            &elem_mut.enclosing_component,
+        ));
+        debug_assert!(root_component.popup_windows.borrow().iter().any(|p| Rc::ptr_eq(
+            &p.component,
+            &insertion_element.borrow().enclosing_component.upgrade().unwrap()
+        )));
+        for c in &children {
+            recurse_elem(&c, &(), &mut |e, _| {
+                e.borrow_mut().enclosing_component =
+                    insertion_element.borrow().enclosing_component.clone();
+                moved_into_popup.insert(element_key(e.clone()));
+            });
+        }
+        insertion_element.borrow_mut().children.splice(index..index, children);
+        let mut cip = root_component.child_insertion_point.borrow_mut();
+        if let Some(cip) = cip.as_mut() {
+            if Rc::ptr_eq(&cip.0, elem) {
+                *cip = (insertion_element.clone(), index + cip.1, cip_node.clone());
+            }
+        } else {
+            *cip = Some((insertion_element.clone(), *index, cip_node.clone()));
+        };
+    }
 
     for (k, val) in inlined_component.root_element.borrow().bindings.iter() {
         match elem_mut.bindings.entry(k.clone()) {
