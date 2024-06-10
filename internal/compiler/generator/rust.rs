@@ -1044,6 +1044,7 @@ fn generate_sub_component(
             }
 
             pub fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
+                #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
                 #(#user_init_code)*
             }

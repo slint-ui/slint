@@ -112,7 +112,7 @@ pub async fn run_passes(
         collect_init_code::collect_init_code(component);
     }
 
-    inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents);
+    inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
     collect_subcomponents::collect_subcomponents(root_component);
 
     focus_handling::call_focus_on_init(root_component);
@@ -184,7 +184,7 @@ pub async fn run_passes(
     collect_globals::collect_globals(doc, diag);
 
     if type_loader.compiler_config.inline_all_elements {
-        inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
+        inlining::inline(doc, inlining::InlineSelection::InlineAllComponents, diag);
         root_component.used_types.borrow_mut().sub_components.clear();
     }
 
