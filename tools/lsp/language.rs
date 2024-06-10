@@ -72,6 +72,9 @@ pub fn request_state(ctx: &std::rc::Rc<Context>) {
     let document_cache = ctx.document_cache.borrow();
 
     for (url, d) in document_cache.all_url_documents() {
+        if url.scheme() == "builtin" {
+            continue;
+        }
         if let Some(node) = &d.node {
             ctx.server_notifier.send_message_to_preview(common::LspToPreviewMessage::SetContents {
                 url: common::VersionedUrl::new(url, node.source_file.version()),

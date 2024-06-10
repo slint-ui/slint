@@ -58,7 +58,7 @@ impl DocumentCache {
         ))
     }
 
-    pub fn new_from_typeloader(type_loader: TypeLoader) -> Self {
+    pub fn new_from_type_loader(type_loader: TypeLoader) -> Self {
         Self(type_loader)
     }
 

@@ -6,8 +6,6 @@
 use crate::common::{ComponentInformation, DocumentCache, Position, PropertyChange};
 #[cfg(feature = "preview-engine")]
 use i_slint_compiler::langtype::{DefaultSizeBinding, ElementType};
-#[cfg(feature = "preview-engine")]
-use lsp_types::Url;
 
 #[cfg(feature = "preview-engine")]
 fn builtin_component_info(name: &str, fills_parent: bool) -> ComponentInformation {
@@ -98,7 +96,7 @@ fn exported_project_component_info(
     }
 }
 
-#[cfg(feature = "preview-engine")]
+#[cfg(test)]
 fn file_local_component_info(name: &str, position: Position) -> ComponentInformation {
     ComponentInformation {
         name: name.to_string(),
@@ -173,10 +171,10 @@ pub fn all_exported_components(
     result.dedup_by(|a, b| a.name == b.name);
 }
 
-#[cfg(feature = "preview-engine")]
+#[cfg(test)]
 pub fn file_local_components(
     document_cache: &DocumentCache,
-    url: &Url,
+    url: &lsp_types::Url,
     result: &mut Vec<ComponentInformation>,
 ) {
     let Some(doc) = document_cache.get_document(url) else { return };

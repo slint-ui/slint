@@ -12,6 +12,7 @@ use crate::langtype::{
     BuiltinElement, BuiltinPropertyInfo, ElementType, Enumeration, PropertyLookupResult, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
+use crate::typeloader;
 
 pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
     ("x", Type::LogicalLength),
@@ -234,6 +235,27 @@ pub struct TypeRegister {
 }
 
 impl TypeRegister {
+    pub(crate) fn snapshot(&self, snapshotter: &mut typeloader::Snapshotter) -> Self {
+        Self {
+            types: self.types.clone(),
+            elements: self
+                .elements
+                .iter()
+                .map(|(k, v)| (k.clone(), snapshotter.snapshot_element_type(v)))
+                .collect(),
+            supported_property_animation_types: self.supported_property_animation_types.clone(),
+            property_animation_type: snapshotter
+                .snapshot_element_type(&self.property_animation_type),
+            empty_type: snapshotter.snapshot_element_type(&self.empty_type),
+            context_restricted_types: self.context_restricted_types.clone(),
+            parent_registry: self
+                .parent_registry
+                .as_ref()
+                .map(|tr| snapshotter.snapshot_type_register(tr)),
+            expose_internal_types: self.expose_internal_types,
+        }
+    }
+
     /// FIXME: same as 'add' ?
     pub fn insert_type(&mut self, t: Type) {
         self.types.insert(t.to_string(), t);

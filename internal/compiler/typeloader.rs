@@ -10,8 +10,8 @@ use crate::diagnostics::{BuildDiagnostics, SourceFileVersion, Spanned};
 use crate::object_tree::{self, Document, ExportedName, Exports};
 use crate::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxToken};
 use crate::typeregister::TypeRegister;
-use crate::CompilerConfiguration;
-use crate::{fileaccess, parser};
+use crate::{expression_tree, CompilerConfiguration};
+use crate::{fileaccess, langtype, layout, parser};
 use core::future::Future;
 use itertools::Itertools;
 
@@ -65,6 +65,575 @@ impl ImportedName {
         };
 
         ImportedName { internal_name, external_name }
+    }
+}
+
+/// This function makes a snapshot of the current state of the type loader.
+/// This snapshot includes everything: Elements, Components, known types, ...
+/// and can be used to roll back to earlier states in the compilation process.
+///
+/// One way this is used is to create a raw `TypeLoader` for analysis purposes
+/// or to load a set of changes, see if those compile and then role back
+///
+/// The result may be `None` if the `TypeLoader` is actually in the process
+/// of loading more documents and is `Some` `TypeLoader` with a copy off all
+/// state connected with the original `TypeLoader`.
+pub fn snapshot(type_loader: &TypeLoader) -> Option<TypeLoader> {
+    let mut snapshotter = Snapshotter {
+        component_map: HashMap::new(),
+        element_map: HashMap::new(),
+        type_register_map: HashMap::new(),
+    };
+    snapshotter.snapshot_type_loader(type_loader)
+}
+
+pub(crate) struct Snapshotter {
+    component_map:
+        HashMap<by_address::ByAddress<Rc<object_tree::Component>>, Rc<object_tree::Component>>,
+    element_map: HashMap<by_address::ByAddress<object_tree::ElementRc>, object_tree::ElementRc>,
+    type_register_map:
+        HashMap<by_address::ByAddress<Rc<RefCell<TypeRegister>>>, Rc<RefCell<TypeRegister>>>,
+}
+
+impl Snapshotter {
+    fn snapshot_type_loader(&mut self, type_loader: &TypeLoader) -> Option<TypeLoader> {
+        let all_documents = self.snapshot_loaded_documents(&type_loader.all_documents)?;
+        Some(TypeLoader {
+            all_documents,
+            global_type_registry: self.snapshot_type_register(&type_loader.global_type_registry),
+            compiler_config: type_loader.compiler_config.clone(),
+            style: type_loader.style.clone(),
+        })
+    }
+
+    pub(crate) fn snapshot_type_register(
+        &mut self,
+        type_register: &Rc<RefCell<TypeRegister>>,
+    ) -> Rc<RefCell<TypeRegister>> {
+        if let Some(r) = self.type_register_map.get(&by_address::ByAddress(type_register.clone())) {
+            return r.clone();
+        }
+
+        let tr = Rc::new(RefCell::new(TypeRegister::default()));
+        self.type_register_map.insert(by_address::ByAddress(type_register.clone()), tr.clone());
+
+        *tr.borrow_mut() = self.snapshot_type_register_impl(type_register);
+
+        tr
+    }
+
+    fn snapshot_type_register_impl(
+        &mut self,
+        type_register: &Rc<RefCell<TypeRegister>>,
+    ) -> TypeRegister {
+        type_register.borrow().snapshot(self)
+    }
+
+    fn snapshot_loaded_documents(
+        &mut self,
+        loaded_documents: &LoadedDocuments,
+    ) -> Option<LoadedDocuments> {
+        if !loaded_documents.currently_loading.is_empty() {
+            return None;
+        }
+
+        Some(LoadedDocuments {
+            docs: loaded_documents
+                .docs
+                .iter()
+                .map(|(p, d)| (p.clone(), self.snapshot_document(d)))
+                .collect(),
+            currently_loading: Default::default(),
+        })
+    }
+
+    fn snapshot_document(&mut self, document: &object_tree::Document) -> object_tree::Document {
+        let root_component = self.snapshot_component(&document.root_component);
+        let inner_components =
+            document.inner_components.iter().map(|ic| self.snapshot_component(ic)).collect();
+        let exports = document.exports.snapshot(self);
+
+        object_tree::Document {
+            node: document.node.clone(),
+            inner_components,
+            inner_types: document.inner_types.clone(),
+            root_component,
+            local_registry: document.local_registry.snapshot(self),
+            custom_fonts: document.custom_fonts.clone(),
+            exports,
+        }
+    }
+
+    pub(crate) fn snapshot_component(
+        &mut self,
+        component: &Rc<object_tree::Component>,
+    ) -> Rc<object_tree::Component> {
+        if let Some(r) = self.component_map.get(&by_address::ByAddress(component.clone())) {
+            return r.clone();
+        }
+
+        let parent_element = if let Some(pe) = component.parent_element.upgrade() {
+            Rc::downgrade(&self.snapshot_element(&pe))
+        } else {
+            std::rc::Weak::default()
+        };
+        let r = Rc::new(object_tree::Component {
+            node: component.node.clone(),
+            id: component.id.clone(),
+            parent_element,
+            ..Default::default()
+        });
+        self.component_map.insert(by_address::ByAddress(component.clone()), r.clone());
+
+        let used_types = self.snapshot_used_sub_types(&component.used_types.borrow());
+        let embedded_file_resources = component.embedded_file_resources.borrow().clone();
+        let root_element = self.snapshot_element(&component.root_element);
+        let optimized_elements = component
+            .optimized_elements
+            .borrow()
+            .iter()
+            .map(|e| self.snapshot_element(e))
+            .collect();
+        let child_insertion_point = component
+            .child_insertion_point
+            .borrow()
+            .as_ref()
+            .map(|(e, s, n)| (self.snapshot_element(e), *s, n.clone()));
+
+        let popup_windows = component
+            .popup_windows
+            .borrow()
+            .iter()
+            .map(|p| self.snapshot_popup_window(p))
+            .collect();
+        let root_constraints =
+            self.snapshot_layout_constraints(&component.root_constraints.borrow());
+
+        *r.optimized_elements.borrow_mut() = optimized_elements;
+        *r.init_code.borrow_mut() = component.init_code.borrow().clone();
+        *r.used_types.borrow_mut() = used_types;
+        r.inherits_popup_window.set(component.inherits_popup_window.get());
+        *r.exported_global_names.borrow_mut() = component.exported_global_names.borrow().clone();
+        *r.private_properties.borrow_mut() = component.private_properties.borrow().clone();
+        r.is_root_component.set(component.is_root_component.get());
+        *r.embedded_file_resources.borrow_mut() = embedded_file_resources;
+
+        *r.root_element.borrow_mut() = root_element.take();
+        *r.child_insertion_point.borrow_mut() = child_insertion_point;
+        *r.popup_windows.borrow_mut() = popup_windows;
+
+        *r.root_constraints.borrow_mut() = root_constraints;
+
+        r
+    }
+
+    pub(crate) fn snapshot_element(
+        &mut self,
+        element: &object_tree::ElementRc,
+    ) -> object_tree::ElementRc {
+        if let Some(r) = self.element_map.get(&by_address::ByAddress(element.clone())) {
+            return r.clone();
+        }
+
+        let r = Rc::new(RefCell::new(object_tree::Element {
+            id: element.borrow().id.clone(),
+            ..Default::default()
+        }));
+        self.element_map.insert(by_address::ByAddress(element.clone()), r.clone());
+
+        *r.borrow_mut() = self.snapshot_element_impl(element);
+        r
+    }
+
+    fn snapshot_element_impl(&mut self, element: &object_tree::ElementRc) -> object_tree::Element {
+        let elem = element.borrow();
+        let children = elem.children.iter().map(|c| self.snapshot_element(c)).collect();
+        let base_type = self.snapshot_element_type(&elem.base_type);
+        let enclosing_component = if let Some(ec) = elem.enclosing_component.upgrade() {
+            Rc::downgrade(&self.snapshot_component(&ec))
+        } else {
+            std::rc::Weak::default()
+        };
+        let accessibility_props = object_tree::AccessibilityProps(
+            elem.accessibility_props.0.iter().map(|(k, v)| (k.clone(), v.snapshot(self))).collect(),
+        );
+        let geometry_props = elem.geometry_props.as_ref().map(|gp| object_tree::GeometryProps {
+            x: gp.x.snapshot(self),
+            y: gp.y.snapshot(self),
+            width: gp.width.snapshot(self),
+            height: gp.height.snapshot(self),
+        });
+        let states = elem
+            .states
+            .iter()
+            .map(|s| object_tree::State {
+                id: s.id.clone(),
+                condition: s.condition.clone(),
+                property_changes: s
+                    .property_changes
+                    .iter()
+                    .map(|(nr, expr, spc)| {
+                        let nr = nr.snapshot(self);
+                        let expr = self.snapshot_expression(expr);
+                        (nr, expr, spc.clone())
+                    })
+                    .collect(),
+            })
+            .collect();
+        let transitions = elem
+            .transitions
+            .iter()
+            .map(|t| object_tree::Transition {
+                is_out: t.is_out,
+                state_id: t.state_id.clone(),
+                property_animations: t
+                    .property_animations
+                    .iter()
+                    .map(|(nr, sl, el)| (nr.snapshot(self), sl.clone(), self.snapshot_element(el)))
+                    .collect(),
+                node: t.node.clone(),
+            })
+            .collect();
+        let repeated = elem.repeated.as_ref().map(|r| object_tree::RepeatedElementInfo {
+            model: self.snapshot_expression(&r.model),
+            model_data_id: r.model_data_id.clone(),
+            index_id: r.index_id.clone(),
+            is_conditional_element: r.is_conditional_element,
+            is_listview: r.is_listview.as_ref().map(|lv| object_tree::ListViewInfo {
+                viewport_y: lv.viewport_y.snapshot(self),
+                viewport_height: lv.viewport_height.snapshot(self),
+                viewport_width: lv.viewport_width.snapshot(self),
+                listview_height: lv.listview_height.snapshot(self),
+                listview_width: lv.listview_width.snapshot(self),
+            }),
+        });
+        let bindings = elem
+            .bindings
+            .iter()
+            .map(|(k, v)| {
+                let bm = v.borrow();
+                let binding = self.snapshot_binding_expression(&bm);
+                (k.clone(), RefCell::new(binding))
+            })
+            .collect();
+        let property_declarations = elem
+            .property_declarations
+            .iter()
+            .map(|(k, v)| {
+                let decl = object_tree::PropertyDeclaration {
+                    property_type: v.property_type.clone(),
+                    node: v.node.clone(),
+                    expose_in_public_api: v.expose_in_public_api,
+                    is_alias: v.is_alias.as_ref().map(|a| a.snapshot(self)),
+                    visibility: v.visibility,
+                    pure: v.pure,
+                };
+                (k.clone(), decl)
+            })
+            .collect();
+        let layout_info_prop =
+            elem.layout_info_prop.as_ref().map(|(n1, n2)| (n1.snapshot(self), n2.snapshot(self)));
+        let property_analysis = elem.property_analysis.borrow().clone();
+
+        object_tree::Element {
+            accessibility_props,
+            base_type,
+            bindings,
+            change_callbacks: elem.change_callbacks.clone(),
+            child_of_layout: elem.child_of_layout,
+            children,
+            debug: elem.debug.clone(),
+            default_fill_parent: elem.default_fill_parent,
+            enclosing_component,
+            geometry_props,
+            has_popup_child: elem.has_popup_child,
+            id: elem.id.clone(),
+            inline_depth: elem.inline_depth,
+            is_component_placeholder: elem.is_component_placeholder,
+            is_flickable_viewport: elem.is_flickable_viewport,
+            is_legacy_syntax: elem.is_legacy_syntax,
+            item_index: elem.item_index.clone(),
+            item_index_of_first_children: elem.item_index_of_first_children.clone(),
+            layout_info_prop,
+            named_references: elem.named_references.snapshot(self),
+            property_analysis: RefCell::new(property_analysis),
+            property_declarations,
+            repeated,
+            states,
+            transitions,
+        }
+    }
+
+    fn snapshot_binding_expression(
+        &mut self,
+        binding_expression: &expression_tree::BindingExpression,
+    ) -> expression_tree::BindingExpression {
+        expression_tree::BindingExpression {
+            expression: self.snapshot_expression(&binding_expression.expression),
+            span: binding_expression.span.clone(),
+            priority: binding_expression.priority,
+            animation: binding_expression.animation.as_ref().map(|pa| match pa {
+                object_tree::PropertyAnimation::Static(element) => {
+                    object_tree::PropertyAnimation::Static(self.snapshot_element(element))
+                }
+                object_tree::PropertyAnimation::Transition { state_ref, animations } => {
+                    object_tree::PropertyAnimation::Transition {
+                        state_ref: self.snapshot_expression(state_ref),
+                        animations: animations
+                            .iter()
+                            .map(|tpa| object_tree::TransitionPropertyAnimation {
+                                state_id: tpa.state_id,
+                                is_out: tpa.is_out,
+                                animation: self.snapshot_element(&tpa.animation),
+                            })
+                            .collect(),
+                    }
+                }
+            }),
+            analysis: binding_expression.analysis.as_ref().map(|a| {
+                expression_tree::BindingAnalysis {
+                    is_in_binding_loop: a.is_in_binding_loop.clone(),
+                    is_const: a.is_const,
+                    no_external_dependencies: a.no_external_dependencies,
+                }
+            }),
+            two_way_bindings: binding_expression
+                .two_way_bindings
+                .iter()
+                .map(|twb| twb.snapshot(self))
+                .collect(),
+        }
+    }
+
+    pub(crate) fn snapshot_element_type(
+        &mut self,
+        element_type: &langtype::ElementType,
+    ) -> langtype::ElementType {
+        // Components need to get adapted, the rest is fine I think...
+        match element_type {
+            langtype::ElementType::Component(component) => {
+                langtype::ElementType::Component(self.snapshot_component(component))
+            }
+            _ => element_type.clone(),
+        }
+    }
+
+    fn snapshot_used_sub_types(
+        &mut self,
+        used_types: &object_tree::UsedSubTypes,
+    ) -> object_tree::UsedSubTypes {
+        let globals =
+            used_types.globals.iter().map(|component| self.snapshot_component(component)).collect();
+        let structs_and_enums = used_types.structs_and_enums.clone();
+        let sub_components = used_types
+            .sub_components
+            .iter()
+            .map(|component| self.snapshot_component(component))
+            .collect();
+        object_tree::UsedSubTypes { globals, structs_and_enums, sub_components }
+    }
+
+    fn snapshot_popup_window(
+        &mut self,
+        popup_window: &object_tree::PopupWindow,
+    ) -> object_tree::PopupWindow {
+        object_tree::PopupWindow {
+            component: self.snapshot_component(&popup_window.component),
+            x: popup_window.x.snapshot(self),
+            y: popup_window.y.snapshot(self),
+            close_on_click: popup_window.close_on_click,
+            parent_element: self.snapshot_element(&popup_window.parent_element),
+        }
+    }
+
+    fn snapshot_layout_constraints(
+        &mut self,
+        layout_constraints: &layout::LayoutConstraints,
+    ) -> layout::LayoutConstraints {
+        layout::LayoutConstraints {
+            min_width: layout_constraints.min_width.as_ref().map(|lc| lc.snapshot(self)),
+            max_width: layout_constraints.max_width.as_ref().map(|lc| lc.snapshot(self)),
+            min_height: layout_constraints.min_height.as_ref().map(|lc| lc.snapshot(self)),
+            max_height: layout_constraints.max_height.as_ref().map(|lc| lc.snapshot(self)),
+            preferred_width: layout_constraints
+                .preferred_width
+                .as_ref()
+                .map(|lc| lc.snapshot(self)),
+            preferred_height: layout_constraints
+                .preferred_height
+                .as_ref()
+                .map(|lc| lc.snapshot(self)),
+            horizontal_stretch: layout_constraints
+                .horizontal_stretch
+                .as_ref()
+                .map(|lc| lc.snapshot(self)),
+            vertical_stretch: layout_constraints
+                .vertical_stretch
+                .as_ref()
+                .map(|lc| lc.snapshot(self)),
+            fixed_width: layout_constraints.fixed_width,
+            fixed_height: layout_constraints.fixed_height,
+        }
+    }
+
+    fn snapshot_expression(
+        &mut self,
+        expr: &expression_tree::Expression,
+    ) -> expression_tree::Expression {
+        use expression_tree::Expression;
+        match expr {
+            Expression::CallbackReference(nr, node_or_token) => {
+                Expression::CallbackReference(nr.snapshot(self), node_or_token.clone())
+            }
+            Expression::PropertyReference(nr) => Expression::PropertyReference(nr.snapshot(self)),
+            Expression::FunctionReference(nr, node_or_token) => {
+                Expression::FunctionReference(nr.snapshot(self), node_or_token.clone())
+            }
+            Expression::MemberFunction { base, base_node, member } => Expression::MemberFunction {
+                base: Box::new(self.snapshot_expression(base)),
+                base_node: base_node.clone(),
+                member: Box::new(self.snapshot_expression(member)),
+            },
+            Expression::ElementReference(el) => {
+                Expression::ElementReference(if let Some(el) = el.upgrade() {
+                    Rc::downgrade(&el)
+                } else {
+                    std::rc::Weak::default()
+                })
+            }
+            Expression::RepeaterIndexReference { element } => Expression::RepeaterIndexReference {
+                element: if let Some(el) = element.upgrade() {
+                    Rc::downgrade(&el)
+                } else {
+                    std::rc::Weak::default()
+                },
+            },
+            Expression::RepeaterModelReference { element } => Expression::RepeaterModelReference {
+                element: if let Some(el) = element.upgrade() {
+                    Rc::downgrade(&el)
+                } else {
+                    std::rc::Weak::default()
+                },
+            },
+            Expression::StoreLocalVariable { name, value } => Expression::StoreLocalVariable {
+                name: name.clone(),
+                value: Box::new(self.snapshot_expression(value)),
+            },
+            Expression::StructFieldAccess { base, name } => Expression::StructFieldAccess {
+                base: Box::new(self.snapshot_expression(base)),
+                name: name.clone(),
+            },
+            Expression::ArrayIndex { array, index } => Expression::ArrayIndex {
+                array: Box::new(self.snapshot_expression(array)),
+                index: Box::new(self.snapshot_expression(index)),
+            },
+            Expression::Cast { from, to } => {
+                Expression::Cast { from: Box::new(self.snapshot_expression(from)), to: to.clone() }
+            }
+            Expression::CodeBlock(exprs) => {
+                Expression::CodeBlock(exprs.iter().map(|e| self.snapshot_expression(e)).collect())
+            }
+            Expression::FunctionCall { function, arguments, source_location } => {
+                Expression::FunctionCall {
+                    function: Box::new(self.snapshot_expression(function)),
+                    arguments: arguments.iter().map(|e| self.snapshot_expression(e)).collect(),
+                    source_location: source_location.clone(),
+                }
+            }
+            Expression::SelfAssignment { lhs, rhs, op, node } => Expression::SelfAssignment {
+                lhs: Box::new(self.snapshot_expression(lhs)),
+                rhs: Box::new(self.snapshot_expression(rhs)),
+                op: *op,
+                node: node.clone(),
+            },
+            Expression::BinaryExpression { lhs, rhs, op } => Expression::BinaryExpression {
+                lhs: Box::new(self.snapshot_expression(lhs)),
+                rhs: Box::new(self.snapshot_expression(rhs)),
+                op: *op,
+            },
+            Expression::UnaryOp { sub, op } => {
+                Expression::UnaryOp { sub: Box::new(self.snapshot_expression(sub)), op: *op }
+            }
+            Expression::Condition { condition, true_expr, false_expr } => Expression::Condition {
+                condition: Box::new(self.snapshot_expression(condition)),
+                true_expr: Box::new(self.snapshot_expression(true_expr)),
+                false_expr: Box::new(self.snapshot_expression(false_expr)),
+            },
+            Expression::Array { element_ty, values } => Expression::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(|e| self.snapshot_expression(e)).collect(),
+            },
+            Expression::Struct { ty, values } => Expression::Struct {
+                ty: ty.clone(),
+                values: values
+                    .iter()
+                    .map(|(k, v)| (k.clone(), self.snapshot_expression(v)))
+                    .collect(),
+            },
+            Expression::PathData(path) => Expression::PathData(match path {
+                expression_tree::Path::Elements(path_elements) => expression_tree::Path::Elements(
+                    path_elements
+                        .iter()
+                        .map(|p| {
+                            expression_tree::PathElement {
+                                element_type: p.element_type.clone(), // builtin should be OK to clone
+                                bindings: p
+                                    .bindings
+                                    .iter()
+                                    .map(|(k, v)| {
+                                        (
+                                            k.clone(),
+                                            RefCell::new(
+                                                self.snapshot_binding_expression(&v.borrow()),
+                                            ),
+                                        )
+                                    })
+                                    .collect(),
+                            }
+                        })
+                        .collect(),
+                ),
+                expression_tree::Path::Events(ex1, ex2) => expression_tree::Path::Events(
+                    ex1.iter().map(|e| self.snapshot_expression(e)).collect(),
+                    ex2.iter().map(|e| self.snapshot_expression(e)).collect(),
+                ),
+                expression_tree::Path::Commands(ex) => {
+                    expression_tree::Path::Commands(Box::new(self.snapshot_expression(ex)))
+                }
+            }),
+            Expression::LinearGradient { angle, stops } => Expression::LinearGradient {
+                angle: Box::new(self.snapshot_expression(angle)),
+                stops: stops
+                    .iter()
+                    .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
+                    .collect(),
+            },
+            Expression::RadialGradient { stops } => Expression::RadialGradient {
+                stops: stops
+                    .iter()
+                    .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
+                    .collect(),
+            },
+            Expression::ReturnStatement(expr) => Expression::ReturnStatement(
+                expr.as_ref().map(|e| Box::new(self.snapshot_expression(e))),
+            ),
+            Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
+                Expression::LayoutCacheAccess {
+                    layout_cache_prop: layout_cache_prop.snapshot(self),
+                    index: *index,
+                    repeater_index: repeater_index
+                        .as_ref()
+                        .map(|e| Box::new(self.snapshot_expression(e))),
+                }
+            }
+            Expression::MinMax { ty, op, lhs, rhs } => Expression::MinMax {
+                ty: ty.clone(),
+                lhs: Box::new(self.snapshot_expression(lhs)),
+                rhs: Box::new(self.snapshot_expression(rhs)),
+                op: *op,
+            },
+            _ => expr.clone(),
+        }
     }
 }
 
@@ -460,8 +1029,9 @@ impl TypeLoader {
         version: SourceFileVersion,
         source_path: &Path,
         source_code: String,
+        keep_raw: bool,
         diag: &mut BuildDiagnostics,
-    ) -> PathBuf {
+    ) -> (PathBuf, Option<TypeLoader>) {
         let path = crate::pathutils::clean_path(path);
         let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
         let (path, doc) = Self::load_file_no_pass(
@@ -477,11 +1047,13 @@ impl TypeLoader {
 
         let mut state = state.borrow_mut();
         let state = &mut *state;
-        if !state.diag.has_error() {
-            crate::passes::run_passes(&doc, state.tl, state.diag).await;
-        }
+        let raw_type_loader = if !state.diag.has_error() {
+            crate::passes::run_passes(&doc, state.tl, keep_raw, state.diag).await
+        } else {
+            None
+        };
         state.tl.all_documents.docs.insert(path.clone(), doc);
-        path
+        (path, raw_type_loader)
     }
 
     async fn load_file_impl<'a>(
