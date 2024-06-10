@@ -126,6 +126,7 @@ slint-macros = { version = "=1.7.0", path = "api/rs/macros", default-features = 
 
 vtable = { version = "0.2", path = "helper_crates/vtable", default-features = false }
 
+by_address = { version = "1.0.4" }
 bytemuck = { version = "1.13.1" }
 cbindgen = { version = "0.26", default-features = false }
 cfg_aliases = { version = "0.2.0" }
