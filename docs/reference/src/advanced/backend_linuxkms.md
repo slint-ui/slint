@@ -41,6 +41,11 @@ This backend is still experimental. The backend has not undergone a great variet
 and there are [known issues](https://github.com/slint-ui/slint/labels/a%3Abackend-linuxkms).
 :::
 
+:::{note}
+A mouse is supported as input device, but rendering of the mouse cursor only works with the Skia and FemtoVG renderers,
+not with the Slint software renderer.
+:::
+
 ## Display Selection with OpenGL or Skia Software
 
 FemtoVG uses OpenGL, and Skia - unless Vulkan is enabled - uses OpenGL, too. Linux's direct rendering manager
