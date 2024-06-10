@@ -757,6 +757,12 @@ impl Image {
             _ => None,
         }
     }
+
+    /// Returns the pixel buffer for the Image, if available. Returns None if the pixels cannot
+    /// be obtained, for example when the image was created from borrowed OpenGL textures.    
+    pub fn image_buffer(&self) -> Option<SharedImageBuffer> {
+        self.0.render_to_buffer(None)
+    }
 }
 
 /// This enum describes the origin to use when rendering a borrowed OpenGL texture.
@@ -842,11 +848,13 @@ pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_,
 fn test_image_size_from_buffer_without_backend() {
     {
         assert_eq!(Image::default().size(), Default::default());
+        assert!(Image::default().image_buffer().is_none());
     }
     {
         let buffer = SharedPixelBuffer::<Rgb8Pixel>::new(320, 200);
-        let image = Image::from_rgb8(buffer);
-        assert_eq!(image.size(), [320, 200].into())
+        let image = Image::from_rgb8(buffer.clone());
+        assert_eq!(image.size(), [320, 200].into());
+        assert_eq!(image.image_buffer(), Some(SharedImageBuffer::RGB8(buffer)));
     }
 }
 
@@ -856,6 +864,7 @@ fn test_image_size_from_svg() {
     let simple_svg = r#"<svg width="320" height="200" xmlns="http://www.w3.org/2000/svg"></svg>"#;
     let image = Image::load_from_svg_data(simple_svg.as_bytes()).unwrap();
     assert_eq!(image.size(), [320, 200].into());
+    assert_eq!(image.image_buffer().unwrap().size(), image.size());
 }
 
 #[cfg(feature = "svg")]

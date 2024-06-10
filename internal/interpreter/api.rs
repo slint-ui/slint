@@ -21,7 +21,8 @@ pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 pub use i_slint_core::api::*;
 // keep in sync with api/rs/slint/lib.rs
 pub use i_slint_core::graphics::{
-    Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
+    Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedImageBuffer,
+    SharedPixelBuffer,
 };
 use i_slint_core::items::*;
 
