@@ -615,9 +615,9 @@ impl RendererSealed for SoftwareRenderer {
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
-        _wrap_anywhere: bool, //TODO: Add support for char-wrap
+        wrap_anywhere: bool,
     ) -> LogicalSize {
-        fonts::text_size(font_request, text, max_width, scale_factor)
+        fonts::text_size(font_request, text, max_width, scale_factor, wrap_anywhere)
     }
 
     fn text_input_byte_offset_for_position(
