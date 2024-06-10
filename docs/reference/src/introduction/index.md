@@ -17,9 +17,8 @@ There are three different pathways to get started with Slint:
     - [Visual Studio Code](https://code.visualstudio.com)
     - [The Slint for Visual Studio Code Extension](https://marketplace.visualstudio.com/items?itemName=Slint.slint)
 
-3. As a **Software Developer**, integrating Slint into a new or existing code base, choose one of these languages to
-   get started:
+3. As a **Software Developer**, integrating Slint into a new or existing code base, [follow the quickstart](slint-qs:index.html) and then for more in-depth next steps read the language-specific documentation:
 
-    - [C++](slint-qs:index.html#cpp)
-    - [Rust](slint-qs:index.html)
-    - [JavaScript](slint-qs:index.html)
+    - [C++](slint-cpp:index.html)
+    - [Rust](slint-rust:index.html)
+    - [JavaScript](slint-node:index.html)
