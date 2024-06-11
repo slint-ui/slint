@@ -1214,12 +1214,10 @@ impl Element {
                 match token.as_token().unwrap().text() {
                     "pure" => pure = Some(true),
                     "public" => {
-                        debug_assert_eq!(visibility, PropertyVisibility::Private);
                         visibility = PropertyVisibility::Public;
                         pure = pure.or(Some(false));
                     }
                     "protected" => {
-                        debug_assert_eq!(visibility, PropertyVisibility::Private);
                         visibility = PropertyVisibility::Protected;
                         pure = pure.or(Some(false));
                     }

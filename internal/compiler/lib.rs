@@ -206,10 +206,6 @@ pub async fn compile_syntax_node(
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
 
-    if diagnostics.has_error() {
-        return (crate::object_tree::Document::default(), diagnostics, loader);
-    }
-
     let doc_node: parser::syntax_nodes::Document = doc_node.into();
 
     let type_registry =
