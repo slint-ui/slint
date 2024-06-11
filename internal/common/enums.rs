@@ -334,6 +334,7 @@ macro_rules! for_each_enums {
 
             /// This enum represents the different values for the `accessible-role` property, used to describe the
             /// role of an element in the context of assistive technology such as screen readers.
+            #[non_exhaustive]
             enum AccessibleRole {
                 /// The element isn't accessible.
                 None,

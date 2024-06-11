@@ -320,6 +320,7 @@ cpp! {{
                     i_slint_core::items::AccessibleRole::Tree => QAccessible_Role_Tree,
                     i_slint_core::items::AccessibleRole::TextInput => QAccessible_Role_EditableText,
                     i_slint_core::items::AccessibleRole::Switch => QAccessible_Role_CheckBox,
+                    _ => QAccessible_Role_NoRole,
                 }
             });
         }
