@@ -205,6 +205,18 @@ public:
         }
     }
 
+    /// Returns the value of the element's `accessible-role` property, if present. Use this property
+    /// to locate elements by their type/role, i.e. buttons, checkboxes, etc.
+    std::optional<slint::AccessibleRole> accessible_role() const
+    {
+        slint::AccessibleRole role;
+        if (slint_testing_element_accessible_role(&inner, &role)) {
+            return role;
+        } else {
+            return std::nullopt;
+        }
+    }
+
     /// Returns the accessible-label of that element, if any.
     std::optional<SharedString> accessible_label() const
     {

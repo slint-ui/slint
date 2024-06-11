@@ -21,6 +21,7 @@ SCENARIO("ElementHandle")
             @children
         }
         component PushButton inherits ButtonBase {
+            accessible-role: button;
             in property <string> text <=> label.text;
             label := Text {}
         }
@@ -57,6 +58,7 @@ SCENARIO("ElementHandle")
         REQUIRE(*elements[0].type_name() == "PushButton");
         REQUIRE((*elements[0].bases()).size() == 1);
         REQUIRE((*elements[0].bases())[0] == "ButtonBase");
+        REQUIRE(*elements[0].accessible_role() == slint::AccessibleRole::Button);
     }
 
     SECTION("Find by type name")
