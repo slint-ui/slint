@@ -20,7 +20,7 @@ renderer-skia = ["renderer-skia-opengl"]
 renderer-skia-vulkan = ["i-slint-renderer-skia/vulkan", "vulkano"]
 renderer-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "gbm-sys", "glutin", "raw-window-handle"]
 renderer-femtovg = ["i-slint-renderer-femtovg", "drm", "gbm", "gbm-sys", "glutin", "raw-window-handle"]
-renderer-software = ["i-slint-core/software-renderer-systemfonts", "dep:bytemuck"]
+renderer-software = ["i-slint-core/software-renderer-systemfonts", "drm", "dep:bytemuck"]
 libseat = ["dep:libseat"]
 
 #default = ["renderer-skia", "renderer-femtovg"]
