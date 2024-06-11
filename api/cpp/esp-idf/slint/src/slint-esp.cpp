@@ -20,7 +20,7 @@ using RepaintBufferType = slint::platform::SoftwareRenderer::RepaintBufferType;
 
 struct EspPlatform : public slint::platform::Platform
 {
-    EspPlatform(SlintPlatformConfiguration config)
+    EspPlatform(const SlintPlatformConfiguration &config)
         : size(config.size),
           panel_handle(config.panel),
           touch_handle(config.touch),
@@ -356,7 +356,7 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
 }
 #endif
 
-void slint_esp_init(SlintPlatformConfiguration config)
+void slint_esp_init(const SlintPlatformConfiguration &config)
 {
     slint::platform::set_platform(std::make_unique<EspPlatform>(config));
 }

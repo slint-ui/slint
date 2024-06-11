@@ -95,4 +95,4 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
  *
  * This must be called before any other call to the Slint library.
  */
-void slint_esp_init(SlintPlatformConfiguration config);
+void slint_esp_init(const SlintPlatformConfiguration &config);
