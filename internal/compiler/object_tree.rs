@@ -384,8 +384,8 @@ impl Component {
         let weak = Rc::downgrade(&c);
         recurse_elem(&c.root_element, &(), &mut |e, _| {
             e.borrow_mut().enclosing_component = weak.clone();
-            if let Some(ref mut qualified_id) =
-                e.borrow_mut().debug.first_mut().unwrap().qualified_id
+            if let Some(qualified_id) =
+                e.borrow_mut().debug.first_mut().and_then(|x| x.qualified_id.as_mut())
             {
                 *qualified_id = format!("{}::{}", c.id, qualified_id);
             }
