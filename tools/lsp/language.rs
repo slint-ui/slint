@@ -46,10 +46,11 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 
+const POPULATE_COMMAND: &str = "slint/populate";
 const QUERY_PROPERTIES_COMMAND: &str = "slint/queryProperties";
 const REMOVE_BINDING_COMMAND: &str = "slint/removeBinding";
-const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
 const SET_BINDING_COMMAND: &str = "slint/setBinding";
+const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
 
 pub fn uri_to_file(uri: &lsp_types::Url) -> Option<PathBuf> {
     let path = uri.to_file_path().ok()?;
@@ -59,6 +60,7 @@ pub fn uri_to_file(uri: &lsp_types::Url) -> Option<PathBuf> {
 
 fn command_list() -> Vec<String> {
     vec![
+        POPULATE_COMMAND.into(),
         QUERY_PROPERTIES_COMMAND.into(),
         REMOVE_BINDING_COMMAND.into(),
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
@@ -77,6 +79,20 @@ fn create_show_preview_command(
         title,
         SHOW_PREVIEW_COMMAND.into(),
         Some(vec![file.as_str().into(), component_name.into()]),
+    )
+}
+
+fn create_populate_command(
+    uri: lsp_types::Url,
+    version: common::UrlVersion,
+    title: String,
+    text: String,
+) -> Command {
+    let text_document = lsp_types::OptionalVersionedTextDocumentIdentifier { uri, version };
+    Command::new(
+        title,
+        POPULATE_COMMAND.into(),
+        Some(vec![serde_json::to_value(text_document).unwrap(), text.into()]),
     )
 }
 
@@ -302,6 +318,9 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         }
         if params.command.as_str() == REMOVE_BINDING_COMMAND {
             return Ok(Some(remove_binding_command(&params.arguments, &ctx).await?));
+        }
+        if params.command.as_str() == POPULATE_COMMAND {
+            return Ok(Some(populate_command(&params.arguments, &ctx).await?));
         }
         Ok(None::<serde_json::Value>)
     });
@@ -661,6 +680,65 @@ pub async fn remove_binding_command(
         .server_notifier
         .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
             lsp_types::ApplyWorkspaceEditParams { label: Some("set binding".into()), edit },
+        )?
+        .await?;
+
+    if !response.applied {
+        return Err(response
+            .failure_reason
+            .unwrap_or("Operation failed, no specific reason given".into())
+            .into());
+    }
+
+    Ok(serde_json::to_value(()).expect("Failed to serialize ()!"))
+}
+
+pub async fn populate_command(
+    params: &[serde_json::Value],
+    ctx: &Rc<Context>,
+) -> Result<serde_json::Value> {
+    let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
+        params.first().ok_or("No text document provided")?.clone(),
+    )?;
+    let new_text =
+        serde_json::from_value::<String>(params.get(1).ok_or("No contents provided")?.clone())?;
+
+    let edit = {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
+        let uri = text_document.uri;
+        let version = document_cache.document_version(&uri);
+
+        if let Some(source_version) = text_document.version {
+            if let Some(current_version) = version {
+                if current_version != source_version {
+                    return Err(
+                        "Document version mismatch. Please refresh your command data".into()
+                    );
+                }
+            } else {
+                return Err(format!("Document with uri {uri} not found in cache").into());
+            }
+        }
+
+        let Some(doc) = document_cache
+            .documents
+            .get_document(&lsp_types::Url::to_file_path(&uri).unwrap_or_default())
+        else {
+            return Err("Document not in cache".into());
+        };
+        let Some(node) = &doc.node else {
+            return Err("Document has no node".into());
+        };
+
+        let edit = lsp_types::TextEdit { range: util::map_node(node).unwrap(), new_text };
+
+        common::create_workspace_edit(uri, version, vec![edit])
+    };
+
+    let response = ctx
+        .server_notifier
+        .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+            lsp_types::ApplyWorkspaceEditParams { label: Some("Populate empty file".into()), edit },
         )?
         .await?;
 
@@ -1225,26 +1303,96 @@ fn get_code_lenses(
     document_cache: &mut DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<CodeLens>> {
-    if cfg!(any(feature = "preview-builtin", feature = "preview-external")) {
-        let filepath = uri_to_file(&text_document.uri)?;
-        let doc = document_cache.documents.get_document(&filepath)?;
+    let filepath = uri_to_file(&text_document.uri)?;
+    let doc = document_cache.documents.get_document(&filepath)?;
+    let version = document_cache.document_version(&text_document.uri);
 
+    let mut result = vec![];
+
+    if cfg!(any(feature = "preview-builtin", feature = "preview-external")) {
         let inner_components = doc.inner_components.clone();
 
-        let mut r = vec![];
-
         // Handle preview lens
-        r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
+        result.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
                 range: util::map_node(&c.root_element.borrow().debug.first()?.node)?,
                 command: Some(create_show_preview_command(true, &text_document.uri, c.id.as_str())),
                 data: None,
             })
         }));
+    }
 
-        Some(r)
-    } else {
+    if let Some(node) = &doc.node {
+        if let Some(range) = util::map_node(node) {
+            let has_non_ws_token = node
+                .children_with_tokens()
+                .any(|nt| nt.kind() != SyntaxKind::Whitespace && nt.kind() != SyntaxKind::Eof);
+            if !has_non_ws_token {
+                result.push(CodeLens {
+                    range: range.clone(),
+                    command: Some(create_populate_command(
+                        text_document.uri.clone(),
+                        version.clone(),
+                        "Start with Hello World!".to_string(),
+                        r#"import { AboutSlint, Button, VerticalBox } from "std-widgets.slint";
+export component Demo {
+    VerticalBox {
+        alignment: start;
+        Text {
+            text: "Hello World!";
+            font-size: 24px;
+            horizontal-alignment: center;
+        }
+        AboutSlint {
+            preferred-height: 150px;
+        }
+        HorizontalLayout { alignment: center; Button { text: "OK!"; } }
+    }
+}"#
+                        .to_string(),
+                    )),
+                    data: None,
+                });
+                result.push(CodeLens {
+                    range,
+                    command: Some(create_populate_command(
+                        text_document.uri.clone(),
+                        version.clone(),
+                        "Start with Window".to_string(),
+                        r#"export component MainWindow inherits Window {
+    title: "Slint Main Window";
+
+    min-width: 200px;
+    min-height: 200px;
+}"#
+                        .to_string(),
+                    )),
+                    data: None,
+                });
+                result.push(CodeLens {
+                    range,
+                    command: Some(create_populate_command(
+                        text_document.uri.clone(),
+                        version.clone(),
+                        "Start with fixed size Window".to_string(),
+                        r#"export component MainWindow inherits Window {
+    title: "Slint Main Window";
+
+    width: 200px;
+    height: 200px;
+}"#
+                        .to_string(),
+                    )),
+                    data: None,
+                });
+            }
+        }
+    }
+
+    if result.is_empty() {
         None
+    } else {
+        Some(result)
     }
 }
 
