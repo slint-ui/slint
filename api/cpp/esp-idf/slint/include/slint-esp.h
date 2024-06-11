@@ -67,7 +67,6 @@ struct SlintPlatformConfiguration
  *    will be drawn. Slint will take care to flush it to the screen
  * - `buffer2`, if specified, is a second buffer to be used with double buffering,
  *    both buffer1 and buffer2 should then be obtained with `esp_lcd_rgb_panel_get_frame_buffer`
- * - `rotation` applies a transformation while rendering in the buffer
  *
  * Note: For compatibility, this function overload selects RGB16 byte swapping if single-buffering
  * is selected as rendering method.
@@ -75,10 +74,7 @@ struct SlintPlatformConfiguration
 void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                     std::optional<esp_lcd_touch_handle_t> touch,
                     std::span<slint::platform::Rgb565Pixel> buffer1,
-                    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2 = {},
-                    slint::platform::SoftwareRenderer::RenderingRotation rotation = {}
-
-);
+                    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2 = {});
 
 #ifdef SLINT_FEATURE_EXPERIMENTAL
 /**

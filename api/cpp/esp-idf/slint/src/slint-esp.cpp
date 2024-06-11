@@ -322,8 +322,7 @@ TaskHandle_t EspPlatform::task = {};
 void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
                     std::optional<esp_lcd_touch_handle_t> touch,
                     std::span<slint::platform::Rgb565Pixel> buffer1,
-                    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2,
-                    slint::platform::SoftwareRenderer::RenderingRotation rotation)
+                    std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2)
 {
 
     SlintPlatformConfiguration config {
@@ -332,7 +331,6 @@ void slint_esp_init(slint::PhysicalSize size, esp_lcd_panel_handle_t panel,
         .touch = touch,
         .buffer1 = buffer1,
         .buffer2 = buffer2,
-        .rotation = rotation,
         // For compatibility with earlier versions of Slint, we compute the value of
         // color_swap_16 the way it was implemented in Slint (slint-esp) <= 1.6.0:
         .color_swap_16 = buffer2.has_value()
