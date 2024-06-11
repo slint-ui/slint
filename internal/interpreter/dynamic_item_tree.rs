@@ -1915,6 +1915,8 @@ extern "C" fn item_geometry(component: ItemTreeRefPin, item_index: u32) -> Logic
     }
 }
 
+// silent the warning despite `AccessibleRole` is a `#[non_exhaustive]` enum from another crate.
+#[allow(improper_ctypes_definitions)]
 extern "C" fn accessible_role(component: ItemTreeRefPin, item_index: u32) -> AccessibleRole {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
