@@ -310,6 +310,12 @@ impl ElementHandle {
         })
     }
 
+    /// Returns the value of the element's `accessible-role` property, if present. Use this property to
+    /// locate elements by their type/role, i.e. buttons, checkboxes, etc.
+    pub fn accessible_role(&self) -> Option<crate::AccessibleRole> {
+        self.item.upgrade().map(|item| item.accessible_role())
+    }
+
     /// Invokes the default accessible action on the element. For example a `MyButton` element might declare
     /// an accessible default action that simulates a click, as in the following example:
     ///
@@ -527,7 +533,9 @@ fn test_conditional() {
     slint::slint! {
         export component App inherits Window {
             in property <bool> condition: false;
-            if condition: dynamic-elem := Rectangle {}
+            if condition: dynamic-elem := Rectangle {
+                accessible-role: text;
+            }
             visible-element := Rectangle {
                 visible: !condition;
                 inner-element := Text { text: "hello"; }
@@ -551,6 +559,7 @@ fn test_conditional() {
     assert_eq!(elem.id().unwrap(), "App::dynamic-elem");
     assert_eq!(elem.type_name().unwrap(), "Rectangle");
     assert_eq!(elem.bases().unwrap().count(), 0);
+    assert_eq!(elem.accessible_role().unwrap(), crate::AccessibleRole::Text);
 
     assert_eq!(ElementHandle::find_by_element_id(&app, "App::visible-element").count(), 0);
     assert_eq!(ElementHandle::find_by_element_id(&app, "App::inner-element").count(), 0);

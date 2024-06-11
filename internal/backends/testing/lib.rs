@@ -37,3 +37,5 @@ pub fn init_integration_test() {
     i_slint_core::platform::set_platform(Box::new(testing_backend::TestingBackend::new()))
         .expect("platform already initialized");
 }
+
+pub use i_slint_core::items::AccessibleRole;
