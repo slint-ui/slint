@@ -14,6 +14,7 @@ members = [
     'examples/7guis',
     'examples/gallery',
     'examples/imagefilter/rust',
+    'examples/maps',
     'examples/memory',
     'examples/opengl_underlay',
     'examples/opengl_texture',
