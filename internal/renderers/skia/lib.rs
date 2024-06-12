@@ -196,6 +196,12 @@ impl SkiaRenderer {
         size: PhysicalWindowSize,
         scale_factor: f32,
     ) -> Result<(), PlatformError> {
+        self.image_cache.clear_all();
+        self.path_cache.clear_all();
+        // Destroy the old surface before allocating the new one, to work around
+        // the vivante drivers using zwp_linux_explicit_synchronization_v1 and
+        // trying to create a second synchronization object and that's not allowed.
+        drop(self.surface.borrow_mut().take());
         let surface = (self.surface_factory)(window_handle, display_handle, size)?;
         surface.set_scale_factor(scale_factor);
         self.set_surface(surface);
