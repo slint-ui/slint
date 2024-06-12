@@ -144,8 +144,10 @@ impl World {
         let m = 1 << self.zoom_level;
         let min_x = (self.offset_x / TILE_SIZE as f64).floor() as isize;
         let min_y = (self.offset_y / TILE_SIZE as f64).floor() as isize;
-        let max_x = (((self.offset_x + self.visible_width) / TILE_SIZE as f64).ceil() as isize + 1).min(m);
-        let max_y = (((self.offset_y + self.visible_height) / TILE_SIZE as f64).ceil() as isize + 1).min(m);
+        let max_x =
+            (((self.offset_x + self.visible_width) / TILE_SIZE as f64).ceil() as isize + 1).min(m);
+        let max_y =
+            (((self.offset_y + self.visible_height) / TILE_SIZE as f64).ceil() as isize + 1).min(m);
         // remove tiles that is too far away
         const KEEP_CACHED_TILES: isize = 10;
         let keep = |coord: &TileCoordinate| {
@@ -359,7 +361,8 @@ fn main() {
             drop(world);
             state.set_viewport_size();
             state.clone().do_poll();
-        }).unwrap();
+        })
+        .unwrap();
     }
 
     state.main_ui.run().unwrap();
