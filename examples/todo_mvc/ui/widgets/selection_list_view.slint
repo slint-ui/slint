@@ -91,7 +91,7 @@ export component SelectionListView inherits ListView {
     callback remove(/* index */ int);
 
     for item[index] in root.model : SelectionListViewItemDelegate {
-        width: root.width;
+        width: root.visible-width;
         text: item.text;
         description: item.description;
         checked: item.checked;

@@ -45,4 +45,3 @@ impl traits::TaskRepository for MockTaskRepository {
         task
     }
 }
-
