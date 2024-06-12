@@ -11,6 +11,9 @@
 #    ifdef SLINT_FEATURE_EXPERIMENTAL
 
 namespace slint::testing {
+
+using slint::cbindgen_private::AccessibleRole;
+
 /// Init the testing backend.
 /// Should be called before any other Slint function that can access the platform.
 /// Then future windows will not appear on the screen anymore
@@ -207,7 +210,7 @@ public:
 
     /// Returns the value of the element's `accessible-role` property, if present. Use this property
     /// to locate elements by their type/role, i.e. buttons, checkboxes, etc.
-    std::optional<slint::AccessibleRole> accessible_role() const
+    std::optional<slint::testing::AccessibleRole> accessible_role() const
     {
         if (inner.element_index != 0)
             return std::nullopt;

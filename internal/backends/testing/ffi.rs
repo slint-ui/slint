@@ -107,4 +107,3 @@ pub extern "C" fn slint_testing_element_bases(
         false
     }
 }
-

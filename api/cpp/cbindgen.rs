@@ -28,10 +28,6 @@ fn enums(path: &Path) -> anyhow::Result<()> {
             writeln!(enums_priv, "using slint::PointerEventButton;")?;
             &mut enums_pub
         }};
-        (AccessibleRole) => {{
-            writeln!(enums_priv, "using slint::AccessibleRole;")?;
-            &mut enums_pub
-        }};
         ($_:ident) => {
             &mut enums_priv
         };

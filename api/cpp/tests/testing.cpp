@@ -58,7 +58,7 @@ SCENARIO("ElementHandle")
         REQUIRE(*elements[0].type_name() == "PushButton");
         REQUIRE((*elements[0].bases()).size() == 1);
         REQUIRE((*elements[0].bases())[0] == "ButtonBase");
-        REQUIRE(*elements[0].accessible_role() == slint::AccessibleRole::Button);
+        REQUIRE(*elements[0].accessible_role() == slint::testing::AccessibleRole::Button);
     }
 
     SECTION("Find by type name")
