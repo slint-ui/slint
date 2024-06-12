@@ -101,6 +101,7 @@ myst_url_schemes = {
     "slint-rust": f"https://slint.dev/releases/{version}/docs/rust/slint/{{{{path}}}}",
     "slint-build-rust": f"https://slint.dev/releases/{version}/docs/rust/slint_build/{{{{path}}}}",
     "slint-node": f"https://slint.dev/releases/{version}/docs/node/{{{{path}}}}",
+    "slint-reference": f"https://slint.dev/releases/{version}/docs/slint/{{{{path}}}}",
     'http': None, 'https': None, 'mailto': None,
 }
 
