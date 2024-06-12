@@ -80,8 +80,8 @@ export component MainUI inherits Window {
 
     Text {
         text: "Map data from OpenStreetMap";
-        x: fli.x + fli.width - self.width - 3px;
-        y: fli.y + fli.height - self.height - 3px;
+        x: fli.x + (fli.width) - (self.width) - 3px;
+        y: fli.y + (fli.height) - (self.height) - 3px;
         TouchArea {
             clicked => {
                 root.link-clicked();
@@ -141,12 +141,13 @@ impl World {
     }
 
     fn reset_view(&mut self) {
-        // remove any tile that is too far away from the center
-        const KEEP_CACHED_TILES: isize = 2;
+        let m = 1 << self.zoom_level;
         let min_x = (self.offset_x / TILE_SIZE as f64).floor() as isize;
         let min_y = (self.offset_y / TILE_SIZE as f64).floor() as isize;
-        let max_x = ((self.offset_x + self.visible_width) / TILE_SIZE as f64).ceil() as isize;
-        let max_y = ((self.offset_y + self.visible_height) / TILE_SIZE as f64).ceil() as isize;
+        let max_x = (((self.offset_x + self.visible_width) / TILE_SIZE as f64).ceil() as isize + 1).min(m);
+        let max_y = (((self.offset_y + self.visible_height) / TILE_SIZE as f64).ceil() as isize + 1).min(m);
+        // remove tiles that is too far away
+        const KEEP_CACHED_TILES: isize = 10;
         let keep = |coord: &TileCoordinate| {
             coord.z == self.zoom_level
                 && (coord.x > min_x - KEEP_CACHED_TILES)
@@ -154,10 +155,8 @@ impl World {
                 && (coord.y > min_y - KEEP_CACHED_TILES)
                 && (coord.y < max_y + KEEP_CACHED_TILES)
         };
-        self.loaded_tiles.retain(|coord, _| keep(coord));
         self.loading_tiles.retain(|coord, _| keep(coord));
-
-        // load tiles that are not loaded yet
+        self.loaded_tiles.retain(|coord, _| keep(coord));
 
         let client = reqwest::Client::new();
 
@@ -301,16 +300,6 @@ fn main() {
         poll_handle: None.into(),
     });
 
-    {
-        let size = state.main_ui.window().size();
-        let mut world = state.world.borrow_mut();
-        world.visible_height = size.height as f64;
-        world.visible_width = size.width as f64;
-        world.reset_view();
-        drop(world);
-        state.set_viewport_size();
-        state.clone().do_poll();
-    }
     let state_weak = Rc::downgrade(&state);
     state.main_ui.on_flicked(move |ox, oy| {
         let state = state_weak.upgrade().unwrap();
@@ -359,6 +348,19 @@ fn main() {
         state.set_viewport_size();
         state.do_poll();
     });
+
+    {
+        let state = state.clone();
+        slint::spawn_local(async move {
+            let mut world = state.world.borrow_mut();
+            world.visible_width = state.main_ui.get_visible_width() as f64;
+            world.visible_height = state.main_ui.get_visible_height() as f64;
+            world.reset_view();
+            drop(world);
+            state.set_viewport_size();
+            state.clone().do_poll();
+        }).unwrap();
+    }
 
     state.main_ui.run().unwrap();
 }
