@@ -82,6 +82,7 @@ accepted = [
     "BSL-1.0",
     "ISC",
     "Unicode-DFS-2016",
+    "Unicode-3.0",
     "OpenSSL",
     "WTFPL",
     "GPL-3.0", # That's only for Slint
