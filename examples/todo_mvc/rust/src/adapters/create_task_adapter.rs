@@ -23,9 +23,9 @@ fn connect_with_controller<R: DateTimeRepository + Clone>(
 fn connect_with_task_list_controller<R: TaskRepository + Clone>(
     view_handle: &ui::MainWindow,
     controller: &TaskListController<R>,
-    func: impl FnOnce(ui::CreateTaskAdapter, TaskListController<R>) + 'static,
+    connect_adapter_controller: impl FnOnce(ui::CreateTaskAdapter, TaskListController<R>) + 'static,
 ) {
-    func(view_handle.global::<ui::CreateTaskAdapter>(), controller.clone());
+    connect_adapter_controller(view_handle.global::<ui::CreateTaskAdapter>(), controller.clone());
 }
 
 // one place to implement connection between adapter (view) and controller
