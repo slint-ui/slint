@@ -21,11 +21,11 @@ pub fn date_time_repo() -> impl traits::DateTimeRepository + Clone {
 
 pub fn task_repo() -> impl traits::TaskRepository + Clone {
     MockTaskRepository::new(vec![
-        TaskModel { title: "Learn Rust".into(), checked: true, due_date: 1717686537151 },
-        TaskModel { title: "Learn Slint".into(), checked: true, due_date: 1717686537151 },
+        TaskModel { title: "Learn Rust".into(), done: true, due_date: 1717686537151 },
+        TaskModel { title: "Learn Slint".into(), done: true, due_date: 1717686537151 },
         TaskModel {
             title: "Create project with Rust and Slint".into(),
-            checked: true,
+            done: true,
             due_date: 1717686537151,
         },
     ])

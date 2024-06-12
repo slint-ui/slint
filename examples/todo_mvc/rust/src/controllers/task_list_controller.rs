@@ -62,8 +62,8 @@ mod tests {
 
     fn test_controller() -> TaskListController<MockTaskRepository> {
         TaskListController::new(MockTaskRepository::new(vec![
-            TaskModel { title: "Item 1".into(), due_date: 1, checked: true },
-            TaskModel { title: "Item 2".into(), due_date: 1, checked: false },
+            TaskModel { title: "Item 1".into(), due_date: 1, done: true },
+            TaskModel { title: "Item 2".into(), due_date: 1, done: false },
         ]))
     }
 
@@ -75,11 +75,11 @@ mod tests {
         assert_eq!(tasks.row_count(), 2);
         assert_eq!(
             tasks.row_data(0),
-            Some(TaskModel { title: "Item 1".into(), due_date: 1, checked: true },)
+            Some(TaskModel { title: "Item 1".into(), due_date: 1, done: true },)
         );
         assert_eq!(
             tasks.row_data(1),
-            Some(TaskModel { title: "Item 2".into(), due_date: 1, checked: false },)
+            Some(TaskModel { title: "Item 2".into(), due_date: 1, done: false },)
         );
     }
 
@@ -88,9 +88,9 @@ mod tests {
         let controller = test_controller();
         let tasks = controller.tasks();
 
-        assert!(tasks.row_data(0).unwrap().checked);
+        assert!(tasks.row_data(0).unwrap().done);
         controller.toggle_task_checked(0);
-        assert!(!tasks.row_data(0).unwrap().checked);
+        assert!(!tasks.row_data(0).unwrap().done);
     }
 
     #[test]
@@ -104,7 +104,7 @@ mod tests {
 
         assert_eq!(
             tasks.row_data(0),
-            Some(TaskModel { title: "Item 2".into(), due_date: 1, checked: false },)
+            Some(TaskModel { title: "Item 2".into(), due_date: 1, done: false },)
         );
     }
 
@@ -138,7 +138,7 @@ mod tests {
 
         assert_eq!(
             tasks.row_data(2),
-            Some(TaskModel { title: "Item 3".into(), due_date: 3, checked: false },)
+            Some(TaskModel { title: "Item 3".into(), due_date: 3, done: false },)
         );
     }
 }

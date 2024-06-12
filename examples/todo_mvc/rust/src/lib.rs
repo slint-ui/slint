@@ -28,9 +28,7 @@ pub fn main() {
 }
 
 fn init() -> ui::MainWindow {
-    let main_window = ui::MainWindow::new().unwrap();
-
-    let view_handle = main_window.as_weak();
+    let view_handle = ui::MainWindow::new().unwrap();
 
     let task_list_controller = controllers::TaskListController::new(repositories::task_repo());
     task_list_adapter::connect(&view_handle, task_list_controller.clone());
@@ -42,7 +40,7 @@ fn init() -> ui::MainWindow {
     navigation_adapter::connect_create_task_controller(&view_handle, create_task_controller);
     create_task_adapter::connect_task_list_controller(&view_handle, task_list_controller);
 
-    main_window
+    view_handle
 }
 
 // FIXME: android example

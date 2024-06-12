@@ -12,29 +12,25 @@ use crate::{
 
 // a helper function to make adapter and controller connection a little bit easier
 fn connect_with_controller<R: DateTimeRepository + Clone>(
-    view_handle: &Weak<ui::MainWindow>,
+    view_handle: &ui::MainWindow,
     controller: &CreateTaskController<R>,
-    func: impl FnOnce(ui::CreateTaskAdapter, CreateTaskController<R>) + 'static,
+    connect_adapter_controller: impl FnOnce(ui::CreateTaskAdapter, CreateTaskController<R>) + 'static,
 ) {
-    if let Some(view) = view_handle.upgrade() {
-        func(view.global::<ui::CreateTaskAdapter>(), controller.clone());
-    }
+    connect_adapter_controller(view_handle.global::<ui::CreateTaskAdapter>(), controller.clone());
 }
 
 // a helper function to make adapter and controller connection a little bit easier
 fn connect_with_task_list_controller<R: TaskRepository + Clone>(
-    view_handle: &Weak<ui::MainWindow>,
+    view_handle: &ui::MainWindow,
     controller: &TaskListController<R>,
     func: impl FnOnce(ui::CreateTaskAdapter, TaskListController<R>) + 'static,
 ) {
-    if let Some(view) = view_handle.upgrade() {
-        func(view.global::<ui::CreateTaskAdapter>(), controller.clone());
-    }
+    func(view_handle.global::<ui::CreateTaskAdapter>(), controller.clone());
 }
 
 // one place to implement connection between adapter (view) and controller
 pub fn connect<R: DateTimeRepository + Clone + 'static>(
-    view_handle: &Weak<ui::MainWindow>,
+    view_handle: &ui::MainWindow,
     controller: CreateTaskController<R>,
 ) {
     connect_with_controller(view_handle, &controller, {
@@ -85,7 +81,7 @@ pub fn connect<R: DateTimeRepository + Clone + 'static>(
 }
 
 pub fn connect_task_list_controller<R: TaskRepository + Clone + 'static>(
-    view_handle: &Weak<ui::MainWindow>,
+    view_handle: &ui::MainWindow,
     controller: TaskListController<R>,
 ) {
     connect_with_task_list_controller(view_handle, &controller, {

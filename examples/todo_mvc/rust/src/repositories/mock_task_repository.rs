@@ -23,8 +23,8 @@ impl traits::TaskRepository for MockTaskRepository {
     }
 
     fn toggle(&self, index: usize) -> TaskModel {
-        let checked = self.tasks.as_ref().borrow()[index].checked;
-        self.tasks.as_ref().borrow_mut()[index].checked = !checked;
+        let checked = self.tasks.as_ref().borrow()[index].done;
+        self.tasks.as_ref().borrow_mut()[index].done = !checked;
         self.tasks.as_ref().borrow()[index].clone()
     }
 

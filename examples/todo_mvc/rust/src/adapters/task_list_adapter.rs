@@ -11,24 +11,20 @@ use crate::{
 
 // a helper function to make adapter and controller connection a little bit easier
 pub fn connect_with_controller<R: TaskRepository + Clone>(
-    view_handle: &Weak<ui::MainWindow>,
+    view_handle: &ui::MainWindow,
     controller: &TaskListController<R>,
-    func: impl FnOnce(ui::TaskListAdapter, TaskListController<R>) + 'static,
+    connect_adapter_controller: impl FnOnce(ui::TaskListAdapter, TaskListController<R>) + 'static,
 ) {
-    if let Some(view) = view_handle.upgrade() {
-        func(view.global::<ui::TaskListAdapter>(), controller.clone());
-    }
+    connect_adapter_controller(view_handle.global::<ui::TaskListAdapter>(), controller.clone());
 }
 
 // one place to implement connection between adapter (view) and controller
 pub fn connect<R: TaskRepository + Clone + 'static>(
-    view_handle: &Weak<ui::MainWindow>,
+    view_handle: &ui::MainWindow,
     controller: TaskListController<R>,
 ) {
     // sets a mapped list of the task items to the ui
     view_handle
-        .upgrade()
-        .unwrap()
         .global::<ui::TaskListAdapter>()
         .set_tasks(Rc::new(MapModel::new(controller.tasks(), map_task_to_item)).into());
 
@@ -61,7 +57,7 @@ pub fn connect<R: TaskRepository + Clone + 'static>(
 fn map_task_to_item(task: TaskModel) -> ui::SelectionListViewItem {
     ui::SelectionListViewItem {
         text: task.title.into(),
-        checked: task.checked,
+        checked: task.done,
         description: DateTime::from_timestamp_millis(task.due_date)
             .unwrap()
             // example: Thu, Jun 6, 2024 16:29

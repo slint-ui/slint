@@ -7,5 +7,5 @@ pub struct TaskModel {
 
     // due date in milliseconds
     pub due_date: i64,
-    pub checked: bool,
+    pub done: bool,
 }
