@@ -25,7 +25,7 @@ https://github.com/orgs/slint-ui/packages?q=torizon&tab=packages&q=torizon
 For example to run the container on an i.MX8 board with Vivante GPU, use the following command line:
 
 ```
-docker run --user=torizon -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw ghcr.io/slint-ui/slint/torizon-demos-arm64-vivante
+docker run --user=torizon -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' ghcr.io/slint-ui/slint/torizon-demos-arm64-vivante
 ```
 
 ## Selecting Demos
@@ -43,5 +43,5 @@ By default, the printer demo from /usr/bin is run. The containers however packag
 Run then by specifying them as parameter to `docker run`, for example:
 
 ```
-docker run --user=torizon -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw ghcr.io/slint-ui/slint/torizon-demos-arm64-vivante opengl_underlay
+docker run --user=torizon -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' ghcr.io/slint-ui/slint/torizon-demos-arm64-vivante opengl_underlay
 ```
