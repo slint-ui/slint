@@ -209,12 +209,12 @@ public:
     /// to locate elements by their type/role, i.e. buttons, checkboxes, etc.
     std::optional<slint::AccessibleRole> accessible_role() const
     {
-        slint::AccessibleRole role;
-        if (slint_testing_element_accessible_role(&inner, &role)) {
-            return role;
-        } else {
+        if (inner.element_index != 0)
             return std::nullopt;
+        if (auto item = private_api::upgrade_item_weak(inner.item)) {
+            return item->item_tree.vtable()->accessible_role(item->item_tree.borrow(), item->index);
         }
+        return std::nullopt;
     }
 
     /// Returns the accessible-label of that element, if any.

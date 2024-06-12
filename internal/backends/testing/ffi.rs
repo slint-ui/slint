@@ -108,15 +108,3 @@ pub extern "C" fn slint_testing_element_bases(
     }
 }
 
-#[no_mangle]
-pub extern "C" fn slint_testing_element_accessible_role(
-    element: &ElementHandle,
-    out: &mut crate::AccessibleRole,
-) -> bool {
-    if let Some(role) = element.accessible_role() {
-        *out = role;
-        true
-    } else {
-        false
-    }
-}
