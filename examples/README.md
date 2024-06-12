@@ -145,6 +145,12 @@ A Rust example that shows how render video frames with FFmpeg within a Slint sce
 
 ![Screenshot of the FFmpeg Example on macOS](https://github.com/slint-ui/slint/assets/1486/5a1fad32-611a-478e-ab8f-576b4b4bdaf3 "FFmpeg Example")
 
+### [`maps`](./maps)
+
+A rust example that load image tiles asynchronously from OpenStreetMap server and allow panning and zooming
+
+![Screenshot of the maps example](https://github.com/slint-ui/slint/assets/959326/f5e8cca6-dee1-4681-83da-88fec27f9a45 "Maps example")
+
 ### [`virtual keyboard`](./virtual_keyboard)
 
 | `.slint` Design | Rust Source | C++ Source |
