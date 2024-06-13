@@ -18,7 +18,7 @@ pub fn connect_create_task_controller<R: DateTimeRepository + Clone + 'static>(
         let view_handle = view_handle.as_weak();
 
         move || {
-            view_handle.upgrade().unwrap().global::<ui::NavigationAdapter>().invoke_previous_page();
+            view_handle.unwrap().global::<ui::NavigationAdapter>().invoke_previous_page();
         }
     });
 }
