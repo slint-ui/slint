@@ -36,13 +36,21 @@ A fictional user interface of a device that monitors energy consumption in a bui
 
 ### [`todo`](./todo)
 
-A simple todo mvc application
+A simple todo application
 
 | `.slint` Design | Rust Source | C++ Source | NodeJS | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- | --- | --- |
 | [`todo.slint`](./todo/ui/todo.slint) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://slint.dev/snapshots/master/demos/todo/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/todo/ui/todo.slint) |
 
 ![Screenshot of the Todo Demo](https://slint.dev/resources/todo_screenshot.png "Todo Demo")
+
+### [`todo-mvc`](./todo-mvc)
+
+A simple todo application based on the [Model View Controller](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller) pattern.
+
+| `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
+| --- | --- | --- | --- | --- | --- |
+| [`todo.slint`](./todo/ui/todo.slint) | [`main.rs`](./todo/rust/main.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/todo-mvc/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/todo-mvc/ui/index.slint) |
 
 ### [`carousel`](./carousel)
 

@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { SizeSettings, TodoPalette } from "styling.slint";
+import { FocusTouchArea } from "focus_touch_area.slint";
+import { StateLayer } from "./state_layer.slint";
+
+export component IconButton {
+    callback clicked;
+
+    in property <image> icon;
+
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    forward-focus: touch-area;
+    width: self.height;
+    height: SizeSettings.control-height;
+
+    touch-area := FocusTouchArea {
+        width: 100%;
+        height: 100%;
+
+        clicked => {
+            root.clicked();
+        }
+    }
+        
+    StateLayer {
+        width: 100%;
+        height: 100%;
+        border-radius: self.height / 2;
+        pressed: touch-area.pressed || touch-area.enter-pressed;
+        has-focus: touch-area.has-focus;
+        has-hover: touch-area.has-hover;
+    }
+
+    content-layer := HorizontalLayout {
+        alignment: center;
+
+        icon-image := Image {
+            source: root.icon;
+            height: SizeSettings.control-icon-height;
+            y: (parent.height - self.height) / 2;
+            colorize: TodoPalette.foreground;
+        }        
+    }
+}

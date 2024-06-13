@@ -1,0 +1,36 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "todo-mvc"
+version = "1.7.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2021"
+build = "build.rs"
+publish = false
+license = "MIT"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "src/lib.rs"
+name = "todo_lib_mvc"
+
+[[bin]]
+path = "src/main.rs"
+name = "todo-mvc"
+
+[dependencies]
+slint = { path = "../../../api/rs/slint", features = ["serde", "backend-android-activity-06"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { version = "0.2" }
+console_error_panic_hook = "0.1.5"
+
+[build-dependencies]
+slint-build = { path = "../../../api/rs/build" }
+
+[dev-dependencies]
+i-slint-backend-testing = { workspace = true }
