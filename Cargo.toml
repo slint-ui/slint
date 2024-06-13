@@ -133,6 +133,7 @@ bytemuck = { version = "1.13.1" }
 cbindgen = { version = "0.26", default-features = false }
 cfg_aliases = { version = "0.2.0" }
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
+clru = { version = "0.6.0" }
 css-color-parser2 = { version = "1.0.1" }
 derive_more = { version = "0.99.17" }
 euclid = { version = "0.22.1", default-features = false }
