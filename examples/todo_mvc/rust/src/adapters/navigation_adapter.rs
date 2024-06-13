@@ -32,7 +32,7 @@ pub fn connect_task_list_controller<R: TaskRepository + Clone + 'static>(
         let view_handle = view_handle.as_weak();
 
         move || {
-            view_handle.upgrade().unwrap().global::<ui::NavigationAdapter>().invoke_next_page();
+            view_handle.unwrap().global::<ui::NavigationAdapter>().invoke_next_page();
         }
     });
 }
