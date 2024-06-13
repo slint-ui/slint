@@ -928,13 +928,15 @@ impl ComponentDefinition {
         self.inner.unerase(guard).type_loader.get().unwrap().clone()
     }
 
-    /// Return the `TypeLoader` used when parsing the code in the interpreter.
+    /// Return the `TypeLoader` used when parsing the code in the interpreter in
+    /// a state before most passes were applied by the compiler.
+    ///
+    /// Each returned type loader is a deep copy of the entire state connected to it,
+    /// so this is a fairly expensive function!
     ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "highlight")]
     pub fn raw_type_loader(&self) -> Option<i_slint_compiler::typeloader::TypeLoader> {
-        use i_slint_compiler::typeloader;
-
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner
             .unerase(guard)
@@ -942,7 +944,7 @@ impl ComponentDefinition {
             .get()
             .unwrap()
             .as_ref()
-            .map(|tl| typeloader::snapshot(tl).unwrap())
+            .and_then(|tl| i_slint_compiler::typeloader::snapshot(tl))
     }
 }
 
