@@ -186,7 +186,7 @@ fn collect_all_element_nodes_covering_impl(
     position: LogicalPoint,
     component_instance: &ComponentInstance,
     current_element: &ElementRc,
-    component_stack: &Vec<Rc<Component>>,
+    component_stack: &mut Vec<Rc<Component>>,
     result: &mut Vec<SelectionCandidate>,
 ) {
     let ce = self_or_embedded_component_root(current_element);
@@ -195,15 +195,11 @@ fn collect_all_element_nodes_covering_impl(
     };
     let component_root_element = component.root_element.clone();
 
-    let mut tmp;
-    let children_component_stack = {
-        if Rc::ptr_eq(&component_root_element, &ce) {
-            tmp = component_stack.clone();
-            tmp.push(component.clone());
-            &tmp
-        } else {
-            component_stack
-        }
+    let must_pop = if Rc::ptr_eq(&component_root_element, &ce) {
+        component_stack.push(component.clone());
+        true
+    } else {
+        false
     };
 
     for c in ce.borrow().children.iter().rev() {
@@ -211,9 +207,13 @@ fn collect_all_element_nodes_covering_impl(
             position,
             component_instance,
             c,
-            children_component_stack,
+            component_stack,
             result,
         );
+    }
+
+    if must_pop {
+        component_stack.pop();
     }
 
     if element_covers_point(position, component_instance, &ce) {
@@ -238,7 +238,7 @@ pub fn collect_all_element_nodes_covering(
         position,
         component_instance,
         &root_element,
-        &vec![],
+        &mut vec![],
         &mut elements,
     );
     elements
