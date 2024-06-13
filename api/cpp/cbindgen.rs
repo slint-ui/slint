@@ -28,14 +28,30 @@ fn enums(path: &Path) -> anyhow::Result<()> {
             writeln!(enums_priv, "using slint::PointerEventButton;")?;
             &mut enums_pub
         }};
+        (AccessibleRole) => {{
+            writeln!(enums_priv, "using slint::testing::AccessibleRole;")?;
+            &mut enums_pub
+        }};
         ($_:ident) => {
             &mut enums_priv
+        };
+    }
+    macro_rules! enum_sub_namespace {
+        (AccessibleRole) => {{
+            Some("testing")
+        }};
+        ($_:ident) => {
+            None
         };
     }
     macro_rules! print_enums {
          ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
              $(
                 let file = enum_file!($Name);
+                let namespace: Option<&'static str> = enum_sub_namespace!($Name);
+                if let Some(ns) = namespace {
+                    writeln!(file, "namespace {} {{", ns)?;
+                }
                 $(writeln!(file, "///{}", $enum_doc)?;)*
                 writeln!(file, "enum class {} {{", stringify!($Name))?;
                 $(
@@ -43,6 +59,9 @@ fn enums(path: &Path) -> anyhow::Result<()> {
                     writeln!(file, "    {},", stringify!($Value).trim_start_matches("r#"))?;
                 )*
                 writeln!(file, "}};")?;
+                if namespace.is_some() {
+                    writeln!(file, "}}")?;
+                }
              )*
          }
     }
