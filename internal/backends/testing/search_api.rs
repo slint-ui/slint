@@ -36,7 +36,7 @@ impl<T: ComponentHandle> ElementRoot for T {
 
 impl<T: ComponentHandle> Sealed for T {}
 
-/// `ElementHandle`` wraps an existing element in a Slint UI. An ElementHandle does not keep
+/// `ElementHandle` wraps an existing element in a Slint UI. An ElementHandle does not keep
 /// the corresponding element in the UI alive. Use [`Self::is_valid()`] to verify that
 /// it is still alive.
 ///
