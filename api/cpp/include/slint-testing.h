@@ -7,8 +7,8 @@
 #include <string_view>
 #include <type_traits>
 
-#ifdef SLINT_FEATURE_TESTING
-#    ifdef SLINT_FEATURE_EXPERIMENTAL
+#if defined(SLINT_FEATURE_TESTING) || defined(DOXYGEN)
+#    if defined(SLINT_FEATURE_EXPERIMENTAL) || defined(DOXYGEN)
 
 namespace slint::testing {
 
