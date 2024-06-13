@@ -221,6 +221,11 @@ public:
         cbindgen_private::slint_register_bitmap_font(&inner, &font);
     }
 
+    inline float default_font_size() const
+    {
+        return cbindgen_private::slint_windowrc_default_font_size(&inner);
+    }
+
     /// \private
     const cbindgen_private::WindowAdapterRcOpaque &handle() const { return inner; }
 

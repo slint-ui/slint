@@ -2528,7 +2528,6 @@ fn access_window_field(ctx: &EvaluationContext) -> String {
 /// let access = access_member(...);
 /// format!("{access}(...)")
 /// ```
-
 fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) -> String {
     fn in_native_item(
         ctx: &EvaluationContext,
@@ -3076,15 +3075,10 @@ fn compile_builtin_function_call(
 
     match function {
         BuiltinFunction::GetWindowScaleFactor => {
-            let window = access_window_field(ctx);
-            format!("{}.scale_factor()", window)
+            format!("{}.scale_factor()", access_window_field(ctx))
         }
         BuiltinFunction::GetWindowDefaultFontSize => {
-            let window_item_name = ident(&ctx.public_component.item_tree.root.items[0].name);
-            format!(
-                "{}->{}.default_font_size.get()",
-                ctx.generator_state.root_access, window_item_name
-            )
+            format!("{}.default_font_size()", access_window_field(ctx))
         }
         BuiltinFunction::AnimationTick => "slint::cbindgen_private::slint_animation_tick()".into(),
         BuiltinFunction::Debug => {

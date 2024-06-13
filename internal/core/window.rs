@@ -1476,6 +1476,15 @@ pub mod ffi {
             .map_or(ColorScheme::Unknown, |x| x.color_scheme())
     }
 
+    /// Return the default-font-size property of the WindowItem
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_default_font_size(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> f32 {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().0.window_item().unwrap().as_pin_ref().default_font_size().get()
+    }
+
     /// Dispatch a key pressed or release event
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_dispatch_key_event(
