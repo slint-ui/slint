@@ -79,6 +79,8 @@ default = ["backend-default", "renderer-femtovg", "preview"]
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 
+by_address = { workspace = true }
+clru = { workspace = true }
 dissimilar = "1.0.7"
 euclid = { workspace = true }
 itertools = { workspace = true }

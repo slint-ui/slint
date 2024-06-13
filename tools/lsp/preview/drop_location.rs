@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::cell::RefCell;
+use std::num::NonZeroUsize;
+
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
@@ -601,7 +604,7 @@ fn find_filtered_location(
 
 /// Find the Element to insert into. None means we can not insert at this point.
 pub fn can_drop_at(position: LogicalPoint, component_type: &str) -> bool {
-    let dm = &super::component_instance()
+    let dm = &preview::component_instance()
         .and_then(|ci| find_drop_location(&ci, position, component_type));
 
     preview::set_drop_mark(&dm.as_ref().and_then(|dm| dm.drop_mark.clone()));
@@ -616,27 +619,21 @@ pub fn workspace_edit_compiles(
         return false;
     };
 
-    let Some(mut tmp_document_cache) = document_cache.snapshot() else {
-        return false;
-    };
     let mut diag = BuildDiagnostics::default();
+
+    let mut document_cache = document_cache.snapshot().expect("This is not loading anything!");
 
     // Fill in changed sources:
     for (u, c) in result.drain(..).map(|mut r| {
         let contents = std::mem::take(&mut r.contents);
         (r.url.clone(), contents)
     }) {
-        diag = BuildDiagnostics::default(); // reset errors that might be due to missing changes elsewhere..
-                                            // <debug>
-        let _ = crate::preview::poll_once(tmp_document_cache.load_url(&u, None, c, &mut diag));
+        diag = BuildDiagnostics::default(); // reset errors that might be due to missing changes elsewhere
+
+        let _ = preview::poll_once(document_cache.load_url(&u, None, c, &mut diag));
     }
 
-    if diag.has_error() {
-        eprintln!("Compilation failed! Diagnostics:\n{}", diag.diagnostics_as_string());
-        return false;
-    }
-
-    true
+    !diag.has_error()
 }
 
 /// Find the Element to insert into. None means we can not insert at this point.
@@ -654,39 +651,57 @@ pub fn can_move_to(
     let dm =
         find_move_location(&component_instance, mouse_position, &element_node, &component_type);
 
-    if let Some(dm) = &dm {
-        if let Some((edit, _)) =
-            create_move_element_workspace_edit(&component_instance, dm, &element_node, position)
-        {
-            if let Some(lsp_types::DocumentChanges::Edits(e)) = &edit.document_changes {
-                for e in e {
-                    eprintln!("Edit: {}", e.text_document.uri);
-                    for e in &e.edits {
-                        match &e {
-                            lsp_types::OneOf::Left(e) => {
-                                eprintln!("    {:?} => \"{}\"", e.range, e.new_text);
-                            }
-                            _ => {
-                                eprintln!("Annotated edit. No idea how that got here");
-                            }
-                        }
-                    }
-                }
-            } else {
-                eprintln!("No docuemnt changes in WorkspaceEdit!");
-            }
-
-            if !workspace_edit_compiles(document_cache, &edit) {
-                preview::set_drop_mark(&None);
-                return false;
-            }
+    let can_move = if let Some(dm) = &dm {
+        // Cache compilation results:
+        #[derive(Clone, Debug, Hash, Eq, PartialEq)]
+        struct CacheEntry {
+            source_element: by_address::ByAddress<i_slint_compiler::object_tree::ElementRc>,
+            source_node_index: usize,
+            target_element: by_address::ByAddress<i_slint_compiler::object_tree::ElementRc>,
+            target_node_index: usize,
+            child_index: usize,
         }
-        preview::set_drop_mark(&dm.drop_mark);
+        static mut CACHE: std::cell::OnceCell<RefCell<clru::CLruCache<CacheEntry, bool>>> =
+            std::cell::OnceCell::new();
+
+        // SAFETY: This uses the document_cache, which means it runs in the UI thread.
+        let cache = unsafe {
+            CACHE.get_or_init(|| RefCell::new(clru::CLruCache::new(NonZeroUsize::new(10).unwrap())))
+        };
+        let mut cache = cache.borrow_mut();
+
+        let cache_entry = CacheEntry {
+            source_element: by_address::ByAddress(element_node.element.clone()),
+            source_node_index: element_node.debug_index,
+            target_element: by_address::ByAddress(dm.target_element_node.element.clone()),
+            target_node_index: dm.target_element_node.debug_index,
+            child_index: dm.child_index,
+        };
+
+        if let Some(does_compile) = cache.get(&cache_entry) {
+            *does_compile
+        } else {
+            let does_compile = if let Some((edit, _)) =
+                create_move_element_workspace_edit(&component_instance, dm, &element_node, position)
+            {
+                workspace_edit_compiles(document_cache, &edit)
+            } else {
+                false
+            };
+            cache.put(cache_entry, does_compile);
+            does_compile
+        }
+    } else {
+        false
+    };
+
+    if can_move {
+        preview::set_drop_mark(&dm.unwrap().drop_mark);
     } else {
         preview::set_drop_mark(&None);
     }
 
-    dm.is_some()
+    can_move
 }
 
 /// Extra data on an added Element, relevant to the Preview side only.
@@ -1069,7 +1084,6 @@ pub fn move_element_to(
         // Can not drop here: Ignore the move
         return None;
     };
-
     create_move_element_workspace_edit(&component_instance, &drop_info, &element, position)
         .and_then(|(e, d)| workspace_edit_compiles(document_cache, &e).then_some((e, d)))
 }
