@@ -1,8 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use slint::*;
+
 use std::rc::Rc;
+
+use slint::Model;
+use slint::ModelNotify;
+use slint::ModelRc;
+use slint::ModelTracker;
 
 use crate::mvc;
 use crate::Callback;

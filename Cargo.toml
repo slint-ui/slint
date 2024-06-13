@@ -26,7 +26,7 @@ members = [
     'examples/printerdemo_mcu',
     'examples/slide_puzzle',
     'examples/todo/rust',
-    'examples/todo_mvc/rust',
+    'examples/todo-mvc/rust',
     'examples/virtual_keyboard/rust',
     'examples/carousel/rust',
     'examples/energy-monitor',

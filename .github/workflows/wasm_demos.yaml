@@ -52,7 +52,7 @@ jobs:
               run: |
                   sed -i "s/#wasm# //" Cargo.toml
                   wasm-pack build --release --target web
-              working-directory: examples/todo_mvc/rust
+              working-directory: examples/todo-mvc/rust
             - name: Carousel demo WASM build
               run: |
                   sed -i "s/#wasm# //" Cargo.toml
