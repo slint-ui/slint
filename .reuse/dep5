@@ -104,7 +104,7 @@ Files: internal/compiler/widgets/qt/_*.svg
 Copyright: Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>
 License: Apache-2.0
 
-Files: examples/todo-mvc/assets/_*.svg
+Files: examples/todo-mvc/assets/*.svg
 Copyright: Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>
 License: Apache-2.0
 
