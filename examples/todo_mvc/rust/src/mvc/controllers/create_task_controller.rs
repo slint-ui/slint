@@ -3,19 +3,18 @@
 
 use std::rc::Rc;
 
-use crate::models::{DateModel, TimeModel};
-use crate::repositories::traits::DateTimeRepository;
-use crate::Callback;
+use crate::mvc::{traits::DateTimeRepository, DateModel, TimeModel};
+use crate::{mvc, Callback};
 
 #[derive(Clone)]
-pub struct CreateTaskController<R: DateTimeRepository> {
-    repo: R,
+pub struct CreateTaskController {
+    repo: Rc<dyn mvc::traits::DateTimeRepository>,
     back_callback: Rc<Callback<(), ()>>,
 }
 
-impl<R: DateTimeRepository> CreateTaskController<R> {
-    pub fn new(repo: R) -> Self {
-        Self { repo, back_callback: Rc::new(Callback::default()) }
+impl CreateTaskController {
+    pub fn new(repo: impl DateTimeRepository + 'static) -> Self {
+        Self { repo: Rc::new(repo), back_callback: Rc::new(Callback::default()) }
     }
 
     pub fn current_date(&self) -> DateModel {
@@ -52,10 +51,10 @@ impl<R: DateTimeRepository> CreateTaskController<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repositories::MockDateTimeRepository;
+    use crate::mvc::MockDateTimeRepository;
     use std::cell::Cell;
 
-    fn test_controller() -> CreateTaskController<MockDateTimeRepository> {
+    fn test_controller() -> CreateTaskController {
         CreateTaskController::new(MockDateTimeRepository::new(
             DateModel { year: 2024, month: 6, day: 12 },
             TimeModel { hour: 13, minute: 30, second: 29 },

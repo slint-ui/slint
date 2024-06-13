@@ -4,15 +4,14 @@
 use slint::*;
 
 use crate::{
-    controllers::{CreateTaskController, TaskListController},
-    repositories::traits::{DateTimeRepository, TaskRepository},
+    mvc::{CreateTaskController, TaskListController},
     ui,
 };
 
 // one place to implement connection between adapter (view) and controller
-pub fn connect_create_task_controller<R: DateTimeRepository + Clone + 'static>(
+pub fn connect_create_task_controller(
     view_handle: &ui::MainWindow,
-    controller: CreateTaskController<R>,
+    controller: CreateTaskController,
 ) {
     controller.on_back({
         let view_handle = view_handle.as_weak();
@@ -24,10 +23,7 @@ pub fn connect_create_task_controller<R: DateTimeRepository + Clone + 'static>(
 }
 
 // one place to implement connection between adapter (view) and controller
-pub fn connect_task_list_controller<R: TaskRepository + Clone + 'static>(
-    view_handle: &ui::MainWindow,
-    controller: TaskListController<R>,
-) {
+pub fn connect_task_list_controller(view_handle: &ui::MainWindow, controller: TaskListController) {
     controller.on_show_create_task({
         let view_handle = view_handle.as_weak();
 

@@ -4,35 +4,32 @@
 use slint::*;
 
 use crate::{
-    controllers::{CreateTaskController, TaskListController},
-    models::{DateModel, TimeModel},
-    repositories::traits::{DateTimeRepository, TaskRepository},
+    mvc::{
+        {CreateTaskController, TaskListController}, {DateModel, TimeModel},
+    },
     ui,
 };
 
 // a helper function to make adapter and controller connection a little bit easier
-fn connect_with_controller<R: DateTimeRepository + Clone>(
+fn connect_with_controller(
     view_handle: &ui::MainWindow,
-    controller: &CreateTaskController<R>,
-    connect_adapter_controller: impl FnOnce(ui::CreateTaskAdapter, CreateTaskController<R>) + 'static,
+    controller: &CreateTaskController,
+    connect_adapter_controller: impl FnOnce(ui::CreateTaskAdapter, CreateTaskController) + 'static,
 ) {
     connect_adapter_controller(view_handle.global::<ui::CreateTaskAdapter>(), controller.clone());
 }
 
 // a helper function to make adapter and controller connection a little bit easier
-fn connect_with_task_list_controller<R: TaskRepository + Clone>(
+fn connect_with_task_list_controller(
     view_handle: &ui::MainWindow,
-    controller: &TaskListController<R>,
-    connect_adapter_controller: impl FnOnce(ui::CreateTaskAdapter, TaskListController<R>) + 'static,
+    controller: &TaskListController,
+    connect_adapter_controller: impl FnOnce(ui::CreateTaskAdapter, TaskListController) + 'static,
 ) {
     connect_adapter_controller(view_handle.global::<ui::CreateTaskAdapter>(), controller.clone());
 }
 
 // one place to implement connection between adapter (view) and controller
-pub fn connect<R: DateTimeRepository + Clone + 'static>(
-    view_handle: &ui::MainWindow,
-    controller: CreateTaskController<R>,
-) {
+pub fn connect(view_handle: &ui::MainWindow, controller: CreateTaskController) {
     connect_with_controller(view_handle, &controller, {
         move |adapter, controller| {
             adapter.on_back(move || {
@@ -80,14 +77,11 @@ pub fn connect<R: DateTimeRepository + Clone + 'static>(
     });
 }
 
-pub fn connect_task_list_controller<R: TaskRepository + Clone + 'static>(
-    view_handle: &ui::MainWindow,
-    controller: TaskListController<R>,
-) {
+pub fn connect_task_list_controller(view_handle: &ui::MainWindow, controller: TaskListController) {
     connect_with_task_list_controller(view_handle, &controller, {
         move |adapter, controller| {
             adapter.on_create(move |title, time_stamp| {
-                controller.add_task(title.as_str(), time_stamp as i64)
+                controller.create_task(title.as_str(), time_stamp as i64)
             })
         }
     });

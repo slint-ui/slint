@@ -6,32 +6,30 @@ use slint::*;
 use std::rc::Rc;
 
 use crate::{
-    controllers::TaskListController, models::TaskModel, repositories::traits::TaskRepository, ui,
+    mvc::{TaskListController, TaskModel},
+    ui,
 };
 
 // a helper function to make adapter and controller connection a little bit easier
-pub fn connect_with_controller<R: TaskRepository + Clone>(
+pub fn connect_with_controller(
     view_handle: &ui::MainWindow,
-    controller: &TaskListController<R>,
-    connect_adapter_controller: impl FnOnce(ui::TaskListAdapter, TaskListController<R>) + 'static,
+    controller: &TaskListController,
+    connect_adapter_controller: impl FnOnce(ui::TaskListAdapter, TaskListController) + 'static,
 ) {
     connect_adapter_controller(view_handle.global::<ui::TaskListAdapter>(), controller.clone());
 }
 
 // one place to implement connection between adapter (view) and controller
-pub fn connect<R: TaskRepository + Clone + 'static>(
-    view_handle: &ui::MainWindow,
-    controller: TaskListController<R>,
-) {
+pub fn connect(view_handle: &ui::MainWindow, controller: TaskListController) {
     // sets a mapped list of the task items to the ui
     view_handle
         .global::<ui::TaskListAdapter>()
-        .set_tasks(Rc::new(MapModel::new(controller.tasks(), map_task_to_item)).into());
+        .set_tasks(Rc::new(MapModel::new(controller.task_model(), map_task_to_item)).into());
 
     connect_with_controller(view_handle, &controller, {
         move |adapter, controller| {
             adapter.on_toggle_task_checked(move |index| {
-                controller.toggle_task_checked(index as usize);
+                controller.toggle_done(index as usize);
             })
         }
     });

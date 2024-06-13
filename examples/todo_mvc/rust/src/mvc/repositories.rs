@@ -7,7 +7,7 @@ pub use mock_date_time_repository::*;
 mod mock_task_repository;
 pub use mock_task_repository::*;
 
-use crate::models::{DateModel, TaskModel, TimeModel};
+use crate::mvc::models::{DateModel, TaskModel, TimeModel};
 
 pub mod traits;
 
