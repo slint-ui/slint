@@ -45,12 +45,12 @@ export component CreateTaskView {
             Rectangle {}
 
             Button {
-                text: @tr("DONE");
+                text: @tr("Create");
                 enabled: title-input.text != "";
                 primary: true;
 
                 clicked => {
-                    root.done();
+                    root.create();
                 }
             }
         }
@@ -151,7 +151,7 @@ export component CreateTaskView {
         CreateTaskAdapter.due-time = CreateTaskAdapter.current-time();
     }
 
-    function done() {      
+    function create() {
         CreateTaskAdapter.back();
         CreateTaskAdapter.create(title-input.text, CreateTaskAdapter.time-stamp(CreateTaskAdapter.due-date, CreateTaskAdapter.due-time));
         root.reset();
