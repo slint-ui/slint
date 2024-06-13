@@ -63,8 +63,7 @@ impl DocumentCache {
     }
 
     pub fn snapshot(&self) -> Option<Self> {
-        let type_loader = i_slint_compiler::typeloader::snapshot(&self.0)?;
-        Some(Self::new_from_type_loader(type_loader))
+        i_slint_compiler::typeloader::snapshot(&self.0).map(|tl| Self::new_from_type_loader(tl))
     }
 
     pub fn resolve_import_path(
