@@ -2582,11 +2582,8 @@ fn compile_builtin_function_call(
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).scale_factor())
         }
         BuiltinFunction::GetWindowDefaultFontSize => {
-            let window_item_name = ident(&ctx.public_component.item_tree.root.items[0].name);
-            let root_access = &ctx.generator_state;
-            let root_component_id = inner_component_id(&ctx.public_component.item_tree.root);
-            let item_field = access_component_field_offset(&root_component_id, &window_item_name);
-            quote!((#item_field + sp::WindowItem::FIELD_OFFSETS.default_font_size).apply_pin(#root_access.as_pin_ref()).get().get())
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).window_item().unwrap().as_pin_ref().default_font_size().get())
         }
         BuiltinFunction::AnimationTick => {
             quote!(sp::animation_tick())
