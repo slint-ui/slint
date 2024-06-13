@@ -7,6 +7,7 @@ use crate::common::{
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
+use i_slint_compiler::diagnostics;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
 use i_slint_core::component_factory::FactoryContext;
@@ -51,9 +52,11 @@ enum PreviewFutureState {
     NeedsReload,
 }
 
+type SourceCodeCache = HashMap<Url, (common::UrlVersion, String)>;
+
 #[derive(Default)]
 struct ContentCache {
-    source_code: HashMap<Url, (common::UrlVersion, String)>,
+    source_code: SourceCodeCache,
     dependency: HashSet<Url>,
     current: Option<PreviewComponent>,
     config: PreviewConfig,
@@ -68,6 +71,7 @@ static CONTENT_CACHE: std::sync::OnceLock<Mutex<ContentCache>> = std::sync::Once
 struct PreviewState {
     ui: Option<ui::PreviewUi>,
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
+    document_cache: Rc<RefCell<Option<Rc<common::DocumentCache>>>>,
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
     known_components: Vec<ComponentInformation>,
@@ -572,7 +576,7 @@ async fn parse_source(
         ) -> core::pin::Pin<
             Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
-) -> (Vec<i_slint_compiler::diagnostics::Diagnostic>, Option<ComponentDefinition>) {
+) -> (Vec<diagnostics::Diagnostic>, Option<ComponentDefinition>) {
     let mut builder = slint_interpreter::ComponentCompiler::default();
 
     #[cfg(target_arch = "wasm32")]
@@ -818,17 +822,12 @@ fn component_instance() -> Option<ComponentInstance> {
     })
 }
 
-fn document_cache() -> Option<common::DocumentCache> {
-    let component_instance = component_instance()?;
-    Some(common::DocumentCache::new_from_type_loader(
-        component_instance.definition().raw_type_loader()?,
-    ))
-}
-
-fn document_cache_from(component_instance: &ComponentInstance) -> Option<common::DocumentCache> {
-    Some(common::DocumentCache::new_from_type_loader(
-        component_instance.definition().raw_type_loader()?,
-    ))
+/// This is a *read-only* snapshot of the raw type loader, use this when you
+/// need to know the exact state the compiled resources were in.
+fn document_cache() -> Option<Rc<common::DocumentCache>> {
+    PREVIEW_STATE.with(move |preview_state| {
+        preview_state.borrow().document_cache.borrow().as_ref().map(|dc| dc.clone())
+    })
 }
 
 fn set_show_preview_ui(show_preview_ui: bool) {
@@ -902,12 +901,18 @@ fn update_preview_area(compiled: Option<ComponentDefinition>) {
 
         let ui = preview_state.ui.as_ref().unwrap();
         let shared_handle = preview_state.handle.clone();
+        let shared_document_cache = preview_state.document_cache.clone();
 
         if let Some(compiled) = compiled {
             set_preview_factory(
                 ui,
                 compiled,
                 Box::new(move |instance| {
+                    if let Some(rtl) = instance.definition().raw_type_loader() {
+                        shared_document_cache.replace(Some(Rc::new(
+                            common::DocumentCache::new_from_type_loader(rtl),
+                        )));
+                    }
                     shared_handle.replace(Some(instance));
                 }),
             );
