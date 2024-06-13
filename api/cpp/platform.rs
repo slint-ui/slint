@@ -417,8 +417,6 @@ mod software_renderer {
         ),
         user_data: *mut core::ffi::c_void,
     ) -> PhysicalRegion {
-        use i_slint_core::software_renderer::PhysicalRegion;
-
         struct Rgb565Processor {
             process_line_fn: extern "C" fn(
                 *mut core::ffi::c_void,
