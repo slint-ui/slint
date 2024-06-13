@@ -439,8 +439,6 @@ pub struct EvaluationContext<'a, T = ()> {
     pub public_component: &'a super::PublicComponent,
     pub current_sub_component: Option<&'a super::SubComponent>,
     pub current_global: Option<&'a super::GlobalComponent>,
-    /// path to access the public_component (so one can access the globals).
-    /// e.g: `_self` in case we already are the root
     pub generator_state: T,
     /// The repeater parent
     pub parent: Option<ParentCtx<'a, T>>,

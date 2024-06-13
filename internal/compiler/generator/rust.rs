@@ -28,8 +28,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
-type EvaluationContext<'a> = llr_EvaluationContext<'a, TokenStream>;
-type ParentCtx<'a> = llr_ParentCtx<'a, TokenStream>;
+#[derive(Clone)]
+struct RustGeneratorContext {
+    /// Path to the SharedGlobals structure that contains the global and the WindowAdaptor
+    global_access: TokenStream,
+}
+
+type EvaluationContext<'a> = llr_EvaluationContext<'a, RustGeneratorContext>;
+type ParentCtx<'a> = llr_ParentCtx<'a, RustGeneratorContext>;
 
 fn ident(ident: &str) -> proc_macro2::Ident {
     if ident.contains('-') {
@@ -169,7 +175,7 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
     let sub_compos = llr
         .sub_components
         .iter()
-        .map(|sub_compo| generate_sub_component(sub_compo, &llr, None, quote!(), None, false))
+        .map(|sub_compo| generate_sub_component(sub_compo, &llr, None, None, false))
         .collect::<Vec<_>>();
 
     let compo = generate_public_component(&llr);
@@ -216,24 +222,16 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
 fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
     let public_component_id = public_component_id(&llr.item_tree.root);
     let inner_component_id = inner_component_id(&llr.item_tree.root);
-    let global_container_id = format_ident!("Globals_{}", public_component_id);
 
-    let component = generate_item_tree(
-        &llr.item_tree,
-        llr,
-        None,
-        quote!(
-            globals: #global_container_id,
-            window_adapter_: sp::OnceCell<sp::WindowAdapterRc>,
-        ),
-        None,
-    );
+    let component = generate_item_tree(&llr.item_tree, llr, None, None);
 
     let ctx = EvaluationContext {
         public_component: llr,
         current_sub_component: Some(&llr.item_tree.root),
         current_global: None,
-        generator_state: quote!(_self),
+        generator_state: RustGeneratorContext {
+            global_access: quote!(_self.globals.get().unwrap()),
+        },
         parent: None,
         argument_types: &[],
     };
@@ -256,7 +254,9 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
         impl #public_component_id {
             pub fn new() -> core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new()?;
-                #(inner.globals.#global_names.clone().init(&inner);)*
+                #[allow(unused)]
+                let globals = inner.globals.get().unwrap();
+                #(globals.#global_names.clone().init(globals);)*
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 core::result::Result::Ok(Self(inner))
             }
@@ -292,15 +292,15 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
             }
 
             fn show(&self) -> core::result::Result<(), slint::PlatformError> {
-                self.0.window_adapter_ref()?.window().show()
+                self.0.globals.get().unwrap().window_adapter_ref()?.window().show()
             }
 
             fn hide(&self) -> core::result::Result<(), slint::PlatformError> {
-                self.0.window_adapter_ref()?.window().hide()
+                self.0.globals.get().unwrap().window_adapter_ref()?.window().hide()
             }
 
             fn window(&self) -> &slint::Window {
-                self.0.window_adapter_ref().unwrap().window()
+                self.0.globals.get().unwrap().window_adapter_ref().unwrap().window()
             }
 
             fn global<'a, T: slint::Global<'a, Self>>(&'a self) -> T {
@@ -309,14 +309,36 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
         }
 
         #[allow(dead_code)] // FIXME: some global are unused because of optimization, we should then remove them completely
-        struct #global_container_id {
+        struct SharedGlobals {
             #(#global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
+            window_adapter : sp::OnceCell<sp::WindowAdapterRc>,
+            root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>,
         }
-        impl::core::default::Default for #global_container_id {
-            fn default() -> Self {
+        impl SharedGlobals {
+            fn new(root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>) -> Self {
                 Self {
                     #(#global_names : #global_types::new(),)*
+                    window_adapter : ::core::default::Default::default(),
+                    root_item_tree_weak,
                 }
+            }
+
+            fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
+                sp::Rc::clone(self.window_adapter_ref().unwrap())
+            }
+
+            fn window_adapter_ref(&self) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
+            {
+                self.window_adapter.get_or_try_init(|| {
+                    let adapter = slint::private_unstable_api::create_window_adapter()?;
+                    let root_rc = self.root_item_tree_weak.upgrade().unwrap();
+                    sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
+                    core::result::Result::Ok(adapter)
+                })
+            }
+
+            fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
+                self.window_adapter.get().cloned()
             }
         }
     )
@@ -583,7 +605,6 @@ fn generate_sub_component(
     component: &llr::SubComponent,
     root: &llr::PublicComponent,
     parent_ctx: Option<ParentCtx>,
-    extra_fields: TokenStream,
     index_property: Option<llr::PropertyIndex>,
     pinned_drop: bool,
 ) -> TokenStream {
@@ -592,13 +613,13 @@ fn generate_sub_component(
     let ctx = EvaluationContext::new_sub_component(
         root,
         component,
-        quote!(_self.root.get().unwrap().upgrade().unwrap()),
+        RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
         parent_ctx,
     );
     let mut extra_components = component
         .popup_windows
         .iter()
-        .map(|c| generate_item_tree(c, root, Some(ParentCtx::new(&ctx, None)), quote!(), None))
+        .map(|c| generate_item_tree(c, root, Some(ParentCtx::new(&ctx, None)), None))
         .collect::<Vec<_>>();
 
     let mut declared_property_vars = vec![];
@@ -840,7 +861,7 @@ fn generate_sub_component(
         let sub_component_id = self::inner_component_id(&sub.ty);
         let local_tree_index: u32 = sub.index_in_tree as _;
         let local_index_of_first_child: u32 = sub.index_of_first_child_in_tree as _;
-        let root_ref_tokens = &ctx.generator_state;
+        let global_access = &ctx.generator_state.global_access;
 
         // For children of sub-components, the item index generated by the generate_item_indices pass
         // starts at 1 (0 is the root element).
@@ -859,8 +880,7 @@ fn generate_sub_component(
 
         init.push(quote!(#sub_component_id::init(
             sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
-            &#root_ref_tokens,
-            #global_index, #global_children
+            #global_access.clone(), #global_index, #global_children
         );));
         user_init_code.push(quote!(#sub_component_id::user_init(
             sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
@@ -954,8 +974,6 @@ fn generate_sub_component(
         init.push(quote!(#rust_property.set_constant();))
     }
 
-    let root_component_id = self::inner_component_id(&root.item_tree.root);
-
     let parent_component_type = parent_ctx.iter().map(|parent| {
         let parent_component_id =
             self::inner_component_id(parent.ctx.current_sub_component.unwrap());
@@ -1024,26 +1042,25 @@ fn generate_sub_component(
             #(#change_tracker_names : sp::ChangeTracker,)*
             self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
             #(parent : #parent_component_type,)*
-            root : sp::OnceCell<sp::VWeak<sp::ItemTreeVTable, #root_component_id>>,
+            globals: sp::OnceCell<sp::Rc<SharedGlobals>>,
             tree_index: ::core::cell::Cell<u32>,
             tree_index_of_first_child: ::core::cell::Cell<u32>,
-            #extra_fields
         }
 
         impl #inner_component_id {
-            pub fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
-                    root : &sp::VRc<sp::ItemTreeVTable, #root_component_id>,
+            fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
+                    globals : sp::Rc<SharedGlobals>,
                     tree_index: u32, tree_index_of_first_child: u32) {
                 #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
                 _self.self_weak.set(sp::VRcMapped::downgrade(&self_rc));
-                _self.root.set(sp::VRc::downgrade(root));
+                _self.globals.set(globals);
                 _self.tree_index.set(tree_index);
                 _self.tree_index_of_first_child.set(tree_index_of_first_child);
                 #(#init)*
             }
 
-            pub fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
+            fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
                 #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
                 #(#user_init_code)*
@@ -1236,7 +1253,9 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
     let ctx = EvaluationContext::new_global(
         root,
         global,
-        quote!(_self.root.get().unwrap().upgrade().unwrap()),
+        RustGeneratorContext {
+            global_access: quote!(_self.globals.get().unwrap().upgrade().unwrap()),
+        },
     );
 
     let declared_functions = generate_functions(&global.functions, &ctx);
@@ -1291,13 +1310,12 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
 
             impl<'a> slint::Global<'a, #root_component_id> for #public_component_id<'a> {
                 fn get(component: &'a #root_component_id) -> Self {
-                    Self(&component.0 .globals.#global_id)
+                    Self(&component.0.globals.get().unwrap().#global_id)
                 }
             }
         )
     });
 
-    let root_component_id = self::inner_component_id(&root.item_tree.root);
     quote!(
         #[derive(sp::FieldOffsets, Default)]
         #[const_field_offset(sp::const_field_offset)]
@@ -1306,16 +1324,16 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
         struct #inner_component_id {
             #(#declared_property_vars: sp::Property<#declared_property_types>,)*
             #(#declared_callbacks: sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
-            root : sp::OnceCell<sp::VWeak<sp::ItemTreeVTable, #root_component_id>>,
+            globals : sp::OnceCell<sp::Weak<SharedGlobals>>,
         }
 
         impl #inner_component_id {
             fn new() -> ::core::pin::Pin<sp::Rc<Self>> {
                 sp::Rc::pin(Self::default())
             }
-            fn init(self: ::core::pin::Pin<sp::Rc<Self>>, root: &sp::VRc<sp::ItemTreeVTable, #root_component_id>) {
+            fn init(self: ::core::pin::Pin<sp::Rc<Self>>, globals: &sp::Rc<SharedGlobals>) {
                 #![allow(unused)]
-                self.root.set(sp::VRc::downgrade(root));
+                self.globals.set(sp::Rc::downgrade(globals));
                 let self_rc = self;
                 let _self = self_rc.as_ref();
                 #(#init)*
@@ -1332,17 +1350,9 @@ fn generate_item_tree(
     sub_tree: &llr::ItemTree,
     root: &llr::PublicComponent,
     parent_ctx: Option<ParentCtx>,
-    extra_fields: TokenStream,
     index_property: Option<llr::PropertyIndex>,
 ) -> TokenStream {
-    let sub_comp = generate_sub_component(
-        &sub_tree.root,
-        root,
-        parent_ctx,
-        extra_fields,
-        index_property,
-        true,
-    );
+    let sub_comp = generate_sub_component(&sub_tree.root, root, parent_ctx, index_property, true);
     let inner_component_id = self::inner_component_id(&sub_tree.root);
     let parent_component_type = parent_ctx
         .iter()
@@ -1352,67 +1362,25 @@ fn generate_item_tree(
             quote!(sp::VWeakMapped::<sp::ItemTreeVTable, #parent_component_id>)
         })
         .collect::<Vec<_>>();
-    let root_token = if parent_ctx.is_some() {
-        quote!(&parent.upgrade().unwrap().root.get().unwrap().upgrade().unwrap())
+
+    let globals = if parent_ctx.is_some() {
+        quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
     } else {
-        quote!(&self_rc)
+        quote!(sp::Rc::new(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc))))
     };
 
-    let (window_adapter_functions, new_end) = if let Some(parent_ctx) = parent_ctx {
-        (
-            quote!(
-                #[allow(unused)]
-                fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
-                    self.root.get().unwrap().upgrade().unwrap().window_adapter_impl()
-                }
-
-                #[allow(unused)]
-                fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
-                    self.root
-                        .get()
-                        .and_then(|root_weak| root_weak.upgrade())
-                        .and_then(|root| root.maybe_window_adapter_impl())
-                }
-            ),
-            if parent_ctx.repeater_index.is_some() {
-                // Repeaters run their user_init() code from RepeatedItemTree::init() after update() initialized model_data/index.
-                quote!(core::result::Result::Ok(self_rc))
-            } else {
-                quote! {
-                    Self::user_init(sp::VRc::map(self_rc.clone(), |x| x));
-                    core::result::Result::Ok(self_rc)
-                }
-            },
-        )
+    let new_end = if let Some(parent_ctx) = parent_ctx {
+        if parent_ctx.repeater_index.is_some() {
+            // Repeaters run their user_init() code from RepeatedItemTree::init() after update() initialized model_data/index.
+            quote!(core::result::Result::Ok(self_rc))
+        } else {
+            quote! {
+                Self::user_init(sp::VRc::map(self_rc.clone(), |x| x));
+                core::result::Result::Ok(self_rc)
+            }
+        }
     } else {
-        (
-            quote!(
-                #[allow(unused)]
-                fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
-                    sp::Rc::clone(self.window_adapter_ref().unwrap())
-                }
-
-                fn window_adapter_ref(
-                    &self,
-                ) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
-                {
-                    self.window_adapter_.get_or_try_init(|| {
-                        let adapter = slint::private_unstable_api::create_window_adapter()?;
-                        let self_rc = sp::VRcMapped::origin(
-                            &self.self_weak.get().unwrap().upgrade().unwrap(),
-                        );
-                        sp::WindowInner::from_pub(adapter.window()).set_component(&self_rc);
-                        core::result::Result::Ok(adapter)
-                    })
-                }
-
-                #[allow(unused)]
-                fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
-                    self.window_adapter_.get().cloned()
-                }
-            ),
-            quote!(core::result::Result::Ok(self_rc)),
-        )
+        quote!(core::result::Result::Ok(self_rc))
     };
 
     let embedding_function = if parent_ctx.is_some() {
@@ -1493,8 +1461,9 @@ fn generate_item_tree(
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = sp::VRc::new(_self);
                 let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
-                sp::register_item_tree(&self_dyn_rc, (*#root_token).maybe_window_adapter_impl());
-                Self::init(sp::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
+                let globals = #globals;
+                sp::register_item_tree(&self_dyn_rc, globals.maybe_window_adapter_impl());
+                Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1);
                 #new_end
             }
 
@@ -1510,8 +1479,6 @@ fn generate_item_tree(
                 > = sp::OnceBox::new();
                 &*ITEM_ARRAY.get_or_init(|| sp::Box::new([#(#item_array),*]))
             }
-
-            #window_adapter_functions
         }
 
         const _ : () = {
@@ -1522,7 +1489,7 @@ fn generate_item_tree(
         impl sp::PinnedDrop for #inner_component_id {
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
                 sp::vtable::new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
-                if let Some(wa) = self.maybe_window_adapter_impl() {
+                if let Some(wa) = self.globals.get().unwrap().maybe_window_adapter_impl() {
                     sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
                 }
             }
@@ -1634,9 +1601,9 @@ fn generate_item_tree(
                 result: &mut sp::Option<sp::Rc<dyn sp::WindowAdapter>>,
             ) {
                 if do_create {
-                    *result = sp::Some(self.window_adapter_impl());
+                    *result = sp::Some(self.globals.get().unwrap().window_adapter_impl());
                 } else {
-                    *result = self.maybe_window_adapter_impl();
+                    *result = self.globals.get().unwrap().maybe_window_adapter_impl();
                 }
             }
         }
@@ -1650,19 +1617,14 @@ fn generate_repeated_component(
     root: &llr::PublicComponent,
     parent_ctx: ParentCtx,
 ) -> TokenStream {
-    let component = generate_item_tree(
-        &repeated.sub_tree,
-        root,
-        Some(parent_ctx),
-        quote!(),
-        repeated.index_prop,
-    );
+    let component =
+        generate_item_tree(&repeated.sub_tree, root, Some(parent_ctx), repeated.index_prop);
 
     let ctx = EvaluationContext {
         public_component: root,
         current_sub_component: Some(&repeated.sub_tree.root),
         current_global: None,
-        generator_state: quote!(_self),
+        generator_state: RustGeneratorContext { global_access: quote!(_self) },
         parent: Some(parent_ctx),
         argument_types: &[],
     };
@@ -1887,14 +1849,14 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             }
         }
         llr::PropertyReference::Global { global_index, property_index } => {
-            let root_access = &ctx.generator_state;
+            let global_access = &ctx.generator_state.global_access;
             let global = &ctx.public_component.globals[*global_index];
             let global_id = format_ident!("global_{}", ident(&global.name));
             let global_name = global_inner_name(global);
             let property_name = ident(
                 &ctx.public_component.globals[*global_index].properties[*property_index].name,
             );
-            quote!(#global_name::FIELD_OFFSETS.#property_name.apply_pin(#root_access.globals.#global_id.as_ref()))
+            quote!(#global_name::FIELD_OFFSETS.#property_name.apply_pin(#global_access.#global_id.as_ref()))
         }
         llr::PropertyReference::Function { sub_component_path, function_index } => {
             if let Some(mut sub_component) = ctx.current_sub_component {
@@ -1916,14 +1878,14 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             }
         }
         llr::PropertyReference::GlobalFunction { global_index, function_index } => {
-            let root_access = &ctx.generator_state;
+            let global_access = &ctx.generator_state.global_access;
             let global = &ctx.public_component.globals[*global_index];
             let global_id = format_ident!("global_{}", ident(&global.name));
             let fn_id = ident(&format!(
                 "fn_{}",
                 ctx.public_component.globals[*global_index].functions[*function_index].name
             ));
-            quote!(#root_access.globals.#global_id.as_ref().#fn_id)
+            quote!(#global_access.#global_id.as_ref().#fn_id)
         }
     }
 }
@@ -1944,8 +1906,8 @@ fn follow_sub_component_path<'a>(
 }
 
 fn access_window_adapter_field(ctx: &EvaluationContext) -> TokenStream {
-    let root = &ctx.generator_state;
-    quote!((&#root.window_adapter_impl()))
+    let global_access = &ctx.generator_state.global_access;
+    quote!((&#global_access.window_adapter_impl()))
 }
 
 /// Given a property reference to a native item (eg, the property name is empty)
