@@ -757,7 +757,7 @@ pub fn drop_at(
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let component_type = &component.name;
     let component_instance = preview::component_instance()?;
-    let document_cache = preview::document_cache_from(&component_instance)?;
+    let document_cache = preview::document_cache()?;
 
     let drop_info = find_drop_location(&component_instance, position, component_type)?;
 
@@ -989,7 +989,7 @@ pub fn create_move_element_workspace_edit(
 
     let (path, _) = drop_info.target_element_node.path_and_offset();
 
-    let document_cache = preview::document_cache_from(component_instance)?;
+    let document_cache = preview::document_cache()?;
     let doc = document_cache.get_document_by_path(&path)?;
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
 
