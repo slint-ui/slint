@@ -213,6 +213,7 @@ impl TestingClient {
             accessible_checkable: element.accessible_checkable().unwrap_or_default(),
             size: send_logical_size(element.size()).into(),
             absolute_position: send_logical_position(element.absolute_position()).into(),
+            accessible_role: convert_accessible_role(element.accessible_role().unwrap()),
         })
     }
 
@@ -337,4 +338,27 @@ fn send_logical_size(sz: i_slint_core::api::LogicalSize) -> proto::LogicalSize {
 
 fn send_logical_position(pos: i_slint_core::api::LogicalPosition) -> proto::LogicalPosition {
     proto::LogicalPosition { x: pos.x, y: pos.y }
+}
+
+fn convert_accessible_role(role: i_slint_core::items::AccessibleRole) -> proto::AccessibleRole {
+    match role {
+        i_slint_core::items::AccessibleRole::None => proto::AccessibleRole::Unknown,
+        i_slint_core::items::AccessibleRole::Button => proto::AccessibleRole::Button,
+        i_slint_core::items::AccessibleRole::Checkbox => proto::AccessibleRole::Checkbox,
+        i_slint_core::items::AccessibleRole::Combobox => proto::AccessibleRole::Combobox,
+        i_slint_core::items::AccessibleRole::List => proto::AccessibleRole::List,
+        i_slint_core::items::AccessibleRole::Slider => proto::AccessibleRole::Slider,
+        i_slint_core::items::AccessibleRole::Spinbox => proto::AccessibleRole::Spinbox,
+        i_slint_core::items::AccessibleRole::Tab => proto::AccessibleRole::Tab,
+        i_slint_core::items::AccessibleRole::TabList => proto::AccessibleRole::TabList,
+        i_slint_core::items::AccessibleRole::Text => proto::AccessibleRole::Text,
+        i_slint_core::items::AccessibleRole::Table => proto::AccessibleRole::Table,
+        i_slint_core::items::AccessibleRole::Tree => proto::AccessibleRole::Tree,
+        i_slint_core::items::AccessibleRole::ProgressIndicator => {
+            proto::AccessibleRole::ProgressIndicator
+        }
+        i_slint_core::items::AccessibleRole::TextInput => proto::AccessibleRole::TextInput,
+        i_slint_core::items::AccessibleRole::Switch => proto::AccessibleRole::Switch,
+        _ => proto::AccessibleRole::Unknown,
+    }
 }

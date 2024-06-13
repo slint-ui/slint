@@ -104,6 +104,27 @@ message ElementTypeNameAndId {
     string id = 2;
 }
 
+// Copied from enums.rs - can't be auto-generated :(
+// with one difference: None became Unknown, because None doesn't compile.
+// Upside: AccessKit also uses Unknown :)
+enum AccessibleRole {
+    Unknown = 0;
+    Button = 1;
+    Checkbox = 2;
+    Combobox = 3;
+    List = 4;
+    Slider = 5;
+    Spinbox = 6;
+    Tab = 7;
+    TabList = 8;
+    Text = 9;
+    Table = 10;
+    Tree = 11;
+    ProgressIndicator = 12;
+    TextInput = 13;
+    Switch = 14;
+}
+
 message ElementPropertiesResponse {
     repeated ElementTypeNameAndId type_names_and_ids = 1;
     string accessible_label = 2;
@@ -116,6 +137,7 @@ message ElementPropertiesResponse {
     bool accessible_checkable = 9;
     LogicalSize size = 10;
     LogicalPosition absolute_position = 11;
+    AccessibleRole accessible_role = 12;
 }
 
 message InvokeElementAccessibilityActionResponse {
