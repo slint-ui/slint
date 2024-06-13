@@ -4,10 +4,10 @@ if(NOT BOARD)
     message(FATAL_ERROR "No BOARD option specified")
 endif()
 
-if(BOARD STREQUAL "native_sim/native/64")
+if(BOARD STREQUAL "native_sim_64")
     set(Rust_CARGO_TARGET "x86_64-unknown-linux-gnu")
     set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
-elseif(BOARD STREQUAL "mimxrt1170_evk@B/mimxrt1176/cm7")
+elseif(BOARD STREQUAL "mimxrt1170_evkb_cm7")
     set(Rust_CARGO_TARGET "thumbv7em-none-eabi")
 else()
     # See rustc --print target-list for available targets. Match that up with you supported board
