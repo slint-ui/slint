@@ -247,6 +247,7 @@ pub struct EventLoopState {
     // last seen cursor position
     cursor_pos: LogicalPoint,
     pressed: bool,
+    current_touch_id: Option<u64>,
 
     loop_error: Option<PlatformError>,
     current_resize_direction: Option<ResizeDirection>,
@@ -410,28 +411,34 @@ impl EventLoopState {
                 runtime_window.process_mouse_input(ev);
             }
             WindowEvent::Touch(touch) => {
-                let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
-                let position = euclid::point2(location.x, location.y);
-                let ev = match touch.phase {
-                    winit::event::TouchPhase::Started => {
-                        self.pressed = true;
-                        MouseEvent::Pressed {
-                            position,
-                            button: PointerEventButton::Left,
-                            click_count: 0,
+                if Some(touch.id) == self.current_touch_id || self.current_touch_id.is_none() {
+                    let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
+                    let position = euclid::point2(location.x, location.y);
+                    let ev = match touch.phase {
+                        winit::event::TouchPhase::Started => {
+                            self.pressed = true;
+                            if self.current_touch_id.is_none() {
+                                self.current_touch_id = Some(touch.id);
+                            }
+                            MouseEvent::Pressed {
+                                position,
+                                button: PointerEventButton::Left,
+                                click_count: 0,
+                            }
                         }
-                    }
-                    winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
-                        self.pressed = false;
-                        MouseEvent::Released {
-                            position,
-                            button: PointerEventButton::Left,
-                            click_count: 0,
+                        winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
+                            self.pressed = false;
+                            self.current_touch_id = None;
+                            MouseEvent::Released {
+                                position,
+                                button: PointerEventButton::Left,
+                                click_count: 0,
+                            }
                         }
-                    }
-                    winit::event::TouchPhase::Moved => MouseEvent::Moved { position },
-                };
-                runtime_window.process_mouse_input(ev);
+                        winit::event::TouchPhase::Moved => MouseEvent::Moved { position },
+                    };
+                    runtime_window.process_mouse_input(ev);
+                }
             }
             WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
