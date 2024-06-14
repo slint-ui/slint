@@ -1489,7 +1489,7 @@ fn generate_item_tree(
                 static ITEM_ARRAY : sp::OnceBox<
                     [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
                 > = sp::OnceBox::new();
-                &*ITEM_ARRAY.get_or_init(|| sp::Box::new([#(#item_array),*]))
+                &*ITEM_ARRAY.get_or_init(|| sp::vec![#(#item_array),*].into_boxed_slice().try_into().unwrap())
             }
         }
 
