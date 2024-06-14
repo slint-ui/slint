@@ -240,8 +240,6 @@ impl TextEditor {
 pub struct EditedText {
     pub url: lsp_types::Url,
     pub contents: String,
-    pub adjustments: TextOffsetAdjustments,
-    pub original_range: (usize, usize),
 }
 
 pub fn apply_workspace_edit(
@@ -276,8 +274,6 @@ pub fn apply_workspace_edit(
             Some(EditedText {
                 url,
                 contents: edit_result.0,
-                adjustments: edit_result.1,
-                original_range: edit_result.2,
             })
         })
         .collect())
