@@ -464,13 +464,14 @@ export component DatePickerBase {
 
     changed selection-mode => {
         // check switch from input mode if input is valid
-        if root.ok-enabled() {
+        if root.selection-mode && root.current-input-valid() {
             root.current-date = root.input-as-date();
+            root.display-date = root.current-date;
         }
     }
 
     pure public function ok-enabled() -> bool {
-        root.selection-mode || SlintInternal.valid_date(root.current-input, root.input-format)
+        root.selection-mode || root.current-input-valid()
     }
 
     public function get-current-date() -> Date {
@@ -479,6 +480,10 @@ export component DatePickerBase {
         }
 
         root.input-as-date()
+    }
+
+    pure function current-input-valid() -> bool {
+        SlintInternal.valid_date(root.current-input, root.input-format)
     }
 
     pure function input-as-date() -> Date {
