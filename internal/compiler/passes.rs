@@ -83,7 +83,8 @@ pub async fn run_passes(
     run_import_passes(doc, type_loader, diag);
     check_public_api::check_public_api(doc, diag);
 
-    let raw_type_loader = keep_raw.then(|| crate::typeloader::snapshot(type_loader).unwrap());
+    let raw_type_loader =
+        keep_raw.then(|| crate::typeloader::snapshot_with_extra_doc(type_loader, doc).unwrap());
 
     collect_subcomponents::collect_subcomponents(root_component);
     for component in (root_component.used_types.borrow().sub_components.iter())

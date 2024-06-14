@@ -271,10 +271,7 @@ pub fn apply_workspace_edit(
         .drain()
         .filter_map(|(url, v)| {
             let edit_result = v.finalize()?;
-            Some(EditedText {
-                url,
-                contents: edit_result.0,
-            })
+            Some(EditedText { url, contents: edit_result.0 })
         })
         .collect())
 }
