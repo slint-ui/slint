@@ -87,6 +87,41 @@ pub fn snapshot(type_loader: &TypeLoader) -> Option<TypeLoader> {
     snapshotter.snapshot_type_loader(type_loader)
 }
 
+/// This function makes a snapshot of the current state of the type loader.
+/// This snapshot includes everything: Elements, Components, known types, ...
+/// and can be used to roll back to earlier states in the compilation process.
+///
+/// One way this is used is to create a raw `TypeLoader` for analysis purposes
+/// or to load a set of changes, see if those compile and then role back
+///
+/// The result may be `None` if the `TypeLoader` is actually in the process
+/// of loading more documents and is `Some` `TypeLoader` with a copy off all
+/// state connected with the original `TypeLoader`.
+///
+/// The Document will be added to the type_loader after it was snapshotted as well.
+pub(crate) fn snapshot_with_extra_doc(
+    type_loader: &TypeLoader,
+    doc: &object_tree::Document,
+) -> Option<TypeLoader> {
+    let mut snapshotter = Snapshotter {
+        component_map: HashMap::new(),
+        element_map: HashMap::new(),
+        type_register_map: HashMap::new(),
+    };
+    let mut result = snapshotter.snapshot_type_loader(type_loader);
+
+    let new_doc = snapshotter.snapshot_document(doc);
+
+    if let Some(doc_node) = &new_doc.node {
+        let path = doc_node.source_file.path().to_path_buf();
+        if let Some(r) = &mut result {
+            r.all_documents.docs.insert(path, new_doc);
+        }
+    }
+
+    result
+}
+
 pub(crate) struct Snapshotter {
     component_map:
         HashMap<by_address::ByAddress<Rc<object_tree::Component>>, Rc<object_tree::Component>>,
