@@ -39,3 +39,4 @@ pb-rs = { version = "0.10.0", optional = true, default-features = false }
 [dev-dependencies]
 slint = { workspace = true, default-features = false, features = ["std", "compat-1-2"] }
 i-slint-core-macros = { workspace = true }
+strum = { workspace = true }

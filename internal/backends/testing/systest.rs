@@ -213,7 +213,8 @@ impl TestingClient {
             accessible_checkable: element.accessible_checkable().unwrap_or_default(),
             size: send_logical_size(element.size()).into(),
             absolute_position: send_logical_position(element.absolute_position()).into(),
-            accessible_role: convert_accessible_role(element.accessible_role().unwrap()),
+            accessible_role: convert_accessible_role(element.accessible_role().unwrap())
+                .unwrap_or_default(),
         })
     }
 
@@ -340,8 +341,10 @@ fn send_logical_position(pos: i_slint_core::api::LogicalPosition) -> proto::Logi
     proto::LogicalPosition { x: pos.x, y: pos.y }
 }
 
-fn convert_accessible_role(role: i_slint_core::items::AccessibleRole) -> proto::AccessibleRole {
-    match role {
+fn convert_accessible_role(
+    role: i_slint_core::items::AccessibleRole,
+) -> Option<proto::AccessibleRole> {
+    Some(match role {
         i_slint_core::items::AccessibleRole::None => proto::AccessibleRole::Unknown,
         i_slint_core::items::AccessibleRole::Button => proto::AccessibleRole::Button,
         i_slint_core::items::AccessibleRole::Checkbox => proto::AccessibleRole::Checkbox,
@@ -359,6 +362,14 @@ fn convert_accessible_role(role: i_slint_core::items::AccessibleRole) -> proto::
         }
         i_slint_core::items::AccessibleRole::TextInput => proto::AccessibleRole::TextInput,
         i_slint_core::items::AccessibleRole::Switch => proto::AccessibleRole::Switch,
-        _ => proto::AccessibleRole::Unknown,
+        _ => return None,
+    })
+}
+
+#[test]
+fn test_accessibility_role_mapping_complete() {
+    use strum::IntoEnumIterator;
+    for role in i_slint_core::items::AccessibleRole::iter() {
+        assert!(convert_accessible_role(role).is_some());
     }
 }
