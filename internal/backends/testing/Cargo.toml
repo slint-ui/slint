@@ -25,7 +25,7 @@ ffi = []
 system-testing = ["quick-protobuf", "pb-rs", "generational-arena", "async-net", "futures-lite", "byteorder"]
 
 [dependencies]
-i-slint-core = { workspace = true }
+i-slint-core = { workspace = true, features = ["std"] }
 vtable = { workspace = true }
 quick-protobuf = { version = "0.8.1", optional = true }
 generational-arena = { version = "0.2.9", optional = true }
