@@ -6,21 +6,23 @@
 //! This pass assume that use_count of all properties is zero
 
 use crate::llr::{
-    Animation, BindingExpression, EvaluationContext, Expression, ParentCtx, PropertyReference,
-    PublicComponent,
+    Animation, BindingExpression, CompilationUnit, EvaluationContext, Expression, ParentCtx,
+    PropertyReference,
 };
 
-pub fn count_property_use(root: &PublicComponent) {
+pub fn count_property_use(root: &CompilationUnit) {
     // Visit the root properties that are used.
     // 1. the public properties
-    let root_ctx = EvaluationContext::new_sub_component(root, &root.item_tree.root, (), None);
-    for p in root.public_properties.iter().filter(|p| {
-        !matches!(
-            p.prop,
-            PropertyReference::Function { .. } | PropertyReference::GlobalFunction { .. }
-        )
-    }) {
-        visit_property(&p.prop, &root_ctx);
+    for c in &root.public_components {
+        let root_ctx = EvaluationContext::new_sub_component(root, &c.item_tree.root, (), None);
+        for p in c.public_properties.iter().filter(|p| {
+            !matches!(
+                p.prop,
+                PropertyReference::Function { .. } | PropertyReference::GlobalFunction { .. }
+            )
+        }) {
+            visit_property(&p.prop, &root_ctx);
+        }
     }
     for g in root.globals.iter().filter(|g| g.exported) {
         let ctx = EvaluationContext::new_global(root, g, ());

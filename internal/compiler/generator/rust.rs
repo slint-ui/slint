@@ -169,18 +169,16 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         return TokenStream::default();
     }
 
-    let llr =
-        crate::llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component, &compiler_config);
+    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &compiler_config);
 
     let sub_compos = llr
         .sub_components
         .iter()
         .map(|sub_compo| generate_sub_component(sub_compo, &llr, None, None, false))
         .collect::<Vec<_>>();
+    let public_components =
+        llr.public_components.iter().map(|p| generate_public_component(p, &llr));
 
-    let compo = generate_public_component(&llr);
-    let compo_id = public_component_id(&llr.item_tree.root);
-    let compo_module = format_ident!("slint_generated{}", compo_id);
     let version_check = format_ident!(
         "VersionCheck_{}_{}_{}",
         env!("CARGO_PKG_VERSION_MAJOR"),
@@ -190,9 +188,11 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
 
     let globals =
         llr.globals.iter().filter(|glob| !glob.is_builtin).map(|glob| generate_global(glob, &llr));
+    let shared_globals = generate_shared_globals(&llr);
     let globals_ids = llr.globals.iter().filter(|glob| glob.exported).flat_map(|glob| {
         std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
     });
+    let compo_ids = llr.public_components.iter().map(|c| public_component_id(&c.item_tree.root));
 
     let resource_symbols = generate_resources(doc);
     let named_exports = generate_named_exports(doc);
@@ -201,32 +201,36 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         #[allow(non_snake_case, non_camel_case_types)]
         #[allow(unused_braces, unused_parens)]
         #[allow(clippy::all)]
-        mod #compo_module {
+        mod slint_generated {
             use slint::private_unstable_api::re_exports as sp;
             #[allow(unused_imports)]
             use sp::{RepeatedItemTree as _, ModelExt as _, Model as _, Float as _};
             #(#structs_and_enum_def)*
             #(#globals)*
             #(#sub_compos)*
-            #compo
+            #(#public_components)*
+            #shared_globals
             #(#resource_symbols)*
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         #[allow(unused_imports)]
-        pub use #compo_module::{#compo_id #(,#structs_and_enums_ids)* #(,#globals_ids)* #(,#named_exports)*};
+        pub use slint_generated::{#(#compo_ids),* #(,#structs_and_enums_ids)* #(,#globals_ids)* #(,#named_exports)*};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     }
 }
 
-fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
+fn generate_public_component(
+    llr: &llr::PublicComponent,
+    unit: &llr::CompilationUnit,
+) -> TokenStream {
     let public_component_id = public_component_id(&llr.item_tree.root);
     let inner_component_id = inner_component_id(&llr.item_tree.root);
 
-    let component = generate_item_tree(&llr.item_tree, llr, None, None);
+    let component = generate_item_tree(&llr.item_tree, unit, None, None);
 
     let ctx = EvaluationContext {
-        public_component: llr,
+        compilation_unit: unit,
         current_sub_component: Some(&llr.item_tree.root),
         current_global: None,
         generator_state: RustGeneratorContext {
@@ -243,10 +247,6 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
         &ctx,
     );
 
-    let global_names =
-        llr.globals.iter().map(|g| format_ident!("global_{}", ident(&g.name))).collect::<Vec<_>>();
-    let global_types = llr.globals.iter().map(global_inner_name).collect::<Vec<_>>();
-
     quote!(
         #component
         pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
@@ -254,9 +254,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
         impl #public_component_id {
             pub fn new() -> core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new()?;
-                #[allow(unused)]
-                let globals = inner.globals.get().unwrap();
-                #(globals.#global_names.clone().init(globals);)*
+                inner.globals.get().unwrap().init();
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 core::result::Result::Ok(Self(inner))
             }
@@ -307,7 +305,15 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
                 T::get(&self)
             }
         }
+    )
+}
 
+fn generate_shared_globals(llr: &llr::CompilationUnit) -> TokenStream {
+    let global_names =
+        llr.globals.iter().map(|g| format_ident!("global_{}", ident(&g.name))).collect::<Vec<_>>();
+    let global_types = llr.globals.iter().map(global_inner_name).collect::<Vec<_>>();
+
+    quote! {
         #[allow(dead_code)] // FIXME: some global are unused because of optimization, we should then remove them completely
         struct SharedGlobals {
             #(#global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
@@ -321,6 +327,10 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
                     window_adapter : ::core::default::Default::default(),
                     root_item_tree_weak,
                 }
+            }
+
+            fn init(self: &sp::Rc<Self>) {
+                #(self.#global_names.clone().init(self);)*
             }
 
             fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
@@ -341,7 +351,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
                 self.window_adapter.get().cloned()
             }
         }
-    )
+    }
 }
 
 fn generate_struct(
@@ -603,7 +613,7 @@ fn public_api(
 /// Generate the rust code for the given component.
 fn generate_sub_component(
     component: &llr::SubComponent,
-    root: &llr::PublicComponent,
+    root: &llr::CompilationUnit,
     parent_ctx: Option<ParentCtx>,
     index_property: Option<llr::PropertyIndex>,
     pinned_drop: bool,
@@ -1012,8 +1022,7 @@ fn generate_sub_component(
     let layout_info_v = compile_expression(&component.layout_info_v.borrow(), &ctx);
 
     // FIXME! this is only public because of the ComponentHandle::Inner. we should find another way
-    let visibility =
-        core::ptr::eq(&root.item_tree.root as *const _, component as *const _).then(|| quote!(pub));
+    let visibility = parent_ctx.is_none().then(|| quote!(pub));
 
     let subtree_index_function = if let Some(property_index) = index_property {
         let prop = access_member(
@@ -1217,7 +1226,7 @@ fn generate_functions(functions: &[llr::Function], ctx: &EvaluationContext) -> V
         .collect()
 }
 
-fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -> TokenStream {
+fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -> TokenStream {
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
     let mut declared_callbacks = vec![];
@@ -1294,10 +1303,19 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
             &ctx,
         );
         let public_component_id = ident(&global.name);
-        let root_component_id = self::public_component_id(&root.item_tree.root);
         let global_id = format_ident!("global_{}", public_component_id);
-
         let aliases = global.aliases.iter().map(|name| ident(name));
+        let getters = root.public_components.iter().map(|c| {
+            let root_component_id = self::public_component_id(&c.item_tree.root);
+            quote! {
+                impl<'a> slint::Global<'a, #root_component_id> for #public_component_id<'a> {
+                    fn get(component: &'a #root_component_id) -> Self {
+                        Self(&component.0.globals.get().unwrap().#global_id)
+                    }
+                }
+            }
+        });
+
         quote!(
             #[allow(unused)]
             pub struct #public_component_id<'a>(&'a ::core::pin::Pin<sp::Rc<#inner_component_id>>);
@@ -1305,14 +1323,8 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
             impl<'a> #public_component_id<'a> {
                 #property_and_callback_accessors
             }
-
             #(pub type #aliases<'a> = #public_component_id<'a>;)*
-
-            impl<'a> slint::Global<'a, #root_component_id> for #public_component_id<'a> {
-                fn get(component: &'a #root_component_id) -> Self {
-                    Self(&component.0.globals.get().unwrap().#global_id)
-                }
-            }
+            #(#getters)*
         )
     });
 
@@ -1348,7 +1360,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
 
 fn generate_item_tree(
     sub_tree: &llr::ItemTree,
-    root: &llr::PublicComponent,
+    root: &llr::CompilationUnit,
     parent_ctx: Option<ParentCtx>,
     index_property: Option<llr::PropertyIndex>,
 ) -> TokenStream {
@@ -1614,14 +1626,14 @@ fn generate_item_tree(
 
 fn generate_repeated_component(
     repeated: &llr::RepeatedElement,
-    root: &llr::PublicComponent,
+    unit: &llr::CompilationUnit,
     parent_ctx: ParentCtx,
 ) -> TokenStream {
     let component =
-        generate_item_tree(&repeated.sub_tree, root, Some(parent_ctx), repeated.index_prop);
+        generate_item_tree(&repeated.sub_tree, unit, Some(parent_ctx), repeated.index_prop);
 
     let ctx = EvaluationContext {
-        public_component: root,
+        compilation_unit: unit,
         current_sub_component: Some(&repeated.sub_tree.root),
         current_global: None,
         generator_state: RustGeneratorContext { global_access: quote!(_self) },
@@ -1630,9 +1642,6 @@ fn generate_repeated_component(
     };
 
     let inner_component_id = self::inner_component_id(&repeated.sub_tree.root);
-
-    // let rep_inner_component_id = self::inner_component_id(&repeated.sub_tree.root.name);
-    // let inner_component_id = self::inner_component_id(&parent_compo);
 
     let extra_fn = if let Some(listview) = &repeated.listview {
         let p_y = access_member(&listview.prop_y, &ctx);
@@ -1850,11 +1859,11 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         }
         llr::PropertyReference::Global { global_index, property_index } => {
             let global_access = &ctx.generator_state.global_access;
-            let global = &ctx.public_component.globals[*global_index];
+            let global = &ctx.compilation_unit.globals[*global_index];
             let global_id = format_ident!("global_{}", ident(&global.name));
             let global_name = global_inner_name(global);
             let property_name = ident(
-                &ctx.public_component.globals[*global_index].properties[*property_index].name,
+                &ctx.compilation_unit.globals[*global_index].properties[*property_index].name,
             );
             quote!(#global_name::FIELD_OFFSETS.#property_name.apply_pin(#global_access.#global_id.as_ref()))
         }
@@ -1879,11 +1888,11 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         }
         llr::PropertyReference::GlobalFunction { global_index, function_index } => {
             let global_access = &ctx.generator_state.global_access;
-            let global = &ctx.public_component.globals[*global_index];
+            let global = &ctx.compilation_unit.globals[*global_index];
             let global_id = format_ident!("global_{}", ident(&global.name));
             let fn_id = ident(&format!(
                 "fn_{}",
-                ctx.public_component.globals[*global_index].functions[*function_index].name
+                ctx.compilation_unit.globals[*global_index].functions[*function_index].name
             ));
             quote!(#global_access.#global_id.as_ref().#fn_id)
         }

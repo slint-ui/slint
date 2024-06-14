@@ -322,17 +322,22 @@ pub struct PublicComponent {
     pub public_properties: PublicProperties,
     pub private_properties: PrivateProperties,
     pub item_tree: ItemTree,
+}
+
+#[derive(Debug)]
+pub struct CompilationUnit {
+    pub public_components: Vec<PublicComponent>,
     pub sub_components: Vec<Rc<SubComponent>>,
     pub globals: Vec<GlobalComponent>,
 }
 
-impl PublicComponent {
+impl CompilationUnit {
     pub fn for_each_sub_components<'a>(
         &'a self,
         visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),
     ) {
         fn visit_component<'a>(
-            root: &'a PublicComponent,
+            root: &'a CompilationUnit,
             c: &'a SubComponent,
             visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),
             parent: Option<ParentCtx<'_>>,
@@ -354,7 +359,9 @@ impl PublicComponent {
         for c in &self.sub_components {
             visit_component(self, c, visitor, None);
         }
-        visit_component(self, &self.item_tree.root, visitor, None);
+        for p in &self.public_components {
+            visit_component(self, &p.item_tree.root, visitor, None);
+        }
     }
 
     pub fn for_each_expression<'a>(

@@ -769,12 +769,11 @@ pub fn generate(
         return file;
     }
 
-    let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component, compiler_config);
+    let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc, compiler_config);
 
     // Forward-declare the root so that sub-components can access singletons, the window, etc.
-    file.declarations.push(Declaration::Struct(Struct {
-        name: ident(&llr.item_tree.root.name),
-        ..Default::default()
+    file.declarations.extend(llr.public_components.iter().map(|c| {
+        Declaration::Struct(Struct { name: ident(&c.item_tree.root.name), ..Default::default() })
     }));
 
     let conditional_includes = ConditionalIncludes::default();
@@ -861,7 +860,9 @@ pub fn generate(
     }
     file.declarations.push(Declaration::Struct(globals_struct));
 
-    generate_public_component(&mut file, &conditional_includes, &llr);
+    for p in &llr.public_components {
+        generate_public_component(&mut file, &conditional_includes, p, &llr);
+    }
 
     generate_type_aliases(&mut file, doc);
 
@@ -943,6 +944,7 @@ fn generate_public_component(
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
     component: &llr::PublicComponent,
+    unit: &llr::CompilationUnit,
 ) {
     let root_component = &component.item_tree.root;
     let component_id = ident(&root_component.name);
@@ -959,12 +961,12 @@ fn generate_public_component(
         }),
     ));
 
-    for glob in component.globals.iter().filter(|glob| !glob.is_builtin) {
+    for glob in unit.globals.iter().filter(|glob| !glob.is_builtin) {
         component_struct.friends.push(ident(&glob.name));
     }
 
     let mut global_accessor_function_body = Vec::new();
-    for glob in component.globals.iter().filter(|glob| glob.exported && !glob.is_builtin) {
+    for glob in unit.globals.iter().filter(|glob| glob.exported && !glob.is_builtin) {
         let accessor_statement = format!(
             "{0}if constexpr(std::is_same_v<T, {1}>) {{ return *m_globals.global_{1}.get(); }}",
             if global_accessor_function_body.is_empty() { "" } else { "else " },
@@ -990,7 +992,7 @@ fn generate_public_component(
     }
 
     let ctx = EvaluationContext {
-        public_component: component,
+        compilation_unit: unit,
         current_sub_component: Some(&component.item_tree.root),
         current_global: None,
         generator_state: CppGeneratorContext {
@@ -1006,7 +1008,7 @@ fn generate_public_component(
     generate_item_tree(
         &mut component_struct,
         &component.item_tree,
-        component,
+        unit,
         None,
         component_id,
         Access::Private, // Hide properties and other fields from the C++ API
@@ -1076,9 +1078,6 @@ fn generate_public_component(
     component_struct.friends.push("slint::private_api::WindowAdapterRc".into());
 
     add_friends(&mut component_struct.friends, &component.item_tree.root, true);
-    for sc in &component.sub_components {
-        add_friends(&mut component_struct.friends, sc, false);
-    }
 
     fn add_friends(friends: &mut Vec<String>, sc: &llr::SubComponent, is_root: bool) {
         if !is_root {
@@ -1099,7 +1098,7 @@ fn generate_public_component(
 fn generate_item_tree(
     target_struct: &mut Struct,
     sub_tree: &llr::ItemTree,
-    root: &llr::PublicComponent,
+    root: &llr::CompilationUnit,
     parent_ctx: Option<ParentCtx>,
     item_tree_class_name: String,
     field_access: Access,
@@ -1568,7 +1567,7 @@ fn generate_item_tree(
 fn generate_sub_component(
     target_struct: &mut Struct,
     component: &llr::SubComponent,
-    root: &llr::PublicComponent,
+    root: &llr::CompilationUnit,
     parent_ctx: Option<ParentCtx>,
     field_access: Access,
     file: &mut File,
@@ -2134,7 +2133,7 @@ fn generate_sub_component(
 
 fn generate_repeated_component(
     repeated: &llr::RepeatedElement,
-    root: &llr::PublicComponent,
+    root: &llr::CompilationUnit,
     parent_ctx: ParentCtx,
     model_data_type: &Type,
     file: &mut File,
@@ -2154,7 +2153,7 @@ fn generate_repeated_component(
     );
 
     let ctx = EvaluationContext {
-        public_component: root,
+        compilation_unit: root,
         current_sub_component: Some(&repeated.sub_tree.root),
         current_global: None,
         generator_state: CppGeneratorContext { global_access: "self".into(), conditional_includes },
@@ -2263,7 +2262,7 @@ fn generate_global(
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
     global: &llr::GlobalComponent,
-    root: &llr::PublicComponent,
+    root: &llr::CompilationUnit,
 ) {
     let mut global_struct = Struct { name: ident(&global.name), ..Default::default() };
 
@@ -2656,19 +2655,19 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         }
         llr::PropertyReference::Global { global_index, property_index } => {
             let global_access = &ctx.generator_state.global_access;
-            let global = &ctx.public_component.globals[*global_index];
+            let global = &ctx.compilation_unit.globals[*global_index];
             let global_id = format!("global_{}", ident(&global.name));
             let property_name = ident(
-                &ctx.public_component.globals[*global_index].properties[*property_index].name,
+                &ctx.compilation_unit.globals[*global_index].properties[*property_index].name,
             );
             format!("{}->{}->{}", global_access, global_id, property_name)
         }
         llr::PropertyReference::GlobalFunction { global_index, function_index } => {
             let global_access = &ctx.generator_state.global_access;
-            let global = &ctx.public_component.globals[*global_index];
+            let global = &ctx.compilation_unit.globals[*global_index];
             let global_id = format!("global_{}", ident(&global.name));
             let name =
-                ident(&ctx.public_component.globals[*global_index].functions[*function_index].name);
+                ident(&ctx.compilation_unit.globals[*global_index].functions[*function_index].name);
             format!("{global_access}->{global_id}->fn_{name}")
         }
     }

@@ -14,10 +14,12 @@ use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 pub fn lower_to_item_tree(
-    component: &Rc<Component>,
+    document: &crate::object_tree::Document,
     compiler_config: &CompilerConfiguration,
-) -> PublicComponent {
+) -> CompilationUnit {
     let mut state = LoweringState::default();
+
+    let component = &document.root_component;
 
     let mut globals = Vec::new();
     for g in &component.used_types.borrow().globals {
@@ -36,8 +38,12 @@ pub fn lower_to_item_tree(
         root: Rc::try_unwrap(sc.sub_component).unwrap(),
         parent_context: None,
     };
-    let root = PublicComponent {
-        item_tree,
+    let root = CompilationUnit {
+        public_components: vec![PublicComponent {
+            item_tree,
+            public_properties,
+            private_properties: component.private_properties.borrow().clone(),
+        }],
         globals,
         sub_components: component
             .used_types
@@ -48,8 +54,6 @@ pub fn lower_to_item_tree(
                 state.sub_components[&ByAddress(tree_sub_compo.clone())].sub_component.clone()
             })
             .collect(),
-        public_properties,
-        private_properties: component.private_properties.borrow().clone(),
     };
     super::optim_passes::run_passes(&root);
     root
