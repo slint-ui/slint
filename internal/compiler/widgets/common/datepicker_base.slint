@@ -135,6 +135,8 @@ export component Calendar {
     in property <int> month-count;
     in property <Date> today;
     in property <Date> selected-date;
+    in property <int> display-month;
+    in property <int> display-year;
 
     callback select-date(/* date */ Date);
 
@@ -150,7 +152,7 @@ export component Calendar {
 
     // items
     for index in root.month-count : CalendarDelegate {
-        property <Date> d: { day: index + 1, month: today.month, year: today.year };
+        property <Date> d: { day: index + 1, month: root.display-month, year: root.display-year };
 
         x: root.delegate-x(root.index-on-calendar(index));
         y: root.delegate-y(root.index-on-calendar(index));
@@ -408,6 +410,8 @@ export component DatePickerBase {
                 today: { day: root.today[0], month: root.today[1], year: root.today[2] };
                 selected-date <=> root.current-date;
                 start-column: root.start-column;
+                display-month: root.display-date.month;
+                display-year: root.display-date.year;
 
                 select-date(date) => {
                     root.select-date(date);
