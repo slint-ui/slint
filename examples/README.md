@@ -50,7 +50,7 @@ A simple todo application based on the [Model View Controller](https://en.wikipe
 
 | `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- |
-| [`index.slint`](./todo/ui/index.slint) | [`main.rs`](./todo/rust/main.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/todo-mvc/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/todo-mvc/ui/index.slint) |
+| [`index.slint`](./todo-mvc/ui/index.slint) | [`main.rs`](./todo/rust/main.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/todo-mvc/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/todo-mvc/ui/index.slint) |
 
 ### [`carousel`](./carousel)
 
