@@ -892,7 +892,7 @@ fn get_code_actions(
 
         if has_experimental_client_capability(client_capabilities, "snippetTextEdit") {
             let r = util::map_range(&token.source_file, node.parent().unwrap().text_range());
-            let element = element_at_position(&document_cache, &uri, &r.start);
+            let element = element_at_position(document_cache, &uri, &r.start);
             let element_indent = element.as_ref().and_then(util::find_element_indent);
             let indented_lines = node
                 .parent()
