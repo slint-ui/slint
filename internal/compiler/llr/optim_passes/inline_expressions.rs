@@ -7,7 +7,7 @@
 //! in the calling expression
 
 use crate::expression_tree::BuiltinFunction;
-use crate::llr::{EvaluationContext, Expression, PropertyInfoResult, PublicComponent};
+use crate::llr::{CompilationUnit, EvaluationContext, Expression, PropertyInfoResult};
 
 const PROPERTY_ACCESS_COST: isize = 1000;
 const ALLOC_COST: isize = 700;
@@ -119,7 +119,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
     }
 }
 
-pub fn inline_simple_expressions(root: &PublicComponent) {
+pub fn inline_simple_expressions(root: &CompilationUnit) {
     root.for_each_expression(&mut |e, ctx| {
         inline_simple_expressions_in_expression(&mut e.borrow_mut(), ctx)
     })
