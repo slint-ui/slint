@@ -141,7 +141,8 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
                 )*
                 $(
                     $(writeln!(file, "    ///{}", $pri_doc)?;)*
-                    let pri_type = match stringify!($pri_type) {
+                    let pri_type = stringify!($pri_type).replace(' ', "");
+                    let pri_type = match pri_type.as_str() {
                         "usize" => "uintptr_t",
                         "crate::animations::Instant" => "uint64_t",
                         // This shouldn't be accessed by the C++ anyway, just need to have the same ABI in a struct
