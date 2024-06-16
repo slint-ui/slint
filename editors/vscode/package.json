@@ -1,7 +1,8 @@
 {
   "name": "slint",
   "displayName": "Slint",
-  "description": "Slint Language extension",
+  "description": "Slint language support, featuring auto-completion, go-to definition, refactoring, syntax coloration, and a live preview and editing of Slint GUIs. Slint is a lightweight cross-platform native GUI framework for Rust, C++, JavaScript, and Python.",
+  "keywords": ["Slint", "GUI", "UI", "HMI", "Qt/QML Alternative", "live preview", "drag-and-drop editor"],
   "version": "1.7.0",
   "publisher": "Slint",
   "icon": "extension-logo.png",
