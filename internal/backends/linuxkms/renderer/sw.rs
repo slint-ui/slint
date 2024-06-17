@@ -9,12 +9,12 @@ pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use std::rc::Rc;
 
-use crate::display::{Presenter, RenderingRotation};
-use crate::drmoutput::DrmOutput;
+use crate::display::RenderingRotation;
 
 pub struct SoftwareRendererAdapter {
     renderer: SoftwareRenderer,
-    display: Rc<crate::display::swdisplay::SoftwareBufferDisplay>,
+    display: Rc<dyn crate::display::swdisplay::SoftwareBufferDisplay>,
+    presenter: Rc<dyn crate::display::Presenter>,
     size: PhysicalWindowSize,
 }
 
@@ -67,13 +67,17 @@ impl SoftwareRendererAdapter {
     pub fn new(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
-        let drm_output = DrmOutput::new(device_opener)?;
-        let display = Rc::new(crate::display::swdisplay::SoftwareBufferDisplay::new(drm_output)?);
+        let display = crate::display::swdisplay::new(device_opener)?;
 
-        let (width, height) = display.drm_output.size();
+        let (width, height) = display.size();
         let size = i_slint_core::api::PhysicalSize::new(width, height);
 
-        let renderer = Box::new(Self { renderer: SoftwareRenderer::new(), display, size });
+        let renderer = Box::new(Self {
+            renderer: SoftwareRenderer::new(),
+            display: display.clone(),
+            presenter: display.as_presenter(),
+            size,
+        });
 
         eprintln!("Using Software renderer");
 
@@ -87,7 +91,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
     }
 
     fn is_ready_to_present(&self) -> bool {
-        self.display.drm_output.is_ready_to_present()
+        self.presenter.is_ready_to_present()
     }
 
     fn render_and_present(
@@ -96,7 +100,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
         _draw_mouse_cursor_callback: &dyn Fn(&mut dyn i_slint_core::item_rendering::ItemRenderer),
         ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), PlatformError> {
-        self.display.map_back_buffer(&mut |mut pixels, age| {
+        self.display.map_back_buffer(&mut |pixels, age| {
             self.renderer.set_repaint_buffer_type(match age {
                 1 => RepaintBufferType::ReusedBuffer,
                 2 => RepaintBufferType::SwappedBuffers,
@@ -123,7 +127,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
 
             Ok(())
         })?;
-        self.display.present_with_next_frame_callback(ready_for_next_animation_frame)?;
+        self.presenter.present_with_next_frame_callback(ready_for_next_animation_frame)?;
         Ok(())
     }
 
@@ -135,6 +139,6 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
         &self,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
     ) -> Result<(), PlatformError> {
-        self.display.drm_output.register_page_flip_handler(event_loop_handle)
+        self.presenter.register_page_flip_handler(event_loop_handle)
     }
 }

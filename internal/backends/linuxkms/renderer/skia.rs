@@ -80,20 +80,19 @@ impl SkiaRendererAdapter {
     pub fn new_software(
         device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
-        let drm_output = DrmOutput::new(device_opener)?;
-        let display = Rc::new(crate::display::swdisplay::SoftwareBufferDisplay::new(drm_output)?);
+        let display = crate::display::swdisplay::new(device_opener)?;
 
         let skia_software_surface: i_slint_renderer_skia::software_surface::SoftwareSurface =
             DrmDumbBufferAccess { display: display.clone() }.into();
 
-        let (width, height) = display.drm_output.size();
+        let (width, height) = display.size();
         let size = i_slint_core::api::PhysicalSize::new(width, height);
 
         let renderer = Box::new(Self {
             renderer: i_slint_renderer_skia::SkiaRenderer::new_with_surface(Box::new(
                 skia_software_surface,
             )),
-            presenter: display,
+            presenter: display.as_presenter(),
             size,
         });
 
@@ -164,7 +163,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaRendererAdapter 
     }
 }
 struct DrmDumbBufferAccess {
-    display: Rc<crate::display::swdisplay::SoftwareBufferDisplay>,
+    display: Rc<dyn crate::display::swdisplay::SoftwareBufferDisplay>,
 }
 
 impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAccess {
@@ -185,7 +184,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for DrmDumbBufferAcce
             return Ok(());
         };
 
-        self.display.map_back_buffer(&mut |mut pixels, _age| {
+        self.display.map_back_buffer(&mut |pixels, _age| {
             render_callback(width, height, skia_safe::ColorType::BGRA8888, pixels.as_mut())
         })
     }

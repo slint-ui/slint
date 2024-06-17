@@ -1,97 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::cell::RefCell;
+use std::rc::Rc;
 
-use crate::drmoutput::DrmOutput;
-use drm::control::Device;
 use i_slint_core::platform::PlatformError;
 
-pub struct SoftwareBufferDisplay {
-    pub drm_output: DrmOutput,
-    front_buffer: RefCell<DumbBuffer>,
-    back_buffer: RefCell<DumbBuffer>,
-}
-
-impl SoftwareBufferDisplay {
-    pub fn new(drm_output: DrmOutput) -> Result<Self, PlatformError> {
-        //eprintln!("mode {}/{}", width, height);
-
-        let front_buffer = DumbBuffer::allocate(&drm_output.drm_device, drm_output.size())?.into();
-        let back_buffer = DumbBuffer::allocate(&drm_output.drm_device, drm_output.size())?.into();
-
-        Ok(Self { drm_output, front_buffer, back_buffer })
-    }
-
-    pub fn map_back_buffer(
+pub trait SoftwareBufferDisplay {
+    fn size(&self) -> (u32, u32);
+    fn map_back_buffer(
         &self,
-        callback: &mut dyn FnMut(
-            drm::control::dumbbuffer::DumbMapping<'_>,
-            u8,
-        ) -> Result<(), PlatformError>,
-    ) -> Result<(), PlatformError> {
-        let mut back_buffer = self.back_buffer.borrow_mut();
-        let age = back_buffer.age;
-        self.drm_output
-            .drm_device
-            .map_dumb_buffer(&mut back_buffer.buffer_handle)
-            .map_err(|e| PlatformError::Other(format!("Error mapping dumb buffer: {e}").into()))
-            .and_then(|buffer| callback(buffer, age))
-    }
+        callback: &mut dyn FnMut(&'_ mut [u8], u8) -> Result<(), PlatformError>,
+    ) -> Result<(), PlatformError>;
+    fn as_presenter(self: Rc<Self>) -> Rc<dyn super::Presenter>;
 }
 
-impl super::Presenter for SoftwareBufferDisplay {
-    fn register_page_flip_handler(
-        &self,
-        event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<(), PlatformError> {
-        self.drm_output.register_page_flip_handler(event_loop_handle)
-    }
+mod dumbbuffer;
 
-    fn present_with_next_frame_callback(
-        &self,
-        ready_for_next_animation_frame: Box<dyn FnOnce()>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: dirty framebuffer
-        self.front_buffer.swap(&self.back_buffer);
-        self.front_buffer.borrow_mut().age = 1;
-        {
-            let mut back_buffer = self.back_buffer.borrow_mut();
-            if back_buffer.age != 0 {
-                back_buffer.age += 1;
-            }
-        }
-        self.drm_output.present(
-            self.front_buffer.borrow().buffer_handle,
-            self.front_buffer.borrow().fb_handle,
-            ready_for_next_animation_frame,
-        )?;
-        Ok(())
-    }
-
-    fn is_ready_to_present(&self) -> bool {
-        self.drm_output.is_ready_to_present()
-    }
-}
-
-struct DumbBuffer {
-    fb_handle: drm::control::framebuffer::Handle,
-    buffer_handle: drm::control::dumbbuffer::DumbBuffer,
-    age: u8,
-}
-
-impl DumbBuffer {
-    fn allocate(
-        device: &impl drm::control::Device,
-        (width, height): (u32, u32),
-    ) -> Result<Self, PlatformError> {
-        let buffer_handle = device
-            .create_dumb_buffer((width, height), drm::buffer::DrmFourcc::Xrgb8888, 32)
-            .map_err(|e| format!("Error creating dumb buffer ({}/{}): {}", width, height, e))?;
-        let fb_handle = device
-            .add_framebuffer(&buffer_handle, 24, 32)
-            .map_err(|e| format!("Error creating framebuffer for dumb buffer: {e}"))?;
-
-        Ok(Self { fb_handle, buffer_handle, age: 0 })
-    }
+pub fn new(
+    device_opener: &crate::DeviceOpener,
+) -> Result<Rc<dyn SoftwareBufferDisplay>, PlatformError> {
+    dumbbuffer::DumbBufferDisplay::new(device_opener)
 }
