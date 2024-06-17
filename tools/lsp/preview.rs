@@ -136,7 +136,60 @@ fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<Elem
 
 // triggered from the UI, running in UI thread
 fn add_new_component() {
-    eprintln!("Add a new component!");    
+    fn find_component_name() -> Option<String> {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow();
+
+            for i in 0..preview_state.known_components.len() {
+                let name =
+                    format!("MyComponent{}", if i == 0 { "".to_string() } else { i.to_string() });
+
+                if preview_state
+                    .known_components
+                    .binary_search_by_key(&name.as_str(), |ci| ci.name.as_str())
+                    .is_err()
+                {
+                    return Some(name);
+                }
+            }
+            None
+        })
+    }
+
+    let Some(document_cache) = document_cache() else { return; };
+
+    let preview_component = {
+        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        cache.current.clone()
+    };
+
+    let Some(preview_component) = preview_component else {
+        return;
+    };
+
+    let Some(component_name) = find_component_name() else {
+        return;
+    };
+
+    let Some(document) = document_cache.get_document(&preview_component.url) else {
+        return;
+    };
+
+    let Some(document) = &document.node else { return; };
+
+    if let Some((edit, drop_data)) = drop_location::add_new_component(&component_name, document) {
+        element_selection::select_element_at_source_code_position(
+            drop_data.path,
+            drop_data.selection_offset,
+            None,
+            true,
+        );
+
+        send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
+            label: Some("Move element".to_string()),
+            edit,
+        });
+    }
 }
 
 // triggered from the UI, running in UI thread

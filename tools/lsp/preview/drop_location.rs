@@ -433,6 +433,149 @@ fn insert_position_before_child(
     })
 }
 
+/// Insert before the first component (exported or not) or at the very end of the document if no
+/// Component is found.
+fn insert_position_before_first_component(
+    document: &syntax_nodes::Document,
+) -> Option<InsertInformation> {
+    let url = {
+        let url = lsp_types::Url::from_file_path(document.source_file.path()).ok()?;
+        let version = document.source_file.version();
+        common::VersionedUrl::new(url, version)
+    };
+
+    let first_component: Option<SyntaxNode> = document.Component().next().map(|c| c.into());
+    let first_exported_component: Option<SyntaxNode> =
+        document.ExportsList().find(|el| el.Component().is_some()).map(|el| el.into());
+
+    let first_component_node = if first_component
+        .as_ref()
+        .map(|sn| u32::from(sn.text_range().start()))
+        .unwrap_or(u32::MAX)
+        < first_exported_component
+            .as_ref()
+            .map(|sn| u32::from(sn.text_range().start()))
+            .unwrap_or(u32::MAX)
+    {
+        first_component
+    } else {
+        first_exported_component
+    };
+
+    fn find_pre_indent_and_replacement(
+        token: &rowan::SyntaxToken<i_slint_compiler::parser::Language>,
+    ) -> (String, u32) {
+        match token.kind() {
+            SyntaxKind::Whitespace => {
+                if token.prev_token().is_some() {
+                    let nl_count = token.text().chars().filter(|c| c == &'\n').count();
+                    let replacement_range =
+                        token.text().split('\n').last().map(|s| s.as_bytes().len()).unwrap_or(0)
+                            as u32;
+
+                    if nl_count >= 2 {
+                        (String::new(), replacement_range)
+                    } else if nl_count == 1 {
+                        ("\n".to_string(), replacement_range)
+                    } else {
+                        ("\n\n".to_string(), replacement_range)
+                    }
+                } else {
+                    (String::new(), token.text().as_bytes().len() as u32) // Just WS before the component: Replace!
+                }
+            }
+            _ => ("\n\n".to_string(), 0),
+        }
+    }
+
+    if let Some(component) = first_component_node {
+        // have a component node!
+        let first_token = component.first_token()?;
+        let first_token_offset = u32::from(first_token.text_range().start());
+        if let Some(before_first_token) = first_token.prev_token() {
+            let (pre_indent, replacement_range) =
+                find_pre_indent_and_replacement(&before_first_token);
+
+            Some(InsertInformation {
+                insertion_position: common::VersionedPosition::new(
+                    url,
+                    first_token_offset - replacement_range,
+                ),
+                replacement_range,
+                pre_indent,
+                indent: "    ".to_string(),
+                post_indent: "\n\n".to_string(),
+            })
+        } else {
+            // Component is the first thing in the file!
+            Some(InsertInformation {
+                insertion_position: common::VersionedPosition::new(url, first_token_offset),
+                replacement_range: 0,
+                pre_indent: String::new(),
+                indent: "     ".to_string(),
+                post_indent: "\n\n".to_string(),
+            })
+        }
+    } else if let Some(last_token) = document.last_token().unwrap().prev_token() {
+        // The last token is EoF, so insert at the end of a non-empty document
+
+        let (pre_indent, replacement_range) = find_pre_indent_and_replacement(&last_token);
+        Some(InsertInformation {
+            insertion_position: common::VersionedPosition::new(
+                url,
+                u32::from(document.text_range().end()) - replacement_range,
+            ),
+            replacement_range,
+            pre_indent,
+            indent: "    ".to_string(),
+            post_indent: "\n".to_string(),
+        })
+    } else {
+        // Entire document is empty
+        Some(InsertInformation {
+            insertion_position: common::VersionedPosition::new(
+                url,
+                u32::from(document.text_range().end()),
+            ),
+            replacement_range: 0,
+            pre_indent: String::new(),
+            indent: String::new(),
+            post_indent: "\n".to_string(),
+        })
+    }
+}
+
+pub fn add_new_component(
+    component_name: &str,
+    document: &syntax_nodes::Document,
+) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+    let insert_position = insert_position_before_first_component(document)?;
+    let new_text = format!(
+        "{}component {component_name} {{ }}{}",
+        insert_position.pre_indent, insert_position.post_indent
+    );
+
+    let selection_offset = insert_position.insertion_position.offset()
+        + new_text.chars().take_while(|c| c.is_whitespace()).map(|c| c.len_utf8() as u32).sum::<u32>()
+        + 10 /* component<SPACE> */;
+
+    let source_file = document.source_file.clone();
+    let path = source_file.path().to_path_buf();
+
+    let start_pos =
+        util::map_position(&source_file, insert_position.insertion_position.offset().into());
+    let end_pos = util::map_position(
+        &source_file,
+        (insert_position.insertion_position.offset() + insert_position.replacement_range).into(),
+    );
+    let edit = lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text };
+
+    Some((
+        common::create_workspace_edit_from_source_file(&source_file, vec![edit])?,
+        DropData { selection_offset, path },
+    ))
+}
+
 // find all elements covering the given `position`.
 fn drop_target_element_nodes(
     component_instance: &ComponentInstance,
@@ -1094,7 +1237,7 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        common::{self, test},
+        common::{self, test, text_edit},
         util,
     };
 
@@ -1136,6 +1279,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
                 Url::from_file_path(test::main_test_file_name()).unwrap(),
                 DEMO_CODE.to_string(),
             )]),
+            false,
         );
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
         let source_file = &doc.node.as_ref().unwrap().source_file;
@@ -1240,5 +1384,160 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
         let (document_cache, workspace_edit) = workspace_edit_setup(vec![(409, 417, "xxx")]);
 
         assert_eq!(super::workspace_edit_compiles(&document_cache, &workspace_edit,), true);
+    }
+
+    #[track_caller]
+    fn add_component_test(input: &str, output: &str, selection_offset: u32) {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                input.to_string(),
+            )]),
+            true,
+        );
+        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
+        let doc_node = doc.node.as_ref().unwrap();
+
+        let (workspace_edit, drop_data) =
+            super::add_new_component("TestComponent", &doc_node).unwrap();
+
+        let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].url.to_file_path().unwrap(), test::main_test_file_name());
+        assert_eq!(&result[0].contents, output);
+
+        assert_eq!(drop_data.path, test::main_test_file_name());
+        assert_eq!(drop_data.selection_offset, selection_offset);
+
+        assert_eq!(super::workspace_edit_compiles(&document_cache, &workspace_edit), true);
+    }
+
+    #[test]
+    fn test_add_new_component_into_empty() {
+        add_component_test("", "component TestComponent { }\n", 10);
+    }
+
+    #[test]
+    fn test_add_new_component_into_ws() {
+        add_component_test("    \n    \n \n \t \n", "component TestComponent { }\n", 10);
+    }
+
+    #[test]
+    fn test_add_new_component_into_no_component_struct() {
+        add_component_test("struct S { }", "struct S { }\n\ncomponent TestComponent { }\n", 24);
+    }
+
+    #[test]
+    fn test_add_new_component_into_no_component_struct_nl() {
+        add_component_test(
+            "struct S { }\n    ",
+            "struct S { }\n\ncomponent TestComponent { }\n",
+            24,
+        );
+    }
+
+    #[test]
+    fn test_add_new_component_into_no_component_struct_nl_sp_nl() {
+        add_component_test(
+            "struct S { }\n  \n",
+            "struct S { }\n  \ncomponent TestComponent { }\n",
+            26,
+        );
+    }
+
+    #[test]
+    fn test_add_new_component_into_no_component_nl_sp_nl_sp() {
+        add_component_test(
+            "struct S { }\n  \n    ",
+            "struct S { }\n  \ncomponent TestComponent { }\n",
+            26,
+        );
+    }
+
+    #[test]
+    fn test_add_new_component_into_no_component_nl_sp_nl_nl() {
+        add_component_test(
+            "struct S { }\n  \n\n",
+            "struct S { }\n  \n\ncomponent TestComponent { }\n",
+            27,
+        );
+    }
+
+    #[test]
+    fn test_add_new_component_into_no_component_struct_nl_nl_nl_sp() {
+        add_component_test(
+            "struct S { }\n  \n\n    ",
+            "struct S { }\n  \n\ncomponent TestComponent { }\n",
+            27,
+        );
+    }
+
+    #[test]
+    fn test_add_new_component_into_component() {
+        add_component_test("component C { }", "component TestComponent { }\n\ncomponent C { }", 10);
+    }
+
+    #[test]
+    fn test_add_new_component_into_export_component() {
+        add_component_test(
+            "export component C { }",
+            "component TestComponent { }\n\nexport component C { }",
+            10,
+        );
+    }
+
+    #[test]
+    fn test_add_new_component_into_export_component_component() {
+        add_component_test(
+            "export component CE { }\n\ncomponent C { }",
+            "component TestComponent { }\n\nexport component CE { }\n\ncomponent C { }",
+            10,
+        );
+    }
+
+    #[test]
+    fn test_add_new_component_into_component_export_component() {
+        add_component_test(
+            "component C { }\n\nexport component CE { }",
+            "component TestComponent { }\n\ncomponent C { }\n\nexport component CE { }",
+            10,
+        );
+    }
+
+    #[test]
+    fn test_add_new_component_into_struct_export_component() {
+        add_component_test(
+            "struct S { }export component C { }",
+            "struct S { }\n\ncomponent TestComponent { }\n\nexport component C { }",
+            24,
+        );
+    }
+
+    #[test]
+    fn test_add_new_component_into_struct_export_sp_component() {
+        add_component_test(
+            "struct S { }     export component C { }",
+            "struct S { }\n\ncomponent TestComponent { }\n\nexport component C { }",
+            24,
+        );
+    }
+
+    #[test]
+    fn test_add_new_component_into_ws_component() {
+        add_component_test(
+            "\n     \n  \n\t  \n          component C { }",
+            "component TestComponent { }\n\ncomponent C { }",
+            10,
+        );
+    }
+
+    #[test]
+    fn test_add_new_component_into_struct_sp_nl_sp_component() {
+        add_component_test(
+            "struct S { }  \n  component C { }",
+            "struct S { }  \n\ncomponent TestComponent { }\n\ncomponent C { }",
+            26,
+        );
     }
 }
