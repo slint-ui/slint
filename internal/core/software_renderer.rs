@@ -16,7 +16,7 @@ use crate::api::Window;
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use crate::graphics::{BorderRadius, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::{CachedRenderingData, DirtyRegion, RenderBorderRectangle, RenderImage};
-use crate::items::{ItemRc, TextOverflow};
+use crate::items::{ItemRc, TextOverflow, TextWrap};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths,
@@ -615,9 +615,9 @@ impl RendererSealed for SoftwareRenderer {
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
-        wrap_anywhere: bool,
+        text_wrap: TextWrap,
     ) -> LogicalSize {
-        fonts::text_size(font_request, text, max_width, scale_factor, wrap_anywhere)
+        fonts::text_size(font_request, text, max_width, scale_factor, text_wrap)
     }
 
     fn text_input_byte_offset_for_position(

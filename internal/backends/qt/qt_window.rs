@@ -2142,12 +2142,12 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         text: &str,
         max_width: Option<LogicalLength>,
         _scale_factor: ScaleFactor,
-        wrap_anywhere: bool,
+        text_wrap: TextWrap,
     ) -> LogicalSize {
         get_font(font_request).text_size(
             text,
             max_width.map(|logical_width| logical_width.get()),
-            wrap_anywhere,
+            text_wrap,
         )
     }
 
@@ -2369,16 +2369,17 @@ fn get_font(request: FontRequest) -> QFont {
 cpp_class! {pub unsafe struct QFont as "QFont"}
 
 impl QFont {
-    fn text_size(&self, text: &str, max_width: Option<f32>, wrap_anywhere: bool) -> LogicalSize {
+    fn text_size(&self, text: &str, max_width: Option<f32>, text_wrap: TextWrap) -> LogicalSize {
         let string = qttypes::QString::from(text);
+        let char_wrap = text_wrap == TextWrap::CharWrap;
         let mut r = qttypes::QRectF::default();
         if let Some(max) = max_width {
             r.height = f32::MAX as _;
             r.width = max as _;
         }
-        let size = cpp! { unsafe [self as "const QFont*", string as "QString", r as "QRectF", wrap_anywhere as "bool"]
+        let size = cpp! { unsafe [self as "const QFont*", string as "QString", r as "QRectF", char_wrap as "bool"]
                 -> qttypes::QSizeF as "QSizeF"{
-            return QFontMetricsF(*self).boundingRect(r, r.isEmpty() ? 0 : ((wrap_anywhere) ? Qt::TextWrapAnywhere : Qt::TextWordWrap) , string).size();
+            return QFontMetricsF(*self).boundingRect(r, r.isEmpty() ? 0 : ((char_wrap) ? Qt::TextWrapAnywhere : Qt::TextWordWrap) , string).size();
         }};
         LogicalSize::new(size.width as _, size.height as _)
     }

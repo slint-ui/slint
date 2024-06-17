@@ -8,6 +8,7 @@ use core::pin::Pin;
 
 use crate::api::PlatformError;
 use crate::item_tree::ItemTreeRef;
+use crate::items::TextWrap;
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use crate::window::WindowAdapter;
 
@@ -25,16 +26,15 @@ impl<T: RendererSealed> Renderer for T {}
 /// users to re-implement these functions.
 pub trait RendererSealed {
     /// Returns the size of the given text in logical pixels.
-    /// When set, `max_width` means that one need to wrap the text, so it does not go further than that.
-    /// When set, `wrap_anywhere` means that the text wrapping will occur at any given character, instead of
-    /// only at word boundaries.
+    /// When set, `max_width` means that one need to wrap the text, so it does not go further than that,
+    /// using the wrapping type passed by `text_wrap`.
     fn text_size(
         &self,
         font_request: crate::graphics::FontRequest,
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
-        wrap_anywhere: bool,
+        text_wrap: TextWrap,
     ) -> LogicalSize;
 
     /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
