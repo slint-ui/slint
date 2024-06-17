@@ -174,7 +174,7 @@ impl WinitWindowAdapter {
         });
 
         let winit_window = self_rc.winit_window();
-        if let Err(e) = self_rc.renderer.resumed(&winit_window) {
+        if let Err(e) = self_rc.renderer.resumed(winit_window.clone()) {
             i_slint_core::debug_log!("Error initialing renderer in winit backend with window: {e}");
         }
         let id = winit_window.id();

@@ -8,10 +8,10 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use metal::MTLPixelFormat;
 use objc::{rc::autoreleasepool, runtime::YES};
 
-use raw_window_handle::HasRawWindowHandle;
 use skia_safe::gpu::mtl;
 
 use std::cell::RefCell;
+use std::rc::Rc;
 
 /// This surface renders into the given window using Metal. The provided display argument
 /// is ignored, as it has no meaning on macOS.
@@ -23,8 +23,8 @@ pub struct MetalSurface {
 
 impl super::Surface for MetalSurface {
     fn new(
-        window_handle: raw_window_handle::WindowHandle<'_>,
-        _display_handle: raw_window_handle::DisplayHandle<'_>,
+        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
+        _display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let device = metal::Device::system_default()
@@ -39,10 +39,14 @@ impl super::Surface for MetalSurface {
         layer.set_drawable_size(CGSize::new(size.width as f64, size.height as f64));
 
         unsafe {
-            let view = match window_handle.raw_window_handle() {
+            let view = match window_handle
+                .window_handle()
+                .map_err(|e| format!("Error obtaining window handle for skia metal renderer: {e}"))?
+                .as_raw()
+            {
                 raw_window_handle::RawWindowHandle::AppKit(
                     raw_window_handle::AppKitWindowHandle { ns_view, .. },
-                ) => ns_view,
+                ) => ns_view.as_ptr(),
                 _ => {
                     return Err("Skia Renderer: Metal surface is only supported with AppKit".into())
                 }

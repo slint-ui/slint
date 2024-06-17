@@ -63,8 +63,8 @@ cfg_if::cfg_if! {
 }
 
 fn create_default_surface(
-    window_handle: raw_window_handle::WindowHandle<'_>,
-    display_handle: raw_window_handle::DisplayHandle<'_>,
+    window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
+    display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
     size: PhysicalWindowSize,
 ) -> Result<Box<dyn Surface>, PlatformError> {
     match DefaultSurface::new(window_handle.clone(), display_handle.clone(), size) {
@@ -94,8 +94,8 @@ pub struct SkiaRenderer {
     rendering_first_time: Cell<bool>,
     surface: RefCell<Option<Box<dyn Surface>>>,
     surface_factory: fn(
-        window_handle: raw_window_handle::WindowHandle<'_>,
-        display_handle: raw_window_handle::DisplayHandle<'_>,
+        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
     ) -> Result<Box<dyn Surface>, PlatformError>,
     pre_present_callback: RefCell<Option<Box<dyn FnMut()>>>,
@@ -157,8 +157,8 @@ impl SkiaRenderer {
 
     /// Creates a new renderer is associated with the provided window adapter.
     pub fn new(
-        window_handle: raw_window_handle::WindowHandle<'_>,
-        display_handle: raw_window_handle::DisplayHandle<'_>,
+        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError> {
         Ok(Self::new_with_surface(create_default_surface(window_handle, display_handle, size)?))
@@ -192,8 +192,8 @@ impl SkiaRenderer {
     /// Reset the surface to the window given the window handle
     pub fn set_window_handle(
         &self,
-        window_handle: raw_window_handle::WindowHandle<'_>,
-        display_handle: raw_window_handle::DisplayHandle<'_>,
+        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
         scale_factor: f32,
     ) -> Result<(), PlatformError> {
@@ -547,8 +547,8 @@ impl Drop for SkiaRenderer {
 pub trait Surface {
     /// Creates a new surface with the given window, display, and size.
     fn new(
-        window_handle: raw_window_handle::WindowHandle<'_>,
-        display_handle: raw_window_handle::DisplayHandle<'_>,
+        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError>
     where

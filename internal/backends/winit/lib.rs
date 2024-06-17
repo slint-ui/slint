@@ -32,6 +32,8 @@ pub enum SlintUserEvent {
 }
 
 mod renderer {
+    use std::rc::Rc;
+
     use i_slint_core::platform::PlatformError;
 
     pub trait WinitCompatibleRenderer {
@@ -43,7 +45,7 @@ mod renderer {
         fn occluded(&self, _: bool) {}
 
         // Got winit::Event::Resumed
-        fn resumed(&self, _winit_window: &winit::window::Window) -> Result<(), PlatformError> {
+        fn resumed(&self, _winit_window: Rc<winit::window::Window>) -> Result<(), PlatformError> {
             Ok(())
         }
     }

@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{cell::RefCell, num::NonZeroU32};
+use std::cell::RefCell;
+use std::num::NonZeroU32;
+use std::rc::Rc;
 
 use glutin::{
     config::GetGlConfig,
@@ -24,8 +26,8 @@ pub struct OpenGLSurface {
 
 impl super::Surface for OpenGLSurface {
     fn new(
-        window_handle: raw_window_handle::WindowHandle<'_>,
-        display_handle: raw_window_handle::DisplayHandle<'_>,
+        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError> {
         let width: std::num::NonZeroU32 = size.width.try_into().map_err(|_| {
@@ -34,6 +36,13 @@ impl super::Surface for OpenGLSurface {
         let height: std::num::NonZeroU32 = size.height.try_into().map_err(|_| {
             format!("Attempting to create window surface with an invalid height: {}", size.height)
         })?;
+
+        let window_handle = window_handle
+            .window_handle()
+            .map_err(|e| format!("error obtaining window handle for skia opengl renderer: {e}"))?;
+        let display_handle = display_handle
+            .display_handle()
+            .map_err(|e| format!("error obtaining display handle for skia opengl renderer: {e}"))?;
 
         let (current_glutin_context, glutin_surface) =
             Self::init_glutin(window_handle, display_handle, width, height)?;
@@ -220,17 +229,14 @@ impl OpenGLSurface {
         }
 
         let gl_display = unsafe {
-            glutin::display::Display::new(
-                _display_handle.as_raw(),
-                display_api_preference,
-            )
-            .map_err(|glutin_error| {
-                format!(
-                    "Error creating glutin display for native display {:#?}: {}",
-                    _display_handle.as_raw(),
-                    glutin_error
-                )
-            })?
+            glutin::display::Display::new(_display_handle.as_raw(), display_api_preference)
+                .map_err(|glutin_error| {
+                    format!(
+                        "Error creating glutin display for native display {:#?}: {}",
+                        _display_handle.as_raw(),
+                        glutin_error
+                    )
+                })?
         };
 
         let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
@@ -315,10 +321,10 @@ impl OpenGLSurface {
         if let raw_window_handle::RawWindowHandle::AppKit(raw_window_handle::AppKitWindowHandle {
             ns_view,
             ..
-        }) = _window_handle.raw_window_handle()
+        }) = _window_handle.as_raw()
         {
             use cocoa::appkit::NSView;
-            let view_id: cocoa::base::id = ns_view as *const _ as *mut _;
+            let view_id: cocoa::base::id = ns_view.as_ptr() as *const _ as *mut _;
             unsafe {
                 NSView::setLayerContentsPlacement(view_id, cocoa::appkit::NSViewLayerContentsPlacement::NSViewLayerContentsPlacementTopLeft)
             }

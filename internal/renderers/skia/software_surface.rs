@@ -3,7 +3,9 @@
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 
-use std::{cell::RefCell, num::NonZeroU32};
+use std::cell::RefCell;
+use std::num::NonZeroU32;
+use std::rc::Rc;
 
 pub trait RenderBuffer {
     fn with_buffer(
@@ -20,8 +22,13 @@ pub trait RenderBuffer {
 }
 
 struct SoftbufferRenderBuffer {
-    _context: softbuffer::Context,
-    surface: RefCell<softbuffer::Surface>,
+    _context: softbuffer::Context<Rc<dyn raw_window_handle::HasDisplayHandle>>,
+    surface: RefCell<
+        softbuffer::Surface<
+            Rc<dyn raw_window_handle::HasDisplayHandle>,
+            Rc<dyn raw_window_handle::HasWindowHandle>,
+        >,
+    >,
 }
 
 impl RenderBuffer for SoftbufferRenderBuffer {
@@ -74,18 +81,17 @@ pub struct SoftwareSurface {
 
 impl super::Surface for SoftwareSurface {
     fn new(
-        window_handle: raw_window_handle::WindowHandle<'_>,
-        display_handle: raw_window_handle::DisplayHandle<'_>,
+        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         _size: PhysicalWindowSize,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
-        let _context = unsafe {
-            softbuffer::Context::new(&display_handle)
-                .map_err(|e| format!("Error creating softbuffer context: {e}"))?
-        };
+        let _context = softbuffer::Context::new(display_handle)
+            .map_err(|e| format!("Error creating softbuffer context: {e}"))?;
 
-        let surface = unsafe { softbuffer::Surface::new(&_context, &window_handle) }.map_err(
-            |softbuffer_error| format!("Error creating softbuffer surface: {}", softbuffer_error),
-        )?;
+        let surface =
+            softbuffer::Surface::new(&_context, window_handle).map_err(|softbuffer_error| {
+                format!("Error creating softbuffer surface: {}", softbuffer_error)
+            })?;
 
         let surface_access =
             Box::new(SoftbufferRenderBuffer { _context, surface: RefCell::new(surface) });

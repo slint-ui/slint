@@ -4,6 +4,7 @@
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
 use std::cell::RefCell;
+use std::rc::Rc;
 use windows::core::Interface;
 use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
 use windows::Win32::Graphics::Dxgi::Common::DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN;
@@ -245,8 +246,8 @@ pub struct D3DSurface {
 
 impl super::Surface for D3DSurface {
     fn new(
-        window_handle: raw_window_handle::WindowHandle<'_>,
-        _display_handle: raw_window_handle::DisplayHandle<'_>,
+        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
+        _display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let factory_flags = 0;
@@ -356,6 +357,10 @@ impl super::Surface for D3DSurface {
 
         let gr_context = unsafe { skia_safe::gpu::DirectContext::new_d3d(&backend_context, None) }
             .ok_or_else(|| format!("unable to create Skia D3D DirectContext"))?;
+
+        let window_handle = window_handle
+            .window_handle()
+            .map_err(|e| format!("error obtaining window handle for skia d3d renderer: {e}"))?;
 
         let swap_chain = RefCell::new(SwapChain::new(
             queue,

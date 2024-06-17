@@ -485,7 +485,7 @@ impl EventLoopState {
             Event::Resumed => ALL_WINDOWS.with(|ws| {
                 for (_, window_weak) in ws.borrow().iter() {
                     if let Some(w) = window_weak.upgrade() {
-                        if let Err(e) = w.renderer.resumed(&w.winit_window()) {
+                        if let Err(e) = w.renderer.resumed(w.winit_window()) {
                             self.loop_error = Some(e);
                         }
                     }
