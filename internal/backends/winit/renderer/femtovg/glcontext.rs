@@ -4,13 +4,14 @@
 use std::{num::NonZeroU32, rc::Rc};
 
 use glutin::{
+    config::GlConfig,
     context::{ContextApi, ContextAttributesBuilder},
     display::GetGlDisplay,
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 use i_slint_core::platform::PlatformError;
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 pub struct OpenGLContext {
     context: glutin::context::PossiblyCurrentContext,
@@ -54,9 +55,9 @@ unsafe impl i_slint_renderer_femtovg::OpenGLInterface for OpenGLContext {
 }
 
 impl OpenGLContext {
-    pub fn new_context<T>(
-        window_builder: winit::window::WindowBuilder,
-        window_target: &winit::event_loop::EventLoopWindowTarget<T>,
+    pub fn new_context(
+        window_attributes: winit::window::WindowAttributes,
+        event_loop: crate::event_loop::ActiveOrInactiveEventLoop<'_>,
     ) -> Result<(Rc<winit::window::Window>, Self), PlatformError> {
         let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
 
@@ -70,33 +71,55 @@ impl OpenGLContext {
         #[cfg(target_os = "macos")]
         let config_template_builder = config_template_builder.with_transparency(true);
 
-        let (window, gl_config) = glutin_winit::DisplayBuilder::new()
+        let display_builder = glutin_winit::DisplayBuilder::new()
             .with_preference(glutin_winit::ApiPreference::FallbackEgl)
-            .with_window_builder(Some(window_builder.clone()))
-            .build(window_target, config_template_builder, |it| {
-                it.reduce(|accum, config| {
-                    let transparency_check = config.supports_transparency().unwrap_or(false)
-                        & !accum.supports_transparency().unwrap_or(false);
+            .with_window_attributes(Some(window_attributes.clone()));
+        let config_picker = |it: Box<dyn Iterator<Item = glutin::config::Config> + '_>| {
+            it.reduce(|accum, config| {
+                let transparency_check = config.supports_transparency().unwrap_or(false)
+                    & !accum.supports_transparency().unwrap_or(false);
 
-                    if transparency_check || config.num_samples() < accum.num_samples() {
-                        config
-                    } else {
-                        accum
-                    }
-                })
-                .expect("internal error: Could not find any matching GL configuration")
+                if transparency_check || config.num_samples() < accum.num_samples() {
+                    config
+                } else {
+                    accum
+                }
             })
-            .map_err(|glutin_err| {
-                format!(
-                    "Error creating OpenGL display ({:#?}) with glutin: {}",
-                    window_target.raw_display_handle(),
-                    glutin_err
-                )
-            })?;
+            .expect("internal error: Could not find any matching GL configuration")
+        };
+        let (window, gl_config) = match event_loop {
+            crate::event_loop::ActiveOrInactiveEventLoop::Active(l) => display_builder
+                .build(l, config_template_builder, config_picker)
+                .map_err(|glutin_err| {
+                    format!(
+                        "Error creating OpenGL display ({:#?}) with glutin: {}",
+                        l.display_handle(),
+                        glutin_err
+                    )
+                }),
+            crate::event_loop::ActiveOrInactiveEventLoop::Inactive(l) => display_builder
+                .build(l, config_template_builder, config_picker)
+                .map_err(|glutin_err| {
+                    format!(
+                        "Error creating OpenGL display ({:#?}) with glutin: {}",
+                        l.display_handle(),
+                        glutin_err
+                    )
+                }),
+        }?;
 
         let gl_display = gl_config.display();
 
-        let raw_window_handle = window.as_ref().map(|w| w.raw_window_handle());
+        let raw_window_handle = window
+            .as_ref()
+            .map(|w| w.window_handle())
+            .transpose()
+            .map_err(|err| {
+                format!(
+                    "Failed to retrieve a window handle while creating an OpenGL display: {err:?}"
+                )
+            })?
+            .map(|h| h.as_raw());
 
         let gles_context_attributes = ContextAttributesBuilder::new()
             .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
@@ -116,11 +139,22 @@ impl OpenGLContext {
 
         let window = match window {
             Some(window) => window,
-            None => glutin_winit::finalize_window(window_target, window_builder, &gl_config)
-                .map_err(|winit_os_error| {
-                    format!("Error finalizing window for OpenGL rendering: {}", winit_os_error)
-                })?,
+            None => match event_loop {
+                crate::event_loop::ActiveOrInactiveEventLoop::Active(l) => {
+                    glutin_winit::finalize_window(l, window_attributes, &gl_config)
+                }
+                crate::event_loop::ActiveOrInactiveEventLoop::Inactive(l) => {
+                    glutin_winit::finalize_window(l, window_attributes, &gl_config)
+                }
+            }
+            .map_err(|winit_os_error| {
+                format!("Error finalizing window for OpenGL rendering: {}", winit_os_error)
+            })?,
         };
+
+        let raw_window_handle = window.window_handle().map_err(|err| {
+            format!("Failed to retrieve a window handle for window we just created: {err:?}")
+        })?;
 
         let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
 
@@ -138,7 +172,7 @@ impl OpenGLContext {
         })?;
 
         let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-            window.raw_window_handle(),
+            raw_window_handle.as_raw(),
             width,
             height,
         );

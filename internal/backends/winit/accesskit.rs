@@ -9,7 +9,7 @@ use std::rc::Weak;
 use std::sync::{Arc, Condvar, Mutex};
 
 use accesskit::{
-    Action, ActionRequest, Checked, DefaultActionVerb, Node, NodeBuilder, NodeId, Role, Tree,
+    Action, ActionRequest, DefaultActionVerb, Node, NodeBuilder, NodeId, Role, Toggled, Tree,
     TreeUpdate,
 };
 use i_slint_core::accessibility::{
@@ -45,7 +45,6 @@ pub struct AccessKitAdapter {
     inner: accesskit_winit::Adapter,
     window_adapter_weak: Weak<WinitWindowAdapter>,
 
-    node_classes: RefCell<accesskit::NodeClassSet>,
     next_component_id: Cell<u32>,
     components_by_id: RefCell<HashMap<u32, ItemTreeWeak>>,
     component_ids: RefCell<HashMap<NonNull<u8>, u32>>,
@@ -68,7 +67,6 @@ impl AccessKitAdapter {
                 Box::new(ActionForwarder::new(window_id)),
             ),
             window_adapter_weak: window_adapter_weak.clone(),
-            node_classes: RefCell::new(accesskit::NodeClassSet::new()),
             next_component_id: Cell::new(1),
             components_by_id: Default::default(),
             component_ids: Default::default(),
@@ -231,7 +229,7 @@ impl AccessKitAdapter {
 
                         builder.set_children(cached_node.children.clone());
 
-                        let node = builder.build(&mut self.node_classes.borrow_mut());
+                        let node = builder.build();
 
                         Some((cached_node.id, node))
                     })?
@@ -272,7 +270,7 @@ impl AccessKitAdapter {
 
         let id = self.encode_item_node_id(&item).unwrap();
         self.all_nodes.borrow_mut().push(CachedNode { id, children, tracker });
-        let node = builder.build(&mut self.node_classes.borrow_mut());
+        let node = builder.build();
 
         nodes.push((id, node));
 
@@ -328,10 +326,7 @@ impl AccessKitAdapter {
 
                     let dummy_node_id = NodeId(0);
                     TreeUpdate {
-                        nodes: vec![(
-                            dummy_node_id,
-                            NodeBuilder::new(Role::Window).build(&mut Default::default()),
-                        )],
+                        nodes: vec![(dummy_node_id, NodeBuilder::new(Role::Window).build())],
                         tree: Some(Tree::new(dummy_node_id)),
                         focus: dummy_node_id,
                     }
@@ -356,10 +351,7 @@ impl AccessKitAdapter {
             // dead. Fall back to returning a dummy tree.
             let dummy_node_id = NodeId(0);
             return TreeUpdate {
-                nodes: vec![(
-                    dummy_node_id,
-                    NodeBuilder::new(Role::Window).build(&mut Default::default()),
-                )],
+                nodes: vec![(dummy_node_id, NodeBuilder::new(Role::Window).build())],
                 tree: Some(Tree::new(dummy_node_id)),
                 focus: dummy_node_id,
             };
@@ -435,7 +427,7 @@ impl AccessKitAdapter {
                 .accessible_string_property(AccessibleStringProperty::Checked)
                 .is_some_and(|x| x == "true");
         if is_checkable {
-            builder.set_checked(if is_checked { Checked::True } else { Checked::False });
+            builder.set_toggled(if is_checked { Checked::True } else { Checked::False });
         }
 
         if let Some(description) =

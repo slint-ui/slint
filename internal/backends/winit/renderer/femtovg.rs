@@ -21,13 +21,13 @@ pub struct GlutinFemtoVGRenderer {
 
 impl GlutinFemtoVGRenderer {
     pub fn new(
-        window_builder: winit::window::WindowBuilder,
+        window_builder: winit::window::WindowAttributes,
     ) -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         let (winit_window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
             Ok(glcontext::OpenGLContext::new_context(
                 window_builder,
-                event_loop.event_loop_target(),
+                event_loop.event_loop(),
             )?)
         })?;
 

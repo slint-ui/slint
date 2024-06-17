@@ -86,15 +86,15 @@ cfg_if::cfg_if! {
 }
 
 fn default_renderer_factory(
-    window_builder: winit::window::WindowBuilder,
+    window_attributes: winit::window::WindowAttributes,
 ) -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError> {
     cfg_if::cfg_if! {
         if #[cfg(enable_skia_renderer)] {
-            renderer::skia::WinitSkiaRenderer::new(window_builder)
+            renderer::skia::WinitSkiaRenderer::new(window_attributes)
         } else if #[cfg(feature = "renderer-femtovg")] {
-            renderer::femtovg::GlutinFemtoVGRenderer::new(window_builder)
+            renderer::femtovg::GlutinFemtoVGRenderer::new(window_attributes)
         } else if #[cfg(feature = "renderer-software")] {
-            renderer::sw::WinitSoftwareRenderer::new(window_builder)
+            renderer::sw::WinitSoftwareRenderer::new(window_attributes)
         } else {
             compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
         }
@@ -102,7 +102,7 @@ fn default_renderer_factory(
 }
 
 fn try_create_window_with_fallback_renderer(
-    builder: winit::window::WindowBuilder,
+    attrs: winit::window::WindowAttributes,
 ) -> Option<Rc<WinitWindowAdapter>> {
     [
         #[cfg(any(
@@ -118,7 +118,7 @@ fn try_create_window_with_fallback_renderer(
     ]
     .into_iter()
     .find_map(|renderer_factory| {
-        let (renderer, winit_window) = renderer_factory(builder.clone()).ok()?;
+        let (renderer, winit_window) = renderer_factory(attrs.clone()).ok()?;
         Some(WinitWindowAdapter::new(renderer, winit_window))
     })
 }
@@ -142,7 +142,7 @@ pub mod native_widgets {}
 pub struct Backend {
     renderer_factory_fn:
         fn(
-            window_builder: winit::window::WindowBuilder,
+            window_builder: winit::window::WindowAttributes,
         )
             -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError>,
     event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
@@ -159,7 +159,7 @@ pub struct Backend {
     /// slint::platform::set_platform(Box::new(backend));
     /// ```
     pub window_builder_hook:
-        Option<Box<dyn Fn(winit::window::WindowBuilder) -> winit::window::WindowBuilder>>,
+        Option<Box<dyn Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes>>,
 
     #[cfg(not(target_arch = "wasm32"))]
     clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
@@ -179,7 +179,7 @@ impl Backend {
         // Initialize the winit event loop and propagate errors if for example `DISPLAY` or `WAYLAND_DISPLAY` isn't set.
         #[cfg(not(target_arch = "wasm32"))]
         let clipboard = crate::event_loop::with_window_target(|l| {
-            Ok(clipboard::create_clipboard(l.event_loop_target()))
+            Ok(clipboard::create_clipboard(&l.display_handle()?))
         })?;
 
         let renderer_factory_fn = match renderer_name {
@@ -247,7 +247,7 @@ fn send_event_via_global_event_loop_proxy(
 
 impl i_slint_core::platform::Platform for Backend {
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        let mut builder = WinitWindowAdapter::window_builder(
+        let mut builder = WinitWindowAdapter::window_attributes(
             #[cfg(target_arch = "wasm32")]
             "canvas".into(),
         )?;
@@ -346,20 +346,6 @@ pub fn spawn_event_loop() -> Result<(), PlatformError> {
     crate::event_loop::spawn()
 }
 
-/// Invokes the specified callback with a reference to the [`winit::event_loop::EventLoopWindowTarget`].
-/// Use this to get access to the display connection or create new windows with [`winit::window::WindowBuilder`].
-///
-/// *Note*: This function can only be called from within the Slint main thread.
-pub fn with_event_loop_window_target<R>(
-    callback: impl FnOnce(
-        &winit::event_loop::EventLoopWindowTarget<SlintUserEvent>,
-    ) -> Result<R, Box<dyn std::error::Error + Send + Sync>>,
-) -> Result<R, Box<dyn std::error::Error + Send + Sync>> {
-    crate::event_loop::with_window_target(|event_loop_interface| {
-        callback(event_loop_interface.event_loop_target())
-    })
-}
-
 mod private {
     pub trait WinitWindowAccessorSealed {}
 }
@@ -420,7 +406,7 @@ fn test_window_accessor_and_rwh() {
     let slint_window = app.window();
     assert!(slint_window.has_winit_window());
     let handle = slint_window.window_handle();
-    use raw_window_handle_06::{HasDisplayHandle, HasWindowHandle};
+    use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
     assert!(handle.window_handle().is_ok());
     assert!(handle.display_handle().is_ok());
 }

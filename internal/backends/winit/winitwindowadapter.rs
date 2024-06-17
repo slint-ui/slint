@@ -35,7 +35,7 @@ use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use once_cell::unsync::OnceCell;
-use winit::window::WindowBuilder;
+use winit::window::WindowAttributes;
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -194,12 +194,12 @@ impl WinitWindowAdapter {
         self.renderer.as_ref()
     }
 
-    pub(crate) fn window_builder(
+    pub(crate) fn window_attributes(
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> Result<WindowBuilder, PlatformError> {
-        let mut window_builder = WindowBuilder::new().with_transparent(true).with_visible(false);
+    ) -> Result<WindowAttributes, PlatformError> {
+        let mut attrs = WindowAttributes::default().with_transparent(true).with_visible(false);
 
-        window_builder = window_builder.with_title("Slint Window".to_string());
+        attrs = attrs.with_title("Slint Window".to_string());
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -225,14 +225,14 @@ impl WinitWindowAdapter {
                         canvas_id
                     )
                 })?;
-            window_builder = window_builder
+            attrs = attrs
                 .with_canvas(Some(html_canvas))
                 // Don't activate the window by default, as that will cause the page to scroll,
                 // ignoring any existing anchors.
                 .with_active(false)
         };
 
-        Ok(window_builder)
+        Ok(attrs)
     }
 
     /// Draw the items of the specified `component` in the given window.
@@ -628,15 +628,15 @@ impl WindowAdapter for WinitWindowAdapter {
     #[cfg(feature = "raw-window-handle-06")]
     fn window_handle_06(
         &self,
-    ) -> Result<raw_window_handle_06::WindowHandle<'_>, raw_window_handle_06::HandleError> {
-        raw_window_handle_06::HasWindowHandle::window_handle(&self.winit_window)
+    ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
+        raw_window_handle::HasWindowHandle::window_handle(&self.winit_window)
     }
 
     #[cfg(feature = "raw-window-handle-06")]
     fn display_handle_06(
         &self,
-    ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
-        raw_window_handle_06::HasDisplayHandle::display_handle(&self.winit_window)
+    ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
+        raw_window_handle::HasDisplayHandle::display_handle(&self.winit_window)
     }
 }
 

@@ -12,7 +12,6 @@ use glutin::{
 };
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::{api::GraphicsAPI, platform::PlatformError};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 /// This surface type renders into the given window with OpenGL, using glutin and glow libraries.
 pub struct OpenGLSurface {
@@ -222,13 +221,13 @@ impl OpenGLSurface {
 
         let gl_display = unsafe {
             glutin::display::Display::new(
-                _display_handle.raw_display_handle(),
+                _display_handle.as_raw(),
                 display_api_preference,
             )
             .map_err(|glutin_error| {
                 format!(
                     "Error creating glutin display for native display {:#?}: {}",
-                    _display_handle.raw_display_handle(),
+                    _display_handle.as_raw(),
                     glutin_error
                 )
             })?
@@ -276,10 +275,10 @@ impl OpenGLSurface {
                     major: gles_major,
                     minor: 0,
                 })))
-                .build(Some(_window_handle.raw_window_handle()));
+                .build(Some(_window_handle.as_raw()));
 
             let fallback_context_attributes =
-                ContextAttributesBuilder::new().build(Some(_window_handle.raw_window_handle()));
+                ContextAttributesBuilder::new().build(Some(_window_handle.as_raw()));
 
             unsafe {
                 gl_display
@@ -292,7 +291,7 @@ impl OpenGLSurface {
         let not_current_gl_context = create_gl_context(3).or_else(|_| create_gl_context(2))?;
 
         let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-            _window_handle.raw_window_handle(),
+            _window_handle.as_raw(),
             width,
             height,
         );

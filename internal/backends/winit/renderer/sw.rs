@@ -15,8 +15,8 @@ use super::WinitCompatibleRenderer;
 
 pub struct WinitSoftwareRenderer {
     renderer: SoftwareRenderer,
-    _context: softbuffer::Context,
-    surface: RefCell<softbuffer::Surface>,
+    _context: softbuffer::Context<Rc<winit::window::Window>>,
+    surface: RefCell<softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>>,
     winit_window: Rc<winit::window::Window>,
 }
 
@@ -67,25 +67,22 @@ impl TargetPixel for SoftBufferPixel {
 
 impl WinitSoftwareRenderer {
     pub fn new(
-        window_builder: winit::window::WindowBuilder,
+        window_attributes: winit::window::WindowAttributes,
     ) -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError> {
         let winit_window = crate::event_loop::with_window_target(|event_loop| {
-            window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
+            event_loop.create_window(window_attributes).map_err(|winit_os_error| {
                 format!("Error creating native window for software rendering: {}", winit_os_error)
                     .into()
             })
         })?;
+        let winit_window = Rc::new(winit_window);
 
-        let context = unsafe {
-            softbuffer::Context::new(&winit_window)
-                .map_err(|e| format!("Error creating softbuffer context: {e}"))?
-        };
+        let context = softbuffer::Context::new(winit_window.clone())
+            .map_err(|e| format!("Error creating softbuffer context: {e}"))?;
 
-        let surface = unsafe { softbuffer::Surface::new(&context, &winit_window) }.map_err(
+        let surface = softbuffer::Surface::new(&context, winit_window.clone()).map_err(
             |softbuffer_error| format!("Error creating softbuffer surface: {}", softbuffer_error),
         )?;
-
-        let winit_window = Rc::new(winit_window);
 
         Ok((
             Box::new(Self {

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use copypasta::ClipboardProvider;
+use crate::SlintUserEvent;
 
 /// The Default, and the selection clippoard
 pub type ClipboardPair = (Box<dyn ClipboardProvider>, Box<dyn ClipboardProvider>);
@@ -17,8 +18,8 @@ pub fn select_clipboard(
     }
 }
 
-pub fn create_clipboard<T>(
-    _event_loop: &winit::event_loop::EventLoopWindowTarget<T>,
+pub fn create_clipboard(
+    _display_handle: &winit::raw_window_handle::DisplayHandle<'_>
 ) -> ClipboardPair {
     // Provide a truly silent no-op clipboard context, as copypasta's NoopClipboard spams stdout with
     // println.
@@ -51,8 +52,8 @@ pub fn create_clipboard<T>(
         {
 
             #[cfg(feature = "wayland")]
-            if let raw_window_handle::RawDisplayHandle::Wayland(wayland) = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&_event_loop) {
-                let clipboard = unsafe { copypasta::wayland_clipboard::create_clipboards_from_external(wayland.display) };
+            if let raw_window_handle::RawDisplayHandle::Wayland(wayland) = _display_handle.as_raw() {
+                let clipboard = unsafe { copypasta::wayland_clipboard::create_clipboards_from_external(wayland.display.as_ptr()) };
                 return (Box::new(clipboard.1), Box::new(clipboard.0));
             };
             #[cfg(feature = "x11")]
