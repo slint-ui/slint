@@ -157,7 +157,7 @@ jobs:
 
     build_vscode_lsp_macos_bundle:
         needs: [build_vscode_lsp_macos_x86_64, build_vscode_lsp_macos_aarch64]
-        runs-on: macos-11
+        runs-on: macos-12
         steps:
             - uses: actions/checkout@v4
               with:
@@ -227,7 +227,7 @@ jobs:
                 build_vscode_cross_linux_lsp,
                 check-for-secrets,
             ]
-        runs-on: macos-11
+        runs-on: macos-12
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         steps:
             - uses: actions/checkout@v4
