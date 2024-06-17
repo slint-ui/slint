@@ -195,10 +195,17 @@ impl OpenGLContext {
         if let raw_window_handle::RawWindowHandle::AppKit(raw_window_handle::AppKitWindowHandle {
             ns_view,
             ..
-        }) = window.raw_window_handle()
+        }) = window
+            .window_handle()
+            .map_err(|e| {
+                format!(
+                    "Error obtaining window handle to adjust nsview layer contents placement: {e}"
+                )
+            })?
+            .as_raw()
         {
             use cocoa::appkit::NSView;
-            let view_id: cocoa::base::id = ns_view as *const _ as *mut _;
+            let view_id: cocoa::base::id = ns_view.as_ptr() as *const _ as *mut _;
             unsafe {
                 NSView::setLayerContentsPlacement(view_id, cocoa::appkit::NSViewLayerContentsPlacement::NSViewLayerContentsPlacementTopLeft)
             }
