@@ -406,10 +406,13 @@ fn finish_parsing(ok: bool) {
 
     if let Some(document_cache) = document_cache() {
         let mut components = Vec::new();
+        // `_SLINT_LivePreview` gets returned as `-SLINT-LivePreview`, which is unfortunately not a valid identifier.
+        // I do not want to store two constants, so map it over ;-/
+        let private_preview_component = SLINT_LIVEPREVIEW_COMPONENT.replace('_', "-");
         component_catalog::builtin_components(&document_cache, &mut components);
         component_catalog::all_exported_components(
             &document_cache,
-            &mut |ci| !ci.is_global,
+            &mut |ci| !(ci.is_global || ci.name == private_preview_component),
             &mut components,
         );
 
