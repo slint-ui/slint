@@ -12,6 +12,8 @@ use i_slint_core::window::WindowAdapter;
 use renderer::WinitCompatibleRenderer;
 use std::rc::Rc;
 
+#[cfg(not(target_arch = "wasm32"))]
+mod clipboard;
 mod drag_resize_window;
 mod winitwindowadapter;
 
@@ -158,6 +160,9 @@ pub struct Backend {
     /// ```
     pub window_builder_hook:
         Option<Box<dyn Fn(winit::window::WindowBuilder) -> winit::window::WindowBuilder>>,
+
+    #[cfg(not(target_arch = "wasm32"))]
+    clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
 }
 
 impl Backend {
@@ -172,7 +177,10 @@ impl Backend {
     /// If the renderer name is `None` or the name is not recognized, the default renderer is selected.
     pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Result<Self, PlatformError> {
         // Initialize the winit event loop and propagate errors if for example `DISPLAY` or `WAYLAND_DISPLAY` isn't set.
-        crate::event_loop::with_window_target(|_| Ok(()))?;
+        #[cfg(not(target_arch = "wasm32"))]
+        let clipboard = crate::event_loop::with_window_target(|l| {
+            Ok(clipboard::create_clipboard(l.event_loop_target()))
+        })?;
 
         let renderer_factory_fn = match renderer_name {
             #[cfg(feature = "renderer-femtovg")]
@@ -198,6 +206,8 @@ impl Backend {
             renderer_factory_fn,
             event_loop_state: Default::default(),
             window_builder_hook: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            clipboard: clipboard.into(),
         })
     }
 }
@@ -312,13 +322,10 @@ impl i_slint_core::platform::Platform for Backend {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
-        crate::event_loop::with_window_target(|event_loop_target| {
-            if let Some(mut clipboard) = event_loop_target.clipboard(clipboard) {
-                clipboard.set_contents(text.into()).ok();
-            }
-            Ok(())
-        })
-        .ok();
+        let mut pair = self.clipboard.borrow_mut();
+        if let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard) {
+            clipboard.set_contents(text.into()).ok();
+        }
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -328,13 +335,8 @@ impl i_slint_core::platform::Platform for Backend {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        crate::event_loop::with_window_target(|event_loop_target| {
-            Ok(event_loop_target
-                .clipboard(clipboard)
-                .and_then(|mut clipboard| clipboard.get_contents().ok()))
-        })
-        .ok()
-        .flatten()
+        let mut pair = self.clipboard.borrow_mut();
+        clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
     }
 }
 

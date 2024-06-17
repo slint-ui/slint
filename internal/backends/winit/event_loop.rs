@@ -10,8 +10,6 @@
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
 use crate::winitwindowadapter::WinitWindowAdapter;
 use crate::SlintUserEvent;
-#[cfg(not(target_arch = "wasm32"))]
-use copypasta::ClipboardProvider;
 use corelib::api::EventLoopError;
 use corelib::graphics::euclid;
 use corelib::input::{KeyEvent, KeyEventType, MouseEvent};
@@ -27,13 +25,7 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::EventLoopWindowTarget;
 use winit::window::ResizeDirection;
 
-#[cfg(not(target_arch = "wasm32"))]
-/// The Default, and the selection clippoard
-type ClipboardPair = (Box<dyn ClipboardProvider>, Box<dyn ClipboardProvider>);
-
 struct NotRunningEventLoop {
-    #[cfg(not(target_arch = "wasm32"))]
-    clipboard: RefCell<ClipboardPair>,
     instance: winit::event_loop::EventLoop<SlintUserEvent>,
     event_loop_proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
 }
@@ -64,71 +56,27 @@ impl NotRunningEventLoop {
         let instance =
             builder.build().map_err(|e| format!("Error initializing winit event loop: {e}"))?;
         let event_loop_proxy = instance.create_proxy();
-        Ok(Self {
-            #[cfg(not(target_arch = "wasm32"))]
-            clipboard: RefCell::new(create_clipboard(&instance)),
-            instance,
-            event_loop_proxy,
-        })
+        Ok(Self { instance, event_loop_proxy })
     }
 }
 
 struct RunningEventLoop<'a> {
     event_loop_target: &'a winit::event_loop::EventLoopWindowTarget<SlintUserEvent>,
-    #[cfg(not(target_arch = "wasm32"))]
-    clipboard: &'a RefCell<ClipboardPair>,
 }
 
 pub(crate) trait EventLoopInterface {
     fn event_loop_target(&self) -> &winit::event_loop::EventLoopWindowTarget<SlintUserEvent>;
-    #[cfg(not(target_arch = "wasm32"))]
-    fn clipboard(
-        &self,
-        _: i_slint_core::platform::Clipboard,
-    ) -> Option<RefMut<'_, dyn ClipboardProvider>>;
 }
 
 impl EventLoopInterface for NotRunningEventLoop {
     fn event_loop_target(&self) -> &winit::event_loop::EventLoopWindowTarget<SlintUserEvent> {
         &self.instance
     }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn clipboard(
-        &self,
-        clipboard: i_slint_core::platform::Clipboard,
-    ) -> Option<RefMut<'_, dyn ClipboardProvider>> {
-        match clipboard {
-            corelib::platform::Clipboard::DefaultClipboard => {
-                Some(RefMut::map(self.clipboard.borrow_mut(), |p| p.0.as_mut()))
-            }
-            corelib::platform::Clipboard::SelectionClipboard => {
-                Some(RefMut::map(self.clipboard.borrow_mut(), |p| p.1.as_mut()))
-            }
-            _ => None,
-        }
-    }
 }
 
 impl<'a> EventLoopInterface for RunningEventLoop<'a> {
     fn event_loop_target(&self) -> &winit::event_loop::EventLoopWindowTarget<SlintUserEvent> {
         self.event_loop_target
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn clipboard(
-        &self,
-        clipboard: i_slint_core::platform::Clipboard,
-    ) -> Option<RefMut<'_, dyn ClipboardProvider>> {
-        match clipboard {
-            corelib::platform::Clipboard::DefaultClipboard => {
-                Some(RefMut::map(self.clipboard.borrow_mut(), |p| p.0.as_mut()))
-            }
-            corelib::platform::Clipboard::SelectionClipboard => {
-                Some(RefMut::map(self.clipboard.borrow_mut(), |p| p.1.as_mut()))
-            }
-            _ => None,
-        }
     }
 }
 
@@ -572,14 +520,12 @@ impl EventLoopState {
         #[cfg(not(target_arch = "wasm32"))]
         {
             use winit::platform::run_on_demand::EventLoopExtRunOnDemand as _;
-            let clipboard = not_running_loop_instance.clipboard;
             winit_loop
             .run_on_demand(
                 |event: Event<SlintUserEvent>,
                  event_loop_target: &EventLoopWindowTarget<SlintUserEvent>| {
                     let running_instance = RunningEventLoop {
                         event_loop_target,
-                        clipboard: &clipboard,
                     };
                     CURRENT_WINDOW_TARGET.set(&running_instance, || {
                         self.process_event(event, event_loop_target)
@@ -592,7 +538,7 @@ impl EventLoopState {
 
             // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
             // Winit does not support creating multiple instances of the event loop.
-            let nre = NotRunningEventLoop { clipboard, instance: winit_loop, event_loop_proxy };
+            let nre = NotRunningEventLoop { instance: winit_loop, event_loop_proxy };
             MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre));
 
             if let Some(error) = self.loop_error {
@@ -646,14 +592,12 @@ impl EventLoopState {
             .set_proxy(event_loop_proxy.clone());
 
         let mut winit_loop = not_running_loop_instance.instance;
-        let clipboard = not_running_loop_instance.clipboard;
 
         let result = winit_loop.pump_events(
             timeout,
             |event: Event<SlintUserEvent>,
              event_loop_target: &EventLoopWindowTarget<SlintUserEvent>| {
-                let running_instance =
-                    RunningEventLoop { event_loop_target, clipboard: &clipboard };
+                let running_instance = RunningEventLoop { event_loop_target };
                 CURRENT_WINDOW_TARGET
                     .set(&running_instance, || self.process_event(event, event_loop_target))
             },
@@ -663,7 +607,7 @@ impl EventLoopState {
 
         // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
         // Winit does not support creating multiple instances of the event loop.
-        let nre = NotRunningEventLoop { clipboard, instance: winit_loop, event_loop_proxy };
+        let nre = NotRunningEventLoop { instance: winit_loop, event_loop_proxy };
         MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre));
 
         if let Some(error) = self.loop_error {
@@ -703,70 +647,4 @@ pub fn spawn() -> Result<(), corelib::platform::PlatformError> {
     );
 
     Ok(())
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn create_clipboard<T>(_event_loop: &winit::event_loop::EventLoopWindowTarget<T>) -> ClipboardPair {
-    // Provide a truly silent no-op clipboard context, as copypasta's NoopClipboard spams stdout with
-    // println.
-    struct SilentClipboardContext;
-    impl copypasta::ClipboardProvider for SilentClipboardContext {
-        fn get_contents(
-            &mut self,
-        ) -> Result<String, Box<dyn std::error::Error + Send + Sync + 'static>> {
-            Ok(Default::default())
-        }
-
-        fn set_contents(
-            &mut self,
-            _: String,
-        ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-            Ok(())
-        }
-    }
-
-    cfg_if::cfg_if! {
-        if #[cfg(all(
-            unix,
-            not(any(
-                target_os = "macos",
-                target_os = "android",
-                target_os = "ios",
-                target_os = "emscripten"
-            ))
-        ))]
-        {
-
-            #[cfg(feature = "wayland")]
-            if let raw_window_handle::RawDisplayHandle::Wayland(wayland) = raw_window_handle::HasRawDisplayHandle::raw_display_handle(&_event_loop) {
-                let clipboard = unsafe { copypasta::wayland_clipboard::create_clipboards_from_external(wayland.display) };
-                return (Box::new(clipboard.1), Box::new(clipboard.0));
-            };
-            #[cfg(feature = "x11")]
-            {
-                use copypasta::x11_clipboard::{X11ClipboardContext, Primary, Clipboard};
-                let prim = X11ClipboardContext::<Primary>::new()
-                    .map_or(
-                        Box::new(SilentClipboardContext) as Box<dyn ClipboardProvider>,
-                        |x| Box::new(x) as Box<dyn ClipboardProvider>,
-                    );
-                let sec = X11ClipboardContext::<Clipboard>::new()
-                    .map_or(
-                        Box::new(SilentClipboardContext) as Box<dyn ClipboardProvider>,
-                        |x| Box::new(x) as Box<dyn ClipboardProvider>,
-                    );
-                (sec, prim)
-            }
-            #[cfg(not(feature = "x11"))]
-            (Box::new(SilentClipboardContext), Box::new(SilentClipboardContext))
-        } else {
-            (
-                copypasta::ClipboardContext::new().map_or(
-                    Box::new(SilentClipboardContext) as Box<dyn ClipboardProvider>,
-                    |x| Box::new(x) as Box<dyn ClipboardProvider>,
-                ),
-                Box::new(SilentClipboardContext),
-            )
-        }
-    }
 }
