@@ -24,17 +24,18 @@ export component PreviewUi inherits Window {
     in-out property <string> current-style;
     out property <bool> design-mode;
 
+    callback add_new_component();
     pure callback can-drop(/* component_type */ string, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
     callback drop(/* component_type */ string, /* x */ length, /* y */ length);
-    callback selected-element-resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
-    callback selected-element-can-move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length) -> bool;
-    callback selected-element-move(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
-    callback selected-element-delete();
+    callback reselect();
     callback select-at(/* x */ length, /* y */ length, /* enter_component? */ bool);
     callback select-behind(/* x */ length, /* y */ length, /* enter_component* */ bool, /* reverse */ bool);
+    callback selected-element-can-move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length) -> bool;
+    callback selected-element-delete();
+    callback selected-element-move(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
+    callback selected-element-resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
     callback show-document(/* url */ string, /* line */ int, /* column */ int);
     callback style-changed();
-    callback reselect();
     callback unselect();
 
     property <length> border: 20px;
@@ -111,6 +112,9 @@ export component PreviewUi inherits Window {
                                 }
                                 drop(c, x, y) => {
                                     root.drop(c, x, y);
+                                }
+                                add_new_component => {
+                                    return root.add_new_component();
                                 }
                             }
                         }

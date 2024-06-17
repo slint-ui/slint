@@ -30,10 +30,11 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         model
     });
 
-    ui.set_known_styles(style_model.into());
     ui.set_current_style(style.clone().into());
     ui.set_experimental(experimental);
+    ui.set_known_styles(style_model.into());
 
+    ui.on_add_new_component(super::add_new_component);
     ui.on_style_changed(super::change_style);
     ui.on_show_document(|file, line, column| {
         use lsp_types::{Position, Range};
