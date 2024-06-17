@@ -67,15 +67,17 @@ pub fn test_file_name(name: &str) -> PathBuf {
 pub fn compile_test_with_sources(
     style: &str,
     code: HashMap<lsp_types::Url, String>,
+    allow_warnings: bool
 ) -> common::DocumentCache {
     i_slint_backend_testing::init_no_event_loop();
-    recompile_test_with_sources(style, code)
+    recompile_test_with_sources(style, code, allow_warnings)
 }
 
 #[track_caller]
 pub fn recompile_test_with_sources(
     style: &str,
     code: HashMap<lsp_types::Url, String>,
+    allow_warnings: bool,
 ) -> common::DocumentCache {
     let code = Rc::new(code);
 
@@ -114,7 +116,10 @@ pub fn recompile_test_with_sources(
     for d in diagnostics.iter() {
         i_slint_core::debug_log!("    {d}");
     }
-    assert!(diagnostics.is_empty());
+    assert!(!diagnostics.has_error());
+    if !allow_warnings {
+        assert!(diagnostics.is_empty());
+    }
 
     type_loader
 }

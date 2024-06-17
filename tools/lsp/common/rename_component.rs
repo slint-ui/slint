@@ -366,7 +366,7 @@ mod tests {
         };
 
         // changed code compiles fine:
-        let _ = test::recompile_test_with_sources("fluent", code);
+        let _ = test::recompile_test_with_sources("fluent", code, false);
 
         changed_text
     }
@@ -421,6 +421,7 @@ export component Bar {
                     "#
                 .to_string(),
             )]),
+            false,
         );
 
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
@@ -467,6 +468,7 @@ export { Foo as FExport }
                     .to_string(),
                 ),
             ]),
+            false,
         );
 
         let doc =
@@ -564,6 +566,7 @@ export { Foo as User4Fxx }
                     .to_string(),
                 ),
             ]),
+            false,
         );
 
         let doc =
@@ -643,6 +646,7 @@ export component Foo { }
                     .to_string(),
                 ),
             ]),
+            false,
         );
 
         let doc =
@@ -726,6 +730,7 @@ export component Bar {
                     "#
                 .to_string(),
             )]),
+            false,
         );
 
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
@@ -786,6 +791,7 @@ export enum EnumBar { bar }
                     "#
                 .to_string(),
             )]),
+            false,
         );
 
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
