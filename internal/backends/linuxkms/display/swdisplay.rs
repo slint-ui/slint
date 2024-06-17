@@ -15,9 +15,11 @@ pub trait SoftwareBufferDisplay {
 }
 
 mod dumbbuffer;
+mod linuxfb;
 
 pub fn new(
     device_opener: &crate::DeviceOpener,
 ) -> Result<Rc<dyn SoftwareBufferDisplay>, PlatformError> {
     dumbbuffer::DumbBufferDisplay::new(device_opener)
+        .or_else(|_| linuxfb::LinuxFBDisplay::new(device_opener))
 }

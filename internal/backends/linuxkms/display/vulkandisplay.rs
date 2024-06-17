@@ -9,8 +9,7 @@ use vulkano::instance::{Instance, InstanceCreateFlags, InstanceCreateInfo, Insta
 use vulkano::swapchain::Surface;
 use vulkano::VulkanLibrary;
 
-use std::cell::Cell;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use std::sync::Arc;
 
 use super::Presenter;
@@ -174,62 +173,6 @@ pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
         queue_family_index,
         surface: vulkan_surface,
         size,
-        presenter: TimerBasedAnimationDriver::new(),
+        presenter: crate::display::TimerBasedAnimationDriver::new(),
     })
-}
-
-struct TimerBasedAnimationDriver {
-    timer: i_slint_core::timers::Timer,
-    next_animation_frame_callback: Cell<Option<Box<dyn FnOnce()>>>,
-}
-
-impl TimerBasedAnimationDriver {
-    fn new() -> Rc<Self> {
-        Rc::new_cyclic(|self_weak: &Weak<Self>| {
-            let self_weak = self_weak.clone();
-            let timer = i_slint_core::timers::Timer::default();
-            timer.start(
-                i_slint_core::timers::TimerMode::Repeated,
-                std::time::Duration::from_millis(16),
-                move || {
-                    let Some(this) = self_weak.upgrade() else { return };
-                    // Stop the timer and let the callback decide if we need to continue. It will set
-                    // `needs_redraw` to true of animations should continue, render() will be called,
-                    // present_with_next_frame_callback() will be called and then the timer restarted.
-                    this.timer.stop();
-                    if let Some(next_animation_frame_callback) =
-                        this.next_animation_frame_callback.take()
-                    {
-                        next_animation_frame_callback();
-                    }
-                },
-            );
-            // Activate it only when we present a frame.
-            timer.stop();
-
-            Self { timer, next_animation_frame_callback: Default::default() }
-        })
-    }
-}
-
-impl Presenter for TimerBasedAnimationDriver {
-    fn is_ready_to_present(&self) -> bool {
-        true
-    }
-
-    fn register_page_flip_handler(
-        &self,
-        _event_loop_handle: crate::calloop_backend::EventLoopHandle,
-    ) -> Result<(), PlatformError> {
-        Ok(())
-    }
-
-    fn present_with_next_frame_callback(
-        &self,
-        ready_for_next_animation_frame: Box<dyn FnOnce()>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.next_animation_frame_callback.set(Some(ready_for_next_animation_frame));
-        self.timer.restart();
-        Ok(())
-    }
 }
