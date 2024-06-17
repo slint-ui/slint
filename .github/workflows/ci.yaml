@@ -25,18 +25,18 @@ jobs:
             SLINT_EMIT_DEBUG_INFO: 1
         strategy:
             matrix:
-                os: [ubuntu-22.04, macos-11, windows-2022]
+                os: [ubuntu-22.04, macos-12, windows-2022]
                 rust_version: [stable, "1.73"]
                 include:
                     - os: windows-2022
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    - os: macos-11
+                    - os: macos-12
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
                     - os: windows-2022
                       rust_version: "beta"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
                 exclude:
-                    - os: macos-11
+                    - os: macos-12
                       rust_version: "1.73"
 
         runs-on: ${{ matrix.os }}
@@ -102,7 +102,7 @@ jobs:
             RUST_BACKTRACE: 1
         strategy:
             matrix:
-                os: [ubuntu-22.04, macos-11, windows-2022]
+                os: [ubuntu-22.04, macos-12, windows-2022]
 
         runs-on: ${{ matrix.os }}
 
@@ -148,7 +148,7 @@ jobs:
             RUST_BACKTRACE: full
         strategy:
             matrix:
-                os: [ubuntu-22.04, macos-11, windows-2022]
+                os: [ubuntu-22.04, macos-12, windows-2022]
 
         runs-on: ${{ matrix.os }}
 
