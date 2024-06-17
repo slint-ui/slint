@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, ScrollView, VerticalBox, GroupBox } from "std-widgets.slint";
+import { Button, Palette, ScrollView, VerticalBox, GroupBox } from "std-widgets.slint";
 
 export struct ComponentListItem {
     category: string,
@@ -20,6 +20,7 @@ export component ComponentList {
 
     pure callback can-drop(string/* component_type */, length/* x */, length/* y */, bool/* on-drop-area */) -> bool;
     callback drop(string/* component_type */, length/* x */, length/* y */);
+    callback add_new_component();
 
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
 
@@ -33,6 +34,7 @@ export component ComponentList {
 
         ScrollView {
             VerticalLayout {
+                spacing: 4px;
                 for cli in root.known-components: VerticalLayout {
                     Rectangle {
                         height: title.preferred-height + 10px;
@@ -74,6 +76,14 @@ export component ComponentList {
                                 mouse-cursor: MouseCursor.default;
                             }
                         ]
+                    }
+
+                    if cli.category == "User Defined": Button {
+                        height: self.min-height;
+                        text: "Add Component";
+                        clicked => {
+                            root.add_new_component();
+                        }
                     }
                 }
             }

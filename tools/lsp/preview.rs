@@ -135,6 +135,11 @@ fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<Elem
 }
 
 // triggered from the UI, running in UI thread
+fn add_new_component() {
+    eprintln!("Add a new component!");    
+}
+
+// triggered from the UI, running in UI thread
 fn can_drop_component(
     component_type: slint::SharedString,
     x: f32,
