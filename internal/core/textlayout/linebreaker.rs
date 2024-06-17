@@ -5,6 +5,8 @@ use core::ops::Range;
 
 use euclid::num::Zero;
 
+use crate::items::TextWrap;
+
 use super::fragments::{TextFragment, TextFragmentIterator};
 use super::{ShapeBuffer, TextShaper};
 
@@ -70,7 +72,7 @@ pub struct TextLineBreaker<'a, Font: TextShaper> {
     num_emitted_lines: usize,
     mandatory_line_break_on_next_iteration: bool,
     max_lines: Option<usize>,
-    wrap_anywhere: bool,
+    text_wrap: TextWrap,
 }
 
 impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
@@ -79,7 +81,7 @@ impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
         shape_buffer: &'a ShapeBuffer<Font::Length>,
         available_width: Option<Font::Length>,
         max_lines: Option<usize>,
-        wrap_anywhere: bool,
+        text_wrap: TextWrap,
     ) -> Self {
         Self {
             fragments: TextFragmentIterator::new(text, shape_buffer),
@@ -88,7 +90,7 @@ impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
             num_emitted_lines: 0,
             mandatory_line_break_on_next_iteration: false,
             max_lines,
-            wrap_anywhere,
+            text_wrap,
         }
     }
 }
@@ -122,8 +124,11 @@ impl<'a, Font: TextShaper> Iterator for TextLineBreaker<'a, Font> {
                 }
             };
 
-            if !fragment.trailing_mandatory_break
-                && self.wrap_anywhere
+            // As trailing_mandatory_break is only set if break_anywhere is false, the fragment must
+            // be first processed with break_anywhere = false and if no mandatory break is found, the
+            // loop is re-run with break_anywhere = true when using CharWrap.
+            if self.text_wrap == TextWrap::CharWrap
+                && !fragment.trailing_mandatory_break
                 && !self.fragments.break_anywhere
             {
                 self.fragments.break_anywhere = true;
@@ -152,8 +157,8 @@ impl<'a, Font: TextShaper> Iterator for TextLineBreaker<'a, Font> {
                     let next_line = core::mem::take(&mut self.current_line);
                     self.mandatory_line_break_on_next_iteration = fragment.trailing_mandatory_break;
 
-                    if !fragments.break_anywhere
-                        && !self.wrap_anywhere
+                    if self.text_wrap != TextWrap::CharWrap
+                        && !fragments.break_anywhere
                         && fragment.width < available_width
                     {
                         self.current_line.add_fragment(&fragment);
@@ -195,20 +200,32 @@ fn test_empty_line_break() {
     let font = FixedTestFont;
     let text = "";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(50.), None, false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(50.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].line_text(text), "");
 }
 
 #[test]
-fn test_basic_line_break_wrap_anywhere() {
+fn test_basic_line_break_char_wrap() {
     // The available width is half-way into the next word
     let font = FixedTestFont;
     let text = "Hello World";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(80.), None, true)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(80.),
+        None,
+        TextWrap::CharWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "Hello Wo");
     assert_eq!(lines[1].line_text(text), "rld");
@@ -219,8 +236,14 @@ fn test_basic_line_break() {
     let font = FixedTestFont;
     let text = "Hello World";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(50.), None, false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(50.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "World");
@@ -231,9 +254,14 @@ fn test_basic_line_break_max_lines() {
     let font = FixedTestFont;
     let text = "Hello World";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines =
-        TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(50.), Some(1), false)
-            .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(50.),
+        Some(1),
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].line_text(text), "Hello");
 }
@@ -243,8 +271,14 @@ fn test_linebreak_trailing_space() {
     let font = FixedTestFont;
     let text = "Hello              ";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(50.), None, false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(50.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].line_text(text), "Hello");
 }
@@ -254,8 +288,9 @@ fn test_forced_break() {
     let font = FixedTestFont;
     let text = "Hello\nWorld";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, false)
-        .collect::<Vec<_>>();
+    let lines =
+        TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, TextWrap::WordWrap)
+            .collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "World");
@@ -266,8 +301,9 @@ fn test_forced_break_multi() {
     let font = FixedTestFont;
     let text = "Hello\n\n\nWorld";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, false)
-        .collect::<Vec<_>>();
+    let lines =
+        TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, TextWrap::WordWrap)
+            .collect::<Vec<_>>();
     assert_eq!(lines.len(), 4);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "");
@@ -276,12 +312,18 @@ fn test_forced_break_multi() {
 }
 
 #[test]
-fn test_forced_break_multi_wrap_anywhere() {
+fn test_forced_break_multi_char_wrap() {
     let font = FixedTestFont;
     let text = "Hello\n\n\nWorld";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(30.), None, true)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(30.),
+        None,
+        TextWrap::CharWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 6);
     assert_eq!(lines[0].line_text(text), "Hel");
     assert_eq!(lines[1].line_text(text), "lo");
@@ -296,8 +338,14 @@ fn test_forced_break_max_lines() {
     let font = FixedTestFont;
     let text = "Hello\n\n\nWorld";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, Some(2), false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        None,
+        Some(2),
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "");
@@ -308,8 +356,14 @@ fn test_nbsp_break() {
     let font = FixedTestFont;
     let text = "Ok Hello\u{00a0}World";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(110.), None, false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(110.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "Ok");
     assert_eq!(lines[1].line_text(text), "Hello\u{00a0}World");
@@ -320,8 +374,9 @@ fn test_single_line_multi_break_opportunity() {
     let font = FixedTestFont;
     let text = "a b c";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, false)
-        .collect::<Vec<_>>();
+    let lines =
+        TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, TextWrap::WordWrap)
+            .collect::<Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].line_text(text), "a b c");
 }
@@ -331,8 +386,14 @@ fn test_basic_line_break_anywhere_fallback() {
     let font = FixedTestFont;
     let text = "HelloWorld";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(50.), None, false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(50.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "World");
@@ -343,8 +404,14 @@ fn test_basic_line_break_anywhere_fallback_multi_line() {
     let font = FixedTestFont;
     let text = "HelloWorld\nHelloWorld";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(50.), None, false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(50.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 4);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "World");
@@ -353,12 +420,18 @@ fn test_basic_line_break_anywhere_fallback_multi_line() {
 }
 
 #[test]
-fn test_basic_line_break_anywhere_fallback_multi_line_wrap_anywhere() {
+fn test_basic_line_break_anywhere_fallback_multi_line_char_wrap() {
     let font = FixedTestFont;
     let text = "HelloWorld\nHelloWorld";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(50.), None, true)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(50.),
+        None,
+        TextWrap::CharWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 4);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "World");
@@ -371,8 +444,14 @@ fn test_basic_line_break_anywhere_fallback_multi_line_v2() {
     let font = FixedTestFont;
     let text = "HelloW orldHellow";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(50.), None, false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(50.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 4);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "W");
@@ -385,9 +464,14 @@ fn test_basic_line_break_anywhere_fallback_max_lines() {
     let font = FixedTestFont;
     let text = "HelloW orldHellow";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines =
-        TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(50.), Some(3), false)
-            .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(50.),
+        Some(3),
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 3);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "W");
@@ -400,21 +484,33 @@ fn test_basic_line_break_space() {
     let font = FixedTestFont;
     let text = "H W";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(25.), None, false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(25.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "H");
     assert_eq!(lines[1].line_text(text), "W");
 }
 
 #[test]
-fn test_basic_line_break_space_wrap_anywhere() {
+fn test_basic_line_break_space_char_wrap() {
     // The available width is half-way into the trailing "W"
     let font = FixedTestFont;
     let text = "H W";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(25.), None, true)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(25.),
+        None,
+        TextWrap::CharWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "H");
     assert_eq!(lines[1].line_text(text), "W");
@@ -426,8 +522,14 @@ fn test_basic_line_break_space_v2() {
     let font = FixedTestFont;
     let text = "B B W";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(45.), None, false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(45.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "B B");
     assert_eq!(lines[1].line_text(text), "W");
@@ -439,8 +541,14 @@ fn test_basic_line_break_space_v3() {
     let font = FixedTestFont;
     let text = "H   W";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(15.), None, false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(15.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].line_text(text), "H");
     assert_eq!(lines[1].line_text(text), "W");
@@ -452,8 +560,14 @@ fn test_basic_line_break_space_v4() {
     let font = FixedTestFont;
     let text = "H W  H  ";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(65.), None, false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(65.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].line_text(text), "H W  H");
 }
@@ -463,8 +577,14 @@ fn test_line_width_with_whitespace() {
     let font = FixedTestFont;
     let text = "Hello World";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(200.), None, false)
-        .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(200.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].text_width, text.len() as f32 * 10.);
 }
@@ -474,21 +594,31 @@ fn zero_width() {
     let font = FixedTestFont;
     let text = "He\nHe o";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines =
-        TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(0.0001), None, false)
-            .map(|t| t.line_text(text))
-            .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(0.0001),
+        None,
+        TextWrap::WordWrap,
+    )
+    .map(|t| t.line_text(text))
+    .collect::<Vec<_>>();
     assert_eq!(lines, ["H", "e", "", "H", "e", "o"]);
 }
 
 #[test]
-fn zero_width_wrap_anywhere() {
+fn zero_width_char_wrap() {
     let font = FixedTestFont;
     let text = "He\nHe o";
     let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
-    let lines =
-        TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(0.0001), None, true)
-            .map(|t| t.line_text(text))
-            .collect::<Vec<_>>();
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(0.0001),
+        None,
+        TextWrap::CharWrap,
+    )
+    .map(|t| t.line_text(text))
+    .collect::<Vec<_>>();
     assert_eq!(lines, ["H", "e", "", "H", "e", "o"]);
 }

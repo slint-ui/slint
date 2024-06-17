@@ -11,6 +11,7 @@ use crate::thread_local_ as thread_local;
 
 use super::{PhysicalLength, PhysicalSize};
 use crate::graphics::{BitmapFont, FontRequest};
+use crate::items::TextWrap;
 use crate::lengths::{LogicalLength, LogicalSize, ScaleFactor};
 use crate::textlayout::TextLayout;
 use crate::Coord;
@@ -147,7 +148,7 @@ pub fn text_size(
     text: &str,
     max_width: Option<LogicalLength>,
     scale_factor: ScaleFactor,
-    wrap_anywhere: bool,
+    text_wrap: TextWrap,
 ) -> LogicalSize {
     let font = match_font(&font_request, scale_factor);
     let (longest_line_width, height) = match font {
@@ -156,7 +157,7 @@ pub fn text_size(
             layout.text_size(
                 text,
                 max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
-                wrap_anywhere,
+                text_wrap,
             )
         }
         #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
@@ -165,7 +166,7 @@ pub fn text_size(
             layout.text_size(
                 text,
                 max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
-                wrap_anywhere,
+                text_wrap,
             )
         }
     };

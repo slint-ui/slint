@@ -9,6 +9,7 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{Renderer, RendererSealed};
 use i_slint_core::window::{InputMethodRequest, WindowAdapter, WindowAdapterInternal};
 
+use i_slint_core::items::TextWrap;
 use std::cell::{Cell, RefCell};
 use std::pin::Pin;
 use std::rc::Rc;
@@ -150,7 +151,7 @@ impl RendererSealed for TestingWindow {
         text: &str,
         _max_width: Option<LogicalLength>,
         _scale_factor: ScaleFactor,
-        _wrap_anywhere: bool,
+        _text_wrap: TextWrap,
     ) -> LogicalSize {
         LogicalSize::new(text.len() as f32 * 10., 10.)
     }
