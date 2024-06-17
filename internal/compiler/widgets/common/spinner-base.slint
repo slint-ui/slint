@@ -11,13 +11,11 @@ export component SpinnerBase {
         private property <float> radius: min(self.viewbox-width, self.viewbox-height) / 2;
         private property <float> start-x: self.viewbox-width / 2;
         private property <float> start-y: self.viewbox-height / 2;
-        private property <float> thickness: 2;
-        private property <float> inner-radius: self.radius - self.thickness;
         private property <float> start : !indeterminate ? 0 :
             1 * mod(animation-tick(), 3s) / 3s;
-        // min is a workaground to get filled circle by 1.0
-        private property <float> progress: !root.indeterminate ? min(0.999, root.progress) :
-            min(0.99, max(0.25, 1 * abs(sin(360deg * animation-tick() / 1.5s))));
+        // min is a workaround to get filled circle by 1.0
+        private property <float> progress: !root.indeterminate ? min(0.9999, root.progress) :
+            min(0.9999, max(0.20, 1 * abs(sin(360deg * animation-tick() / 1.5s))));
 
         viewbox-width: 100;
         viewbox-height: 100;
@@ -29,37 +27,13 @@ export component SpinnerBase {
             y: start-y - radius * cos(-path.start * 360deg);
         }
 
-        LineTo {
-            x: start-x - path.inner-radius * sin(-path.start * 360deg);
-            y: start-y - path.inner-radius * cos(-path.start * 360deg);
-        }
-
         ArcTo {
-            radius-x: path.inner-radius;
-            radius-y: path.inner-radius;
-            x: start-x - path.inner-radius * sin(-(path.start + path.progress) * 360deg);
-            y: start-y - path.inner-radius * cos(-(path.start + path.progress) * 360deg);
+            radius-x: path.radius;
+            radius-y: path.radius;
+            x: start-x - path.radius * sin(-(path.start + path.progress) * 360deg);
+            y: start-y - path.radius * cos(-(path.start + path.progress) * 360deg);
             sweep: path.progress > 0;
             large-arc: path.progress > 0.5;
-        }
-
-        LineTo {
-            x: start-x - radius * sin(-(path.start + path.progress) * 360deg);
-            y: start-y - radius * cos(-(path.start + path.progress) * 360deg);
-        }
-
-        ArcTo {
-            radius-x: radius;
-            radius-y: radius;
-            x: start-x - radius * sin(-path.start * 360deg);
-            y: start-y - radius * cos(-path.start * 360deg);
-            sweep: path.progress < 0;
-            large-arc: path.progress > 0.5;
-        }
-
-        LineTo {
-            x: start-x - radius * sin(-path.start * 360deg);
-            y: start-y - radius * cos(-path.start * 360deg);
         }
     }
 }
