@@ -462,6 +462,11 @@ fn finish_parsing(ok: bool) {
         send_status("Preview not updated", Health::Error);
     }
 
+    let previewed_url = {
+        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        cache.current.as_ref().map(|pc| pc.url.clone())
+    };
+
     if let Some(document_cache) = document_cache() {
         let mut components = Vec::new();
         // `_SLINT_LivePreview` gets returned as `-SLINT-LivePreview`, which is unfortunately not a valid identifier.
@@ -473,6 +478,13 @@ fn finish_parsing(ok: bool) {
             &mut |ci| !(ci.is_global || ci.name == private_preview_component),
             &mut components,
         );
+        if let Some(previewed_url) = previewed_url {
+        component_catalog::file_local_components(
+            &document_cache,
+            &previewed_url,
+            &mut components,
+        );
+        }
 
         components.sort_by(|a, b| a.name.cmp(&b.name));
 
