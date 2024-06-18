@@ -13,7 +13,7 @@ pub fn handle_cursor_move_for_resize(
         let location = get_resize_direction(window.inner_size(), position, border_size);
 
         if current_direction != location {
-            window.set_cursor_icon(resize_direction_cursor_icon(location));
+            window.set_cursor(resize_direction_cursor_icon(location));
         }
 
         return location;

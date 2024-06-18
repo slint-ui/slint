@@ -680,7 +680,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         };
         self.with_window_handle(&mut |winit_window| {
             winit_window.set_cursor_visible(cursor != MouseCursor::None);
-            winit_window.set_cursor_icon(winit_cursor);
+            winit_window.set_cursor(winit_cursor);
         });
     }
 
