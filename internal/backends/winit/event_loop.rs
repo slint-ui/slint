@@ -649,10 +649,7 @@ impl EventLoopState {
         #[cfg(target_arch = "wasm32")]
         {
             winit_loop
-                .run_app(&mut ActiveEventLoopSetterDuringEventProcessing(
-                    &mut self,
-                    Default::default(),
-                ))
+                .run_app(&mut ActiveEventLoopSetterDuringEventProcessing(&mut self))
                 .map_err(|e| format!("Error running winit event loop: {e}"))?;
             // This can't really happen, as run() doesn't return
             Ok(Self::default())
@@ -724,7 +721,7 @@ pub fn spawn() -> Result<(), corelib::platform::PlatformError> {
 
     not_running_loop_instance
         .instance
-        .spawn_app(ActiveEventLoopSetterDuringEventProcessing(loop_state, Default::default()));
+        .spawn_app(ActiveEventLoopSetterDuringEventProcessing(loop_state));
 
     Ok(())
 }
