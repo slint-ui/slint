@@ -134,19 +134,12 @@ Run the example with `npm start` and a window appears with the green "Hello Worl
 
 We recommend using [rust-analyzer](https://rust-analyzer.github.io) and [our editor integrations for Slint](https://github.com/slint-ui/slint/tree/master/editors) for following this tutorial.
 
-Slint has an application template you can use to create a project with dependencies already set up that follows recommended best practices.
-
-Before using the template, install [`cargo-generate`](https://github.com/cargo-generate/cargo-generate):
+Let's create a new Rust application and add `slint` ad a dependency
 
 ```sh
-cargo install cargo-generate
-```
-
-Use the template to create a new project with the following command:
-
-```sh
-cargo generate --git https://github.com/slint-ui/slint-rust-template --name memory
+cargo new memory
 cd memory
+cargo add slint
 ```
 
 ### Configure the project
