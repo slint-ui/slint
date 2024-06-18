@@ -144,13 +144,13 @@ impl NativePalette {
         self.border.set(Brush::from(border));
 
         let selection_background = cpp!(unsafe[] -> u32 as "QRgb" {
-            return qApp->palette().color(QPalette::HighlightedText).rgba();
+            return qApp->palette().color(QPalette::Highlight).rgba();
         });
         let selection_background = Color::from_argb_encoded(selection_background);
         self.selection_background.set(Brush::from(selection_background));
 
         let selection_foreground = cpp!(unsafe[] -> u32 as "QRgb" {
-            return qApp->palette().color(QPalette::Text).rgba();
+            return qApp->palette().color(QPalette::HighlightedText).rgba();
         });
         let selection_foreground = Color::from_argb_encoded(selection_foreground);
         self.selection_foreground.set(Brush::from(selection_foreground));
