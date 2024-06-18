@@ -181,7 +181,13 @@ pub async fn run_passes(
 
     doc.visit_all_used_components(|component| {
         deduplicate_property_read::deduplicate_property_read(component);
-        optimize_useless_rectangles::optimize_useless_rectangles(component);
+        // Don't perform the empty rectangle removal when debug info is requested, because the resulting
+        // item tree ends up with a hierarchy where certain items have children that aren't child elements
+        // but siblings or sibling children. We need a new data structure to perform a correct element tree
+        // traversal.
+        if !type_loader.compiler_config.debug_info {
+            optimize_useless_rectangles::optimize_useless_rectangles(component);
+        }
         move_declarations::move_declarations(component);
     });
 

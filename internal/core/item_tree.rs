@@ -15,6 +15,7 @@ use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use crate::SharedString;
 use alloc::vec::Vec;
+use core::ops::ControlFlow;
 use core::pin::Pin;
 use vtable::*;
 
@@ -312,21 +313,35 @@ impl ItemRc {
         r.upgrade()?.parent_item()
     }
 
-    // FIXME: This should be nicer/done elsewhere?
+    /// Returns true if this item is visible from the root of the item tree. Note that this will return
+    /// false for `Clip` elements with the `clip` property evaluating to true.
     pub fn is_visible(&self) -> bool {
+        let (clip, geometry) = self.absolute_clip_rect_and_geometry();
+        let intersection = geometry.intersection(&clip).unwrap_or_default();
+        !intersection.is_empty() || (geometry.is_empty() && clip.contains(geometry.center()))
+    }
+
+    /// Returns the clip rect that applies to this item (in window coordinates) as well as the
+    /// item's (unclipped) geometry (also in window coordinates).
+    fn absolute_clip_rect_and_geometry(&self) -> (LogicalRect, LogicalRect) {
+        let (mut clip, parent_geometry) = self.parent_item().map_or_else(
+            || {
+                (
+                    LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into()),
+                    Default::default(),
+                )
+            },
+            |parent| parent.absolute_clip_rect_and_geometry(),
+        );
+
+        let geometry = self.geometry().translate(parent_geometry.origin.to_vector());
+
         let item = self.borrow();
-        let is_clipping = crate::item_rendering::is_clipping_item(item);
-        let geometry = self.geometry();
-
-        if is_clipping && (geometry.width() <= 0.01 as _ || geometry.height() <= 0.01 as _) {
-            return false;
+        if crate::item_rendering::is_clipping_item(item) {
+            clip = geometry.intersection(&clip).unwrap_or_default();
         }
 
-        if let Some(parent) = self.parent_item() {
-            parent.is_visible()
-        } else {
-            true
-        }
+        (clip, geometry)
     }
 
     pub fn is_accessible(&self) -> bool {
@@ -696,6 +711,55 @@ impl ItemRc {
         let mut result = None;
         comp_ref_pin.as_ref().window_adapter(false, &mut result);
         result
+    }
+
+    /// Visit the children of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
+    /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
+    fn visit_descendants_impl<R>(
+        &self,
+        visitor: &mut impl FnMut(&ItemRc) -> ControlFlow<R>,
+    ) -> Option<R> {
+        let mut result = None;
+
+        let mut actual_visitor = |item_tree: &ItemTreeRc,
+                                  index: u32,
+                                  _item_pin: core::pin::Pin<ItemRef>|
+         -> VisitChildrenResult {
+            let item_rc = ItemRc::new(item_tree.clone(), index);
+
+            match visitor(&item_rc) {
+                ControlFlow::Continue(_) => {
+                    if let Some(x) = item_rc.visit_descendants_impl(visitor) {
+                        result = Some(x);
+                        return VisitChildrenResult::abort(index, 0);
+                    }
+                }
+                ControlFlow::Break(x) => {
+                    result = Some(x);
+                    return VisitChildrenResult::abort(index, 0);
+                }
+            }
+
+            VisitChildrenResult::CONTINUE
+        };
+        vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
+
+        VRc::borrow_pin(self.item_tree()).as_ref().visit_children_item(
+            self.index() as isize,
+            TraversalOrder::BackToFront,
+            actual_visitor,
+        );
+
+        result
+    }
+
+    /// Visit the children of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
+    /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
+    pub fn visit_descendants<R>(
+        &self,
+        mut visitor: impl FnMut(&ItemRc) -> ControlFlow<R>,
+    ) -> Option<R> {
+        self.visit_descendants_impl(&mut visitor)
     }
 }
 
