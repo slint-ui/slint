@@ -23,6 +23,12 @@ export component SpinnerBase {
         height: 100%;
 
         MoveTo {
+            x: start-x - radius * sin(-(path.start - 0.001) * 360deg);
+            y: start-y - radius * cos(-(path.start - 0.001) * 360deg);
+        }
+
+        // Workaround for femtovg not filling complete circle
+        LineTo {
             x: start-x - radius * sin(-path.start * 360deg);
             y: start-y - radius * cos(-path.start * 360deg);
         }
