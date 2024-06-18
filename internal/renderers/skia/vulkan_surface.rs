@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 use std::sync::Arc;
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
@@ -16,9 +17,6 @@ use vulkano::instance::{Instance, InstanceCreateFlags, InstanceCreateInfo, Insta
 use vulkano::swapchain::{Surface, Swapchain, SwapchainCreateInfo, SwapchainPresentInfo};
 use vulkano::sync::GpuFuture;
 use vulkano::{sync, Handle, Validated, VulkanError, VulkanLibrary, VulkanObject};
-
-use raw_window_handle::HasRawDisplayHandle;
-use raw_window_handle::HasRawWindowHandle;
 
 /// This surface renders into the given window using Vulkan.
 pub struct VulkanSurface {
@@ -159,8 +157,8 @@ impl VulkanSurface {
 
 impl super::Surface for VulkanSurface {
     fn new(
-        window_handle: raw_window_handle::WindowHandle<'_>,
-        display_handle: raw_window_handle::DisplayHandle<'_>,
+        window_handle: Rc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle: Rc<dyn raw_window_handle::HasDisplayHandle>,
         size: PhysicalWindowSize,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let library = VulkanLibrary::new()
@@ -189,6 +187,13 @@ impl super::Surface for VulkanSurface {
             },
         )
         .map_err(|instance_err| format!("Error creating Vulkan instance: {instance_err}"))?;
+
+        let window_handle = window_handle
+            .window_handle()
+            .map_err(|e| format!("error obtaining window handle for skia vulkan renderer: {e}"))?;
+        let display_handle = display_handle
+            .display_handle()
+            .map_err(|e| format!("error obtaining display handle for skia vulkan renderer: {e}"))?;
 
         let surface = create_surface(&instance, window_handle, display_handle)
             .map_err(|surface_err| format!("Error creating Vulkan surface: {surface_err}"))?;
@@ -395,7 +400,7 @@ fn create_surface(
     window_handle: raw_window_handle::WindowHandle<'_>,
     display_handle: raw_window_handle::DisplayHandle<'_>,
 ) -> Result<Arc<Surface>, vulkano::Validated<vulkano::VulkanError>> {
-    match (window_handle.raw_window_handle(), display_handle.raw_display_handle()) {
+    match (window_handle.as_raw(), display_handle.as_raw()) {
         #[cfg(target_os = "macos")]
         (
             raw_window_handle::RawWindowHandle::AppKit(raw_window_handle::AppKitWindowHandle {
@@ -421,7 +426,9 @@ fn create_surface(
                 ..
             }),
             raw_window_handle::RawDisplayHandle::Xlib(display),
-        ) => unsafe { Surface::from_xlib(instance.clone(), display.display, window, None) },
+        ) => unsafe {
+            Surface::from_xlib(instance.clone(), display.display.unwrap().as_ptr(), window, None)
+        },
         (
             raw_window_handle::RawWindowHandle::Xcb(raw_window_handle::XcbWindowHandle {
                 window,
@@ -431,7 +438,9 @@ fn create_surface(
                 connection,
                 ..
             }),
-        ) => unsafe { Surface::from_xcb(instance.clone(), connection, window, None) },
+        ) => unsafe {
+            Surface::from_xcb(instance.clone(), connection.unwrap().as_ptr(), window.get(), None)
+        },
         (
             raw_window_handle::RawWindowHandle::Wayland(raw_window_handle::WaylandWindowHandle {
                 surface,
@@ -441,7 +450,9 @@ fn create_surface(
                 display,
                 ..
             }),
-        ) => unsafe { Surface::from_wayland(instance.clone(), display, surface, None) },
+        ) => unsafe {
+            Surface::from_wayland(instance.clone(), display.as_ptr(), surface.as_ptr(), None)
+        },
         (
             raw_window_handle::RawWindowHandle::Win32(raw_window_handle::Win32WindowHandle {
                 hwnd,
@@ -449,7 +460,14 @@ fn create_surface(
                 ..
             }),
             _,
-        ) => unsafe { Surface::from_win32(instance.clone(), hinstance, hwnd, None) },
+        ) => unsafe {
+            Surface::from_win32(
+                instance.clone(),
+                hinstance.unwrap().get() as *const std::ffi::c_void,
+                hwnd.get() as *const std::ffi::c_void,
+                None,
+            )
+        },
         _ => unimplemented!(),
     }
 }

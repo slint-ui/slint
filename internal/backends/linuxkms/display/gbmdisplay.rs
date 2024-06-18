@@ -97,17 +97,14 @@ impl raw_window_handle::HasWindowHandle for GbmDisplay {
     fn window_handle(
         &self,
     ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
-        let mut gbm_surface_handle = raw_window_handle::GbmWindowHandle::empty();
-        gbm_surface_handle.gbm_surface = self.gbm_surface.as_raw() as _;
-
-        // Safety: This is safe because the handle remains valid; the next rwh release provides `new()` without unsafe.
-        let active_handle = unsafe { raw_window_handle::ActiveHandle::new_unchecked() };
-
         Ok(unsafe {
-            raw_window_handle::WindowHandle::borrow_raw(
-                raw_window_handle::RawWindowHandle::Gbm(gbm_surface_handle),
-                active_handle,
-            )
+            let gbm_surface_handle = raw_window_handle::GbmWindowHandle::new(
+                std::ptr::NonNull::from(&*self.gbm_surface.as_raw()).cast(),
+            );
+
+            raw_window_handle::WindowHandle::borrow_raw(raw_window_handle::RawWindowHandle::Gbm(
+                gbm_surface_handle,
+            ))
         })
     }
 }
@@ -116,10 +113,11 @@ impl raw_window_handle::HasDisplayHandle for GbmDisplay {
     fn display_handle(
         &self,
     ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
-        let mut gbm_display_handle = raw_window_handle::GbmDisplayHandle::empty();
-        gbm_display_handle.gbm_device = self.gbm_device.as_raw() as _;
-
         Ok(unsafe {
+            let gbm_display_handle = raw_window_handle::GbmDisplayHandle::new(
+                std::ptr::NonNull::from(&*self.gbm_device.as_raw()).cast(),
+            );
+
             raw_window_handle::DisplayHandle::borrow_raw(raw_window_handle::RawDisplayHandle::Gbm(
                 gbm_display_handle,
             ))

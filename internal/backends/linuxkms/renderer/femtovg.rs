@@ -6,9 +6,7 @@ use std::{num::NonZeroU32, rc::Rc};
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_renderer_femtovg::FemtoVGRendererExt;
-use raw_window_handle::{
-    HasDisplayHandle, HasRawDisplayHandle, HasRawWindowHandle, HasWindowHandle,
-};
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 use glutin::{
     context::{ContextApi, ContextAttributesBuilder},
@@ -45,7 +43,7 @@ impl GlContextWrapper {
 
         let gl_display = unsafe {
             glutin::display::Display::new(
-                display_handle.raw_display_handle(),
+                display_handle.as_raw(),
                 glutin::display::DisplayApiPreference::Egl,
             )
             .map_err(|e| format!("Error creating EGL display: {e}"))?
@@ -75,10 +73,10 @@ impl GlContextWrapper {
                 major: 2,
                 minor: 0,
             })))
-            .build(Some(window_handle.raw_window_handle()));
+            .build(Some(window_handle.as_raw()));
 
         let fallback_context_attributes =
-            ContextAttributesBuilder::new().build(Some(window_handle.raw_window_handle()));
+            ContextAttributesBuilder::new().build(Some(window_handle.as_raw()));
 
         let not_current_gl_context = unsafe {
             gl_display
@@ -88,7 +86,7 @@ impl GlContextWrapper {
         };
 
         let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-            window_handle.raw_window_handle(),
+            window_handle.as_raw(),
             width,
             height,
         );
@@ -105,9 +103,6 @@ impl GlContextWrapper {
             format!("FemtoVG Renderer: Failed to make newly created OpenGL context current: {glutin_error}")
             .into()
     })?;
-
-        drop(window_handle);
-        drop(display_handle);
 
         Ok(Self { glutin_context: context, glutin_surface: surface })
     }
