@@ -19,6 +19,7 @@ use corelib::platform::PlatformError;
 use corelib::window::*;
 use i_slint_core as corelib;
 
+#[cfg(not(target_family = "wasm"))]
 use raw_window_handle::HasDisplayHandle;
 #[allow(unused_imports)]
 use std::cell::{RefCell, RefMut};
@@ -76,6 +77,7 @@ pub(crate) trait EventLoopInterface {
         &self,
         window_attributes: winit::window::WindowAttributes,
     ) -> Result<winit::window::Window, winit::error::OsError>;
+    #[cfg(not(target_family = "wasm"))]
     fn display_handle(
         &self,
     ) -> Result<winit::raw_window_handle::DisplayHandle<'_>, winit::raw_window_handle::HandleError>;
@@ -89,6 +91,7 @@ impl EventLoopInterface for NotRunningEventLoop {
     ) -> Result<winit::window::Window, winit::error::OsError> {
         self.instance.create_window(window_attributes)
     }
+    #[cfg(not(target_family = "wasm"))]
     fn display_handle(
         &self,
     ) -> Result<winit::raw_window_handle::DisplayHandle<'_>, winit::raw_window_handle::HandleError>
@@ -107,6 +110,7 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
     ) -> Result<winit::window::Window, winit::error::OsError> {
         self.active_event_loop.create_window(window_attributes)
     }
+    #[cfg(not(target_family = "wasm"))]
     fn display_handle(
         &self,
     ) -> Result<winit::raw_window_handle::DisplayHandle<'_>, winit::raw_window_handle::HandleError>
@@ -594,18 +598,12 @@ impl EventLoopState {
         #[cfg(target_arch = "wasm32")]
         {
             winit_loop
-            .run(
-                move |event: Event<SlintUserEvent>,
-                      event_loop_target: &EventLoopWindowTarget<SlintUserEvent>| {
-                    let running_instance = RunningEventLoop {
-                        event_loop_target,
-                    };
-                    CURRENT_WINDOW_TARGET.set(&running_instance, || {
-                        self.process_event(event, event_loop_target)
-                    })
-                },
-            )
-            .map_err(|e| format!("Error running winit event loop: {e}"))?;
+                .run(move |event: Event<SlintUserEvent>, active_event_loop: &ActiveEventLoop| {
+                    let running_instance = RunningEventLoop { active_event_loop };
+                    CURRENT_WINDOW_TARGET
+                        .set(&running_instance, || self.process_event(event, active_event_loop))
+                })
+                .map_err(|e| format!("Error running winit event loop: {e}"))?;
             // This can't really happen, as run() doesn't return
             Ok(Self::default())
         }
@@ -681,11 +679,10 @@ pub fn spawn() -> Result<(), corelib::platform::PlatformError> {
     let mut loop_state = EventLoopState::default();
 
     not_running_loop_instance.instance.spawn(
-        move |event: Event<SlintUserEvent>,
-              event_loop_target: &EventLoopWindowTarget<SlintUserEvent>| {
-            let running_instance = RunningEventLoop { event_loop_target };
+        move |event: Event<SlintUserEvent>, active_event_loop: &ActiveEventLoop| {
+            let running_instance = RunningEventLoop { active_event_loop };
             CURRENT_WINDOW_TARGET
-                .set(&running_instance, || loop_state.process_event(event, event_loop_target))
+                .set(&running_instance, || loop_state.process_event(event, active_event_loop))
         },
     );
 

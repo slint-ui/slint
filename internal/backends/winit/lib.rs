@@ -67,8 +67,8 @@ pub(crate) mod wasm_input_helper;
 pub fn create_gl_window_with_canvas_id(
     canvas_id: &str,
 ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-    let builder = WinitWindowAdapter::window_builder(canvas_id)?;
-    let (renderer, window) = renderer::femtovg::GlutinFemtoVGRenderer::new(builder)?;
+    let attrs = WinitWindowAdapter::window_attributes(canvas_id)?;
+    let (renderer, window) = renderer::femtovg::GlutinFemtoVGRenderer::new(attrs)?;
     let adapter = WinitWindowAdapter::new(renderer, window);
     Ok(adapter)
 }
@@ -103,7 +103,7 @@ fn default_renderer_factory(
 
 fn try_create_window_with_fallback_renderer(
     attrs: winit::window::WindowAttributes,
-    proxy: &winit::event_loop::EventLoopProxy<SlintUserEvent>,
+    _proxy: &winit::event_loop::EventLoopProxy<SlintUserEvent>,
 ) -> Option<Rc<WinitWindowAdapter>> {
     [
         #[cfg(any(
@@ -120,7 +120,12 @@ fn try_create_window_with_fallback_renderer(
     .into_iter()
     .find_map(|renderer_factory| {
         let (renderer, winit_window) = renderer_factory(attrs.clone()).ok()?;
-        Some(WinitWindowAdapter::new(renderer, winit_window, proxy.clone()))
+        Some(WinitWindowAdapter::new(
+            renderer,
+            winit_window,
+            #[cfg(not(target_family = "wasm"))]
+            _proxy.clone(),
+        ))
     })
 }
 
@@ -264,7 +269,14 @@ impl i_slint_core::platform::Platform for Backend {
         }
 
         let adapter = (self.renderer_factory_fn)(builder.clone())
-            .map(|(renderer, window)| WinitWindowAdapter::new(renderer, window, self.proxy.clone()))
+            .map(|(renderer, window)| {
+                WinitWindowAdapter::new(
+                    renderer,
+                    window,
+                    #[cfg(not(target_family = "wasm"))]
+                    self.proxy.clone(),
+                )
+            })
             .or_else(|e| {
                 try_create_window_with_fallback_renderer(builder, &self.proxy)
                     .ok_or_else(|| format!("Winit backend failed to find a suitable renderer: {e}"))
