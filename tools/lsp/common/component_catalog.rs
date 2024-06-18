@@ -96,7 +96,7 @@ fn exported_project_component_info(
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "preview-engine")]
 fn file_local_component_info(name: &str, position: Position) -> ComponentInformation {
     ComponentInformation {
         name: name.to_string(),
@@ -171,13 +171,13 @@ pub fn all_exported_components(
     result.dedup_by(|a, b| a.name == b.name);
 }
 
-#[cfg(test)]
+#[cfg(feature = "preview-engine")]
 pub fn file_local_components(
     document_cache: &DocumentCache,
     url: &lsp_types::Url,
     result: &mut Vec<ComponentInformation>,
 ) {
-    let Some(doc) = document_cache.get_document(url) else { return };
+    let Some(doc) = document_cache.get_document(url) else { return; };
     let exported_components =
         doc.exports.iter().filter_map(|(_, e)| e.as_ref().left()).cloned().collect::<Vec<_>>();
     for component in &*doc.inner_components {
