@@ -9,8 +9,6 @@ use windows::core::Interface;
 use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
 use windows::Win32::Graphics::Dxgi::Common::DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN;
 
-use raw_window_handle::HasRawWindowHandle;
-
 use windows::Win32::Foundation::{DXGI_STATUS_OCCLUDED, HANDLE, HWND, S_OK};
 use windows::Win32::Graphics::Direct3D12::{
     D3D12CreateDevice, ID3D12CommandQueue, ID3D12Device, ID3D12Fence, ID3D12Resource,
@@ -71,11 +69,11 @@ impl SwapChain {
             ..Default::default()
         };
 
-        let hwnd = match window_handle.raw_window_handle() {
+        let hwnd = match window_handle.as_raw() {
             raw_window_handle::RawWindowHandle::Win32(raw_window_handle::Win32WindowHandle {
                 hwnd,
                 ..
-            }) => HWND(hwnd as _),
+            }) => HWND(hwnd.get() as _),
             _ => {
                 return Err(format!("Metal surface is only supported with Win32WindowHandle").into())
             }

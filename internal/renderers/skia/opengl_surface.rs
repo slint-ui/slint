@@ -224,7 +224,7 @@ impl OpenGLSurface {
             } else if #[cfg(not(target_family = "windows"))] {
                 let display_api_preference = glutin::display::DisplayApiPreference::Egl;
             } else {
-                let display_api_preference = glutin::display::DisplayApiPreference::EglThenWgl(Some(_window_handle.raw_window_handle()));
+                let display_api_preference = glutin::display::DisplayApiPreference::EglThenWgl(Some(_window_handle.as_raw()));
             }
         }
 
@@ -254,7 +254,7 @@ impl OpenGLSurface {
         // Upstream advises to use this only on Windows.
         #[cfg(target_family = "windows")]
         let config_template_builder = config_template_builder
-            .compatible_with_native_window(_window_handle.raw_window_handle());
+            .compatible_with_native_window(_window_handle.as_raw());
 
         let config_template = config_template_builder.build();
 
