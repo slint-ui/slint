@@ -20,7 +20,7 @@ path = "lib.rs"
 
 [features]
 
-default = ["backend-default", "renderer-femtovg", "accessibility", "compat-1-2"]
+default = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-2"]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.2
