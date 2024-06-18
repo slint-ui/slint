@@ -177,7 +177,9 @@ pub fn file_local_components(
     url: &lsp_types::Url,
     result: &mut Vec<ComponentInformation>,
 ) {
-    let Some(doc) = document_cache.get_document(url) else { return; };
+    let Some(doc) = document_cache.get_document(url) else {
+        return;
+    };
     let exported_components =
         doc.exports.iter().filter_map(|(_, e)| e.as_ref().left()).cloned().collect::<Vec<_>>();
     for component in &*doc.inner_components {

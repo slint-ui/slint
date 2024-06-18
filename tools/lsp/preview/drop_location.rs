@@ -556,8 +556,12 @@ pub fn add_new_component(
     );
 
     let selection_offset = insert_position.insertion_position.offset()
-        + new_text.chars().take_while(|c| c.is_whitespace()).map(|c| c.len_utf8() as u32).sum::<u32>()
-        + 10 /* component<SPACE> */;
+        + new_text
+            .chars()
+            .take_while(|c| c.is_whitespace())
+            .map(|c| c.len_utf8() as u32)
+            .sum::<u32>()
+        + "component ".len() as u32;
 
     let source_file = document.source_file.clone();
     let path = source_file.path().to_path_buf();

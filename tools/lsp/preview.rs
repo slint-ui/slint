@@ -156,7 +156,9 @@ fn add_new_component() {
         })
     }
 
-    let Some(document_cache) = document_cache() else { return; };
+    let Some(document_cache) = document_cache() else {
+        return;
+    };
 
     let preview_component = {
         let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
@@ -175,7 +177,9 @@ fn add_new_component() {
         return;
     };
 
-    let Some(document) = &document.node else { return; };
+    let Some(document) = &document.node else {
+        return;
+    };
 
     if let Some((edit, drop_data)) = drop_location::add_new_component(&component_name, document) {
         element_selection::select_element_at_source_code_position(
@@ -479,11 +483,11 @@ fn finish_parsing(ok: bool) {
             &mut components,
         );
         if let Some(previewed_url) = previewed_url {
-        component_catalog::file_local_components(
-            &document_cache,
-            &previewed_url,
-            &mut components,
-        );
+            component_catalog::file_local_components(
+                &document_cache,
+                &previewed_url,
+                &mut components,
+            );
         }
 
         components.sort_by(|a, b| a.name.cmp(&b.name));
