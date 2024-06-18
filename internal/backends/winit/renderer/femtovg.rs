@@ -25,10 +25,7 @@ impl GlutinFemtoVGRenderer {
     ) -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         let (winit_window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
-            Ok(glcontext::OpenGLContext::new_context(
-                window_builder,
-                event_loop.event_loop(),
-            )?)
+            Ok(glcontext::OpenGLContext::new_context(window_builder, event_loop.event_loop())?)
         })?;
 
         #[cfg(target_arch = "wasm32")]

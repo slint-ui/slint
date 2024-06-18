@@ -5,9 +5,9 @@
 
 // cspell:ignore accesskit borderless corelib nesw webgl winit winsys xlib
 
-use core::cell::Cell;
 #[cfg(target_arch = "wasm32")]
 use core::cell::RefCell;
+use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use std::rc::Rc;
 #[cfg(target_arch = "wasm32")]
@@ -26,6 +26,7 @@ use corelib::items::{ColorScheme, MouseCursor};
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 
+use crate::SlintUserEvent;
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
 use corelib::lengths::LogicalLength;
@@ -35,6 +36,7 @@ use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use once_cell::unsync::OnceCell;
+use winit::event_loop::EventLoopProxy;
 use winit::window::WindowAttributes;
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
@@ -137,7 +139,7 @@ pub struct WinitWindowAdapter {
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 
     #[cfg(enable_accesskit)]
-    pub accesskit_adapter: crate::accesskit::AccessKitAdapter,
+    pub accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
 
     winit_window: Rc<winit::window::Window>, // Last field so that any previously provided window handles are still valid in the drop impl of the renderers, etc.
 }
@@ -147,6 +149,7 @@ impl WinitWindowAdapter {
     pub(crate) fn new(
         renderer: Box<dyn WinitCompatibleRenderer>,
         winit_window: Rc<winit::window::Window>,
+        proxy: EventLoopProxy<SlintUserEvent>,
     ) -> Rc<Self> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
@@ -170,7 +173,9 @@ impl WinitWindowAdapter {
             accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
                 self_weak.clone(),
                 &winit_window,
-            ),
+                proxy,
+            )
+            .into(),
         });
 
         let winit_window = self_rc.winit_window();
@@ -742,21 +747,26 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
     #[cfg(enable_accesskit)]
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {
-        self.accesskit_adapter.handle_focus_item_change();
+        self.accesskit_adapter.borrow_mut().handle_focus_item_change();
     }
 
     #[cfg(enable_accesskit)]
     fn register_item_tree(&self) {
-        self.accesskit_adapter.register_item_tree();
+        // If the accesskit_adapter is already borrowed, this means the new items were created when the tree was built and there is no need to re-visit them
+        if let Ok(mut a) = self.accesskit_adapter.try_borrow_mut() {
+            a.reload_tree();
+        };
     }
 
     #[cfg(enable_accesskit)]
     fn unregister_item_tree(
         &self,
-        _component: ItemTreeRef,
+        component: ItemTreeRef,
         _: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
     ) {
-        self.accesskit_adapter.unregister_item_tree(_component);
+        if let Ok(mut a) = self.accesskit_adapter.try_borrow_mut() {
+            a.unregister_item_tree(component);
+        }
     }
 }
 

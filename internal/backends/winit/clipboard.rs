@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use copypasta::ClipboardProvider;
-use crate::SlintUserEvent;
 
 /// The Default, and the selection clippoard
 pub type ClipboardPair = (Box<dyn ClipboardProvider>, Box<dyn ClipboardProvider>);
@@ -19,7 +18,7 @@ pub fn select_clipboard(
 }
 
 pub fn create_clipboard(
-    _display_handle: &winit::raw_window_handle::DisplayHandle<'_>
+    _display_handle: &winit::raw_window_handle::DisplayHandle<'_>,
 ) -> ClipboardPair {
     // Provide a truly silent no-op clipboard context, as copypasta's NoopClipboard spams stdout with
     // println.

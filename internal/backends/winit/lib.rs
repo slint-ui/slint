@@ -27,9 +27,7 @@ pub use winit;
 /// Internal type used by the winit backend for thread communication and window system updates.
 #[non_exhaustive]
 #[derive(Debug)]
-pub enum SlintUserEvent {
-    CustomEvent { event: CustomEvent },
-}
+pub struct SlintUserEvent(CustomEvent);
 
 mod renderer {
     use std::rc::Rc;
@@ -105,6 +103,7 @@ fn default_renderer_factory(
 
 fn try_create_window_with_fallback_renderer(
     attrs: winit::window::WindowAttributes,
+    proxy: &winit::event_loop::EventLoopProxy<SlintUserEvent>,
 ) -> Option<Rc<WinitWindowAdapter>> {
     [
         #[cfg(any(
@@ -121,7 +120,7 @@ fn try_create_window_with_fallback_renderer(
     .into_iter()
     .find_map(|renderer_factory| {
         let (renderer, winit_window) = renderer_factory(attrs.clone()).ok()?;
-        Some(WinitWindowAdapter::new(renderer, winit_window))
+        Some(WinitWindowAdapter::new(renderer, winit_window, proxy.clone()))
     })
 }
 
@@ -148,6 +147,7 @@ pub struct Backend {
         )
             -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError>,
     event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
+    proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
 
     /// This hook is called before a Window is created.
     ///
@@ -179,6 +179,12 @@ impl Backend {
     /// If the renderer name is `None` or the name is not recognized, the default renderer is selected.
     pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Result<Self, PlatformError> {
         // Initialize the winit event loop and propagate errors if for example `DISPLAY` or `WAYLAND_DISPLAY` isn't set.
+        let proxy = crate::event_loop::with_window_target(|l| match l.event_loop() {
+            event_loop::ActiveOrInactiveEventLoop::Active(_) => unreachable!(
+                "Event loop can't be active when the winit backend is being constructed"
+            ),
+            event_loop::ActiveOrInactiveEventLoop::Inactive(l) => Ok(l.create_proxy()),
+        })?;
         #[cfg(not(target_arch = "wasm32"))]
         let clipboard = crate::event_loop::with_window_target(|l| {
             Ok(clipboard::create_clipboard(&l.display_handle()?))
@@ -210,6 +216,7 @@ impl Backend {
             window_builder_hook: None,
             #[cfg(not(target_arch = "wasm32"))]
             clipboard: clipboard.into(),
+            proxy,
         })
     }
 }
@@ -237,9 +244,7 @@ fn send_event_via_global_event_loop_proxy(
             // frame a few moments later.
             // This also allows batching multiple post_event calls and redraw their state changes
             // all at once.
-            proxy.send_event(SlintUserEvent::CustomEvent {
-                event: CustomEvent::WakeEventLoopWorkaround,
-            })?;
+            proxy.send_event(SlintUserEvent(CustomEvent::WakeEventLoopWorkaround))?;
             proxy.send_event(event)?;
             Ok(())
         })?
@@ -259,9 +264,9 @@ impl i_slint_core::platform::Platform for Backend {
         }
 
         let adapter = (self.renderer_factory_fn)(builder.clone())
-            .map(|(renderer, window)| WinitWindowAdapter::new(renderer, window))
+            .map(|(renderer, window)| WinitWindowAdapter::new(renderer, window, self.proxy.clone()))
             .or_else(|e| {
-                try_create_window_with_fallback_renderer(builder)
+                try_create_window_with_fallback_renderer(builder, &self.proxy)
                     .ok_or_else(|| format!("Winit backend failed to find a suitable renderer: {e}"))
             })?;
         Ok(adapter)
@@ -301,16 +306,14 @@ impl i_slint_core::platform::Platform for Backend {
         struct Proxy;
         impl EventLoopProxy for Proxy {
             fn quit_event_loop(&self) -> Result<(), i_slint_core::api::EventLoopError> {
-                send_event_via_global_event_loop_proxy(SlintUserEvent::CustomEvent {
-                    event: CustomEvent::Exit,
-                })
+                send_event_via_global_event_loop_proxy(SlintUserEvent(CustomEvent::Exit))
             }
 
             fn invoke_from_event_loop(
                 &self,
                 event: Box<dyn FnOnce() + Send>,
             ) -> Result<(), i_slint_core::api::EventLoopError> {
-                let e = SlintUserEvent::CustomEvent { event: CustomEvent::UserEvent(event) };
+                let e = SlintUserEvent(CustomEvent::UserEvent(event));
                 send_event_via_global_event_loop_proxy(e)
             }
         }

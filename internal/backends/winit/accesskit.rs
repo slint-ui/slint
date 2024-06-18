@@ -1,12 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::Weak;
-use std::sync::{Arc, Condvar, Mutex};
 
 use accesskit::{
     Action, ActionRequest, DefaultActionVerb, Node, NodeBuilder, NodeId, Role, Toggled, Tree,
@@ -23,6 +21,8 @@ use i_slint_core::SharedString;
 use i_slint_core::{properties::PropertyTracker, window::WindowAdapter};
 
 use super::WinitWindowAdapter;
+use crate::SlintUserEvent;
+use winit::event_loop::EventLoopProxy;
 
 /// The AccessKit adapter tries to keep the given window adapter's item tree in sync with accesskit's node tree.
 ///
@@ -44,79 +44,72 @@ use super::WinitWindowAdapter;
 pub struct AccessKitAdapter {
     inner: accesskit_winit::Adapter,
     window_adapter_weak: Weak<WinitWindowAdapter>,
-
-    next_component_id: Cell<u32>,
-    components_by_id: RefCell<HashMap<u32, ItemTreeWeak>>,
-    component_ids: RefCell<HashMap<NonNull<u8>, u32>>,
-    all_nodes: RefCell<Vec<CachedNode>>,
-    root_node_id: Cell<NodeId>,
+    nodes: NodeCollection,
     global_property_tracker: Pin<Box<PropertyTracker<AccessibilitiesPropertyTracker>>>,
+    pending_update: bool,
 }
 
 impl AccessKitAdapter {
     pub fn new(
         window_adapter_weak: Weak<WinitWindowAdapter>,
         winit_window: &winit::window::Window,
+        proxy: EventLoopProxy<SlintUserEvent>,
     ) -> Self {
-        let window_id = winit_window.id();
-        let ui_thread_id = std::thread::current().id();
         Self {
-            inner: accesskit_winit::Adapter::with_action_handler(
-                winit_window,
-                move || Self::build_initial_tree(window_id, ui_thread_id),
-                Box::new(ActionForwarder::new(window_id)),
-            ),
+            inner: accesskit_winit::Adapter::with_event_loop_proxy(winit_window, proxy),
             window_adapter_weak: window_adapter_weak.clone(),
-            next_component_id: Cell::new(1),
-            components_by_id: Default::default(),
-            component_ids: Default::default(),
-            all_nodes: Default::default(),
+            nodes: NodeCollection {
+                next_component_id: 1,
+                root_node_id: NodeId(0),
+                components_by_id: Default::default(),
+                component_ids: Default::default(),
+                all_nodes: Default::default(),
+            },
             global_property_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
                 AccessibilitiesPropertyTracker { window_adapter_weak: window_adapter_weak.clone() },
             )),
-            root_node_id: Cell::new(NodeId(0)),
+            pending_update: false,
         }
     }
 
-    pub fn process_event(&self, window: &winit::window::Window, event: &winit::event::WindowEvent) {
+    pub fn process_event(
+        &mut self,
+        window: &winit::window::Window,
+        event: &winit::event::WindowEvent,
+    ) {
         if matches!(event, winit::event::WindowEvent::Focused(_)) {
             self.global_property_tracker.set_dirty();
             let win = self.window_adapter_weak.clone();
             i_slint_core::timers::Timer::single_shot(Default::default(), move || {
                 if let Some(window_adapter) = win.upgrade() {
-                    window_adapter.accesskit_adapter.rebuild_tree_of_dirty_nodes();
+                    window_adapter.accesskit_adapter.borrow_mut().rebuild_tree_of_dirty_nodes();
                 };
             });
         }
         self.inner.process_event(window, event);
     }
 
-    pub fn handle_focus_item_change(&self) {
+    pub fn process_accesskit_event(&mut self, window_event: accesskit_winit::WindowEvent) {
+        match window_event {
+            accesskit_winit::WindowEvent::InitialTreeRequested => {
+                self.inner.update_if_active(|| {
+                    self.nodes.build_new_tree(
+                        &self.window_adapter_weak,
+                        self.global_property_tracker.as_ref(),
+                    )
+                });
+            }
+            accesskit_winit::WindowEvent::ActionRequested(r) => self.handle_request(r),
+            accesskit_winit::WindowEvent::AccessibilityDeactivated => (),
+        }
+    }
+
+    pub fn handle_focus_item_change(&mut self) {
         self.inner.update_if_active(|| TreeUpdate {
             nodes: vec![],
             tree: None,
-            focus: self.focus_node(),
+            focus: self.nodes.focus_node(&self.window_adapter_weak),
         })
-    }
-
-    fn focus_node(&self) -> NodeId {
-        self.window_adapter_weak
-            .upgrade()
-            .filter(|window_adapter| window_adapter.winit_window().has_focus())
-            .and_then(|window_adapter| {
-                let window_inner = WindowInner::from_pub(window_adapter.window());
-                window_inner
-                    .focus_item
-                    .borrow()
-                    .upgrade()
-                    .or_else(|| {
-                        window_inner
-                            .try_component()
-                            .map(|component_rc| ItemRc::new(component_rc, 0))
-                    })
-                    .and_then(|focus_item| self.find_node_id_by_item_rc(focus_item))
-            })
-            .unwrap_or_else(|| self.root_node_id.get())
     }
 
     fn handle_request(&self, request: ActionRequest) {
@@ -124,7 +117,7 @@ impl AccessKitAdapter {
         let a = match request.action {
             Action::Default => AccessibilityAction::Default,
             Action::Focus => {
-                if let Some(item) = self.item_rc_for_node_id(request.target) {
+                if let Some(item) = self.nodes.item_rc_for_node_id(request.target) {
                     WindowInner::from_pub(window_adapter.window()).set_focus_item(&item, true);
                 }
                 return;
@@ -146,40 +139,112 @@ impl AccessKitAdapter {
             },
             _ => return,
         };
-        if let Some(item) = self.item_rc_for_node_id(request.target) {
+        if let Some(item) = self.nodes.item_rc_for_node_id(request.target) {
             item.accessible_action(&a);
         }
     }
 
-    pub fn register_item_tree(&self) {
+    pub fn reload_tree(&mut self) {
+        if self.pending_update {
+            return;
+        }
+        self.pending_update = true;
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = win.upgrade() {
-                let self_ = &window_adapter.accesskit_adapter;
-                self_.inner.update_if_active(|| self_.build_new_tree())
+                let mut self_ = window_adapter.accesskit_adapter.borrow_mut();
+                let self_ = &mut *self_;
+                self_.pending_update = false;
+                self_.inner.update_if_active(|| {
+                    self_.nodes.build_new_tree(&win, self_.global_property_tracker.as_ref())
+                })
             };
         });
     }
 
-    pub fn unregister_item_tree(&self, component: ItemTreeRef) {
+    pub fn unregister_item_tree(&mut self, component: ItemTreeRef) {
         let component_ptr = ItemTreeRef::as_ptr(component);
-        if let Some(component_id) = self.component_ids.borrow_mut().remove(&component_ptr) {
-            self.components_by_id.borrow_mut().remove(&component_id);
+        if let Some(component_id) = self.nodes.component_ids.remove(&component_ptr) {
+            self.nodes.components_by_id.remove(&component_id);
+        }
+        self.reload_tree();
+    }
+
+    fn rebuild_tree_of_dirty_nodes(&mut self) {
+        if !self.global_property_tracker.is_dirty() {
+            return;
         }
 
-        let win = self.window_adapter_weak.clone();
-        i_slint_core::timers::Timer::single_shot(Default::default(), move || {
-            if let Some(window_adapter) = win.upgrade() {
-                let self_ = &window_adapter.accesskit_adapter;
-                self_.inner.update_if_active(|| self_.build_new_tree())
-            };
-        });
+        // It's possible that we may have been triggered by a timer, but in the meantime
+        // the node tree has been emptied due to a tree structure change.
+        if self.nodes.all_nodes.is_empty() {
+            return;
+        }
+
+        let Some(window_adapter) = self.window_adapter_weak.upgrade() else { return };
+        let window = window_adapter.window();
+
+        self.inner.update_if_active(|| {
+            self.global_property_tracker.as_ref().evaluate_as_dependency_root(|| {
+                let nodes = self.nodes.all_nodes.iter().filter_map(|cached_node| {
+                    cached_node.tracker.as_ref().evaluate_if_dirty(|| {
+                        let scale_factor = ScaleFactor::new(window.scale_factor());
+                        let item = self.nodes.item_rc_for_node_id(cached_node.id)?;
+
+                        let mut builder =
+                            self.nodes.build_node_without_children(&item, scale_factor);
+
+                        builder.set_children(cached_node.children.clone());
+
+                        let node = builder.build();
+
+                        Some((cached_node.id, node))
+                    })?
+                });
+
+                TreeUpdate {
+                    nodes: nodes.collect(),
+                    tree: None,
+                    focus: self.nodes.focus_node(&self.window_adapter_weak),
+                }
+            })
+        })
+    }
+}
+
+struct NodeCollection {
+    next_component_id: u32,
+    components_by_id: HashMap<u32, ItemTreeWeak>,
+    component_ids: HashMap<NonNull<u8>, u32>,
+    all_nodes: Vec<CachedNode>,
+    root_node_id: NodeId,
+}
+
+impl NodeCollection {
+    fn focus_node(&self, window_adapter_weak: &Weak<WinitWindowAdapter>) -> NodeId {
+        window_adapter_weak
+            .upgrade()
+            .filter(|window_adapter| window_adapter.winit_window().has_focus())
+            .and_then(|window_adapter| {
+                let window_inner = WindowInner::from_pub(window_adapter.window());
+                window_inner
+                    .focus_item
+                    .borrow()
+                    .upgrade()
+                    .or_else(|| {
+                        window_inner
+                            .try_component()
+                            .map(|component_rc| ItemRc::new(component_rc, 0))
+                    })
+                    .and_then(|focus_item| self.find_node_id_by_item_rc(focus_item))
+            })
+            .unwrap_or_else(|| self.root_node_id)
     }
 
     fn item_rc_for_node_id(&self, id: NodeId) -> Option<ItemRc> {
         let component_id: u32 = (id.0 >> u32::BITS) as _;
         let index: u32 = (id.0 & u32::MAX as u64) as _;
-        let component = self.components_by_id.borrow().get(&component_id)?.upgrade()?;
+        let component = self.components_by_id.get(&component_id)?.upgrade()?;
         Some(ItemRc::new(component, index))
     }
 
@@ -198,50 +263,13 @@ impl AccessKitAdapter {
     fn encode_item_node_id(&self, item: &ItemRc) -> Option<NodeId> {
         let component = item.item_tree();
         let component_ptr = ItemTreeRef::as_ptr(ItemTreeRc::borrow(component));
-        let component_id = *(self.component_ids.borrow().get(&component_ptr)?);
+        let component_id = *(self.component_ids.get(&component_ptr)?);
         let index = item.index();
         Some(NodeId((component_id as u64) << u32::BITS | (index as u64 & u32::MAX as u64)))
     }
 
-    fn rebuild_tree_of_dirty_nodes(&self) {
-        if !self.global_property_tracker.is_dirty() {
-            return;
-        }
-
-        // It's possible that we may have been triggered by a timer, but in the meantime
-        // the node tree has been emptied due to a tree structure change.
-        if self.all_nodes.borrow().is_empty() {
-            return;
-        }
-
-        let Some(window_adapter) = self.window_adapter_weak.upgrade() else { return };
-        let window = window_adapter.window();
-
-        self.inner.update_if_active(|| {
-            self.global_property_tracker.as_ref().evaluate_as_dependency_root(|| {
-                let all_nodes = self.all_nodes.borrow();
-                let nodes = all_nodes.iter().filter_map(|cached_node| {
-                    cached_node.tracker.as_ref().evaluate_if_dirty(|| {
-                        let scale_factor = ScaleFactor::new(window.scale_factor());
-                        let item = self.item_rc_for_node_id(cached_node.id)?;
-
-                        let mut builder = self.build_node_without_children(&item, scale_factor);
-
-                        builder.set_children(cached_node.children.clone());
-
-                        let node = builder.build();
-
-                        Some((cached_node.id, node))
-                    })?
-                });
-
-                TreeUpdate { nodes: nodes.collect(), tree: None, focus: self.focus_node() }
-            })
-        })
-    }
-
     fn build_node_for_item_recursively(
-        &self,
+        &mut self,
         item: ItemRc,
         nodes: &mut Vec<(NodeId, Node)>,
         scale_factor: ScaleFactor,
@@ -259,17 +287,15 @@ impl AccessKitAdapter {
 
         let component = item.item_tree();
         let component_ptr = ItemTreeRef::as_ptr(ItemTreeRc::borrow(component));
-        if !self.component_ids.borrow().contains_key(&component_ptr) {
-            let component_id = self.next_component_id.get();
-            self.next_component_id.set(component_id + 1);
-            self.component_ids.borrow_mut().insert(component_ptr, component_id);
-            self.components_by_id
-                .borrow_mut()
-                .insert(component_id, ItemTreeRc::downgrade(component));
+        if !self.component_ids.contains_key(&component_ptr) {
+            let component_id = self.next_component_id;
+            self.next_component_id += 1;
+            self.component_ids.insert(component_ptr, component_id);
+            self.components_by_id.insert(component_id, ItemTreeRc::downgrade(component));
         }
 
         let id = self.encode_item_node_id(&item).unwrap();
-        self.all_nodes.borrow_mut().push(CachedNode { id, children, tracker });
+        self.all_nodes.push(CachedNode { id, children, tracker });
         let node = builder.build();
 
         nodes.push((id, node));
@@ -277,12 +303,16 @@ impl AccessKitAdapter {
         id
     }
 
-    fn build_new_tree(&self) -> TreeUpdate {
-        let Some(window_adapter) = self.window_adapter_weak.upgrade() else {
+    fn build_new_tree(
+        &mut self,
+        window_adapter_weak: &Weak<WinitWindowAdapter>,
+        property_tracker: Pin<&PropertyTracker<AccessibilitiesPropertyTracker>>,
+    ) -> TreeUpdate {
+        let Some(window_adapter) = window_adapter_weak.upgrade() else {
             return TreeUpdate {
                 nodes: Default::default(),
                 tree: Default::default(),
-                focus: self.root_node_id.get(),
+                focus: self.root_node_id,
             };
         };
         let window = window_adapter.window();
@@ -290,80 +320,23 @@ impl AccessKitAdapter {
 
         let root_item = ItemRc::new(window_inner.component(), 0);
 
-        self.all_nodes.borrow_mut().clear();
+        self.all_nodes.clear();
         let mut nodes = Vec::new();
 
-        let root_id = self.global_property_tracker.as_ref().evaluate_as_dependency_root(|| {
+        let root_id = property_tracker.evaluate_as_dependency_root(|| {
             self.build_node_for_item_recursively(
                 root_item,
                 &mut nodes,
                 ScaleFactor::new(window.scale_factor()),
             )
         });
-        self.root_node_id.set(root_id);
+        self.root_node_id = root_id;
 
-        TreeUpdate { nodes, tree: Some(Tree::new(root_id)), focus: self.focus_node() }
-    }
-
-    fn build_initial_tree(
-        window_id: winit::window::WindowId,
-        ui_thread_id: std::thread::ThreadId,
-    ) -> TreeUpdate {
-        if std::thread::current().id() == ui_thread_id {
-            return crate::event_loop::window_by_id(window_id)
-                .map(|adapter| adapter.accesskit_adapter.build_new_tree())
-                .unwrap_or_else(|| {
-                    // We failed to upgrade the Weak window adapter despite being called in the mean thread. That means
-                    // we're trying to build the initial tree while the window adapter is still being constructed. Report
-                    // a dummy tree and schedule a rebuild later.
-
-                    i_slint_core::timers::Timer::single_shot(Default::default(), move || {
-                        if let Some(window_adapter) = crate::event_loop::window_by_id(window_id) {
-                            let self_ = &window_adapter.accesskit_adapter;
-                            self_.inner.update_if_active(|| self_.build_new_tree())
-                        };
-                    });
-
-                    let dummy_node_id = NodeId(0);
-                    TreeUpdate {
-                        nodes: vec![(dummy_node_id, NodeBuilder::new(Role::Window).build())],
-                        tree: Some(Tree::new(dummy_node_id)),
-                        focus: dummy_node_id,
-                    }
-                });
+        TreeUpdate {
+            nodes,
+            tree: Some(Tree::new(root_id)),
+            focus: self.focus_node(window_adapter_weak),
         }
-
-        let update_from_main_thread = Arc::new((Mutex::new(None), Condvar::new()));
-        let update_result = i_slint_core::api::invoke_from_event_loop({
-            let update_from_main_thread = update_from_main_thread.clone();
-            move || {
-                let (lock, wait_condition) = &*update_from_main_thread;
-                let mut update = lock.lock().unwrap();
-
-                *update = Some(Self::build_initial_tree(window_id, ui_thread_id));
-
-                wait_condition.notify_one();
-            }
-        });
-
-        if update_result.is_err() {
-            // If we're having trouble calling `invoke_from_event_loop` then the event loop is probably
-            // dead. Fall back to returning a dummy tree.
-            let dummy_node_id = NodeId(0);
-            return TreeUpdate {
-                nodes: vec![(dummy_node_id, NodeBuilder::new(Role::Window).build())],
-                tree: Some(Tree::new(dummy_node_id)),
-                focus: dummy_node_id,
-            };
-        }
-
-        let (lock, wait_condition) = &*update_from_main_thread;
-        let mut update = lock.lock().unwrap();
-        while update.is_none() {
-            update = wait_condition.wait(update).unwrap();
-        }
-
-        update.take().unwrap()
     }
 
     fn build_node_without_children(&self, item: &ItemRc, scale_factor: ScaleFactor) -> NodeBuilder {
@@ -377,9 +350,6 @@ impl AccessKitAdapter {
             (
                 match item.accessible_role() {
                     i_slint_core::items::AccessibleRole::None => Role::Unknown,
-                    i_slint_core::items::AccessibleRole::Button if is_checkable => {
-                        Role::ToggleButton
-                    }
                     i_slint_core::items::AccessibleRole::Button => Role::Button,
                     i_slint_core::items::AccessibleRole::Checkbox => Role::CheckBox,
                     i_slint_core::items::AccessibleRole::Combobox => Role::ComboBox,
@@ -427,7 +397,7 @@ impl AccessKitAdapter {
                 .accessible_string_property(AccessibleStringProperty::Checked)
                 .is_some_and(|x| x == "true");
         if is_checkable {
-            builder.set_toggled(if is_checked { Checked::True } else { Checked::False });
+            builder.set_toggled(if is_checked { Toggled::True } else { Toggled::False });
         }
 
         if let Some(description) =
@@ -524,7 +494,7 @@ impl i_slint_core::properties::PropertyDirtyHandler for AccessibilitiesPropertyT
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = win.upgrade() {
-                window_adapter.accesskit_adapter.rebuild_tree_of_dirty_nodes();
+                window_adapter.accesskit_adapter.borrow_mut().rebuild_tree_of_dirty_nodes();
             };
         })
     }
@@ -536,25 +506,8 @@ struct CachedNode {
     tracker: Pin<Box<PropertyTracker>>,
 }
 
-struct ActionForwarder {
-    window_id: winit::window::WindowId,
-}
-
-impl ActionForwarder {
-    pub fn new(window_id: winit::window::WindowId) -> Self {
-        Self { window_id }
-    }
-}
-
-impl accesskit::ActionHandler for ActionForwarder {
-    fn do_action(&mut self, request: ActionRequest) {
-        let window_id = self.window_id;
-        i_slint_core::api::invoke_from_event_loop(move || {
-            let Some(window_adapter) = crate::event_loop::window_by_id(window_id) else {
-                return;
-            };
-            window_adapter.accesskit_adapter.handle_request(request)
-        })
-        .ok();
+impl From<accesskit_winit::Event> for SlintUserEvent {
+    fn from(value: accesskit_winit::Event) -> Self {
+        SlintUserEvent(crate::event_loop::CustomEvent::Accesskit(value))
     }
 }
