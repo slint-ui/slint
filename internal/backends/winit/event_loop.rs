@@ -24,10 +24,10 @@ use raw_window_handle::HasDisplayHandle;
 #[allow(unused_imports)]
 use std::cell::{RefCell, RefMut};
 use std::rc::{Rc, Weak};
-use winit::event::{Event, WindowEvent};
+use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::ControlFlow;
 use winit::window::ResizeDirection;
-
 struct NotRunningEventLoop {
     instance: winit::event_loop::EventLoop<SlintUserEvent>,
     event_loop_proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
@@ -89,6 +89,7 @@ impl EventLoopInterface for NotRunningEventLoop {
         &self,
         window_attributes: winit::window::WindowAttributes,
     ) -> Result<winit::window::Window, winit::error::OsError> {
+        #[allow(deprecated)]
         self.instance.create_window(window_attributes)
     }
     #[cfg(not(target_family = "wasm"))]
@@ -247,8 +248,32 @@ pub struct EventLoopState {
     current_resize_direction: Option<ResizeDirection>,
 }
 
-impl EventLoopState {
-    fn process_window_event(&mut self, window: Rc<WinitWindowAdapter>, event: WindowEvent) {
+impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
+    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
+        ALL_WINDOWS.with(|ws| {
+            for (_, window_weak) in ws.borrow().iter() {
+                if let Some(w) = window_weak.upgrade() {
+                    if let Err(e) = w.renderer.resumed(w.winit_window()) {
+                        self.loop_error = Some(e);
+                    }
+                }
+            }
+        })
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: winit::window::WindowId,
+        event: WindowEvent,
+    ) {
+        let Some(window) = window_by_id(window_id) else {
+            return;
+        };
+
+        #[cfg(enable_accesskit)]
+        window.accesskit_adapter.borrow_mut().process_event(&window.winit_window(), &event);
+
         let runtime_window = WindowInner::from_pub(window.window());
         match event {
             WindowEvent::RedrawRequested => {
@@ -457,89 +482,122 @@ impl EventLoopState {
             }
             _ => {}
         }
+
+        if self.loop_error.is_some() {
+            event_loop.exit();
+        }
     }
 
-    fn process_event(&mut self, event: Event<SlintUserEvent>, event_loop_target: &ActiveEventLoop) {
-        use winit::event_loop::ControlFlow;
-
-        match event {
-            Event::WindowEvent { event, window_id } => {
-                if let Some(window) = window_by_id(window_id) {
-                    #[cfg(enable_accesskit)]
-                    window
-                        .accesskit_adapter
-                        .borrow_mut()
-                        .process_event(&window.winit_window(), &event);
-                    self.process_window_event(window, event);
-                };
-            }
-
-            Event::UserEvent(SlintUserEvent(CustomEvent::Exit)) => {
-                event_loop_target.exit();
-            }
-
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: SlintUserEvent) {
+        match event.0 {
+            CustomEvent::UserEvent(user_callback) => user_callback(),
+            CustomEvent::Exit => event_loop.exit(),
             #[cfg(enable_accesskit)]
-            Event::UserEvent(SlintUserEvent(CustomEvent::Accesskit(accesskit_winit::Event {
-                window_id,
-                window_event,
-            }))) => {
+            CustomEvent::Accesskit(accesskit_winit::Event { window_id, window_event }) => {
                 if let Some(window) = window_by_id(window_id) {
                     window.accesskit_adapter.borrow_mut().process_accesskit_event(window_event);
                 };
             }
-
-            Event::UserEvent(SlintUserEvent(CustomEvent::UserEvent(user))) => {
-                user();
-            }
-
             #[cfg(target_arch = "wasm32")]
-            Event::UserEvent(SlintUserEvent(CustomEvent::WakeEventLoopWorkaround)) => {
-                event_loop_target.set_control_flow(ControlFlow::Poll);
+            CustomEvent::WakeEventLoopWorkaround => {
+                event_loop.set_control_flow(ControlFlow::Poll);
             }
-
-            Event::NewEvents(_) => {
-                event_loop_target.set_control_flow(ControlFlow::Wait);
-
-                corelib::platform::update_timers_and_animations();
-            }
-
-            Event::Resumed => ALL_WINDOWS.with(|ws| {
-                for (_, window_weak) in ws.borrow().iter() {
-                    if let Some(w) = window_weak.upgrade() {
-                        if let Err(e) = w.renderer.resumed(w.winit_window()) {
-                            self.loop_error = Some(e);
-                        }
-                    }
-                }
-            }),
-
-            Event::AboutToWait => {
-                if !event_loop_target.exiting() {
-                    ALL_WINDOWS.with(|windows| {
-                        for w in windows.borrow().iter().filter_map(|(_, w)| w.upgrade()) {
-                            if w.window().has_active_animations() {
-                                w.request_redraw();
-                            }
-                        }
-                    })
-                }
-
-                if event_loop_target.control_flow() == ControlFlow::Wait {
-                    if let Some(next_timer) = corelib::platform::duration_until_next_timer_update()
-                    {
-                        event_loop_target.set_control_flow(ControlFlow::wait_duration(next_timer));
-                    }
-                }
-            }
-
-            _ => (),
-        };
-
-        if self.loop_error.is_some() {
-            event_loop_target.exit();
         }
     }
 
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, _cause: winit::event::StartCause) {
+        event_loop.set_control_flow(ControlFlow::Wait);
+
+        corelib::platform::update_timers_and_animations();
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if !event_loop.exiting() {
+            ALL_WINDOWS.with(|windows| {
+                for w in windows.borrow().iter().filter_map(|(_, w)| w.upgrade()) {
+                    if w.window().has_active_animations() {
+                        w.request_redraw();
+                    }
+                }
+            })
+        }
+
+        if event_loop.control_flow() == ControlFlow::Wait {
+            if let Some(next_timer) = corelib::platform::duration_until_next_timer_update() {
+                event_loop.set_control_flow(ControlFlow::wait_duration(next_timer));
+            }
+        }
+    }
+}
+
+struct ActiveEventLoopSetterDuringEventProcessing<
+    Event: 'static,
+    Handler: winit::application::ApplicationHandler<Event>,
+>(Handler, std::marker::PhantomData<Event>);
+
+impl<Event: 'static, Handler: winit::application::ApplicationHandler<Event>>
+    winit::application::ApplicationHandler<Event>
+    for ActiveEventLoopSetterDuringEventProcessing<Event, Handler>
+{
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let running_instance = RunningEventLoop { active_event_loop: event_loop };
+        CURRENT_WINDOW_TARGET.set(&running_instance, || self.0.resumed(event_loop))
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: winit::window::WindowId,
+        event: WindowEvent,
+    ) {
+        let running_instance = RunningEventLoop { active_event_loop: event_loop };
+        CURRENT_WINDOW_TARGET
+            .set(&running_instance, || self.0.window_event(event_loop, window_id, event))
+    }
+
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
+        let running_instance = RunningEventLoop { active_event_loop: event_loop };
+        CURRENT_WINDOW_TARGET.set(&running_instance, || self.0.new_events(event_loop, cause))
+    }
+
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: Event) {
+        let running_instance = RunningEventLoop { active_event_loop: event_loop };
+        CURRENT_WINDOW_TARGET.set(&running_instance, || self.0.user_event(event_loop, event))
+    }
+
+    fn device_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        let running_instance = RunningEventLoop { active_event_loop: event_loop };
+        CURRENT_WINDOW_TARGET
+            .set(&running_instance, || self.0.device_event(event_loop, device_id, event))
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        let running_instance = RunningEventLoop { active_event_loop: event_loop };
+        CURRENT_WINDOW_TARGET.set(&running_instance, || self.0.about_to_wait(event_loop))
+    }
+
+    fn suspended(&mut self, event_loop: &ActiveEventLoop) {
+        let running_instance = RunningEventLoop { active_event_loop: event_loop };
+        CURRENT_WINDOW_TARGET.set(&running_instance, || self.0.suspended(event_loop))
+    }
+
+    fn exiting(&mut self, event_loop: &ActiveEventLoop) {
+        let running_instance = RunningEventLoop { active_event_loop: event_loop };
+        CURRENT_WINDOW_TARGET.set(&running_instance, || self.0.exiting(event_loop))
+    }
+
+    fn memory_warning(&mut self, event_loop: &ActiveEventLoop) {
+        let running_instance = RunningEventLoop { active_event_loop: event_loop };
+        CURRENT_WINDOW_TARGET.set(&running_instance, || self.0.memory_warning(event_loop))
+    }
+}
+
+impl EventLoopState {
     /// Runs the event loop and renders the items in the provided `component` in its
     /// own window.
     #[allow(unused_mut)] // mut need changes for wasm
@@ -573,13 +631,10 @@ impl EventLoopState {
         {
             use winit::platform::run_on_demand::EventLoopExtRunOnDemand as _;
             winit_loop
-                .run_on_demand(
-                    |event: Event<SlintUserEvent>, active_event_loop: &ActiveEventLoop| {
-                        let running_instance = RunningEventLoop { active_event_loop };
-                        CURRENT_WINDOW_TARGET
-                            .set(&running_instance, || self.process_event(event, active_event_loop))
-                    },
-                )
+                .run_app_on_demand(&mut ActiveEventLoopSetterDuringEventProcessing(
+                    &mut self,
+                    Default::default(),
+                ))
                 .map_err(|e| format!("Error running winit event loop: {e}"))?;
 
             *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
@@ -598,11 +653,10 @@ impl EventLoopState {
         #[cfg(target_arch = "wasm32")]
         {
             winit_loop
-                .run(move |event: Event<SlintUserEvent>, active_event_loop: &ActiveEventLoop| {
-                    let running_instance = RunningEventLoop { active_event_loop };
-                    CURRENT_WINDOW_TARGET
-                        .set(&running_instance, || self.process_event(event, active_event_loop))
-                })
+                .run_app(&mut ActiveEventLoopSetterDuringEventProcessing(
+                    &mut self,
+                    Default::default(),
+                ))
                 .map_err(|e| format!("Error running winit event loop: {e}"))?;
             // This can't really happen, as run() doesn't return
             Ok(Self::default())
@@ -635,13 +689,9 @@ impl EventLoopState {
 
         let mut winit_loop = not_running_loop_instance.instance;
 
-        let result = winit_loop.pump_events(
+        let result = winit_loop.pump_app_events(
             timeout,
-            |event: Event<SlintUserEvent>, active_event_loop: &ActiveEventLoop| {
-                let running_instance = RunningEventLoop { active_event_loop };
-                CURRENT_WINDOW_TARGET
-                    .set(&running_instance, || self.process_event(event, active_event_loop))
-            },
+            &mut ActiveEventLoopSetterDuringEventProcessing(&mut self, Default::default()),
         );
 
         *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
@@ -676,15 +726,11 @@ pub fn spawn() -> Result<(), corelib::platform::PlatformError> {
             .set_proxy(event_loop_proxy.clone())
     });
 
-    let mut loop_state = EventLoopState::default();
+    let loop_state = EventLoopState::default();
 
-    not_running_loop_instance.instance.spawn(
-        move |event: Event<SlintUserEvent>, active_event_loop: &ActiveEventLoop| {
-            let running_instance = RunningEventLoop { active_event_loop };
-            CURRENT_WINDOW_TARGET
-                .set(&running_instance, || loop_state.process_event(event, active_event_loop))
-        },
-    );
+    not_running_loop_instance
+        .instance
+        .spawn_app(ActiveEventLoopSetterDuringEventProcessing(loop_state, Default::default()));
 
     Ok(())
 }
