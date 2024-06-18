@@ -55,7 +55,7 @@ unsafe impl i_slint_renderer_femtovg::OpenGLInterface for OpenGLContext {
 }
 
 impl OpenGLContext {
-    pub fn new_context(
+    pub(crate) fn new_context(
         window_attributes: winit::window::WindowAttributes,
         event_loop: crate::event_loop::ActiveOrInactiveEventLoop<'_>,
     ) -> Result<(Rc<winit::window::Window>, Self), PlatformError> {
