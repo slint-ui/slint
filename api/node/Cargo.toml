@@ -20,7 +20,7 @@ build = "build.rs"
 crate-type = ["cdylib"]
 
 [features]
-default = ["backend-winit", "renderer-femtovg", "backend-qt", "accessibility"]
+default = ["backend-winit", "renderer-femtovg", "renderer-software", "backend-qt", "accessibility"]
 # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, and slint_tool_binary.yaml
 # binaries: default = ["backend-linuxkms-noseat", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
 
