@@ -36,6 +36,196 @@ impl<T: ComponentHandle> ElementRoot for T {
 
 impl<T: ComponentHandle> Sealed for T {}
 
+/// Trait to obtain the initial element handle of an element tree. This is implemented for everything
+/// that implements [`ComponentHandle`].
+pub trait HasElementHandle {
+    /// Returns the root of the element tree.
+    fn root_element(&self) -> ElementHandle;
+}
+
+impl<T: ComponentHandle> HasElementHandle for T {
+    fn root_element(&self) -> ElementHandle {
+        let item_rc = ItemRc::new(WindowInner::from_pub(self.window()).component(), 0);
+        ElementHandle { item: item_rc.downgrade(), element_index: 0 }
+    }
+}
+
+#[derive(Debug)]
+enum SingleElementMatch {
+    MatchById(SharedString),
+    MatchByTypeName(SharedString),
+    MatchByTypeNameOrBase(SharedString),
+    MatchByAccessibleRole(crate::AccessibleRole),
+}
+
+impl SingleElementMatch {
+    fn matches(&self, element: &ElementHandle) -> bool {
+        match self {
+            SingleElementMatch::MatchById(id) => {
+                element.id().map_or(false, |candidate_id| candidate_id == id)
+            }
+            SingleElementMatch::MatchByTypeName(type_name) => element
+                .type_name()
+                .map_or(false, |candidate_type_name| candidate_type_name == type_name),
+            SingleElementMatch::MatchByTypeNameOrBase(type_name) => {
+                element
+                    .type_name()
+                    .map_or(false, |candidate_type_name| candidate_type_name == type_name)
+                    || element
+                        .bases()
+                        .map_or(false, |mut bases| bases.any(|base| base == type_name))
+            }
+            SingleElementMatch::MatchByAccessibleRole(role) => {
+                element.accessible_role().map_or(false, |candidate_role| candidate_role == *role)
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+
+enum ElementQueryInstruction {
+    MatchChildren,
+    MatchDescendants,
+    MatchSingleElement(SingleElementMatch),
+}
+
+impl ElementQueryInstruction {
+    fn match_recursively(
+        query_stack: &[Self],
+        element: ElementHandle,
+        control_flow_after_first_match: ControlFlow<()>,
+    ) -> (ControlFlow<()>, Vec<ElementHandle>) {
+        let Some((query, tail)) = query_stack.split_first() else {
+            return (control_flow_after_first_match, vec![element]);
+        };
+
+        match query {
+            ElementQueryInstruction::MatchChildren => {
+                let mut results = vec![];
+                match element.visit_children(|child| {
+                    let (next_control_flow, sub_results) =
+                        Self::match_recursively(tail, child, control_flow_after_first_match);
+                    results.extend(sub_results);
+                    next_control_flow
+                }) {
+                    Some(_) => (ControlFlow::Break(()), results),
+                    None => (ControlFlow::Continue(()), results),
+                }
+            }
+            ElementQueryInstruction::MatchDescendants => {
+                let mut results = vec![];
+                match element.visit_descendants(|child| {
+                    let (next_control_flow, sub_results) =
+                        Self::match_recursively(tail, child, control_flow_after_first_match);
+                    results.extend(sub_results);
+                    next_control_flow
+                }) {
+                    Some(_) => (ControlFlow::Break(()), results),
+                    None => (ControlFlow::Continue(()), results),
+                }
+            }
+            ElementQueryInstruction::MatchSingleElement(criteria) => {
+                let mut results = vec![];
+                let control_flow = if criteria.matches(&element) {
+                    let (next_control_flow, sub_results) =
+                        Self::match_recursively(tail, element, control_flow_after_first_match);
+                    results.extend(sub_results);
+                    next_control_flow
+                } else {
+                    ControlFlow::Continue(())
+                };
+                (control_flow, results)
+            }
+        }
+    }
+}
+
+/// Use ElementQuery to form a query into the tree of UI elements and then locate one or multiple
+/// matching elements.
+///
+/// ElementQuery uses the builder pattern to concatenate criteria, such as searching for children,
+/// or matching elements only with a certain id.
+///
+/// Construct an instance of this by calling either [`ElementHandle::match_children()`] or [`ElementHandle::match_descendants`]. Apply additional criterial on the returned `ElementQuery`
+/// and fetch results by either calling [`Self::find_first()`] to collect just the first match or
+/// [`Self::find_all()`] to collect all matches for the query.
+pub struct ElementQuery {
+    root: ElementHandle,
+    query_stack: Vec<ElementQueryInstruction>,
+}
+
+impl ElementQuery {
+    /// Applies any subsequent matches to children of the results of the query up to this point.
+    /// Use [`Self::match_descendants`] if you want to match deeper into the hierarchy.
+    pub fn match_children(mut self) -> Self {
+        self.query_stack.push(ElementQueryInstruction::MatchChildren);
+        self
+    }
+
+    /// Applies any subsequent matches to all descendants of the results of the query up to this point.
+    /// Use [`Self::match_children`] if you want to limit the query to just children.
+    pub fn match_descendants(mut self) -> Self {
+        self.query_stack.push(ElementQueryInstruction::MatchDescendants);
+        self
+    }
+
+    /// Include only elements in the results where [`ElementHandle::id()`] is equal to the provided `id`.
+    pub fn match_id(mut self, id: impl Into<SharedString>) -> Self {
+        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+            SingleElementMatch::MatchById(id.into()),
+        ));
+        self
+    }
+
+    /// Include only elements in the results where [`ElementHandle::type_name()`] is equal to the provided `type_name`.
+    pub fn match_type_name(mut self, type_name: impl Into<SharedString>) -> Self {
+        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+            SingleElementMatch::MatchByTypeName(type_name.into()),
+        ));
+        self
+    }
+
+    /// Include only elements in the results where [`ElementHandle::type_name()`] or [`ElementHandle::bases()`] is contains to the provided `type_name`.
+    pub fn match_inherits(mut self, type_name: impl Into<SharedString>) -> Self {
+        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+            SingleElementMatch::MatchByTypeNameOrBase(type_name.into()),
+        ));
+        self
+    }
+
+    /// Include only elements in the results where [`ElementHandle::accessible_role()`] is equal to the provided `role`.
+    pub fn match_accessible_role(mut self, role: crate::AccessibleRole) -> Self {
+        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+            SingleElementMatch::MatchByAccessibleRole(role),
+        ));
+        self
+    }
+
+    /// Runs the query and returns the first result; returns None if no element matches the selected
+    /// criteria.
+    pub fn find_first(&self) -> Option<ElementHandle> {
+        ElementQueryInstruction::match_recursively(
+            &self.query_stack,
+            self.root.clone(),
+            ControlFlow::Break(()),
+        )
+        .1
+        .into_iter()
+        .next()
+    }
+
+    /// Runs the query and returns a vector of all matching elements.
+    pub fn find_all(&self) -> Vec<ElementHandle> {
+        ElementQueryInstruction::match_recursively(
+            &self.query_stack,
+            self.root.clone(),
+            ControlFlow::Continue(()),
+        )
+        .1
+    }
+}
+
 /// `ElementHandle` wraps an existing element in a Slint UI. An ElementHandle does not keep
 /// the corresponding element in the UI alive. Use [`Self::is_valid()`] to verify that
 /// it is still alive.
@@ -108,6 +298,66 @@ impl ElementHandle {
             },
         );
         result
+    }
+
+    /// Visit the children of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
+    /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
+    pub fn visit_children<R>(
+        &self,
+        mut visitor: impl FnMut(ElementHandle) -> ControlFlow<R>,
+    ) -> Option<R> {
+        let self_item = self.item.upgrade()?;
+        self_item.visit_children(|item_rc| {
+            if !item_rc.is_visible() {
+                return ControlFlow::Continue(());
+            }
+            let elements = ElementHandle::collect_elements(item_rc.clone());
+            for e in elements {
+                let result = visitor(e);
+                if matches!(result, ControlFlow::Break(..)) {
+                    return result;
+                }
+            }
+            ControlFlow::Continue(())
+        })
+    }
+
+    /// Visit all descendants of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
+    /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
+    pub fn visit_descendants<R>(
+        &self,
+        mut visitor: impl FnMut(ElementHandle) -> ControlFlow<R>,
+    ) -> Option<R> {
+        let self_item = self.item.upgrade()?;
+        self_item.visit_descendants(|item_rc| {
+            if !item_rc.is_visible() {
+                return ControlFlow::Continue(());
+            }
+            let elements = ElementHandle::collect_elements(item_rc.clone());
+            for e in elements {
+                let result = visitor(e);
+                if matches!(result, ControlFlow::Break(..)) {
+                    return result;
+                }
+            }
+            ControlFlow::Continue(())
+        })
+    }
+
+    /// Creates a new [`ElementQuery`] to match any children of this element.
+    pub fn match_children(&self) -> ElementQuery {
+        ElementQuery {
+            root: self.clone(),
+            query_stack: vec![ElementQueryInstruction::MatchChildren],
+        }
+    }
+
+    /// Creates a new [`ElementQuery`] to match any descendants of this element.
+    pub fn match_descendants(&self) -> ElementQuery {
+        ElementQuery {
+            root: self.clone(),
+            query_stack: vec![ElementQueryInstruction::MatchDescendants],
+        }
     }
 
     /// This function searches through the entire tree of elements of `component`, looks for
@@ -572,4 +822,92 @@ fn test_conditional() {
 
     assert_eq!(ElementHandle::find_by_element_id(&app, "App::visible-element").count(), 1);
     assert_eq!(ElementHandle::find_by_element_id(&app, "App::inner-element").count(), 1);
+}
+
+#[test]
+fn test_matches() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        component Base inherits Rectangle {}
+
+        export component App inherits Window {
+            in property <bool> condition: false;
+            if condition: dynamic-elem := Base {
+                accessible-role: text;
+            }
+            visible-element := Rectangle {
+                visible: !condition;
+                inner-element := Text { text: "hello"; }
+            }
+        }
+    }
+
+    let app = App::new().unwrap();
+
+    let root = app.root_element();
+
+    assert_eq!(root.match_children().match_inherits("Rectangle").find_all().len(), 1);
+    assert_eq!(root.match_descendants().match_inherits("Base").find_all().len(), 0);
+    assert!(root.match_children().match_id("App::dynamic-elem").find_first().is_none());
+
+    assert_eq!(root.match_children().match_id("App::visible-element").find_all().len(), 1);
+    assert_eq!(root.match_children().match_id("App::inner-element").find_all().len(), 0);
+    assert_eq!(root.match_descendants().match_id("App::inner-element").find_all().len(), 1);
+
+    assert_eq!(
+        root.match_descendants()
+            .match_id("App::visible-element")
+            .match_descendants()
+            .match_accessible_role(crate::AccessibleRole::Text)
+            .find_first()
+            .and_then(|elem| elem.accessible_label())
+            .unwrap_or_default(),
+        "hello"
+    );
+
+    app.set_condition(true);
+
+    assert!(root
+        .match_descendants()
+        .match_id("App::visible-element")
+        .match_descendants()
+        .match_accessible_role(crate::AccessibleRole::Text)
+        .find_first()
+        .is_none());
+
+    let elems = root.match_descendants().match_id("App::dynamic-elem").find_all();
+    assert_eq!(elems.len(), 1);
+    let elem = &elems[0];
+
+    assert_eq!(elem.id().unwrap(), "App::dynamic-elem");
+    assert_eq!(elem.type_name().unwrap(), "Base");
+    assert_eq!(elem.bases().unwrap().count(), 1);
+    assert_eq!(elem.accessible_role().unwrap(), crate::AccessibleRole::Text);
+
+    assert_eq!(root.match_descendants().match_inherits("Base").find_all().len(), 1);
+}
+
+#[test]
+fn test_visibility_on_optimized_rect() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        export component App inherits Window {
+            in property <bool> condition: true;
+            visible-element := Rectangle {
+                visible: condition;
+            }
+        }
+    }
+
+    let app = App::new().unwrap();
+
+    let root = app.root_element();
+
+    assert_eq!(root.match_children().match_id("App::visible-element").find_all().len(), 1);
+
+    app.set_condition(false);
+
+    assert_eq!(root.match_children().match_id("App::visible-element").find_all().len(), 0);
 }
