@@ -67,7 +67,7 @@ pub fn test_file_name(name: &str) -> PathBuf {
 pub fn compile_test_with_sources(
     style: &str,
     code: HashMap<lsp_types::Url, String>,
-    allow_warnings: bool
+    allow_warnings: bool,
 ) -> common::DocumentCache {
     i_slint_backend_testing::init_no_event_loop();
     recompile_test_with_sources(style, code, allow_warnings)
