@@ -46,7 +46,7 @@ macro_rules! for_each_enums {
                 NoWrap,
                 /// The text will be wrapped at word boundaries.
                 WordWrap,
-                /// The text will be wrapped at any character.
+                /// The text will be wrapped at any character. Currently only supported by the Qt and Software renderers.
                 CharWrap,
             }
 
