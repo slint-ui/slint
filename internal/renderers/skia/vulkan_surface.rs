@@ -415,7 +415,7 @@ fn create_surface(
             let layer = metal::MetalLayer::new();
             layer.set_opaque(false);
             layer.set_presents_with_transaction(false);
-            let view = ns_view as cocoa_id;
+            let view = ns_view.as_ptr() as cocoa_id;
             view.setWantsLayer(YES);
             view.setLayer(layer.as_ref() as *const _ as _);
             Surface::from_metal(instance.clone(), layer.as_ref(), None)
