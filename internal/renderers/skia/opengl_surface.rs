@@ -253,8 +253,8 @@ impl OpenGLSurface {
 
         // Upstream advises to use this only on Windows.
         #[cfg(target_family = "windows")]
-        let config_template_builder = config_template_builder
-            .compatible_with_native_window(_window_handle.as_raw());
+        let config_template_builder =
+            config_template_builder.compatible_with_native_window(_window_handle.as_raw());
 
         let config_template = config_template_builder.build();
 

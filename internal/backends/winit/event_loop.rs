@@ -530,14 +530,13 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
     }
 }
 
-struct ActiveEventLoopSetterDuringEventProcessing<
-    Event: 'static,
-    Handler: winit::application::ApplicationHandler<Event>,
->(Handler, std::marker::PhantomData<Event>);
+/// Wrapper around a Handler that implements the winit::application::ApplicationHandler
+/// but make sure to call every function with CURRENT_WINDOW_TARGET set
+struct ActiveEventLoopSetterDuringEventProcessing<Handler>(Handler);
 
 impl<Event: 'static, Handler: winit::application::ApplicationHandler<Event>>
     winit::application::ApplicationHandler<Event>
-    for ActiveEventLoopSetterDuringEventProcessing<Event, Handler>
+    for ActiveEventLoopSetterDuringEventProcessing<Handler>
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let running_instance = RunningEventLoop { active_event_loop: event_loop };
@@ -631,10 +630,7 @@ impl EventLoopState {
         {
             use winit::platform::run_on_demand::EventLoopExtRunOnDemand as _;
             winit_loop
-                .run_app_on_demand(&mut ActiveEventLoopSetterDuringEventProcessing(
-                    &mut self,
-                    Default::default(),
-                ))
+                .run_app_on_demand(&mut ActiveEventLoopSetterDuringEventProcessing(&mut self))
                 .map_err(|e| format!("Error running winit event loop: {e}"))?;
 
             *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
@@ -689,10 +685,8 @@ impl EventLoopState {
 
         let mut winit_loop = not_running_loop_instance.instance;
 
-        let result = winit_loop.pump_app_events(
-            timeout,
-            &mut ActiveEventLoopSetterDuringEventProcessing(&mut self, Default::default()),
-        );
+        let result = winit_loop
+            .pump_app_events(timeout, &mut ActiveEventLoopSetterDuringEventProcessing(&mut self));
 
         *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
 
