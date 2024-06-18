@@ -35,6 +35,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     ui.set_known_styles(style_model.into());
 
     ui.on_add_new_component(super::add_new_component);
+    ui.on_rename_component(super::rename_component);
     ui.on_style_changed(super::change_style);
     ui.on_show_document(|file, line, column| {
         use lsp_types::{Position, Range};
@@ -79,13 +80,24 @@ pub fn convert_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Vec
 pub fn ui_set_known_components(
     ui: &PreviewUi,
     known_components: &[crate::common::ComponentInformation],
+    current_component_index: usize,
 ) {
-    let mut map: HashMap<String, Vec<slint::SharedString>> = Default::default();
-    for ci in known_components {
+    let mut map: HashMap<String, Vec<ComponentItem>> = Default::default();
+    for (idx, ci) in known_components.iter().enumerate() {
         if ci.is_global {
             continue;
         }
-        map.entry(ci.category.clone()).or_default().push(ci.name.clone().into());
+        map.entry(ci.category.clone()).or_default().push(ComponentItem {
+            name: ci.name.clone().into(),
+            defined_at: ci
+                .defined_at
+                .as_ref()
+                .map(|da| da.url.to_string())
+                .unwrap_or_default()
+                .into(),
+            is_user_defined: !(ci.is_builtin || ci.is_std_widget),
+            is_currently_shown: idx == current_component_index,
+        });
     }
     let mut result = map
         .into_iter()

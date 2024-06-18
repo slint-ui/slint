@@ -56,6 +56,15 @@ fn replace_element_types(
     new_type: &str,
     edits: &mut Vec<(SourceFile, lsp_types::TextEdit)>,
 ) {
+    // HACK: We inject an ignored component into the live preview. Do not
+    //       Generate changes for that -- it does not really exist.
+    //
+    // The proper fix for both is to enhance the slint interpreter to accept
+    // the previewed component via API, so that the entire _SLINT_LivePreview
+    // hack becomes unnecessary.
+    if common::is_element_node_ignored(element) {
+        return;
+    }
     if let Some(name) = element.QualifiedName() {
         if name.text().to_string().trim() == old_type {
             edits.push((
@@ -332,6 +341,7 @@ mod tests {
     fn compile_test_changes(
         document_cache: &common::DocumentCache,
         edit: &lsp_types::WorkspaceEdit,
+        allow_warnings: bool,
     ) -> Vec<text_edit::EditedText> {
         eprintln!("Edit:");
         for it in text_edit::EditIterator::new(edit) {
@@ -366,7 +376,7 @@ mod tests {
         };
 
         // changed code compiles fine:
-        let _ = test::recompile_test_with_sources("fluent", code, false);
+        let _ = test::recompile_test_with_sources("fluent", code, allow_warnings);
 
         changed_text
     }
@@ -431,11 +441,33 @@ export component Bar {
         let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
             .unwrap();
 
-        let edited_text = compile_test_changes(&document_cache, &edit);
+        let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
         assert!(edited_text[0].contents.contains("XxxYyyZzz"));
         assert!(!edited_text[0].contents.contains("Foo"));
+    }
+
+    #[test]
+    fn test_rename_component_from_definition_live_preview_rename() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(
+                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                format!("component Foo {{ }}\nexport component _SLINT_LivePreview inherits Foo {{ /* @lsp:ignore-node */ }}\n")
+            )]),
+            true,
+        );
+
+        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
+
+        let foo_identifier =
+            find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+        let edit =
+            rename_component_from_definition(&document_cache, &foo_identifier, "FooXXX").unwrap();
+
+        assert_eq!(text_edit::EditIterator::new(&edit).count(), 1);
+        // This does not compile as the type was not changed in the _SLINT_LivePreview part!
     }
 
     #[test]
@@ -475,7 +507,7 @@ export { Foo as FExport }
         let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
             .unwrap();
 
-        let edited_text = compile_test_changes(&document_cache, &edit);
+        let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         assert_eq!(edited_text.len(), 1);
         assert_eq!(
@@ -569,7 +601,7 @@ export { Foo as User4Fxx }
         let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
             .unwrap();
 
-        let edited_text = compile_test_changes(&document_cache, &edit);
+        let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         for ed in &edited_text {
             let ed_path = ed.url.to_file_path().unwrap();
@@ -684,7 +716,7 @@ export { Foo as User4Fxx }
         let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
             .unwrap();
 
-        let edited_text = compile_test_changes(&document_cache, &edit);
+        let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         for ed in &edited_text {
             let ed_path = ed.url.to_file_path().unwrap();
@@ -760,7 +792,7 @@ export component Foo { }
         let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
             .unwrap();
 
-        let edited_text = compile_test_changes(&document_cache, &edit);
+        let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         for ed in &edited_text {
             let ed_path = ed.url.to_file_path().unwrap();
@@ -783,7 +815,7 @@ export component Foo { }
         let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
             .unwrap();
 
-        let edited_text = compile_test_changes(&document_cache, &edit);
+        let edited_text = compile_test_changes(&document_cache, &edit, false);
 
         for ed in &edited_text {
             let ed_path = ed.url.to_file_path().unwrap();
