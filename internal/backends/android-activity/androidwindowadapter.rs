@@ -16,7 +16,6 @@ use i_slint_core::timers::{Timer, TimerMode};
 use i_slint_core::window::{InputMethodRequest, WindowInner};
 use i_slint_core::{Property, SharedString};
 use i_slint_renderer_skia::SkiaRenderer;
-use raw_window_handle::HasRawWindowHandle;
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -220,24 +219,9 @@ impl AndroidWindowAdapter {
                             .dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
                     }
 
-                    // Safety: This is safe because the handle remains valid; the next rwh release provides `new()` without unsafe.
-                    let window_handle = unsafe {
-                        raw_window_handle::WindowHandle::borrow_raw(
-                            w.raw_window_handle(),
-                            raw_window_handle::ActiveHandle::new_unchecked(),
-                        )
-                    };
-                    // Safety: The Android display handle is empty.
-                    let display_handle = unsafe {
-                        raw_window_handle::DisplayHandle::borrow_raw(
-                            raw_window_handle::RawDisplayHandle::Android(
-                                raw_window_handle::AndroidDisplayHandle::empty(),
-                            ),
-                        )
-                    };
                     self.renderer.set_window_handle(
-                        window_handle,
-                        display_handle,
+                        Rc::new(w),
+                        Rc::new(raw_window_handle::DisplayHandle::android()),
                         size,
                         scale_factor,
                     )?;
