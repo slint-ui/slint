@@ -21,28 +21,45 @@ jobs:
                 platform:
                     - runner: windows-latest
                       target: x64
+                      container: auto
                     - runner: macos-13
                       target: x86_64
+                      container: auto
                     - runner: macos-14
                       target: aarch64
+                      container: auto
                     - runner: ubuntu-latest
                       target: x86_64
+                      container: auto
                     - runner: ubuntu-latest
                       target: aarch64
+                      container: "ghcr.io/slint-ui/slint/aarch64-unknown-linux-gnu"
                     - runner: ubuntu-latest
                       target: armv7
+                      container: "ghcr.io/slint-ui/slint/armv7-unknown-linux-gnueabihf"
         runs-on: ${{ matrix.platform.runner }}
         steps:
             - uses: actions/checkout@v4
+            - uses: ./.github/actions/install-linux-dependencies
+              if: runner.os == 'Linux'              
             - uses: actions/setup-python@v5
               with:
                 python-version: '3.10'
+            - name: Prepare feature config for binaries
+              working-directory: api/python
+              shell: bash
+              run: |
+                perl -pi -e 's,^default =.*,,' Cargo.toml
+                perl -pi -e 's,# binaries:,,' Cargo.toml
+                echo "New defaults:"
+                grep "^\s*default =" Cargo.toml  
             - name: Build a binary wheel
               uses: PyO3/maturin-action@v1
               with:
                   working-directory: api/python
                   target: ${{ matrix.platform.target }}
                   args: --release --out wheelhouse --find-interpreter
+                  container: ${{ matrix.platform.container }}
             - name: Store the distribution packages
               uses: actions/upload-artifact@v4
               with:
@@ -54,6 +71,14 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
+            - name: Prepare feature config for binaries
+              working-directory: api/python
+              shell: bash
+              run: |
+                  perl -pi -e 's,^default =.*,,' Cargo.toml
+                  perl -pi -e 's,# binaries:,,' Cargo.toml
+                  echo "New defaults:"
+                  grep "^\s*default =" Cargo.toml
             - name: Build source package
               uses: PyO3/maturin-action@v1
               with:
