@@ -31,12 +31,13 @@ jobs:
                     - runner: ubuntu-latest
                       target: x86_64
                       container: auto
-                    - runner: ubuntu-latest
-                      target: aarch64
-                      container: "ghcr.io/slint-ui/slint/aarch64-unknown-linux-gnu"
-                    - runner: ubuntu-latest
-                      target: armv7
-                      container: "ghcr.io/slint-ui/slint/armv7-unknown-linux-gnueabihf"
+# disabled until https://github.com/rust-windowing/winit/commit/d8ffd4bb26d7039be6e817d904753625de5af4fd is released
+#                    - runner: ubuntu-latest
+#                      target: aarch64
+#                      container: "ghcr.io/slint-ui/slint/aarch64-unknown-linux-gnu"
+#                    - runner: ubuntu-latest
+#                      target: armv7
+#                      container: "ghcr.io/slint-ui/slint/armv7-unknown-linux-gnueabihf"
         runs-on: ${{ matrix.platform.runner }}
         steps:
             - uses: actions/checkout@v4
