@@ -27,6 +27,7 @@ export component PreviewUi inherits Window {
     callback add_new_component();
     pure callback can-drop(/* component_type */ string, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
     callback drop(/* component_type */ string, /* x */ length, /* y */ length);
+    callback rename_component(string/* old_name */, string/* defined_at */, string/* new_name */);
     callback reselect();
     callback select-at(/* x */ length, /* y */ length, /* enter_component? */ bool);
     callback select-behind(/* x */ length, /* y */ length, /* enter_component* */ bool, /* reverse */ bool);
@@ -115,6 +116,9 @@ export component PreviewUi inherits Window {
                                 }
                                 add_new_component => {
                                     return root.add_new_component();
+                                }
+                                rename_component(on, op, nn) => {
+                                    return root.rename_component(on, op, nn);
                                 }
                             }
                         }

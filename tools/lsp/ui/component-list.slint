@@ -1,11 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Button, Palette, ScrollView, VerticalBox, GroupBox } from "std-widgets.slint";
+import { Button, Palette, ScrollView, VerticalBox, GroupBox, LineEdit } from "std-widgets.slint";
+
+export struct ComponentItem {
+    name: string,
+    defined_at: string,
+    is_user_defined: bool,
+    is_currently_shown: bool,
+}
 
 export struct ComponentListItem {
     category: string,
-    components: [string]
+    components: [ComponentItem]
 }
 
 export component ComponentList {
@@ -16,13 +23,21 @@ export component ComponentList {
     in property <length> preview-area-width;
     in property <length> preview-area-height;
 
+    private property <length> list-spacing: 6px;
+
     out property <bool> over-target;
 
     pure callback can-drop(string/* component_type */, length/* x */, length/* y */, bool/* on-drop-area */) -> bool;
     callback drop(string/* component_type */, length/* x */, length/* y */);
     callback add_new_component();
+    callback rename_component(string/* old_name */, string/* defined_at */, string/* new_name */);
 
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
+    private property <int> editing-in-category: -1;
+
+    function start-edit-in-category(category-index: int) {
+        self.editing-in-category = category-index;
+    }
 
     VerticalBox {
         Text {
@@ -34,8 +49,16 @@ export component ComponentList {
 
         ScrollView {
             VerticalLayout {
-                spacing: 4px;
-                for cli in root.known-components: VerticalLayout {
+                spacing: root.list-spacing;
+                for cli[index] in root.known-components: category := VerticalLayout {
+                    private property <int> my-category-index: index;
+                    private property <int> editing-component-index: -1;
+
+                    function edit-component(component-index: int) {
+                        root.start-edit-in-category(self.my-category-index);
+                        self.editing-component-index = component-index;
+                    }
+                    
                     Rectangle {
                         height: title.preferred-height + 10px;
                         background: Palette.alternate-background;
@@ -46,24 +69,48 @@ export component ComponentList {
                         }
                     }
 
-                    for ci in cli.components: TouchArea {
+                    for ci[index] in cli.components: component := TouchArea {
                         private property <length> drop-x: self.absolute-position.x + self.mouse-x - root.preview-area-position-x;
                         private property <length> drop-y: self.absolute-position.y + self.mouse-y - root.preview-area-position-y;
                         private property <bool> on-drop-area:
                             drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
-                        private property <bool> can-drop-here: root.can-drop(ci, drop-x, drop-y, on-drop-area);
+                        private property <bool> can-drop-here: !self.data.is-currently-shown && root.can-drop(self.data.name, drop-x, drop-y, on-drop-area);
+                        private property <ComponentItem> data: ci;
+                        private property <int> my-index: index; 
 
                         enabled: root.preview-visible;
-                        height: name.preferred-height + 10px;
                         width: 100%;
-                        name := Text {
-                            text: ci;
+
+                        private property <bool> edit-me: self.data.is-user-defined && root.editing-in-category == category.my-category-index && category.editing-component-index == self.my-index;
+
+                        VerticalLayout {
+                            if component.edit-me: LineEdit {
+                                horizontal-alignment: center;
+                                text: component.data.name;
+                                width: 100%;
+
+                                accepted(name) => {
+                                    category.edit-component(-1);
+                                    root.rename_component(component.data.name, component.data.defined_at, name);
+                                }
+                            }
+                            if !component.edit-me: Rectangle {
+                                t := Text {
+                                    text: component.data.name;
+                                }
+
+                                height: t.preferred-height + 2 * root.list-spacing;
+                                width: 100%;
+                            }
                         }
 
                         pointer-event(event) => {
                             if (self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
-                                root.drop(ci, drop-x, drop-y);
+                                root.drop(self.data.name, drop-x, drop-y);
                             }
+                        }
+                        clicked => {
+                            category.edit-component(self.my-index);
                         }
                         states [
                             dragging-no-drop when self.pressed && !self.can-drop-here: {

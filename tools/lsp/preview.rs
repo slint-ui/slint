@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::common::{
-    self, component_catalog, ComponentInformation, ElementRcNode, PreviewComponent, PreviewConfig,
+    self, component_catalog, rename_component, ComponentInformation, ElementRcNode,
+    PreviewComponent, PreviewConfig,
 };
 use crate::lsp_ext::Health;
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
 use i_slint_compiler::diagnostics;
 use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::parser::syntax_nodes;
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::model::VecModel;
@@ -190,6 +192,81 @@ fn add_new_component() {
 
         send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
             label: Some("Move element".to_string()),
+            edit,
+        });
+    }
+}
+
+// triggered from the UI, running in UI thread
+fn rename_component(
+    old_name: slint::SharedString,
+    old_url: slint::SharedString,
+    new_name: slint::SharedString,
+) {
+    let old_name = old_name.to_string();
+    let Ok(old_url) = lsp_types::Url::parse(&old_url.to_string()) else {
+        return;
+    };
+    let new_name = new_name.to_string();
+
+    let Some(document_cache) = document_cache() else {
+        return;
+    };
+    let Some(document) = document_cache.get_document(&old_url) else {
+        return;
+    };
+    let Some(document) = document.node.as_ref() else {
+        return;
+    };
+
+    fn find_identifier(
+        document: &syntax_nodes::Document,
+        name: &str,
+    ) -> Option<syntax_nodes::DeclaredIdentifier> {
+        for el in document.ExportsList() {
+            if let Some(component) = el.Component() {
+                let identifier = component.DeclaredIdentifier();
+                if identifier.text() == name {
+                    return Some(identifier);
+                }
+            }
+        }
+
+        for component in document.Component() {
+            let identifier = component.DeclaredIdentifier();
+            if identifier.text() == name {
+                return Some(identifier);
+            }
+        }
+
+        None
+    }
+
+    let Some(identifier) = find_identifier(document, &old_name) else {
+        return;
+    };
+
+    if let Ok(edit) =
+        rename_component::rename_component_from_definition(&document_cache, &identifier, &new_name)
+    {
+        // HACK: We should compile-test this edit, but since we inject _SLINT_LivePreview component,
+        //       compilation will most likely fail.
+
+        // Update which component to show after refresh from the editor.
+        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+
+        if let Some(current) = &mut cache.current {
+            if current.url == old_url {
+                if let Some(component) = &current.component {
+                    if component == &old_name {
+                        current.component = Some(new_name.clone());
+                    }
+                }
+            }
+        }
+
+        send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
+            label: Some(format!("Rename component {old_name} to {new_name}")),
             edit,
         });
     }
@@ -465,9 +542,12 @@ fn finish_parsing(ok: bool) {
         send_status("Preview not updated", Health::Error);
     }
 
-    let previewed_url = {
+    let (previewed_url, component) = {
         let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.current.as_ref().map(|pc| pc.url.clone())
+        (
+            cache.current.as_ref().map(|pc| pc.url.clone()),
+            cache.current.as_ref().and_then(|pc| pc.component.clone()),
+        )
     };
 
     if let Some(document_cache) = document_cache() {
@@ -481,22 +561,34 @@ fn finish_parsing(ok: bool) {
             &mut |ci| !(ci.is_global || ci.name == private_preview_component),
             &mut components,
         );
-        if let Some(previewed_url) = previewed_url {
+        if let Some(previewed_url) = &previewed_url {
             component_catalog::file_local_components(
                 &document_cache,
-                &previewed_url,
+                previewed_url,
                 &mut components,
             );
         }
 
         components.sort_by(|a, b| a.name.cmp(&b.name));
 
+        let index = if let Some(component) = component {
+            components
+                .iter()
+                .position(|ci| {
+                    ci.name == component
+                        && ci.defined_at.as_ref().map(|da| &da.url) == previewed_url.as_ref()
+                })
+                .unwrap_or(usize::MAX)
+        } else {
+            usize::MAX
+        };
+
         PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
             preview_state.known_components = components;
 
             if let Some(ui) = &preview_state.ui {
-                ui::ui_set_known_components(ui, &preview_state.known_components)
+                ui::ui_set_known_components(ui, &preview_state.known_components, index)
             }
         });
     }
