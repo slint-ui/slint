@@ -263,22 +263,22 @@ fn fix_exports(
 pub fn rename_component_from_definition(
     document_cache: &common::DocumentCache,
     identifier: &syntax_nodes::DeclaredIdentifier,
-    new_name: String,
+    new_name: &str,
 ) -> crate::Result<lsp_types::WorkspaceEdit> {
     let source_file = identifier.source_file().expect("Identifier had no source file");
     let document = document_cache
         .get_document_for_source_file(source_file)
         .expect("Identifier is in unknown document");
 
-    if document.local_registry.lookup(&new_name) != i_slint_compiler::langtype::Type::Invalid {
+    if document.local_registry.lookup(new_name) != i_slint_compiler::langtype::Type::Invalid {
         return Err(format!("{new_name} is already a registered type").into());
     }
-    if document.local_registry.lookup_element(&new_name).is_ok() {
+    if document.local_registry.lookup_element(new_name).is_ok() {
         return Err(format!("{new_name} is already a registered element").into());
     }
 
     let component_type = identifier.text().to_string().trim().to_string();
-    if component_type == new_name {
+    if &component_type == new_name {
         return Ok(lsp_types::WorkspaceEdit::default());
     }
 
@@ -296,21 +296,21 @@ pub fn rename_component_from_definition(
         source_file.clone(),
         lsp_types::TextEdit {
             range: util::map_node(identifier).expect("This has a source_file"),
-            new_text: new_name.clone(),
+            new_text: new_name.to_string(),
         },
     ));
 
     // Change all local usages:
-    change_local_element_type(document_node, &component_type, &new_name, &mut edits);
+    change_local_element_type(document_node, &component_type, new_name, &mut edits);
 
     // Change exports
-    fix_exports(document_cache, document_node, &component_type, &new_name, &mut edits);
+    fix_exports(document_cache, document_node, &component_type, new_name, &mut edits);
 
     let export_names = symbol_export_names(document_node, &component_type);
     if export_names.contains(&component_type) {
         let my_path = source_file.path();
 
-        fix_imports(document_cache, my_path, &component_type, &new_name, &mut edits);
+        fix_imports(document_cache, my_path, &component_type, new_name, &mut edits);
     }
 
     common::create_workspace_edit_from_source_files(edits)
@@ -428,12 +428,8 @@ export component Bar {
 
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
-        let edit = rename_component_from_definition(
-            &document_cache,
-            &foo_identifier,
-            "XxxYyyZzz".to_string(),
-        )
-        .unwrap();
+        let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
+            .unwrap();
 
         let edited_text = compile_test_changes(&document_cache, &edit);
 
@@ -476,12 +472,8 @@ export { Foo as FExport }
 
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
-        let edit = rename_component_from_definition(
-            &document_cache,
-            &foo_identifier,
-            "XxxYyyZzz".to_string(),
-        )
-        .unwrap();
+        let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
+            .unwrap();
 
         let edited_text = compile_test_changes(&document_cache, &edit);
 
@@ -574,12 +566,8 @@ export { Foo as User4Fxx }
 
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
-        let edit = rename_component_from_definition(
-            &document_cache,
-            &foo_identifier,
-            "XxxYyyZzz".to_string(),
-        )
-        .unwrap();
+        let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
+            .unwrap();
 
         let edited_text = compile_test_changes(&document_cache, &edit);
 
@@ -693,12 +681,8 @@ export { Foo as User4Fxx }
 
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
-        let edit = rename_component_from_definition(
-            &document_cache,
-            &foo_identifier,
-            "XxxYyyZzz".to_string(),
-        )
-        .unwrap();
+        let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
+            .unwrap();
 
         let edited_text = compile_test_changes(&document_cache, &edit);
 
@@ -773,12 +757,8 @@ export component Foo { }
 
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
-        let edit = rename_component_from_definition(
-            &document_cache,
-            &foo_identifier,
-            "XxxYyyZzz".to_string(),
-        )
-        .unwrap();
+        let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
+            .unwrap();
 
         let edited_text = compile_test_changes(&document_cache, &edit);
 
@@ -800,12 +780,8 @@ export component Foo { }
 
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
-        let edit = rename_component_from_definition(
-            &document_cache,
-            &foo_identifier,
-            "XxxYyyZzz".to_string(),
-        )
-        .unwrap();
+        let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
+            .unwrap();
 
         let edited_text = compile_test_changes(&document_cache, &edit);
 
@@ -857,34 +833,17 @@ export component Bar {
         let foo_identifier =
             find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
 
+        assert!(rename_component_from_definition(&document_cache, &foo_identifier, "Foo").is_err());
+        assert!(rename_component_from_definition(&document_cache, &foo_identifier, "UsedStruct")
+            .is_err());
+        assert!(
+            rename_component_from_definition(&document_cache, &foo_identifier, "UsedEnum").is_err()
+        );
+        assert!(rename_component_from_definition(&document_cache, &foo_identifier, "Baz").is_err());
         assert!(rename_component_from_definition(
             &document_cache,
             &foo_identifier,
-            "Foo".to_string()
-        )
-        .is_err());
-        assert!(rename_component_from_definition(
-            &document_cache,
-            &foo_identifier,
-            "UsedStruct".to_string()
-        )
-        .is_err());
-        assert!(rename_component_from_definition(
-            &document_cache,
-            &foo_identifier,
-            "UsedEnum".to_string()
-        )
-        .is_err());
-        assert!(rename_component_from_definition(
-            &document_cache,
-            &foo_identifier,
-            "Baz".to_string()
-        )
-        .is_err());
-        assert!(rename_component_from_definition(
-            &document_cache,
-            &foo_identifier,
-            "HorizontalLayout".to_string()
+            "HorizontalLayout"
         )
         .is_err());
     }

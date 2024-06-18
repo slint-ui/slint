@@ -371,7 +371,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     common::rename_component::rename_component_from_definition(
                         &document_cache,
                         &p.into(),
-                        params.new_name,
+                        &params.new_name,
                     )
                     .map(Some)
                 }
