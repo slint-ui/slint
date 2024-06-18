@@ -1802,13 +1802,9 @@ impl WindowAdapter for QtWindow {
                 bool wasVisible = widget_ptr->isVisible();
 
                 widget_ptr->hide();
-                // Since we don't call close(), this will force Qt to recompute wether there are any
-                // visible windows, and ends the application if needed
-                auto _locker = QEventLoopLocker();
-
-                // Compute the same thing also manually, when the event loop is driven by processEvents
-                // like in the NodeJS port.
                 if (wasVisible) {
+                    // Since we don't call close(), try to compute whether this was the last window and that
+                    // we must end the application
                     auto windows = QGuiApplication::topLevelWindows();
                     bool visible_windows_left = std::any_of(windows.begin(), windows.end(), [](auto window) {
                         return window->isVisible() || window->transientParent();
