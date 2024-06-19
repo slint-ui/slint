@@ -325,7 +325,12 @@ impl ItemRc {
     /// item's (unclipped) geometry (also in window coordinates).
     fn absolute_clip_rect_and_geometry(&self) -> (LogicalRect, LogicalRect) {
         let (mut clip, parent_geometry) = self.parent_item().map_or_else(
-            || (LogicalRect::from_size((f32::MAX, f32::MAX).into()), Default::default()),
+            || {
+                (
+                    LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into()),
+                    Default::default(),
+                )
+            },
             |parent| parent.absolute_clip_rect_and_geometry(),
         );
 
