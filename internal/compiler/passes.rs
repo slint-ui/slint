@@ -204,6 +204,7 @@ pub async fn run_passes(
     }
 
     remove_aliases::remove_aliases(doc, diag);
+    remove_return::remove_return(doc);
 
     for component in (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))
@@ -226,8 +227,6 @@ pub async fn run_passes(
 
     // collect globals once more: After optimizations we might have less globals
     collect_globals::collect_globals(doc, diag);
-
-    remove_return::remove_return(doc);
 
     embed_images::embed_images(
         root_component,
