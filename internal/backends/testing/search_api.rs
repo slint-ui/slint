@@ -26,6 +26,11 @@ pub(crate) use internal::Sealed;
 pub trait ElementRoot: Sealed {
     #[doc(hidden)]
     fn item_tree(&self) -> ItemTreeRc;
+    /// Returns the root of the element tree.
+    fn root_element(&self) -> ElementHandle {
+        let item_rc = ItemRc::new(self.item_tree(), 0);
+        ElementHandle { item: item_rc.downgrade(), element_index: 0 }
+    }
 }
 
 impl<T: ComponentHandle> ElementRoot for T {
@@ -35,20 +40,6 @@ impl<T: ComponentHandle> ElementRoot for T {
 }
 
 impl<T: ComponentHandle> Sealed for T {}
-
-/// Trait to obtain the initial element handle of an element tree. This is implemented for everything
-/// that implements [`ComponentHandle`].
-pub trait HasElementHandle {
-    /// Returns the root of the element tree.
-    fn root_element(&self) -> ElementHandle;
-}
-
-impl<T: ComponentHandle> HasElementHandle for T {
-    fn root_element(&self) -> ElementHandle {
-        let item_rc = ItemRc::new(WindowInner::from_pub(self.window()).component(), 0);
-        ElementHandle { item: item_rc.downgrade(), element_index: 0 }
-    }
-}
 
 #[derive(Debug)]
 enum SingleElementMatch {
