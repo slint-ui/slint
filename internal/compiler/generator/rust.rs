@@ -147,7 +147,6 @@ fn set_primitive_property_value(ty: &Type, value_expression: TokenStream) -> Tok
 /// Generate the rust code for the given component.
 pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> TokenStream {
     let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = doc
-        .root_component
         .used_types
         .borrow()
         .structs_and_enums

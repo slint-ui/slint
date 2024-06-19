@@ -197,6 +197,7 @@ impl Snapshotter {
             custom_fonts: document.custom_fonts.clone(),
             exports,
             embedded_file_resources: document.embedded_file_resources.clone(),
+            used_types: RefCell::new(self.snapshot_used_sub_types(&document.used_types.borrow())),
         }
     }
 
@@ -221,7 +222,6 @@ impl Snapshotter {
         });
         self.component_map.insert(by_address::ByAddress(component.clone()), r.clone());
 
-        let used_types = self.snapshot_used_sub_types(&component.used_types.borrow());
         let root_element = self.snapshot_element(&component.root_element);
         let optimized_elements = component
             .optimized_elements
@@ -246,7 +246,6 @@ impl Snapshotter {
 
         *r.optimized_elements.borrow_mut() = optimized_elements;
         *r.init_code.borrow_mut() = component.init_code.borrow().clone();
-        *r.used_types.borrow_mut() = used_types;
         r.inherits_popup_window.set(component.inherits_popup_window.get());
         *r.exported_global_names.borrow_mut() = component.exported_global_names.borrow().clone();
         *r.private_properties.borrow_mut() = component.private_properties.borrow().clone();

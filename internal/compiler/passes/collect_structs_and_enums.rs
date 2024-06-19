@@ -19,13 +19,9 @@ pub fn collect_structs_and_enums(doc: &Document) {
         }
     }
 
-    for component in (doc.root_component.used_types.borrow().sub_components.iter())
-        .chain(std::iter::once(&doc.root_component))
-    {
-        collect_types_in_component(component, &mut hash)
-    }
+    doc.visit_all_used_components(|component| collect_types_in_component(component, &mut hash));
 
-    let mut used_types = doc.root_component.used_types.borrow_mut();
+    let mut used_types = doc.used_types.borrow_mut();
     let used_struct_and_enums = &mut used_types.structs_and_enums;
     *used_struct_and_enums = Vec::with_capacity(hash.len());
     while let Some(next) = hash.iter().next() {

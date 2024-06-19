@@ -27,15 +27,9 @@ pub async fn embed_images(
 
     let global_embedded_resources = &doc.embedded_file_resources;
 
-    let used_types = doc.root_component.used_types.borrow();
-
-    let all_components = used_types
-        .sub_components
-        .iter()
-        .chain(used_types.globals.iter())
-        .chain(std::iter::once(&doc.root_component))
-        .cloned()
-        .collect::<Vec<_>>();
+    let mut all_components = Vec::new();
+    doc.visit_all_used_components(|c| all_components.push(c.clone()));
+    let all_components = all_components;
 
     let mapped_urls = {
         let mut urls = HashMap::<String, Option<String>>::new();

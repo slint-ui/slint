@@ -3,6 +3,7 @@
 
 use crate::{api::Value, dynamic_type, eval};
 
+use crate::global_component::CompiledGlobalCollection;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::diagnostics::SourceFileVersion;
@@ -400,11 +401,8 @@ pub struct ItemTreeDescription<'id> {
         Vec<(NamedReference, Expression)>,
     )>,
 
-    /// compiled globals
-    compiled_globals: Vec<crate::global_component::CompiledGlobal>,
-    /// Map of all exported global singletons and their index in the compiled_globals vector. The key
-    /// is the normalized name of the global.
-    exported_globals_by_name: BTreeMap<String, usize>,
+    /// The collection of compiled globals
+    compiled_globals: Option<CompiledGlobalCollection>,
 
     /// The type loader, which will be available only on the top-most `ItemTreeDescription`.
     /// All other `ItemTreeDescription`s have `None` here.
@@ -466,6 +464,9 @@ impl<'id> ItemTreeDescription<'id> {
     /// List names of exported global singletons
     pub fn global_names(&self) -> impl Iterator<Item = String> + '_ {
         self.compiled_globals
+            .as_ref()
+            .expect("Root component should have globals")
+            .compiled_globals
             .iter()
             .filter(|g| g.visible_in_public_api())
             .flat_map(|g| g.names().into_iter())
@@ -475,9 +476,10 @@ impl<'id> ItemTreeDescription<'id> {
         &self,
         name: &str,
     ) -> Option<impl Iterator<Item = (String, i_slint_compiler::langtype::Type)> + '_> {
-        self.exported_globals_by_name
+        let g = self.compiled_globals.as_ref().expect("Root component should have globals");
+        g.exported_globals_by_name
             .get(crate::normalize_identifier(name).as_ref())
-            .and_then(|global_idx| self.compiled_globals.get(*global_idx))
+            .and_then(|global_idx| g.compiled_globals.get(*global_idx))
             .map(|global| internal_properties_to_public(global.public_properties()))
     }
 
@@ -850,7 +852,9 @@ pub async fn load(
                 return (Err(()), diag);
             }
 
-            generate_item_tree(&doc.root_component, guard)
+            let compiled_globals = CompiledGlobalCollection::compile(&doc);
+
+            generate_item_tree(&doc.root_component, Some(compiled_globals), guard)
         };
 
         #[cfg(feature = "highlight")]
@@ -870,6 +874,7 @@ pub async fn load(
 
 pub(crate) fn generate_item_tree<'id>(
     component: &Rc<object_tree::Component>,
+    compiled_globals: Option<CompiledGlobalCollection>,
     guard: generativity::Guard<'id>,
 ) -> Rc<ItemTreeDescription<'id>> {
     //dbg!(&*component.root_element.borrow());
@@ -952,7 +957,7 @@ pub(crate) fn generate_item_tree<'id>(
             generativity::make_guard!(guard);
             self.repeater.push(
                 RepeaterWithinItemTree {
-                    item_tree_to_repeat: generate_item_tree(base_component, guard),
+                    item_tree_to_repeat: generate_item_tree(base_component, None, guard),
                     offset: self.type_builder.add_field_type::<Repeater<ErasedItemTreeBox>>(),
                     model: item.repeated.as_ref().unwrap().model.clone(),
                 }
@@ -1177,35 +1182,6 @@ pub(crate) fn generate_item_tree<'id>(
 
     let public_properties = component.root_element.borrow().property_declarations.clone();
 
-    let mut exported_globals_by_name: BTreeMap<String, usize> = Default::default();
-
-    let compiled_globals = component
-        .used_types
-        .borrow()
-        .globals
-        .iter()
-        .enumerate()
-        .map(|(index, component)| {
-            let mut global = crate::global_component::generate(component);
-
-            if component.visible_in_public_api() {
-                global.extend_public_properties(
-                    component.root_element.borrow().property_declarations.clone(),
-                );
-
-                exported_globals_by_name.extend(
-                    component
-                        .exported_global_names
-                        .borrow()
-                        .iter()
-                        .map(|exported_name| (exported_name.name.clone(), index)),
-                )
-            }
-
-            global
-        })
-        .collect();
-
     let t = ItemTreeVTable {
         visit_children_item,
         layout_info,
@@ -1244,7 +1220,6 @@ pub(crate) fn generate_item_tree<'id>(
         extra_data_offset,
         public_properties,
         compiled_globals,
-        exported_globals_by_name,
         change_trackers,
         #[cfg(feature = "highlight")]
         type_loader: std::cell::OnceCell::new(),
@@ -1401,8 +1376,10 @@ pub fn instantiate(
             .ok()
             .unwrap();
     } else {
-        for g in &description.compiled_globals {
-            crate::global_component::instantiate(g, &mut globals, self_weak.clone());
+        if let Some(g) = description.compiled_globals.as_ref() {
+            for g in g.compiled_globals.iter() {
+                crate::global_component::instantiate(g, &mut globals, self_weak.clone());
+            }
         }
         let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());
         extra_data.globals.set(globals).ok().unwrap();
@@ -2243,7 +2220,7 @@ pub fn show_popup(
 ) {
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
-    let compiled = generate_item_tree(&popup.component, guard);
+    let compiled = generate_item_tree(&popup.component, None, guard);
     let inst = instantiate(
         compiled,
         Some(parent_comp),

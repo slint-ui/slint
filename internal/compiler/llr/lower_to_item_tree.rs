@@ -22,11 +22,11 @@ pub fn lower_to_item_tree(
     let component = &document.root_component;
 
     let mut globals = Vec::new();
-    for g in &component.used_types.borrow().globals {
+    for g in &document.used_types.borrow().globals {
         let count = globals.len();
         globals.push(lower_global(g, count, &mut state));
     }
-    for c in &component.used_types.borrow().sub_components {
+    for c in &document.used_types.borrow().sub_components {
         let sc = lower_sub_component(c, &state, None, &compiler_config);
         state.sub_components.insert(ByAddress(c.clone()), sc);
     }
@@ -45,7 +45,7 @@ pub fn lower_to_item_tree(
             private_properties: component.private_properties.borrow().clone(),
         }],
         globals,
-        sub_components: component
+        sub_components: document
             .used_types
             .borrow()
             .sub_components

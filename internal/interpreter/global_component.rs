@@ -10,10 +10,50 @@ use crate::dynamic_item_tree::{ErasedItemTreeBox, ErasedItemTreeDescription};
 use crate::SetPropertyError;
 use i_slint_compiler::langtype::ElementType;
 use i_slint_compiler::namedreference::NamedReference;
-use i_slint_compiler::object_tree::Component;
-use i_slint_compiler::object_tree::PropertyDeclaration;
+use i_slint_compiler::object_tree::{Component, Document, PropertyDeclaration};
 use i_slint_core::item_tree::ItemTreeVTable;
 use i_slint_core::rtti;
+
+pub struct CompiledGlobalCollection {
+    /// compiled globals
+    pub compiled_globals: Vec<CompiledGlobal>,
+    /// Map of all exported global singletons and their index in the compiled_globals vector. The key
+    /// is the normalized name of the global.
+    pub exported_globals_by_name: BTreeMap<String, usize>,
+}
+
+impl CompiledGlobalCollection {
+    pub fn compile(doc: &Document) -> Self {
+        let mut exported_globals_by_name = BTreeMap::new();
+        let compiled_globals = doc
+            .used_types
+            .borrow()
+            .globals
+            .iter()
+            .enumerate()
+            .map(|(index, component)| {
+                let mut global = generate(component);
+
+                if component.visible_in_public_api() {
+                    global.extend_public_properties(
+                        component.root_element.borrow().property_declarations.clone(),
+                    );
+
+                    exported_globals_by_name.extend(
+                        component
+                            .exported_global_names
+                            .borrow()
+                            .iter()
+                            .map(|exported_name| (exported_name.name.clone(), index)),
+                    )
+                }
+
+                global
+            })
+            .collect();
+        Self { compiled_globals, exported_globals_by_name }
+    }
+}
 
 pub type GlobalStorage = HashMap<String, Pin<Rc<dyn GlobalComponent>>>;
 
@@ -23,6 +63,8 @@ pub enum CompiledGlobal {
         element: Rc<i_slint_compiler::langtype::BuiltinElement>,
         // dummy needed for iterator accessor
         public_properties: BTreeMap<String, PropertyDeclaration>,
+        /// keep the Component alive as it is boing referenced by `NamedReference`s
+        _original: Rc<Component>,
     },
     Component {
         component: ErasedItemTreeDescription,
@@ -253,13 +295,14 @@ impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
     }
 }
 
-pub(crate) fn generate(component: &Rc<Component>) -> CompiledGlobal {
+fn generate(component: &Rc<Component>) -> CompiledGlobal {
     debug_assert!(component.is_global());
     match &component.root_element.borrow().base_type {
         ElementType::Global => {
             generativity::make_guard!(guard);
             CompiledGlobal::Component {
-                component: crate::dynamic_item_tree::generate_item_tree(component, guard).into(),
+                component: crate::dynamic_item_tree::generate_item_tree(component, None, guard)
+                    .into(),
                 public_properties: Default::default(),
             }
         }
@@ -267,6 +310,7 @@ pub(crate) fn generate(component: &Rc<Component>) -> CompiledGlobal {
             name: component.id.clone(),
             element: b.clone(),
             public_properties: Default::default(),
+            _original: component.clone(),
         },
         ElementType::Error | ElementType::Native(_) | ElementType::Component(_) => unreachable!(),
     }

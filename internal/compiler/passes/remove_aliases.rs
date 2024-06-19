@@ -78,12 +78,9 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
         }
     };
 
-    for component in (doc.root_component.used_types.borrow().sub_components.iter())
-        .chain(doc.root_component.used_types.borrow().globals.iter())
-        .chain(std::iter::once(&doc.root_component))
-    {
-        recurse_elem_including_sub_components(component, &(), &mut |e, &()| process_element(e));
-    }
+    doc.visit_all_used_components(|component| {
+        recurse_elem_including_sub_components(component, &(), &mut |e, &()| process_element(e))
+    });
 
     // The key will be removed and replaced by the named reference
     let mut aliases_to_remove = Mapping::new();
@@ -105,17 +102,14 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
         }
     }
 
-    for component in (doc.root_component.used_types.borrow().sub_components.iter())
-        .chain(doc.root_component.used_types.borrow().globals.iter())
-        .chain(std::iter::once(&doc.root_component))
-    {
+    doc.visit_all_used_components(|component| {
         // Do the replacements
         visit_all_named_references(component, &mut |nr: &mut NamedReference| {
             if let Some(new) = aliases_to_remove.get(nr) {
                 *nr = new.clone();
             }
-        });
-    }
+        })
+    });
 
     // Remove the properties
     for (remove, to) in aliases_to_remove {

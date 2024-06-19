@@ -11,13 +11,13 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 /// Fill the root_component's used_types.sub_components
-pub fn collect_subcomponents(root_component: &Rc<Component>) {
+pub fn collect_subcomponents(doc: &Document) {
     let mut result = vec![];
     let mut hash = HashSet::new();
 
-    collect_subcomponents_recursive(root_component, &mut result, &mut hash);
+    collect_subcomponents_recursive(&doc.root_component, &mut result, &mut hash);
 
-    root_component.used_types.borrow_mut().sub_components = result;
+    doc.used_types.borrow_mut().sub_components = result;
 }
 
 fn collect_subcomponents_recursive(

@@ -7,15 +7,7 @@ use crate::expression_tree::Expression;
 use crate::langtype::Type;
 
 pub fn remove_return(doc: &crate::object_tree::Document) {
-    for component in doc
-        .root_component
-        .used_types
-        .borrow()
-        .sub_components
-        .iter()
-        .chain(doc.root_component.used_types.borrow().globals.iter())
-        .chain(std::iter::once(&doc.root_component))
-    {
+    doc.visit_all_used_components(|component| {
         crate::object_tree::visit_all_expressions(component, |e, _| {
             let mut ret_ty = None;
             fn visit(e: &Expression, ret_ty: &mut Option<Type>) {
@@ -34,7 +26,7 @@ pub fn remove_return(doc: &crate::object_tree::Document) {
             let ctx = RemoveReturnContext { ret_ty };
             *e = process_expression(std::mem::take(e), &ctx).to_expression(&ctx.ret_ty);
         })
-    }
+    });
 }
 
 fn process_expression(e: Expression, ctx: &RemoveReturnContext) -> ExpressionResult {

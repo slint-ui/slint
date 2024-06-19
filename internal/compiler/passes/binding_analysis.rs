@@ -31,11 +31,10 @@ use derive_more as dm;
 type ReverseAliases = HashMap<NamedReference, Vec<NamedReference>>;
 
 pub fn binding_analysis(doc: &Document, diag: &mut BuildDiagnostics) {
-    let component = &doc.root_component;
     let mut reverse_aliases = Default::default();
-    mark_used_base_properties(component);
-    propagate_is_set_on_aliases(component, &mut reverse_aliases);
-    perform_binding_analysis(component, &reverse_aliases, diag);
+    mark_used_base_properties(doc);
+    propagate_is_set_on_aliases(doc, &mut reverse_aliases);
+    perform_binding_analysis(doc, &reverse_aliases, diag);
 }
 
 /// A reference to a property which might be deep in a component path.
@@ -126,20 +125,18 @@ struct AnalysisContext {
 }
 
 fn perform_binding_analysis(
-    component: &Rc<Component>,
+    doc: &Document,
     reverse_aliases: &ReverseAliases,
     diag: &mut BuildDiagnostics,
 ) {
-    for c in &component.used_types.borrow().sub_components {
-        perform_binding_analysis(c, reverse_aliases, diag);
-    }
-
     let mut context = AnalysisContext::default();
-    crate::object_tree::recurse_elem_including_sub_components_no_borrow(
-        component,
-        &(),
-        &mut |e, _| analyze_element(e, &mut context, reverse_aliases, diag),
-    );
+    doc.visit_all_used_components(|component| {
+        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+            component,
+            &(),
+            &mut |e, _| analyze_element(e, &mut context, reverse_aliases, diag),
+        )
+    });
 }
 
 fn analyze_element(
@@ -511,38 +508,36 @@ fn visit_implicit_layout_info_dependencies(
 ///    property <int> foo; // must ensure that this is not considered as const, because the alias with bar
 /// }
 /// ```
-fn propagate_is_set_on_aliases(component: &Rc<Component>, reverse_aliases: &mut ReverseAliases) {
-    crate::object_tree::recurse_elem_including_sub_components_no_borrow(
-        component,
-        &(),
-        &mut |e, _| {
-            for (name, binding) in &e.borrow().bindings {
-                if !binding.borrow().two_way_bindings.is_empty() {
-                    check_alias(e, name, &binding.borrow());
+fn propagate_is_set_on_aliases(doc: &Document, reverse_aliases: &mut ReverseAliases) {
+    doc.visit_all_used_components(|component| {
+        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+            component,
+            &(),
+            &mut |e, _| visit_element(e, reverse_aliases),
+        );
+    });
 
-                    let nr = NamedReference::new(e, name);
-                    for a in &binding.borrow().two_way_bindings {
-                        if a != &nr
-                            && !a
-                                .element()
-                                .borrow()
-                                .enclosing_component
-                                .upgrade()
-                                .unwrap()
-                                .is_global()
-                        {
-                            reverse_aliases.entry(a.clone()).or_default().push(nr.clone())
-                        }
+    fn visit_element(e: &ElementRc, reverse_aliases: &mut ReverseAliases) {
+        for (name, binding) in &e.borrow().bindings {
+            if !binding.borrow().two_way_bindings.is_empty() {
+                check_alias(e, name, &binding.borrow());
+
+                let nr = NamedReference::new(e, name);
+                for a in &binding.borrow().two_way_bindings {
+                    if a != &nr
+                        && !a.element().borrow().enclosing_component.upgrade().unwrap().is_global()
+                    {
+                        reverse_aliases.entry(a.clone()).or_default().push(nr.clone())
                     }
                 }
             }
-            for decl in e.borrow().property_declarations.values() {
-                if let Some(alias) = &decl.is_alias {
-                    mark_alias(alias)
-                }
+        }
+        for decl in e.borrow().property_declarations.values() {
+            if let Some(alias) = &decl.is_alias {
+                mark_alias(alias)
             }
-        },
-    );
+        }
+    }
 
     fn check_alias(e: &ElementRc, name: &str, binding: &BindingExpression) {
         // Note: since the analysis hasn't been run, any property access will result in a non constant binding. this is slightly non-optimal
@@ -575,30 +570,27 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>, reverse_aliases: &mut 
             }
         }
     }
-
-    for c in &component.used_types.borrow().sub_components {
-        propagate_is_set_on_aliases(c, reverse_aliases);
-    }
 }
 
 /// Make sure that the is_set_externally is true for all bindings
-fn mark_used_base_properties(component: &Rc<Component>) {
-    crate::object_tree::recurse_elem_including_sub_components_no_borrow(
-        component,
-        &(),
-        &mut |element, _| {
-            if !matches!(element.borrow().base_type, ElementType::Component(_)) {
-                return;
-            }
-            for (name, binding) in &element.borrow().bindings {
-                if binding.borrow().has_binding() {
-                    crate::namedreference::mark_property_set_derived_in_base(element.clone(), name);
+fn mark_used_base_properties(doc: &Document) {
+    doc.visit_all_used_components(|component| {
+        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+            component,
+            &(),
+            &mut |element, _| {
+                if !matches!(element.borrow().base_type, ElementType::Component(_)) {
+                    return;
                 }
-            }
-        },
-    );
-
-    for c in &component.used_types.borrow().sub_components {
-        mark_used_base_properties(c);
-    }
+                for (name, binding) in &element.borrow().bindings {
+                    if binding.borrow().has_binding() {
+                        crate::namedreference::mark_property_set_derived_in_base(
+                            element.clone(),
+                            name,
+                        );
+                    }
+                }
+            },
+        );
+    });
 }

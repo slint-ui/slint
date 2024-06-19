@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { TextStyle } from "./internal-components.slint";
+import { ColoredTextStyle } from "./internal-components.slint";
 
 export struct TimeSelectorStyle {
     foreground: brush,
@@ -345,7 +345,7 @@ export struct TimePickerStyle {
     clock-style: ClockStyle,
     input-style: TimePickerInputStyle,
     period-selector-style: PeriodSelectorStyle,
-    title-style: TextStyle,
+    title-style: ColoredTextStyle,
 }
 
 export component TimePickerBase {

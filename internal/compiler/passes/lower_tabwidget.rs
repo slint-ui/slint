@@ -13,10 +13,9 @@ use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedRefer
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use std::cell::RefCell;
-use std::rc::Rc;
 
 pub async fn lower_tabwidget(
-    component: &Rc<Component>,
+    doc: &Document,
     type_loader: &mut crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
@@ -36,18 +35,20 @@ pub async fn lower_tabwidget(
         .expect("can't load TabBarImpl from std-widgets.slint");
     let empty_type = type_loader.global_type_registry.borrow().empty_type();
 
-    recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget") {
-            process_tabwidget(
-                elem,
-                ElementType::Component(tabwidget_impl.clone()),
-                ElementType::Component(tab_impl.clone()),
-                ElementType::Component(tabbar_impl.clone()),
-                &empty_type,
-                diag,
-            );
-        }
-    })
+    doc.visit_all_used_components(|component| {
+        recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
+            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget") {
+                process_tabwidget(
+                    elem,
+                    ElementType::Component(tabwidget_impl.clone()),
+                    ElementType::Component(tab_impl.clone()),
+                    ElementType::Component(tabbar_impl.clone()),
+                    &empty_type,
+                    diag,
+                );
+            }
+        })
+    });
 }
 
 fn process_tabwidget(
