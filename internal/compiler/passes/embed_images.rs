@@ -15,21 +15,25 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 pub async fn embed_images(
-    component: &Rc<Component>,
+    doc: &Document,
     embed_files: EmbedResourcesKind,
     scale_factor: f64,
     resource_url_mapper: &Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
     diag: &mut BuildDiagnostics,
 ) {
-    let global_embedded_resources = &component.embedded_file_resources;
+    if embed_files == EmbedResourcesKind::Nothing {
+        return;
+    }
 
-    let all_components = component
-        .used_types
-        .borrow()
+    let global_embedded_resources = &doc.embedded_file_resources;
+
+    let used_types = doc.root_component.used_types.borrow();
+
+    let all_components = used_types
         .sub_components
         .iter()
-        .chain(component.used_types.borrow().globals.iter())
-        .chain(std::iter::once(component))
+        .chain(used_types.globals.iter())
+        .chain(std::iter::once(&doc.root_component))
         .cloned()
         .collect::<Vec<_>>();
 

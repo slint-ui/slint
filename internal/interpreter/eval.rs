@@ -271,31 +271,21 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     Ok(Default::default())
                 }
                 i_slint_compiler::expression_tree::ImageReference::AbsolutePath(path) => {
-                    corelib::graphics::Image::load_from_path(std::path::Path::new(path))
-                }
-                i_slint_compiler::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                    generativity::make_guard!(guard);
-                    let toplevel_instance = match &local_context.component_instance {
-                        ComponentInstance::InstanceRef(instance) => instance.toplevel_instance(guard),
-                        ComponentInstance::GlobalComponent(_) => unimplemented!(),
-                    };
-                    let extra_data = toplevel_instance.description.extra_data_offset.apply(toplevel_instance.as_ref());
-                    let path = extra_data.embedded_file_resources.get().unwrap().get(resource_id).expect("internal error: invalid resource id");
-
-                    let virtual_file = i_slint_compiler::fileaccess::load_file(std::path::Path::new(path)).unwrap();  // embedding pass ensured that the file exists
-
-                    if let (static_path, Some(static_data)) = (virtual_file.canon_path, virtual_file.builtin_contents) {
-                        let virtual_file_extension = static_path.extension().unwrap().to_str().unwrap();
-                        debug_assert_eq!(virtual_file_extension, extension);
-                        Ok(corelib::graphics::load_image_from_embedded_data(
-                            corelib::slice::Slice::from_slice(static_data),
-                            corelib::slice::Slice::from_slice(virtual_file_extension.as_bytes())
-                        ))
+                    let path = std::path::Path::new(path);
+                    if path.starts_with("builtin:/") {
+                        i_slint_compiler::fileaccess::load_file(path).and_then(|virtual_file| virtual_file.builtin_contents).map(|virtual_file| {
+                            let extension = path.extension().unwrap().to_str().unwrap();
+                            corelib::graphics::load_image_from_embedded_data(
+                                corelib::slice::Slice::from_slice(virtual_file),
+                                corelib::slice::Slice::from_slice(extension.as_bytes())
+                            )
+                        }).ok_or_else(|| Default::default())
                     } else {
-                        corelib::debug_log!("Cannot embed images from disk {}", path);
-                        Ok(corelib::graphics::Image::default())
-
+                        corelib::graphics::Image::load_from_path(path)
                     }
+                }
+                i_slint_compiler::expression_tree::ImageReference::EmbeddedData { .. } => {
+                    todo!()
                 }
                 i_slint_compiler::expression_tree::ImageReference::EmbeddedTexture { .. } => {
                     todo!()

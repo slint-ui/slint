@@ -42,6 +42,8 @@ use std::path::Path;
 /// Specify how the resources are embedded by the compiler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EmbedResourcesKind {
+    /// Embeds nothing (only useful for interpreter)
+    Nothing,
     /// Only embed builtin resources
     OnlyBuiltinResources,
     /// Embed all images resources (the content of their files)
@@ -123,6 +125,7 @@ impl CompilerConfiguration {
             match output_format {
                 #[cfg(feature = "rust")]
                 crate::generator::OutputFormat::Rust => EmbedResourcesKind::EmbedAllResources,
+                crate::generator::OutputFormat::Interpreter => EmbedResourcesKind::Nothing,
                 _ => EmbedResourcesKind::OnlyBuiltinResources,
             }
         };

@@ -50,6 +50,11 @@ pub struct Document {
     /// startup for custom font use.
     pub custom_fonts: Vec<(String, crate::parser::SyntaxToken)>,
     pub exports: Exports,
+
+    /// Map of resources that should be embedded in the generated code, indexed by their absolute path on
+    /// disk on the build system
+    pub embedded_file_resources:
+        RefCell<HashMap<String, crate::embedded_resources::EmbeddedResources>>,
 }
 
 impl Document {
@@ -245,6 +250,7 @@ impl Document {
             local_registry,
             custom_fonts,
             exports,
+            embedded_file_resources: RefCell::default(),
         }
     }
 }
@@ -317,11 +323,6 @@ pub struct Component {
     /// List of elements that are not attached to the root anymore because they have been
     /// optimized away, but their properties may still be in use
     pub optimized_elements: RefCell<Vec<ElementRc>>,
-
-    /// Map of resources that should be embedded in the generated code, indexed by their absolute path on
-    /// disk on the build system
-    pub embedded_file_resources:
-        RefCell<HashMap<String, crate::embedded_resources::EmbeddedResources>>,
 
     /// The layout constraints of the root item
     pub root_constraints: RefCell<LayoutConstraints>,

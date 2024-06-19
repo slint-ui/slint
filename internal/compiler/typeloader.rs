@@ -196,6 +196,7 @@ impl Snapshotter {
             local_registry: document.local_registry.snapshot(self),
             custom_fonts: document.custom_fonts.clone(),
             exports,
+            embedded_file_resources: document.embedded_file_resources.clone(),
         }
     }
 
@@ -221,7 +222,6 @@ impl Snapshotter {
         self.component_map.insert(by_address::ByAddress(component.clone()), r.clone());
 
         let used_types = self.snapshot_used_sub_types(&component.used_types.borrow());
-        let embedded_file_resources = component.embedded_file_resources.borrow().clone();
         let root_element = self.snapshot_element(&component.root_element);
         let optimized_elements = component
             .optimized_elements
@@ -251,7 +251,6 @@ impl Snapshotter {
         *r.exported_global_names.borrow_mut() = component.exported_global_names.borrow().clone();
         *r.private_properties.borrow_mut() = component.private_properties.borrow().clone();
         r.is_root_component.set(component.is_root_component.get());
-        *r.embedded_file_resources.borrow_mut() = embedded_file_resources;
 
         *r.root_element.borrow_mut() = root_element.take();
         *r.child_insertion_point.borrow_mut() = child_insertion_point;

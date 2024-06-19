@@ -2794,8 +2794,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
     let link_section =
         std::env::var("SLINT_ASSET_SECTION").ok().map(|section| quote!(#[link_section = #section]));
 
-    doc.root_component
-        .embedded_file_resources
+    doc.embedded_file_resources
         .borrow()
         .iter()
         .map(|(path, er)| {

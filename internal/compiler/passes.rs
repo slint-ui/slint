@@ -229,7 +229,7 @@ pub async fn run_passes(
     collect_globals::collect_globals(doc, diag);
 
     embed_images::embed_images(
-        root_component,
+        doc,
         type_loader.compiler_config.embed_resources,
         type_loader.compiler_config.scale_factor,
         &type_loader.compiler_config.resource_url_mapper,
@@ -257,7 +257,7 @@ pub async fn run_passes(
             }
 
             embed_glyphs::embed_glyphs(
-                root_component,
+                doc,
                 type_loader.compiler_config.scale_factor,
                 font_pixel_sizes,
                 characters_seen,
@@ -268,7 +268,7 @@ pub async fn run_passes(
         _ => {
             // Create font registration calls for custom fonts, unless we're embedding pre-rendered glyphs
             collect_custom_fonts::collect_custom_fonts(
-                root_component,
+                doc,
                 std::iter::once(doc).chain(type_loader.all_documents()),
                 type_loader.compiler_config.embed_resources
                     == crate::EmbedResourcesKind::EmbedAllResources,

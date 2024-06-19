@@ -291,8 +291,6 @@ pub(crate) struct ComponentExtraData {
     pub(crate) globals: OnceCell<crate::global_component::GlobalStorage>,
     pub(crate) self_weak: OnceCell<ErasedItemTreeBoxWeak>,
     pub(crate) embedding_position: OnceCell<(ItemTreeWeak, u32)>,
-    // resource id -> file path
-    pub(crate) embedded_file_resources: OnceCell<HashMap<usize, String>>,
     #[cfg(target_arch = "wasm32")]
     pub(crate) canvas_id: OnceCell<String>,
 }
@@ -1408,20 +1406,6 @@ pub fn instantiate(
         }
         let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());
         extra_data.globals.set(globals).ok().unwrap();
-
-        extra_data
-            .embedded_file_resources
-            .set(
-                description
-                    .original
-                    .embedded_file_resources
-                    .borrow()
-                    .iter()
-                    .map(|(path, er)| (er.id, path.clone()))
-                    .collect(),
-            )
-            .ok()
-            .unwrap();
 
         #[cfg(target_arch = "wasm32")]
         if let Some(WindowOptions::CreateWithCanvasId(canvas_id)) = window_options {
