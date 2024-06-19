@@ -9,7 +9,6 @@ use crate::preview::element_selection::ElementSelection;
 use crate::util;
 use i_slint_compiler::diagnostics;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::model::VecModel;
@@ -251,7 +250,7 @@ fn placeholder_node_text(selected: &common::ElementRcNode) -> String {
     };
 
     if parent.layout_kind() != ui::LayoutKind::None && parent.children().len() == 1 {
-        return format!("Rectangle {{ /* {} */ }}", NODE_IGNORE_COMMENT);
+        return format!("Rectangle {{ /* {} */ }}", common::NODE_IGNORE_COMMENT);
     }
 
     Default::default()
@@ -691,7 +690,8 @@ async fn reload_preview_impl(
         let (_, from_cache) = get_url_from_cache(&component.url).unwrap_or_default();
         if let Some(component_name) = &component.component {
             format!(
-                "{from_cache}\nexport component {SLINT_LIVEPREVIEW_COMPONENT} inherits {component_name} {{ /* {NODE_IGNORE_COMMENT} */ }}\n",
+                "{from_cache}\nexport component {SLINT_LIVEPREVIEW_COMPONENT} inherits {component_name} {{ /* {} */ }}\n",
+                common::NODE_IGNORE_COMMENT
             )
         } else {
             from_cache
@@ -1021,20 +1021,6 @@ pub fn lsp_to_preview_message(
             highlight(url, offset);
         }
     }
-}
-
-/// Use this in nodes you want the language server and preview to
-/// ignore a node for code analysis purposes.
-pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
-
-/// Check whether a node is marked to be ignored in the LSP/live preview
-/// using a comment containing `@lsp:ignore-node`
-pub fn is_element_node_ignored(node: &syntax_nodes::Element) -> bool {
-    node.children_with_tokens().any(|nt| {
-        nt.as_token()
-            .map(|t| t.kind() == SyntaxKind::Comment && t.text().contains(NODE_IGNORE_COMMENT))
-            .unwrap_or(false)
-    })
 }
 
 #[cfg(test)]
