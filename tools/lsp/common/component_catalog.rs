@@ -97,11 +97,15 @@ fn exported_project_component_info(
 }
 
 #[cfg(feature = "preview-engine")]
-fn file_local_component_info(name: &str, position: Position) -> ComponentInformation {
+fn file_local_component_info(
+    name: &str,
+    position: Position,
+    is_global: bool,
+) -> ComponentInformation {
     ComponentInformation {
         name: name.to_string(),
         category: "User Defined".to_string(),
-        is_global: false,
+        is_global,
         is_builtin: false,
         is_std_widget: false,
         is_layout: false,
@@ -191,6 +195,7 @@ pub fn file_local_components(
             result.push(file_local_component_info(
                 &component.id,
                 Position { url: url.clone(), offset },
+                component.is_global(),
             ));
         }
     }
