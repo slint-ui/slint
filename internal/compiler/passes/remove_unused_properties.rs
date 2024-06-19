@@ -3,10 +3,10 @@
 
 //! Remove the properties which are not used
 
-use crate::object_tree::Component;
+use crate::object_tree::{Component, Document};
 use std::collections::HashSet;
 
-pub fn remove_unused_properties(component: &Component) {
+pub fn remove_unused_properties(doc: &Document) {
     fn recurse_remove_unused_properties(component: &Component) {
         crate::object_tree::recurse_elem_including_sub_components_no_borrow(
             component,
@@ -35,10 +35,6 @@ pub fn remove_unused_properties(component: &Component) {
                 }
             },
         );
-
-        for global in &component.used_types.borrow().globals {
-            recurse_remove_unused_properties(global);
-        }
     }
-    recurse_remove_unused_properties(component)
+    doc.visit_all_used_components(|component| recurse_remove_unused_properties(component))
 }

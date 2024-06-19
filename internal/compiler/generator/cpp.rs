@@ -749,7 +749,7 @@ pub fn generate(
         }
     }
 
-    for ty in doc.root_component.used_types.borrow().structs_and_enums.iter() {
+    for ty in doc.used_types.borrow().structs_and_enums.iter() {
         match ty {
             Type::Struct { fields, name: Some(name), node: Some(node), .. } => {
                 generate_struct(&mut file, name, fields, node);

@@ -55,6 +55,9 @@ pub struct Document {
     /// disk on the build system
     pub embedded_file_resources:
         RefCell<HashMap<String, crate::embedded_resources::EmbeddedResources>>,
+
+    /// The list of used extra types used recursively.
+    pub used_types: RefCell<UsedSubTypes>,
 }
 
 impl Document {
@@ -250,7 +253,20 @@ impl Document {
             local_registry,
             custom_fonts,
             exports,
-            embedded_file_resources: RefCell::default(),
+            embedded_file_resources: Default::default(),
+            used_types: Default::default(),
+        }
+    }
+
+    /// visit all root and used component (including globals)
+    pub fn visit_all_used_components(&self, mut v: impl FnMut(&Rc<Component>)) {
+        let used_types = self.used_types.borrow();
+        for c in &used_types.sub_components {
+            v(c);
+        }
+        v(&self.root_component);
+        for c in &used_types.globals {
+            v(c);
         }
     }
 }
@@ -333,9 +349,6 @@ pub struct Component {
 
     pub init_code: RefCell<InitCode>,
 
-    /// The list of used extra types used (recursively) by this root component.
-    /// (This only make sense on the root component)
-    pub used_types: RefCell<UsedSubTypes>,
     pub popup_windows: RefCell<Vec<PopupWindow>>,
 
     /// This component actually inherits PopupWindow (although that has been changed to a Window by the lower_popups pass)
@@ -2119,12 +2132,6 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
         .borrow()
         .iter()
         .for_each(|p| recurse_elem_including_sub_components_no_borrow(&p.component, state, vis));
-    component
-        .used_types
-        .borrow()
-        .globals
-        .iter()
-        .for_each(|p| recurse_elem_including_sub_components_no_borrow(p, state, vis));
 }
 
 /// This visit the binding attached to this element, but does not recurse in children elements

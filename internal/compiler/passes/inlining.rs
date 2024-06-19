@@ -384,7 +384,6 @@ fn duplicate_sub_component(
         root_constraints: component_to_duplicate.root_constraints.clone(),
         child_insertion_point: component_to_duplicate.child_insertion_point.clone(),
         init_code: component_to_duplicate.init_code.clone(),
-        used_types: Default::default(),
         popup_windows: Default::default(),
         exported_global_names: component_to_duplicate.exported_global_names.clone(),
         is_root_component: Default::default(),

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { ScrollView, LineEdit } from "std-widgets-impl.slint";
-import { StateLayer, IconButton, IconButtonStyle, SelectionButton, SelectionButtonStyle, TextStyle } from "./internal-components.slint";
+import { StateLayer, IconButton, IconButtonStyle, SelectionButton, SelectionButtonStyle, ColoredTextStyle } from "./internal-components.slint";
 
 export struct Date {
     year: int,
@@ -254,8 +254,8 @@ export struct DatePickerStyle {
     calendar-style: CalendarStyle,
     icon-button-style: IconButtonStyle,
     selection-button-style: SelectionButtonStyle,
-    current-day-style: TextStyle,
-    title-style: TextStyle,
+    current-day-style: ColoredTextStyle,
+    title-style: ColoredTextStyle,
     next-icon: image,
     previous-icon: image,
     drop-down-icon: image,

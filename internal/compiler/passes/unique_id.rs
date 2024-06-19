@@ -13,11 +13,11 @@ use std::rc::Rc;
 pub fn assign_unique_id(doc: &Document) {
     let mut count = 0;
     assign_unique_id_in_component(&doc.root_component, &mut count);
-    for c in &doc.root_component.used_types.borrow().sub_components {
+    for c in &doc.used_types.borrow().sub_components {
         assign_unique_id_in_component(c, &mut count);
     }
 
-    rename_globals(&doc.root_component, count);
+    rename_globals(doc, count);
 }
 
 fn assign_unique_id_in_component(component: &Rc<Component>, count: &mut u32) {
@@ -34,8 +34,8 @@ fn assign_unique_id_in_component(component: &Rc<Component>, count: &mut u32) {
 }
 
 /// Give globals unique name
-fn rename_globals(component: &Rc<Component>, mut count: u32) {
-    for g in &component.used_types.borrow().globals {
+fn rename_globals(doc: &Document, mut count: u32) {
+    for g in &doc.used_types.borrow().globals {
         count += 1;
         let mut root = g.root_element.borrow_mut();
         if matches!(&root.base_type, ElementType::Builtin(_)) {
