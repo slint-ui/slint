@@ -253,7 +253,7 @@ impl Snapshotter {
         r.is_root_component.set(component.is_root_component.get());
         *r.embedded_file_resources.borrow_mut() = embedded_file_resources;
 
-        *r.root_element.borrow_mut() = root_element.take();
+        *r.root_element.borrow_mut() = root_element.clone();
         *r.child_insertion_point.borrow_mut() = child_insertion_point;
         *r.popup_windows.borrow_mut() = popup_windows;
 
