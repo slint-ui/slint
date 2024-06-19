@@ -131,7 +131,7 @@ fn fix_import_in_document(
             .unwrap_or_default();
 
         // Do not bother with the TypeLoader: It will check the FS, which we do not use:-/
-        let import_path = document_directory.join(import);
+        let import_path = i_slint_compiler::pathutils::clean_path(&document_directory.join(import));
 
         if import_path != exporter_path {
             continue;
@@ -605,6 +605,125 @@ export { Foo as User4Fxx }
                 assert!(ed.contents.contains("import { XxxYyyZzz }"));
                 assert!(ed.contents.contains("export { XxxYyyZzz }"));
             } else if ed_path == test::test_file_name("user4.slint") {
+                assert!(ed.contents.contains("import { XxxYyyZzz }"));
+                assert!(ed.contents.contains("export { XxxYyyZzz as User4Fxx }"));
+            } else {
+                unreachable!();
+            }
+        }
+    }
+
+    #[test]
+    fn test_rename_component_from_definition_with_export_and_relative_paths_ok() {
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([
+                (
+                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    r#"
+import { Foo } from "s/source.slint";
+import { UserComponent } from "u/user.slint";
+import { User2Component } from "u/user2.slint";
+import { Foo as User3Fxx } from "u/user3.slint";
+import { User4Fxx } from "u/user4.slint";
+
+export component Main {
+    Foo { }
+    UserComponent { }
+    User2Component { }
+}
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("s/source.slint")).unwrap(),
+                    r#"
+export component Foo { }
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("u/user.slint")).unwrap(),
+                    r#"
+import { Foo as Bar } from "../s/source.slint";
+
+export component UserComponent { 
+    Bar { }
+}
+
+export { Bar }
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("u/user2.slint")).unwrap(),
+                    r#"
+import { Foo as XxxYyyZzz } from "../s/source.slint";
+
+export component User2Component { 
+    XxxYyyZzz { }
+}
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("u/user3.slint")).unwrap(),
+                    r#"
+import { Foo } from "../s/source.slint";
+
+export { Foo }
+                "#
+                    .to_string(),
+                ),
+                (
+                    Url::from_file_path(test::test_file_name("u/user4.slint")).unwrap(),
+                    r#"
+import { Foo } from "../s/source.slint";
+
+export { Foo as User4Fxx }
+                "#
+                    .to_string(),
+                ),
+            ]),
+            false,
+        );
+
+        let doc =
+            document_cache.get_document_by_path(&test::test_file_name("s/source.slint")).unwrap();
+
+        let foo_identifier =
+            find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+        let edit = rename_component_from_definition(
+            &document_cache,
+            &foo_identifier,
+            "XxxYyyZzz".to_string(),
+        )
+        .unwrap();
+
+        let edited_text = compile_test_changes(&document_cache, &edit);
+
+        for ed in &edited_text {
+            let ed_path = ed.url.to_file_path().unwrap();
+            if ed_path == test::main_test_file_name() {
+                assert!(ed.contents.contains("XxxYyyZzz"));
+                assert!(!ed.contents.contains("Foo"));
+                assert!(ed.contents.contains("UserComponent"));
+                assert!(ed.contents.contains("import { XxxYyyZzz as User3Fxx }"));
+                assert!(ed.contents.contains("import { User4Fxx }"));
+            } else if ed_path == test::test_file_name("s/source.slint") {
+                assert!(ed.contents.contains("export component XxxYyyZzz {"));
+                assert!(!ed.contents.contains("Foo"));
+            } else if ed_path == test::test_file_name("u/user.slint") {
+                assert!(ed.contents.contains("{ XxxYyyZzz as Bar }"));
+                assert!(ed.contents.contains("Bar { }"));
+                assert!(!ed.contents.contains("Foo"));
+            } else if ed_path == test::test_file_name("u/user2.slint") {
+                assert!(ed.contents.contains("import { XxxYyyZzz }"));
+                assert!(ed.contents.contains("XxxYyyZzz { }"));
+            } else if ed_path == test::test_file_name("u/user3.slint") {
+                assert!(ed.contents.contains("import { XxxYyyZzz }"));
+                assert!(ed.contents.contains("export { XxxYyyZzz }"));
+            } else if ed_path == test::test_file_name("u/user4.slint") {
                 assert!(ed.contents.contains("import { XxxYyyZzz }"));
                 assert!(ed.contents.contains("export { XxxYyyZzz as User4Fxx }"));
             } else {
