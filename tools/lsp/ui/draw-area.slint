@@ -42,6 +42,13 @@ export struct DropMark {
     y2: length,
 }
 
+export struct Preview {
+    factory: component-factory,
+    name: string,
+    pretty-location: string,
+    file: string,
+}
+
 component SelectionFrame {
     in property <Selection> selection;
     in property <bool> interactive: true;
@@ -171,7 +178,7 @@ export component DrawArea {
     in property <[Diagnostics]> diagnostics;
     in property <[Selection]> selections;
     in property <DropMark> drop-mark;
-    in property <component-factory> preview-area;
+    in property <Preview> preview-area;
     in property <bool> design-mode;
 
     out property <bool> preview-visible: preview-area-container.has-component && !diagnostics.diagnostics-open;
@@ -184,7 +191,8 @@ export component DrawArea {
 
     callback select-at(/* x */ length, /* y */ length, /* enter_component? */ bool);
     callback select-behind(/* x */ length, /* y */ length, /* enter_component? */ bool, /* reverse */ bool);
-    callback show-document(/* url */ string, /* line */ int, /* column */ int);
+    callback show-document(/* file */ string, /* line */ int, /* column */ int);
+    callback show-component(/* name */ string, /* file */ string);
     callback reselect();
     // Reselect element e.g. after changing the window size (which may move the element)
     callback unselect();
@@ -197,7 +205,7 @@ export component DrawArea {
     preferred-width: max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border;
 
     scroll-view := ScrollView {
-        out property <length> border: 60px;
+        out property <length> border: (component-label.height + component-label.offset * 1.5) * 2;
 
         viewport-width: drawing-rect.width;
         viewport-height: drawing-rect.height;
@@ -245,7 +253,7 @@ export component DrawArea {
                 // is called every time the condition is dirty, to make sure that the size
                 // is within the bounds.
                 // Query the preview-area to make sure this is evaluated when it changes
-                if preview-area-container.has-component && root.preview-area == preview-area-container.component-factory: Rectangle {
+                if preview-area-container.has-component && root.preview-area.factory == preview-area-container.component-factory: Rectangle {
                     init => {
                         preview-area-container.width = clamp(preview-area-container.width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
                         preview-area-container.height = clamp(preview-area-container.height, max(preview-area-container.min-height, 16px),  max(preview-area-container.max-height, 16px));
@@ -255,7 +263,7 @@ export component DrawArea {
                 preview-area-container := ComponentContainer {
                     property <bool> is-resizable: (self.min-width != self.max-width && self.min-height != self.max-height) && self.has-component;
 
-                    component-factory <=> root.preview-area;
+                    component-factory: root.preview-area.factory;
 
                     // The width and the height can't depend on the layout info of the inner item otherwise this would
                     // cause a recursion if this happens (#3989)
@@ -322,6 +330,44 @@ export component DrawArea {
 
                         select-behind(x, y, c, f) => {
                             root.select-behind(x, y, c, f);
+                        }
+                    }
+                }
+
+                component-label := Rectangle {
+                    property <length> offset: 10px;
+                    width: self.min-width;
+                    height: self.min-height;
+                    x: preview-area-container.x;
+                    y: preview-area-container.y - self.offset - self.height;
+                    
+                    border-radius: 4px;
+                    background: Palette.accent-background;
+                    
+                    VerticalLayout {
+                        padding: 8px;
+                        spacing: 4px;
+
+                        Text {
+                            font-size: 1.2rem;
+                            font-weight: 700;
+                            horizontal-alignment: left;
+                            text: root.preview-area.name;
+                            width: 100%;
+                        }
+                        HorizontalLayout {
+                            alignment: start;
+                            TouchArea {
+                                mouse-cursor: MouseCursor.pointer;
+                                Text {
+                                    font-size: 0.8rem;
+                                    horizontal-alignment: left;
+                                    text: root.preview-area.pretty-location;
+                                }
+                                clicked() => {
+                                    root.show-component(root.preview-area.name, root.preview-area.file);
+                                }
+                            }
                         }
                     }
                 }

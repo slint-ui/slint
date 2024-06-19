@@ -197,6 +197,30 @@ fn add_new_component() {
     }
 }
 
+/// Find the identifier that belongs to a component of the given `name` in the `document`
+fn find_component_identifier(
+    document: &syntax_nodes::Document,
+    name: &str,
+) -> Option<syntax_nodes::DeclaredIdentifier> {
+    for el in document.ExportsList() {
+        if let Some(component) = el.Component() {
+            let identifier = component.DeclaredIdentifier();
+            if identifier.text() == name {
+                return Some(identifier);
+            }
+        }
+    }
+
+    for component in document.Component() {
+        let identifier = component.DeclaredIdentifier();
+        if identifier.text() == name {
+            return Some(identifier);
+        }
+    }
+
+    None
+}
+
 // triggered from the UI, running in UI thread
 fn rename_component(
     old_name: slint::SharedString,
@@ -219,30 +243,7 @@ fn rename_component(
         return;
     };
 
-    fn find_identifier(
-        document: &syntax_nodes::Document,
-        name: &str,
-    ) -> Option<syntax_nodes::DeclaredIdentifier> {
-        for el in document.ExportsList() {
-            if let Some(component) = el.Component() {
-                let identifier = component.DeclaredIdentifier();
-                if identifier.text() == name {
-                    return Some(identifier);
-                }
-            }
-        }
-
-        for component in document.Component() {
-            let identifier = component.DeclaredIdentifier();
-            if identifier.text() == name {
-                return Some(identifier);
-            }
-        }
-
-        None
-    }
-
-    let Some(identifier) = find_identifier(document, &old_name) else {
+    let Some(identifier) = find_component_identifier(document, &old_name) else {
         return;
     };
 
@@ -270,6 +271,29 @@ fn rename_component(
             edit,
         });
     }
+}
+
+// triggered from the UI, running in UI thread
+fn show_component(name: slint::SharedString, file: slint::SharedString) {
+    let name = name.to_string();
+    let file = PathBuf::from(file.to_string());
+
+    let Some(document_cache) = document_cache() else {
+        return;
+    };
+    let Some(document) = document_cache.get_document_by_path(&file) else {
+        return;
+    };
+    let Some(document) = document.node.as_ref() else {
+        return;
+    };
+
+    let Some(identifier) = find_component_identifier(document, &name) else {
+        return;
+    };
+
+    let start = util::map_position(&identifier.source_file, identifier.text_range().start());
+    ask_editor_to_show_document(&file.to_string_lossy(), lsp_types::Range::new(start, start))
 }
 
 // triggered from the UI, running in UI thread
@@ -830,7 +854,26 @@ fn set_preview_factory(
 
         Some(instance)
     });
-    ui.set_preview_area(factory);
+    let (name, file, pretty_location) = {
+        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        if let Some(current) = &cache.current {
+            let file = current.url.to_file_path().unwrap_or_default();
+            (
+                current.component.as_ref().cloned().unwrap_or_else(|| "Default".to_string()),
+                file.to_string_lossy().to_string(),
+                file.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            )
+        } else {
+            (String::new(), String::new(), String::new())
+        }
+    };
+
+    ui.set_preview_area(ui::Preview {
+        factory: factory,
+        name: name.into(),
+        pretty_location: pretty_location.into(),
+        file: file.into(),
+    });
 }
 
 /// Highlight the element pointed at the offset in the path.
@@ -1061,7 +1104,7 @@ fn set_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) {
 
 /// This runs `set_preview_factory` in the UI thread
 fn update_preview_area(compiled: Option<ComponentDefinition>) {
-    PREVIEW_STATE.with(|preview_state| {
+    PREVIEW_STATE.with(move |preview_state| {
         #[allow(unused_mut)]
         let mut preview_state = preview_state.borrow_mut();
 
