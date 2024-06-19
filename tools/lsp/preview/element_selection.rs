@@ -260,7 +260,7 @@ fn select_element_at_impl(
 ) -> Option<common::ElementRcNode> {
     let root_node = common::ElementRcNode::new(root_element(component_instance), 0)?;
     // The main node is the first non-ignored node below the root
-    // This is to find the first "real" eleemnt in the preview, ignoring the
+    // This is to find the first "real" element in the preview, ignoring the
     // synthetic nodes we added on top to make the preview work.
     let main_node = find_main_node(&root_node);
     for sc in &collect_all_element_nodes_covering(position, component_instance) {

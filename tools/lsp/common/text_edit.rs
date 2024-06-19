@@ -169,7 +169,7 @@ pub struct TextEditor {
 impl TextEditor {
     pub fn new(source_file: i_slint_compiler::diagnostics::SourceFile) -> crate::Result<Self> {
         let Some(contents) = source_file.source().map(|s| s.to_string()) else {
-            return Err(format!("Soure file {:?} had no contents set", source_file.path()).into());
+            return Err(format!("Source file {:?} had no contents set", source_file.path()).into());
         };
         Ok(Self {
             source_file,
@@ -198,7 +198,7 @@ impl TextEditor {
         );
 
         if self.contents.len() < adjusted_offset.1 {
-            return Err("Text edit renage is out of bounds".into());
+            return Err("Text edit range is out of bounds".into());
         }
 
         // Book keeping:
@@ -287,7 +287,7 @@ fn test_text_offset_adjustments() {
     });
     // insert
     a.add_adjustment(TextOffsetAdjustment { start_offset: 25, end_offset: 25, new_text_length: 1 });
-    // smaller replacment
+    // smaller replacement
     a.add_adjustment(TextOffsetAdjustment { start_offset: 30, end_offset: 40, new_text_length: 5 });
     // longer replacement
     a.add_adjustment(TextOffsetAdjustment {
@@ -319,7 +319,7 @@ fn test_text_offset_adjustments_reverse() {
         end_offset: 60,
         new_text_length: 20,
     });
-    // smaller replacment
+    // smaller replacement
     a.add_adjustment(TextOffsetAdjustment { start_offset: 30, end_offset: 40, new_text_length: 5 });
     // insert
     a.add_adjustment(TextOffsetAdjustment { start_offset: 25, end_offset: 25, new_text_length: 1 });
