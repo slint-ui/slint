@@ -189,42 +189,43 @@ jobs:
                   name: vscode-lsp-binary-darwin
                   path: .
 
-    build_vscode_cross_linux_lsp:
-        env:
-            SLINT_NO_QT: 1
-        strategy:
-            matrix:
-                target:
-                    - armv7-unknown-linux-gnueabihf
-                    - aarch64-unknown-linux-gnu
-        runs-on: ubuntu-20.04
-        steps:
-            - uses: actions/checkout@v4
-            - uses: ./.github/actions/setup-rust
-              with:
-                  target: ${{ matrix.target }}
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: cross
-            - name: Build LSP
-              run: cross build --target ${{ matrix.target }} --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
-            - name: Create artifact directory
-              run: |
-                  mkdir bin
-                  cp target/${{ matrix.target }}/release/slint-lsp bin/slint-lsp-${{ matrix.target }}
-            - name: "Upload LSP Artifact"
-              uses: actions/upload-artifact@v4
-              with:
-                  name: vscode-lsp-binary-${{ matrix.target }}
-                  path: |
-                      bin
+# Disabled until https://github.com/rust-windowing/winit/commit/d8ffd4bb26d7039be6e817d904753625de5af4fd is released
+#    build_vscode_cross_linux_lsp:
+#        env:
+#            SLINT_NO_QT: 1
+#        strategy:
+#            matrix:
+#                target:
+#                    - armv7-unknown-linux-gnueabihf
+#                    - aarch64-unknown-linux-gnu
+#        runs-on: ubuntu-20.04
+#        steps:
+#            - uses: actions/checkout@v4
+#            - uses: ./.github/actions/setup-rust
+#              with:
+#                  target: ${{ matrix.target }}
+#            - uses: baptiste0928/cargo-install@v3
+#              with:
+#                  crate: cross
+#            - name: Build LSP
+#              run: cross build --target ${{ matrix.target }} --features ${{ env.SLINT_BINARY_FEATURES }} --release -p slint-lsp
+#            - name: Create artifact directory
+#              run: |
+#                  mkdir bin
+#                  cp target/${{ matrix.target }}/release/slint-lsp bin/slint-lsp-${{ matrix.target }}
+#            - name: "Upload LSP Artifact"
+#              uses: actions/upload-artifact@v4
+#              with:
+#                  name: vscode-lsp-binary-${{ matrix.target }}
+#                  path: |
+#                      bin
 
     build_vscode_extension:
         needs:
             [
                 build_vscode_lsp_linux_windows,
                 build_vscode_lsp_macos_bundle,
-                build_vscode_cross_linux_lsp,
+#                build_vscode_cross_linux_lsp,
                 check-for-secrets,
             ]
         runs-on: macos-12
@@ -243,14 +244,14 @@ jobs:
               with:
                   name: vscode-lsp-binary-darwin
                   path: editors/vscode/bin
-            - uses: actions/download-artifact@v4
-              with:
-                  name: vscode-lsp-binary-armv7-unknown-linux-gnueabihf
-                  path: editors/vscode/bin
-            - uses: actions/download-artifact@v4
-              with:
-                  name: vscode-lsp-binary-aarch64-unknown-linux-gnu
-                  path: editors/vscode/bin
+#            - uses: actions/download-artifact@v4
+#              with:
+#                  name: vscode-lsp-binary-armv7-unknown-linux-gnueabihf
+#                  path: editors/vscode/bin
+#            - uses: actions/download-artifact@v4
+#              with:
+#                  name: vscode-lsp-binary-aarch64-unknown-linux-gnu
+#                  path: editors/vscode/bin
             - name: Fix permissions
               run: chmod 755 editors/vscode/bin/* editors/vscode/bin/*.app/Contents/MacOS/*
             - uses: ./.github/actions/install-nodejs
@@ -581,37 +582,38 @@ jobs:
         with:
           latest: true
 
-    qa-yocto-build:
-        strategy:
-            matrix:
-                include:
-                    - sdk_url: https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
-                      env_setup: environment-setup-cortexa57-poky-linux
-                      target: aarch64-unknown-linux-gnu
-                    - sdk_url: https://nextcloud.slint.dev/s/BTL5NtLACjgS7Pf/download/poky-glibc-x86_64-core-image-weston-cortexa15t2hf-neon-qemuarm-toolchain-4.0.9.sh
-                      env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
-                      target: armv7-unknown-linux-gnueabihf
-        runs-on: ubuntu-22.04
-        steps:
-            - uses: actions/checkout@v4
-            - name: Fetch Yocto SDK
-              run: |
-                  # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
-                  wget -O sdk.sh ${{ matrix.sdk_url }}
-                  chmod +x sdk.sh
-                  ./sdk.sh -d ${{ runner.workspace }}/yocto-sdk -y
-                  rm -f sdk.sh
-            - name: Install Rust
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  toolchain: stable
-                  target: ${{ matrix.target }}
-            - name: C++ Build
-              run: |
-                  . ${{ runner.workspace }}/yocto-sdk/${{ matrix.env_setup }}
-                  # Only needed for 32-bit arm builds where soft-fp/hard-fp affects header file lookup, hence the need to drag in these flags. See also commit
-                  # f5c3908b7ec5131b7b19ff642b5975660c7484f8
-                  export BINDGEN_EXTRA_CLANG_ARGS=$OECORE_TUNE_CCARGS
-                  mkdir ${{ runner.workspace }}/cppbuild
-                  cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
-                  cmake --build ${{ runner.workspace }}/cppbuild          
+# Disabled until https://github.com/rust-windowing/winit/commit/d8ffd4bb26d7039be6e817d904753625de5af4fd is released
+#    qa-yocto-build:
+#        strategy:
+#            matrix:
+#                include:
+#                    - sdk_url: https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
+#                      env_setup: environment-setup-cortexa57-poky-linux
+#                      target: aarch64-unknown-linux-gnu
+#                    - sdk_url: https://nextcloud.slint.dev/s/BTL5NtLACjgS7Pf/download/poky-glibc-x86_64-core-image-weston-cortexa15t2hf-neon-qemuarm-toolchain-4.0.9.sh
+#                      env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
+#                      target: armv7-unknown-linux-gnueabihf
+#        runs-on: ubuntu-22.04
+#        steps:
+#            - uses: actions/checkout@v4
+#            - name: Fetch Yocto SDK
+#              run: |
+#                  # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
+#                  wget -O sdk.sh ${{ matrix.sdk_url }}
+#                  chmod +x sdk.sh
+#                  ./sdk.sh -d ${{ runner.workspace }}/yocto-sdk -y
+#                  rm -f sdk.sh
+#            - name: Install Rust
+#              uses: dtolnay/rust-toolchain@stable
+#              with:
+#                  toolchain: stable
+#                  target: ${{ matrix.target }}
+#            - name: C++ Build
+#              run: |
+#                  . ${{ runner.workspace }}/yocto-sdk/${{ matrix.env_setup }}
+#                  # Only needed for 32-bit arm builds where soft-fp/hard-fp affects header file lookup, hence the need to drag in these flags. See also commit
+#                  # f5c3908b7ec5131b7b19ff642b5975660c7484f8
+#                  export BINDGEN_EXTRA_CLANG_ARGS=$OECORE_TUNE_CCARGS
+#                  mkdir ${{ runner.workspace }}/cppbuild
+#                  cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
+#                  cmake --build ${{ runner.workspace }}/cppbuild          
