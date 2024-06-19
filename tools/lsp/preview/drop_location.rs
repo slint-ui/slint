@@ -22,7 +22,7 @@ use crate::wasm_prelude::*;
 pub fn placeholder() -> String {
     format!(
         " Rectangle {{ min-width: 16px; min-height: 16px; /* {} */ }}",
-        preview::NODE_IGNORE_COMMENT
+        common::NODE_IGNORE_COMMENT
     )
 }
 
@@ -593,7 +593,7 @@ fn drop_target_element_nodes(
             continue;
         };
 
-        if en.with_element_node(preview::is_element_node_ignored) {
+        if en.with_element_node(common::is_element_node_ignored) {
             continue;
         }
 
@@ -713,7 +713,7 @@ fn find_filtered_location(
         let children_geometries: Vec<_> = drop_target_node
             .children()
             .iter()
-            .filter(|c| !c.with_element_node(preview::is_element_node_ignored))
+            .filter(|c| !c.with_element_node(common::is_element_node_ignored))
             .filter_map(|c| c.geometry_in(component_instance, &geometry).map(|g| ((mark)(c), g)))
             .collect();
 
@@ -897,7 +897,7 @@ fn drop_ignored_elements_from_node(
         node.children()
             .filter_map(|c| {
                 let e = common::extract_element(c.clone())?;
-                if preview::is_element_node_ignored(&e) {
+                if common::is_element_node_ignored(&e) {
                     pretty_node_removal_range(&e)
                         .map(|range| util::map_range(source_file, range))
                         .map(|range| lsp_types::TextEdit::new(range, String::new()))
