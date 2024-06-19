@@ -28,6 +28,20 @@ pub type UrlVersion = Option<i32>;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
+/// Use this in nodes you want the language server and preview to
+/// ignore a node for code analysis purposes.
+pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
+
+/// Check whether a node is marked to be ignored in the LSP/live preview
+/// using a comment containing `@lsp:ignore-node`
+pub fn is_element_node_ignored(node: &syntax_nodes::Element) -> bool {
+    node.children_with_tokens().any(|nt| {
+        nt.as_token()
+            .map(|t| t.kind() == SyntaxKind::Comment && t.text().contains(NODE_IGNORE_COMMENT))
+            .unwrap_or(false)
+    })
+}
+
 pub fn uri_to_file(uri: &Url) -> Option<PathBuf> {
     if uri.scheme() == "builtin" {
         Some(PathBuf::from(uri.to_string()))

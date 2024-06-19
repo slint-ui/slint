@@ -7,7 +7,7 @@ use i_slint_compiler::object_tree::{Component, ElementRc};
 use i_slint_core::lengths::LogicalPoint;
 use slint_interpreter::ComponentInstance;
 
-use crate::{common, preview};
+use crate::common;
 
 use super::{ext::ElementRcNodeExt, ui};
 
@@ -306,7 +306,7 @@ fn filter_nodes_for_selection(
 ) -> Option<common::ElementRcNode> {
     let en = selection_candidate.as_element_node()?;
 
-    if en.with_element_node(preview::is_element_node_ignored) {
+    if en.with_element_node(common::is_element_node_ignored) {
         return None;
     }
 
