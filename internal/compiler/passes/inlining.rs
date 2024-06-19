@@ -381,7 +381,6 @@ fn duplicate_sub_component(
                 })
                 .collect(),
         ),
-        embedded_file_resources: component_to_duplicate.embedded_file_resources.clone(),
         root_constraints: component_to_duplicate.root_constraints.clone(),
         child_insertion_point: component_to_duplicate.child_insertion_point.clone(),
         init_code: component_to_duplicate.init_code.clone(),

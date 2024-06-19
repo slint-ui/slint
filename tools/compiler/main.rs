@@ -136,7 +136,7 @@ fn main() -> std::io::Result<()> {
                 write!(f, " {}", x.display())?;
             }
         }
-        for resource in doc.root_component.embedded_file_resources.borrow().keys() {
+        for resource in doc.embedded_file_resources.borrow().keys() {
             if !fileaccess::load_file(std::path::Path::new(resource))
                 .map_or(false, |f| f.is_builtin())
             {

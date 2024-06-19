@@ -22,7 +22,7 @@ struct Font {
 
 #[cfg(target_arch = "wasm32")]
 pub fn embed_glyphs<'a>(
-    _component: &Rc<Component>,
+    _component: &Document,
     _scale_factor: f64,
     _pixel_sizes: Vec<i16>,
     _characters_seen: HashSet<char>,
@@ -34,7 +34,7 @@ pub fn embed_glyphs<'a>(
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn embed_glyphs<'a>(
-    component: &Rc<Component>,
+    doc: &Document,
     scale_factor: f64,
     mut pixel_sizes: Vec<i16>,
     mut characters_seen: HashSet<char>,
@@ -43,7 +43,7 @@ pub fn embed_glyphs<'a>(
 ) {
     use crate::diagnostics::Spanned;
 
-    let generic_diag_location = component.root_element.borrow().to_source_location();
+    let generic_diag_location = doc.root_component.root_element.borrow().to_source_location();
 
     characters_seen.extend(
         ('a'..='z')
@@ -83,7 +83,7 @@ pub fn embed_glyphs<'a>(
 
         embed_glyphs_with_fontdb(
             &mut fontdb,
-            component,
+            doc,
             pixel_sizes,
             characters_seen,
             all_docs,
@@ -95,7 +95,7 @@ pub fn embed_glyphs<'a>(
 
 fn embed_glyphs_with_fontdb<'a>(
     fontdb: &mut sharedfontdb::FontDatabase,
-    component: &Rc<Component>,
+    doc: &Document,
     pixel_sizes: Vec<i16>,
     characters_seen: HashSet<char>,
     all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
@@ -121,7 +121,8 @@ fn embed_glyphs_with_fontdb<'a>(
     let default_font_ids = if !fontdb.default_font_family_ids.is_empty() {
         fontdb.default_font_family_ids.clone()
     } else {
-        let (family, source_location) = component
+        let (family, source_location) = doc
+            .root_component
             .root_element
             .borrow()
             .bindings
@@ -255,8 +256,8 @@ fn embed_glyphs_with_fontdb<'a>(
             return;
         };
 
-        let resource_id = component.embedded_file_resources.borrow().len();
-        component.embedded_file_resources.borrow_mut().insert(
+        let resource_id = doc.embedded_file_resources.borrow().len();
+        doc.embedded_file_resources.borrow_mut().insert(
             path.to_string_lossy().to_string(),
             crate::embedded_resources::EmbeddedResources {
                 id: resource_id,
@@ -264,14 +265,16 @@ fn embed_glyphs_with_fontdb<'a>(
             },
         );
 
-        component.init_code.borrow_mut().font_registration_code.push(Expression::FunctionCall {
-            function: Box::new(Expression::BuiltinFunctionReference(
-                BuiltinFunction::RegisterBitmapFont,
-                None,
-            )),
-            arguments: vec![Expression::NumberLiteral(resource_id as _, Unit::None)],
-            source_location: None,
-        });
+        doc.root_component.init_code.borrow_mut().font_registration_code.push(
+            Expression::FunctionCall {
+                function: Box::new(Expression::BuiltinFunctionReference(
+                    BuiltinFunction::RegisterBitmapFont,
+                    None,
+                )),
+                arguments: vec![Expression::NumberLiteral(resource_id as _, Unit::None)],
+                source_location: None,
+            },
+        );
     };
 
     // Make sure to embed the default font first, because that becomes the default at run-time.

@@ -411,7 +411,7 @@ pub fn compile_with_config(
     write!(code_formatter, "{}", generated).map_err(CompileError::SaveError)?;
     println!("cargo:rerun-if-changed={}", path.display());
 
-    for resource in doc.root_component.embedded_file_resources.borrow().keys() {
+    for resource in doc.embedded_file_resources.borrow().keys() {
         if !resource.starts_with("builtin:") {
             println!("cargo:rerun-if-changed={}", resource);
         }

@@ -546,7 +546,7 @@ pub fn generate(
     file.includes.push("<limits>".into());
     file.includes.push("<slint.h>".into());
 
-    for (path, er) in doc.root_component.embedded_file_resources.borrow().iter() {
+    for (path, er) in doc.embedded_file_resources.borrow().iter() {
         match &er.kind {
             crate::embedded_resources::EmbeddedResourcesKind::RawData => {
                 let resource_file =
