@@ -37,6 +37,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     ui.on_add_new_component(super::add_new_component);
     ui.on_rename_component(super::rename_component);
     ui.on_style_changed(super::change_style);
+    ui.on_show_component(super::show_component);
     ui.on_show_document(|file, line, column| {
         use lsp_types::{Position, Range};
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));

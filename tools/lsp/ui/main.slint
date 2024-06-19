@@ -5,7 +5,7 @@
 
 import { Button, ComboBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
 import { ComponentList, ComponentListItem } from "component-list.slint";
-import { DrawArea, DrawAreaMode, DropMark, LayoutKind, Selection } from "draw-area.slint";
+import { DrawArea, DrawAreaMode, DropMark, LayoutKind, Preview, Selection } from "draw-area.slint";
 import { HeaderBar } from "header-bar.slint";
 import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
 
@@ -19,7 +19,7 @@ export component PreviewUi inherits Window {
     in property <[string]> known-styles;
     in property <bool> experimental: false;
     in property <bool> show-preview-ui: true;
-    in property <component-factory> preview-area;
+    in property <Preview> preview-area;
     in property <string> status-text;
     in-out property <string> current-style;
     out property <bool> design-mode;
@@ -35,7 +35,10 @@ export component PreviewUi inherits Window {
     callback selected-element-delete();
     callback selected-element-move(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
     callback selected-element-resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
-    callback show-document(/* url */ string, /* line */ int, /* column */ int);
+    // Show the component `name` found in `file` in the editor
+    callback show-component(/* name */ string, /* file */ string);
+    // Show a position consisiting of `line` and `column` in a `file` in the editor
+    callback show-document(/* file */ string, /* line */ int, /* column */ int);
     callback style-changed();
     callback unselect();
 
@@ -49,7 +52,7 @@ export component PreviewUi inherits Window {
         if (!show-preview-ui): no-ui-drawing-rect := Rectangle {
             VerticalLayout {
                 ComponentContainer {
-                    component-factory <=> root.preview-area;
+                    component-factory: root.preview-area.factory;
                 }
             }
 
@@ -157,6 +160,9 @@ export component PreviewUi inherits Window {
                         }
                         select-behind(x, y, stay_in_file, reverse) => {
                             root.select-behind(x, y, stay_in_file, reverse);
+                        }
+                        show-component(name, file) => {
+                            root.show-component(name, file);
                         }
                         show-document(url, line, column) => {
                             root.show-document(url, line, column);

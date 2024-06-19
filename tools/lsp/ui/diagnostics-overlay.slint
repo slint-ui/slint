@@ -17,7 +17,7 @@ export component DiagnosticsOverlay {
     in property <[Diagnostics]> diagnostics;
     out property <bool> diagnostics-open: diagnostics.length != 0;
 
-    callback show-document(/* url */ string, /* line */ int, /* column */ int);
+    callback show-document(/* file */ string, /* line */ int, /* column */ int);
 
     if (root.diagnostics-open): Rectangle {
         background: #fff;
