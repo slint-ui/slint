@@ -711,7 +711,7 @@ impl ItemRc {
 
         let mut actual_visitor = |item_tree: &ItemTreeRc,
                                   index: u32,
-                                  _item_pin: std::pin::Pin<ItemRef>|
+                                  _item_pin: core::pin::Pin<ItemRef>|
          -> VisitChildrenResult {
             let item_rc = ItemRc::new(item_tree.clone(), index);
 
@@ -746,7 +746,7 @@ impl ItemRc {
 
         let mut actual_visitor = |item_tree: &ItemTreeRc,
                                   index: u32,
-                                  _item_pin: std::pin::Pin<ItemRef>|
+                                  _item_pin: core::pin::Pin<ItemRef>|
          -> VisitChildrenResult {
             let item_rc = ItemRc::new(item_tree.clone(), index);
 
