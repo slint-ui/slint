@@ -8,7 +8,6 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use i_slint_core::api::{LogicalPosition, PhysicalSize as PhysicalWindowSize};
-use i_slint_core::graphics::SharedImageBuffer;
 use i_slint_core::graphics::{euclid, Image};
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::lengths::LogicalRect;

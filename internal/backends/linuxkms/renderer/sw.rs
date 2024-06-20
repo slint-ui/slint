@@ -4,7 +4,6 @@
 //! Delegate the rendering to the [`i_slint_core::software_renderer::SoftwareRenderer`]
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
-use i_slint_core::graphics::SharedImageBuffer;
 use i_slint_core::platform::PlatformError;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
@@ -17,7 +16,6 @@ pub struct SoftwareRendererAdapter {
     renderer: SoftwareRenderer,
     display: Rc<crate::display::swdisplay::SoftwareBufferDisplay>,
     size: PhysicalWindowSize,
-    force_next_frame_new_buffer: Cell<bool>,
 }
 
 #[repr(transparent)]
@@ -75,12 +73,7 @@ impl SoftwareRendererAdapter {
         let (width, height) = display.drm_output.size();
         let size = i_slint_core::api::PhysicalSize::new(width, height);
 
-        let renderer = Box::new(Self {
-            renderer: SoftwareRenderer::new(),
-            display,
-            size,
-            force_next_frame_new_buffer: Default::default(),
-        });
+        let renderer = Box::new(Self { renderer: SoftwareRenderer::new(), display, size });
 
         eprintln!("Using Software renderer");
 
@@ -104,14 +97,10 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
         ready_for_next_animation_frame: Box<dyn FnOnce()>,
     ) -> Result<(), PlatformError> {
         self.display.map_back_buffer(&mut |mut pixels, age| {
-            self.renderer.set_repaint_buffer_type(if self.force_next_frame_new_buffer.take() {
-                RepaintBufferType::NewBuffer
-            } else {
-                match age {
-                    1 => RepaintBufferType::ReusedBuffer,
-                    2 => RepaintBufferType::SwappedBuffers,
-                    _ => RepaintBufferType::NewBuffer,
-                }
+            self.renderer.set_repaint_buffer_type(match age {
+                1 => RepaintBufferType::ReusedBuffer,
+                2 => RepaintBufferType::SwappedBuffers,
+                _ => RepaintBufferType::NewBuffer,
             });
 
             self.renderer.set_rendering_rotation(match rotation {

@@ -9,7 +9,6 @@ use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
-use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -20,7 +19,6 @@ pub struct WinitSoftwareRenderer {
     _context: softbuffer::Context<Rc<winit::window::Window>>,
     surface: RefCell<softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>>,
     winit_window: Rc<winit::window::Window>,
-    force_next_frame_new_buffer: Cell<bool>,
 }
 
 #[repr(transparent)]
@@ -93,7 +91,6 @@ impl WinitSoftwareRenderer {
                 _context: context,
                 surface: RefCell::new(surface),
                 winit_window: winit_window.clone(),
-                force_next_frame_new_buffer: Default::default(),
             }),
             winit_window,
         ))
@@ -120,14 +117,10 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             .buffer_mut()
             .map_err(|e| format!("Error retrieving softbuffer rendering buffer: {e}"))?;
 
-        self.renderer.set_repaint_buffer_type(if self.force_next_frame_new_buffer.take() {
-            RepaintBufferType::NewBuffer
-        } else {
-            match target_buffer.age() {
-                1 => RepaintBufferType::ReusedBuffer,
-                2 => RepaintBufferType::SwappedBuffers,
-                _ => RepaintBufferType::NewBuffer,
-            }
+        self.renderer.set_repaint_buffer_type(match target_buffer.age() {
+            1 => RepaintBufferType::ReusedBuffer,
+            2 => RepaintBufferType::SwappedBuffers,
+            _ => RepaintBufferType::NewBuffer,
         });
 
         let region = if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
