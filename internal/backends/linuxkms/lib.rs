@@ -38,6 +38,7 @@ mod renderer {
     pub fn try_skia_then_femtovg_then_software(
         _device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn FullscreenRenderer>, PlatformError> {
+        #[allow(unused)]
         type FactoryFn =
             fn(&crate::DeviceOpener) -> Result<Box<(dyn FullscreenRenderer)>, PlatformError>;
 

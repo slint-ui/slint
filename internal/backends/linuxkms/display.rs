@@ -4,6 +4,7 @@
 use i_slint_core::api::PhysicalSize;
 use i_slint_core::platform::PlatformError;
 
+#[allow(unused)]
 pub trait Presenter {
     fn is_ready_to_present(&self) -> bool;
     fn register_page_flip_handler(
