@@ -31,6 +31,7 @@ export component ComponentList {
     callback drop(string/* component_type */, length/* x */, length/* y */);
     callback add_new_component();
     callback rename_component(string/* old_name */, string/* defined_at */, string/* new_name */);
+    callback show_preview_for(string/* name */, string/*url*/);
 
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
     private property <int> editing-in-category: -1;
@@ -101,6 +102,17 @@ export component ComponentList {
 
                                 height: t.preferred-height + 2 * root.list-spacing;
                                 width: 100%;
+                            }
+                        }
+
+                        if ci.is_user_defined && !ci.is-currently-shown: preview-button := Button {
+                            x: parent.x + parent.width - self.width - 4px;
+                            text: "P";
+                            width: self.min-width;
+                            height: self.min-height;
+
+                            clicked() => {
+                                root.show_preview_for(component.data.name, component.data.defined_at)
                             }
                         }
 

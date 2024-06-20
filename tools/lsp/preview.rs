@@ -297,6 +297,18 @@ fn show_component(name: slint::SharedString, file: slint::SharedString) {
 }
 
 // triggered from the UI, running in UI thread
+fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
+    let name = name.to_string();
+    let Ok(url) = Url::parse(&url.to_string()) else {
+        return;
+    };
+
+    let current = PreviewComponent { url, component: Some(name), style: String::new() };
+
+    load_preview(current);
+}
+
+// triggered from the UI, running in UI thread
 fn can_drop_component(
     component_type: slint::SharedString,
     x: f32,
