@@ -1057,7 +1057,7 @@ impl ComponentInstance {
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
     /// use core::convert::TryInto;
     /// let code = r#"
-    ///     component MyWin inherits Window {
+    ///     export component MyWin inherits Window {
     ///         callback foo(int) -> int;
     ///         in-out property <int> my_prop: 12;
     ///     }
@@ -1116,7 +1116,7 @@ impl ComponentInstance {
     ///         in-out property <int> my_property: 42;
     ///     }
     ///     export { Glob as TheGlobal }
-    ///     component MyWin inherits Window {
+    ///     export component MyWin inherits Window {
     ///     }
     /// "#;
     /// let mut compiler = ComponentCompiler::default();
@@ -1171,7 +1171,7 @@ impl ComponentInstance {
     ///     export global Logic {
     ///         pure callback to_uppercase(string) -> string;
     ///     }
-    ///     component MyWin inherits Window {
+    ///     export component MyWin inherits Window {
     ///         out property <string> hello: Logic.to_uppercase("world");
     ///     }
     /// "#;
@@ -1666,7 +1666,7 @@ fn call_functions() {
             return a-a + b-b;
         }
     }
-    export Test := Rectangle {
+    export component Test {
         out property<int> p;
         public function foo-bar(a: int, b:int) -> int {
             p = a;
@@ -1713,8 +1713,8 @@ fn component_definition_struct_properties() {
     export struct Settings {
         string_value: string,
     }
-    export Dummy := Rectangle {
-        property <Settings> test;
+    export component Dummy {
+        in-out property <Settings> test;
     }"#
             .into(),
             "".into(),
@@ -1759,7 +1759,7 @@ fn component_definition_model_properties() {
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(compiler.build_from_source(
-        "export Dummy := Rectangle { property <[int]> prop: [42, 12]; }".into(),
+        "export component Dummy { in-out property <[int]> prop: [42, 12]; }".into(),
         "".into(),
     ))
     .unwrap();

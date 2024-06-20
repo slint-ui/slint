@@ -10,7 +10,7 @@ export struct TodoItem  {
     checked: bool,
 }
 
-component MainWindow inherits Window {
+export component MainWindow inherits Window {
     in property <[TodoItem]> todo-model: [
         { title: "Implement the .slint file", checked: true },
         { title: "Do the Rust part", checked: false },
