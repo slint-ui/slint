@@ -13,8 +13,7 @@ use i_slint_core::api::{
 };
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
-use i_slint_core::graphics::{BorderRadius, SharedImageBuffer};
-use i_slint_core::graphics::{FontRequest, SharedPixelBuffer};
+use i_slint_core::graphics::{BorderRadius, FontRequest, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
