@@ -22,6 +22,8 @@ export component PreviewUi inherits Window {
     in property <Preview> preview-area;
     in property <string> status-text;
     in-out property <string> current-style;
+    in property <bool> can-navigate-back: false;
+    in property <bool> can-navigate-forward: false;
     out property <bool> design-mode;
 
     callback add_new_component();
@@ -37,11 +39,13 @@ export component PreviewUi inherits Window {
     callback selected-element-resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
     // Show the component `name` found in `file` in the editor
     callback show-component(/* name */ string, /* file */ string);
-    // Show a position consisiting of `line` and `column` in a `file` in the editor
+    // Show a position consisting of `line` and `column` in a `file` in the editor
     callback show-document(/* file */ string, /* line */ int, /* column */ int);
     callback show_preview_for(string/* name */, string/*url*/);
     callback style-changed();
     callback unselect();
+
+    callback navigate(int);
 
     property <length> border: 20px;
     property <length> side-bar-width: 200px;
@@ -95,6 +99,21 @@ export component PreviewUi inherits Window {
                             root.style-changed();
                         }
                     }
+
+                    Rectangle { width: 10px; }
+
+                    prev-button := Button {
+                        text: "<";
+                        enabled: root.can-navigate-back;
+                        clicked() => { root.navigate(-1); }
+                    }
+                    next-button := Button {
+                        text: ">";
+                        enabled: root.can-navigate-forward;
+                        clicked() => { root.navigate(1); }
+                    }
+
+                    Rectangle { width: 10px; }
 
                     Text {
                         text: root.status-text;

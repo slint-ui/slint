@@ -509,7 +509,7 @@ pub struct PreviewConfig {
 
 /// The Component to preview
 #[allow(unused)]
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct PreviewComponent {
     /// The file name to preview
     pub url: Url,

@@ -59,7 +59,8 @@ type SourceCodeCache = HashMap<Url, (common::UrlVersion, String)>;
 struct ContentCache {
     source_code: SourceCodeCache,
     dependency: HashSet<Url>,
-    current: Option<PreviewComponent>,
+    previewed_components_stack: Vec<PreviewComponent>,
+    currently_previewed_component: usize,
     config: PreviewConfig,
     loading_state: PreviewFutureState,
     highlight: Option<(Url, u32)>,
@@ -67,6 +68,54 @@ struct ContentCache {
 }
 
 static CONTENT_CACHE: std::sync::OnceLock<Mutex<ContentCache>> = std::sync::OnceLock::new();
+
+impl ContentCache {
+    pub fn current_component(&self) -> Option<PreviewComponent> {
+        self.previewed_components_stack.get(self.currently_previewed_component).cloned()
+    }
+
+    pub fn push_component(&mut self, component: PreviewComponent) {
+        if self.currently_previewed_component
+            < self.previewed_components_stack.len().saturating_sub(1)
+        {
+            self.previewed_components_stack.drain(self.currently_previewed_component + 1..);
+        }
+        self.previewed_components_stack.retain(|pc| pc != &component);
+        self.previewed_components_stack.push(component);
+        self.currently_previewed_component = self.previewed_components_stack.len() - 1;
+    }
+
+    pub fn clear_style_of_component(&mut self) {
+        if let Some(pc) =
+            self.previewed_components_stack.get_mut(self.currently_previewed_component)
+        {
+            pc.style = String::new();
+        }
+    }
+
+    pub fn navigate_component_history(&mut self, offset: i32) {
+        let index = i64::try_from(self.currently_previewed_component).unwrap_or(i64::MAX);
+        let index = (index + i64::from(offset))
+            .clamp(0, (self.previewed_components_stack.len() - 1) as i64);
+        self.currently_previewed_component = usize::try_from(index).unwrap_or(usize::MAX);
+    }
+
+    pub fn can_navigate_forward(&self) -> bool {
+        self.currently_previewed_component < self.previewed_components_stack.len() - 1
+    }
+
+    pub fn can_navigate_backward(&self) -> bool {
+        self.currently_previewed_component > 0 && !self.previewed_components_stack.is_empty()
+    }
+
+    pub fn rename_components_in_stack(&mut self, url: &Url, old_name: &str, new_name: &str) {
+        for c in self.previewed_components_stack.iter_mut() {
+            if c.url == *url && c.component.as_deref() == Some(old_name) {
+                c.component = Some(new_name.to_string());
+            }
+        }
+    }
+}
 
 #[derive(Default)]
 struct PreviewState {
@@ -109,14 +158,14 @@ pub fn set_contents(url: &common::VersionedUrl, content: String) {
 
     if cache.dependency.contains(url.url()) {
         let ui_is_visible = cache.ui_is_visible;
-        let Some(current) = cache.current.clone() else {
+        let Some(current) = cache.current_component() else {
             return;
         };
 
         drop(cache);
 
         if ui_is_visible {
-            load_preview(current);
+            load_preview(current, LoadBehavior::Reload);
         }
     }
 }
@@ -163,7 +212,7 @@ fn add_new_component() {
 
     let preview_component = {
         let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.current.clone()
+        cache.current_component()
     };
 
     let Some(preview_component) = preview_component else {
@@ -255,8 +304,9 @@ fn rename_component(
 
         // Update which component to show after refresh from the editor.
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        cache.rename_components_in_stack(&old_url, &old_name, &new_name);
 
-        if let Some(current) = &mut cache.current {
+        if let Some(current) = &mut cache.current_component() {
             if current.url == old_url {
                 if let Some(component) = &current.component {
                     if component == &old_name {
@@ -270,6 +320,18 @@ fn rename_component(
             label: Some(format!("Rename component {old_name} to {new_name}")),
             edit,
         });
+    }
+}
+
+// triggered from the UI, running in UI thread
+fn navigate(nav_direction: i32) {
+    eprintln!("navigate({nav_direction})");
+    if let Some(current) = {
+        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        cache.navigate_component_history(nav_direction);
+        cache.current_component()
+    } {
+        load_preview(current, LoadBehavior::Reload);
     }
 }
 
@@ -299,13 +361,13 @@ fn show_component(name: slint::SharedString, file: slint::SharedString) {
 // triggered from the UI, running in UI thread
 fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
     let name = name.to_string();
-    let Ok(url) = Url::parse(&url.to_string()) else {
+    let Ok(url) = Url::parse(url.as_ref()) else {
         return;
     };
 
     let current = PreviewComponent { url, component: Some(name), style: String::new() };
 
-    load_preview(current);
+    load_preview(current, LoadBehavior::Load);
 }
 
 // triggered from the UI, running in UI thread
@@ -553,14 +615,14 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
 fn change_style() {
     let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     let ui_is_visible = cache.ui_is_visible;
-    let Some(current) = cache.current.clone() else {
+    let Some(current) = cache.current_component() else {
         return;
     };
 
     drop(cache);
 
     if ui_is_visible {
-        load_preview(current);
+        load_preview(current, LoadBehavior::Reload);
     }
 }
 
@@ -580,10 +642,8 @@ fn finish_parsing(ok: bool) {
 
     let (previewed_url, component) = {
         let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        (
-            cache.current.as_ref().map(|pc| pc.url.clone()),
-            cache.current.as_ref().and_then(|pc| pc.component.clone()),
-        )
+        let pc = cache.current_component();
+        (pc.as_ref().map(|pc| pc.url.clone()), pc.as_ref().and_then(|pc| pc.component.clone()))
     };
 
     if let Some(document_cache) = document_cache() {
@@ -636,7 +696,7 @@ pub fn config_changed(config: PreviewConfig) {
         if cache.config != config {
             cache.config = config.clone();
 
-            let current = cache.current.clone();
+            let current = cache.current_component();
             let ui_is_visible = cache.ui_is_visible;
             let hide_ui = cache.config.hide_ui;
 
@@ -647,7 +707,7 @@ pub fn config_changed(config: PreviewConfig) {
                     set_show_preview_ui(!hide_ui);
                 }
                 if let Some(current) = current {
-                    load_preview(current);
+                    load_preview(current, LoadBehavior::Reload);
                 }
             }
         }
@@ -668,10 +728,18 @@ fn get_path_from_cache(path: &Path) -> Option<(common::UrlVersion, String)> {
     get_url_from_cache(&url)
 }
 
-pub fn load_preview(preview_component: PreviewComponent) {
+pub enum LoadBehavior {
+    Reload,
+    Load,
+}
+
+pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        cache.current = Some(preview_component.clone());
+        match behavior {
+            LoadBehavior::Reload => { /* do nothing */ }
+            LoadBehavior::Load => cache.push_component(preview_component),
+        }
 
         if !cache.ui_is_visible {
             return;
@@ -697,11 +765,10 @@ pub fn load_preview(preview_component: PreviewComponent) {
         });
 
         loop {
-            let (preview_component, config) = {
+            let (preview_component, config, backward, forward) = {
                 let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-                let Some(current) = &mut cache.current else { return };
-                let preview_component = current.clone();
-                current.style.clear();
+                let Some(preview_component) = cache.current_component() else { return };
+                cache.clear_style_of_component();
 
                 assert_eq!(cache.loading_state, PreviewFutureState::PreLoading);
                 if !cache.ui_is_visible {
@@ -710,7 +777,12 @@ pub fn load_preview(preview_component: PreviewComponent) {
                 }
                 cache.loading_state = PreviewFutureState::Loading;
                 cache.dependency.clear();
-                (preview_component, cache.config.clone())
+                (
+                    preview_component,
+                    cache.config.clone(),
+                    cache.can_navigate_backward(),
+                    cache.can_navigate_forward(),
+                )
             };
             let style = if preview_component.style.is_empty() {
                 get_current_style()
@@ -718,6 +790,14 @@ pub fn load_preview(preview_component: PreviewComponent) {
                 set_current_style(preview_component.style.clone());
                 preview_component.style.clone()
             };
+
+            PREVIEW_STATE.with(|preview_state| {
+                let preview_state = preview_state.borrow_mut();
+                if let Some(ui) = &preview_state.ui {
+                    ui.set_can_navigate_back(backward);
+                    ui.set_can_navigate_forward(forward);
+                }
+            });
 
             reload_preview_impl(preview_component, style, config).await;
 
@@ -868,7 +948,7 @@ fn set_preview_factory(
     });
     let (name, file, pretty_location) = {
         let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        if let Some(current) = &cache.current {
+        if let Some(current) = cache.current_component() {
             let file = current.url.to_file_path().unwrap_or_default();
             (
                 current.component.as_ref().cloned().unwrap_or_else(|| "Default".to_string()),
@@ -881,7 +961,7 @@ fn set_preview_factory(
     };
 
     ui.set_preview_area(ui::Preview {
-        factory: factory,
+        factory,
         name: name.into(),
         pretty_location: pretty_location.into(),
         file: file.into(),
@@ -1124,6 +1204,7 @@ fn update_preview_area(compiled: Option<ComponentDefinition>) {
         native::open_ui_impl(&mut preview_state);
 
         let ui = preview_state.ui.as_ref().unwrap();
+
         let shared_handle = preview_state.handle.clone();
         let shared_document_cache = preview_state.document_cache.clone();
 
@@ -1162,7 +1243,7 @@ pub fn lsp_to_preview_message(
         M::ShowPreview(pc) => {
             #[cfg(not(target_arch = "wasm32"))]
             native::open_ui(sender);
-            load_preview(pc);
+            load_preview(pc, LoadBehavior::Load);
         }
         M::HighlightFromEditor { url, offset } => {
             highlight(url, offset);
