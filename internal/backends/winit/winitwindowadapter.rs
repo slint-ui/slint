@@ -643,10 +643,6 @@ impl WindowAdapter for WinitWindowAdapter {
     ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
         raw_window_handle::HasDisplayHandle::display_handle(&self.winit_window)
     }
-
-    fn grab_window(&self) -> Result<SharedImageBuffer, PlatformError> {
-        self.renderer().grab_window(self.window())
-    }
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {

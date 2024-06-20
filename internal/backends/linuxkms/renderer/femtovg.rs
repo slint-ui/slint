@@ -202,8 +202,4 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
     ) -> Result<(), PlatformError> {
         self.gbm_display.clone().register_page_flip_handler(event_loop_handle)
     }
-
-    fn grab_window(&self) -> Result<SharedImageBuffer, PlatformError> {
-        self.renderer.screenshot()
-    }
 }

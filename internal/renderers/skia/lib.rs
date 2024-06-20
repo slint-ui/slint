@@ -209,34 +209,6 @@ impl SkiaRenderer {
         Ok(())
     }
 
-    /// Returns an image buffer of what was rendered last by reading the previous front buffer (using glReadPixels).
-    pub fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
-        let window_adapter = self.window_adapter()?;
-        let window = window_adapter.window();
-        let size = window_adapter.window().size();
-        let (width, height) = (size.width, size.height);
-        let mut target_buffer =
-            SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(width, height);
-
-        eprintln!("width {width} height {height}");
-        let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
-            &skia_safe::ImageInfo::new(
-                (width as i32, height as i32),
-                skia_safe::ColorType::RGBA8888,
-                skia_safe::AlphaType::Opaque,
-                None,
-            ),
-            target_buffer.make_mut_bytes(),
-            None,
-            None,
-        )
-        .ok_or_else(|| format!("Error wrapping target buffer for rendering into with Skia"))?;
-
-        self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, None, window, None);
-
-        Ok(SharedImageBuffer::RGBA8(target_buffer))
-    }
-
     /// Render the scene in the previously associated window.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         let window_adapter = self.window_adapter()?;
@@ -576,6 +548,34 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         } else {
             Ok(())
         }
+    }
+
+    /// Returns an image buffer of what was rendered last by reading the previous front buffer (using glReadPixels).
+    fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
+        let window_adapter = self.window_adapter()?;
+        let window = window_adapter.window();
+        let size = window_adapter.window().size();
+        let (width, height) = (size.width, size.height);
+        let mut target_buffer =
+            SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(width, height);
+
+        eprintln!("width {width} height {height}");
+        let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
+            &skia_safe::ImageInfo::new(
+                (width as i32, height as i32),
+                skia_safe::ColorType::RGBA8888,
+                skia_safe::AlphaType::Opaque,
+                None,
+            ),
+            target_buffer.make_mut_bytes(),
+            None,
+            None,
+        )
+        .ok_or_else(|| format!("Error wrapping target buffer for rendering into with Skia"))?;
+
+        self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, None, window, None);
+
+        Ok(SharedImageBuffer::RGBA8(target_buffer))
     }
 }
 

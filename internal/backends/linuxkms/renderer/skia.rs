@@ -163,10 +163,6 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaRendererAdapter 
     ) -> Result<(), PlatformError> {
         self.presenter.clone().register_page_flip_handler(event_loop_handle)
     }
-
-    fn grab_window(&self) -> Result<SharedImageBuffer, PlatformError> {
-        self.renderer.screenshot()
-    }
 }
 struct DrmDumbBufferAccess {
     display: Rc<crate::display::swdisplay::SoftwareBufferDisplay>,

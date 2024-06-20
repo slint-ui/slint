@@ -33,7 +33,6 @@ pub trait FullscreenRenderer {
         &self,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
     ) -> Result<(), PlatformError>;
-    fn grab_window(&self) -> Result<SharedImageBuffer, PlatformError>;
 }
 
 pub struct FullscreenWindowAdapter {
@@ -70,10 +69,6 @@ impl WindowAdapter for FullscreenWindowAdapter {
             }
         }
         Ok(())
-    }
-
-    fn grab_window(&self) -> Result<SharedImageBuffer, PlatformError> {
-        self.renderer.grab_window()
     }
 }
 

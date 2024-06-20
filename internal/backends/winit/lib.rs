@@ -32,7 +32,7 @@ pub struct SlintUserEvent(CustomEvent);
 mod renderer {
     use std::rc::Rc;
 
-    use i_slint_core::{graphics::SharedImageBuffer, platform::PlatformError};
+    use i_slint_core::platform::PlatformError;
 
     pub trait WinitCompatibleRenderer {
         fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError>;
@@ -46,11 +46,6 @@ mod renderer {
         fn resumed(&self, _winit_window: Rc<winit::window::Window>) -> Result<(), PlatformError> {
             Ok(())
         }
-
-        fn grab_window(
-            &self,
-            window: &i_slint_core::api::Window,
-        ) -> Result<SharedImageBuffer, PlatformError>;
     }
 
     #[cfg(feature = "renderer-femtovg")]

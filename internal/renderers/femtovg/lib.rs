@@ -172,23 +172,6 @@ impl FemtoVGRenderer {
         })
     }
 
-    /// Returns an image buffer of what was rendered last by reading the previous front buffer (using glReadPixels).
-    pub fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
-        self.opengl_context.ensure_current()?;
-        let screenshot = self
-            .canvas
-            .borrow_mut()
-            .screenshot()
-            .map_err(|e| format!("FemtoVG error reading current back buffer: {e}"))?;
-
-        use rgb::ComponentBytes;
-        Ok(SharedImageBuffer::RGBA8(SharedPixelBuffer::clone_from_slice(
-            screenshot.buf().as_bytes(),
-            screenshot.width() as u32,
-            screenshot.height() as u32,
-        )))
-    }
-
     /// Render the scene using OpenGL.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         self.internal_render_with_post_callback(
@@ -555,6 +538,23 @@ impl RendererSealed for FemtoVGRenderer {
             self.opengl_context.resize(width, height)?;
         };
         return Ok(());
+    }
+
+    /// Returns an image buffer of what was rendered last by reading the previous front buffer (using glReadPixels).
+    fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
+        self.opengl_context.ensure_current()?;
+        let screenshot = self
+            .canvas
+            .borrow_mut()
+            .screenshot()
+            .map_err(|e| format!("FemtoVG error reading current back buffer: {e}"))?;
+
+        use rgb::ComponentBytes;
+        Ok(SharedImageBuffer::RGBA8(SharedPixelBuffer::clone_from_slice(
+            screenshot.buf().as_bytes(),
+            screenshot.width() as u32,
+            screenshot.height() as u32,
+        )))
     }
 }
 

@@ -629,7 +629,7 @@ impl Window {
     /// Note that this function may be slow to call. Reading from the framebuffer previously
     /// rendered, too, may take a long time.
     pub fn grab_window(&self) -> Result<SharedImageBuffer, PlatformError> {
-        self.0.window_adapter().grab_window()
+        self.0.window_adapter().renderer().screenshot()
     }
 }
 

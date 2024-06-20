@@ -60,11 +60,4 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
     fn as_core_renderer(&self) -> &dyn Renderer {
         &self.renderer
     }
-
-    fn grab_window(
-        &self,
-        _window: &i_slint_core::api::Window,
-    ) -> Result<i_slint_core::graphics::SharedImageBuffer, PlatformError> {
-        self.renderer.screenshot()
-    }
 }

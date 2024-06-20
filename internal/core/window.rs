@@ -10,7 +10,7 @@ use crate::api::{
     CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window,
     WindowPosition, WindowSize,
 };
-use crate::graphics::{Point, SharedImageBuffer};
+use crate::graphics::Point;
 use crate::input::{
     key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, MouseEvent,
     MouseInputState, TextCursorBlinker,
@@ -152,12 +152,6 @@ pub trait WindowAdapter {
         &self,
     ) -> Result<raw_window_handle_06::DisplayHandle<'_>, raw_window_handle_06::HandleError> {
         Err(raw_window_handle_06::HandleError::NotSupported)
-    }
-
-    /// Re-implement this function to support [`Window::grab_window()`], i.e. return
-    /// the contents of the window in an image buffer.
-    fn grab_window(&self) -> Result<SharedImageBuffer, PlatformError> {
-        Err("WindowAdapter::grab_window is not implemented by the platform".into())
     }
 }
 
