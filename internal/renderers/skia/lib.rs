@@ -559,7 +559,6 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         let mut target_buffer =
             SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(width, height);
 
-        eprintln!("width {width} height {height}");
         let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
             &skia_safe::ImageInfo::new(
                 (width as i32, height as i32),
