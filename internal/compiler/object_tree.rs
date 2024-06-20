@@ -2555,18 +2555,21 @@ impl Exports {
             sorted_deduped_exports.push((exported_name, compo_or_type));
         }
 
-        if sorted_deduped_exports.is_empty() {
-            if let Some(last_compo) = inner_components.last() {
-                if last_compo.is_global() {
-                    diag.push_warning(
-                        "Global singleton is implicitly marked for export. This is deprecated and it should be explicitly exported"
-                            .into(),
-                        &last_compo.node,
-                    );
-                } else {
-                    diag.push_warning("Component is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node)
+        if let Some(last_compo) = inner_components.last() {
+            let name = last_compo.id.clone();
+            if last_compo.is_global() {
+                if sorted_deduped_exports.is_empty() {
+                    diag.push_warning("Global singleton is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node);
+                    sorted_deduped_exports.push((
+                        ExportedName { name, name_ident: doc.clone().into() },
+                        Either::Left(last_compo.clone()),
+                    ))
                 }
-                let name = last_compo.id.clone();
+            } else if !sorted_deduped_exports
+                .iter()
+                .any(|e| e.1.as_ref().left().is_some_and(|c| !c.is_global()))
+            {
+                diag.push_warning("Component is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node);
                 sorted_deduped_exports.push((
                     ExportedName { name, name_ident: doc.clone().into() },
                     Either::Left(last_compo.clone()),

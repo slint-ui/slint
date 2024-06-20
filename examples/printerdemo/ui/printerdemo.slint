@@ -28,7 +28,7 @@ component SideBarIcon inherits Rectangle {
     }
 }
 
-component MainWindow inherits Window {
+export component MainWindow inherits Window {
     /// Note that this property is overwritten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
     in property <[InkLevel]> ink-levels: [
