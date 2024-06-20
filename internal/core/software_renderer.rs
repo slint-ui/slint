@@ -813,7 +813,7 @@ impl RendererSealed for SoftwareRenderer {
         let mut target_buffer = SharedPixelBuffer::<crate::graphics::Rgb8Pixel>::new(width, height);
 
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
-        let _ = self.render(target_buffer.make_mut_slice(), width as usize);
+        self.render(target_buffer.make_mut_slice(), width as usize);
         // ensure that caches are clear for the next call
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
 
