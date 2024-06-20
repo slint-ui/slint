@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-Container := Rectangle {
+component Container inherits Rectangle {
     GridLayout {
         padding: 0phx;
         spacing: 0phx;
@@ -19,15 +19,16 @@ Container := Rectangle {
     }
 }
 
-TestCase := Container {
+export component TestCase inherits Container {
     width: 300phx;
     height: 200phx;
 
     rect1 := Rectangle {
         background: black;
+        @children
     }
 
-    property <bool> rect1_pos_ok: rect1.x == 150phx;
+    out property <bool> rect1_pos_ok: rect1.x == 150phx;
 
     out property <bool> test: rect1_pos_ok;
 }

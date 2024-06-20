@@ -224,11 +224,6 @@ pub async fn compile_syntax_node(
         &type_registry,
     );
 
-    if let Some((_, _, node)) = &*doc.root_component.child_insertion_point.borrow() {
-        diagnostics
-            .push_error("@children placeholder not allowed in the final component".into(), node)
-    }
-
     if !diagnostics.has_error() {
         passes::run_passes(&doc, &mut loader, false, &mut diagnostics).await;
     } else {

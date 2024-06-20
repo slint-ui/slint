@@ -45,13 +45,6 @@ fn lower_popup_window(
     let parent_component = popup_window_element.borrow().enclosing_component.upgrade().unwrap();
     let parent_element = match parent_element {
         None => {
-            if parent_component.is_root_component.get() {
-                diag.push_error(
-                    "PopupWindow cannot be the top level".into(),
-                    &*popup_window_element.borrow(),
-                );
-                return;
-            }
             if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
                 popup_window_element.borrow_mut().base_type = window_type.clone();
             }
