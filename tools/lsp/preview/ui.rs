@@ -43,6 +43,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
         super::ask_editor_to_show_document(&file, Range::new(pos, pos))
     });
+    ui.on_show_preview_for(super::show_preview_for);
     ui.on_unselect(super::element_selection::unselect_element);
     ui.on_reselect(super::element_selection::reselect_element);
     ui.on_select_at(super::element_selection::select_element_at);

@@ -39,6 +39,7 @@ export component PreviewUi inherits Window {
     callback show-component(/* name */ string, /* file */ string);
     // Show a position consisiting of `line` and `column` in a `file` in the editor
     callback show-document(/* file */ string, /* line */ int, /* column */ int);
+    callback show_preview_for(string/* name */, string/*url*/);
     callback style-changed();
     callback unselect();
 
@@ -122,6 +123,9 @@ export component PreviewUi inherits Window {
                                 }
                                 rename_component(on, op, nn) => {
                                     return root.rename_component(on, op, nn);
+                                }
+                                show_preview_for(cn, cp) => {
+                                    return root.show_preview_for(cn, cp);
                                 }
                             }
                         }
