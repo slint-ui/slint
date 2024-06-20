@@ -172,7 +172,6 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                 }])
                 .map_err(|e| format!("Error presenting softbuffer buffer: {e}"))?;
         }
-
         Ok(())
     }
 
