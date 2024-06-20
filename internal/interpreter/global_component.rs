@@ -34,7 +34,7 @@ impl CompiledGlobalCollection {
             .map(|(index, component)| {
                 let mut global = generate(component);
 
-                if component.visible_in_public_api() {
+                if !component.exported_global_names.borrow().is_empty() {
                     global.extend_public_properties(
                         component.root_element.borrow().property_declarations.clone(),
                     );
@@ -92,7 +92,8 @@ impl CompiledGlobal {
             CompiledGlobal::Component { component, .. } => {
                 generativity::make_guard!(guard);
                 let component = component.unerase(guard);
-                component.original.visible_in_public_api()
+                let is_exported = !component.original.exported_global_names.borrow().is_empty();
+                is_exported
             }
         }
     }

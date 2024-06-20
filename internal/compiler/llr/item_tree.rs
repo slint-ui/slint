@@ -322,6 +322,7 @@ pub struct PublicComponent {
     pub public_properties: PublicProperties,
     pub private_properties: PrivateProperties,
     pub item_tree: ItemTree,
+    pub name: String,
 }
 
 #[derive(Debug)]

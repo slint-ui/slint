@@ -191,7 +191,7 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
     let globals_ids = llr.globals.iter().filter(|glob| glob.exported).flat_map(|glob| {
         std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
     });
-    let compo_ids = llr.public_components.iter().map(|c| public_component_id(&c.item_tree.root));
+    let compo_ids = llr.public_components.iter().map(|c| ident(&c.name));
 
     let resource_symbols = generate_resources(doc);
     let named_exports = generate_named_exports(doc);
@@ -223,7 +223,7 @@ fn generate_public_component(
     llr: &llr::PublicComponent,
     unit: &llr::CompilationUnit,
 ) -> TokenStream {
-    let public_component_id = public_component_id(&llr.item_tree.root);
+    let public_component_id = ident(&llr.name);
     let inner_component_id = inner_component_id(&llr.item_tree.root);
 
     let component = generate_item_tree(&llr.item_tree, unit, None, None);
@@ -1305,7 +1305,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
         let global_id = format_ident!("global_{}", public_component_id);
         let aliases = global.aliases.iter().map(|name| ident(name));
         let getters = root.public_components.iter().map(|c| {
-            let root_component_id = self::public_component_id(&c.item_tree.root);
+            let root_component_id = ident(&c.name);
             quote! {
                 impl<'a> slint::Global<'a, #root_component_id> for #public_component_id<'a> {
                     fn get(component: &'a #root_component_id) -> Self {
@@ -1731,11 +1731,6 @@ fn global_inner_name(g: &llr::GlobalComponent) -> TokenStream {
         let i = format_ident!("Inner{}", ident(&g.name));
         quote!(#i)
     }
-}
-
-/// Return an identifier suitable for this component for the developer facing API
-fn public_component_id(component: &llr::SubComponent) -> proc_macro2::Ident {
-    ident(&component.name)
 }
 
 fn property_set_value_tokens(

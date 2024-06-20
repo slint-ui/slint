@@ -361,10 +361,6 @@ pub struct Component {
     /// The list of properties (name and type) declared as private in the component.
     /// This is used to issue better error in the generated code if the property is used.
     pub private_properties: RefCell<Vec<(String, Type)>>,
-
-    /// This is the main entry point for the code generators. Such a component
-    /// should have the full API, etc.
-    pub is_root_component: Cell<bool>,
 }
 
 impl Component {
@@ -416,14 +412,6 @@ impl Component {
         }
     }
 
-    pub fn visible_in_public_api(&self) -> bool {
-        if self.is_global() {
-            !self.exported_global_names.borrow().is_empty()
-        } else {
-            self.parent_element.upgrade().is_none() && self.is_root_component.get()
-        }
-    }
-
     /// Returns the names of aliases to global singletons, exactly as
     /// specified in the .slint markup (not normalized).
     pub fn global_aliases(&self) -> Vec<String> {
@@ -433,12 +421,6 @@ impl Component {
             .filter(|name| name.as_str() != self.root_element.borrow().id)
             .map(|name| name.original_name())
             .collect()
-    }
-
-    pub fn is_sub_component(&self) -> bool {
-        !self.is_root_component.get()
-            && self.parent_element.upgrade().is_none()
-            && !self.is_global()
     }
 
     // Number of repeaters in this component, including sub-components

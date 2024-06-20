@@ -249,8 +249,6 @@ impl Snapshotter {
         r.inherits_popup_window.set(component.inherits_popup_window.get());
         *r.exported_global_names.borrow_mut() = component.exported_global_names.borrow().clone();
         *r.private_properties.borrow_mut() = component.private_properties.borrow().clone();
-        r.is_root_component.set(component.is_root_component.get());
-
         *r.root_element.borrow_mut() = root_element.take();
         *r.child_insertion_point.borrow_mut() = child_insertion_point;
         *r.popup_windows.borrow_mut() = popup_windows;

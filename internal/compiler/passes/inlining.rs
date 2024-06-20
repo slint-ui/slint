@@ -386,7 +386,6 @@ fn duplicate_sub_component(
         init_code: component_to_duplicate.init_code.clone(),
         popup_windows: Default::default(),
         exported_global_names: component_to_duplicate.exported_global_names.clone(),
-        is_root_component: Default::default(),
         private_properties: Default::default(),
         inherits_popup_window: core::cell::Cell::new(false),
     };

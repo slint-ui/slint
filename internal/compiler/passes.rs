@@ -79,7 +79,6 @@ pub async fn run_passes(
 
     let global_type_registry = type_loader.global_type_registry.clone();
     let root_component = &doc.root_component;
-    root_component.is_root_component.set(true);
     run_import_passes(doc, type_loader, diag);
     check_public_api::check_public_api(doc, diag);
 
