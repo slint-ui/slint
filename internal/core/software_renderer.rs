@@ -810,14 +810,10 @@ impl RendererSealed for SoftwareRenderer {
             return Err("grab_window() called on window with invalid size".into());
         };
 
-        // We could use Surface::fetch() here, but it's only implemented on X11 and Web.
-
         let mut target_buffer = SharedPixelBuffer::<crate::graphics::Rgb8Pixel>::new(width, height);
 
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
-
         let _ = self.render(target_buffer.make_mut_slice(), width as usize);
-
         // ensure that caches are clear for the next call
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
 
