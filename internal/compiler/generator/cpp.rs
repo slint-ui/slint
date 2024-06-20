@@ -772,9 +772,11 @@ pub fn generate(
     let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc, compiler_config);
 
     // Forward-declare the root so that sub-components can access singletons, the window, etc.
-    file.declarations.extend(llr.public_components.iter().map(|c| {
-        Declaration::Struct(Struct { name: ident(&c.item_tree.root.name), ..Default::default() })
-    }));
+    file.declarations.extend(
+        llr.public_components
+            .iter()
+            .map(|c| Declaration::Struct(Struct { name: ident(&c.name), ..Default::default() })),
+    );
 
     let conditional_includes = ConditionalIncludes::default();
 
@@ -946,8 +948,7 @@ fn generate_public_component(
     component: &llr::PublicComponent,
     unit: &llr::CompilationUnit,
 ) {
-    let root_component = &component.item_tree.root;
-    let component_id = ident(&root_component.name);
+    let component_id = ident(&component.name);
 
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 

@@ -308,25 +308,15 @@ impl ElementRcNode {
 
         let (parent_path, parent_offset) =
             (parent.source_file.path().to_owned(), u32::from(parent.text_range().start()));
-        let root_element = {
-            let component = self.element.borrow().enclosing_component.upgrade().unwrap();
-            let current_root = component.root_element.clone();
 
-            if std::rc::Rc::ptr_eq(&current_root, &self.element)
-                && !component.is_root_component.get()
-            {
-                component
-                    .parent_element
-                    .upgrade()?
-                    .borrow()
-                    .enclosing_component
-                    .upgrade()
-                    .unwrap()
-                    .root_element
-                    .clone()
-            } else {
-                current_root
-            }
+        let component = self.element.borrow().enclosing_component.upgrade().unwrap();
+        let current_root = component.root_element.clone();
+        let root_element = if std::rc::Rc::ptr_eq(&current_root, &self.element) {
+            component.parent_element.upgrade().map_or(current_root, |parent| {
+                parent.borrow().enclosing_component.upgrade().unwrap().root_element.clone()
+            })
+        } else {
+            current_root
         };
 
         Self::find_in_or_below(root_element, &parent_path, parent_offset)

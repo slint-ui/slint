@@ -9,20 +9,12 @@ use std::rc::Rc;
 
 use by_address::ByAddress;
 
-use crate::diagnostics::BuildDiagnostics;
-use crate::diagnostics::Spanned;
-use crate::expression_tree::BindingExpression;
-use crate::expression_tree::BuiltinFunction;
-use crate::expression_tree::Expression;
+use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
 use crate::langtype::ElementType;
-
-use crate::layout::LayoutItem;
-use crate::layout::Orientation;
+use crate::layout::{LayoutItem, Orientation};
 use crate::namedreference::NamedReference;
-use crate::object_tree::find_parent_element;
-use crate::object_tree::Document;
-use crate::object_tree::PropertyAnimation;
-use crate::object_tree::{Component, ElementRc};
+use crate::object_tree::{find_parent_element, Document, ElementRc, PropertyAnimation};
 use derive_more as dm;
 
 /// Maps the alias in the other direction than what the BindingExpression::two_way_binding does.
@@ -77,7 +69,7 @@ impl PropertyPath {
                 #[cfg(debug_assertions)]
                 fn check_that_element_is_in_the_component(
                     e: &ElementRc,
-                    c: &Rc<Component>,
+                    c: &Rc<crate::object_tree::Component>,
                 ) -> bool {
                     let enclosing = e.borrow().enclosing_component.upgrade().unwrap();
                     Rc::ptr_eq(c, &enclosing)
