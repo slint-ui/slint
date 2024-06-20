@@ -3,6 +3,7 @@
 
 //! Make sure that the top level element of the component is always a Window
 
+use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
 use crate::langtype::Type;
 use crate::namedreference::NamedReference;
@@ -16,7 +17,15 @@ pub fn ensure_window(
     component: &Rc<Component>,
     type_register: &TypeRegister,
     style_metrics: &Rc<Component>,
+    diag: &mut BuildDiagnostics,
 ) {
+    if component.inherits_popup_window.get() {
+        diag.push_error(
+            "PopupWindow cannot be the top level".into(),
+            &*component.root_element.borrow(),
+        );
+    }
+
     if component.root_element.borrow().builtin_type().map_or(true, |b| {
         matches!(b.name.as_str(), "Window" | "Dialog" | "WindowItem" | "PopupWindow")
     }) {

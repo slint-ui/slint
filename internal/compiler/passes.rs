@@ -116,7 +116,7 @@ pub async fn run_passes(
 
     focus_handling::call_focus_on_init(root_component);
 
-    ensure_window::ensure_window(root_component, &doc.local_registry, &style_metrics);
+    ensure_window::ensure_window(root_component, &doc.local_registry, &style_metrics, diag);
 
     doc.visit_all_used_components(|component| {
         border_radius::handle_border_radius(component, diag);
