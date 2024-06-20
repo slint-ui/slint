@@ -55,6 +55,8 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     ui.on_selected_element_move(super::move_selected_element);
     ui.on_selected_element_delete(super::delete_selected_element);
 
+    ui.on_navigate(super::navigate);
+
     Ok(ui)
 }
 
