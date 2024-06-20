@@ -5,11 +5,13 @@
 
 use core::num::NonZeroU32;
 use core::ops::DerefMut;
-use i_slint_core::graphics::Rgb8Pixel;
+use i_slint_core::graphics::{Rgb8Pixel, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::platform::PlatformError;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
-use std::{cell::RefCell, rc::Rc};
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use super::WinitCompatibleRenderer;
 
@@ -18,6 +20,7 @@ pub struct WinitSoftwareRenderer {
     _context: softbuffer::Context<Rc<winit::window::Window>>,
     surface: RefCell<softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>>,
     winit_window: Rc<winit::window::Window>,
+    force_next_frame_new_buffer: Cell<bool>,
 }
 
 #[repr(transparent)]
@@ -90,6 +93,7 @@ impl WinitSoftwareRenderer {
                 _context: context,
                 surface: RefCell::new(surface),
                 winit_window: winit_window.clone(),
+                force_next_frame_new_buffer: Default::default(),
             }),
             winit_window,
         ))
@@ -116,11 +120,14 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             .buffer_mut()
             .map_err(|e| format!("Error retrieving softbuffer rendering buffer: {e}"))?;
 
-        let age = target_buffer.age();
-        self.renderer.set_repaint_buffer_type(match age {
-            1 => RepaintBufferType::ReusedBuffer,
-            2 => RepaintBufferType::SwappedBuffers,
-            _ => RepaintBufferType::NewBuffer,
+        self.renderer.set_repaint_buffer_type(if self.force_next_frame_new_buffer.take() {
+            RepaintBufferType::NewBuffer
+        } else {
+            match target_buffer.age() {
+                1 => RepaintBufferType::ReusedBuffer,
+                2 => RepaintBufferType::SwappedBuffers,
+                _ => RepaintBufferType::NewBuffer,
+            }
         });
 
         let region = if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
@@ -172,6 +179,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                 }])
                 .map_err(|e| format!("Error presenting softbuffer buffer: {e}"))?;
         }
+
         Ok(())
     }
 
@@ -183,5 +191,30 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         // On X11, the buffer is completely cleared when the window is hidden
         // and the buffer age doesn't respect that, so clean the partial rendering cache
         self.renderer.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
+    }
+
+    fn grab_window(
+        &self,
+        window: &i_slint_core::api::Window,
+    ) -> Result<SharedImageBuffer, PlatformError> {
+        let size = window.size();
+
+        let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
+        else {
+            // Nothing to render
+            return Err("grab_window() called on window with invalid size".into());
+        };
+
+        // We could use Surface::fetch() here, but it's only implemented on X11 and Web.
+
+        let mut target_buffer =
+            SharedPixelBuffer::<i_slint_core::graphics::Rgb8Pixel>::new(width, height);
+
+        self.force_next_frame_new_buffer.set(true);
+        self.renderer.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
+
+        let _ = self.renderer.render(target_buffer.make_mut_slice(), width as usize);
+
+        Ok(SharedImageBuffer::RGB8(target_buffer))
     }
 }

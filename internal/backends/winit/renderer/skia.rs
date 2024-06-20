@@ -101,4 +101,11 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
             winit_window.scale_factor() as f32,
         )
     }
+
+    fn grab_window(
+        &self,
+        _window: &i_slint_core::api::Window,
+    ) -> Result<i_slint_core::graphics::SharedImageBuffer, PlatformError> {
+        self.renderer.screenshot()
+    }
 }

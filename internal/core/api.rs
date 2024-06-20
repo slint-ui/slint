@@ -9,6 +9,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #[cfg(target_has_atomic = "ptr")]
 pub use crate::future::*;
+use crate::graphics::SharedImageBuffer;
 use crate::input::{KeyEventType, MouseEvent};
 use crate::item_tree::ItemTreeVTable;
 use crate::window::{WindowAdapter, WindowInner};
@@ -621,6 +622,14 @@ impl Window {
     #[cfg(feature = "raw-window-handle-06")]
     pub fn window_handle(&self) -> WindowHandle {
         WindowHandle { adapter: self.0.window_adapter() }
+    }
+
+    /// Returns an image buffer with the rendered contents.
+    ///
+    /// Note that this function may be slow to call. Reading from the framebuffer previously
+    /// rendered, too, may take a long time.
+    pub fn grab_window(&self) -> Result<SharedImageBuffer, PlatformError> {
+        self.0.window_adapter().grab_window()
     }
 }
 

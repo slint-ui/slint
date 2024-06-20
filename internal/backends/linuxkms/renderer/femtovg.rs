@@ -3,6 +3,7 @@
 
 use std::{num::NonZeroU32, rc::Rc};
 
+use i_slint_core::graphics::SharedImageBuffer;
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_renderer_femtovg::FemtoVGRendererExt;
@@ -200,5 +201,9 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
     ) -> Result<(), PlatformError> {
         self.gbm_display.clone().register_page_flip_handler(event_loop_handle)
+    }
+
+    fn grab_window(&self) -> Result<SharedImageBuffer, PlatformError> {
+        self.renderer.screenshot()
     }
 }

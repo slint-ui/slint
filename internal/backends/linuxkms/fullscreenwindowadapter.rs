@@ -8,6 +8,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use i_slint_core::api::{LogicalPosition, PhysicalSize as PhysicalWindowSize};
+use i_slint_core::graphics::SharedImageBuffer;
 use i_slint_core::graphics::{euclid, Image};
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::lengths::LogicalRect;
@@ -32,6 +33,7 @@ pub trait FullscreenRenderer {
         &self,
         event_loop_handle: crate::calloop_backend::EventLoopHandle,
     ) -> Result<(), PlatformError>;
+    fn grab_window(&self) -> Result<SharedImageBuffer, PlatformError>;
 }
 
 pub struct FullscreenWindowAdapter {
@@ -68,6 +70,10 @@ impl WindowAdapter for FullscreenWindowAdapter {
             }
         }
         Ok(())
+    }
+
+    fn grab_window(&self) -> Result<SharedImageBuffer, PlatformError> {
+        self.renderer.grab_window()
     }
 }
 
