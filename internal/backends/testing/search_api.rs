@@ -41,19 +41,29 @@ impl<T: ComponentHandle> ElementRoot for T {
 
 impl<T: ComponentHandle> Sealed for T {}
 
-#[derive(Debug)]
 enum SingleElementMatch {
-    MatchById(SharedString),
-    MatchByTypeName(SharedString),
-    MatchByTypeNameOrBase(SharedString),
+    MatchById { id: String, root_base: Option<String> },
+    MatchByTypeName(String),
+    MatchByTypeNameOrBase(String),
     MatchByAccessibleRole(crate::AccessibleRole),
+    MatchByPredicate(Box<dyn Fn(&ElementHandle) -> bool>),
 }
 
 impl SingleElementMatch {
     fn matches(&self, element: &ElementHandle) -> bool {
         match self {
-            SingleElementMatch::MatchById(id) => {
-                element.id().map_or(false, |candidate_id| candidate_id == id)
+            SingleElementMatch::MatchById { id, root_base } => {
+                if element.id().map_or(false, |candidate_id| candidate_id == id) {
+                    return true;
+                }
+                root_base.as_ref().map_or(false, |root_base| {
+                    element
+                        .type_name()
+                        .map_or(false, |type_name_candidate| type_name_candidate == root_base)
+                        || element
+                            .bases()
+                            .map_or(false, |mut bases| bases.any(|base| base == root_base))
+                })
             }
             SingleElementMatch::MatchByTypeName(type_name) => element
                 .type_name()
@@ -69,11 +79,10 @@ impl SingleElementMatch {
             SingleElementMatch::MatchByAccessibleRole(role) => {
                 element.accessible_role().map_or(false, |candidate_role| candidate_role == *role)
             }
+            SingleElementMatch::MatchByPredicate(predicate) => (predicate)(element),
         }
     }
 }
-
-#[derive(Debug)]
 
 enum ElementQueryInstruction {
     MatchDescendants,
@@ -141,15 +150,21 @@ impl ElementQuery {
     }
 
     /// Include only elements in the results where [`ElementHandle::id()`] is equal to the provided `id`.
-    pub fn match_id(mut self, id: impl Into<SharedString>) -> Self {
+    pub fn match_id(mut self, id: impl Into<String>) -> Self {
+        let id = id.into();
+        let mut id_split = id.split("::");
+        let type_name = id_split.next().map(ToString::to_string);
+        let local_id = id_split.next();
+        let root_base = if local_id == Some("root") { type_name } else { None };
+
         self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
-            SingleElementMatch::MatchById(id.into()),
+            SingleElementMatch::MatchById { id, root_base },
         ));
         self
     }
 
     /// Include only elements in the results where [`ElementHandle::type_name()`] is equal to the provided `type_name`.
-    pub fn match_type_name(mut self, type_name: impl Into<SharedString>) -> Self {
+    pub fn match_type_name(mut self, type_name: impl Into<String>) -> Self {
         self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
             SingleElementMatch::MatchByTypeName(type_name.into()),
         ));
@@ -157,7 +172,7 @@ impl ElementQuery {
     }
 
     /// Include only elements in the results where [`ElementHandle::type_name()`] or [`ElementHandle::bases()`] is contains to the provided `type_name`.
-    pub fn match_inherits(mut self, type_name: impl Into<SharedString>) -> Self {
+    pub fn match_inherits(mut self, type_name: impl Into<String>) -> Self {
         self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
             SingleElementMatch::MatchByTypeNameOrBase(type_name.into()),
         ));
@@ -168,6 +183,13 @@ impl ElementQuery {
     pub fn match_accessible_role(mut self, role: crate::AccessibleRole) -> Self {
         self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
             SingleElementMatch::MatchByAccessibleRole(role),
+        ));
+        self
+    }
+
+    pub fn match_predicate(mut self, predicate: impl Fn(&ElementHandle) -> bool + 'static) -> Self {
+        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+            SingleElementMatch::MatchByPredicate(Box::new(predicate)),
         ));
         self
     }
@@ -307,14 +329,15 @@ impl ElementHandle {
         component: &impl ElementRoot,
         label: &str,
     ) -> impl Iterator<Item = Self> {
-        let mut result = Vec::new();
-        Self::visit_elements::<()>(component, |elem| {
-            if elem.accessible_label().is_some_and(|x| x == label) {
-                result.push(elem);
-            }
-            ControlFlow::Continue(())
-        });
-        result.into_iter()
+        let label = label.to_string();
+        let results = component
+            .root_element()
+            .match_descendants()
+            .match_predicate(move |elem| {
+                elem.accessible_label().map_or(false, |candidate_label| candidate_label == label)
+            })
+            .find_all();
+        results.into_iter()
     }
 
     /// This function searches through the entire tree of elements of this window and looks for
@@ -336,25 +359,8 @@ impl ElementHandle {
         component: &impl ElementRoot,
         id: &str,
     ) -> impl Iterator<Item = Self> {
-        let mut id_split = id.split("::");
-        let type_name = id_split.next();
-        let local_id = id_split.next();
-        let root_base = if local_id == Some("root") { type_name } else { None };
-
-        let mut result = Vec::new();
-        Self::visit_elements::<()>(component, |elem| {
-            if elem.id().unwrap() == id {
-                result.push(elem);
-            } else if let Some(root_base) = root_base {
-                if elem.type_name().unwrap() == root_base
-                    || elem.bases().unwrap().any(|base| base == root_base)
-                {
-                    result.push(elem);
-                }
-            }
-            ControlFlow::Continue(())
-        });
-        result.into_iter()
+        let results = component.root_element().match_descendants().match_id(id).find_all();
+        results.into_iter()
     }
 
     /// This function searches through the entire tree of elements of `component`, looks for
@@ -363,16 +369,9 @@ impl ElementHandle {
         component: &impl ElementRoot,
         type_name: &str,
     ) -> impl Iterator<Item = Self> {
-        let mut result = Vec::new();
-        Self::visit_elements::<()>(component, |elem| {
-            if elem.type_name().unwrap() == type_name
-                || elem.bases().unwrap().any(|tn| tn == type_name)
-            {
-                result.push(elem);
-            }
-            ControlFlow::Continue(())
-        });
-        result.into_iter()
+        let results =
+            component.root_element().match_descendants().match_inherits(type_name).find_all();
+        results.into_iter()
     }
 
     /// Returns true if the element still exists in the in UI and is valid to access; false otherwise.
