@@ -118,7 +118,7 @@ pub trait RendererSealed {
         Ok(())
     }
 
-    /// Re-implement this function to support [`Window::grab_window()`], i.e. return
+    /// Re-implement this function to support Window::grab_window(), i.e. return
     /// the contents of the window in an image buffer.
     fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
         Err("WindowAdapter::grab_window is not implemented by the platform".into())
