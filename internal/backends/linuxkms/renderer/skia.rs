@@ -6,7 +6,6 @@ use std::rc::Rc;
 use crate::display::RenderingRotation;
 use crate::drmoutput::DrmOutput;
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
-use i_slint_core::graphics::SharedImageBuffer;
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_renderer_skia::skia_safe;
