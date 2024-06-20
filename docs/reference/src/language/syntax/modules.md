@@ -132,5 +132,11 @@ path on disk:
   to provide a mapping from library name to path.
 * When invoking the `slint-viewer` from the command line, pass `-Lmylibrary=/path/to/my/library` for each component
   library.
-* When using the live-preview in the VS code extension, configure the Slint extension's library path
-  using the `Slint: Library Paths` setting.
+* When using the VS Code extension, configure the Slint extension's library path
+  using the `Slint: Library Paths` setting. Example below:
+  ```json
+  "slint.libraryPaths": {
+      "mylibrary": "/path/to/my/library"
+  },
+  ```
+* With other editors, you can configure them to pass the `-L` argument to the `slint-lsp` just like for the slint-viewer.
