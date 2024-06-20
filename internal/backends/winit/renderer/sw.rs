@@ -9,8 +9,7 @@ use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::software_renderer::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use super::WinitCompatibleRenderer;
 
@@ -117,7 +116,8 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             .buffer_mut()
             .map_err(|e| format!("Error retrieving softbuffer rendering buffer: {e}"))?;
 
-        self.renderer.set_repaint_buffer_type(match target_buffer.age() {
+        let age = target_buffer.age();
+        self.renderer.set_repaint_buffer_type(match age {
             1 => RepaintBufferType::ReusedBuffer,
             2 => RepaintBufferType::SwappedBuffers,
             _ => RepaintBufferType::NewBuffer,
