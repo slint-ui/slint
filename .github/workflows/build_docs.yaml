@@ -68,6 +68,9 @@ jobs:
                   tool_name: xtask license_header
                   level: error
                   fail_on_error: true
+            # reviewdog should normally have errored out if there was any diff, but we've seen faillure in the past
+            - name: sanitycheck reviewdog
+              run: git diff --exit-code
             - run: sudo apt-get install reuse
             - name: Check reuse compliance
               run: cargo xtask check_reuse_compliance
