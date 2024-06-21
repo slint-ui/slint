@@ -239,8 +239,17 @@ fn add_new_component() {
             true,
         );
 
+        {
+            let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+            cache.push_component(PreviewComponent {
+                url: preview_component.url.clone(),
+                component: Some(component_name.clone()),
+                style: preview_component.style.clone(),
+            })
+        }
+
         send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
-            label: Some("Move element".to_string()),
+            label: Some(format!("Add {component_name}")),
             edit,
         });
     }
@@ -650,7 +659,7 @@ fn finish_parsing(ok: bool) {
         let mut components = Vec::new();
         // `_SLINT_LivePreview` gets returned as `-SLINT-LivePreview`, which is unfortunately not a valid identifier.
         // I do not want to store two constants, so map it over ;-/
-        let private_preview_component = SLINT_LIVEPREVIEW_COMPONENT.replace('_', "-");
+        let private_preview_component = SLINT_LIVE_PREVIEW_COMPONENT.replace('_', "-");
         component_catalog::builtin_components(&document_cache, &mut components);
         component_catalog::all_exported_components(
             &document_cache,
@@ -881,7 +890,7 @@ async fn parse_source(
     (builder.diagnostics().clone(), compiled)
 }
 
-pub const SLINT_LIVEPREVIEW_COMPONENT: &str = "_SLINT_LivePreview";
+pub const SLINT_LIVE_PREVIEW_COMPONENT: &str = "_SLINT_LivePreview";
 
 // Must be inside the thread running the slint event loop
 async fn reload_preview_impl(
@@ -898,7 +907,7 @@ async fn reload_preview_impl(
         let (_, from_cache) = get_url_from_cache(&component.url).unwrap_or_default();
         if let Some(component_name) = &component.component {
             format!(
-                "{from_cache}\nexport component {SLINT_LIVEPREVIEW_COMPONENT} inherits {component_name} {{ /* {} */ }}\n",
+                "{from_cache}\nexport component {SLINT_LIVE_PREVIEW_COMPONENT} inherits {component_name} {{ /* {} */ }}\n",
                 common::NODE_IGNORE_COMMENT
             )
         } else {
