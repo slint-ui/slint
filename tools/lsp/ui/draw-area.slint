@@ -347,21 +347,19 @@ export component DrawArea {
                         padding: 8px;
                         spacing: 4px;
 
-                        if root.visible-component.is_user_defined: LineEdit {
-                            font-size: 1.2rem;
+                        if root.visible-component.is_user_defined && root.design-mode: LineEdit {
                             horizontal-alignment: left;
                             text: root.visible-component.name;
-                            width: 100%;
+                            width: self.preferred-width + 100px;
 
                             accepted(name) => {
                                 root.rename_component(root.visible-component.name, root.visible-component.defined_at, name);
                             }
                         }
-                        if !root.visible-component.is_user_defined: Text {
-                            font-size: 1.2rem;
+                        if !root.visible-component.is_user_defined || !root.design-mode: Text {
                             horizontal-alignment: left;
                             text: root.visible-component.name;
-                            width: 100%;
+                            width: self.preferred-width;
                         }
                         HorizontalLayout {
                             alignment: start;
@@ -370,7 +368,7 @@ export component DrawArea {
                                 Text {
                                     font-size: 0.8rem;
                                     horizontal-alignment: left;
-                                    text: root.visible-component.defined_at;
+                                    text: root.visible-component.pretty-location;
                                 }
                                 clicked() => {
                                     root.show-component(root.visible-component.name, root.visible-component.defined-at);

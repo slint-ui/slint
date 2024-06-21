@@ -95,21 +95,25 @@ export component ComponentList {
                         }
 
                         Rectangle {
+                            background: ci.is_currently_shown ? Palette.alternate_background : Palette.background;
                             t := Text {
                                 text: component.data.name;
                             }
 
                             height: t.preferred-height + 2 * root.list-spacing;
                             width: 100%;
+
+                            if ci.is_user_defined && !ci.is-currently-shown: Text {
+                                x: parent.x + parent.width - self.width - 4px;
+
+                                text: "▶";
+                                width: self.min-width;
+                                height: self.min-height;
+                            }
                         }
 
-                        if ci.is_user_defined && !ci.is-currently-shown: preview-button := Button {
-                            x: parent.x + parent.width - self.width - 4px;
-                            text: "P";
-                            width: self.min-width;
-                            height: self.min-height;
-
-                            clicked() => {
+                        clicked() => {
+                            if ci.is_user_defined && !ci.is_currently_shown {
                                 root.show_preview_for(component.data.name, component.data.defined_at)
                             }
                         }
