@@ -13,7 +13,7 @@ Some convention used in the generated code:
 */
 
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
-use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
+use crate::langtype::{Enumeration, EnumerationValue, Type};
 use crate::layout::Orientation;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, Expression, ParentCtx as llr_ParentCtx,
@@ -160,15 +160,11 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         })
         .unzip();
 
-    if matches!(
-        doc.root_component.root_element.borrow().base_type,
-        ElementType::Error | ElementType::Global
-    ) {
-        // empty document, nothing to generate
-        return TokenStream::default();
-    }
-
     let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &compiler_config);
+
+    if llr.public_components.is_empty() {
+        return Default::default();
+    }
 
     let sub_compos = llr
         .sub_components
@@ -213,7 +209,7 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         #[allow(unused_imports)]
-        pub use slint_generated::{#(#compo_ids),* #(,#structs_and_enums_ids)* #(,#globals_ids)* #(,#named_exports)*};
+        pub use slint_generated::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)*};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     }

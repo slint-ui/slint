@@ -55,11 +55,13 @@ pub fn collect_custom_fonts<'a>(
         Box::new(|font_path| Expression::StringLiteral(font_path.clone()))
     };
 
-    doc.root_component.init_code.borrow_mut().font_registration_code.extend(
-        all_fonts.into_iter().map(|font_path| Expression::FunctionCall {
-            function: Box::new(registration_function.clone()),
-            arguments: vec![prepare_font_registration_argument(font_path)],
-            source_location: None,
-        }),
-    );
+    for c in doc.exported_roots() {
+        c.init_code.borrow_mut().font_registration_code.extend(all_fonts.iter().map(|font_path| {
+            Expression::FunctionCall {
+                function: Box::new(registration_function.clone()),
+                arguments: vec![prepare_font_registration_argument(font_path)],
+                source_location: None,
+            }
+        }));
+    }
 }

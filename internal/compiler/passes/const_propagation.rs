@@ -225,7 +225,9 @@ export component Foo {
     assert!(!diag.has_error());
 
     let out_binding = doc
-        .root_component
+        .inner_components
+        .last()
+        .unwrap()
         .root_element
         .borrow()
         .bindings

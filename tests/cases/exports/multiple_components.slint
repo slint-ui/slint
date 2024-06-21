@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export global G {
+    in property <string> global-property: "Hello";
+}
+
+struct S { val: string }
+
+component Shared {
+    in property <string> n;
+    out property <S> out: {  val: G.global-property + " " + n };
+    for xx in 2 : Rectangle {}
+}
+
+/// This component is both exported and Used
+export component Used {
+    in-out property <int> name;
+    for xx in 4 : Rectangle { }
+}
+
+export component FirstTest {
+
+    out property <string> global-prop: G.global-property;
+    out property <string> o: shared.out.val;
+    shared := Shared {
+        n: "Oli";
+    }
+
+    Used {}
+
+    // FIXME! as of now, only the last component's test property is evaluated by the test framework
+    out property <bool> test: false;
+}
+
+export component Z {
+    out property <bool> test: false;
+}
+
+
+
+export component SecondTest {
+    out property <string> global-prop: G.global-property;
+    out property <string> out: shared.out.val;
+
+    shared := Shared {
+        n: "Sim";
+    }
+
+    out property <bool> test: out == "Hello Sim";
+}
+
+
+
+
+
+/*
+```rust
+let instance1 = FirstTest::new().unwrap();
+
+instance1.global::<G<'_>>().set_global_property("Hallo".into());
+
+let instance2 = SecondTest::new().unwrap();
+
+let instance3 = SecondTest::new().unwrap();
+
+instance3.global::<G<'_>>().set_global_property("Bonjour".into());
+
+assert_eq!(instance1.get_o(), "Hallo Oli");
+assert_eq!(instance2.get_out(), "Hello Sim");
+assert_eq!(instance3.get_out(), "Bonjour Sim");
+```
+
+```cpp
+auto handle1 = FirstTest::create();
+const FirstTest &instance1 = *handle1;
+instance1.global<G>().set_global_property("Hallo");
+
+auto handle2 = SecondTest::create();
+const SecondTest &instance2 = *handle2;
+
+auto handle3 = SecondTest::create();
+const SecondTest &instance3 = *handle3;
+
+instance3.global<G>().set_global_property("Bonjour");
+
+assert_eq(instance1.get_o(), "Hallo Oli");
+assert_eq(instance2.get_out(), "Hello Sim");
+assert_eq(instance3.get_out(), "Bonjour Sim");
+
+struct Shared {};
+```
+
+
+
+
+
+
+*/
+

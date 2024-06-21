@@ -44,7 +44,6 @@ pub struct Document {
     pub node: Option<syntax_nodes::Document>,
     pub inner_components: Vec<Rc<Component>>,
     pub inner_types: Vec<Type>,
-    pub root_component: Rc<Component>,
     pub local_registry: TypeRegister,
     /// A list of paths to .ttf/.ttc files that are supposed to be registered on
     /// startup for custom font use.
@@ -165,23 +164,6 @@ impl Document {
         let mut exports = Exports::from_node(&node, &inner_components, &local_registry, diag);
         exports.add_reexports(reexports, diag);
 
-        let root_component = exports
-            .last_exported_component
-            .clone()
-            .or_else(|| {
-                node.ImportSpecifier()
-                    .last()
-                    .and_then(|import| {
-                        crate::typeloader::ImportedName::extract_imported_names(&import).last()
-                    })
-                    .and_then(|import| local_registry.lookup_element(&import.internal_name).ok())
-                    .and_then(|c| match c {
-                        ElementType::Component(c) => Some(c),
-                        _ => None,
-                    })
-            })
-            .unwrap_or_default();
-
         let custom_fonts = foreign_imports
             .into_iter()
             .filter_map(|import| {
@@ -247,7 +229,6 @@ impl Document {
 
         Document {
             node: Some(node),
-            root_component,
             inner_components,
             inner_types,
             local_registry,
@@ -258,13 +239,42 @@ impl Document {
         }
     }
 
+    pub fn exported_roots(&self) -> impl Iterator<Item = Rc<Component>> + DoubleEndedIterator + '_ {
+        let mut iter = self
+            .exports
+            .iter()
+            .filter_map(|e| e.1.as_ref().left())
+            .filter(|c| !c.is_global())
+            .cloned()
+            .peekable();
+        // If that is empty, we return the last import. (We need to chain because we need to return the same type for `impl Iterator`)
+        let extra = if iter.peek().is_some() {
+            None
+        } else {
+            self.node
+                .as_ref()
+                .and_then(|n| n.ImportSpecifier().last())
+                .and_then(|import| {
+                    crate::typeloader::ImportedName::extract_imported_names(&import).last()
+                })
+                .and_then(|import| self.local_registry.lookup_element(&import.internal_name).ok())
+                .and_then(|c| match c {
+                    ElementType::Component(c) => Some(c),
+                    _ => None,
+                })
+        };
+        iter.chain(extra)
+    }
+
     /// visit all root and used component (including globals)
     pub fn visit_all_used_components(&self, mut v: impl FnMut(&Rc<Component>)) {
         let used_types = self.used_types.borrow();
         for c in &used_types.sub_components {
             v(c);
         }
-        v(&self.root_component);
+        for c in self.exported_roots() {
+            v(&c);
+        }
         for c in &used_types.globals {
             v(c);
         }
@@ -2394,7 +2404,6 @@ impl ExportedName {
 pub struct Exports {
     #[deref]
     components_or_types: Vec<(ExportedName, Either<Rc<Component>, Type>)>,
-    last_exported_component: Option<Rc<Component>>,
 }
 
 impl Exports {
@@ -2427,18 +2436,10 @@ impl Exports {
             };
 
         let mut sorted_exports_with_duplicates: Vec<(ExportedName, _)> = Vec::new();
-        let mut last_exported_component = None;
 
         let mut extend_exports =
             |it: &mut dyn Iterator<Item = (ExportedName, Either<Rc<Component>, Type>)>| {
                 for (name, compo_or_type) in it {
-                    match compo_or_type.as_ref().left() {
-                        Some(compo) if !compo.is_global() => {
-                            last_exported_component = Some(compo.clone())
-                        }
-                        _ => {}
-                    }
-
                     let pos = sorted_exports_with_duplicates
                         .partition_point(|(existing_name, _)| existing_name.name <= name.name);
                     sorted_exports_with_duplicates.insert(pos, (name, compo_or_type));
@@ -2558,12 +2559,7 @@ impl Exports {
                 ))
             }
         }
-
-        if last_exported_component.is_none() {
-            last_exported_component = inner_components.last().cloned();
-        }
-
-        Self { components_or_types: sorted_deduped_exports, last_exported_component }
+        Self { components_or_types: sorted_deduped_exports }
     }
 
     pub fn add_reexports(
@@ -2612,13 +2608,7 @@ impl Exports {
             })
             .collect();
 
-        Self {
-            components_or_types,
-            last_exported_component: self
-                .last_exported_component
-                .as_ref()
-                .map(|lec| snapshotter.snapshot_component(lec)),
-        }
+        Self { components_or_types }
     }
 }
 
