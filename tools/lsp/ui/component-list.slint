@@ -6,6 +6,7 @@ import { Button, Palette, ScrollView, VerticalBox, GroupBox, LineEdit } from "st
 export struct ComponentItem {
     name: string,
     defined_at: string,
+    pretty_location: string,
     is_user_defined: bool,
     is_currently_shown: bool,
 }
@@ -22,6 +23,15 @@ export component ComponentList {
     in property <length> preview-area-position-y;
     in property <length> preview-area-width;
     in property <length> preview-area-height;
+
+    in-out property <ComponentItem> visible-component: empty-component-item;
+
+    private property <ComponentItem> empty-component-item: {
+          name: "",
+          defined_at: "",
+          is_user_defined: false,
+          is_currently_shown: false,  
+    };
 
     private property <length> list-spacing: 6px;
 
@@ -77,12 +87,21 @@ export component ComponentList {
                             drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
                         private property <bool> can-drop-here: !self.data.is-currently-shown && root.can-drop(self.data.name, drop-x, drop-y, on-drop-area);
                         private property <ComponentItem> data: ci;
-                        private property <int> my-index: index; 
+                        private property <int> my-index: index;
 
                         enabled: root.preview-visible;
                         width: 100%;
 
                         private property <bool> edit-me: self.data.is-user-defined && root.editing-in-category == category.my-category-index && category.editing-component-index == self.my-index;
+
+                        // Hack to initialize currently visible component:
+                        if ci.is_currently_shown: Rectangle {
+                            visible: false;
+
+                            init() => {
+                                root.visible-component = ci;
+                            }
+                        }
 
                         VerticalLayout {
                             if component.edit-me: LineEdit {

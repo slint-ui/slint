@@ -3,8 +3,9 @@
 
 // cSpell: ignore resizer
 
-import { Button, ComboBox, HorizontalBox, ListView, ScrollView, Palette, VerticalBox } from "std-widgets.slint";
+import { Button, ComboBox, HorizontalBox, LineEdit, ListView, ScrollView, Palette, VerticalBox } from "std-widgets.slint";
 import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
+import { ComponentItem } from "component-list.slint";
 import { Resizer } from "resizer.slint";
 
 export enum LayoutKind {
@@ -40,13 +41,6 @@ export struct DropMark {
     y1: length,
     x2: length,
     y2: length,
-}
-
-export struct Preview {
-    factory: component-factory,
-    name: string,
-    pretty-location: string,
-    file: string,
 }
 
 component SelectionFrame {
@@ -177,8 +171,9 @@ export enum DrawAreaMode {
 export component DrawArea {
     in property <[Diagnostics]> diagnostics;
     in property <[Selection]> selections;
+    in property <ComponentItem> visible-component;
     in property <DropMark> drop-mark;
-    in property <Preview> preview-area;
+    in property <component-factory> preview-area;
     in property <bool> design-mode;
 
     out property <bool> preview-visible: preview-area-container.has-component && !diagnostics.diagnostics-open;
@@ -253,7 +248,7 @@ export component DrawArea {
                 // is called every time the condition is dirty, to make sure that the size
                 // is within the bounds.
                 // Query the preview-area to make sure this is evaluated when it changes
-                if preview-area-container.has-component && root.preview-area.factory == preview-area-container.component-factory: Rectangle {
+                if preview-area-container.has-component && root.preview-area == preview-area-container.component-factory: Rectangle {
                     init => {
                         preview-area-container.width = clamp(preview-area-container.width, max(preview-area-container.min-width, 16px), max(preview-area-container.max-width, 16px));
                         preview-area-container.height = clamp(preview-area-container.height, max(preview-area-container.min-height, 16px),  max(preview-area-container.max-height, 16px));
@@ -263,7 +258,7 @@ export component DrawArea {
                 preview-area-container := ComponentContainer {
                     property <bool> is-resizable: (self.min-width != self.max-width && self.min-height != self.max-height) && self.has-component;
 
-                    component-factory: root.preview-area.factory;
+                    component-factory: root.preview-area;
 
                     // The width and the height can't depend on the layout info of the inner item otherwise this would
                     // cause a recursion if this happens (#3989)
@@ -335,6 +330,8 @@ export component DrawArea {
                 }
 
                 component-label := Rectangle {
+                    visible: root.visible-component.is_currently_shown;
+
                     property <length> offset: 10px;
                     width: self.min-width;
                     height: self.min-height;
@@ -352,7 +349,7 @@ export component DrawArea {
                             font-size: 1.2rem;
                             font-weight: 700;
                             horizontal-alignment: left;
-                            text: root.preview-area.name;
+                            text: root.visible-component.name;
                             width: 100%;
                         }
                         HorizontalLayout {
@@ -362,10 +359,10 @@ export component DrawArea {
                                 Text {
                                     font-size: 0.8rem;
                                     horizontal-alignment: left;
-                                    text: root.preview-area.pretty-location;
+                                    text: root.visible-component.defined_at;
                                 }
                                 clicked() => {
-                                    root.show-component(root.preview-area.name, root.preview-area.file);
+                                    root.show-component(root.visible-component.name, root.visible-component.defined-at);
                                 }
                             }
                         }

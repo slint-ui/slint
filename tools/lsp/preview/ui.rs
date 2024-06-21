@@ -6,6 +6,11 @@ use std::{collections::HashMap, iter::once, rc::Rc};
 use slint::{Model, SharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 
+use crate::common::ComponentInformation;
+
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
+
 slint::include_modules!();
 
 pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, PlatformError> {
@@ -81,6 +86,19 @@ pub fn convert_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) -> Vec
         .collect::<Vec<_>>()
 }
 
+fn extract_definition_location(
+    ci: &ComponentInformation,
+) -> (slint::SharedString, slint::SharedString) {
+    let Some(url) = ci.defined_at.as_ref().map(|da| &da.url) else {
+        return (Default::default(), Default::default());
+    };
+
+    let path = url.to_file_path().unwrap_or_default();
+    let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+
+    (url.to_string().into(), file_name.into())
+}
+
 pub fn ui_set_known_components(
     ui: &PreviewUi,
     known_components: &[crate::common::ComponentInformation],
@@ -91,14 +109,11 @@ pub fn ui_set_known_components(
         if ci.is_global {
             continue;
         }
+        let (url, pretty_location) = extract_definition_location(ci);
         map.entry(ci.category.clone()).or_default().push(ComponentItem {
             name: ci.name.clone().into(),
-            defined_at: ci
-                .defined_at
-                .as_ref()
-                .map(|da| da.url.to_string())
-                .unwrap_or_default()
-                .into(),
+            defined_at: url,
+            pretty_location,
             is_user_defined: !(ci.is_builtin || ci.is_std_widget),
             is_currently_shown: idx == current_component_index,
         });

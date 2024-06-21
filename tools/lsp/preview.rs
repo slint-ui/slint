@@ -345,14 +345,20 @@ fn navigate(nav_direction: i32) {
 }
 
 // triggered from the UI, running in UI thread
-fn show_component(name: slint::SharedString, file: slint::SharedString) {
+fn show_component(name: slint::SharedString, url: slint::SharedString) {
     let name = name.to_string();
-    let file = PathBuf::from(file.to_string());
+    let Ok(url) = Url::parse(&url.to_string()) else {
+        return;
+    };
+
+    let Ok(file) = url.to_file_path() else {
+        return;
+    };
 
     let Some(document_cache) = document_cache() else {
         return;
     };
-    let Some(document) = document_cache.get_document_by_path(&file) else {
+    let Some(document) = document_cache.get_document(&url) else {
         return;
     };
     let Some(document) = document.node.as_ref() else {
@@ -955,26 +961,8 @@ fn set_preview_factory(
 
         Some(instance)
     });
-    let (name, file, pretty_location) = {
-        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        if let Some(current) = cache.current_component() {
-            let file = current.url.to_file_path().unwrap_or_default();
-            (
-                current.component.as_ref().cloned().unwrap_or_else(|| "Default".to_string()),
-                file.to_string_lossy().to_string(),
-                file.file_name().unwrap_or_default().to_string_lossy().to_string(),
-            )
-        } else {
-            (String::new(), String::new(), String::new())
-        }
-    };
 
-    ui.set_preview_area(ui::Preview {
-        factory,
-        name: name.into(),
-        pretty_location: pretty_location.into(),
-        file: file.into(),
-    });
+    ui.set_preview_area(factory);
 }
 
 /// Highlight the element pointed at the offset in the path.
