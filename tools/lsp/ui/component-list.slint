@@ -27,30 +27,26 @@ export component ComponentList {
     in-out property <ComponentItem> visible-component: empty-component-item;
 
     private property <ComponentItem> empty-component-item: {
-          name: "",
-          defined_at: "",
-          is_user_defined: false,
-          is_currently_shown: false,  
+        name: "",
+        defined_at: "",
+        is_user_defined: false,
+        is_currently_shown: false,
     };
 
-    private property <length> list-spacing: 6px;
+    private property <length> list-spacing: 10px;
 
     out property <bool> over-target;
 
     pure callback can-drop(string/* component_type */, length/* x */, length/* y */, bool/* on-drop-area */) -> bool;
     callback drop(string/* component_type */, length/* x */, length/* y */);
     callback add_new_component();
-    callback rename_component(string/* old_name */, string/* defined_at */, string/* new_name */);
     callback show_preview_for(string/* name */, string/*url*/);
 
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
-    private property <int> editing-in-category: -1;
-
-    function start-edit-in-category(category-index: int) {
-        self.editing-in-category = category-index;
-    }
 
     VerticalBox {
+        spacing: root.list-spacing;
+
         Text {
             text: @tr("Library");
             horizontal-alignment: center;
@@ -61,15 +57,12 @@ export component ComponentList {
         ScrollView {
             VerticalLayout {
                 spacing: root.list-spacing;
-                for cli[index] in root.known-components: category := VerticalLayout {
-                    private property <int> my-category-index: index;
-                    private property <int> editing-component-index: -1;
 
-                    function edit-component(component-index: int) {
-                        root.start-edit-in-category(self.my-category-index);
-                        self.editing-component-index = component-index;
-                    }
-                    
+                for cli[index] in root.known-components: category := VerticalLayout {
+                    spacing: root.list-spacing;
+
+                    private property <int> my-category-index: index;
+
                     Rectangle {
                         height: title.preferred-height + 10px;
                         background: Palette.alternate-background;
@@ -92,8 +85,6 @@ export component ComponentList {
                         enabled: root.preview-visible;
                         width: 100%;
 
-                        private property <bool> edit-me: self.data.is-user-defined && root.editing-in-category == category.my-category-index && category.editing-component-index == self.my-index;
-
                         // Hack to initialize currently visible component:
                         if ci.is_currently_shown: Rectangle {
                             visible: false;
@@ -103,25 +94,13 @@ export component ComponentList {
                             }
                         }
 
-                        VerticalLayout {
-                            if component.edit-me: LineEdit {
-                                horizontal-alignment: center;
+                        Rectangle {
+                            t := Text {
                                 text: component.data.name;
-                                width: 100%;
-
-                                accepted(name) => {
-                                    category.edit-component(-1);
-                                    root.rename_component(component.data.name, component.data.defined_at, name);
-                                }
                             }
-                            if !component.edit-me: Rectangle {
-                                t := Text {
-                                    text: component.data.name;
-                                }
 
-                                height: t.preferred-height + 2 * root.list-spacing;
-                                width: 100%;
-                            }
+                            height: t.preferred-height + 2 * root.list-spacing;
+                            width: 100%;
                         }
 
                         if ci.is_user_defined && !ci.is-currently-shown: preview-button := Button {
@@ -139,9 +118,6 @@ export component ComponentList {
                             if (self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
                                 root.drop(self.data.name, drop-x, drop-y);
                             }
-                        }
-                        clicked => {
-                            category.edit-component(self.my-index);
                         }
                         states [
                             dragging-no-drop when self.pressed && !self.can-drop-here: {

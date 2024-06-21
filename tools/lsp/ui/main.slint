@@ -101,20 +101,29 @@ export component PreviewUi inherits Window {
                         }
                     }
 
-                    Rectangle { width: 10px; }
+                    Rectangle {
+                        width: 10px;
+                    }
 
                     prev-button := Button {
                         text: "<";
                         enabled: root.can-navigate-back;
-                        clicked() => { root.navigate(-1); }
+                        clicked() => {
+                            root.navigate(-1);
+                        }
                     }
+
                     next-button := Button {
                         text: ">";
                         enabled: root.can-navigate-forward;
-                        clicked() => { root.navigate(1); }
+                        clicked() => {
+                            root.navigate(1);
+                        }
                     }
 
-                    Rectangle { width: 10px; }
+                    Rectangle {
+                        width: 10px;
+                    }
 
                     Text {
                         text: root.status-text;
@@ -141,9 +150,6 @@ export component PreviewUi inherits Window {
                                 }
                                 add_new_component => {
                                     return root.add_new_component();
-                                }
-                                rename_component(on, op, nn) => {
-                                    return root.rename_component(on, op, nn);
                                 }
                                 show_preview_for(cn, cp) => {
                                     return root.show_preview_for(cn, cp);
@@ -198,6 +204,10 @@ export component PreviewUi inherits Window {
                         }
                         reselect() => {
                             root.reselect();
+                        }
+
+                        rename_component(on, op, nn) => {
+                            return root.rename_component(on, op, nn);
                         }
                     }
 

@@ -196,6 +196,8 @@ export component DrawArea {
     callback selected-element-move(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
     callback selected-element-delete();
 
+    callback rename_component(string/* old_name */, string/* defined_at */, string/* new_name */);
+
     preferred-height: max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border;
     preferred-width: max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border;
 
@@ -345,9 +347,18 @@ export component DrawArea {
                         padding: 8px;
                         spacing: 4px;
 
-                        Text {
+                        if root.visible-component.is_user_defined: LineEdit {
                             font-size: 1.2rem;
-                            font-weight: 700;
+                            horizontal-alignment: left;
+                            text: root.visible-component.name;
+                            width: 100%;
+
+                            accepted(name) => {
+                                root.rename_component(root.visible-component.name, root.visible-component.defined_at, name);
+                            }
+                        }
+                        if !root.visible-component.is_user_defined: Text {
+                            font-size: 1.2rem;
                             horizontal-alignment: left;
                             text: root.visible-component.name;
                             width: 100%;
