@@ -4,8 +4,8 @@
 // cSpell: ignore Heade
 
 import { Button, ComboBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
-import { ComponentList, ComponentListItem } from "component-list.slint";
-import { DrawArea, DrawAreaMode, DropMark, LayoutKind, Preview, Selection } from "draw-area.slint";
+import { ComponentItem, ComponentList, ComponentListItem } from "component-list.slint";
+import { DrawArea, DrawAreaMode, DropMark, LayoutKind, Selection } from "draw-area.slint";
 import { HeaderBar } from "header-bar.slint";
 import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
 
@@ -13,13 +13,14 @@ export { Diagnostics, DropMark, LayoutKind }
 
 export component PreviewUi inherits Window {
     in property <[ComponentListItem]> known-components;
+    in-out property <ComponentItem> visible-component;
     in property <[Diagnostics]> diagnostics;
     in property <[Selection]> selections;
     in-out property <DropMark> drop-mark;
     in property <[string]> known-styles;
     in property <bool> experimental: false;
     in property <bool> show-preview-ui: true;
-    in property <Preview> preview-area;
+    in property <component-factory> preview-area;
     in property <string> status-text;
     in-out property <string> current-style;
     in property <bool> can-navigate-back: false;
@@ -57,7 +58,7 @@ export component PreviewUi inherits Window {
         if (!show-preview-ui): no-ui-drawing-rect := Rectangle {
             VerticalLayout {
                 ComponentContainer {
-                    component-factory: root.preview-area.factory;
+                    component-factory: root.preview-area;
                 }
             }
 
@@ -126,6 +127,7 @@ export component PreviewUi inherits Window {
                         VerticalBox {
                             ComponentList {
                                 known-components <=> root.known-components;
+                                visible-component <=> root.visible-component;
                                 preview-area-position-x: draw-area.preview-area-position-x;
                                 preview-area-position-y: draw-area.preview-area-position-y;
                                 preview-area-width: draw-area.preview-area-width;
@@ -165,6 +167,7 @@ export component PreviewUi inherits Window {
                         preview-area <=> root.preview-area;
                         selections <=> root.selections;
                         drop-mark <=> root.drop-mark;
+                        visible-component <=> root.visible-component;
 
                         select-at(x, y, enter_component) => {
                             root.select-at(x, y, enter_component);
