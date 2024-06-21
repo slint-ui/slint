@@ -14,9 +14,12 @@ functions.
 Functions in Slint are declared using the `function` keyword. For example:
 
 ```slint,no-preview
-function my-function(parameter: int) -> string {
-    // Function code goes here
-    return "result"
+export component Example {
+    // ...
+    function my-function(parameter: int) -> string {
+        // Function code goes here
+        return "result";
+    }
 }
 ```
 
@@ -34,20 +37,25 @@ More details can be found in the [Purity](../concepts/purity.md) chapter.
 
 ## Calling a function
 
-A function can be called without a target (like a function call in other languages) or with
-a target (like a method call in other languages):
+A function can be called without an element name (like a function call in other languages) or with
+an element name (like a method call in other languages):
 
 ```slint,no-preview
+import { Button } from "std-widgets.slint"; 
+
 export component Example {
-    property <string> my-property: my-function(); // Called without a target
-    property <int> my-other-property: my_button.my-other-function(); // Called with a named target
+    // Call without an element name:
+    property <string> my-property: my-function();
+    // Call with an element name:
+    property <int> my-other-property: my_button.my-other-function();
 
     pure function my-function() -> string {
         return "result";
     }
 
     Text {
-        text: root.my-function(); // Called with a pre-defined name
+        // Called with a pre-defined element:
+        text: root.my-function();
     }
 
     my_button := Button {
@@ -58,13 +66,52 @@ export component Example {
 }
 ```
 
-The two types of calls function mostly the same. The only differences are:
+## Name resolution
 
-- Functions can be called without a target only from the element that defines them and its children.
-That means a function defined at the root of a component can be called from anywhere within that component
-while a function defined in an element can be called from that element and any child elements of it.
-- When a function is overridden, calling it with a target allows the caller to choose the exact version
-it wants to call (see Function Overriding below).
+Function calls have the same name resolution rules as properties and callbacks. When called without
+an element name:
+
+- If the element that the function is called in (`self`) defines a function with that name, it is chosen.
+- If not, name resolution continues to its parent element, and so on, until the root component.
+
+When called with an element name (or `self`, `parent` or `root`), the function must be defined on that
+element. Name resolution does not look at ancestor elements in this case. Note that this means
+calling a function without an element name is _not_ equivalent to calling it with `self`.
+
+Multiple functions with the same name are allowed in the same component, as long as they are defined
+on different elements. Therefore it is possible for a function to shadow another function from an ancestor
+element.
+
+```slint,no-preview
+export component Example {
+    property <int> secret_number: my-function();
+    public pure function my-function() -> int {
+        return 1;
+    }
+
+    VerticalLayout {
+        public pure function my-function() -> int {
+            return 2;
+        }
+
+        Text {
+            text: "The secret number is " + my-function();
+            public pure function my-function() -> int {
+                return 3;
+            }
+        }
+
+        Text {
+            text: "The other secret number is " + my-function();
+        }
+    }
+}
+```
+
+In the example above, the property `secret_number` will be set to 1, and the text labels will say "The
+secret number is 3" and "The other secret number is 2".
+
+## Function visibility
 
 By default, functions are private and cannot be accessed from other components.
 
@@ -85,7 +132,7 @@ export component HasFunction {
 export component CallsFunction {
     property <int> test: my-friend.double(1);
 
-    my-friend: HasFunction {
+    my-friend := HasFunction {
     }
 }
 ```
@@ -107,7 +154,7 @@ export component CallsFunction {
     // Compiler error!
     // property <int> test: my-friend.t.double(1);
 
-    my-friend: HasFunction {
+    my-friend := HasFunction {
     }
 }
 ```
@@ -117,37 +164,29 @@ export component CallsFunction {
 Functions, even marked public, cannot be exported and cannot be called from backend code (in Rust, C++,
 JS, etc.). Declare a [callback](callbacks.md) which can call the function.
 
-## Function overriding
+## Name resolution in function code
 
-Function names must be unique at any given level in the component hierarchy. But two functions with the
-same name can be declared in different elements. For example:
+Name resolution inside function code (including the meaning of the reserved words `self` and `parent`)
+is always based on the element in which the function is declared, not the element that the function is called in.
 
 ```slint,no-preview
+import { Button } from "std-widgets.slint"; 
+
 export component Example {
-    property <int> secret_number: my-function();
-    public pure function my-function() -> int {
-        return 1;
+    property <int> value: 0;
+    function update-value() {
+        value = 1;
     }
 
-    VerticalBox {
-        public pure function my-function() -> int {
-            return 2;
-        }
-
-        Text {
-            text: "The secret number is " + my-function();
-            public pure function my-function() -> int {
-                return 3;
-            }
+    Button {
+        property <int> value: 0;
+        clicked => {
+            update-value();
         }
     }
 }
 ```
 
-When calling an overidden function without a target, the version that is called depends on where in the
-element hierarchy the call happens. The compiler first looks for a function defined in the same element,
-then, if none is found, goes up the parent chain of that element stopping at the first node that has a
-function by that name.
+In the example above, the `value` property of the root component is updated, not the `value` property of the
+button.
 
-In the example above, the property `secret_number` will be set to 1, but the text label will be set to
-3.
