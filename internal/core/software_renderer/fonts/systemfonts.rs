@@ -65,31 +65,29 @@ pub fn fallbackfont(font_request: &super::FontRequest, scale_factor: ScaleFactor
     let requested_pixel_size: PhysicalLength =
         (font_request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
-    sharedfontdb::FONT_DB.with(|fonts| {
-        let fonts_borrowed = fonts.borrow();
-
+    sharedfontdb::FONT_DB.with_borrow(|fonts| {
         let query = font_request.to_fontdb_query();
 
-        let fallback_font_id = fonts_borrowed
+        let fallback_font_id = fonts
             .query_with_family(query, None)
             .expect("fatal: query for fallback font returned empty font list");
 
-        let fontdue_font = get_or_create_fontdue_font(&fonts_borrowed, fallback_font_id);
+        let fontdue_font = get_or_create_fontdue_font(&fonts, fallback_font_id);
         VectorFont::new(fallback_font_id, fontdue_font, requested_pixel_size)
     })
 }
 
 pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
-    sharedfontdb::FONT_DB.with(|fonts| {
-        fonts.borrow_mut().load_font_source(fontdb::Source::Binary(std::sync::Arc::new(data)))
+    sharedfontdb::FONT_DB.with_borrow_mut(|fonts| {
+        fonts.make_mut().load_font_source(fontdb::Source::Binary(std::sync::Arc::new(data)))
     });
     Ok(())
 }
 
 pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let requested_path = path.canonicalize().unwrap_or_else(|_| path.to_owned());
-    sharedfontdb::FONT_DB.with(|fonts| {
-        for face_info in fonts.borrow().faces() {
+    sharedfontdb::FONT_DB.with_borrow_mut(|fonts| {
+        for face_info in fonts.faces() {
             match &face_info.source {
                 fontdb::Source::Binary(_) => {}
                 fontdb::Source::File(loaded_path) | fontdb::Source::SharedFile(loaded_path, ..) => {
@@ -100,6 +98,6 @@ pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std
             }
         }
 
-        fonts.borrow_mut().load_font_file(requested_path).map_err(|e| e.into())
+        fonts.make_mut().load_font_file(requested_path).map_err(|e| e.into())
     })
 }
