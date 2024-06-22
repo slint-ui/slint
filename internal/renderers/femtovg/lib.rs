@@ -11,9 +11,9 @@ use std::rc::{Rc, Weak};
 
 use i_slint_common::sharedfontdb;
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
-use i_slint_core::graphics::BorderRadius;
-use i_slint_core::graphics::FontRequest;
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
+use i_slint_core::graphics::{BorderRadius, SharedImageBuffer};
+use i_slint_core::graphics::{FontRequest, SharedPixelBuffer};
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::items::TextWrap;
 use i_slint_core::lengths::{
@@ -538,6 +538,23 @@ impl RendererSealed for FemtoVGRenderer {
             self.opengl_context.resize(width, height)?;
         };
         return Ok(());
+    }
+
+    /// Returns an image buffer of what was rendered last by reading the previous front buffer (using glReadPixels).
+    fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
+        self.opengl_context.ensure_current()?;
+        let screenshot = self
+            .canvas
+            .borrow_mut()
+            .screenshot()
+            .map_err(|e| format!("FemtoVG error reading current back buffer: {e}"))?;
+
+        use rgb::ComponentBytes;
+        Ok(SharedImageBuffer::RGBA8(SharedPixelBuffer::clone_from_slice(
+            screenshot.buf().as_bytes(),
+            screenshot.width() as u32,
+            screenshot.height() as u32,
+        )))
     }
 }
 

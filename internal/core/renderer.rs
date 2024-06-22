@@ -7,6 +7,7 @@ use alloc::rc::Rc;
 use core::pin::Pin;
 
 use crate::api::PlatformError;
+use crate::graphics::SharedImageBuffer;
 use crate::item_tree::ItemTreeRef;
 use crate::items::TextWrap;
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
@@ -115,5 +116,11 @@ pub trait RendererSealed {
 
     fn resize(&self, _size: crate::api::PhysicalSize) -> Result<(), PlatformError> {
         Ok(())
+    }
+
+    /// Re-implement this function to support Window::grab_window(), i.e. return
+    /// the contents of the window in an image buffer.
+    fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
+        Err("WindowAdapter::grab_window is not implemented by the platform".into())
     }
 }

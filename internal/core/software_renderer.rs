@@ -12,7 +12,7 @@ mod fixed;
 mod fonts;
 
 use self::fonts::GlyphRenderer;
-use crate::api::Window;
+use crate::api::{PlatformError, Window};
 use crate::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use crate::graphics::{BorderRadius, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::{CachedRenderingData, DirtyRegion, RenderBorderRectangle, RenderImage};
@@ -790,6 +790,34 @@ impl RendererSealed for SoftwareRenderer {
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
         self.partial_cache.borrow_mut().clear();
+    }
+
+    fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
+        let Some(window_adapter) =
+            self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
+        else {
+            return Err(
+                "SoftwareRenderer's screenshot called without a window adapter present".into()
+            );
+        };
+
+        let window = window_adapter.window();
+        let size = window.size();
+
+        let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
+        else {
+            // Nothing to render
+            return Err("grab_window() called on window with invalid size".into());
+        };
+
+        let mut target_buffer = SharedPixelBuffer::<crate::graphics::Rgb8Pixel>::new(width, height);
+
+        self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
+        self.render(target_buffer.make_mut_slice(), width as usize);
+        // ensure that caches are clear for the next call
+        self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
+
+        Ok(SharedImageBuffer::RGB8(target_buffer))
     }
 }
 

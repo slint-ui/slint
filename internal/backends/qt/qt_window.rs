@@ -2313,6 +2313,28 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>) {
         // No-op because QtWindow is also the WindowAdapter
     }
+
+    fn screenshot(&self) -> Result<SharedImageBuffer, PlatformError> {
+        let widget_ptr = self.widget_ptr();
+
+        let size = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
+            return widget_ptr->size();
+        }};
+
+        let rgb8_data = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QByteArray as "QByteArray" {
+            QPixmap pixmap = widget_ptr->grab();
+            QImage image = pixmap.toImage();
+            image.convertTo(QImage::Format_RGB888);
+            return QByteArray(reinterpret_cast<const char *>(image.constBits()), image.sizeInBytes());
+        }};
+
+        let buffer = i_slint_core::graphics::SharedPixelBuffer::<i_slint_core::graphics::Rgb8Pixel>::clone_from_slice(
+            rgb8_data.to_slice(),
+            size.width,
+            size.height,
+        );
+        Ok(i_slint_core::graphics::SharedImageBuffer::RGB8(buffer))
+    }
 }
 
 fn accessible_item(item: Option<ItemRc>) -> Option<ItemRc> {
