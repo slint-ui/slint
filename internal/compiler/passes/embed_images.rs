@@ -363,14 +363,14 @@ fn load_image(
     if file.canon_path.extension() == Some(OsStr::new("svg"))
         || file.canon_path.extension() == Some(OsStr::new("svgz"))
     {
-        let options = usvg::Options::default();
-        let tree = i_slint_common::sharedfontdb::FONT_DB.with(|db| {
+        let tree = i_slint_common::sharedfontdb::FONT_DB.with_borrow(|db| {
+            let mut options = usvg::Options::default();
+            options.fontdb = (*db).clone();
             match file.builtin_contents {
-                Some(data) => usvg::Tree::from_data(data, &options, &db.borrow()),
+                Some(data) => usvg::Tree::from_data(data, &options),
                 None => usvg::Tree::from_data(
                     std::fs::read(&file.canon_path).map_err(image::ImageError::IoError)?.as_slice(),
                     &options,
-                    &db.borrow(),
                 ),
             }
             .map_err(|e| {

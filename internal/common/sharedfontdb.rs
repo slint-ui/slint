@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::RefCell;
+use std::sync::Arc;
 
 pub use fontdb;
 
-#[derive(derive_more::Deref, derive_more::DerefMut)]
+#[derive(derive_more::Deref)]
 pub struct FontDatabase {
+    // This is in a Arc because usvg takes the database in a Arc
     #[deref]
-    #[deref_mut]
-    db: fontdb::Database,
+    db: Arc<fontdb::Database>,
     #[cfg(not(any(
         target_family = "windows",
         target_os = "macos",
@@ -47,6 +48,10 @@ impl FontDatabase {
             query.families = &family_storage;
             self.db.query(&query)
         }
+    }
+
+    pub fn make_mut(&mut self) -> &mut fontdb::Database {
+        Arc::make_mut(&mut self.db)
     }
 }
 
@@ -165,7 +170,7 @@ fn init_fontdb() -> FontDatabase {
     }
 
     FontDatabase {
-        db: font_db,
+        db: Arc::new(font_db),
         #[cfg(not(any(
             target_family = "windows",
             target_os = "macos",
@@ -183,8 +188,8 @@ fn init_fontdb() -> FontDatabase {
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
 /// font.
 pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
-    FONT_DB.with(|db| {
-        db.borrow_mut().load_font_source(fontdb::Source::Binary(std::sync::Arc::new(data)))
+    FONT_DB.with_borrow_mut(|db| {
+        db.make_mut().load_font_source(fontdb::Source::Binary(std::sync::Arc::new(data)))
     });
     Ok(())
 }
@@ -192,8 +197,8 @@ pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std:
 #[cfg(not(target_arch = "wasm32"))]
 pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let requested_path = path.canonicalize().unwrap_or_else(|_| path.to_owned());
-    FONT_DB.with(|db| {
-        for face_info in db.borrow().faces() {
+    FONT_DB.with_borrow_mut(|db| {
+        for face_info in db.faces() {
             match &face_info.source {
                 fontdb::Source::Binary(_) => {}
                 fontdb::Source::File(loaded_path) | fontdb::Source::SharedFile(loaded_path, ..) => {
@@ -203,8 +208,7 @@ pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std
                 }
             }
         }
-
-        db.borrow_mut().load_font_file(requested_path).map_err(|e| e.into())
+        db.make_mut().load_font_file(requested_path).map_err(|e| e.into())
     })
 }
 

@@ -137,14 +137,15 @@ clru = { version = "0.6.0" }
 css-color-parser2 = { version = "1.0.1" }
 derive_more = { version = "0.99.17" }
 euclid = { version = "0.22.1", default-features = false }
-fontdb = { version = "0.16.0", default-features = false }
-fontdue = { version = "0.8.0" }
+fontdb = { version = "0.18.0", default-features = false }
+fontdue = { version = "0.9.0" }
 glutin = { version = "0.32.0", default-features = false }
 image = { version = "0.24", default-features = false, features = [ "png", "jpeg" ] }
-itertools = { version = "0.12" }
+itertools = { version = "0.13" }
 log = { version = "0.4.17" }
-resvg = { version= "0.41.0", default-features = false, features = ["text"] }
+resvg = { version= "0.42.0", default-features = false, features = ["text"] }
 rowan = { version = "0.15" }
+rustybuzz = { version = "0.14.0" }
 send_wrapper = { version = "0.6.0" }
 serde = { version = "1.0.163", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.96" }
@@ -152,6 +153,7 @@ softbuffer = { version = "0.4.4", default-features = false }
 spin_on = { version = "0.1" }
 strum = { version = "0.26.1", default-features = false, features = ["derive"] }
 toml_edit = { version = "0.22.7" }
+ttf-parser = { version = "0.21" }
 
 raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
 

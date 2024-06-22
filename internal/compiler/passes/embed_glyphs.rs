@@ -110,7 +110,7 @@ fn embed_glyphs_with_fontdb<'a>(
     for doc in all_docs {
         for (font_path, import_token) in doc.custom_fonts.iter() {
             let face_count = fontdb.faces().count();
-            if let Err(e) = fontdb.load_font_file(font_path) {
+            if let Err(e) = fontdb.make_mut().load_font_file(font_path) {
                 diag.push_error(format!("Error loading font: {}", e), import_token);
             } else {
                 custom_fonts.extend(fontdb.faces().skip(face_count).map(|info| info.id))

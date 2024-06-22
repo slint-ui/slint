@@ -193,9 +193,7 @@ impl FontCache {
 
         //let now = std::time::Instant::now();
 
-        let fontdb_face_id = sharedfontdb::FONT_DB.with(|db| {
-            let db = db.borrow();
-
+        let fontdb_face_id = sharedfontdb::FONT_DB.with_borrow(|db| {
             db.query_with_family(query, family.map(|s| s.as_str()))
                 .or_else(|| {
                     // If the requested family could not be found, fall back to *some* family that must exist
@@ -213,14 +211,13 @@ impl FontCache {
         // on Unixy platforms and on Windows the default file flags prevent the deletion.
         #[cfg(not(target_arch = "wasm32"))]
         let (shared_data, face_index) = unsafe {
-            sharedfontdb::FONT_DB.with(|db| {
-                db.borrow_mut().make_shared_face_data(fontdb_face_id).expect("unable to mmap font")
+            sharedfontdb::FONT_DB.with_borrow_mut(|db| {
+                db.make_mut().make_shared_face_data(fontdb_face_id).expect("unable to mmap font")
             })
         };
         #[cfg(target_arch = "wasm32")]
-        let (shared_data, face_index) = crate::sharedfontdb::FONT_DB.with(|db| {
-            db.borrow()
-                .face_source(fontdb_face_id)
+        let (shared_data, face_index) = crate::sharedfontdb::FONT_DB.with_borrow(|db| {
+            db.face_source(fontdb_face_id)
                 .map(|(source, face_index)| {
                     (
                         match source {
