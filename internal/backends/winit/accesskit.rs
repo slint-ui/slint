@@ -437,7 +437,16 @@ impl NodeCollection {
             builder.set_numeric_value_step(step);
         }
 
-        if let Some(value) = item.accessible_string_property(AccessibleStringProperty::Value) {
+        let value = item.accessible_string_property(AccessibleStringProperty::Value);
+        if value.is_none() || value.as_ref().is_some_and(|x| x.is_empty()) {
+            if let Some(placeholder) = item
+                .accessible_string_property(AccessibleStringProperty::PlaceholderText)
+                .filter(|x| !x.is_empty())
+            {
+                builder.set_placeholder(placeholder.to_string());
+            }
+        }
+        if let Some(value) = value {
             if let Ok(value) = value.parse() {
                 builder.set_numeric_value(value);
             } else {

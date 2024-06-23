@@ -20,6 +20,7 @@ pub enum AccessibleStringProperty {
     DelegateFocus,
     Description,
     Label,
+    PlaceholderText,
     Value,
     ValueMaximum,
     ValueMinimum,

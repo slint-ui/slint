@@ -111,6 +111,7 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
         ("accessible-value-maximum", Type::Float32),
         ("accessible-value-minimum", Type::Float32),
         ("accessible-value-step", Type::Float32),
+        ("accessible-placeholder-text", Type::String),
         ("accessible-action-default", Type::Callback { return_type: None, args: vec![] }),
         ("accessible-action-increment", Type::Callback { return_type: None, args: vec![] }),
         ("accessible-action-decrement", Type::Callback { return_type: None, args: vec![] }),
