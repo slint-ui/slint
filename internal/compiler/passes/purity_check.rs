@@ -91,7 +91,7 @@ fn ensure_pure(
                             }
                             r = false;
                         }
-                        recursion_test.remove(&nr);
+                        recursion_test.remove(nr);
                     }
                 }
             }

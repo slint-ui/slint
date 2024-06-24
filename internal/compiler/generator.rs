@@ -89,7 +89,7 @@ pub fn generate(
             )); // Perhaps byte code in the future?
         }
         OutputFormat::Llr => {
-            let root = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, compiler_config);
+            let root = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
             let mut output = String::new();
             crate::llr::pretty_print::pretty_print(&root, &mut output).unwrap();
             write!(destination, "{output}")?;
@@ -228,7 +228,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
     ) {
         debug_assert_eq!(
             relative_parent_index,
-            parent_item.borrow().item_index.get().map(|x| *x as u32).unwrap_or(parent_index)
+            *parent_item.borrow().item_index.get().unwrap_or(&parent_index)
         );
 
         // Suppose we have this:

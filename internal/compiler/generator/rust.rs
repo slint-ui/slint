@@ -160,7 +160,7 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
         })
         .unzip();
 
-    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &compiler_config);
+    let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
     if llr.public_components.is_empty() {
         return Default::default();
