@@ -82,8 +82,7 @@ pub fn load_from_path(
     let svg_data = std::fs::read(std::path::Path::new(&path.as_str()))?;
 
     i_slint_common::sharedfontdb::FONT_DB.with_borrow(|db| {
-        let mut option = usvg::Options::default();
-        option.fontdb = (*db).clone();
+        let option = usvg::Options { fontdb: (*db).clone(), ..Default::default() };
         usvg::Tree::from_data(&svg_data, &option)
             .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
@@ -92,8 +91,7 @@ pub fn load_from_path(
 
 pub fn load_from_data(slice: &[u8], cache_key: ImageCacheKey) -> Result<ParsedSVG, usvg::Error> {
     i_slint_common::sharedfontdb::FONT_DB.with_borrow(|db| {
-        let mut option = usvg::Options::default();
-        option.fontdb = (*db).clone();
+        let option = usvg::Options { fontdb: (*db).clone(), ..Default::default() };
         usvg::Tree::from_data(slice, &option).map(|svg| ParsedSVG { svg_tree: svg, cache_key })
     })
 }
