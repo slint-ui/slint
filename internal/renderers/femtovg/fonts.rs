@@ -441,9 +441,8 @@ impl FontCache {
             db.borrow()
                 .fontconfig_fallback_families
                 .iter()
-                .filter_map(|family_name| {
-                    self.is_known_family(family_name).then(|| family_name.into())
-                })
+                .filter(|&family_name| self.is_known_family(family_name))
+                .map(|family_name| family_name.into())
                 .collect()
         })
     }
