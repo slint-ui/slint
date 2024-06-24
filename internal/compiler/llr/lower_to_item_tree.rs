@@ -25,14 +25,14 @@ pub fn lower_to_item_tree(
         globals.push(lower_global(g, count, &mut state));
     }
     for c in &document.used_types.borrow().sub_components {
-        let sc = lower_sub_component(c, &state, None, &compiler_config);
+        let sc = lower_sub_component(c, &state, None, compiler_config);
         state.sub_components.insert(ByAddress(c.clone()), sc);
     }
 
     let public_components = document
         .exported_roots()
         .map(|component| {
-            let sc = lower_sub_component(&component, &state, None, &compiler_config);
+            let sc = lower_sub_component(&component, &state, None, compiler_config);
             let public_properties = public_properties(&component, &sc.mapping, &state);
             let mut item_tree = ItemTree {
                 tree: make_tree(&state, &component.root_element, &sc, &[]),
@@ -431,7 +431,7 @@ fn lower_sub_component(
         .collect();
     sub_component.repeated = repeated
         .into_iter()
-        .map(|elem| lower_repeated_component(&elem, &ctx, &compiler_config))
+        .map(|elem| lower_repeated_component(&elem, &ctx, compiler_config))
         .collect();
     for s in &mut sub_component.sub_components {
         s.repeater_offset +=
@@ -587,7 +587,7 @@ fn lower_repeated_component(
     let repeated = e.repeated.as_ref().unwrap();
 
     let sc: LoweredSubComponent =
-        lower_sub_component(&component, ctx.state, Some(ctx), &compiler_config);
+        lower_sub_component(&component, ctx.state, Some(ctx), compiler_config);
 
     let geom = component.root_element.borrow().geometry_props.clone().unwrap();
 
@@ -642,7 +642,7 @@ fn lower_popup_component(
     ctx: &ExpressionContext,
     compiler_config: &CompilerConfiguration,
 ) -> ItemTree {
-    let sc = lower_sub_component(component, ctx.state, Some(ctx), &compiler_config);
+    let sc = lower_sub_component(component, ctx.state, Some(ctx), compiler_config);
     ItemTree {
         tree: make_tree(ctx.state, &component.root_element, &sc, &[]),
         root: Rc::try_unwrap(sc.sub_component).unwrap(),

@@ -197,7 +197,7 @@ fn inline_element(
             &insertion_element.borrow().enclosing_component.upgrade().unwrap()
         )));
         for c in &children {
-            recurse_elem(&c, &(), &mut |e, _| {
+            recurse_elem(c, &(), &mut |e, _| {
                 e.borrow_mut().enclosing_component =
                     insertion_element.borrow().enclosing_component.clone();
                 moved_into_popup.insert(element_key(e.clone()));

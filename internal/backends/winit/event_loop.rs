@@ -119,7 +119,7 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
         self.active_event_loop.display_handle()
     }
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_> {
-        ActiveOrInactiveEventLoop::Active(&self.active_event_loop)
+        ActiveOrInactiveEventLoop::Active(self.active_event_loop)
     }
 }
 

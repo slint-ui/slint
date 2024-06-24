@@ -856,7 +856,8 @@ pub async fn load(
                 return (Err(()), diag);
             };
 
-            let compiled_globals = CompiledGlobalCollection::compile(&doc);
+            let compiled_globals = CompiledGlobalCollection::compile(doc);
+
             generate_item_tree(&root_component, Some(compiled_globals), guard)
         };
 
