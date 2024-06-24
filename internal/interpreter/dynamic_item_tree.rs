@@ -1394,16 +1394,13 @@ pub fn instantiate(
         }
     }
 
-    match &window_options {
-        Some(WindowOptions::UseExistingWindow(existing_adapter)) => {
-            description
-                .window_adapter_offset
-                .apply(instance_ref.as_ref())
-                .set(existing_adapter.clone())
-                .ok()
-                .unwrap();
-        }
-        _ => {}
+    if let Some(WindowOptions::UseExistingWindow(existing_adapter)) = &window_options {
+        description
+            .window_adapter_offset
+            .apply(instance_ref.as_ref())
+            .set(existing_adapter.clone())
+            .ok()
+            .unwrap();
     }
 
     // Some properties are generated as Value, but for which the default constructed Value must be initialized

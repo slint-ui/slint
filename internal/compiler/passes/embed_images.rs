@@ -85,27 +85,23 @@ fn embed_images_from_expression(
     diag: &mut BuildDiagnostics,
 ) {
     if let Expression::ImageReference { ref mut resource_ref, source_location, nine_slice: _ } = e {
-        match resource_ref {
-            ImageReference::AbsolutePath(path) => {
-                // used mapped path:
-                let mapped_path =
-                    urls.get(path).unwrap_or(&Some(path.clone())).clone().unwrap_or(path.clone());
-                *path = mapped_path;
-
-                if embed_files != EmbedResourcesKind::OnlyBuiltinResources
-                    || path.starts_with("builtin:/")
-                {
-                    *resource_ref = embed_image(
-                        global_embedded_resources,
-                        embed_files,
-                        path,
-                        scale_factor,
-                        diag,
-                        source_location,
-                    );
-                }
+        if let ImageReference::AbsolutePath(path) = resource_ref {
+            // used mapped path:
+            let mapped_path =
+                urls.get(path).unwrap_or(&Some(path.clone())).clone().unwrap_or(path.clone());
+            *path = mapped_path;
+            if embed_files != EmbedResourcesKind::OnlyBuiltinResources
+                || path.starts_with("builtin:/")
+            {
+                *resource_ref = embed_image(
+                    global_embedded_resources,
+                    embed_files,
+                    path,
+                    scale_factor,
+                    diag,
+                    source_location,
+                );
             }
-            _ => {}
         }
     };
 
