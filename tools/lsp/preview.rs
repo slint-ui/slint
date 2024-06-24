@@ -256,7 +256,7 @@ fn add_new_component() {
 }
 
 /// Find the identifier that belongs to a component of the given `name` in the `document`
-fn find_component_identifier(
+pub fn find_component_identifier(
     document: &syntax_nodes::Document,
     name: &str,
 ) -> Option<syntax_nodes::DeclaredIdentifier> {

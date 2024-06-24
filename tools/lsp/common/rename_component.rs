@@ -336,6 +336,7 @@ mod tests {
 
     use crate::common::test;
     use crate::common::text_edit;
+    use crate::preview;
 
     #[track_caller]
     fn compile_test_changes(
@@ -381,27 +382,6 @@ mod tests {
         changed_text
     }
 
-    fn find_component_declared_identifier(
-        document_node: &syntax_nodes::Document,
-        name: &str,
-    ) -> Option<syntax_nodes::DeclaredIdentifier> {
-        for c in document_node.Component() {
-            let cid = c.DeclaredIdentifier();
-            if cid.text().to_string().trim() == name {
-                return Some(cid);
-            }
-        }
-        for e in document_node.ExportsList() {
-            if let Some(c) = e.Component() {
-                let cid = c.DeclaredIdentifier();
-                if cid.text().to_string().trim() == name {
-                    return Some(cid);
-                }
-            }
-        }
-        None
-    }
-
     #[test]
     fn test_rename_component_from_definition_ok() {
         let document_cache = test::compile_test_with_sources(
@@ -437,7 +417,7 @@ export component Bar {
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
 
         let foo_identifier =
-            find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+            preview::find_component_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
         let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
             .unwrap();
 
@@ -462,7 +442,7 @@ export component Bar {
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
 
         let foo_identifier =
-            find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+            preview::find_component_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
         let edit =
             rename_component_from_definition(&document_cache, &foo_identifier, "FooXXX").unwrap();
 
@@ -503,7 +483,7 @@ export { Foo as FExport }
             document_cache.get_document_by_path(&test::test_file_name("source.slint")).unwrap();
 
         let foo_identifier =
-            find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+            preview::find_component_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
         let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
             .unwrap();
 
@@ -597,7 +577,7 @@ export { Foo as User4Fxx }
             document_cache.get_document_by_path(&test::test_file_name("source.slint")).unwrap();
 
         let foo_identifier =
-            find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+            preview::find_component_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
         let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
             .unwrap();
 
@@ -712,7 +692,7 @@ export { Foo as User4Fxx }
             document_cache.get_document_by_path(&test::test_file_name("s/source.slint")).unwrap();
 
         let foo_identifier =
-            find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+            preview::find_component_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
         let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
             .unwrap();
 
@@ -788,7 +768,7 @@ export component Foo { }
             document_cache.get_document_by_path(&test::test_file_name("user1.slint")).unwrap();
 
         let foo_identifier =
-            find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+            preview::find_component_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
         let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
             .unwrap();
 
@@ -811,7 +791,7 @@ export component Foo { }
             document_cache.get_document_by_path(&test::test_file_name("user2.slint")).unwrap();
 
         let foo_identifier =
-            find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+            preview::find_component_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
         let edit = rename_component_from_definition(&document_cache, &foo_identifier, "XxxYyyZzz")
             .unwrap();
 
@@ -863,7 +843,7 @@ export component Bar {
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
 
         let foo_identifier =
-            find_component_declared_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
+            preview::find_component_identifier(doc.node.as_ref().unwrap(), "Foo").unwrap();
 
         assert!(rename_component_from_definition(&document_cache, &foo_identifier, "Foo").is_err());
         assert!(rename_component_from_definition(&document_cache, &foo_identifier, "UsedStruct")
