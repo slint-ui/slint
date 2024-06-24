@@ -364,13 +364,12 @@ fn load_image(
         || file.canon_path.extension() == Some(OsStr::new("svgz"))
     {
         let tree = i_slint_common::sharedfontdb::FONT_DB.with_borrow(|db| {
-            let mut options = usvg::Options::default();
-            options.fontdb = (*db).clone();
+            let option = usvg::Options { fontdb: (*db).clone(), ..Default::default() };
             match file.builtin_contents {
-                Some(data) => usvg::Tree::from_data(data, &options),
+                Some(data) => usvg::Tree::from_data(data, &option),
                 None => usvg::Tree::from_data(
                     std::fs::read(&file.canon_path).map_err(image::ImageError::IoError)?.as_slice(),
-                    &options,
+                    &option,
                 ),
             }
             .map_err(|e| {
