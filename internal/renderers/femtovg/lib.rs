@@ -537,7 +537,7 @@ impl RendererSealed for FemtoVGRenderer {
         if let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok()) {
             self.opengl_context.resize(width, height)?;
         };
-        return Ok(());
+        Ok(())
     }
 
     /// Returns an image buffer of what was rendered last by reading the previous front buffer (using glReadPixels).

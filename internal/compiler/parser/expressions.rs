@@ -487,6 +487,5 @@ fn parse_image_url(p: &mut impl Parser) {
     }
     if !p.expect(SyntaxKind::RParent) {
         p.until(SyntaxKind::RParent);
-        return;
     }
 }

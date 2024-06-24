@@ -119,7 +119,6 @@ impl<'a> LocalFocusForwards<'a> {
                     "only one forward-focus binding can point to an element".into(),
                     &location,
                 );
-                return;
             }
         });
 
