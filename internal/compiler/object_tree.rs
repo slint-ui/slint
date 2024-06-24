@@ -239,7 +239,7 @@ impl Document {
         }
     }
 
-    pub fn exported_roots(&self) -> impl Iterator<Item = Rc<Component>> + DoubleEndedIterator + '_ {
+    pub fn exported_roots(&self) -> impl DoubleEndedIterator<Item = Rc<Component>> + '_ {
         let mut iter = self
             .exports
             .iter()
