@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![cfg(target_arch = "wasm32")]
+#![allow(clippy::await_holding_refcell_ref)]
 
 pub mod common;
 mod fmt;

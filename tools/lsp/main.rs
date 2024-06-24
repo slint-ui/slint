@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![cfg(not(target_arch = "wasm32"))]
+#![allow(clippy::await_holding_refcell_ref)]
 
 #[cfg(all(feature = "preview-engine", not(feature = "preview-builtin")))]
 compile_error!("Feature preview-engine and preview-builtin need to be enabled together when building native LSP");
