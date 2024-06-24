@@ -117,7 +117,7 @@ pub(crate) mod dependency_tracker {
     impl<T> DependencyListHead<T> {
         pub unsafe fn mem_move(from: *mut Self, to: *mut Self) {
             (*to).0.set((*from).0.get());
-            if let Some(next) = ((*from).0.get() as *const DependencyNode<T>).as_ref() {
+            if let Some(next) = (*from).0.get().as_ref() {
                 debug_assert_eq!(from as *const _, next.prev.get() as *const _);
                 next.debug_assert_valid();
                 next.prev.set(to as *const _);
@@ -160,7 +160,7 @@ pub(crate) mod dependency_tracker {
         }
 
         pub unsafe fn drop(_self: *mut Self) {
-            if let Some(next) = ((*_self).0.get() as *const DependencyNode<T>).as_ref() {
+            if let Some(next) = (*_self).0.get().as_ref() {
                 debug_assert_eq!(_self as *const _, next.prev.get() as *const _);
                 next.debug_assert_valid();
                 next.prev.set(core::ptr::null());
@@ -171,7 +171,7 @@ pub(crate) mod dependency_tracker {
             unsafe {
                 node.remove();
                 node.debug_assert_valid();
-                let old = self.0.get() as *const DependencyNode<T>;
+                let old = self.0.get();
                 if let Some(x) = old.as_ref() {
                     x.debug_assert_valid();
                 }
@@ -188,7 +188,7 @@ pub(crate) mod dependency_tracker {
 
         pub fn for_each(&self, mut f: impl FnMut(&T)) {
             unsafe {
-                let mut next = self.0.get() as *const DependencyNode<T>;
+                let mut next = self.0.get();
                 while let Some(node) = next.as_ref() {
                     node.debug_assert_valid();
                     next = node.next.get();

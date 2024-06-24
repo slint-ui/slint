@@ -123,7 +123,7 @@ impl ChangeTracker {
         if !inner.is_null() {
             unsafe {
                 let drop = (*core::ptr::addr_of!((*inner).vtable)).drop;
-                drop(inner as *mut BindingHolder);
+                drop(inner);
             }
             self.inner.set(core::ptr::null_mut());
         }
