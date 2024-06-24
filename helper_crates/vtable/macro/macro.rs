@@ -70,8 +70,8 @@ This macro does the following transformation:
 For function type fields:
  - The ABI of each functions is changed to `extern "C"`
  - `unsafe` is added to the signature, since it is unsafe to call these functions directly from
-  the vtable without having a valid pointer to the actual object. But if the original function was
-  marked unsafe, the unsafety is forwarded to the trait.
+   the vtable without having a valid pointer to the actual object. But if the original function was
+   marked unsafe, the unsafety is forwarded to the trait.
  - If a field is called `drop`, then it is understood that this is the destructor for a VBox.
    It must have the type `fn(VRefMut<MyVTable>)`
  - If two fields called `drop_in_place` and `dealloc` are present, then they are understood to be

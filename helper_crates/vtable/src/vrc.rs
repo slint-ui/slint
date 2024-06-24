@@ -92,7 +92,7 @@ impl<'vt, VTable: VTableMeta, X> VRcInner<'vt, VTable, X> {
 ///
 /// Other differences with the [`alloc::rc::Rc`] types are:
 /// - It does not allow to access mutable reference. (No `get_mut` or `make_mut`), meaning it is
-/// safe to get a Pin reference with `borrow_pin`.
+///   safe to get a Pin reference with `borrow_pin`.
 /// - It is safe to pass it across ffi boundaries.
 #[repr(transparent)]
 pub struct VRc<VTable: VTableMetaDropInPlace + 'static, X = Dyn> {
