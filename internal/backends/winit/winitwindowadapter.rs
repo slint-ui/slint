@@ -5,7 +5,9 @@
 
 // cspell:ignore accesskit borderless corelib nesw webgl winit winsys xlib
 
-use core::cell::{Cell, RefCell};
+use core::cell::Cell;
+#[cfg(any(target_arch = "wasm32", enable_accesskit))]
+use core::cell::RefCell;
 use core::pin::Pin;
 use std::rc::Rc;
 #[cfg(target_arch = "wasm32")]
