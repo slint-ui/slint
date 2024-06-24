@@ -76,7 +76,7 @@ an element name:
 
 When called with an element name (or `self`, `parent` or `root`), the function must be defined on that
 element. Name resolution does not look at ancestor elements in this case. Note that this means
-calling a function without an element name is _not_ equivalent to calling it with `self`.
+calling a function without an element name is _not_ equivalent to calling it with `self` (which is how methods work in many languages).
 
 Multiple functions with the same name are allowed in the same component, as long as they are defined
 on different elements. Therefore it is possible for a function to shadow another function from an ancestor
@@ -159,34 +159,28 @@ export component CallsFunction {
 }
 ```
 
+Functions marked `public` in an exported component can also be invoked from backend code (Rust, C++, JS).
+See the language-specific documentation for the generated code to use.
+
 - A function annotated with `protected` can only be accessed by components that directly inherit from it.
 
-Functions, even marked public, cannot be exported and cannot be called from backend code (in Rust, C++,
-JS, etc.). Declare a [callback](callbacks.md) which can call the function.
+## Functions vs. callbacks
 
-## Name resolution in function code
+There are a lot of similarities between functions and [callbacks](callbacks.md):
 
-Name resolution inside function code (including the meaning of the reserved words `self` and `parent`)
-is always based on the element in which the function is declared, not the element that the function is called in.
+- They are both callable blocks of logic/code
+- They can be invoked similarly
+- They can both have parameters and return values
+- They can both be declared `pure`
 
-```slint,no-preview
-import { Button } from "std-widgets.slint"; 
+But there are also key differences:
 
-export component Example {
-    property <int> value: 0;
-    function update-value() {
-        value = 1;
-    }
+- The code/logic in the callback can be set in the backend code and implemented in the backend language
+  (Rust, C++, JS), while functions must be defined entirely in slint
+- The syntax for defining a callback is different
+- Callbacks can be declared without assigning a block of code to them
+- Callbacks have a special syntax for declaring aliases using the two-way binding operator `<=>`
+- Callback visiblity is always similar to `public` functions
 
-    Button {
-        property <int> value: 0;
-        clicked => {
-            update-value();
-        }
-    }
-}
-```
-
-In the example above, the `value` property of the root component is updated, not the `value` property of the
-button.
-
+In general, the biggest reason to use callbacks is to be able to handle them from the backend code. If
+that is not needed, using a callback or a function is a matter of personal choice.
