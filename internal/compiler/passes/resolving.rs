@@ -627,7 +627,7 @@ impl Expression {
             let mut pos_max = 0;
             let mut pos = 0;
             let mut has_n = false;
-            while let Some(mut p) = string[pos..].find(|x| x == '{' || x == '}') {
+            while let Some(mut p) = string[pos..].find(['{', '}']) {
                 if string.len() - pos < p + 1 {
                     ctx.diag.push_error(
                         "Unescaped trailing '{' in format string. Escape '{' with '{{'".into(),

@@ -50,7 +50,7 @@ mod formatter {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result {
             let mut arg_idx = 0;
             let mut pos = 0;
-            while let Some(mut p) = self.format_str[pos..].find(|x| x == '{' || x == '}') {
+            while let Some(mut p) = self.format_str[pos..].find(['{', '}']) {
                 if self.format_str.len() - pos < p + 1 {
                     break;
                 }
