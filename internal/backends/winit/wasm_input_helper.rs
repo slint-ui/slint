@@ -278,15 +278,8 @@ impl WasmInputHelper {
     ) {
         let closure = move |arg: Arg| {
             closure(arg);
-            crate::event_loop::GLOBAL_PROXY.with(|global_proxy| {
-                if let Ok(mut x) = global_proxy.try_borrow_mut() {
-                    if let Some(proxy) = &mut *x {
-                        let _ = proxy.send_event(crate::SlintUserEvent(
-                            crate::event_loop::CustomEvent::WakeEventLoopWorkaround,
-                        ));
-                    }
-                }
-            });
+            // wake up event loop
+            i_slint_core::api::invoke_from_event_loop(|| {}).ok();
         };
         let closure = Closure::wrap(Box::new(closure) as Box<dyn Fn(_)>);
         self.input
