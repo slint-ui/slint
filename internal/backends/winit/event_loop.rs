@@ -10,7 +10,6 @@
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
 use crate::winitwindowadapter::WinitWindowAdapter;
 use crate::SlintUserEvent;
-use corelib::api::EventLoopError;
 use corelib::graphics::euclid;
 use corelib::input::{KeyEvent, KeyEventType, MouseEvent};
 use corelib::items::{ColorScheme, PointerEventButton};
@@ -30,7 +29,6 @@ use winit::event_loop::ControlFlow;
 use winit::window::ResizeDirection;
 struct NotRunningEventLoop {
     instance: winit::event_loop::EventLoop<SlintUserEvent>,
-    event_loop_proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
 }
 
 impl NotRunningEventLoop {
@@ -58,8 +56,7 @@ impl NotRunningEventLoop {
 
         let instance =
             builder.build().map_err(|e| format!("Error initializing winit event loop: {e}"))?;
-        let event_loop_proxy = instance.create_proxy();
-        Ok(Self { instance, event_loop_proxy })
+        Ok(Self { instance })
     }
 }
 
@@ -129,53 +126,6 @@ thread_local! {
 }
 
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_WINDOW_TARGET : for<'a> &'a RunningEventLoop<'a>);
-
-pub(crate) enum GlobalEventLoopProxyOrEventQueue {
-    Proxy(winit::event_loop::EventLoopProxy<SlintUserEvent>),
-    Queue(Vec<SlintUserEvent>),
-}
-
-impl GlobalEventLoopProxyOrEventQueue {
-    pub(crate) fn send_event(&mut self, event: SlintUserEvent) -> Result<(), EventLoopError> {
-        match self {
-            GlobalEventLoopProxyOrEventQueue::Proxy(proxy) => {
-                proxy.send_event(event).map_err(|_| EventLoopError::EventLoopTerminated)
-            }
-            GlobalEventLoopProxyOrEventQueue::Queue(queue) => {
-                queue.push(event);
-                Ok(())
-            }
-        }
-    }
-
-    fn set_proxy(&mut self, proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>) {
-        match self {
-            GlobalEventLoopProxyOrEventQueue::Proxy(_) => {}
-            GlobalEventLoopProxyOrEventQueue::Queue(queue) => {
-                std::mem::take(queue)
-                    .into_iter()
-                    .for_each(|event| proxy.send_event(event).ok().unwrap());
-                *self = GlobalEventLoopProxyOrEventQueue::Proxy(proxy);
-            }
-        }
-    }
-}
-
-impl Default for GlobalEventLoopProxyOrEventQueue {
-    fn default() -> Self {
-        Self::Queue(Vec::new())
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub(crate) static GLOBAL_PROXY: once_cell::sync::OnceCell<
-    std::sync::Mutex<GlobalEventLoopProxyOrEventQueue>,
-> = once_cell::sync::OnceCell::new();
-
-#[cfg(target_arch = "wasm32")]
-thread_local! {
-    pub(crate) static GLOBAL_PROXY: RefCell<Option<GlobalEventLoopProxyOrEventQueue>> = RefCell::new(None)
-}
 
 pub(crate) fn with_window_target<T>(
     callback: impl FnOnce(
@@ -609,21 +559,6 @@ impl EventLoopState {
             })
             .map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 
-        let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
-        #[cfg(not(target_arch = "wasm32"))]
-        GLOBAL_PROXY
-            .get_or_init(Default::default)
-            .lock()
-            .unwrap()
-            .set_proxy(event_loop_proxy.clone());
-        #[cfg(target_arch = "wasm32")]
-        GLOBAL_PROXY.with(|global_proxy| {
-            global_proxy
-                .borrow_mut()
-                .get_or_insert_with(Default::default)
-                .set_proxy(event_loop_proxy.clone())
-        });
-
         let mut winit_loop = not_running_loop_instance.instance;
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -633,11 +568,9 @@ impl EventLoopState {
                 .run_app_on_demand(&mut ActiveEventLoopSetterDuringEventProcessing(&mut self))
                 .map_err(|e| format!("Error running winit event loop: {e}"))?;
 
-            *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
-
             // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
             // Winit does not support creating multiple instances of the event loop.
-            let nre = NotRunningEventLoop { instance: winit_loop, event_loop_proxy };
+            let nre = NotRunningEventLoop { instance: winit_loop };
             MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre));
 
             if let Some(error) = self.loop_error {
@@ -673,23 +606,14 @@ impl EventLoopState {
             })
             .map_err(|e| format!("Error initializing winit event loop: {e}"))?;
 
-        let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
-        GLOBAL_PROXY
-            .get_or_init(Default::default)
-            .lock()
-            .unwrap()
-            .set_proxy(event_loop_proxy.clone());
-
         let mut winit_loop = not_running_loop_instance.instance;
 
         let result = winit_loop
             .pump_app_events(timeout, &mut ActiveEventLoopSetterDuringEventProcessing(&mut self));
 
-        *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
-
         // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
         // Winit does not support creating multiple instances of the event loop.
-        let nre = NotRunningEventLoop { instance: winit_loop, event_loop_proxy };
+        let nre = NotRunningEventLoop { instance: winit_loop };
         MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre));
 
         if let Some(error) = self.loop_error {
@@ -708,14 +632,6 @@ pub fn spawn() -> Result<(), corelib::platform::PlatformError> {
             None => NotRunningEventLoop::new(),
         })
         .map_err(|e| format!("Error initializing winit event loop: {e}"))?;
-
-    let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
-    GLOBAL_PROXY.with(|global_proxy| {
-        global_proxy
-            .borrow_mut()
-            .get_or_insert_with(Default::default)
-            .set_proxy(event_loop_proxy.clone())
-    });
 
     let loop_state = EventLoopState::default();
 
