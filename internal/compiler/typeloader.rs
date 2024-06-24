@@ -183,7 +183,6 @@ impl Snapshotter {
     }
 
     fn snapshot_document(&mut self, document: &object_tree::Document) -> object_tree::Document {
-        let root_component = self.snapshot_component(&document.root_component);
         let inner_components =
             document.inner_components.iter().map(|ic| self.snapshot_component(ic)).collect();
         let exports = document.exports.snapshot(self);
@@ -192,7 +191,6 @@ impl Snapshotter {
             node: document.node.clone(),
             inner_components,
             inner_types: document.inner_types.clone(),
-            root_component,
             local_registry: document.local_registry.snapshot(self),
             custom_fonts: document.custom_fonts.clone(),
             exports,

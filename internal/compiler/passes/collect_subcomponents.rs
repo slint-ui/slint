@@ -14,9 +14,9 @@ use std::rc::Rc;
 pub fn collect_subcomponents(doc: &Document) {
     let mut result = vec![];
     let mut hash = HashSet::new();
-
-    collect_subcomponents_recursive(&doc.root_component, &mut result, &mut hash);
-
+    for component in doc.exported_roots() {
+        collect_subcomponents_recursive(&component, &mut result, &mut hash);
+    }
     doc.used_types.borrow_mut().sub_components = result;
 }
 

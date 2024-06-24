@@ -19,8 +19,6 @@ pub fn lower_to_item_tree(
 ) -> CompilationUnit {
     let mut state = LoweringState::default();
 
-    let component = &document.root_component;
-
     let mut globals = Vec::new();
     for g in &document.used_types.borrow().globals {
         let count = globals.len();
@@ -31,22 +29,29 @@ pub fn lower_to_item_tree(
         state.sub_components.insert(ByAddress(c.clone()), sc);
     }
 
-    let sc = lower_sub_component(component, &state, None, &compiler_config);
-    let public_properties = public_properties(component, &sc.mapping, &state);
-    let mut item_tree = ItemTree {
-        tree: make_tree(&state, &component.root_element, &sc, &[]),
-        root: Rc::try_unwrap(sc.sub_component).unwrap(),
-        parent_context: None,
-    };
-    // For C++ codegen, the root component must have the same name as the public component
-    item_tree.root.name = component.id.clone();
+    let public_components = document
+        .exported_roots()
+        .map(|component| {
+            let sc = lower_sub_component(&component, &state, None, &compiler_config);
+            let public_properties = public_properties(&component, &sc.mapping, &state);
+            let mut item_tree = ItemTree {
+                tree: make_tree(&state, &component.root_element, &sc, &[]),
+                root: Rc::try_unwrap(sc.sub_component).unwrap(),
+                parent_context: None,
+            };
+            // For C++ codegen, the root component must have the same name as the public component
+            item_tree.root.name = component.id.clone();
+            PublicComponent {
+                item_tree,
+                public_properties,
+                private_properties: component.private_properties.borrow().clone(),
+                name: component.id.clone(),
+            }
+        })
+        .collect();
+
     let root = CompilationUnit {
-        public_components: vec![PublicComponent {
-            item_tree,
-            public_properties,
-            private_properties: component.private_properties.borrow().clone(),
-            name: component.id.clone(),
-        }],
+        public_components,
         globals,
         sub_components: document
             .used_types

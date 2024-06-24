@@ -12,7 +12,9 @@ use std::rc::Rc;
 /// It currently does so by adding a number to the existing id
 pub fn assign_unique_id(doc: &Document) {
     let mut count = 0;
-    assign_unique_id_in_component(&doc.root_component, &mut count);
+    for component in doc.exported_roots() {
+        assign_unique_id_in_component(&component, &mut count);
+    }
     for c in &doc.used_types.borrow().sub_components {
         assign_unique_id_in_component(c, &mut count);
     }

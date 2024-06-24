@@ -8,7 +8,7 @@ use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::diagnostics::SourceFileVersion;
 use i_slint_compiler::expression_tree::{Expression, NamedReference};
-use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use i_slint_compiler::{generator, object_tree, parser, CompilerConfiguration};
@@ -844,17 +844,20 @@ pub async fn load(
         #[allow(unused_mut)]
         let mut it = {
             let doc = loader.get_document(&path).unwrap();
-            if matches!(
-                doc.root_component.root_element.borrow().base_type,
-                ElementType::Global | ElementType::Error
-            ) {
+            let root_component = doc
+                .exports
+                .iter()
+                .filter_map(|e| Some((&e.0.name_ident, e.1.as_ref().left()?)))
+                .max_by_key(|(n, _)| n.text_range().end())
+                .map(|(_, c)| c.clone());
+            let Some(root_component) = root_component.or_else(|| doc.exported_roots().last())
+            else {
                 diag.push_error_with_span("No component found".into(), Default::default());
                 return (Err(()), diag);
-            }
+            };
 
             let compiled_globals = CompiledGlobalCollection::compile(&doc);
-
-            generate_item_tree(&doc.root_component, Some(compiled_globals), guard)
+            generate_item_tree(&root_component, Some(compiled_globals), guard)
         };
 
         #[cfg(feature = "highlight")]

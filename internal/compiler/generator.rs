@@ -71,11 +71,6 @@ pub fn generate(
     #![allow(unused_variables)]
     #![allow(unreachable_code)]
 
-    if matches!(doc.root_component.root_element.borrow().base_type, ElementType::Error) {
-        // empty document, nothing to generate
-        return Ok(());
-    }
-
     match format {
         #[cfg(feature = "cpp")]
         OutputFormat::Cpp(config) => {

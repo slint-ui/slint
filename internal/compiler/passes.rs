@@ -51,7 +51,6 @@ mod visible;
 mod z_order;
 
 use crate::expression_tree::Expression;
-use crate::langtype::ElementType;
 use crate::namedreference::NamedReference;
 
 pub async fn run_passes(
@@ -60,14 +59,6 @@ pub async fn run_passes(
     keep_raw: bool,
     diag: &mut crate::diagnostics::BuildDiagnostics,
 ) -> Option<crate::typeloader::TypeLoader> {
-    if matches!(
-        doc.root_component.root_element.borrow().base_type,
-        ElementType::Error | ElementType::Global
-    ) {
-        // If there isn't a root component, we shouldn't do any of these passes
-        return None;
-    }
-
     let style_metrics = {
         // Ignore import errors
         let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
@@ -78,7 +69,6 @@ pub async fn run_passes(
     };
 
     let global_type_registry = type_loader.global_type_registry.clone();
-    let root_component = &doc.root_component;
     run_import_passes(doc, type_loader, diag);
     check_public_api::check_public_api(doc, diag);
 
@@ -113,9 +103,10 @@ pub async fn run_passes(
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
     collect_subcomponents::collect_subcomponents(doc);
 
-    focus_handling::call_focus_on_init(root_component);
-
-    ensure_window::ensure_window(root_component, &doc.local_registry, &style_metrics, diag);
+    for root_component in doc.exported_roots() {
+        focus_handling::call_focus_on_init(&root_component);
+        ensure_window::ensure_window(&root_component, &doc.local_registry, &style_metrics, diag);
+    }
 
     doc.visit_all_used_components(|component| {
         border_radius::handle_border_radius(component, diag);
@@ -175,7 +166,9 @@ pub async fn run_passes(
         }
         materialize_fake_properties::materialize_fake_properties(component);
     });
-    lower_layout::check_window_layout(root_component);
+    for root_component in doc.exported_roots() {
+        lower_layout::check_window_layout(&root_component);
+    }
     collect_globals::collect_globals(doc, diag);
 
     if type_loader.compiler_config.inline_all_elements {

@@ -12,7 +12,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum InlineSelection {
     InlineAllComponents,
     InlineOnlyRequiredComponents,
@@ -21,6 +21,7 @@ pub enum InlineSelection {
 pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut BuildDiagnostics) {
     fn inline_components_recursively(
         component: &Rc<Component>,
+        roots: &HashSet<ByAddress<Rc<Component>>>,
         inline_selection: InlineSelection,
         diag: &mut BuildDiagnostics,
     ) {
@@ -28,7 +29,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
             let base = elem.borrow().base_type.clone();
             if let ElementType::Component(c) = base {
                 // First, make sure that the component itself is properly inlined
-                inline_components_recursively(&c, inline_selection, diag);
+                inline_components_recursively(&c, roots, inline_selection, diag);
 
                 if c.parent_element.upgrade().is_some() {
                     // We should not inline a repeated element
@@ -43,27 +44,30 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
                             || element_require_inlining(elem)
                             // We always inline the root in case the element that instantiate this component needs full inlining
                             || Rc::ptr_eq(elem, &component.root_element)
+                            // We always inline other roots as a component can't be both a sub component and a root
+                            || roots.contains(&ByAddress(c.clone()))
                     }
                 } {
                     inline_element(elem, &c, component, diag);
                 }
             }
         });
-        component
-            .popup_windows
-            .borrow()
-            .iter()
-            .for_each(|p| inline_components_recursively(&p.component, inline_selection, diag))
+        component.popup_windows.borrow().iter().for_each(|p| {
+            inline_components_recursively(&p.component, roots, inline_selection, diag)
+        })
     }
-    inline_components_recursively(&doc.root_component, inline_selection, diag);
-
-    let mut init_code = doc.root_component.init_code.borrow_mut();
-    let inlined_init_code = core::mem::take(&mut init_code.inlined_init_code);
-    init_code.constructor_code.splice(0..0, inlined_init_code.into_values());
-}
-
-fn clone_tuple<U: Clone, V: Clone>((u, v): (&U, &V)) -> (U, V) {
-    (u.clone(), v.clone())
+    let mut roots = HashSet::new();
+    if inline_selection == InlineSelection::InlineOnlyRequiredComponents {
+        for component in doc.exported_roots() {
+            roots.insert(ByAddress(component.clone()));
+        }
+    }
+    for component in doc.exported_roots() {
+        inline_components_recursively(&component, &roots, inline_selection, diag);
+        let mut init_code = component.init_code.borrow_mut();
+        let inlined_init_code = core::mem::take(&mut init_code.inlined_init_code);
+        init_code.constructor_code.splice(0..0, inlined_init_code.into_values());
+    }
 }
 
 fn element_key(e: ElementRc) -> ByAddress<ElementRc> {
@@ -90,7 +94,11 @@ fn inline_element(
     let priority_delta = 1 + elem_mut.inline_depth;
     elem_mut.base_type = inlined_component.root_element.borrow().base_type.clone();
     elem_mut.property_declarations.extend(
-        inlined_component.root_element.borrow().property_declarations.iter().map(clone_tuple),
+        inlined_component.root_element.borrow().property_declarations.iter().map(|(name, decl)| {
+            let mut decl = decl.clone();
+            decl.expose_in_public_api = false;
+            (name.clone(), decl)
+        }),
     );
 
     for (p, a) in inlined_component.root_element.borrow().property_analysis.borrow().iter() {

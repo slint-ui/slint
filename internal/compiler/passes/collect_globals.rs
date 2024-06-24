@@ -24,7 +24,9 @@ pub fn collect_globals(doc: &Document, _diag: &mut BuildDiagnostics) {
             }
         }
     }
-    collect_in_component(&doc.root_component, &mut set, &mut sorted_globals);
+    for component in doc.exported_roots() {
+        collect_in_component(&component, &mut set, &mut sorted_globals);
+    }
     for component in &doc.used_types.borrow().sub_components {
         collect_in_component(component, &mut set, &mut sorted_globals);
     }
