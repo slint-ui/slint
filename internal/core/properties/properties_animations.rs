@@ -197,7 +197,7 @@ impl InterpolatedPropertyValue for i64 {
 
 impl InterpolatedPropertyValue for u8 {
     fn interpolate(&self, target_value: &Self, t: f32) -> Self {
-        ((*self as f32) + (t * ((*target_value as f32) - (*self as f32)))).round().min(255.).max(0.)
+        ((*self as f32) + (t * ((*target_value as f32) - (*self as f32)))).round().clamp(0., 255.)
             as u8
     }
 }
