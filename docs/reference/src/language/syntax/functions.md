@@ -183,4 +183,4 @@ But there are also key differences:
 - Callback visiblity is always similar to `public` functions
 
 In general, the biggest reason to use callbacks is to be able to handle them from the backend code. If
-that is not needed, using a callback or a function is a matter of personal choice.
+that is not needed, we recommend using a function.
