@@ -496,7 +496,6 @@ impl DirtyRegion {
         if self.count < Self::MAX_COUNT {
             self.rectangles[self.count] = b;
             self.count += 1;
-            return;
         } else {
             let best_merge = (0..self.count)
                 .map(|i| (i, self.rectangles[i].union(&b).area() - self.rectangles[i].area()))

@@ -26,7 +26,6 @@ pub fn lower_component_container(
 fn diagnose_component_container(element: &ElementRc, diag: &mut BuildDiagnostics) {
     if !element.borrow().children.is_empty() {
         diag.push_error("ComponentContainers may not have children".into(), &*element.borrow());
-        return;
     }
 }
 
