@@ -268,7 +268,7 @@ impl ItemTree for ErasedItemTreeBox {
 
 i_slint_core::ItemTreeVTable_static!(static COMPONENT_BOX_VT for ErasedItemTreeBox);
 
-impl<'id> Drop for ErasedItemTreeBox {
+impl Drop for ErasedItemTreeBox {
     fn drop(&mut self) {
         generativity::make_guard!(guard);
         let unerase = self.unerase(guard);
