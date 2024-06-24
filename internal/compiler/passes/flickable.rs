@@ -84,7 +84,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .borrow()
                 .children
                 .iter()
-                .filter(|x| crate::layout::is_layout(&x.borrow().base_type))
+                .filter(|x| is_layout(&x.borrow().base_type))
                 // FIXME: we should ideally add runtime code to merge layout info of all elements that are repeated (#407)
                 .filter(|x| x.borrow().repeated.is_none())
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, prop)))
@@ -106,7 +106,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .borrow()
                 .children
                 .iter()
-                .filter(|x| crate::layout::is_layout(&x.borrow().base_type))
+                .filter(|x| is_layout(&x.borrow().base_type))
                 // FIXME: (#407)
                 .filter(|x| x.borrow().repeated.is_none())
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-width")))
@@ -122,7 +122,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .borrow()
                 .children
                 .iter()
-                .filter(|x| crate::layout::is_layout(&x.borrow().base_type))
+                .filter(|x| is_layout(&x.borrow().base_type))
                 // FIXME: (#407)
                 .filter(|x| x.borrow().repeated.is_none())
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-height")))
@@ -132,6 +132,15 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 ),
         )
     });
+}
+
+/// Return true if this type is a layout that has constraints
+fn is_layout(base_type: &ElementType) -> bool {
+    if let ElementType::Builtin(be) = base_type {
+        matches!(be.name.as_str(), "GridLayout" | "HorizontalLayout" | "VerticalLayout")
+    } else {
+        false
+    }
 }
 
 /// Set the property binding on the given element to the given expression (computed lazily).
