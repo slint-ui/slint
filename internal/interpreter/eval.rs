@@ -279,7 +279,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                                 corelib::slice::Slice::from_slice(virtual_file),
                                 corelib::slice::Slice::from_slice(extension.as_bytes())
                             )
-                        }).ok_or_else(|| Default::default())
+                        }).ok_or_else(Default::default)
                     } else {
                         corelib::graphics::Image::load_from_path(path)
                     }
