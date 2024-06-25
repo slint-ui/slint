@@ -52,3 +52,12 @@ core-text = { version = "20.1.0" }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features=["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
 wasm-bindgen = { version = "0.2" }
+
+[dev-dependencies]
+slint = { workspace = true, default-features = true }
+i-slint-backend-winit = {  path = "../../backends/winit", features = ["renderer-femtovg"] }
+
+[[test]]
+name = "screenshot"
+path = "tests/screenshot.rs"
+harness = false

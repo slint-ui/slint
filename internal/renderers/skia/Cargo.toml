@@ -75,3 +75,12 @@ skia-safe = { version = "0.75.0", features = ["gl"] }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }
+
+[dev-dependencies]
+slint = { workspace = true, default-features = true }
+i-slint-backend-winit = {  path = "../../backends/winit", features = ["renderer-skia"] }
+
+[[test]]
+name = "screenshot"
+path = "tests/screenshot.rs"
+harness = false
