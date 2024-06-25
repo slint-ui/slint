@@ -104,7 +104,10 @@ impl DocumentCache {
         self.0.get_document(path)
     }
 
-    pub fn get_document_for_source_file<'a>(&'a self, source_file: &'_ SourceFile) -> Option<&'a Document> {
+    pub fn get_document_for_source_file<'a>(
+        &'a self,
+        source_file: &'_ SourceFile,
+    ) -> Option<&'a Document> {
         self.0.get_document(source_file.path())
     }
 
@@ -114,11 +117,13 @@ impl DocumentCache {
         pos: &'_ lsp_types::Position,
     ) -> Option<(&'a i_slint_compiler::object_tree::Document, u32)> {
         let doc = self.get_document(text_document_uri)?;
-        let o = doc.node.as_ref()?.source_file.offset(pos.line as usize + 1, pos.character as usize + 1)
-            as u32;
+        let o = doc
+            .node
+            .as_ref()?
+            .source_file
+            .offset(pos.line as usize + 1, pos.character as usize + 1) as u32;
         doc.node.as_ref()?.text_range().contains_inclusive(o.into()).then_some((doc, o))
     }
-
 
     pub fn all_url_documents(&self) -> impl Iterator<Item = (Url, &Document)> + '_ {
         self.0.all_file_documents().filter_map(|(p, d)| Some((file_to_uri(p)?, d)))
@@ -195,11 +200,9 @@ impl DocumentCache {
             element: &i_slint_compiler::object_tree::ElementRc,
             offset: u32,
         ) -> Option<usize> {
-            element
-                .borrow()
-                .debug
-                .iter()
-                .position(|n| n.node.parent().map_or(false, |n| n.text_range().contains(offset.into())))
+            element.borrow().debug.iter().position(|n| {
+                n.node.parent().map_or(false, |n| n.text_range().contains(offset.into()))
+            })
         }
 
         let (doc, offset) = self.get_document_and_offset(text_document_uri, pos)?;
@@ -631,13 +634,6 @@ pub enum PreviewToLspMessage {
     /// Request all documents and configuration to be sent from the LSP to the
     /// Preview.
     RequestState { unused: bool },
-    /// Update properties on an element at `position`
-    /// The LSP side needs to look at properties: It sees way more of them!
-    UpdateElement {
-        label: Option<String>,
-        position: VersionedPosition,
-        properties: Vec<PropertyChange>,
-    },
     /// Pass a `WorkspaceEdit` on to the editor
     SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
 }
@@ -782,12 +778,7 @@ mod tests {
         assert_eq!(back_conversion1, builtin_path1);
     }
 
-    fn id_at_position(
-        dc: &DocumentCache,
-        url: &Url,
-        line: u32,
-        character: u32,
-    ) -> Option<String> {
+    fn id_at_position(dc: &DocumentCache, url: &Url, line: u32, character: u32) -> Option<String> {
         let result = dc.element_at_position(url, &lsp_types::Position { line, character })?;
         let element = result.element.borrow();
         Some(element.id.clone())
@@ -818,10 +809,7 @@ mod tests {
     #[test]
     fn test_element_at_position_no_such_document() {
         let (dc, _, _) = complex_document_cache();
-        assert_eq!(
-            id_at_position(&dc, &Url::parse("https://foo.bar/baz").unwrap(), 5, 0),
-            None
-        );
+        assert_eq!(id_at_position(&dc, &Url::parse("https://foo.bar/baz").unwrap(), 5, 0), None);
     }
 
     #[test]
@@ -855,5 +843,4 @@ mod tests {
         assert_eq!(base_type_at_position(&dc, &url, 28, 8), Some("Text".to_string()));
         assert_eq!(base_type_at_position(&dc, &url, 51, 4), Some("VerticalBox".to_string()));
     }
-
 }

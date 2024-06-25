@@ -17,7 +17,6 @@ pub mod util;
 
 use common::Result;
 use language::*;
-use common::properties;
 
 use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::{
@@ -484,15 +483,6 @@ async fn handle_preview_to_lsp_message(
         }
         M::RequestState { .. } => {
             crate::language::request_state(ctx);
-        }
-        M::UpdateElement { label, position, properties } => {
-            let mut dc = ctx.document_cache.borrow_mut();
-            let _ = send_workspace_edit(
-                ctx.server_notifier.clone(),
-                label,
-                properties::update_element_properties(&mut dc, position, properties),
-            )
-            .await;
         }
         M::SendWorkspaceEdit { label, edit } => {
             let _ = send_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit)).await;

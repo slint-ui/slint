@@ -1092,8 +1092,13 @@ pub fn create_move_element_workspace_edit(
         let size = element.geometries(component_instance).first().map(|g| g.size)?;
 
         if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
-            preview::resize_selected_element_impl(LogicalRect::new(position, size));
-            return None;
+            let Ok(Some((edit, _))) =
+                preview::resize_selected_element_impl(LogicalRect::new(position, size))
+            else {
+                return None;
+            };
+            let (path, selection_offset) = element.path_and_offset();
+            return Some((edit, DropData { selection_offset, path }));
         } else {
             let children = drop_info.target_element_node.children();
             let child_index = {

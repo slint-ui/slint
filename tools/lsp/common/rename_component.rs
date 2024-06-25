@@ -287,7 +287,7 @@ pub fn rename_component_from_definition(
     }
 
     let component_type = identifier.text().to_string().trim().to_string();
-    if &component_type == new_name {
+    if component_type == new_name {
         return Ok(lsp_types::WorkspaceEdit::default());
     }
 

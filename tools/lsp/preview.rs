@@ -286,7 +286,7 @@ fn rename_component(
     new_name: slint::SharedString,
 ) {
     let old_name = old_name.to_string();
-    let Ok(old_url) = lsp_types::Url::parse(&old_url.to_string()) else {
+    let Ok(old_url) = lsp_types::Url::parse(old_url.as_ref()) else {
         return;
     };
     let new_name = new_name.to_string();
@@ -334,7 +334,6 @@ fn rename_component(
 
 // triggered from the UI, running in UI thread
 fn navigate(nav_direction: i32) {
-    eprintln!("navigate({nav_direction})");
     if let Some(current) = {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.navigate_component_history(nav_direction);
@@ -347,7 +346,7 @@ fn navigate(nav_direction: i32) {
 // triggered from the UI, running in UI thread
 fn show_component(name: slint::SharedString, url: slint::SharedString) {
     let name = name.to_string();
-    let Ok(url) = Url::parse(&url.to_string()) else {
+    let Ok(url) = Url::parse(url.as_ref()) else {
         return;
     };
 
@@ -483,27 +482,33 @@ fn delete_selected_element() {
 
 // triggered from the UI, running in UI thread
 fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
-    resize_selected_element_impl(LogicalRect::new(
+    let Ok(Some((edit, label))) = resize_selected_element_impl(LogicalRect::new(
         LogicalPoint::new(x, y),
         LogicalSize::new(width, height),
-    ))
+    )) else {
+        return;
+    };
+
+    send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit { label, edit });
 }
 
-fn resize_selected_element_impl(rect: LogicalRect) {
+fn resize_selected_element_impl(
+    rect: LogicalRect,
+) -> common::Result<Option<(lsp_types::WorkspaceEdit, Option<String>)>> {
     let Some(selected) = selected_element() else {
-        return;
+        return Ok(None);
     };
     let Some(selected_element_node) = selected.as_element_node() else {
-        return;
+        return Ok(None);
     };
     let Some(component_instance) = component_instance() else {
-        return;
+        return Ok(None);
     };
 
     let Some(geometry) =
         selected_element_node.geometries(&component_instance).get(selected.instance_index).cloned()
     else {
-        return;
+        return Ok(None);
     };
 
     let position = rect.origin;
@@ -553,25 +558,26 @@ fn resize_selected_element_impl(rect: LogicalRect) {
         (p, op)
     };
 
-    if !properties.is_empty() {
-        let Ok(url) = Url::from_file_path(&selected.path) else {
-            return;
-        };
-
-        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-        let Some((version, _)) = cache.source_code.get(&url).cloned() else {
-            return;
-        };
-
-        send_message_to_lsp(crate::common::PreviewToLspMessage::UpdateElement {
-            label: Some(format!("{op} element")),
-            position: common::VersionedPosition::new(
-                common::VersionedUrl::new(url, version),
-                selected.offset,
-            ),
-            properties,
-        });
+    if properties.is_empty() {
+        return Ok(None);
     }
+
+    let Ok(url) = Url::from_file_path(&selected.path) else {
+        return Ok(None);
+    };
+
+    let Some(document_cache) = document_cache() else {
+        return Ok(None);
+    };
+
+    let version = document_cache.document_version(&url);
+
+    common::properties::update_element_properties(
+        &document_cache,
+        common::VersionedPosition::new(common::VersionedUrl::new(url, version), selected.offset),
+        properties,
+    )
+    .map(|edit| Some((edit, Some(format!("{op} element")))))
 }
 
 // triggered from the UI, running in UI thread
