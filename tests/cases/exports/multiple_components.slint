@@ -13,13 +13,13 @@ component Shared {
     for xx in 2 : Rectangle {}
 }
 
-/// This component is both exported and Used
-export component Used {
+// This component is both exported and Used
+export component Used inherits Window {
     in-out property <int> name;
     for xx in 4 : Rectangle { }
 }
 
-export component FirstTest {
+export component FirstTest inherits Window {
 
     out property <string> global-prop: G.global-property;
     out property <string> o: shared.out.val;
@@ -33,13 +33,15 @@ export component FirstTest {
     out property <bool> test: false;
 }
 
-export component Z {
+export component Z inherits Window {
     out property <bool> test: false;
 }
 
+export component NotAWindow {}
 
 
-export component SecondTest {
+
+export component SecondTest inherits Window {
     out property <string> global-prop: G.global-property;
     out property <string> out: shared.out.val;
 
@@ -69,6 +71,12 @@ instance3.global::<G<'_>>().set_global_property("Bonjour".into());
 assert_eq!(instance1.get_o(), "Hallo Oli");
 assert_eq!(instance2.get_out(), "Hello Sim");
 assert_eq!(instance3.get_out(), "Bonjour Sim");
+
+#[allow(unused)]
+pub struct Shared;
+#[allow(unused)]
+pub struct NotAWindow;
+
 ```
 
 ```cpp
@@ -89,6 +97,7 @@ assert_eq(instance2.get_out(), "Hello Sim");
 assert_eq(instance3.get_out(), "Bonjour Sim");
 
 struct Shared {};
+struct NotAWindow {};
 ```
 
 

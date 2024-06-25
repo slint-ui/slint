@@ -54,7 +54,7 @@ use crate::expression_tree::Expression;
 use crate::namedreference::NamedReference;
 
 pub async fn run_passes(
-    doc: &crate::object_tree::Document,
+    doc: &mut crate::object_tree::Document,
     type_loader: &mut crate::typeloader::TypeLoader,
     keep_raw: bool,
     diag: &mut crate::diagnostics::BuildDiagnostics,
@@ -70,7 +70,7 @@ pub async fn run_passes(
 
     let global_type_registry = type_loader.global_type_registry.clone();
     run_import_passes(doc, type_loader, diag);
-    check_public_api::check_public_api(doc, diag);
+    check_public_api::check_public_api(doc, &type_loader.compiler_config, diag);
 
     let raw_type_loader =
         keep_raw.then(|| crate::typeloader::snapshot_with_extra_doc(type_loader, doc).unwrap());
@@ -241,7 +241,7 @@ pub async fn run_passes(
                 type_loader.compiler_config.scale_factor,
                 font_pixel_sizes,
                 characters_seen,
-                std::iter::once(doc).chain(type_loader.all_documents()),
+                std::iter::once(&*doc).chain(type_loader.all_documents()),
                 diag,
             );
         }
@@ -249,7 +249,7 @@ pub async fn run_passes(
             // Create font registration calls for custom fonts, unless we're embedding pre-rendered glyphs
             collect_custom_fonts::collect_custom_fonts(
                 doc,
-                std::iter::once(doc).chain(type_loader.all_documents()),
+                std::iter::once(&*doc).chain(type_loader.all_documents()),
                 type_loader.compiler_config.embed_resources
                     == crate::EmbedResourcesKind::EmbedAllResources,
             );

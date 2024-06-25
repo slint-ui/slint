@@ -192,6 +192,8 @@ fn process_file_source(
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
     compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".into());
+    compiler_config.generate_all_exported_windows =
+        source.contains("config:generate_all_exported_windows");
     let compile_diagnostics = if !parse_diagnostics.has_error() {
         let (_, build_diags, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
             syntax_node.clone(),

@@ -3,10 +3,10 @@
 
 The Slint compiler [called by the build system](cmake_reference.md#slint_target_sources)
 will generate a header file for the root `.slint` file.
-This header file will contain a `class` with the same name as the root
-component.
 
-This class will have the following public member functions:
+This header file will contain a `class` for every exported component from the main file that inherits from `Window` or `Dialog`.
+
+These classes have the same name as the component will have the following public member functions:
 
 * A `create` constructor function and a destructor.
 * A `show` function, which will show the component on the screen.

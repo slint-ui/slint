@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//config:generate_all_exported_windows
+
+component Foo {}
+
+component Bar inherits Window {}
+
+export component Abc inherits Bar {}
+
+export component Cde inherits Rectangle {}
+//               ^warning{Exported component 'Cde' doesn't inherit Window. No code will be generated for it}
+
+export component Fgh inherits Foo {}
+//               ^warning{Exported component 'Fgh' doesn't inherit Window. No code will be generated for it}
+
+export component Ijk inherits Dialog { Rectangle {} }
+
+export component Xyz {}
+//               ^warning{Exported component 'Xyz' doesn't inherit Window. No code will be generated for it}
+
+export component Last {}
+//               ^warning{Exported component 'Last' doesn't inherit Window. This is deprecated}

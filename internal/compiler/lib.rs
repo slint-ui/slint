@@ -37,6 +37,7 @@ pub mod typeregister;
 
 pub mod passes;
 
+use crate::generator::OutputFormat;
 use std::path::Path;
 
 /// Specify how the resources are embedded by the compiler
@@ -102,10 +103,16 @@ pub struct CompilerConfiguration {
 
     /// Generate debug information for elements (ids, type names)
     pub debug_info: bool,
+
+    /// When this is true, the passes will generate component for all exported Window
+    /// and will throw a warning if a component that is not exported is a window.
+    /// If this is false, only the last component is exported, regardless if this is a Window or not,
+    /// (and it will be transformed in a Window)
+    pub generate_all_exported_windows: bool,
 }
 
 impl CompilerConfiguration {
-    pub fn new(output_format: crate::generator::OutputFormat) -> Self {
+    pub fn new(output_format: OutputFormat) -> Self {
         let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
             || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
         {
@@ -124,8 +131,8 @@ impl CompilerConfiguration {
         } else {
             match output_format {
                 #[cfg(feature = "rust")]
-                crate::generator::OutputFormat::Rust => EmbedResourcesKind::EmbedAllResources,
-                crate::generator::OutputFormat::Interpreter => EmbedResourcesKind::Nothing,
+                OutputFormat::Rust => EmbedResourcesKind::EmbedAllResources,
+                OutputFormat::Interpreter => EmbedResourcesKind::Nothing,
                 _ => EmbedResourcesKind::OnlyBuiltinResources,
             }
         };
@@ -137,7 +144,7 @@ impl CompilerConfiguration {
                 )
             }),
             // Currently, the interpreter needs the inlining to be on.
-            Err(_) => output_format == crate::generator::OutputFormat::Interpreter,
+            Err(_) => output_format == OutputFormat::Interpreter,
         };
 
         let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
@@ -150,9 +157,12 @@ impl CompilerConfiguration {
 
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
+        // The interpreter currently support only generating the last component
+        let generate_all_exported_windows = output_format != OutputFormat::Interpreter;
+
         let cpp_namespace = match output_format {
             #[cfg(feature = "cpp")]
-            crate::generator::OutputFormat::Cpp(config) => match config.namespace {
+            OutputFormat::Cpp(config) => match config.namespace {
                 Some(namespace) => Some(namespace),
                 None => match std::env::var("SLINT_CPP_NAMESPACE") {
                     Ok(namespace) => Some(namespace),
@@ -176,6 +186,7 @@ impl CompilerConfiguration {
             translation_domain: None,
             cpp_namespace,
             debug_info,
+            generate_all_exported_windows,
         }
     }
 }
@@ -216,7 +227,7 @@ pub async fn compile_syntax_node(
     let (foreign_imports, reexports) =
         loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
 
-    let doc = crate::object_tree::Document::from_node(
+    let mut doc = crate::object_tree::Document::from_node(
         doc_node,
         foreign_imports,
         reexports,
@@ -225,7 +236,7 @@ pub async fn compile_syntax_node(
     );
 
     if !diagnostics.has_error() {
-        passes::run_passes(&doc, &mut loader, false, &mut diagnostics).await;
+        passes::run_passes(&mut doc, &mut loader, false, &mut diagnostics).await;
     } else {
         // Don't run all the passes in case of errors because because some invariants are not met.
         passes::run_import_passes(&doc, &loader, &mut diagnostics);
