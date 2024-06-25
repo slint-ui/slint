@@ -268,6 +268,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 MinMaxOp::Min => write!(f, "min({}, {})", e(lhs), e(rhs)),
                 MinMaxOp::Max => write!(f, "max({}, {})", e(lhs), e(rhs)),
             },
+            Expression::EmptyComponentFactory => write!(f, "<empty-component-factory>",),
         }
     }
 }

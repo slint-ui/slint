@@ -737,6 +737,8 @@ pub enum Expression {
         lhs: Box<Expression>,
         rhs: Box<Expression>,
     },
+
+    EmptyComponentFactory,
 }
 
 impl Expression {
@@ -864,6 +866,7 @@ impl Expression {
             Expression::ComputeLayoutInfo(..) => crate::layout::layout_info_type(),
             Expression::SolveLayout(..) => Type::LayoutCache,
             Expression::MinMax { ty, .. } => ty.clone(),
+            Expression::EmptyComponentFactory => Type::ComponentFactory,
         }
     }
 
@@ -966,6 +969,7 @@ impl Expression {
                 visitor(lhs);
                 visitor(rhs);
             }
+            Expression::EmptyComponentFactory => {}
         }
     }
 
@@ -1070,6 +1074,7 @@ impl Expression {
                 visitor(lhs);
                 visitor(rhs);
             }
+            Expression::EmptyComponentFactory => {}
         }
     }
 
@@ -1148,6 +1153,7 @@ impl Expression {
             Expression::ComputeLayoutInfo(..) => false,
             Expression::SolveLayout(..) => false,
             Expression::MinMax { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
+            Expression::EmptyComponentFactory => true,
         }
     }
 
@@ -1334,7 +1340,6 @@ impl Expression {
         match ty {
             Type::Invalid
             | Type::Callback { .. }
-            | Type::ComponentFactory
             | Type::Function { .. }
             | Type::InferredProperty
             | Type::InferredCallback
@@ -1379,6 +1384,7 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
+            Type::ComponentFactory => Expression::EmptyComponentFactory,
         }
     }
 
@@ -1781,5 +1787,6 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             pretty_print(f, rhs)?;
             write!(f, ")")
         }
+        Expression::EmptyComponentFactory => write!(f, "<empty-component-factory>"),
     }
 }

@@ -2395,6 +2395,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
             }
         }
+        Expression::EmptyComponentFactory => quote!(slint::ComponentFactory::default()),
     }
 }
 

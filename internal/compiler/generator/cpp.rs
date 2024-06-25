@@ -3096,6 +3096,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 rhs_code = rhs_code
             )
         }
+        Expression::EmptyComponentFactory => panic!("component-factory not yet supported in C++"),
     }
 }
 
