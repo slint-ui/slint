@@ -18,7 +18,7 @@ SCENARIO("Basic TEST")
             state.mainWindow,
             [](slint::testing::ElementHandle element)
                     -> std::optional<slint::testing::ElementHandle> {
-                if (element.accessible_placeholder_text() == "What needs to be done?") {
+                if (element.accessible_placeholder_text() == "") {
                     return element;
                 } else {
                     return {};
