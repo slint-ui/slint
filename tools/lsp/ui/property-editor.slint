@@ -1,0 +1,127 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit, Palette, VerticalBox } from "std-widgets.slint";
+
+import { Api, ElementInformation } from "api.slint";
+import { ListHead } from "list-head.slint";
+import { SideBarElement} from "side-bar.slint";
+
+component TypeHeader inherits Rectangle {
+    in property <string> type-name;
+    in property <string> id;
+
+    background: Palette.accent-background;
+    
+    VerticalBox {
+        height: self.min-height;
+
+        Text {
+            text: root.type-name;
+            color: Palette.accent-foreground;
+            font-size: 1.2rem;
+        }
+
+        Text {
+            text: root.id;
+            color: Palette.accent-foreground;
+        }
+    }
+}
+
+export component PropertyEditor inherits SideBarElement {
+    name: @tr("Properties");
+    in property <ElementInformation> current-element <=> Api.current-element;
+
+    private property <length> key-width: self.width / 2.0;
+    private property <length> splitter-width: 5px;
+
+    if root.current-element.type-name != "": Rectangle {
+        VerticalLayout {
+            alignment: start;
+
+            header := TypeHeader {
+                type-name: root.current-element.type-name;
+                id: root.current-element.id;
+            }
+
+            for group in root.current-element.properties: Rectangle {
+                VerticalBox {
+                    if group.group-name != "" && group.group-name != root.current-element.type-name: ListHead {
+                        text: group.group-name;
+                    }
+
+                    for property in group.properties: HorizontalLayout {
+                        spacing: 4px;
+                        alignment: stretch;
+                        key := Text {
+                            color: property.defined-at.expression-value == "" ? Palette.foreground.transparentize(0.5) : Palette.foreground;
+                            vertical-alignment: center;
+                            width: root.key-width - (parent.spacing / 2.0);
+                            text: property.name;
+                        }
+
+                        Rectangle {
+                            width: root.width - key.width - (parent.spacing / 2.0);
+                            LineEdit {
+                                width: 100%;
+                                height: 100%;
+                                
+                                text: property.defined-at.expression-value;
+
+                                edited(text) => {
+                                    overlay.visible = !Api.test-binding(
+                                        root.current-element.source-uri,
+                                        root.current-element.source-version,
+                                        root.current-element.range.start,
+                                        property.name,
+                                        text,
+                                    );
+                                }
+
+                                accepted(text) => {
+                                    Api.set-binding(
+                                        root.current-element.source-uri,
+                                        root.current-element.source-version,
+                                        root.current-element.range.start,
+                                        property.name,
+                                        text,
+                                    );
+                                }
+                            }
+                            overlay := Rectangle {
+                                visible: false;
+                                background: #80000040;
+
+                                width: parent.width - 8px;
+                                height: parent.height - 8px;
+                                border-radius: 3px;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        splitter := TouchArea {
+            x: root.key-width - (root.splitter-width - 1px) / 2.0;
+            y: header.height;
+            width: root.splitter-width;
+            height: root.height - header.height;
+
+            mouse-cursor: MouseCursor.col-resize;
+
+            moved() => {
+                root.key-width = Math.clamp(self.x + self.mouse-x, 0.1 * root.width, 0.9 * root.width);
+            }
+        }
+    }
+
+    if root.current-element.type-name == "": VerticalLayout {
+        Text {
+            text: "Select an Element";
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}

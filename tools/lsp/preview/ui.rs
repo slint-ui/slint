@@ -3,10 +3,12 @@
 
 use std::{collections::HashMap, iter::once, rc::Rc};
 
+use lsp_types::Url;
 use slint::{Model, SharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 
-use crate::common::ComponentInformation;
+use crate::common::{self, properties, ComponentInformation};
+use crate::util;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -50,6 +52,7 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
         super::ask_editor_to_show_document(&file, Range::new(pos, pos))
     });
+    api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
     api.on_unselect(super::element_selection::unselect_element);
     api.on_reselect(super::element_selection::reselect_element);
@@ -63,6 +66,9 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
     api.on_selected_element_delete(super::delete_selected_element);
 
     api.on_navigate(super::navigate);
+
+    api.on_test_binding(super::test_binding);
+    api.on_set_binding(super::set_binding);
 
     Ok(ui)
 }
@@ -132,4 +138,146 @@ pub fn ui_set_known_components(
     let result = Rc::new(VecModel::from(result));
     let api = ui.global::<Api>();
     api.set_known_components(result.into());
+}
+
+fn to_range(r: (usize, usize)) -> Option<Range> {
+    Some(Range { start: i32::try_from(r.0).ok()?, end: i32::try_from(r.1).ok()? })
+}
+
+fn map_property_declaration(
+    document_cache: &common::DocumentCache,
+    declared_at: &Option<properties::DeclarationInformation>,
+) -> Option<PropertyDeclaration> {
+    let da = declared_at.as_ref()?;
+
+    let doc = document_cache.get_document(&da.uri)?;
+    let doc_node = doc.node.as_ref()?;
+    let source_version = doc_node.source_file.version().unwrap_or(-1);
+
+    let pos = util::map_to_offset(&doc_node.source_file, da.start_position);
+
+    Some(PropertyDeclaration {
+        source_uri: da.uri.to_string().into(),
+        source_version,
+        range: to_range((pos, pos))?,
+    })
+}
+
+fn map_property_definition(
+    document: &i_slint_compiler::parser::syntax_nodes::Document,
+    defined_at: &Option<properties::DefinitionInformation>,
+) -> Option<PropertyDefinition> {
+    let da = defined_at.as_ref()?;
+
+    Some(PropertyDefinition {
+        definition_range: to_range(util::map_to_offsets(
+            &document.source_file,
+            da.property_definition_range,
+        ))?,
+        selection_range: to_range(util::map_to_offsets(&document.source_file, da.selection_range))?,
+        expression_range: to_range(util::map_to_offsets(
+            &document.source_file,
+            da.expression_range,
+        ))?,
+        expression_value: da.expression_value.clone().into(),
+    })
+}
+
+fn map_properties_to_ui(
+    document_cache: &common::DocumentCache,
+    properties: Option<properties::QueryPropertyResponse>,
+) -> Option<ElementInformation> {
+    let properties = &properties?;
+    let element = properties.element.as_ref()?;
+
+    let raw_source_uri = Url::parse(&properties.source_uri).ok()?;
+    let source_uri: slint::SharedString = raw_source_uri.to_string().into();
+    let source_version = properties.source_version;
+
+    let doc = document_cache.get_document(&raw_source_uri)?;
+    let doc_node = doc.node.as_ref()?;
+
+    let mut property_groups: Vec<PropertyGroup> = vec![];
+    let mut current_group_properties = vec![];
+    let mut current_group = String::new();
+
+    fn property_group_from(name: &str, properties: Vec<PropertyInformation>) -> PropertyGroup {
+        PropertyGroup {
+            group_name: name.to_string().into(),
+            properties: Rc::new(VecModel::from(properties)).into(),
+        }
+    }
+
+    for pi in &properties.properties {
+        let declared_at = map_property_declaration(document_cache, &pi.declared_at).unwrap_or(
+            PropertyDeclaration {
+                source_uri: String::new().into(),
+                source_version: -1,
+                range: Range { start: 0, end: 0 },
+            },
+        );
+        let defined_at =
+            map_property_definition(doc_node, &pi.defined_at).unwrap_or(PropertyDefinition {
+                definition_range: Range { start: 0, end: 0 },
+                selection_range: Range { start: 0, end: 0 },
+                expression_range: Range { start: 0, end: 0 },
+                expression_value: String::new().into(),
+            });
+
+        if pi.group != current_group {
+            if !current_group_properties.is_empty() {
+                property_groups.push(property_group_from(&current_group, current_group_properties));
+            }
+            current_group_properties = vec![];
+            current_group = pi.group.clone();
+        }
+
+        current_group_properties.push(PropertyInformation {
+            name: pi.name.clone().into(),
+            type_name: pi.type_name.clone().into(),
+            declared_at,
+            defined_at,
+        });
+    }
+
+    if !current_group_properties.is_empty() {
+        property_groups.push(property_group_from(&current_group, current_group_properties));
+    }
+
+    let element_range = util::map_to_offsets(
+        &doc_node.source_file,
+        element.range.unwrap_or(lsp_types::Range {
+            start: lsp_types::Position::new(1, 1),
+            end: lsp_types::Position::new(1, 1),
+        }),
+    );
+
+    Some(ElementInformation {
+        id: element.id.clone().into(),
+        type_name: element.type_name.clone().into(),
+        source_uri,
+        source_version,
+        range: to_range(element_range)?,
+
+        properties: Rc::new(VecModel::from(property_groups)).into(),
+    })
+}
+
+pub fn ui_set_properties(
+    ui: &PreviewUi,
+    document_cache: &common::DocumentCache,
+    properties: Option<properties::QueryPropertyResponse>,
+) {
+    let element = map_properties_to_ui(document_cache, properties).unwrap_or(ElementInformation {
+        id: "".into(),
+        type_name: "".into(),
+        source_uri: "".into(),
+        source_version: 0,
+        range: Range { start: 0, end: 0 },
+
+        properties: Rc::new(VecModel::from(Vec::<PropertyGroup>::new())).into(),
+    });
+
+    let api = ui.global::<Api>();
+    api.set_current_element(element);
 }

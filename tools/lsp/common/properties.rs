@@ -12,7 +12,7 @@ use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};
 use std::collections::HashSet;
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
-pub(crate) struct DefinitionInformation {
+pub struct DefinitionInformation {
     pub property_definition_range: lsp_types::Range,
     pub selection_range: lsp_types::Range,
     pub expression_range: lsp_types::Range,
@@ -20,13 +20,13 @@ pub(crate) struct DefinitionInformation {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
-pub(crate) struct DeclarationInformation {
+pub struct DeclarationInformation {
     pub uri: lsp_types::Url,
     pub start_position: lsp_types::Position,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
-pub(crate) struct PropertyInformation {
+pub struct PropertyInformation {
     pub name: String,
     pub type_name: String,
     pub declared_at: Option<DeclarationInformation>,
@@ -35,14 +35,14 @@ pub(crate) struct PropertyInformation {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub(crate) struct ElementInformation {
+pub struct ElementInformation {
     pub id: String,
     pub type_name: String,
     pub range: Option<lsp_types::Range>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
-pub(crate) struct QueryPropertyResponse {
+pub struct QueryPropertyResponse {
     pub properties: Vec<PropertyInformation>,
     pub element: Option<ElementInformation>,
     pub source_uri: String,

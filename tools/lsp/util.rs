@@ -44,6 +44,17 @@ pub fn map_range(sf: &SourceFile, range: TextRange) -> lsp_types::Range {
     lsp_types::Range::new(map_position(sf, range.start()), map_position(sf, range.end()))
 }
 
+pub fn map_to_offset(sf: &SourceFile, position: lsp_types::Position) -> usize {
+    sf.offset(
+        usize::try_from(position.line).unwrap() + 1,
+        usize::try_from(position.character).unwrap() + 1,
+    )
+}
+
+pub fn map_to_offsets(sf: &SourceFile, range: lsp_types::Range) -> (usize, usize) {
+    (map_to_offset(sf, range.start), map_to_offset(sf, range.end))
+}
+
 // Find the last token that is not a Whitespace in a `SyntaxNode`. May return
 // `None` if the node contains no tokens or they are all Whitespace.
 pub fn last_non_ws_token(node: &SyntaxNode) -> Option<SyntaxToken> {

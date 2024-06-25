@@ -9,6 +9,7 @@ export component SideBarElement {
 
     VerticalLayout {
         spacing: 10px;
+
         Text {
             text: root.name;
             horizontal-alignment: center;
@@ -16,8 +17,12 @@ export component SideBarElement {
             font-weight: 800;
         }
 
-        ScrollView {
-            @children
+        scroll-area := ScrollView {
+            VerticalLayout {
+                spacing: 10px;
+
+                @children
+            }
         }
     }
 }
@@ -26,10 +31,10 @@ export component SideBar {
     in property <bool> show-side-bar;
     in property <length> default-width;
 
-    private property <length> list-spacing: 10px;
+    private property <length> side-bar-element-spacing: 10px;
 
-    VerticalBox {
-        spacing: root.list-spacing;
+    VerticalLayout {
+        spacing: root.side-bar-element-spacing;
 
         @children
     }
