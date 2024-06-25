@@ -266,7 +266,7 @@ impl Document {
         iter.chain(extra)
     }
 
-    /// This is the component that is going to be visualized by the interpreter
+    /// This is the component that is going to be instantiated by the interpreter
     pub fn last_exported_component(&self) -> Option<Rc<Component>> {
         self.exports
             .iter()

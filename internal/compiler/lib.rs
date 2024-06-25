@@ -104,8 +104,8 @@ pub struct CompilerConfiguration {
     /// Generate debug information for elements (ids, type names)
     pub debug_info: bool,
 
-    /// When this is true, the passes will generate component for all exported Window
-    /// and will throw a warning if a component that is not exported is a window.
+    /// When this is true, the passes will generate components for all exported Windows
+    /// and will throw a warning if an exported component is not a window.
     /// If this is false, only the last component is exported, regardless if this is a Window or not,
     /// (and it will be transformed in a Window)
     pub generate_all_exported_windows: bool,
@@ -157,7 +157,7 @@ impl CompilerConfiguration {
 
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
-        // The interpreter currently support only generating the last component
+        // The interpreter currently supports only generating the last component
         let generate_all_exported_windows = output_format != OutputFormat::Interpreter;
 
         let cpp_namespace = match output_format {
