@@ -106,11 +106,10 @@ cargo generate --git https://github.com/slint-ui/slint-rust-template
 
 ## Generated components
 
-Currently, only the last component in a `.slint` source file is mapped to a Rust structure that be instantiated. We are tracking the
-resolution of this limitation in <https://github.com/slint-ui/slint/issues/784>.
+Exported component from the macro or the main file that inherit `Window` or `Dialog` is mapped to a Rust structure.
 
-The component is generated and re-exported to the location of the [`include_modules!`]  or [`slint!`] macro. It is represented
-as a struct with the same name as the component.
+The components are generated and re-exported to the location of the [`include_modules!`] or [`slint!`] macro.
+It is represented as a struct with the same name as the component.
 
 For example, if you have
 

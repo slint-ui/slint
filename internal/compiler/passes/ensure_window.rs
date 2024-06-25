@@ -26,9 +26,7 @@ pub fn ensure_window(
         );
     }
 
-    if component.root_element.borrow().builtin_type().map_or(true, |b| {
-        matches!(b.name.as_str(), "Window" | "Dialog" | "WindowItem" | "PopupWindow")
-    }) {
+    if inherits_window(component) {
         return; // already a window, nothing to do
     }
 
@@ -144,4 +142,10 @@ pub fn ensure_window(
             to: Type::Brush,
         }
     });
+}
+
+pub fn inherits_window(component: &Rc<Component>) -> bool {
+    component.root_element.borrow().builtin_type().map_or(true, |b| {
+        matches!(b.name.as_str(), "Window" | "Dialog" | "WindowItem" | "PopupWindow")
+    })
 }

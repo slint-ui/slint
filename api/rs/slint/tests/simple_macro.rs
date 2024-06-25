@@ -31,7 +31,7 @@ fn test_serialize_deserialize_struct() {
             enum: TestEnum,
             foo: int,
         }
-        export component Test { }
+        export component Test inherits Window { }
     }
     let data = TestStruct { foo: 1, r#enum: TestEnum::World };
     let serialized = serde_json::to_string(&data).unwrap();

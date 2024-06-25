@@ -1063,7 +1063,7 @@ impl TypeLoader {
     ) -> (PathBuf, Option<TypeLoader>) {
         let path = crate::pathutils::clean_path(path);
         let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
-        let (path, doc) = Self::load_file_no_pass(
+        let (path, mut doc) = Self::load_file_no_pass(
             &state,
             &path,
             version,
@@ -1077,7 +1077,7 @@ impl TypeLoader {
         let mut state = state.borrow_mut();
         let state = &mut *state;
         let raw_type_loader = if !state.diag.has_error() {
-            crate::passes::run_passes(&doc, state.tl, keep_raw, state.diag).await
+            crate::passes::run_passes(&mut doc, state.tl, keep_raw, state.diag).await
         } else {
             None
         };
