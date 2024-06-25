@@ -1,13 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Button, Palette, ScrollView, VerticalBox, GroupBox, LineEdit } from "std-widgets.slint";
+import { Button, Palette } from "std-widgets.slint";
 import { Api, ComponentListItem, ComponentItem } from "api.slint";
 import { SideBarElement } from "side-bar.slint";
 import { ListHead } from "list-head.slint";
 
 export component ComponentList inherits SideBarElement {
     name: @tr("Library");
+
     in property <[ComponentListItem]> known-components <=> Api.known-components;
 
     in property <length> preview-area-position-x;
@@ -22,17 +23,13 @@ export component ComponentList inherits SideBarElement {
         is-user-defined: false,
         is-currently-shown: false,
     };
-
-    private property <length> list-spacing: 10px;
-
     out property <bool> over-target;
 
+    private property <length> list-spacing: 10px;
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
 
-    VerticalLayout {
-        spacing: root.list-spacing;
-
-        for cli[index] in root.known-components: category := VerticalLayout {
+    for cli[index] in root.known-components: category := Rectangle {
+        VerticalLayout {
             spacing: root.list-spacing;
 
             private property <int> my-category-index: index;
@@ -54,7 +51,7 @@ export component ComponentList inherits SideBarElement {
                 width: 100%;
 
                 // Hack to initialize currently visible component:
-                        if ci.is_currently_shown: Rectangle {
+                if ci.is_currently_shown: Rectangle {
                     visible: false;
 
                     init() => {

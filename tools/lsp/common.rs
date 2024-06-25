@@ -191,10 +191,10 @@ impl DocumentCache {
         &self.0.compiler_config
     }
 
-    pub fn element_at_position(
+    fn element_at_document_and_offset(
         &self,
-        text_document_uri: &Url,
-        pos: &lsp_types::Position,
+        document: &i_slint_compiler::object_tree::Document,
+        offset: u32,
     ) -> Option<ElementRcNode> {
         fn element_contains(
             element: &i_slint_compiler::object_tree::ElementRc,
@@ -205,9 +205,7 @@ impl DocumentCache {
             })
         }
 
-        let (doc, offset) = self.get_document_and_offset(text_document_uri, pos)?;
-
-        for component in &doc.inner_components {
+        for component in &document.inner_components {
             let root_element = component.root_element.clone();
             let Some(root_debug_index) = element_contains(&root_element, offset) else {
                 continue;
@@ -231,6 +229,20 @@ impl DocumentCache {
             }
         }
         None
+    }
+
+    pub fn element_at_offset(&self, text_document_uri: &Url, offset: u32) -> Option<ElementRcNode> {
+        let doc = self.get_document(text_document_uri)?;
+        self.element_at_document_and_offset(doc, offset)
+    }
+
+    pub fn element_at_position(
+        &self,
+        text_document_uri: &Url,
+        pos: &lsp_types::Position,
+    ) -> Option<ElementRcNode> {
+        let (doc, offset) = self.get_document_and_offset(text_document_uri, pos)?;
+        self.element_at_document_and_offset(doc, offset)
     }
 }
 

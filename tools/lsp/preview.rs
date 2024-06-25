@@ -344,6 +344,74 @@ fn navigate(nav_direction: i32) {
     }
 }
 
+fn evaluate_binding(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    property_name: slint::SharedString,
+    property_value: slint::SharedString,
+) -> Option<lsp_types::WorkspaceEdit> {
+    let element_url = Url::parse(&element_url.to_string()).ok()?;
+    let element_version = if element_version < 0 { None } else { Some(element_version) };
+    let element_offset = u32::try_from(element_offset).ok()?;
+    let property_name = property_name.to_string();
+    let property_value = property_value.to_string();
+
+    let document_cache = document_cache()?;
+    let element = document_cache.element_at_offset(&element_url, element_offset)?;
+
+    let edit = if property_value.is_empty() {
+        properties::remove_binding(element_url, element_version, &element, &property_name).ok()
+    } else {
+        properties::set_binding(
+            &document_cache,
+            &element_url,
+            element_version,
+            &element,
+            &property_name,
+            property_value,
+        )
+        .ok()
+        .and_then(|(_, edit)| edit)
+    }?;
+
+    drop_location::workspace_edit_compiles(&document_cache, &edit).then_some(edit)
+}
+
+// triggered from the UI, running in UI thread
+fn test_binding(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    property_name: slint::SharedString,
+    property_value: slint::SharedString,
+) -> bool {
+    evaluate_binding(element_url, element_version, element_offset, property_name, property_value)
+        .is_some()
+}
+
+// triggered from the UI, running in UI thread
+fn set_binding(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    property_name: slint::SharedString,
+    property_value: slint::SharedString,
+) {
+    if let Some(edit) = evaluate_binding(
+        element_url,
+        element_version,
+        element_offset,
+        property_name,
+        property_value,
+    ) {
+        send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
+            label: Some("Edit property".to_string()),
+            edit,
+        });
+    }
+}
+
 // triggered from the UI, running in UI thread
 fn show_component(name: slint::SharedString, url: slint::SharedString) {
     let name = name.to_string();
@@ -371,6 +439,34 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
 
     let start = util::map_position(&identifier.source_file, identifier.text_range().start());
     ask_editor_to_show_document(&file.to_string_lossy(), lsp_types::Range::new(start, start))
+}
+
+// triggered from the UI, running in UI thread
+fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32) {
+    fn internal(
+        url: slint::SharedString,
+        start: i32,
+        end: i32,
+    ) -> Option<(PathBuf, lsp_types::Position, lsp_types::Position)> {
+        let url = Url::parse(url.as_ref()).ok()?;
+        let file = url.to_file_path().ok()?;
+
+        let start = u32::try_from(start).ok()?;
+        let end = u32::try_from(end).ok()?;
+
+        let document_cache = document_cache()?;
+        let document = document_cache.get_document(&url)?;
+        let document = document.node.as_ref()?;
+
+        let start = util::map_position(&document.source_file, start.into());
+        let end = util::map_position(&document.source_file, end.into());
+
+        Some((file, start, end))
+    }
+
+    if let Some((f, s, e)) = internal(url, start, end) {
+        ask_editor_to_show_document(&f.to_string_lossy(), lsp_types::Range::new(s, e));
+    }
 }
 
 // triggered from the UI, running in UI thread
@@ -1087,6 +1183,18 @@ fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
     })
 }
 
+fn query_property_information(
+    document_cache: &common::DocumentCache,
+    selection: &Option<element_selection::ElementSelection>,
+) -> Option<properties::QueryPropertyResponse> {
+    let selection = selection.as_ref()?;
+    let url = Url::from_file_path(&selection.path).ok()?;
+    let version = document_cache.document_version(&url);
+    let element = document_cache.element_at_offset(&url, selection.offset)?;
+
+    properties::query_properties(&url, version, &element).ok()
+}
+
 fn set_selected_element(
     selection: Option<element_selection::ElementSelection>,
     positions: &[i_slint_core::lengths::LogicalRect],
@@ -1112,6 +1220,16 @@ fn set_selected_element(
             !is_in_layout && !is_layout,
             positions,
         );
+
+        if let Some(ui) = &preview_state.ui {
+            if let Some(document_cache) = document_cache_from(&preview_state) {
+                ui::ui_set_properties(
+                    ui,
+                    &document_cache,
+                    query_property_information(&document_cache, &selection),
+                );
+            }
+        }
 
         preview_state.selected = selection;
         preview_state.notify_editor_about_selection_after_update =

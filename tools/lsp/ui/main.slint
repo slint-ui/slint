@@ -9,12 +9,14 @@ import { ComponentList } from "component-list.slint";
 import { DrawArea, DrawAreaMode } from "draw-area.slint";
 import { HeaderBar } from "header-bar.slint";
 import { DiagnosticsOverlay } from "diagnostics-overlay.slint";
+import { PropertyEditor } from "property-editor.slint";
+import { SideBar } from "side-bar.slint";
 
 export { Api }
 
 export component PreviewUi inherits Window {
     property <length> border: 20px;
-    property <length> side-bar-width: 200px;
+    property <length> side-bar-width: 300px;
 
     title: "Slint Live-Preview";
     icon: @image-url("assets/slint-logo-small-light.png");
@@ -97,31 +99,30 @@ export component PreviewUi inherits Window {
                 }
 
                 HorizontalLayout {
-                    left-sidebar := Rectangle {
-                        VerticalBox {
-                            component-list := ComponentList {
-                                preview-area-position-x: draw-area.preview-area-position-x;
-                                preview-area-position-y: draw-area.preview-area-position-y;
-                                preview-area-width: draw-area.preview-area-width;
-                                preview-area-height: draw-area.preview-area-height;
-                            }
-                        }
+                    left-sidebar := SideBar {
+                        default-width: root.side-bar-width;
+                        show-side-bar: pick-button.checked;
 
-                        states [
-                            visible when !pick-button.checked: {
-                                width: 0px;
-                            }
-                            hidden when pick-button.checked: {
-                                width: root.side-bar-width;
-                            }
-                        ]
+                        component-list := ComponentList {
+                            preview-area-position-x: draw-area.preview-area-position-x;
+                            preview-area-position-y: draw-area.preview-area-position-y;
+                            preview-area-width: draw-area.preview-area-width;
+                            preview-area-height: draw-area.preview-area-height;
+                        }
                     }
 
                     draw-area := DrawArea {
                         visible-component <=> component-list.visible-component;
                     }
 
-                    preferred-width: draw-area.preferred-width + root.side-bar-width/* for left-side-bar */;
+                    right-sidebar := SideBar {
+                        default-width: root.side-bar-width;
+                        show-side-bar: pick-button.checked;
+
+                        property-editor := PropertyEditor { }
+                    }
+
+                    preferred-width: draw-area.preferred-width + 2 * root.side-bar-width;
                 }
             }
 

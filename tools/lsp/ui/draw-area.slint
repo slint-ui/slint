@@ -326,6 +326,7 @@ export component DrawArea {
                                     font-size: 0.8rem;
                                     horizontal-alignment: left;
                                     text: root.visible-component.pretty-location;
+                                    color: Palette.alternate-foreground;
                                 }
                                 clicked() => {
                                     Api.show-component(root.visible-component.name, root.visible-component.defined-at);

@@ -58,6 +58,54 @@ export struct DropMark {
     y2: length,
 }
 
+/// A Range in a source
+export struct Range {
+    start: int,
+    end: int,
+}
+
+/// Important Ranges in the property definition
+///
+/// The URL and version is the same as in the Element it belongs to
+export struct PropertyDefinition {
+    definition-range: Range,
+    selection-range: Range,
+    expression-range: Range,
+    expression-value: string,
+}
+
+/// The Property Declaration
+export struct PropertyDeclaration {
+    source-uri: string,
+    source-version: int,
+    range: Range,
+}
+
+/// Information on one Property
+export struct PropertyInformation {
+    name: string,
+    type-name: string,
+    declared-at: PropertyDeclaration,
+    defined-at: PropertyDefinition,
+}
+
+/// Information on one Property
+export struct PropertyGroup {
+    group-name: string,
+    properties: [PropertyInformation],
+}
+
+/// Information on an Element a Property belongs to
+export struct ElementInformation {
+    id: string,
+    type-name: string,
+    source-uri: string,
+    source-version: int,
+    range: Range,
+
+    properties: [PropertyGroup],
+}
+
 export global Api {
     // # Properties
     // ## General preview state:
@@ -85,6 +133,9 @@ export global Api {
     in property <[Selection]> selections; // Borders around things
     in-out property <DropMark> drop-mark;
     in property <component-factory> preview-area; // The actual preview
+
+    // ## Property Editor
+    in property <ElementInformation> current-element;
 
     // # Callbacks
 
@@ -121,13 +172,18 @@ export global Api {
     // ## Change Editor:    
 
     // Show a conponent in the editor
-    callback show-component(/* name */ string, /* file */ string);
+    callback show-component(/* name */ string, /* url */ string);
     // Show a position consisting of `line` and `column` in a `file` in the editor
     callback show-document(/* file */ string, /* line */ int, /* column */ int);
+    // Show a position consisting of `line` and `column` in a `file` in the editor
+    callback show-document-offset-range(/* url */ string, /* start_offset */ int, /* end_offset */ int);
 
 
     // ## Drawing Area
     // Preview some other component
     callback show-preview-for(string/* name */, string/*url*/);
 
+    // ## Property Editor
+    pure callback test-binding(/* element-url */ string, /* element-version */ int, /* element-offset */ int, /* property-name */ string, /* property-value */ string) -> bool;
+    callback set-binding(/* element-url */ string, /* element-version */ int, /* element-offset */ int, /* property-name */ string, /* property-value */ string);
 }
