@@ -17,6 +17,11 @@ export component TestCase inherits Rectangle {
     in property<component-factory> c1 <=> cont1.component-factory;
     in property<component-factory> c2 <=> cont2.component-factory;
     out property<bool> outside-focus <=> outside.has-focus;
+
+
+    private property <component-factory> some-factory;
+    ComponentContainer { component-factory: some-factory; }
+    out property <bool> test: some-factory == some-factory;
 }
 
 /*

@@ -187,6 +187,8 @@ pub enum Expression {
         lhs: Box<Expression>,
         rhs: Box<Expression>,
     },
+
+    EmptyComponentFactory,
 }
 
 impl Expression {
@@ -194,7 +196,6 @@ impl Expression {
         Some(match ty {
             Type::Invalid
             | Type::Callback { .. }
-            | Type::ComponentFactory
             | Type::Function { .. }
             | Type::Void
             | Type::InferredProperty
@@ -241,6 +242,7 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
+            Type::ComponentFactory => Expression::EmptyComponentFactory,
         })
     }
 
@@ -301,6 +303,7 @@ impl Expression {
                 Type::Array(super::lower_expression::grid_layout_cell_data_ty().into())
             }
             Self::MinMax { ty, .. } => ty.clone(),
+            Self::EmptyComponentFactory => Type::ComponentFactory,
         }
     }
 }
@@ -382,6 +385,7 @@ macro_rules! visit_impl {
                 $visitor(lhs);
                 $visitor(rhs);
             }
+            Expression::EmptyComponentFactory => {}
         }
     };
 }

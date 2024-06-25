@@ -213,6 +213,7 @@ pub fn lower_expression(
             lhs: Box::new(lower_expression(lhs, ctx)),
             rhs: Box::new(lower_expression(rhs, ctx)),
         },
+        tree_Expression::EmptyComponentFactory => llr_Expression::EmptyComponentFactory,
     }
 }
 

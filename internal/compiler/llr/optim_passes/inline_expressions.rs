@@ -51,6 +51,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::BoxLayoutFunction { .. } => return isize::MAX,
         Expression::ComputeDialogLayoutCells { .. } => return isize::MAX,
         Expression::MinMax { .. } => 10,
+        Expression::EmptyComponentFactory => 10,
     };
 
     exp.visit(|e| cost = cost.saturating_add(expression_cost(e, ctx)));
