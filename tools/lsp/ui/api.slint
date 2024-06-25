@@ -59,39 +59,75 @@ export struct DropMark {
 }
 
 export global Api {
-    in property <[ComponentListItem]> known-components;
-    out property <ComponentItem> visible-component;
-    in property <[Diagnostics]> diagnostics;
-    in property <[Selection]> selections;
-    in-out property <DropMark> drop-mark;
-    in property <[string]> known-styles;
-    in property <bool> experimental: false;
-    in property <bool> show-preview-ui: true;
-    in property <component-factory> preview-area;
-    in property <string> status-text;
-    in-out property <string> current-style;
+    // # Properties
+    // ## General preview state:
+    in property <bool> experimental: false; // experimental features are available
+    in property <bool> show-preview-ui: true; // enable editing mode
+    in-out property <bool> design-mode; // Design-mode engaged!
+    
+    // ## Component Data for ComponentList:
+    in property <[ComponentListItem]> known-components; // All the components
+    out property <ComponentItem> visible-component; // The component currently viewed
+
+    // ## Diagnostics and other Status messages
+    in property <[Diagnostics]> diagnostics; // Compiler diagnostics
+    in property <string> status-text; // status message text
+
+    // ## Style:
+    in property <[string]> known-styles; // All the known styles
+    in-out property <string> current-style; // The current style
+
+    // ## History Navigation    
     in property <bool> can-navigate-back: false;
     in property <bool> can-navigate-forward: false;
-    in-out property <bool> design-mode;
 
+    // ## Drawing Area
+    in property <[Selection]> selections; // Borders around things
+    in-out property <DropMark> drop-mark;
+    in property <component-factory> preview-area; // The actual preview
+
+    // # Callbacks
+
+    // ## Style:
+    callback style-changed();
+
+    // ## Histroy Navigation
+    callback navigate(int);
+
+    // ## Component life-cycle:
+
+    // Create a new componnet
     callback add-new-component();
+
+    // Add an existing component
     pure callback can-drop(/* component-type */ string, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
     callback drop(/* component-type */ string, /* x */ length, /* y */ length);
+    
     callback rename-component(string/* old-name */, string/* defined-at */, string/* new-name */);
-    callback reselect();
+
+    callback selected-element-can-move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length) -> bool;
+    callback selected-element-move(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
+
+    callback selected-element-resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
+
+    callback selected-element-delete();
+
+    // ## Element selection:
     callback select-at(/* x */ length, /* y */ length, /* enter-component? */ bool);
     callback select-behind(/* x */ length, /* y */ length, /* enter-component* */ bool, /* reverse */ bool);
-    callback selected-element-can-move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length) -> bool;
-    callback selected-element-delete();
-    callback selected-element-move(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
-    callback selected-element-resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
-    // Show the component `name` found in `file` in the editor
+    callback reselect();
+    callback unselect();
+
+    // ## Change Editor:    
+
+    // Show a conponent in the editor
     callback show-component(/* name */ string, /* file */ string);
     // Show a position consisting of `line` and `column` in a `file` in the editor
     callback show-document(/* file */ string, /* line */ int, /* column */ int);
-    callback show-preview-for(string/* name */, string/*url*/);
-    callback style-changed();
-    callback unselect();
 
-    callback navigate(int);
+
+    // ## Drawing Area
+    // Preview some other component
+    callback show-preview-for(string/* name */, string/*url*/);
+
 }
