@@ -6,7 +6,7 @@ use std::rc::Rc;
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{Model, ModelNotify, ModelRc};
 use napi::{bindgen_prelude::*, JsSymbol};
-use napi::{Env, JsExternal, JsFunction, JsNumber, JsObject, JsUnknown, Result, ValueType};
+use napi::{Env, JsFunction, JsNumber, JsObject, JsUnknown, Result, ValueType};
 
 use crate::{to_js_unknown, to_value, RefCountedReference};
 
@@ -36,8 +36,8 @@ pub(crate) fn js_into_rust_model(
                 )
             })
         })
-        .and_then(|shared_model_notify: JsExternal| {
-            env.get_value_external::<SharedModelNotify>(&shared_model_notify).cloned()
+        .map(|shared_model_notify: External<SharedModelNotify>| {
+            shared_model_notify.as_ref().clone()
         })?;
     Ok(Rc::new(JsModel {
         shared_model_notify,
