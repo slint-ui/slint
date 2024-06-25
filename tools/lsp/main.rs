@@ -485,10 +485,11 @@ async fn handle_preview_to_lsp_message(
             crate::language::request_state(ctx);
         }
         M::UpdateElement { label, position, properties } => {
+            let mut dc = ctx.document_cache.borrow_mut();
             let _ = send_workspace_edit(
                 ctx.server_notifier.clone(),
                 label,
-                properties::update_element_properties(ctx, position, properties),
+                properties::update_element_properties(&mut dc, position, properties),
             )
             .await;
         }
