@@ -1,0 +1,97 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+/// Basic information on a known component
+export struct ComponentItem {
+    name: string,
+    defined-at: string,
+    pretty-location: string,
+    is-user-defined: bool,
+    is-currently-shown: bool,
+}
+
+/// A `category` with a lost of `ComponentItem`s that belong into it.
+export struct ComponentListItem {
+    category: string,
+    components: [ComponentItem]
+}
+
+/// Some `Diagnostics` as raised by the compiler
+export struct Diagnostics {
+    level: string,
+    message: string,
+    url: string,
+    line: int,
+    column: int,
+}
+
+/// What kind of layout we are working with
+export enum LayoutKind {
+    None,
+    Horizontal,
+    Vertical,
+    Grid,
+}
+
+/// A rectangular region that is selected
+struct SelectionRectangle {
+    x: length,
+    y: length,
+    width: length,
+    height: length,
+}
+
+/// A `Selection`
+export struct Selection {
+    geometry: SelectionRectangle,
+    layout-data: LayoutKind,
+    is-primary: bool,
+    is-moveable: bool,
+    is-resizable: bool,
+}
+
+/// A mark showing where an element will show up when dropped into the current location
+export struct DropMark {
+    x1: length,
+    y1: length,
+    x2: length,
+    y2: length,
+}
+
+export global Api {
+    in property <[ComponentListItem]> known-components;
+    out property <ComponentItem> visible-component;
+    in property <[Diagnostics]> diagnostics;
+    in property <[Selection]> selections;
+    in-out property <DropMark> drop-mark;
+    in property <[string]> known-styles;
+    in property <bool> experimental: false;
+    in property <bool> show-preview-ui: true;
+    in property <component-factory> preview-area;
+    in property <string> status-text;
+    in-out property <string> current-style;
+    in property <bool> can-navigate-back: false;
+    in property <bool> can-navigate-forward: false;
+    in-out property <bool> design-mode;
+
+    callback add-new-component();
+    pure callback can-drop(/* component-type */ string, /* x */ length, /* y */ length, /* on-drop-area */ bool) -> bool;
+    callback drop(/* component-type */ string, /* x */ length, /* y */ length);
+    callback rename-component(string/* old-name */, string/* defined-at */, string/* new-name */);
+    callback reselect();
+    callback select-at(/* x */ length, /* y */ length, /* enter-component? */ bool);
+    callback select-behind(/* x */ length, /* y */ length, /* enter-component* */ bool, /* reverse */ bool);
+    callback selected-element-can-move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length) -> bool;
+    callback selected-element-delete();
+    callback selected-element-move(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
+    callback selected-element-resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
+    // Show the component `name` found in `file` in the editor
+    callback show-component(/* name */ string, /* file */ string);
+    // Show a position consisting of `line` and `column` in a `file` in the editor
+    callback show-document(/* file */ string, /* line */ int, /* column */ int);
+    callback show-preview-for(string/* name */, string/*url*/);
+    callback style-changed();
+    callback unselect();
+
+    callback navigate(int);
+}

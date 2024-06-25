@@ -35,32 +35,34 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
         model
     });
 
-    ui.set_current_style(style.clone().into());
-    ui.set_experimental(experimental);
-    ui.set_known_styles(style_model.into());
+    let api = ui.global::<Api>();
 
-    ui.on_add_new_component(super::add_new_component);
-    ui.on_rename_component(super::rename_component);
-    ui.on_style_changed(super::change_style);
-    ui.on_show_component(super::show_component);
-    ui.on_show_document(|file, line, column| {
+    api.set_current_style(style.clone().into());
+    api.set_experimental(experimental);
+    api.set_known_styles(style_model.into());
+
+    api.on_add_new_component(super::add_new_component);
+    api.on_rename_component(super::rename_component);
+    api.on_style_changed(super::change_style);
+    api.on_show_component(super::show_component);
+    api.on_show_document(|file, line, column| {
         use lsp_types::{Position, Range};
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
         super::ask_editor_to_show_document(&file, Range::new(pos, pos))
     });
-    ui.on_show_preview_for(super::show_preview_for);
-    ui.on_unselect(super::element_selection::unselect_element);
-    ui.on_reselect(super::element_selection::reselect_element);
-    ui.on_select_at(super::element_selection::select_element_at);
-    ui.on_select_behind(super::element_selection::select_element_behind);
-    ui.on_can_drop(super::can_drop_component);
-    ui.on_drop(super::drop_component);
-    ui.on_selected_element_resize(super::resize_selected_element);
-    ui.on_selected_element_can_move_to(super::can_move_selected_element);
-    ui.on_selected_element_move(super::move_selected_element);
-    ui.on_selected_element_delete(super::delete_selected_element);
+    api.on_show_preview_for(super::show_preview_for);
+    api.on_unselect(super::element_selection::unselect_element);
+    api.on_reselect(super::element_selection::reselect_element);
+    api.on_select_at(super::element_selection::select_element_at);
+    api.on_select_behind(super::element_selection::select_element_behind);
+    api.on_can_drop(super::can_drop_component);
+    api.on_drop(super::drop_component);
+    api.on_selected_element_resize(super::resize_selected_element);
+    api.on_selected_element_can_move_to(super::can_move_selected_element);
+    api.on_selected_element_move(super::move_selected_element);
+    api.on_selected_element_delete(super::delete_selected_element);
 
-    ui.on_navigate(super::navigate);
+    api.on_navigate(super::navigate);
 
     Ok(ui)
 }
@@ -128,5 +130,6 @@ pub fn ui_set_known_components(
     result.sort_by_key(|k| k.category.clone());
 
     let result = Rc::new(VecModel::from(result));
-    ui.set_known_components(result.into());
+    let api = ui.global::<Api>();
+    api.set_known_components(result.into());
 }

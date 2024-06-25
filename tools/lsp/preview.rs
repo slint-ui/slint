@@ -815,8 +815,9 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
             PREVIEW_STATE.with(|preview_state| {
                 let preview_state = preview_state.borrow_mut();
                 if let Some(ui) = &preview_state.ui {
-                    ui.set_can_navigate_back(backward);
-                    ui.set_can_navigate_forward(forward);
+                    let api = ui.global::<ui::Api>();
+                    api.set_can_navigate_back(backward);
+                    api.set_can_navigate_forward(forward);
                 }
             });
 
@@ -968,7 +969,8 @@ fn set_preview_factory(
         Some(instance)
     });
 
-    ui.set_preview_area(factory);
+    let api = ui.global::<ui::Api>();
+    api.set_preview_area(factory);
 }
 
 /// Highlight the element pointed at the offset in the path.
@@ -1028,7 +1030,8 @@ fn convert_diagnostics(
 
 fn reset_selections(ui: &ui::PreviewUi) {
     let model = Rc::new(slint::VecModel::from(Vec::new()));
-    ui.set_selections(slint::ModelRc::from(model));
+    let api = ui.global::<ui::Api>();
+    api.set_selections(slint::ModelRc::from(model));
 }
 
 fn set_selections(
@@ -1060,7 +1063,8 @@ fn set_selections(
         })
         .collect::<Vec<_>>();
     let model = Rc::new(slint::VecModel::from(values));
-    ui.set_selections(slint::ModelRc::from(model));
+    let api = ui.global::<ui::Api>();
+    api.set_selections(slint::ModelRc::from(model));
 }
 
 fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
@@ -1071,15 +1075,16 @@ fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
             return;
         };
 
+        let api = ui.global::<ui::Api>();
         if let Some(m) = mark {
-            ui.set_drop_mark(ui::DropMark {
+            api.set_drop_mark(ui::DropMark {
                 x1: m.start.x,
                 y1: m.start.y,
                 x2: m.end.x,
                 y2: m.end.y,
             });
         } else {
-            ui.set_drop_mark(ui::DropMark { x1: -1.0, y1: -1.0, x2: -1.0, y2: -1.0 });
+            api.set_drop_mark(ui::DropMark { x1: -1.0, y1: -1.0, x2: -1.0, y2: -1.0 });
         }
     })
 }
@@ -1142,7 +1147,8 @@ fn set_show_preview_ui(show_preview_ui: bool) {
         PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow();
             if let Some(ui) = &preview_state.ui {
-                ui.set_show_preview_ui(show_preview_ui)
+                let api = ui.global::<ui::Api>();
+                api.set_show_preview_ui(show_preview_ui)
             }
         })
     });
@@ -1152,7 +1158,8 @@ fn set_current_style(style: String) {
     PREVIEW_STATE.with(move |preview_state| {
         let preview_state = preview_state.borrow_mut();
         if let Some(ui) = &preview_state.ui {
-            ui.set_current_style(style.into())
+            let api = ui.global::<ui::Api>();
+            api.set_current_style(style.into())
         }
     });
 }
@@ -1161,7 +1168,8 @@ fn get_current_style() -> String {
     PREVIEW_STATE.with(|preview_state| -> String {
         let preview_state = preview_state.borrow();
         if let Some(ui) = &preview_state.ui {
-            ui.get_current_style().as_str().to_string()
+            let api = ui.global::<ui::Api>();
+            api.get_current_style().as_str().to_string()
         } else {
             String::new()
         }
@@ -1175,7 +1183,8 @@ fn set_status_text(text: &str) {
         PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow_mut();
             if let Some(ui) = &preview_state.ui {
-                ui.set_status_text(text.into());
+                let api = ui.global::<ui::Api>();
+                api.set_status_text(text.into());
             }
         });
     })
@@ -1190,7 +1199,8 @@ fn set_diagnostics(diagnostics: &[slint_interpreter::Diagnostic]) {
             let preview_state = preview_state.borrow_mut();
             if let Some(ui) = &preview_state.ui {
                 let model = VecModel::from(data);
-                ui.set_diagnostics(Rc::new(model).into());
+                let api = ui.global::<ui::Api>();
+                api.set_diagnostics(Rc::new(model).into());
             }
         });
     })
