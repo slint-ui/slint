@@ -305,7 +305,6 @@ fn to_lsp_diag_level(level: DiagnosticLevel) -> lsp_types::DiagnosticSeverity {
 mod tests {
     use super::*;
 
-    use crate::language;
     use crate::language::test::loaded_document_cache;
 
     #[test]
@@ -319,13 +318,13 @@ mod tests {
             .to_string(),
         );
 
-        let window = language::element_at_position(&dc, &url, &lsp_types::Position::new(0, 30));
+        let window = dc.element_at_position(&url, &lsp_types::Position::new(0, 30));
         assert_eq!(find_element_indent(&window.unwrap()), None);
 
-        let vbox = language::element_at_position(&dc, &url, &lsp_types::Position::new(1, 4));
+        let vbox = dc.element_at_position(&url, &lsp_types::Position::new(1, 4));
         assert_eq!(find_element_indent(&vbox.unwrap()), Some("    ".to_string()));
 
-        let label = language::element_at_position(&dc, &url, &lsp_types::Position::new(2, 17));
+        let label = dc.element_at_position(&url, &lsp_types::Position::new(2, 17));
         assert_eq!(find_element_indent(&label.unwrap()), Some("        ".to_string()));
     }
 }

@@ -298,11 +298,12 @@ impl SlintServer {
                 crate::language::request_state(&self.ctx);
             }
             M::UpdateElement { label, position, properties } => {
+                let mut dc = self.ctx.document_cache.borrow_mut();
                 send_workspace_edit(
                     self.ctx.server_notifier.clone(),
                     label,
                     language::properties::update_element_properties(
-                        &self.ctx, position, properties,
+                        &mut dc, position, properties,
                     ),
                 );
             }

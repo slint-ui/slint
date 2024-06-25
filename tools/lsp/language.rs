@@ -454,7 +454,7 @@ pub fn query_properties_command(
         .expect("Failed to serialize none-element property query result!"));
     };
 
-    if let Some(element) = element_at_position(document_cache, &text_document_uri, &position) {
+    if let Some(element) = document_cache.element_at_position(&text_document_uri, &position) {
         properties::query_properties(&text_document_uri, source_version, &element)
             .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
     } else {
@@ -507,7 +507,7 @@ pub async fn set_binding_command(
         }
 
         let element =
-            element_at_position(document_cache, &uri, &element_range.start).ok_or_else(|| {
+            document_cache.element_at_position(&uri, &element_range.start).ok_or_else(|| {
                 format!("No element found at the given start position {:?}", &element_range.start)
             })?;
 
@@ -592,7 +592,7 @@ pub async fn remove_binding_command(
         }
 
         let element =
-            element_at_position(document_cache, &uri, &element_range.start).ok_or_else(|| {
+            document_cache.element_at_position(&uri, &element_range.start).ok_or_else(|| {
                 format!("No element found at the given start position {:?}", &element_range.start)
             })?;
 
@@ -702,74 +702,13 @@ pub async fn reload_document(
     Ok(())
 }
 
-fn get_document_and_offset<'a>(
-    document_cache: &'a DocumentCache,
-    text_document_uri: &'_ Url,
-    pos: &'_ Position,
-) -> Option<(&'a i_slint_compiler::object_tree::Document, u32)> {
-    let doc = document_cache.get_document(text_document_uri)?;
-    let o = doc.node.as_ref()?.source_file.offset(pos.line as usize + 1, pos.character as usize + 1)
-        as u32;
-    doc.node.as_ref()?.text_range().contains_inclusive(o.into()).then_some((doc, o))
-}
-
-fn element_contains(
-    element: &i_slint_compiler::object_tree::ElementRc,
-    offset: u32,
-) -> Option<usize> {
-    element
-        .borrow()
-        .debug
-        .iter()
-        .position(|n| n.node.parent().map_or(false, |n| n.text_range().contains(offset.into())))
-}
-
-fn element_node_contains(element: &common::ElementRcNode, offset: u32) -> bool {
-    element.with_element_node(|node| {
-        node.parent().map_or(false, |n| n.text_range().contains(offset.into()))
-    })
-}
-
-pub fn element_at_position(
-    document_cache: &DocumentCache,
-    text_document_uri: &Url,
-    pos: &Position,
-) -> Option<common::ElementRcNode> {
-    let (doc, offset) = get_document_and_offset(document_cache, text_document_uri, pos)?;
-
-    for component in &doc.inner_components {
-        let root_element = component.root_element.clone();
-        let Some(root_debug_index) = element_contains(&root_element, offset) else {
-            continue;
-        };
-
-        let mut element =
-            common::ElementRcNode { element: root_element, debug_index: root_debug_index };
-        while element_node_contains(&element, offset) {
-            if let Some((c, i)) = element
-                .element
-                .clone()
-                .borrow()
-                .children
-                .iter()
-                .find_map(|c| element_contains(c, offset).map(|i| (c, i)))
-            {
-                element = common::ElementRcNode { element: c.clone(), debug_index: i };
-            } else {
-                return Some(element);
-            }
-        }
-    }
-    None
-}
-
 /// return the token, and the offset within the file
 fn token_descr(
     document_cache: &mut DocumentCache,
     text_document_uri: &Url,
     pos: &Position,
 ) -> Option<(SyntaxToken, u32)> {
-    let (doc, o) = get_document_and_offset(document_cache, text_document_uri, pos)?;
+    let (doc, o) = document_cache.get_document_and_offset(text_document_uri, pos)?;
     let node = doc.node.as_ref()?;
 
     let token = token_at_offset(node, o)?;
@@ -892,7 +831,7 @@ fn get_code_actions(
 
         if has_experimental_client_capability(client_capabilities, "snippetTextEdit") {
             let r = util::map_range(&token.source_file, node.parent().unwrap().text_range());
-            let element = element_at_position(document_cache, &uri, &r.start);
+            let element = document_cache.element_at_position(&uri, &r.start);
             let element_indent = element.as_ref().and_then(util::find_element_indent);
             let indented_lines = node
                 .parent()
@@ -1393,80 +1332,6 @@ pub mod tests {
         assert_eq!(f64::trunc(color.alpha as f64 * 255.0), 128.0);
     }
 
-    fn id_at_position(
-        dc: &mut DocumentCache,
-        url: &Url,
-        line: u32,
-        character: u32,
-    ) -> Option<String> {
-        let result = element_at_position(&dc, url, &Position { line, character })?;
-        let element = result.element.borrow();
-        Some(element.id.clone())
-    }
-
-    fn base_type_at_position(
-        dc: &mut DocumentCache,
-        url: &Url,
-        line: u32,
-        character: u32,
-    ) -> Option<String> {
-        let result = element_at_position(&dc, url, &Position { line, character })?;
-        let element = result.element.borrow();
-        Some(format!("{}", &element.base_type))
-    }
-
-    #[test]
-    fn test_element_at_position_no_element() {
-        let (mut dc, url, _) = complex_document_cache();
-        assert_eq!(id_at_position(&mut dc, &url, 0, 10), None);
-        // TODO: This is past the end of the line and should thus return None
-        assert_eq!(id_at_position(&mut dc, &url, 42, 90), Some(String::new()));
-        assert_eq!(id_at_position(&mut dc, &url, 1, 0), None);
-        assert_eq!(id_at_position(&mut dc, &url, 55, 1), None);
-        assert_eq!(id_at_position(&mut dc, &url, 56, 5), None);
-    }
-
-    #[test]
-    fn test_element_at_position_no_such_document() {
-        let (mut dc, _, _) = complex_document_cache();
-        assert_eq!(
-            id_at_position(&mut dc, &Url::parse("https://foo.bar/baz").unwrap(), 5, 0),
-            None
-        );
-    }
-
-    #[test]
-    fn test_element_at_position_root() {
-        let (mut dc, url, _) = complex_document_cache();
-
-        assert_eq!(id_at_position(&mut dc, &url, 2, 30), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 2, 32), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 2, 42), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 3, 0), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 3, 53), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 4, 19), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 5, 0), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 6, 8), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 6, 15), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 6, 23), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 8, 15), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 12, 3), Some("root".to_string())); // right before child // TODO: Seems wrong!
-        assert_eq!(id_at_position(&mut dc, &url, 51, 5), Some("root".to_string())); // right after child // TODO: Why does this not work?
-        assert_eq!(id_at_position(&mut dc, &url, 52, 0), Some("root".to_string()));
-    }
-
-    #[test]
-    fn test_element_at_position_child() {
-        let (mut dc, url, _) = complex_document_cache();
-
-        assert_eq!(base_type_at_position(&mut dc, &url, 12, 4), Some("VerticalBox".to_string()));
-        assert_eq!(base_type_at_position(&mut dc, &url, 14, 22), Some("HorizontalBox".to_string()));
-        assert_eq!(base_type_at_position(&mut dc, &url, 15, 33), Some("Text".to_string()));
-        assert_eq!(base_type_at_position(&mut dc, &url, 27, 4), Some("VerticalBox".to_string()));
-        assert_eq!(base_type_at_position(&mut dc, &url, 28, 8), Some("Text".to_string()));
-        assert_eq!(base_type_at_position(&mut dc, &url, 51, 4), Some("VerticalBox".to_string()));
-    }
-
     #[test]
     fn test_document_symbols() {
         let (mut dc, uri, _) = complex_document_cache();
@@ -1584,7 +1449,7 @@ enum {}
                 .unwrap();
 
         let check_start_with = |pos, str: &str| {
-            let (_, offset) = get_document_and_offset(&dc, &uri, &pos).unwrap();
+            let (_, offset) = dc.get_document_and_offset(&uri, &pos).unwrap();
             assert_eq!(&source[offset as usize..][..str.len()], str);
         };
 

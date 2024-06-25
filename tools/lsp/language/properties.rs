@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::common::{self, Result};
-use crate::language;
 use crate::util;
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFileVersion, Spanned};
@@ -606,7 +605,7 @@ fn set_binding_on_known_property(
 }
 
 pub fn set_binding(
-    document_cache: &language::DocumentCache,
+    document_cache: &common::DocumentCache,
     uri: &lsp_types::Url,
     version: SourceFileVersion,
     element: &common::ElementRcNode,
@@ -679,7 +678,7 @@ pub fn set_binding(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn set_bindings(
-    document_cache: &language::DocumentCache,
+    document_cache: &common::DocumentCache,
     uri: lsp_types::Url,
     version: SourceFileVersion,
     element: &common::ElementRcNode,
@@ -721,7 +720,7 @@ pub fn set_bindings(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 fn element_at_source_code_position(
-    document_cache: &mut language::DocumentCache,
+    document_cache: &mut common::DocumentCache,
     position: &common::VersionedPosition,
 ) -> Result<common::ElementRcNode> {
     if &document_cache.document_version(position.url()) != position.version() {
@@ -739,7 +738,7 @@ fn element_at_source_code_position(
         .ok_or_else(|| "Document had no node".to_string())?;
     let element_position = util::map_position(&source_file, position.offset().into());
 
-    Ok(language::element_at_position(document_cache, position.url(), &element_position)
+    Ok(document_cache.element_at_position(position.url(), &element_position)
         .ok_or_else(|| {
             format!("No element found at the given start position {:?}", &element_position)
         })?)
@@ -747,14 +746,14 @@ fn element_at_source_code_position(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn update_element_properties(
-    ctx: &language::Context,
+    document_cache: &mut common::DocumentCache,
     position: common::VersionedPosition,
     properties: Vec<common::PropertyChange>,
 ) -> Result<lsp_types::WorkspaceEdit> {
-    let element = element_at_source_code_position(&mut ctx.document_cache.borrow_mut(), &position)?;
+    let element = element_at_source_code_position(document_cache, &position)?;
 
     let (_, e) = set_bindings(
-        &ctx.document_cache.borrow_mut(),
+        &document_cache,
         position.url().clone(),
         *position.version(),
         &element,
@@ -857,8 +856,7 @@ mod tests {
         document_cache: &common::DocumentCache,
         url: &lsp_types::Url,
     ) -> Option<(common::ElementRcNode, Vec<PropertyInformation>)> {
-        let element = language::element_at_position(
-            document_cache,
+        let element = document_cache.element_at_position(
             url,
             &lsp_types::Position { line, character },
         )?;
@@ -871,7 +869,7 @@ mod tests {
     ) -> Option<(
         common::ElementRcNode,
         Vec<PropertyInformation>,
-        language::DocumentCache,
+        common::DocumentCache,
         lsp_types::Url,
     )> {
         let (dc, url, _) = complex_document_cache();
@@ -914,7 +912,7 @@ mod tests {
     fn test_element_information() {
         let (document_cache, url, _) = complex_document_cache();
         let element =
-            language::element_at_position(&document_cache, &url, &lsp_types::Position::new(33, 4))
+            document_cache.element_at_position(&url, &lsp_types::Position::new(33, 4))
                 .unwrap();
 
         let result = get_element_information(&element);
