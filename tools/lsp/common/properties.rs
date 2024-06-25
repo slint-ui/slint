@@ -720,7 +720,7 @@ pub fn set_bindings(
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 fn element_at_source_code_position(
-    document_cache: &mut common::DocumentCache,
+    document_cache: &common::DocumentCache,
     position: &common::VersionedPosition,
 ) -> Result<common::ElementRcNode> {
     if &document_cache.document_version(position.url()) != position.version() {
@@ -738,22 +738,21 @@ fn element_at_source_code_position(
         .ok_or_else(|| "Document had no node".to_string())?;
     let element_position = util::map_position(&source_file, position.offset().into());
 
-    Ok(document_cache.element_at_position(position.url(), &element_position)
-        .ok_or_else(|| {
-            format!("No element found at the given start position {:?}", &element_position)
-        })?)
+    Ok(document_cache.element_at_position(position.url(), &element_position).ok_or_else(|| {
+        format!("No element found at the given start position {:?}", &element_position)
+    })?)
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn update_element_properties(
-    document_cache: &mut common::DocumentCache,
+    document_cache: &common::DocumentCache,
     position: common::VersionedPosition,
     properties: Vec<common::PropertyChange>,
 ) -> Result<lsp_types::WorkspaceEdit> {
     let element = element_at_source_code_position(document_cache, &position)?;
 
     let (_, e) = set_bindings(
-        &document_cache,
+        document_cache,
         position.url().clone(),
         *position.version(),
         &element,
@@ -856,10 +855,8 @@ mod tests {
         document_cache: &common::DocumentCache,
         url: &lsp_types::Url,
     ) -> Option<(common::ElementRcNode, Vec<PropertyInformation>)> {
-        let element = document_cache.element_at_position(
-            url,
-            &lsp_types::Position { line, character },
-        )?;
+        let element =
+            document_cache.element_at_position(url, &lsp_types::Position { line, character })?;
         Some((element.clone(), get_properties(&element)))
     }
 
@@ -912,8 +909,7 @@ mod tests {
     fn test_element_information() {
         let (document_cache, url, _) = complex_document_cache();
         let element =
-            document_cache.element_at_position(&url, &lsp_types::Position::new(33, 4))
-                .unwrap();
+            document_cache.element_at_position(&url, &lsp_types::Position::new(33, 4)).unwrap();
 
         let result = get_element_information(&element);
 

@@ -12,7 +12,7 @@ pub mod lsp_ext;
 mod preview;
 pub mod util;
 
-use common::{properties, DocumentCache, LspToPreviewMessage, Result, VersionedUrl};
+use common::{DocumentCache, LspToPreviewMessage, Result, VersionedUrl};
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
@@ -296,16 +296,6 @@ impl SlintServer {
             }
             M::RequestState { .. } => {
                 crate::language::request_state(&self.ctx);
-            }
-            M::UpdateElement { label, position, properties } => {
-                let mut dc = self.ctx.document_cache.borrow_mut();
-                send_workspace_edit(
-                    self.ctx.server_notifier.clone(),
-                    label,
-                    properties::update_element_properties(
-                        &mut dc, position, properties,
-                    ),
-                );
             }
             M::SendWorkspaceEdit { label, edit } => {
                 send_workspace_edit(self.ctx.server_notifier.clone(), label, Ok(edit));
