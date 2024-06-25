@@ -4,16 +4,9 @@
 // cSpell: ignore resizer
 
 import { Button, ComboBox, HorizontalBox, LineEdit, ListView, ScrollView, Palette, VerticalBox } from "std-widgets.slint";
-import { Diagnostics, DiagnosticsOverlay } from "diagnostics-overlay.slint";
-import { ComponentItem } from "component-list.slint";
+import { Api, ComponentItem, Diagnostics, DropMark, LayoutKind, Selection } from "api.slint";
+import { DiagnosticsOverlay } from "diagnostics-overlay.slint";
 import { Resizer } from "resizer.slint";
-
-export enum LayoutKind {
-    None,
-    Horizontal,
-    Vertical,
-    Grid,
-}
 
 enum SelectionKind {
     none,
@@ -21,26 +14,11 @@ enum SelectionKind {
     select_up_or_down,
 }
 
-struct SelectionRectangle {
-    x: length,
-    y: length,
-    width: length,
-    height: length,
-}
-
-export struct Selection {
-    geometry: SelectionRectangle,
-    layout-data: LayoutKind,
-    is-primary: bool,
-    is-moveable: bool,
-    is-resizable: bool,
-}
-
-export struct DropMark {
-    x1: length,
-    y1: length,
-    x2: length,
-    y2: length,
+export enum DrawAreaMode {
+    uninitialized,
+    viewing,
+    designing,
+    error,
 }
 
 component SelectionFrame {
@@ -161,20 +139,13 @@ component SelectionFrame {
     }
 }
 
-export enum DrawAreaMode {
-    uninitialized,
-    viewing,
-    designing,
-    error,
-}
-
 export component DrawArea {
-    in property <[Diagnostics]> diagnostics;
-    in property <[Selection]> selections;
+    in property <[Diagnostics]> diagnostics <=> Api.diagnostics;
+    in property <[Selection]> selections <=> Api.selections;
     in property <ComponentItem> visible-component;
-    in property <DropMark> drop-mark;
-    in property <component-factory> preview-area;
-    in property <bool> design-mode;
+    in property <DropMark> drop-mark <=> Api.drop-mark;
+    in property <component-factory> preview-area <=> Api.preview-area;
+    in property <bool> design-mode <=> Api.design-mode;
 
     out property <bool> preview-visible: preview-area-container.has-component && !diagnostics.diagnostics-open;
     out property <DrawAreaMode> mode: uninitialized;
@@ -183,20 +154,6 @@ export component DrawArea {
     out property <length> preview-area-position-y: preview-area-container.absolute-position.y;
     out property <length> preview-area-width: preview-visible ? preview-area-container.width : 0px;
     out property <length> preview-area-height: preview-visible ? preview-area-container.height : 0px;
-
-    callback select-at(/* x */ length, /* y */ length, /* enter_component? */ bool);
-    callback select-behind(/* x */ length, /* y */ length, /* enter_component? */ bool, /* reverse */ bool);
-    callback show-document(/* file */ string, /* line */ int, /* column */ int);
-    callback show-component(/* name */ string, /* file */ string);
-    callback reselect();
-    // Reselect element e.g. after changing the window size (which may move the element)
-    callback unselect();
-    callback selected-element-resize(/* x */ length, /* y */ length, /* width */ length, /* height */ length);
-    callback selected-element-can-move-to(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length) -> bool;
-    callback selected-element-move(/* x */ length, /* y */ length, /* mouse-x */ length, /* mouse-y */ length);
-    callback selected-element-delete();
-
-    callback rename_component(string/* old_name */, string/* defined_at */, string/* new_name */);
 
     preferred-height: max(preview-area-container.preferred-height, preview-area-container.min-height) + 2 * scroll-view.border;
     preferred-width: max(preview-area-container.preferred-width, preview-area-container.min-width) + 2 * scroll-view.border;
@@ -215,7 +172,7 @@ export component DrawArea {
 
             unselect-area := TouchArea {
                 clicked => {
-                    root.unselect();
+                    Api.unselect();
                 }
                 mouse-cursor: crosshair;
                 enabled: root.mode == DrawAreaMode.designing;
@@ -240,7 +197,7 @@ export component DrawArea {
                 resize(_, _, w, h) => {
                     preview-area-container.width = clamp(w, preview-area-container.min-width, preview-area-container.max-width);
                     preview-area-container.height = clamp(h, preview-area-container.min-height, preview-area-container.max-height);
-                    reselect();
+                    Api.reselect();
                 }
 
                 width: preview-area-container.width;
@@ -294,9 +251,9 @@ export component DrawArea {
                         // This needs to fire AFTER clicked and double-clicked to work :-/
                         if (event.kind == PointerEventKind.up) {
                             if (self.selection-kind == SelectionKind.select_up_or_down) {
-                                root.select-behind(self.selection-x, self.selection-y, event.modifiers.control, event.modifiers.shift);
+                                Api.select-behind(self.selection-x, self.selection-y, event.modifiers.control, event.modifiers.shift);
                             } else if (self.selection-kind == SelectionKind.select-at) {
-                                root.select-at(self.selection-x, self.selection-y, event.modifiers.control);
+                                Api.select-at(self.selection-x, self.selection-y, event.modifiers.control);
                             }
                         }
                         self.selection-kind = SelectionKind.none;
@@ -310,23 +267,23 @@ export component DrawArea {
                         interactive: root.mode == DrawAreaMode.designing;
                         selection: s;
                         resize(x, y, w, h) => {
-                            root.selected-element-resize(x, y, w, h);
+                            Api.selected-element-resize(x, y, w, h);
                         }
 
                         can-move-to(x, y, mx, my) => {
-                            root.selected-element-can-move-to(x, y, mx, my);
+                            Api.selected-element-can-move-to(x, y, mx, my);
                         }
 
                         move-to(x, y, mx, my) => {
-                            root.selected-element-move(x, y, mx, my);
+                            Api.selected-element-move(x, y, mx, my);
                         }
 
                         selected-element-delete() => {
-                            root.selected-element-delete();
+                            Api.selected-element-delete();
                         }
 
                         select-behind(x, y, c, f) => {
-                            root.select-behind(x, y, c, f);
+                            Api.select-behind(x, y, c, f);
                         }
                     }
                 }
@@ -353,7 +310,7 @@ export component DrawArea {
                             width: self.preferred-width + 100px;
 
                             accepted(name) => {
-                                root.rename_component(root.visible-component.name, root.visible-component.defined_at, name);
+                                Api.rename_component(root.visible-component.name, root.visible-component.defined_at, name);
                             }
                         }
                         if !root.visible-component.is_user_defined || !root.design-mode: Text {
@@ -371,7 +328,7 @@ export component DrawArea {
                                     text: root.visible-component.pretty-location;
                                 }
                                 clicked() => {
-                                    root.show-component(root.visible-component.name, root.visible-component.defined-at);
+                                    Api.show-component(root.visible-component.name, root.visible-component.defined-at);
                                 }
                             }
                         }
@@ -397,7 +354,7 @@ export component DrawArea {
         height: 100%;
         diagnostics <=> root.diagnostics;
         show-document(url, line, column) => {
-            root.show-document(url, line, column);
+            Api.show-document(url, line, column);
         }
     }
 

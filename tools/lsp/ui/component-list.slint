@@ -2,45 +2,27 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Button, Palette, ScrollView, VerticalBox, GroupBox, LineEdit } from "std-widgets.slint";
-
-export struct ComponentItem {
-    name: string,
-    defined_at: string,
-    pretty_location: string,
-    is_user_defined: bool,
-    is_currently_shown: bool,
-}
-
-export struct ComponentListItem {
-    category: string,
-    components: [ComponentItem]
-}
+import { Api, ComponentListItem, ComponentItem } from "api.slint";
 
 export component ComponentList {
-    in property <[ComponentListItem]> known-components;
+    in property <[ComponentListItem]> known-components <=> Api.known-components;
 
     in property <length> preview-area-position-x;
     in property <length> preview-area-position-y;
     in property <length> preview-area-width;
     in property <length> preview-area-height;
 
-    in-out property <ComponentItem> visible-component: empty-component-item;
-
-    private property <ComponentItem> empty-component-item: {
+    out property <ComponentItem> visible-component: {
         name: "",
-        defined_at: "",
-        is_user_defined: false,
-        is_currently_shown: false,
+        defined-at: "",
+        pretty-location: "",
+        is-user-defined: false,
+        is-currently-shown: false,
     };
 
     private property <length> list-spacing: 10px;
 
     out property <bool> over-target;
-
-    pure callback can-drop(string/* component_type */, length/* x */, length/* y */, bool/* on-drop-area */) -> bool;
-    callback drop(string/* component_type */, length/* x */, length/* y */);
-    callback add_new_component();
-    callback show_preview_for(string/* name */, string/*url*/);
 
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
 
@@ -78,7 +60,7 @@ export component ComponentList {
                         private property <length> drop-y: self.absolute-position.y + self.mouse-y - root.preview-area-position-y;
                         private property <bool> on-drop-area:
                             drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
-                        private property <bool> can-drop-here: !self.data.is-currently-shown && root.can-drop(self.data.name, drop-x, drop-y, on-drop-area);
+                        private property <bool> can-drop-here: !self.data.is-currently-shown && Api.can-drop(self.data.name, drop-x, drop-y, on-drop-area);
                         private property <ComponentItem> data: ci;
                         private property <int> my-index: index;
 
@@ -114,13 +96,13 @@ export component ComponentList {
 
                         clicked() => {
                             if ci.is_user_defined && !ci.is_currently_shown {
-                                root.show_preview_for(component.data.name, component.data.defined_at)
+                                Api.show_preview_for(component.data.name, component.data.defined_at)
                             }
                         }
 
                         pointer-event(event) => {
                             if (self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
-                                root.drop(self.data.name, drop-x, drop-y);
+                                Api.drop(self.data.name, drop-x, drop-y);
                             }
                         }
                         states [
@@ -140,7 +122,7 @@ export component ComponentList {
                         height: self.min-height;
                         text: "Add Component";
                         clicked => {
-                            root.add_new_component();
+                            Api.add-new-component();
                         }
                     }
                 }

@@ -164,7 +164,8 @@ pub(super) fn open_ui_impl(preview_state: &mut PreviewState) {
     let ui = preview_state
         .ui
         .get_or_insert_with(|| super::ui::create_ui(default_style, experimental).unwrap());
-    ui.set_show_preview_ui(show_preview_ui);
+    let api = ui.global::<crate::preview::ui::Api>();
+    api.set_show_preview_ui(show_preview_ui);
     ui.window().set_fullscreen(fullscreen);
     ui.window().on_close_requested(|| {
         let mut cache = super::CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
