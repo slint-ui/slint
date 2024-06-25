@@ -17,6 +17,7 @@ pub mod util;
 
 use common::Result;
 use language::*;
+use common::properties;
 
 use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::{

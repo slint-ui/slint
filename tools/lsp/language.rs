@@ -6,12 +6,11 @@
 pub mod completion;
 mod formatting;
 mod goto;
-pub mod properties;
 mod semantic_tokens;
 #[cfg(test)]
 pub mod test;
 
-use crate::common::{self, DocumentCache, Result};
+use crate::common::{self, properties, DocumentCache, Result};
 use crate::util;
 
 #[cfg(target_arch = "wasm32")]

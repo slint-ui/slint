@@ -15,6 +15,7 @@ use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
 
 pub mod component_catalog;
+pub mod properties;
 pub mod rename_component;
 #[cfg(test)]
 pub mod test;

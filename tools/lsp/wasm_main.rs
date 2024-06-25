@@ -12,7 +12,7 @@ pub mod lsp_ext;
 mod preview;
 pub mod util;
 
-use common::{DocumentCache, LspToPreviewMessage, Result, VersionedUrl};
+use common::{properties, DocumentCache, LspToPreviewMessage, Result, VersionedUrl};
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
@@ -302,7 +302,7 @@ impl SlintServer {
                 send_workspace_edit(
                     self.ctx.server_notifier.clone(),
                     label,
-                    language::properties::update_element_properties(
+                    properties::update_element_properties(
                         &mut dc, position, properties,
                     ),
                 );
