@@ -1,15 +1,14 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Functions
 
-Similarly to other programming languages, functions in Slint are way to name, organize and reuse
+Similar to other programming languages, functions in Slint are way to name, organize and reuse
 a piece of logic/code.
 
-Functions can be defined as part of a component, or as part of an element within a component. Functions
-are always part of a component: it is not possible to declare global (top-level) functions, or to
-declare them as part of a struct or enum. It is also not possible to nest functions within other
-functions.
+Functions can be defined as part of a component, or as part of an element within a component.
+It is not possible to declare global (top-level) functions, or to declare them as part of a
+struct or enum. It is also not possible to nest functions within other functions.
 
-## Declaring a function
+## Declaring functions
 
 Functions in Slint are declared using the `function` keyword. For example:
 
@@ -169,11 +168,11 @@ See the language-specific documentation for the generated code to use.
 There are a lot of similarities between functions and [callbacks](callbacks.md):
 
 - They are both callable blocks of logic/code
-- They can be invoked similarly
+- They are invoked in the same way
 - They can both have parameters and return values
 - They can both be declared `pure`
 
-But there are also key differences:
+But there are also differences:
 
 - The code/logic in the callback can be set in the backend code and implemented in the backend language
   (Rust, C++, JS), while functions must be defined entirely in slint
@@ -182,5 +181,5 @@ But there are also key differences:
 - Callbacks have a special syntax for declaring aliases using the two-way binding operator `<=>`
 - Callback visiblity is always similar to `public` functions
 
-In general, the biggest reason to use callbacks is to be able to handle them from the backend code. If
-that is not needed, we recommend using a function.
+In general, the biggest reason to use callbacks is to be able to handle them from the backend code. Use
+a function if that is not needed.
