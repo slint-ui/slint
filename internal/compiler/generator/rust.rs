@@ -191,12 +191,18 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
 
     let resource_symbols = generate_resources(doc);
     let named_exports = generate_named_exports(doc);
+    // The inner module was meant to be internal private, but projects have been reaching into it
+    // so we can't change the name of this module
+    let generated_mod = doc
+        .last_exported_component()
+        .map(|c| format_ident!("slint_generated{}", ident(&c.id)))
+        .unwrap_or_else(|| format_ident!("slint_generated"));
 
     quote! {
         #[allow(non_snake_case, non_camel_case_types)]
         #[allow(unused_braces, unused_parens)]
         #[allow(clippy::all)]
-        mod slint_generated {
+        mod #generated_mod {
             use slint::private_unstable_api::re_exports as sp;
             #[allow(unused_imports)]
             use sp::{RepeatedItemTree as _, ModelExt as _, Model as _, Float as _};
@@ -209,7 +215,7 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> Toke
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         #[allow(unused_imports)]
-        pub use slint_generated::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)*};
+        pub use #generated_mod::{#(#compo_ids,)* #(#structs_and_enums_ids,)* #(#globals_ids,)* #(#named_exports,)*};
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     }
