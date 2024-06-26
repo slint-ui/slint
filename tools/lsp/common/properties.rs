@@ -13,40 +13,40 @@ use std::collections::HashSet;
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
 pub(crate) struct DefinitionInformation {
-    property_definition_range: lsp_types::Range,
-    selection_range: lsp_types::Range,
-    expression_range: lsp_types::Range,
-    expression_value: String,
+    pub property_definition_range: lsp_types::Range,
+    pub selection_range: lsp_types::Range,
+    pub expression_range: lsp_types::Range,
+    pub expression_value: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
 pub(crate) struct DeclarationInformation {
-    uri: lsp_types::Url,
-    start_position: lsp_types::Position,
+    pub uri: lsp_types::Url,
+    pub start_position: lsp_types::Position,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
 pub(crate) struct PropertyInformation {
-    name: String,
-    type_name: String,
-    declared_at: Option<DeclarationInformation>,
-    defined_at: Option<DefinitionInformation>, // Range in the elements source file!
-    group: String,
+    pub name: String,
+    pub type_name: String,
+    pub declared_at: Option<DeclarationInformation>,
+    pub defined_at: Option<DefinitionInformation>, // Range in the elements source file!
+    pub group: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub(crate) struct ElementInformation {
-    id: String,
-    type_name: String,
-    range: Option<lsp_types::Range>,
+    pub id: String,
+    pub type_name: String,
+    pub range: Option<lsp_types::Range>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub(crate) struct QueryPropertyResponse {
-    properties: Vec<PropertyInformation>,
-    element: Option<ElementInformation>,
-    source_uri: String,
-    source_version: i32,
+    pub properties: Vec<PropertyInformation>,
+    pub element: Option<ElementInformation>,
+    pub source_uri: String,
+    pub source_version: i32,
 }
 
 impl QueryPropertyResponse {
