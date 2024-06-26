@@ -66,7 +66,7 @@ impl<'a> SkiaItemRenderer<'a> {
         height: PhysicalLength,
     ) -> Option<skia_safe::Paint> {
         let (mut paint, shader) = Self::brush_to_shader(brush, width, height)?;
-        paint.set_shader(shader);
+        paint.set_shader(Some(shader));
         paint.set_alpha_f(paint.alpha_f() * self.current_state.alpha);
 
         Some(paint)
@@ -76,7 +76,7 @@ impl<'a> SkiaItemRenderer<'a> {
         brush: Brush,
         width: PhysicalLength,
         height: PhysicalLength,
-    ) -> Option<(skia_safe::Paint, Option<skia_safe::Shader>)> {
+    ) -> Option<(skia_safe::Paint, skia_safe::Shader)> {
         if brush.is_transparent() {
             return None;
         }
@@ -126,7 +126,7 @@ impl<'a> SkiaItemRenderer<'a> {
             }
             _ => None,
         }
-        .map(|shader| (paint, Some(shader)))
+        .map(|shader| (paint, shader))
     }
 
     fn colorize_image(
@@ -147,8 +147,6 @@ impl<'a> SkiaItemRenderer<'a> {
             PhysicalLength::new(image.height() as f32),
         )
         .map(|(mut paint, colorize_shader)| {
-            let colorize_shader = colorize_shader?;
-
             let mut surface = self.canvas.new_surface(&image_info, None)?;
             let canvas = surface.canvas();
             canvas.clear(skia_safe::Color::TRANSPARENT);
