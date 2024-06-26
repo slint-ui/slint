@@ -273,7 +273,7 @@ impl SkiaRenderer {
                     rotation_angle_degrees,
                     translation,
                     gr_context,
-                    None,
+                    Some(surface.as_ref()),
                     window,
                     post_render_cb,
                 );
