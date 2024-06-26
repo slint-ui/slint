@@ -21,7 +21,7 @@ pub async fn embed_images(
     resource_url_mapper: &Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
     diag: &mut BuildDiagnostics,
 ) {
-    if embed_files == EmbedResourcesKind::Nothing {
+    if embed_files == EmbedResourcesKind::Nothing && resource_url_mapper.is_none() {
         return;
     }
 
@@ -90,8 +90,9 @@ fn embed_images_from_expression(
             let mapped_path =
                 urls.get(path).unwrap_or(&Some(path.clone())).clone().unwrap_or(path.clone());
             *path = mapped_path;
-            if embed_files != EmbedResourcesKind::OnlyBuiltinResources
-                || path.starts_with("builtin:/")
+            if embed_files != EmbedResourcesKind::Nothing
+                && (embed_files != EmbedResourcesKind::OnlyBuiltinResources
+                    || path.starts_with("builtin:/"))
             {
                 *resource_ref = embed_image(
                     global_embedded_resources,
