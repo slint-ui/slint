@@ -24,6 +24,7 @@ export component TextEdit {
     callback edited(/* text */ string);
     accessible-role: AccessibleRole.text-input;
     accessible-value <=> text;
+    accessible-placeholder-text: text == "" ? placeholder-text : "";
 
     public function set-selection-offsets(start: int, end: int) {
         base.set-selection-offsets(start, end);

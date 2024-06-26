@@ -58,7 +58,7 @@ export component CreateTaskView {
         VerticalLayout {
             spacing: SpaceSettings.default-spacing;
 
-            Text {
+            title-label := Text {
                 text: @tr("Task name");
                 color: TodoPalette.foreground;
                 font-size: FontSettings.body-strong.font-size;
@@ -69,6 +69,7 @@ export component CreateTaskView {
 
             title-input := LineEdit {
                 placeholder-text: @tr("Describe your task");
+                accessible-label: title-label.text;
             }
         }
 

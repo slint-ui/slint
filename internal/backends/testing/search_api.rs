@@ -352,6 +352,16 @@ impl ElementHandle {
             .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Value))
     }
 
+    /// Returns the value of the element's `accessible-placeholder-text` property, if present.
+    pub fn accessible_placeholder_text(&self) -> Option<SharedString> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item.upgrade().and_then(|item| {
+            item.accessible_string_property(AccessibleStringProperty::PlaceholderText)
+        })
+    }
+
     /// Sets the value of the element's `accessible-value` property. Note that you can only set this
     /// property if it is declared in your Slint code.
     pub fn set_accessible_value(&self, value: impl Into<SharedString>) {

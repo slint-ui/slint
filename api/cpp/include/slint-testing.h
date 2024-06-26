@@ -232,6 +232,13 @@ public:
         return get_accessible_string_property(cbindgen_private::AccessibleStringProperty::Value);
     }
 
+    /// Returns the accessible-placeholder-text of that element, if any.
+    std::optional<SharedString> accessible_placeholder_text() const
+    {
+        return get_accessible_string_property(
+                cbindgen_private::AccessibleStringProperty::PlaceholderText);
+    }
+
     /// Returns the accessible-description of that element, if any.
     std::optional<SharedString> accessible_description() const
     {
