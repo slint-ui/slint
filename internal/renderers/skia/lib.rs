@@ -306,15 +306,15 @@ impl SkiaRenderer {
                 skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
             }
 
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
-                // the back buffer, in order to allow the callback to provide its own rendering of the background.
-                // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
-                if let Some(ctx) = gr_context.as_mut() {
-                    ctx.flush(None);
-                }
+            if let Some(surface) = surface {
+                if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                    // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
+                    // the back buffer, in order to allow the callback to provide its own rendering of the background.
+                    // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
+                    if let Some(ctx) = gr_context.as_mut() {
+                        ctx.flush(None);
+                    }
 
-                if let Some(surface) = surface {
                     surface.with_graphics_api(&mut |api| {
                         callback.notify(RenderingState::BeforeRendering, &api)
                     })
@@ -370,8 +370,8 @@ impl SkiaRenderer {
             }
         });
 
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            if let Some(surface) = surface {
+        if let Some(surface) = surface {
+            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
                 surface.with_graphics_api(&mut |api| {
                     callback.notify(RenderingState::AfterRendering, &api)
                 })
