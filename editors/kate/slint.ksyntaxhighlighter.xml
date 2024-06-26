@@ -42,6 +42,8 @@
       <item>if</item>
       <item>for</item>
       <item>return</item>
+      <item>changed</item>
+      <item>pure</item>
       <item>@tr</item>
       <item>@children</item>
       <item>@image-url</item>

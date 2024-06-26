@@ -86,6 +86,7 @@ pub fn get_semantic_tokens(
                         }
                         SyntaxKind::StructDeclaration => Some((self::TYPE, 1 << self::DEFINITION)),
                         SyntaxKind::EnumDeclaration => Some((self::ENUM, 1 << self::DEFINITION)),
+                        SyntaxKind::PropertyChangedCallback => Some((self::PROPERTY, 0)),
                         _ => None,
                     }
                 }
@@ -132,6 +133,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::ObjectTypeMember => Some((self::PROPERTY, 1 << self::DEFINITION)),
                 SyntaxKind::StructDeclaration => Some((self::KEYWORD, 0)),
                 SyntaxKind::EnumDeclaration => Some((self::KEYWORD, 0)),
+                SyntaxKind::PropertyChangedCallback => Some((self::KEYWORD, 0)),
                 _ => None,
             },
             SyntaxKind::PlusEqual
