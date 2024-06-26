@@ -188,6 +188,27 @@ impl SkiaRenderer {
         *self.surface.borrow_mut() = Some(surface);
     }
 
+    fn clear_surface(&self) {
+        let Some(surface) = self.surface.borrow_mut().take() else {
+            return;
+        };
+
+        // If we've rendered a frame before, then we need to invoke the RenderingTearDown notifier.
+        if !self.rendering_first_time.get() {
+            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                surface
+                    .with_active_surface(&mut || {
+                        surface.with_graphics_api(&mut |api| {
+                            callback.notify(RenderingState::RenderingTeardown, &api)
+                        })
+                    })
+                    .ok();
+            }
+        }
+
+        drop(surface);
+    }
+
     /// Reset the surface to the window given the window handle
     pub fn set_window_handle(
         &self,
@@ -201,7 +222,7 @@ impl SkiaRenderer {
         // Destroy the old surface before allocating the new one, to work around
         // the vivante drivers using zwp_linux_explicit_synchronization_v1 and
         // trying to create a second synchronization object and that's not allowed.
-        drop(self.surface.borrow_mut().take());
+        self.clear_surface();
         let surface = (self.surface_factory)(window_handle, display_handle, size)?;
         surface.set_scale_factor(scale_factor);
         self.set_surface(surface);
@@ -579,17 +600,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
 
 impl Drop for SkiaRenderer {
     fn drop(&mut self) {
-        if let Some(surface) = self.surface.borrow().as_ref() {
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                surface
-                    .with_active_surface(&mut || {
-                        surface.with_graphics_api(&mut |api| {
-                            callback.notify(RenderingState::RenderingTeardown, &api)
-                        })
-                    })
-                    .ok();
-            }
-        }
+        self.clear_surface()
     }
 }
 
