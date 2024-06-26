@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::common::properties;
 use crate::common::{
     self, component_catalog, rename_component, ComponentInformation, ElementRcNode,
     PreviewComponent, PreviewConfig,
@@ -248,7 +249,7 @@ fn add_new_component() {
             })
         }
 
-        send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
+        send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
             label: Some(format!("Add {component_name}")),
             edit,
         });
@@ -325,7 +326,7 @@ fn rename_component(
             }
         }
 
-        send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
+        send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
             label: Some(format!("Rename component {old_name} to {new_name}")),
             edit,
         });
@@ -426,7 +427,7 @@ fn drop_component(component_type: slint::SharedString, x: f32, y: f32) {
             true,
         );
 
-        send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
+        send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
             label: Some(format!("Add element {}", component_type)),
             edit,
         });
@@ -474,7 +475,7 @@ fn delete_selected_element() {
     let edit =
         common::create_workspace_edit(url, version, vec![lsp_types::TextEdit { range, new_text }]);
 
-    send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
+    send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
         label: Some("Delete element".to_string()),
         edit,
     });
@@ -489,7 +490,7 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
         return;
     };
 
-    send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit { label, edit });
+    send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit { label, edit });
 }
 
 fn resize_selected_element_impl(
@@ -528,28 +529,25 @@ fn resize_selected_element_impl(
         let mut p = Vec::with_capacity(4);
         let mut op = "";
         if geometry.origin.x != position.x && position.x.is_finite() {
-            p.push(crate::common::PropertyChange::new(
+            p.push(common::PropertyChange::new(
                 "x",
                 format!("{}px", (position.x - parent.x).round()),
             ));
             op = "Moving";
         }
         if geometry.origin.y != position.y && position.y.is_finite() {
-            p.push(crate::common::PropertyChange::new(
+            p.push(common::PropertyChange::new(
                 "y",
                 format!("{}px", (position.y - parent.y).round()),
             ));
             op = "Moving";
         }
         if geometry.size.width != rect.size.width && rect.size.width.is_finite() {
-            p.push(crate::common::PropertyChange::new(
-                "width",
-                format!("{}px", rect.size.width.round()),
-            ));
+            p.push(common::PropertyChange::new("width", format!("{}px", rect.size.width.round())));
             op = "Resizing";
         }
         if geometry.size.height != rect.size.height && rect.size.height.is_finite() {
-            p.push(crate::common::PropertyChange::new(
+            p.push(common::PropertyChange::new(
                 "height",
                 format!("{}px", rect.size.height.round()),
             ));
@@ -572,7 +570,7 @@ fn resize_selected_element_impl(
 
     let version = document_cache.document_version(&url);
 
-    common::properties::update_element_properties(
+    properties::update_element_properties(
         &document_cache,
         common::VersionedPosition::new(common::VersionedUrl::new(url, version), selected.offset),
         properties,
@@ -624,7 +622,7 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
             true,
         );
 
-        send_message_to_lsp(crate::common::PreviewToLspMessage::SendWorkspaceEdit {
+        send_message_to_lsp(common::PreviewToLspMessage::SendWorkspaceEdit {
             label: Some("Move element".to_string()),
             edit,
         });
@@ -1137,9 +1135,13 @@ fn component_instance() -> Option<ComponentInstance> {
 /// This is a *read-only* snapshot of the raw type loader, use this when you
 /// need to know the exact state the compiled resources were in.
 fn document_cache() -> Option<Rc<common::DocumentCache>> {
-    PREVIEW_STATE.with(move |preview_state| {
-        preview_state.borrow().document_cache.borrow().as_ref().map(|dc| dc.clone())
-    })
+    PREVIEW_STATE.with(move |preview_state| document_cache_from(&preview_state.borrow()))
+}
+
+/// This is a *read-only* snapshot of the raw type loader, use this when you
+/// need to know the exact state the compiled resources were in.
+fn document_cache_from(preview_state: &PreviewState) -> Option<Rc<common::DocumentCache>> {
+    preview_state.document_cache.borrow().as_ref().map(|dc| dc.clone())
 }
 
 fn set_show_preview_ui(show_preview_ui: bool) {
