@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { VerticalBox, ScrollView } from "std-widgets.slint";
+import { ListHead } from "list-head.slint";
+
+export component SideBarElement {
+    in property <string> name;
+
+    VerticalLayout {
+        spacing: 10px;
+        Text {
+            text: root.name;
+            horizontal-alignment: center;
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
+
+        ScrollView {
+            @children
+        }
+    }
+}
+
+export component SideBar {
+    in property <bool> show-side-bar;
+    in property <length> default-width;
+
+    private property <length> list-spacing: 10px;
+
+    VerticalBox {
+        spacing: root.list-spacing;
+
+        @children
+    }
+
+    states [
+        visible when !self.show-side-bar: {
+            width: 0px;
+        }
+        hidden when self.show-side-bar: {
+            width: self.default-width;
+        }
+    ]
+}

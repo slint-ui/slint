@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, Palette, ScrollView, VerticalBox, GroupBox, LineEdit } from "std-widgets.slint";
+import { Api, ComponentListItem, ComponentItem } from "api.slint";
+
+export component ListHead {
+    in property <string> text;
+    
+    Rectangle {
+        height: title.preferred-height + 10px;
+        background: Palette.alternate-background;
+        title := Text {
+            font-size: 1.2rem;
+            font-weight: 800;
+            text: root.text;
+        }
+    }
+}

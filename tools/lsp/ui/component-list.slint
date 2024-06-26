@@ -3,8 +3,11 @@
 
 import { Button, Palette, ScrollView, VerticalBox, GroupBox, LineEdit } from "std-widgets.slint";
 import { Api, ComponentListItem, ComponentItem } from "api.slint";
+import { SideBarElement } from "side-bar.slint";
+import { ListHead } from "list-head.slint";
 
-export component ComponentList {
+export component ComponentList inherits SideBarElement {
+    name: @tr("Library");
     in property <[ComponentListItem]> known-components <=> Api.known-components;
 
     in property <length> preview-area-position-x;
@@ -26,105 +29,86 @@ export component ComponentList {
 
     private property <bool> preview-visible: preview-area-width > 0px && preview-area-height > 0px;
 
-    VerticalBox {
+    VerticalLayout {
         spacing: root.list-spacing;
 
-        Text {
-            text: @tr("Library");
-            horizontal-alignment: center;
-            font-size: 1.4rem;
-            font-weight: 800;
-        }
+        for cli[index] in root.known-components: category := VerticalLayout {
+            spacing: root.list-spacing;
 
-        ScrollView {
-            VerticalLayout {
-                spacing: root.list-spacing;
+            private property <int> my-category-index: index;
 
-                for cli[index] in root.known-components: category := VerticalLayout {
-                    spacing: root.list-spacing;
+            ListHead {
+                text: cli.category;
+            }
 
-                    private property <int> my-category-index: index;
-
-                    Rectangle {
-                        height: title.preferred-height + 10px;
-                        background: Palette.alternate-background;
-                        title := Text {
-                            font-size: 1.2rem;
-                            font-weight: 800;
-                            text: cli.category;
-                        }
-                    }
-
-                    for ci[index] in cli.components: component := TouchArea {
-                        private property <length> drop-x: self.absolute-position.x + self.mouse-x - root.preview-area-position-x;
-                        private property <length> drop-y: self.absolute-position.y + self.mouse-y - root.preview-area-position-y;
-                        private property <bool> on-drop-area:
+            for ci[index] in cli.components: component := TouchArea {
+                private property <length> drop-x: self.absolute-position.x + self.mouse-x - root.preview-area-position-x;
+                private property <length> drop-y: self.absolute-position.y + self.mouse-y - root.preview-area-position-y;
+                private property <bool> on-drop-area:
                             drop-x >= 0 && drop-x <= root.preview-area-width && drop-y >= 0 && drop-y <= root.preview-area-height;
-                        private property <bool> can-drop-here: !self.data.is-currently-shown && Api.can-drop(self.data.name, drop-x, drop-y, on-drop-area);
-                        private property <ComponentItem> data: ci;
-                        private property <int> my-index: index;
+                private property <bool> can-drop-here: !self.data.is-currently-shown && Api.can-drop(self.data.name, drop-x, drop-y, on-drop-area);
+                private property <ComponentItem> data: ci;
+                private property <int> my-index: index;
 
-                        enabled: root.preview-visible;
-                        width: 100%;
+                enabled: root.preview-visible;
+                width: 100%;
 
-                        // Hack to initialize currently visible component:
+                // Hack to initialize currently visible component:
                         if ci.is_currently_shown: Rectangle {
-                            visible: false;
+                    visible: false;
 
-                            init() => {
-                                root.visible-component = ci;
-                            }
-                        }
+                    init() => {
+                        root.visible-component = ci;
+                    }
+                }
 
-                        Rectangle {
-                            background: ci.is_currently_shown ? Palette.alternate_background : Palette.background;
-                            t := Text {
-                                text: component.data.name;
-                            }
-
-                            height: t.preferred-height + 2 * root.list-spacing;
-                            width: 100%;
-
-                            if ci.is_user_defined && !ci.is-currently-shown: Text {
-                                x: parent.x + parent.width - self.width - 4px;
-
-                                text: "▶";
-                                width: self.min-width;
-                                height: self.min-height;
-                            }
-                        }
-
-                        clicked() => {
-                            if ci.is_user_defined && !ci.is_currently_shown {
-                                Api.show_preview_for(component.data.name, component.data.defined_at)
-                            }
-                        }
-
-                        pointer-event(event) => {
-                            if (self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
-                                Api.drop(self.data.name, drop-x, drop-y);
-                            }
-                        }
-                        states [
-                            dragging-no-drop when self.pressed && !self.can-drop-here: {
-                                mouse-cursor: MouseCursor.no-drop;
-                            }
-                            dragging-can-drop when self.pressed && self.can-drop-here: {
-                                mouse-cursor: MouseCursor.copy;
-                            }
-                            normal when !self.pressed: {
-                                mouse-cursor: MouseCursor.default;
-                            }
-                        ]
+                Rectangle {
+                    background: ci.is_currently_shown ? Palette.alternate_background : Palette.background;
+                    t := Text {
+                        text: component.data.name;
                     }
 
-                    if cli.category == "User Defined": Button {
+                    height: t.preferred-height + 2 * root.list-spacing;
+                    width: 100%;
+
+                    if ci.is_user_defined && !ci.is-currently-shown: Text {
+                        x: parent.x + parent.width - self.width - 4px;
+
+                        text: "▶";
+                        width: self.min-width;
                         height: self.min-height;
-                        text: "Add Component";
-                        clicked => {
-                            Api.add-new-component();
-                        }
                     }
+                }
+
+                clicked() => {
+                    if ci.is_user_defined && !ci.is_currently_shown {
+                        Api.show_preview_for(component.data.name, component.data.defined_at)
+                    }
+                }
+
+                pointer-event(event) => {
+                    if (self.can-drop-here && event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
+                        Api.drop(self.data.name, drop-x, drop-y);
+                    }
+                }
+                states [
+                    dragging-no-drop when self.pressed && !self.can-drop-here: {
+                        mouse-cursor: MouseCursor.no-drop;
+                    }
+                    dragging-can-drop when self.pressed && self.can-drop-here: {
+                        mouse-cursor: MouseCursor.copy;
+                    }
+                    normal when !self.pressed: {
+                        mouse-cursor: MouseCursor.default;
+                    }
+                ]
+            }
+
+            if cli.category == "User Defined": Button {
+                height: self.min-height;
+                text: "Add Component";
+                clicked => {
+                    Api.add-new-component();
                 }
             }
         }
