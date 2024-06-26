@@ -407,7 +407,7 @@ fn find_block_range(element: &common::ElementRcNode) -> Option<lsp_types::Range>
 }
 
 fn get_element_information(element: &common::ElementRcNode) -> ElementInformation {
-    let range = element.with_element_node(|node| util::map_node(node));
+    let range = element.with_decorated_node(|node| util::map_node(&node));
     let e = element.element.borrow();
 
     ElementInformation { id: e.id.clone(), type_name: e.base_type.to_string(), range }
