@@ -3,7 +3,7 @@
 
 use core::ops::ControlFlow;
 use i_slint_core::accessibility::{AccessibilityAction, AccessibleStringProperty};
-use i_slint_core::api::ComponentHandle;
+use i_slint_core::api::{ComponentHandle, LogicalPosition};
 use i_slint_core::graphics::euclid;
 use i_slint_core::item_tree::{ItemTreeRc, ItemVisitorResult, ItemWeak, TraversalOrder};
 use i_slint_core::items::ItemRc;
@@ -494,6 +494,150 @@ impl ElementHandle {
             item.accessible_action(&AccessibilityAction::Decrement)
         }
     }
+
+    /// Simulates a single click (or touch tap) on the element at its center point.
+    pub async fn single_click(&self) {
+        self.click(
+            i_slint_core::platform::PointerEventButton::Left,
+            std::time::Duration::from_millis(50),
+        )
+        .await;
+    }
+
+    /// Simulates a double click (or touch tap) on the element at its center point.
+    pub async fn double_click(&self) {
+        let Ok(click_interval) = i_slint_core::with_platform(
+            || Err(i_slint_core::platform::PlatformError::NoPlatform),
+            |platform| Ok(platform.click_interval()),
+        ) else {
+            return;
+        };
+        let Some(duration_recognized_as_double_click) =
+            click_interval.checked_sub(std::time::Duration::from_millis(10))
+        else {
+            return;
+        };
+
+        let Some(single_click_duration) = duration_recognized_as_double_click.checked_div(2) else {
+            return;
+        };
+
+        let button = i_slint_core::platform::PointerEventButton::Left;
+
+        let Some(item) = self.item.upgrade() else { return };
+        let Some(window_adapter) = item.window_adapter() else { return };
+        let window = window_adapter.window();
+
+        let item_pos = self.absolute_position();
+        let item_size = self.size();
+        let position = LogicalPosition::new(
+            item_pos.x + item_size.width / 2.,
+            item_pos.y + item_size.height / 2.,
+        );
+
+        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerMoved { position });
+        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerPressed {
+            position,
+            button,
+        });
+
+        wait_for(single_click_duration).await;
+
+        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerReleased {
+            position,
+            button,
+        });
+        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerPressed {
+            position,
+            button,
+        });
+
+        wait_for(single_click_duration).await;
+
+        window_adapter.window().dispatch_event(
+            i_slint_core::platform::WindowEvent::PointerReleased { position, button },
+        );
+    }
+
+    /// Simulates a mouse right click on the element at its center point.
+    pub async fn right_click(&self) {
+        self.click(
+            i_slint_core::platform::PointerEventButton::Right,
+            std::time::Duration::from_millis(50),
+        )
+        .await;
+    }
+
+    async fn click(
+        &self,
+        button: i_slint_core::platform::PointerEventButton,
+        duration: std::time::Duration,
+    ) {
+        let Some(item) = self.item.upgrade() else { return };
+        let Some(window_adapter) = item.window_adapter() else { return };
+        let window = window_adapter.window();
+
+        let item_pos = self.absolute_position();
+        let item_size = self.size();
+        let position = LogicalPosition::new(
+            item_pos.x + item_size.width / 2.,
+            item_pos.y + item_size.height / 2.,
+        );
+
+        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerMoved { position });
+        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerPressed {
+            position,
+            button,
+        });
+
+        wait_for(duration).await;
+
+        window_adapter.window().dispatch_event(
+            i_slint_core::platform::WindowEvent::PointerReleased { position, button },
+        );
+    }
+}
+
+async fn wait_for(duration: std::time::Duration) {
+    enum AsyncTimerState {
+        Starting,
+        Waiting(std::task::Waker),
+        Done,
+    }
+
+    let state = std::rc::Rc::new(std::cell::RefCell::new(AsyncTimerState::Starting));
+
+    std::future::poll_fn(move |context| {
+        let mut current_state = state.borrow_mut();
+        match *current_state {
+            AsyncTimerState::Starting => {
+                *current_state = AsyncTimerState::Waiting(context.waker().clone());
+                let state_clone = state.clone();
+                i_slint_core::timers::Timer::single_shot(duration, move || {
+                    let mut current_state = state_clone.borrow_mut();
+                    match *current_state {
+                        AsyncTimerState::Starting => unreachable!(),
+                        AsyncTimerState::Waiting(ref waker) => {
+                            waker.wake_by_ref();
+                            *current_state = AsyncTimerState::Done;
+                        }
+                        AsyncTimerState::Done => {}
+                    }
+                });
+
+                std::task::Poll::Pending
+            }
+            AsyncTimerState::Waiting(ref existing_waker) => {
+                let new_waker = context.waker();
+                if !existing_waker.will_wake(new_waker) {
+                    *current_state = AsyncTimerState::Waiting(new_waker.clone());
+                }
+                std::task::Poll::Pending
+            }
+            AsyncTimerState::Done => std::task::Poll::Ready(()),
+        }
+    })
+    .await
 }
 
 #[test]

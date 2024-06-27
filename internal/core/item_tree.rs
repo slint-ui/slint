@@ -690,6 +690,13 @@ impl ItemRc {
             &|item_tree, index| crate::item_focus::step_out_of_node(index, item_tree),
         )
     }
+
+    pub fn window_adapter(&self) -> Option<WindowAdapterRc> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        let mut result = None;
+        comp_ref_pin.as_ref().window_adapter(false, &mut result);
+        result
+    }
 }
 
 impl PartialEq for ItemRc {

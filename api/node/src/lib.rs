@@ -80,5 +80,5 @@ pub fn set_quit_on_last_window_closed(
 #[napi]
 pub fn init_testing() {
     #[cfg(feature = "testing")]
-    i_slint_backend_testing::init_integration_test();
+    i_slint_backend_testing::init_integration_test_with_mock_time();
 }
