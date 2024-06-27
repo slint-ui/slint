@@ -20,7 +20,7 @@ impl super::Sealed for RootWrapper<'_> {}
 
 #[no_mangle]
 pub extern "C" fn slint_testing_init_backend() {
-    crate::init_integration_test();
+    crate::init_integration_test_with_mock_time();
 }
 
 #[no_mangle]

@@ -157,7 +157,7 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 /// in the future passed to slint::spawn_local.
 ///
 /// ```rust
-/// # i_slint_backend_testing::init_integration_test();
+/// # i_slint_backend_testing::init_integration_test_with_mock_time();
 /// // In your main function, create a runtime that runs on the other threads
 /// let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
 ///

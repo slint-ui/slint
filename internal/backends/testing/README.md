@@ -33,12 +33,15 @@ For automated testing in CI environments without a windowing system / display, i
 desirable to run tests. The Slint Testing Backend simulates a windowing system without requiring one:
 No pixels are rendered and text is measured by a fixed font size.
 
-Use [`init_integration_test()`] for [integration tests](https://doc.rust-lang.org/rust-by-example/testing/integration_testing.html)
+Use [`init_integration_test_with_system_time()`] for [integration tests](https://doc.rust-lang.org/rust-by-example/testing/integration_testing.html)
 where your test code requires Slint to provide an event loop, for example when spawning threads
-and calling `slint::invoke_from_event_loop()`.
+and calling `slint::invoke_from_event_loop()`. If you want to not only simulate the windowing system but
+also the system time, use [`init_integration_test_with_mock_time()`] to initialize the backend and then
+call [`mock_elapsed_time()`] to advance animations and move timers closer to their next timeout.
 
 Use [`init_no_event_loop()`] for [unit tests](https://doc.rust-lang.org/rust-by-example/testing/unit_testing.html) when your test
-code does not require an event loop.
+code does not require an event loop. Note that system time is also mocked in this scenario, so use
+[`mock_elapsed_time()`] to advance animations and timers.
 
 ## Preliminary User Interface Testing API
 
@@ -133,3 +136,61 @@ fn test_basic_user_interface()
     assert!(*submitted.borrow());
 }
 ```
+
+## Simulating events / Asynchronous testing
+
+When testing user interfaces it may be desirable to not only invoke accessible actions on elements, but it may also be
+useful to simulate touch or mouse input. For example a mouse click on a button is a sequence:
+
+1. An initial mouse move event to a location over the button
+2. A mouse press event.
+3. In real life, a certain amount of time would elapse now.
+4. Finally, the user lifts the finger again from the mouse and a mouse release event is triggered.
+
+To simulate this behaviour, [`ElementHandle`] provides functions such as [`ElementHandle::single_click()`], [`ElementHandle::double_click()`] or [`ElementHandle::right_click()`].
+Since these functions simulate a sequence of events with a period of idle time between the events, these functions are [async](https://doc.rust-lang.org/std/keyword.async.html)
+and return a [`std::future::Future`], which resolves when the last event in the sequence was sent.
+
+Calling these functions requires running the test function itself as a future and running an event loop in the background.
+This can be accomplished using `slint::spawn_local()`, `slint::run_event_loop()`, and `slint::quit_event_loop()`. The following
+example wraps the core functions for testing in an async closure:
+
+```rust
+#[test]
+fn test_click() {
+    i_slint_backend_testing::init_integration_test_with_system_time();
+
+    slint::spawn_local(async move {
+        slint::slint! {
+            export component App inherits Window {
+                out property <int> click-count: 0;
+                ta := TouchArea {
+                    clicked => { root.click-count += 1; }
+                }
+            }
+        }
+
+        let app = App::new().unwrap();
+
+        let mut it = ElementHandle::find_by_element_id(&app, "App::ta");
+        let elem = it.next().unwrap();
+        assert!(it.next().is_none());
+
+        assert_eq!(app.get_click_count(), 0);
+        elem.single_click().await;
+        assert_eq!(app.get_click_count(), 1);
+
+        slint::quit_event_loop().unwrap();
+    })
+    .unwrap();
+    slint::run_event_loop().unwrap();
+}
+```
+
+After initializing the testing backend with support for using the system time, an async
+closure is spawned, which does the actual testing. In the subsequent `run_event_loop()` call,
+the event loop is started, and that will start polling the async closure passed to `spawn_local()`.
+
+In this closure we can now call `.await` on the future [`ElementHandle::single_click()`] returns, which
+will keep running the event loop until the click is complete, and then continue with the test function.
+
