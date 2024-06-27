@@ -62,6 +62,7 @@ pub fn init_integration_test_with_system_time() {
 
 /// Advance the simulated mock time by the specified duration. Use in combination with
 /// [`init_integration_test_with_mock_time()`] or [`init_no_event_loop()`].
+#[cfg(not(feature = "internal"))]
 pub fn mock_elapsed_time(duration: std::time::Duration) {
     i_slint_core::tests::slint_mock_elapsed_time(duration.as_millis() as _);
 }
