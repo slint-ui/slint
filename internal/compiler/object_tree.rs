@@ -1363,7 +1363,24 @@ impl Element {
             }
             let Some(prop) = parser::identifier_text(&ch.DeclaredIdentifier()) else { continue };
             let lookup_result = r.lookup_property(&prop);
-            if lookup_result.property_visibility == PropertyVisibility::Private
+            if !lookup_result.is_valid() {
+                diag.push_error(
+                    format!("Property '{prop}' does not exist"),
+                    &ch.DeclaredIdentifier(),
+                );
+            } else if !lookup_result.property_type.is_property_type() {
+                let what = match lookup_result.property_type {
+                    Type::Function { .. } => "a function",
+                    Type::Callback { .. } => "a callback",
+                    _ => "not a property",
+                };
+                diag.push_error(
+                    format!(
+                        "Change callback can only be set on properties, and '{prop}' is {what}"
+                    ),
+                    &ch.DeclaredIdentifier(),
+                );
+            } else if lookup_result.property_visibility == PropertyVisibility::Private
                 && !lookup_result.is_local_to_component
             {
                 diag.push_error(
