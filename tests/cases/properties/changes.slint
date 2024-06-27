@@ -1,7 +1,55 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export component TestCase {
+
+component Chaining {
+
+    public function do-change() {
+        chain-a +=1;
+        chain-f +=1;
+        chain-i +=1;
+    }
+
+    property <int> chain-a;
+    out property <int> chain-a-count;
+    changed chain-a => { chain-a-count += 1; }
+    property <int> chain-b;
+    changed chain-b => { chain-a += 1; }
+    property <int> chain-c;
+    changed chain-c => { chain-b += 1; }
+    property <int> chain-d;
+    changed chain-d => { chain-c += 1; }
+    property <int> chain-e;
+    changed chain-e => { chain-d += 1; }
+    property <int> chain-f;
+    changed chain-f => { chain-e += 1; }
+    property <int> chain-g;
+    changed chain-g => { chain-f += 1; }
+    property <int> chain-h;
+    changed chain-h => { chain-g += 1; }
+    property <int> chain-i;
+    changed chain-i => { chain-h += 1; }
+}
+
+component SubCompo {
+    in-out property <int> v: 456;
+    in-out property <string> result;
+    changed v => {
+        result += "sub("+v+")";
+    }
+}
+
+component SubCompoInline {
+    in-out property <int> v: 456;
+    in-out property <string> result;
+    changed v => {
+        result += "sub2("+v+")";
+    }
+    @children
+}
+
+
+export component TestCase inherits Window {
     in-out property <string> result;
     in property <int> value: 56;
     changed value => {
@@ -13,6 +61,32 @@ export component TestCase {
         result += "other(" + other + ")";
         debug("Other changed");
     }
+
+    out property<int> count;
+    changed result => {
+        count += 1;
+    }
+
+    chaining := Chaining {}
+    public function chaining-do-change() { chaining.do-change(); }
+    out property chaining-a-count <=> chaining.chain-a-count;
+
+
+    sub2 := SubCompoInline {
+        v: 123;
+        changed v => {
+            self.result += "root2("+self.v+")";
+        }
+        result <=> sub.result;
+        sub := SubCompo {
+            v: 789;
+            changed v => {
+                self.result += "root("+self.v+")";
+            }
+        }
+    }
+    public function sub-do-change() { sub.v += 1; sub2.v += 1; }
+    out property sub-result <=> sub.result;
 }
 
 
@@ -26,14 +100,35 @@ assert_eq!(instance.get_result(), "");
 instance.set_value(56);
 slint_testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_result(), ""); // so far, nothing have changed
+assert_eq!(instance.get_count(), 0);
 instance.set_value(142);
 assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_count(), 0);
 slint_testing::mock_elapsed_time(1);
 assert_eq!(instance.get_result(), "other(100)value(142)");
+assert_eq!(instance.get_count(), 1);
 instance.set_value(8); // this one is going to be merged in the other
 instance.set_value(141);
 slint_testing::mock_elapsed_time(1);
 assert_eq!(instance.get_result(), "other(100)value(142)value(141)");
+assert_eq!(instance.get_count(), 2);
+
+// Changing a value and back doesn't have effect
+instance.set_value(85);
+instance.set_value(141);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_result(), "other(100)value(142)value(141)");
+assert_eq!(instance.get_count(), 2);
+
+instance.set_result("".into());
+instance.invoke_chaining_do_change();
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_chaining_a_count(), 3);
+
+assert_eq!(instance.get_sub_result(), "");
+instance.invoke_sub_do_change();
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_sub_result(), "sub2(124)root2(124)sub(790)root(790)");
 ```
 
 ```cpp
@@ -44,14 +139,35 @@ assert_eq(instance.get_result(), "");
 instance.set_value(56);
 slint_testing::mock_elapsed_time(1000);
 assert_eq(instance.get_result(), ""); // so far, nothing have changed
+assert_eq(instance.get_count(), 0);
 instance.set_value(142);
 assert_eq(instance.get_result(), "");
+assert_eq(instance.get_count(), 0);
 slint_testing::mock_elapsed_time(1);
 assert_eq(instance.get_result(), "other(100)value(142)");
+assert_eq(instance.get_count(), 1);
 instance.set_value(8); // this one is going to be merged in the other
 instance.set_value(141);
 slint_testing::mock_elapsed_time(1);
 assert_eq(instance.get_result(), "other(100)value(142)value(141)");
+assert_eq(instance.get_count(), 2);
+
+// Changing a value and back doesn't have effect
+instance.set_value(85);
+instance.set_value(141);
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_result(), "other(100)value(142)value(141)");
+assert_eq(instance.get_count(), 2);
+
+instance.set_result("");
+instance.invoke_chaining_do_change();
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_chaining_a_count(), 3);
+
+assert_eq(instance.get_sub_result(), "");
+instance.invoke_sub_do_change();
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_sub_result(), "sub2(124)root2(124)sub(790)root(790)");
 ```
 
 ```js
@@ -69,6 +185,22 @@ instance.value = 8; // this one is going to be merged in the other
 instance.value = 141;
 slintlib.private_api.mock_elapsed_time(1);
 assert.equal(instance.result, "other(100)value(142)value(141)");
+
+// Changing a value and back doesn't have effect
+instance.value = 85;
+instance.value = 141;
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.result, "other(100)value(142)value(141)");
+
+instance.result = "";
+instance.chaining_do_change();
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.chaining_a_count, 3);
+
+assert.equal(instance.sub_result, "");
+instance.sub_do_change();
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.sub_result, "sub2(124)root2(124)sub(790)root(790)");
 ```
 
 */
