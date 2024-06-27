@@ -51,7 +51,7 @@ default = ["std", "unicode"]
 i-slint-common = { workspace = true, features = ["default"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 
-const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
+const-field-offset = { version = "0.1.5", path = "../../helper_crates/const-field-offset" }
 vtable = { workspace = true }
 
 portable-atomic = { version = "1", features = ["critical-section"] }
