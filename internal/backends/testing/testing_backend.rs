@@ -83,19 +83,16 @@ impl i_slint_core::platform::Platform for TestingBackend {
 
         loop {
             let e = queue.0.lock().unwrap().pop_front();
-            i_slint_core::platform::update_timers_and_animations();
+            if !self.mock_time {
+                i_slint_core::platform::update_timers_and_animations();
+            }
             match e {
                 Some(Event::Quit) => break Ok(()),
                 Some(Event::Event(e)) => e(),
-                None => {
-                    if let Some(duration) =
-                        i_slint_core::platform::duration_until_next_timer_update()
-                    {
-                        std::thread::park_timeout(duration);
-                    } else {
-                        std::thread::park()
-                    }
-                }
+                None => match i_slint_core::platform::duration_until_next_timer_update() {
+                    Some(duration) if !self.mock_time => std::thread::park_timeout(duration),
+                    _ => std::thread::park(),
+                },
             }
         }
     }
