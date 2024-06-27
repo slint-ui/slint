@@ -18,6 +18,12 @@ enum ElementAccessibilityAction {
     Decrement = 2;
 }
 
+enum ClickAction {
+    SingleClick = 0;
+    DoubleClick = 1;
+    RightClick = 2;
+}
+
 // Requests
 
 message RequestWindowListMessage {
@@ -50,6 +56,11 @@ message RequestGrabWindow {
     Handle window_handle = 1;
 }
 
+message RequestElementClick {
+    Handle element_handle = 1;
+    ClickAction action = 2;
+}
+
 message RequestToAUT {
     oneof msg {
         RequestWindowListMessage request_window_list = 1;
@@ -59,6 +70,7 @@ message RequestToAUT {
         RequestInvokeElementAccessibilityAction request_invoke_element_accessibility_action = 5;
         RequestSetElementAccessibleValue request_set_element_accessible_value = 6;
         RequestGrabWindow request_grab_window = 7;
+        RequestElementClick request_element_click = 8;
     }
 }
 
@@ -155,6 +167,9 @@ message GrabWindowResponse {
     bytes window_contents_as_png = 1;
 }
 
+message ElementClickResponse {    
+}
+
 message AUTResponse {
     oneof msg {
         ErrorResponse error = 1;
@@ -165,5 +180,6 @@ message AUTResponse {
         InvokeElementAccessibilityActionResponse invoke_element_accessibility_action_response = 6;
         SetElementAccessibleValueResponse set_element_accessible_value_response = 7;
         GrabWindowResponse grab_window_response = 8;
+        ElementClickResponse element_click_response = 9;
     }
 }

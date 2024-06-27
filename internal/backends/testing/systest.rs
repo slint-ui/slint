@@ -61,14 +61,18 @@ impl TestingClient {
             i_slint_core::future::spawn_local({
                 let this = this.clone();
                 async move {
-                    message_loop(&this.server_addr, |request| this.handle_request(request)).await;
+                    message_loop(&this.server_addr, |request| {
+                        let this = this.clone();
+                        Box::pin(async move { this.handle_request(request).await })
+                    })
+                    .await;
                 }
             })
             .unwrap()
         });
     }
 
-    fn handle_request(
+    async fn handle_request(
         &self,
         request: proto::mod_RequestToAUT::OneOfmsg,
     ) -> Result<proto::mod_AUTResponse::OneOfmsg, String> {
@@ -136,6 +140,19 @@ impl TestingClient {
                         .ok_or_else(|| "grab window request missing window handle".to_string())?,
                 ))?,
             ),
+            proto::mod_RequestToAUT::OneOfmsg::request_element_click(
+                proto::RequestElementClick { element_handle, action },
+            ) => {
+                let element = self.element("element click request", element_handle)?;
+                match action {
+                    proto::ClickAction::SingleClick => element.single_click().await,
+                    proto::ClickAction::DoubleClick => element.double_click().await,
+                    proto::ClickAction::RightClick => element.right_click().await,
+                }
+                proto::mod_AUTResponse::OneOfmsg::element_click_response(
+                    proto::ElementClickResponse {},
+                )
+            }
             proto::mod_RequestToAUT::OneOfmsg::None => return Err("Unknown request".into()),
         })
     }
@@ -299,7 +316,9 @@ async fn message_loop(
     server_addr: &str,
     mut message_callback: impl FnMut(
         proto::mod_RequestToAUT::OneOfmsg,
-    ) -> Result<proto::mod_AUTResponse::OneOfmsg, String>,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<proto::mod_AUTResponse::OneOfmsg, String>>>,
+    >,
 ) {
     debug_log!("Attempting to connect to testing server at {server_addr}");
 
@@ -333,7 +352,7 @@ async fn message_loop(
             &mut message_buf,
         )
         .expect("Unable to de-serialize AUT request message");
-        let response = message_callback(message.msg).unwrap_or_else(|message| {
+        let response = message_callback(message.msg).await.unwrap_or_else(|message| {
             proto::mod_AUTResponse::OneOfmsg::error(proto::ErrorResponse { message })
         });
         let response = proto::AUTResponse { msg: response };
