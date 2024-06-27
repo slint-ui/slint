@@ -11,8 +11,8 @@ def test_timer():
     counter = 0
     def quit_after_two_invocations():
         global counter
-        counter = counter + 1
-        if counter >= 2:
+        counter = min(counter + 1, 2)
+        if counter == 2:
             native.quit_event_loop()
 
     test_timer = native.Timer()        
