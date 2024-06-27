@@ -1892,7 +1892,7 @@ fn generate_sub_component(
     user_init.extend(component.change_callbacks.iter().enumerate().map(|(idx, (p, e))| {
         let code = compile_expression(&e.borrow(), &ctx);
         let prop = compile_expression(&llr::Expression::PropertyReference(p.clone()), &ctx);
-        format!("self->change_tracker{idx}.init(self, [](auto self) {{ return {prop}; }}, [](auto self, auto) {{ {code}; }});")
+        format!("self->change_tracker{idx}.init(self, [](auto self) {{ return {prop}; }}, []([[maybe_unused]] auto self, auto) {{ {code}; }});")
     }));
 
     target_struct

@@ -234,7 +234,7 @@ fn inline_element(
                 entry.insert(val.clone());
             }
             std::collections::btree_map::Entry::Occupied(mut entry) => {
-                entry.get_mut().get_mut().extend_from_slice(&*val.borrow());
+                entry.get_mut().get_mut().splice(0..0, val.borrow().iter().cloned());
             }
         }
     }
