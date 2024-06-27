@@ -73,6 +73,15 @@ impl<'a> PrettyPrinter<'a> {
                 if init.is_constant { " /*const*/" } else { "" }
             )?
         }
+        for (p, e) in &sc.change_callbacks {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "changed {} => {};",
+                DisplayPropertyRef(p, &ctx),
+                DisplayExpression(&e.borrow(), &ctx),
+            )?
+        }
         for ssc in &sc.sub_components {
             self.indent()?;
             writeln!(self.writer, "{} := {} {{}};", ssc.name, ssc.ty.name)?;

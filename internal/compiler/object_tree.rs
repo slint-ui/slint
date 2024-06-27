@@ -786,9 +786,9 @@ pub fn pretty_print(
     for (name, ch) in &e.change_callbacks {
         for ex in &*ch.borrow() {
             indent!();
-            writeln!(f, "changed {name} => {{ ")?;
+            write!(f, "changed {name} => ")?;
             expression_tree::pretty_print(f, ex)?;
-            writeln!(f, "  }}")?;
+            writeln!(f, "")?;
         }
     }
     if !e.states.is_empty() {
