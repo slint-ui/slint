@@ -1846,6 +1846,8 @@ impl WindowAdapter for QtWindow {
         cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
             widget_ptr->resize(sz);
         }};
+
+        self.resize_event(sz);
     }
 
     fn size(&self) -> i_slint_core::api::PhysicalSize {
