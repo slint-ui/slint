@@ -55,16 +55,24 @@ fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position
 fn window_size_to_winit(size: &corelib::api::WindowSize) -> winit::dpi::Size {
     match size {
         corelib::api::WindowSize::Logical(size) => {
-            winit::dpi::Size::new(winit::dpi::LogicalSize::new(size.width, size.height))
+            winit::dpi::Size::new(logical_size_to_winit(*size))
         }
         corelib::api::WindowSize::Physical(size) => {
-            winit::dpi::Size::new(winit::dpi::PhysicalSize::new(size.width, size.height))
+            winit::dpi::Size::new(physical_size_to_winit(*size))
         }
     }
 }
 
 pub fn physical_size_to_slint(size: &winit::dpi::PhysicalSize<u32>) -> corelib::api::PhysicalSize {
     corelib::api::PhysicalSize::new(size.width, size.height)
+}
+
+fn logical_size_to_winit(s: i_slint_core::api::LogicalSize) -> winit::dpi::LogicalSize<f32> {
+    winit::dpi::LogicalSize::new(s.width, s.height)
+}
+
+fn physical_size_to_winit(size: PhysicalSize) -> winit::dpi::PhysicalSize<u32> {
+    winit::dpi::PhysicalSize::new(size.width, size.height)
 }
 
 fn icon_to_winit(icon: corelib::graphics::Image) -> Option<winit::window::Icon> {
@@ -133,8 +141,11 @@ pub struct WinitWindowAdapter {
     /// We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
     /// And we wan see the newer value before the Resized event was received, leading to inconsistencies
     size: Cell<PhysicalSize>,
+    /// We requested a size to be set, but we didn't get the resize event from winit yet
+    pending_requested_size: Cell<Option<winit::dpi::Size>>,
 
-    /// Whether the size has been set explicitly via `set_size`
+    /// Whether the size has been set explicitly via `set_size`.
+    /// If that's the case, we should't resize to the preferred size in set_visible
     has_explicit_size: Cell<bool>,
 
     #[cfg(target_arch = "wasm32")]
@@ -166,7 +177,8 @@ impl WinitWindowAdapter {
             minimized: Cell::default(),
             fullscreen: Cell::default(),
             winit_window: winit_window.clone(),
-            size: Default::default(),
+            size: Cell::new(physical_size_to_slint(&winit_window.inner_size())),
+            pending_requested_size: Cell::new(None),
             has_explicit_size: Default::default(),
             renderer,
             #[cfg(target_arch = "wasm32")]
@@ -490,11 +502,6 @@ impl WindowAdapter for WinitWindowAdapter {
 
         let winit_window = self.winit_window();
 
-        let mut width = window_item.width().get() as f32;
-        let mut height = window_item.height().get() as f32;
-
-        let mut must_resize = false;
-
         winit_window.set_window_icon(icon_to_winit(window_item.icon()));
         winit_window.set_title(&properties.title());
         winit_window
@@ -510,23 +517,29 @@ impl WindowAdapter for WinitWindowAdapter {
             winit_window.set_window_level(new_window_level);
         }
 
+        // Use our scale factor instead of winit's logical size to take a scale factor override into account.
+        let sf = self.window().scale_factor();
+
+        let mut width = window_item.width().get() as f32;
+        let mut height = window_item.height().get() as f32;
+        let mut must_resize = false;
+        let existing_size = self.size.get().to_logical(sf);
+
         if width <= 0. || height <= 0. {
             must_resize = true;
-
-            let winit_size =
-                winit_window.inner_size().to_logical(self.window().scale_factor() as f64);
-
             if width <= 0. {
-                width = winit_size.width;
+                width = existing_size.width;
             }
             if height <= 0. {
-                height = winit_size.height;
+                height = existing_size.height;
             }
         }
 
-        let existing_size = self.size().to_logical(self.window().scale_factor());
-
-        if (existing_size.width - width).abs() > 1. || (existing_size.height - height).abs() > 1. {
+        // Adjust the size of the window to the value of the width and height property (if these property are changed from .slint).
+        // But not if there is a pending resize in flight as that resize will reset these properties back
+        if ((existing_size.width - width).abs() > 1. || (existing_size.height - height).abs() > 1.)
+            && self.pending_requested_size.get().is_none()
+        {
             // If we're in fullscreen state, don't try to resize the window but maintain the surface
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it
             // when we create a surface that's bigger than the screen due to constraints (#532).
@@ -588,11 +601,8 @@ impl WindowAdapter for WinitWindowAdapter {
 
             self.constraints.set(new_constraints);
 
-            // Use our scale factor instead of winit's logical size to take a scale factor override into account.
-            let sf = self.window().scale_factor();
-
             let into_size = |s: corelib::api::LogicalSize| -> winit::dpi::PhysicalSize<f32> {
-                winit::dpi::LogicalSize::new(s.width, s.height).to_physical(sf as f64)
+                logical_size_to_winit(s).to_physical(sf as f64)
             };
 
             let resizable = window_is_resizable(new_constraints.min, new_constraints.max);
@@ -614,14 +624,10 @@ impl WindowAdapter for WinitWindowAdapter {
                     .and_then(|val_str| val_str.parse().ok())
                     .unwrap_or_default()
                 {
-                    let pref_width = new_constraints.preferred.width;
-                    let pref_height = new_constraints.preferred.height;
-                    if pref_width > 0 as Coord || pref_height > 0 as Coord {
+                    let pref = new_constraints.preferred;
+                    if pref.width > 0 as Coord || pref.height > 0 as Coord {
                         // TODO: don't ignore error, propgate to caller
-                        self.resize_window(
-                            winit::dpi::LogicalSize::new(pref_width, pref_height).into(),
-                        )
-                        .ok();
+                        self.resize_window(logical_size_to_winit(pref).into()).ok();
                     };
                 }
             }
@@ -793,12 +799,17 @@ impl Default for WindowProperties {
 
 // Winit doesn't automatically resize the window to satisfy constraints. Qt does it though, and so do we here.
 fn adjust_window_size_to_satisfy_constraints(
-    winit_window: &WinitWindowAdapter,
+    adapter: &WinitWindowAdapter,
     min_size: Option<winit::dpi::PhysicalSize<f32>>,
     max_size: Option<winit::dpi::PhysicalSize<f32>>,
 ) {
-    let mut window_size = winit_window.size();
+    let current_size = adapter
+        .pending_requested_size
+        .get()
+        .map(|s| s.to_physical(adapter.window().scale_factor() as f64))
+        .unwrap_or_else(|| physical_size_to_winit(adapter.size.get()));
 
+    let mut window_size = current_size;
     if let Some(min_size) = min_size {
         let min_size = min_size.cast();
         window_size.width = window_size.width.max(min_size.width);
@@ -811,12 +822,8 @@ fn adjust_window_size_to_satisfy_constraints(
         window_size.height = window_size.height.min(max_size.height);
     }
 
-    if window_size != winit_window.size() {
+    if window_size != current_size {
         // TODO: don't ignore error, propgate to caller
-        winit_window
-            .resize_window(
-                winit::dpi::PhysicalSize::new(window_size.width, window_size.height).into(),
-            )
-            .ok();
+        adapter.resize_window(window_size.into()).ok();
     }
 }
