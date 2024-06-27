@@ -71,7 +71,6 @@ export component TestCase inherits Window {
     public function chaining-do-change() { chaining.do-change(); }
     out property chaining-a-count <=> chaining.chain-a-count;
 
-
     sub2 := SubCompoInline {
         v: 123;
         changed v => {
@@ -87,6 +86,9 @@ export component TestCase inherits Window {
     }
     public function sub-do-change() { sub.v += 1; sub2.v += 1; }
     out property sub-result <=> sub.result;
+    changed sub-result => {
+        result += "||" + sub-result;
+    }
 }
 
 
@@ -129,6 +131,7 @@ assert_eq!(instance.get_sub_result(), "");
 instance.invoke_sub_do_change();
 slint_testing::mock_elapsed_time(100);
 assert_eq!(instance.get_sub_result(), "sub2(124)root2(124)sub(790)root(790)");
+assert_eq!(instance.get_result(), "||sub2(124)root2(124)sub(790)root(790)");
 ```
 
 ```cpp
@@ -168,6 +171,7 @@ assert_eq(instance.get_sub_result(), "");
 instance.invoke_sub_do_change();
 slint_testing::mock_elapsed_time(100);
 assert_eq(instance.get_sub_result(), "sub2(124)root2(124)sub(790)root(790)");
+assert_eq(instance.get_result(), "||sub2(124)root2(124)sub(790)root(790)");
 ```
 
 ```js
@@ -201,6 +205,7 @@ assert.equal(instance.sub_result, "");
 instance.sub_do_change();
 slintlib.private_api.mock_elapsed_time(100);
 assert.equal(instance.sub_result, "sub2(124)root2(124)sub(790)root(790)");
+assert.equal(instance.result, "||sub2(124)root2(124)sub(790)root(790)");
 ```
 
 */

@@ -158,7 +158,11 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
         {
             let mut elem = elem.borrow_mut();
             if let Some(old_change_callback) = elem.change_callbacks.remove(remove.name()) {
-                elem.change_callbacks.insert(to.name().to_owned(), old_change_callback);
+                drop(elem);
+                to_elem
+                    .borrow_mut()
+                    .change_callbacks
+                    .insert(to.name().to_owned(), old_change_callback);
             }
         }
 
