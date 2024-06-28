@@ -147,6 +147,10 @@ fn format_node(
         SyntaxKind::ObjectLiteral => {
             return format_object_literal(node, writer, state);
         }
+        SyntaxKind::PropertyChangedCallback => {
+            return format_property_changed_callback(node, writer, state);
+        }
+
         _ => (),
     }
 
@@ -1219,6 +1223,20 @@ fn format_object_literal(
     Ok(())
 }
 
+fn format_property_changed_callback(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens().peekable();
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::FatArrow, writer, state, " ")?
+        && whitespace_to(&mut sub, SyntaxKind::CodeBlock, writer, state, " ")?;
+    state.new_line();
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1992,6 +2010,22 @@ export component MainWindow2 inherits Rectangle {
     }
     function a() {
         /* ddd */}
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn changed() {
+        assert_formatting(
+            "component X { changed   width=>{ x+=1;  }    changed/*-*/height     =>     {y+=1;} }",
+            r#"component X {
+    changed width => {
+        x += 1;
+    }
+    changed /*-*/height => {
+        y += 1;
+    }
 }
 "#,
         );
