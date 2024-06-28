@@ -629,12 +629,10 @@ impl ComponentCompiler {
             }
         };
 
-        generativity::make_guard!(guard);
-        let (c, diag) =
-            crate::dynamic_item_tree::load(source, path.into(), None, self.config.clone(), guard)
-                .await;
-        self.diagnostics = diag.into_iter().collect();
-        c.ok().map(|inner| ComponentDefinition { inner: inner.into() })
+        let r =
+            crate::dynamic_item_tree::load(source, path.into(), None, self.config.clone()).await;
+        self.diagnostics = r.diagnostics.into_iter().collect();
+        r.components.into_values().next()
     }
 
     /// Compile some .slint code into a ComponentDefinition
@@ -695,12 +693,46 @@ impl ComponentCompiler {
         path: PathBuf,
         version: SourceFileVersion,
     ) -> Option<ComponentDefinition> {
-        generativity::make_guard!(guard);
-        let (c, diag) =
-            crate::dynamic_item_tree::load(source_code, path, version, self.config.clone(), guard)
-                .await;
-        self.diagnostics = diag.into_iter().collect();
-        c.ok().map(|inner| ComponentDefinition { inner: inner.into() })
+        let r =
+            crate::dynamic_item_tree::load(source_code, path, version, self.config.clone()).await;
+        self.diagnostics = r.diagnostics.into_iter().collect();
+        r.components.into_values().next()
+    }
+}
+
+/// The result of a compilation
+///
+/// If [`Self::has_error``] is true, then the compilation failed.
+/// The [`Self::diagnostics`] function can be used to retrieve the diagnostics (errors and/or warnings).
+/// The components names and their definitions can be retrieved using the [`Self::component_names`]
+/// and [`Self::components`] functions.
+pub struct CompilationResult {
+    pub(crate) components: HashMap<String, ComponentDefinition>,
+    pub(crate) diagnostics: i_slint_compiler::diagnostics::BuildDiagnostics,
+}
+
+impl CompilationResult {
+    /// Returns true if the compilation failed.
+    /// The errors can be retrieved using the [`Self::diagnostics`] function.
+    /// And printed to the console using the [`print_diagnostics`] function.
+    pub fn has_error(&self) -> bool {
+        self.diagnostics.has_error()
+    }
+
+    /// Return an iterator over the diagnostics.
+    pub fn diagnostics(&self) -> impl Iterator<Item = Diagnostic> + '_ {
+        self.diagnostics.iter().cloned()
+    }
+
+    /// Returns the names of the components that were compiled.
+    pub fn component_names(&self) -> impl Iterator<Item = &str> + '_ {
+        self.components.keys().map(|s| s.as_str())
+    }
+
+    /// Return the component definition for the given name.
+    /// If the component does not exist, then `None` is returned.
+    pub fn component(&self, name: &str) -> Option<ComponentDefinition> {
+        self.components.get(name).cloned()
     }
 }
 
@@ -713,7 +745,7 @@ impl ComponentCompiler {
 /// creating the instances it is safe to drop the ComponentDefinition.
 #[derive(Clone)]
 pub struct ComponentDefinition {
-    inner: crate::dynamic_item_tree::ErasedItemTreeDescription,
+    pub(crate) inner: crate::dynamic_item_tree::ErasedItemTreeDescription,
 }
 
 impl ComponentDefinition {
