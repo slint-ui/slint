@@ -495,17 +495,35 @@ impl ElementHandle {
         }
     }
 
-    /// Simulates a single click (or touch tap) on the element at its center point.
-    pub async fn single_click(&self) {
-        self.click(
-            i_slint_core::platform::PointerEventButton::Left,
-            std::time::Duration::from_millis(50),
-        )
-        .await;
+    /// Simulates a single click (or touch tap) on the element at its center point with the
+    /// specified button.
+    pub async fn single_click(&self, button: i_slint_core::platform::PointerEventButton) {
+        let Some(item) = self.item.upgrade() else { return };
+        let Some(window_adapter) = item.window_adapter() else { return };
+        let window = window_adapter.window();
+
+        let item_pos = self.absolute_position();
+        let item_size = self.size();
+        let position = LogicalPosition::new(
+            item_pos.x + item_size.width / 2.,
+            item_pos.y + item_size.height / 2.,
+        );
+
+        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerMoved { position });
+        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerPressed {
+            position,
+            button,
+        });
+
+        wait_for(std::time::Duration::from_millis(50)).await;
+
+        window_adapter.window().dispatch_event(
+            i_slint_core::platform::WindowEvent::PointerReleased { position, button },
+        );
     }
 
     /// Simulates a double click (or touch tap) on the element at its center point.
-    pub async fn double_click(&self) {
+    pub async fn double_click(&self, button: i_slint_core::platform::PointerEventButton) {
         let Ok(click_interval) = i_slint_core::with_platform(
             || Err(i_slint_core::platform::PlatformError::NoPlatform),
             |platform| Ok(platform.click_interval()),
@@ -521,8 +539,6 @@ impl ElementHandle {
         let Some(single_click_duration) = duration_recognized_as_double_click.checked_div(2) else {
             return;
         };
-
-        let button = i_slint_core::platform::PointerEventButton::Left;
 
         let Some(item) = self.item.upgrade() else { return };
         let Some(window_adapter) = item.window_adapter() else { return };
@@ -553,44 +569,6 @@ impl ElementHandle {
         });
 
         wait_for(single_click_duration).await;
-
-        window_adapter.window().dispatch_event(
-            i_slint_core::platform::WindowEvent::PointerReleased { position, button },
-        );
-    }
-
-    /// Simulates a mouse right click on the element at its center point.
-    pub async fn right_click(&self) {
-        self.click(
-            i_slint_core::platform::PointerEventButton::Right,
-            std::time::Duration::from_millis(50),
-        )
-        .await;
-    }
-
-    async fn click(
-        &self,
-        button: i_slint_core::platform::PointerEventButton,
-        duration: std::time::Duration,
-    ) {
-        let Some(item) = self.item.upgrade() else { return };
-        let Some(window_adapter) = item.window_adapter() else { return };
-        let window = window_adapter.window();
-
-        let item_pos = self.absolute_position();
-        let item_size = self.size();
-        let position = LogicalPosition::new(
-            item_pos.x + item_size.width / 2.,
-            item_pos.y + item_size.height / 2.,
-        );
-
-        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerMoved { position });
-        window.dispatch_event(i_slint_core::platform::WindowEvent::PointerPressed {
-            position,
-            button,
-        });
-
-        wait_for(duration).await;
 
         window_adapter.window().dispatch_event(
             i_slint_core::platform::WindowEvent::PointerReleased { position, button },

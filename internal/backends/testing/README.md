@@ -156,6 +156,9 @@ This can be accomplished using `slint::spawn_local()`, `slint::run_event_loop()`
 example wraps the core functions for testing in an async closure:
 
 ```rust
+
+use slint::platform::PointerEventButton;
+
 #[test]
 fn test_click() {
     i_slint_backend_testing::init_integration_test_with_system_time();
@@ -177,7 +180,7 @@ fn test_click() {
         assert!(it.next().is_none());
 
         assert_eq!(app.get_click_count(), 0);
-        elem.single_click().await;
+        elem.single_click(PointerEventButton::Left).await;
         assert_eq!(app.get_click_count(), 1);
 
         slint::quit_event_loop().unwrap();

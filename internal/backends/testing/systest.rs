@@ -141,13 +141,13 @@ impl TestingClient {
                 ))?,
             ),
             proto::mod_RequestToAUT::OneOfmsg::request_element_click(
-                proto::RequestElementClick { element_handle, action },
+                proto::RequestElementClick { element_handle, action, button },
             ) => {
                 let element = self.element("element click request", element_handle)?;
+                let button = convert_pointer_event_button(button);
                 match action {
-                    proto::ClickAction::SingleClick => element.single_click().await,
-                    proto::ClickAction::DoubleClick => element.double_click().await,
-                    proto::ClickAction::RightClick => element.right_click().await,
+                    proto::ClickAction::SingleClick => element.single_click(button).await,
+                    proto::ClickAction::DoubleClick => element.double_click(button).await,
                 }
                 proto::mod_AUTResponse::OneOfmsg::element_click_response(
                     proto::ElementClickResponse {},
@@ -413,6 +413,16 @@ fn convert_accessible_role(
         i_slint_core::items::AccessibleRole::Switch => proto::AccessibleRole::Switch,
         _ => return None,
     })
+}
+
+fn convert_pointer_event_button(
+    button: proto::PointerEventButton,
+) -> i_slint_core::platform::PointerEventButton {
+    match button {
+        proto::PointerEventButton::Left => i_slint_core::platform::PointerEventButton::Left,
+        proto::PointerEventButton::Right => i_slint_core::platform::PointerEventButton::Right,
+        proto::PointerEventButton::Middle => i_slint_core::platform::PointerEventButton::Middle,
+    }
 }
 
 #[test]
