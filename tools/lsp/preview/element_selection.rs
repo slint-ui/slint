@@ -391,6 +391,7 @@ pub fn select_element_behind(x: f32, y: f32, enter_component: bool, reverse: boo
 // Called from UI thread!
 pub fn reselect_element() {
     let Some(selected) = super::selected_element() else {
+        super::set_selected_element(None, &[], false);
         return;
     };
     let Some(component_instance) = super::component_instance() else {
