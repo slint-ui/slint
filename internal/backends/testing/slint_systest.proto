@@ -18,10 +18,15 @@ enum ElementAccessibilityAction {
     Decrement = 2;
 }
 
+enum PointerEventButton {
+    Left = 0;
+    Right = 1;
+    Middle = 2;
+}
+
 enum ClickAction {
     SingleClick = 0;
     DoubleClick = 1;
-    RightClick = 2;
 }
 
 // Requests
@@ -59,6 +64,7 @@ message RequestGrabWindow {
 message RequestElementClick {
     Handle element_handle = 1;
     ClickAction action = 2;
+    PointerEventButton button = 3;
 }
 
 message RequestToAUT {

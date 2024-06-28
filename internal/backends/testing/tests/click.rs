@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_backend_testing::ElementHandle;
+use slint::platform::PointerEventButton;
 
 #[test]
 fn test_click() {
@@ -27,11 +28,11 @@ fn test_click() {
 
         assert_eq!(app.get_click_count(), 0);
         assert_eq!(app.get_double_click_count(), 0);
-        elem.single_click().await;
+        elem.single_click(PointerEventButton::Left).await;
         assert_eq!(app.get_click_count(), 1);
         assert_eq!(app.get_double_click_count(), 0);
 
-        elem.double_click().await;
+        elem.double_click(PointerEventButton::Left).await;
         assert_eq!(app.get_click_count(), 3);
         assert_eq!(app.get_double_click_count(), 1);
 
