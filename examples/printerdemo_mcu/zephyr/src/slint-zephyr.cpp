@@ -270,7 +270,6 @@ std::chrono::milliseconds ZephyrPlatform::duration_since_start()
 void ZephyrPlatform::run_event_loop()
 {
     LOG_DBG("Start");
-    const auto max_wait_time = 5000ms; // TODO: K_FOREVER?
 
     while (true) {
         LOG_DBG("Loop");
@@ -296,7 +295,7 @@ void ZephyrPlatform::run_event_loop()
             continue;
         }
 
-        auto wait_time = max_wait_time;
+        std::optional<std::chrono::milliseconds> wait_time;
 
         if (m_window) {
             m_window->maybe_redraw();
@@ -310,10 +309,19 @@ void ZephyrPlatform::run_event_loop()
         }
 
         if (auto next_timer_update = slint::platform::duration_until_next_timer_update()) {
-            wait_time = std::min(wait_time, next_timer_update.value());
+            if (wait_time.has_value())
+                wait_time = std::min(wait_time.value(), next_timer_update.value());
+            else
+                wait_time = next_timer_update;
         }
-        LOG_DBG("Sleeping for %llims", wait_time.count());
-        k_sem_take(&SLINT_SEM, K_MSEC(wait_time.count()));
+        if (wait_time.has_value()) {
+            const auto wait_time_ms = wait_time.value().count();
+            LOG_DBG("Sleeping for %llims", wait_time_ms);
+            k_sem_take(&SLINT_SEM, K_MSEC(wait_time_ms));
+        } else {
+            LOG_DBG("Sleeping for forever");
+            k_sem_take(&SLINT_SEM, K_FOREVER);
+        }
     }
 }
 
