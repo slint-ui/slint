@@ -148,6 +148,9 @@ pub struct WinitWindowAdapter {
     /// If that's the case, we should't resize to the preferred size in set_visible
     has_explicit_size: Cell<bool>,
 
+    /// Indicate whether we've ever received a resize event from winit after showing the window.
+    pending_resize_event_after_show: Cell<bool>,
+
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 
@@ -180,6 +183,7 @@ impl WinitWindowAdapter {
             size: Cell::new(physical_size_to_slint(&winit_window.inner_size())),
             pending_requested_size: Cell::new(None),
             has_explicit_size: Default::default(),
+            pending_resize_event_after_show: Default::default(),
             renderer,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
@@ -262,6 +266,15 @@ impl WinitWindowAdapter {
 
         self.pending_redraw.set(false);
 
+        // on macOS we sometimes don't get a resize event after calling
+        // request_inner_size(), it returning None (promising a resize event), and then delivering RedrawRequested. To work around this,
+        // catch up here to ensure the renderer can resize the surface correctly.
+        // Note: On displays with a scale factor != 1, we get a scale factor change
+        // event and a resize event, so all is good.
+        if self.pending_resize_event_after_show.take() {
+            self.resize_event(self.winit_window().inner_size())?;
+        }
+
         let renderer = self.renderer();
         renderer.render(self.window())?;
 
@@ -305,6 +318,7 @@ impl WinitWindowAdapter {
     }
 
     pub fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) -> Result<(), PlatformError> {
+        self.pending_resize_event_after_show.set(false);
         // When a window is minimized on Windows, we get a move event to an off-screen position
         // and a resize even with a zero size. Don't forward that, especially not to the renderer,
         // which might panic when trying to create a zero-sized surface.
@@ -381,6 +395,7 @@ impl WindowAdapter for WinitWindowAdapter {
         }
 
         self.shown.set(visible);
+        self.pending_resize_event_after_show.set(visible);
         if visible {
             let winit_window = self.winit_window();
 
