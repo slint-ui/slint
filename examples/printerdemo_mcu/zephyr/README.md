@@ -81,7 +81,7 @@ This sample has been tested on the [NXP MIMXRT1170-EVKB](https://docs.zephyrproj
 
 ```bash
 # Build
-west build -b mimxrt1170_evk@B/mimxrt1176/cm7 -p always slint/examples/printerdemo_mcu/zephyr -- -DSHIELD=rk055hdmipi4ma0
+west build -b mimxrt1170_evk@B/mimxrt1176/cm7 -p always slint/examples/printerdemo_mcu/zephyr -- -DSHIELD=rk055hdmipi4ma0 -DCMAKE_BUILD_TYPE=Release
 
 # Flash
 west flash
