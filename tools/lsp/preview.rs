@@ -985,6 +985,11 @@ async fn parse_source(
         cc.resource_url_mapper = resource_url_mapper();
     }
 
+    if std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some() {
+        let cc = builder.compiler_configuration(i_slint_core::InternalToken);
+        cc.enable_experimental = true;
+    }
+
     if !style.is_empty() {
         builder.set_style(style);
     }
