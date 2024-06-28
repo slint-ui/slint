@@ -7,9 +7,14 @@
 #include <string_view>
 #include <type_traits>
 
-#ifdef SLINT_FEATURE_TESTING
-#    ifdef SLINT_FEATURE_EXPERIMENTAL
+#if defined(SLINT_FEATURE_TESTING) || defined(DOXYGEN)
+#    if defined(SLINT_FEATURE_EXPERIMENTAL) || defined(DOXYGEN)
 
+/// Use the functions and classes in this namespace for in-process UI testing.
+///
+/// This module is still experimental - it's API is subject to changes and not stabilized yet. To
+/// use the module, you must enable the `SLINT_FEATURE_EXPERIMENTAL=ON` and `SLINT_FEATURE_TESTING`
+/// CMake options.
 namespace slint::testing {
 
 using slint::cbindgen_private::AccessibleRole;
