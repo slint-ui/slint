@@ -147,7 +147,7 @@ useful to simulate touch or mouse input. For example a mouse click on a button i
 3. In real life, a certain amount of time would elapse now.
 4. Finally, the user lifts the finger again from the mouse and a mouse release event is triggered.
 
-To simulate this behaviour, [`ElementHandle`] provides functions such as [`ElementHandle::single_click()`], [`ElementHandle::double_click()`] or [`ElementHandle::right_click()`].
+To simulate this behaviour, [`ElementHandle`] provides functions such as [`ElementHandle::single_click()`] and [`ElementHandle::double_click()`].
 Since these functions simulate a sequence of events with a period of idle time between the events, these functions are [async](https://doc.rust-lang.org/std/keyword.async.html)
 and return a [`std::future::Future`], which resolves when the last event in the sequence was sent.
 
