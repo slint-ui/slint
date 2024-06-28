@@ -54,11 +54,18 @@ export component PropertyEditor inherits SideBarElement {
                     for property in group.properties: HorizontalLayout {
                         spacing: 4px;
                         alignment: stretch;
-                        key := Text {
-                            color: property.defined-at.expression-value == "" ? Palette.foreground.transparentize(0.5) : Palette.foreground;
-                            vertical-alignment: center;
+                        TouchArea {
                             width: root.key-width - (parent.spacing / 2.0);
-                            text: property.name;
+
+                            key := Text {
+                                width: 100%;
+                                color: property.defined-at.expression-value == "" ? Palette.foreground.transparentize(0.5) : Palette.foreground;
+                                vertical-alignment: center;
+                                text: property.name;
+                            }
+                            clicked() => {
+                                Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
+                            }
                         }
 
                         Rectangle {
