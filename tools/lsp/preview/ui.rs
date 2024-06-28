@@ -69,6 +69,8 @@ pub fn create_ui(style: String, experimental: bool) -> Result<PreviewUi, Platfor
 
     api.on_test_binding(super::test_binding);
     api.on_set_binding(super::set_binding);
+    api.on_test_simple_binding(super::test_simple_binding);
+    api.on_set_simple_binding(super::set_simple_binding);
 
     Ok(ui)
 }
@@ -163,9 +165,116 @@ fn map_property_declaration(
     })
 }
 
+fn simplify_string(value: &str) -> Option<String> {
+    let mut had_initial_quote = false;
+    let mut is_escaped = false;
+    let mut last_was_quote = false;
+    let mut is_first = true;
+    let mut about_to_unicode_escape = false;
+    let mut in_unicode_escape = false;
+    let mut in_expression_escape = false;
+    let mut opening_braces = 0;
+
+    let mut result = String::new();
+
+    for c in value.chars() {
+        if last_was_quote || (!is_first && !had_initial_quote) {
+            return None;
+        }
+
+        match c {
+            '"' => {
+                if is_first {
+                    had_initial_quote = true;
+                } else if is_escaped {
+                    result.push(c);
+                    is_escaped = false;
+                } else {
+                    last_was_quote = true;
+                }
+            }
+            '\\' => {
+                result.push(c);
+                is_escaped = !is_escaped;
+            }
+            'n' => {
+                result.push(c);
+                is_escaped = false;
+            }
+            'u' => {
+                result.push(c);
+                if is_escaped {
+                    about_to_unicode_escape = true;
+                    is_escaped = false;
+                }
+            }
+            '{' => {
+                result.push(c);
+                if in_expression_escape {
+                    opening_braces += 1;
+                } else if about_to_unicode_escape {
+                    about_to_unicode_escape = false;
+                    in_unicode_escape = true;
+                } else if is_escaped {
+                    in_expression_escape = true;
+                    is_escaped = false;
+                }
+            }
+            '}' => {
+                result.push(c);
+                if in_expression_escape {
+                    if opening_braces == 1 {
+                        in_expression_escape = false;
+                    }
+                    opening_braces -= 1;
+                }
+                if in_unicode_escape {
+                    in_unicode_escape = false;
+                }
+            }
+            'a'..='f' | 'A'..='F' | '0'..='9' => {
+                result.push(c);
+            }
+            _ => {
+                result.push(c);
+                if in_unicode_escape {
+                    return None;
+                }
+            }
+        };
+        is_first = false;
+    }
+
+    last_was_quote.then_some(result)
+}
+
+fn simplify_value(
+    property_type: &str,
+    property_value: &str,
+) -> Rc<slint::VecModel<slint::SharedString>> {
+    let result = if property_type == "bool" {
+        if property_value == "true" || property_value == "false" {
+            vec!["bool".to_string().into(), property_value.to_string().into()]
+        } else {
+            vec![]
+        }
+    } else if property_type == "string" {
+        if let Some(simple) = simplify_string(property_value) {
+            vec!["string".to_string().into(), simple.into()]
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
+    Rc::new(VecModel::from(result).into())
+}
+
 fn map_property_definition(
     document: &i_slint_compiler::parser::syntax_nodes::Document,
     defined_at: &Option<properties::DefinitionInformation>,
+    property_type: &str,
 ) -> Option<PropertyDefinition> {
     let da = defined_at.as_ref()?;
 
@@ -180,6 +289,7 @@ fn map_property_definition(
             da.expression_range,
         ))?,
         expression_value: da.expression_value.clone().into(),
+        simple_expression_value: simplify_value(property_type, &da.expression_value).into(),
     })
 }
 
@@ -216,12 +326,13 @@ fn map_properties_to_ui(
                 range: Range { start: 0, end: 0 },
             },
         );
-        let defined_at =
-            map_property_definition(doc_node, &pi.defined_at).unwrap_or(PropertyDefinition {
+        let defined_at = map_property_definition(doc_node, &pi.defined_at, &pi.type_name)
+            .unwrap_or(PropertyDefinition {
                 definition_range: Range { start: 0, end: 0 },
                 selection_range: Range { start: 0, end: 0 },
                 expression_range: Range { start: 0, end: 0 },
                 expression_value: String::new().into(),
+                simple_expression_value: Rc::new(VecModel::default()).into(),
             });
 
         if pi.group != current_group {

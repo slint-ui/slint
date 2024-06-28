@@ -72,6 +72,7 @@ export struct PropertyDefinition {
     selection-range: Range,
     expression-range: Range,
     expression-value: string,
+    simple-expression-value: [string],
 }
 
 /// The Property Declaration
@@ -184,5 +185,7 @@ export global Api {
 
     // ## Property Editor
     pure callback test-binding(/* element-url */ string, /* element-version */ int, /* element-offset */ int, /* property-name */ string, /* property-value */ string) -> bool;
+    pure callback test-simple-binding(/* element-url */ string, /* element-version */ int, /* element-offset */ int, /* property-name */ string, /* simple-property-value */ [string]) -> bool;
     callback set-binding(/* element-url */ string, /* element-version */ int, /* element-offset */ int, /* property-name */ string, /* property-value */ string);
+    callback set-simple-binding(/* element-url */ string, /* element-version */ int, /* element-offset */ int, /* property-name */ string, /* simple-property-value */ [string]);
 }

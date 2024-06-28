@@ -16,6 +16,7 @@ use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::model::VecModel;
 use lsp_types::Url;
+use slint::Model;
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -382,6 +383,7 @@ fn evaluate_binding(
     let element_offset = u32::try_from(element_offset).ok()?;
     let property_name = property_name.to_string();
     let property_value = property_value.to_string();
+    eprintln!("evaluate_binding({element_url}, {element_version:?}, {element_offset}, {property_name}, {property_value})");
 
     let document_cache = document_cache()?;
     let element = document_cache.element_at_offset(&element_url, element_offset)?;
@@ -417,6 +419,33 @@ fn test_binding(
 }
 
 // triggered from the UI, running in UI thread
+fn test_simple_binding(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    property_name: slint::SharedString,
+    simple_property_value: slint::ModelRc<slint::SharedString>,
+) -> bool {
+    if simple_property_value.row_count() <= 1 {
+        return false;
+    }
+    if simple_property_value.row_data(0) == Some("bool".to_string().into()) {
+        test_binding(
+            element_url,
+            element_version,
+            element_offset,
+            property_name,
+            simple_property_value.row_data(1).unwrap(),
+        )
+    } else if simple_property_value.row_data(0) == Some("string".to_string().into()) {
+        let property_value = format!("\"{}\"", simple_property_value.row_data(1).unwrap()).into();
+        test_binding(element_url, element_version, element_offset, property_name, property_value)
+    } else {
+        false
+    }
+}
+
+// triggered from the UI, running in UI thread
 fn set_binding(
     element_url: slint::SharedString,
     element_version: i32,
@@ -435,6 +464,31 @@ fn set_binding(
             label: Some("Edit property".to_string()),
             edit,
         });
+    }
+}
+
+// triggered from the UI, running in UI thread
+fn set_simple_binding(
+    element_url: slint::SharedString,
+    element_version: i32,
+    element_offset: i32,
+    property_name: slint::SharedString,
+    simple_property_value: slint::ModelRc<slint::SharedString>,
+) {
+    if simple_property_value.row_count() <= 1 {
+        return;
+    }
+    if simple_property_value.row_data(0) == Some("bool".to_string().into()) {
+        set_binding(
+            element_url,
+            element_version,
+            element_offset,
+            property_name,
+            simple_property_value.row_data(1).unwrap(),
+        )
+    } else if simple_property_value.row_data(0) == Some("string".to_string().into()) {
+        let property_value = format!("\"{}\"", simple_property_value.row_data(1).unwrap()).into();
+        set_binding(element_url, element_version, element_offset, property_name, property_value)
     }
 }
 
