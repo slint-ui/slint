@@ -17,4 +17,5 @@ docs/reference/src/language/builtins/structs.md
 *.d.ts
 
 .env
+.envrc
 __pycache__
