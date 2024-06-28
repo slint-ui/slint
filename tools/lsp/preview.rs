@@ -280,6 +280,32 @@ pub fn find_component_identifier(
     None
 }
 
+/// Find the last component in the `document`
+pub fn find_last_component_identifier(
+    document: &syntax_nodes::Document,
+) -> Option<syntax_nodes::DeclaredIdentifier> {
+    let last_identifier = {
+        let mut tmp = None;
+        for el in document.ExportsList() {
+            if let Some(component) = el.Component() {
+                tmp = Some(component.DeclaredIdentifier());
+            }
+        }
+        tmp
+    };
+
+    if let Some(component) = document.Component().last() {
+        let identifier = component.DeclaredIdentifier();
+        if identifier.text_range().start()
+            > last_identifier.as_ref().map(|i| i.text_range().start()).unwrap_or_default()
+        {
+            return Some(identifier);
+        }
+    }
+
+    last_identifier
+}
+
 // triggered from the UI, running in UI thread
 fn rename_component(
     old_name: slint::SharedString,
@@ -1223,10 +1249,30 @@ fn set_selected_element(
 
         if let Some(ui) = &preview_state.ui {
             if let Some(document_cache) = document_cache_from(&preview_state) {
+                let to_show_properties_for = selection.clone().or_else(|| {
+                    let current = {
+                        let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+                        cache.current_component()
+                    }?;
+
+                    let document = document_cache.get_document(&current.url)?;
+                    let document = document.node.as_ref()?;
+
+                    let identifier = if let Some(name) = &current.component {
+                        find_component_identifier(document, name)
+                    } else {
+                        find_last_component_identifier(document)
+                    }?;
+
+                    let path = identifier.source_file.path().to_path_buf();
+                    let offset = u32::from(identifier.text_range().start());
+
+                    Some(ElementSelection { path, offset, instance_index: 0 })
+                });
                 ui::ui_set_properties(
                     ui,
                     &document_cache,
-                    query_property_information(&document_cache, &selection),
+                    query_property_information(&document_cache, &to_show_properties_for),
                 );
             }
         }
@@ -1359,6 +1405,7 @@ fn update_preview_area(compiled: Option<ComponentDefinition>) {
 
         ui.show().unwrap();
     });
+    element_selection::reselect_element();
 }
 
 pub fn lsp_to_preview_message(
