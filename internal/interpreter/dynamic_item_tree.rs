@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::{api::Value, dynamic_type, eval};
-
+use crate::api::{CompilationResult, ComponentDefinition, Value};
 use crate::global_component::CompiledGlobalCollection;
+use crate::{dynamic_type, eval};
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::diagnostics::SourceFileVersion;
@@ -407,7 +407,7 @@ pub struct ItemTreeDescription<'id> {
     )>,
 
     /// The collection of compiled globals
-    compiled_globals: Option<CompiledGlobalCollection>,
+    compiled_globals: Option<Rc<CompiledGlobalCollection>>,
 
     /// The type loader, which will be available only on the top-most `ItemTreeDescription`.
     /// All other `ItemTreeDescription`s have `None` here.
@@ -810,19 +810,18 @@ pub async fn load(
     source: String,
     path: std::path::PathBuf,
     version: SourceFileVersion,
-    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-    guard: generativity::Guard<'_>,
-) -> (Result<Rc<ItemTreeDescription<'_>>, ()>, i_slint_compiler::diagnostics::BuildDiagnostics) {
-    // If the native style should be Qt, resolve it here as we have the knowledge of the native style
-    #[cfg(all(unix, not(target_os = "macos")))]
-    if i_slint_backend_selector::HAS_NATIVE_STYLE {
-        let is_native = match &compiler_config.style {
-            Some(s) => s == "native",
-            None => std::env::var("SLINT_STYLE").map_or(true, |s| s == "native"),
-        };
-        if is_native {
-            compiler_config.style = Some("qt".into());
-        }
+    mut compiler_config: CompilerConfiguration,
+) -> CompilationResult {
+    // If the native style should be Qt, resolve it here as we know that we have it
+    let is_native = match &compiler_config.style {
+        Some(s) => s == "native",
+        None => std::env::var("SLINT_STYLE").map_or(true, |s| s == "native"),
+    };
+    if is_native {
+        compiler_config.style = Some(
+            i_slint_common::get_native_style(i_slint_backend_selector::HAS_NATIVE_STYLE, "")
+                .to_string(),
+        );
     }
 
     let diag = BuildDiagnostics::default();
@@ -842,41 +841,41 @@ pub async fn load(
         i_slint_compiler::load_root_file(&path, version, &path, source, diag, compiler_config)
             .await;
     if diag.has_error() {
-        return (Err(()), diag);
+        return CompilationResult { components: HashMap::new(), diagnostics: diag };
     }
 
-    let item_tree = {
+    #[cfg(feature = "highlight")]
+    let loader = Rc::new(loader);
+    #[cfg(feature = "highlight")]
+    let raw_type_loader = raw_type_loader.map(Rc::new);
+
+    let doc = loader.get_document(&path).unwrap();
+
+    let compiled_globals = Rc::new(CompiledGlobalCollection::compile(doc));
+    let mut components = HashMap::new();
+
+    for c in doc.exported_roots() {
+        generativity::make_guard!(guard);
         #[allow(unused_mut)]
-        let mut it = {
-            let doc = loader.get_document(&path).unwrap();
-            let Some(root_component) = doc.last_exported_component() else {
-                diag.push_error_with_span("No component found".into(), Default::default());
-                return (Err(()), diag);
-            };
-
-            let compiled_globals = CompiledGlobalCollection::compile(doc);
-
-            generate_item_tree(&root_component, Some(compiled_globals), guard)
-        };
-
+        let mut it = generate_item_tree(&c, Some(compiled_globals.clone()), guard);
         #[cfg(feature = "highlight")]
         {
-            let _ = it.type_loader.set(Rc::new(loader));
-            if let Some(ul) = raw_type_loader {
-                let _ = it.raw_type_loader.set(Some(Rc::new(ul)));
-            } else {
-                let _ = it.raw_type_loader.set(None);
-            }
+            let _ = it.type_loader.set(loader.clone());
+            let _ = it.raw_type_loader.set(raw_type_loader.clone());
         }
-        it
+        components.insert(c.id.clone(), ComponentDefinition { inner: it.into() });
+    }
+
+    if components.is_empty() {
+        diag.push_error_with_span("No component found".into(), Default::default());
     };
 
-    (Ok(item_tree), diag)
+    CompilationResult { diagnostics: diag, components }
 }
 
 pub(crate) fn generate_item_tree<'id>(
     component: &Rc<object_tree::Component>,
-    compiled_globals: Option<CompiledGlobalCollection>,
+    compiled_globals: Option<Rc<CompiledGlobalCollection>>,
     guard: generativity::Guard<'id>,
 ) -> Rc<ItemTreeDescription<'id>> {
     //dbg!(&*component.root_element.borrow());
