@@ -11,6 +11,7 @@ LOG_MODULE_REGISTER(zephyrSlint, LOG_LEVEL_DBG);
 
 #include <chrono>
 #include <deque>
+#include <ranges>
 
 namespace {
 bool is_supported_pixel_format(display_pixel_format current_pixel_format)
@@ -214,9 +215,8 @@ void ZephyrWindowAdapter::maybe_redraw()
     auto start = k_uptime_get();
     auto region = m_renderer.render(m_buffer, rotated ? m_size.height : m_size.width);
     const auto slintRenderDelta = k_uptime_delta(&start);
-    auto o = region.bounding_box_origin();
-    auto s = region.bounding_box_size();
-    if (s.width > 0 && s.height > 0) {
+    LOG_DBG("Rendering %d dirty regions:", std::ranges::size(region.rectangles()));
+    for (auto [o, s] : region.rectangles()) {
 #ifndef CONFIG_SHIELD_RK055HDMIPI4MA0
         // Convert to big endian pixel data for Zephyr, unless we are using the RK055HDMIPI4MA0
         // shield. See is_supported_pixel_format above.
@@ -236,9 +236,9 @@ void ZephyrWindowAdapter::maybe_redraw()
                     != 0) {
             LOG_WRN("display_write returned non-zero: %d", ret);
         }
+        LOG_DBG("   - rendered x: %d y: %d w: %d h: %d", o.x, o.y, s.width, s.height);
     }
     const auto displayWriteDelta = k_uptime_delta(&start);
-    LOG_DBG("Rendered x: %d y: %d w: %d h: %d", o.x, o.y, s.width, s.height);
     LOG_DBG(" - total: %lld ms, slint: %lld ms, write: %lld ms",
             slintRenderDelta + displayWriteDelta, slintRenderDelta, displayWriteDelta);
 }
