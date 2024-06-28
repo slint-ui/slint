@@ -26,7 +26,7 @@ use corelib::items::{ColorScheme, MouseCursor};
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(enable_accesskit)]
 use crate::SlintUserEvent;
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
@@ -37,7 +37,7 @@ use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use once_cell::unsync::OnceCell;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(enable_accesskit)]
 use winit::event_loop::EventLoopProxy;
 use winit::window::WindowAttributes;
 
@@ -165,7 +165,7 @@ impl WinitWindowAdapter {
     pub(crate) fn new(
         renderer: Box<dyn WinitCompatibleRenderer>,
         winit_window: Rc<winit::window::Window>,
-        #[cfg(not(target_family = "wasm"))] proxy: EventLoopProxy<SlintUserEvent>,
+        #[cfg(enable_accesskit)] proxy: EventLoopProxy<SlintUserEvent>,
     ) -> Rc<Self> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
