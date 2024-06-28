@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEdit, Palette, VerticalBox } from "std-widgets.slint";
+import { LineEdit, Palette, VerticalBox, CheckBox } from "std-widgets.slint";
 
 import { Api, ElementInformation } from "api.slint";
 import { ListHead } from "list-head.slint";
@@ -12,7 +12,6 @@ component TypeHeader inherits Rectangle {
     in property <string> id;
 
     background: Palette.accent-background;
-    
     VerticalBox {
         height: self.min-height;
 
@@ -51,29 +50,70 @@ export component PropertyEditor inherits SideBarElement {
                         text: group.group-name;
                     }
 
-                    for property in group.properties: HorizontalLayout {
+                    for property in group.properties: property-row := HorizontalLayout {
+                        private property <string> property-name: property.name;
+                        private property <string> property-type: property.type-name;
+                        private property <string> property-value: property.defined-at.expression-value;
+
+                        private property <bool> is-defined: self.property-value != "";
+
+                        private property <bool> force-to-complex: false;
+                        private property <bool> simple-mode: (property-type == "bool" && (property-value == "true" || property-value == "false")) && !self.force-to-complex;
+
+                        private property <brush> text-foreground: property-row.is-defined ? Palette.foreground : Palette.foreground.transparentize(0.5);
+
                         spacing: 4px;
                         alignment: stretch;
                         TouchArea {
-                            width: root.key-width - (parent.spacing / 2.0);
+                            width: root.key-width - 0.5 * parent.spacing;
 
                             key := Text {
                                 width: 100%;
-                                color: property.defined-at.expression-value == "" ? Palette.foreground.transparentize(0.5) : Palette.foreground;
+                                color: property-row.text-foreground;
                                 vertical-alignment: center;
                                 text: property.name;
                             }
+
                             clicked() => {
                                 Api.show-document-offset-range(root.current-element.source-uri, property.defined-at.expression-range.start, property.defined-at.expression-range.start);
                             }
                         }
 
+                        complexity-icon := TouchArea {
+                            width: complexity-icon-icon.width;
+
+                            complexity-icon-icon := Text {
+                                width: self.preferred-width;
+                                vertical-alignment: center;
+                                color: property-row.text-foreground;
+
+                                text: property-row.simple-mode ? "S" : "K";
+                            }
+
+                            clicked() => { property-row.force-to-complex = !property-row.force-to-complex; }
+                        }
+
                         Rectangle {
-                            width: root.width - key.width - (parent.spacing / 2.0);
-                            LineEdit {
+                            width: root.width - root.key-width - complexity-icon.width - 1.5 * parent.spacing;
+
+                            private property <bool> have-simple-ui: false;
+
+                            if property-row.simple-mode && property-row.property-type == "bool": CheckBox {
+                                checked: property-row.property-value == "true";
+
+                                toggled() => {
+                                    Api.set-binding(
+                                        root.current-element.source-uri,
+                                        root.current-element.source-version,
+                                        root.current-element.range.start,
+                                        property.name,
+                                        self.checked ? "true" : "false",
+                                    );
+                                }
+                            }
+                            if !property-row.simple-mode: LineEdit {
                                 width: 100%;
-                                height: 100%;
-                                
+                                height: 100%; // otherwise this gets too high and covers several rows.
                                 text: property.defined-at.expression-value;
 
                                 edited(text) => {
