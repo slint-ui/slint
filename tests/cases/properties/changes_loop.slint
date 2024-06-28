@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+
+    in-out property <int> value: 42;
+
+    private property<int> value-plus-1: value + 1;
+
+    changed value-plus-1 => {
+        result = value-plus-1 * 10;
+    }
+
+    out property <int> result: value - 1;
+
+    changed result => {
+        value = value-plus-1;
+    }
+}
+
+
+/*
+
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), 41);
+instance.set_value(42);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), 41); // so far, nothing have changed
+instance.set_value(123);
+assert_eq!(instance.get_result(), 122); // still old binding, the changed callback takes an iteration
+
+// Now we're looping
+slint_testing::mock_elapsed_time(200);
+let r = instance.get_result();
+assert!(r > 1240);
+slint_testing::mock_elapsed_time(200);
+let r2 = instance.get_result();
+assert!(r2 > r + 10);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result(), 41);
+instance.set_value(42);
+slint_testing::mock_elapsed_time(1000);
+assert_eq(instance.get_result(), 41); // so far, nothing have changed
+instance.set_value(123);
+assert_eq(instance.get_result(), 122); // still old binding, the changed callback takes an iteration
+
+// Now we're looping
+slint_testing::mock_elapsed_time(200);
+auto r = instance.get_result();
+assert(r > 1240);
+slint_testing::mock_elapsed_time(200);
+auto r2 = instance.get_result();
+assert(r2 > r + 10);
+
+```
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.result, 41);
+instance.value = 42
+slintlib.private_api.mock_elapsed_time(1000);
+assert.equal(instance.result, 41); // so far, nothing have changed
+instance.value = 123;
+assert.equal(instance.result, 122); // still old binding, the changed callback takes an iteration
+
+// Now we're looping
+slintlib.private_api.mock_elapsed_time(200);
+var r = instance.result;
+assert(r > 1240);
+slintlib.private_api.mock_elapsed_time(200);
+var r2 = instance.result;
+assert(r2 > r + 10);
+```
+
+*/
