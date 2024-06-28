@@ -123,7 +123,7 @@ fn try_create_window_with_fallback_renderer(
         Some(WinitWindowAdapter::new(
             renderer,
             winit_window,
-            #[cfg(not(target_family = "wasm"))]
+            #[cfg(enable_accesskit)]
             _proxy.clone(),
         ))
     })
@@ -273,7 +273,7 @@ impl i_slint_core::platform::Platform for Backend {
                 WinitWindowAdapter::new(
                     renderer,
                     window,
-                    #[cfg(not(target_family = "wasm"))]
+                    #[cfg(enable_accesskit)]
                     self.proxy.clone(),
                 )
             })
