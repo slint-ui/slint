@@ -150,3 +150,68 @@ export component Example inherits Window {
     }
 }
 ```
+
+<!--
+## Change Callbacks
+
+**This feature is still experimental**
+
+In Slint, it's possible to define a callback that is invoked when a property's value changes.
+
+```slint
+import { LineEdit } from "std-widgets.slint";
+export component Example inherits Window  {
+    VerticalLayout {
+        LineEdit {
+            // This callback is invoked when the `text` property of the LineEdit changes
+            changed text => { t.text = self.text; }
+        }
+        t := Text {}
+    }
+}
+```
+
+Note that these callbacks aren't invoked immediately.
+Instead, they're queued for invocation in the subsequent iteration of the event loop.
+A callback is invoked only if the property's value has indeed changed.
+If a property's value changes multiple times within the same event loop cycle, the callback is invoked only once.
+Additionally, if a property's value changes and then reverts to its original state before the callback is executed, the callback won't be invoked.
+
+**Warning:** Altering properties during a change event in a way that could lead to the same property being affected is undefined behaviour.
+
+```slint,no_preview
+export component Example {
+    in-out property <int> foo;
+    property bar: foo + 1;
+    // This setup creates a potential loop between `foo` and `bar`, and the outcome is undefined.
+    changed bar => { foo += 1; }
+}
+```
+
+The above represents an infinite loop. Slint will break the loop after a few iterations.
+Consequently, if there's a sequence of changed callbacks where one callback triggers another change callback,
+this sequence might break, and further callbacks won't be invoked.
+
+Therefore, it's crucial not to overuse changed callbacks.
+
+**Warning:** Utilize changed callbacks only when an alternative through binding isn't feasible.
+
+For instance, avoid doing this:
+
+```slint,ignore
+changed bar => { foo = bar + 1; }
+```
+
+Instead, opt for:
+
+```slint,ignore
+foo: bar + 1;
+```
+
+Declarative bindings automatically manage dependencies.
+Using a changed callback forces immediate evaluation of bindings, which are typically evaluated lazily.
+This practice also compromises the purity of bindings, complicating edits via graphical editors.
+Accumulating excessive changed events can introduce issues and bugs, especially in scenarios involving loops, where a change callback modifies a property, potentially triggering changes to the same property.
+
+
+-->
