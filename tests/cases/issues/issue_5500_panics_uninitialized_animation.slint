@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+// This is a test for issue #5500 which crashed because the `d` was not yet initialized when the duration property was read.
+// Note that this still doesn't work as expected because of issue #348 (the animation won't animate for 8s, but for 0s).component Component {
+// But at least it shouldn't panic
+
+export component Demo {
+    l := HorizontalLayout {
+        for d in [8s]: TouchArea {
+            property <float> progress: 0.0;
+            function set() {
+                progress = 1
+            }
+            animate progress { duration: d; }
+        }
+    }
+    // Just make sure that the repeater is instentiated
+    init => { debug(l.preferred-width) }
+}
