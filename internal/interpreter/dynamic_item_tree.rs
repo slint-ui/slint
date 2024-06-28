@@ -118,8 +118,13 @@ impl RepeatedItemTree for ErasedItemTreeBox {
     fn update(&self, index: usize, data: Self::Data) {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
-        s.description.set_property(s.borrow(), SPECIAL_PROPERTY_INDEX, index.into()).unwrap();
-        s.description.set_property(s.borrow(), SPECIAL_PROPERTY_MODEL_DATA, data).unwrap();
+        let is_repeated = s.description.original.parent_element.upgrade().is_some_and(|p| {
+            p.borrow().repeated.as_ref().is_some_and(|r| !r.is_conditional_element)
+        });
+        if is_repeated {
+            s.description.set_property(s.borrow(), SPECIAL_PROPERTY_INDEX, index.into()).unwrap();
+            s.description.set_property(s.borrow(), SPECIAL_PROPERTY_MODEL_DATA, data).unwrap();
+        }
     }
 
     fn init(&self) {
@@ -1079,11 +1084,10 @@ pub(crate) fn generate_item_tree<'id>(
         )
     }
 
-    for (name, decl) in &component.root_element.borrow().property_declarations {
-        if decl.is_alias.is_some() {
-            continue;
-        }
-        let (prop, type_info) = match &decl.property_type {
+    fn property_info_for_type(
+        ty: &Type,
+    ) -> Option<(Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)> {
+        Some(match ty {
             Type::Float32 => animated_property_info::<f32>(),
             Type::Int32 => animated_property_info::<i32>(),
             Type::String => property_info::<SharedString>(),
@@ -1096,11 +1100,6 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Rem => animated_property_info::<f32>(),
             Type::Image => property_info::<i_slint_core::graphics::Image>(),
             Type::Bool => property_info::<bool>(),
-            Type::Callback { .. } => {
-                custom_callbacks
-                    .insert(name.clone(), builder.type_builder.add_field_type::<Callback>());
-                continue;
-            }
             Type::ComponentFactory => property_info::<ComponentFactory>(),
             Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo") => {
                 property_info::<i_slint_core::properties::StateInfo>()
@@ -1127,7 +1126,7 @@ pub(crate) fn generate_item_tree<'id>(
                 }
             }
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
-            Type::Function { .. } => continue,
+            Type::Function { .. } | Type::Callback { .. } => return None,
 
             // These can't be used in properties
             Type::Invalid
@@ -1137,25 +1136,51 @@ pub(crate) fn generate_item_tree<'id>(
             | Type::Model
             | Type::PathData
             | Type::UnitProduct(_)
-            | Type::ElementReference => panic!("bad type {:?}", &decl.property_type),
-        };
+            | Type::ElementReference => panic!("bad type {:?}", ty),
+        })
+    }
+
+    for (name, decl) in &component.root_element.borrow().property_declarations {
+        if decl.is_alias.is_some() {
+            continue;
+        }
+        if matches!(&decl.property_type, Type::Callback { .. }) {
+            custom_callbacks
+                .insert(name.clone(), builder.type_builder.add_field_type::<Callback>());
+            continue;
+        }
+        let Some((prop, type_info)) = property_info_for_type(&decl.property_type) else { continue };
         custom_properties.insert(
             name.clone(),
             PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
     }
-    if component.parent_element.upgrade().is_some() {
-        let (prop, type_info) = property_info::<u32>();
-        custom_properties.insert(
-            SPECIAL_PROPERTY_INDEX.into(),
-            PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
-        );
-        // FIXME: make it a property for the correct type instead of being generic
-        let (prop, type_info) = property_info::<Value>();
-        custom_properties.insert(
-            SPECIAL_PROPERTY_MODEL_DATA.into(),
-            PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
-        );
+    if let Some(parent_element) = component.parent_element.upgrade() {
+        if let Some(r) = &parent_element.borrow().repeated {
+            if !r.is_conditional_element {
+                let (prop, type_info) = property_info::<u32>();
+                custom_properties.insert(
+                    SPECIAL_PROPERTY_INDEX.into(),
+                    PropertiesWithinComponent {
+                        offset: builder.type_builder.add_field(type_info),
+                        prop,
+                    },
+                );
+
+                let model_ty = Expression::RepeaterModelReference {
+                    element: component.parent_element.clone(),
+                }
+                .ty();
+                let (prop, type_info) = property_info_for_type(&model_ty).unwrap();
+                custom_properties.insert(
+                    SPECIAL_PROPERTY_MODEL_DATA.into(),
+                    PropertiesWithinComponent {
+                        offset: builder.type_builder.add_field(type_info),
+                        prop,
+                    },
+                );
+            }
+        }
     }
 
     let parent_item_tree_offset = if component.parent_element.upgrade().is_some() {
