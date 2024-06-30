@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 #include "slint-zephyr.h"
 
 #include <slint-platform.h>
