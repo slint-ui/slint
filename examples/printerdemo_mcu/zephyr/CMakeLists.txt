@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
 cmake_minimum_required(VERSION 3.20.0)
 
 if(NOT BOARD)

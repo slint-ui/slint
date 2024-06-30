@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(zephyrPrinterDemo, LOG_LEVEL_INF);
 
