@@ -284,9 +284,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let mut self_call = None;
             let mut forward_code = None;
 
-            #[derive(Default)]
-            struct SelfInfo {}
-
             let mut has_self = false;
 
             for param in &f.inputs {
