@@ -4,7 +4,7 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use crate::diagnostics::{BuildDiagnostics, SourceFileVersion, Spanned};
 use crate::object_tree::{self, Document, ExportedName, Exports};
@@ -84,6 +84,8 @@ pub fn snapshot(type_loader: &TypeLoader) -> Option<TypeLoader> {
         component_map: HashMap::new(),
         element_map: HashMap::new(),
         type_register_map: HashMap::new(),
+        keep_alive: Vec::new(),
+        keep_alive_elements: Vec::new(),
     };
     snapshotter.snapshot_type_loader(type_loader)
 }
@@ -108,10 +110,15 @@ pub(crate) fn snapshot_with_extra_doc(
         component_map: HashMap::new(),
         element_map: HashMap::new(),
         type_register_map: HashMap::new(),
+        keep_alive: Vec::new(),
+        keep_alive_elements: Vec::new(),
     };
     let mut result = snapshotter.snapshot_type_loader(type_loader);
 
+    snapshotter.create_document(doc);
     let new_doc = snapshotter.snapshot_document(doc);
+
+    snapshotter.finalize();
 
     if let Some(doc_node) = &new_doc.node {
         let path = doc_node.source_file.path().to_path_buf();
@@ -125,15 +132,50 @@ pub(crate) fn snapshot_with_extra_doc(
 
 pub(crate) struct Snapshotter {
     component_map:
-        HashMap<by_address::ByAddress<Rc<object_tree::Component>>, Rc<object_tree::Component>>,
-    element_map: HashMap<by_address::ByAddress<object_tree::ElementRc>, object_tree::ElementRc>,
+        HashMap<by_address::ByAddress<Rc<object_tree::Component>>, Weak<object_tree::Component>>,
+    element_map:
+        HashMap<by_address::ByAddress<object_tree::ElementRc>, Weak<RefCell<object_tree::Element>>>,
     type_register_map:
         HashMap<by_address::ByAddress<Rc<RefCell<TypeRegister>>>, Rc<RefCell<TypeRegister>>>,
+
+    keep_alive: Vec<(Rc<object_tree::Component>, Rc<object_tree::Component>)>,
+    keep_alive_elements: Vec<(object_tree::ElementRc, object_tree::ElementRc)>,
 }
 
 impl Snapshotter {
+    fn snapshot_globals(&mut self, type_loader: &TypeLoader) {
+        let registry = type_loader.global_type_registry.clone();
+        registry
+            .borrow()
+            .all_elements()
+            .iter()
+            .filter_map(|(_, ty)| match ty {
+                langtype::ElementType::Component(c) if c.is_global() => Some(c),
+                _ => None,
+            })
+            .for_each(|c| {
+                self.create_component(c);
+            });
+    }
+
+    fn finalize(&mut self) {
+        let mut elements = std::mem::take(&mut self.keep_alive_elements);
+
+        while !elements.is_empty() {
+            for (s, t) in elements.iter_mut() {
+                self.snapshot_element(s, &mut t.borrow_mut());
+            }
+            elements = std::mem::take(&mut self.keep_alive_elements);
+        }
+    }
+
     fn snapshot_type_loader(&mut self, type_loader: &TypeLoader) -> Option<TypeLoader> {
+        self.snapshot_globals(type_loader);
+
         let all_documents = self.snapshot_loaded_documents(&type_loader.all_documents)?;
+
+        self.finalize();
+
         Some(TypeLoader {
             all_documents,
             global_type_registry: self.snapshot_type_register(&type_loader.global_type_registry),
@@ -173,6 +215,8 @@ impl Snapshotter {
             return None;
         }
 
+        loaded_documents.docs.values().for_each(|d| self.create_document(d));
+
         Some(LoadedDocuments {
             docs: loaded_documents
                 .docs
@@ -183,9 +227,21 @@ impl Snapshotter {
         })
     }
 
+    fn create_document(&mut self, document: &object_tree::Document) {
+        document.inner_components.iter().for_each(|ic| {
+            let _ = self.create_component(ic);
+        });
+    }
+
     fn snapshot_document(&mut self, document: &object_tree::Document) -> object_tree::Document {
-        let inner_components =
-            document.inner_components.iter().map(|ic| self.snapshot_component(ic)).collect();
+        let inner_components = document
+            .inner_components
+            .iter()
+            .map(|ic| {
+                Weak::upgrade(&self.use_component(ic))
+                    .expect("Components can get upgraded at this point")
+            })
+            .collect();
         let exports = document.exports.snapshot(self);
 
         object_tree::Document {
@@ -200,100 +256,169 @@ impl Snapshotter {
         }
     }
 
-    pub(crate) fn snapshot_component(
+    pub(crate) fn create_component(
         &mut self,
         component: &Rc<object_tree::Component>,
     ) -> Rc<object_tree::Component> {
-        if let Some(r) = self.component_map.get(&by_address::ByAddress(component.clone())) {
-            return r.clone();
-        }
+        let input_address = by_address::ByAddress(component.clone());
 
         let parent_element = if let Some(pe) = component.parent_element.upgrade() {
-            Rc::downgrade(&self.snapshot_element(&pe))
+            Rc::downgrade(&self.use_element(&pe))
         } else {
-            std::rc::Weak::default()
+            Weak::default()
         };
-        let r = Rc::new(object_tree::Component {
-            node: component.node.clone(),
-            id: component.id.clone(),
-            parent_element,
-            ..Default::default()
+
+        let result = Rc::new_cyclic(|weak| {
+            self.component_map.insert(input_address, weak.clone());
+
+            let root_element = self.create_element(&component.root_element);
+
+            let optimized_elements = RefCell::new(
+                component
+                    .optimized_elements
+                    .borrow()
+                    .iter()
+                    .map(|e| self.create_element(e))
+                    .collect(),
+            );
+
+            let child_insertion_point = RefCell::new(
+                component
+                    .child_insertion_point
+                    .borrow()
+                    .as_ref()
+                    .map(|(e, s, n)| (self.use_element(e), *s, n.clone())),
+            );
+
+            let popup_windows = RefCell::new(
+                component
+                    .popup_windows
+                    .borrow()
+                    .iter()
+                    .map(|p| self.snapshot_popup_window(p))
+                    .collect(),
+            );
+            let root_constraints = RefCell::new(
+                self.snapshot_layout_constraints(&component.root_constraints.borrow()),
+            );
+
+            object_tree::Component {
+                node: component.node.clone(),
+                id: component.id.clone(),
+                child_insertion_point,
+                exported_global_names: RefCell::new(
+                    component.exported_global_names.borrow().clone(),
+                ),
+                init_code: RefCell::new(component.init_code.borrow().clone()),
+                inherits_popup_window: std::cell::Cell::new(component.inherits_popup_window.get()),
+                optimized_elements,
+                parent_element,
+                popup_windows,
+                private_properties: RefCell::new(component.private_properties.borrow().clone()),
+                root_constraints,
+                root_element,
+            }
         });
-        self.component_map.insert(by_address::ByAddress(component.clone()), r.clone());
-
-        let root_element = self.snapshot_element(&component.root_element);
-        let optimized_elements = component
-            .optimized_elements
-            .borrow()
-            .iter()
-            .map(|e| self.snapshot_element(e))
-            .collect();
-        let child_insertion_point = component
-            .child_insertion_point
-            .borrow()
-            .as_ref()
-            .map(|(e, s, n)| (self.snapshot_element(e), *s, n.clone()));
-
-        let popup_windows = component
-            .popup_windows
-            .borrow()
-            .iter()
-            .map(|p| self.snapshot_popup_window(p))
-            .collect();
-        let root_constraints =
-            self.snapshot_layout_constraints(&component.root_constraints.borrow());
-
-        *r.optimized_elements.borrow_mut() = optimized_elements;
-        *r.init_code.borrow_mut() = component.init_code.borrow().clone();
-        r.inherits_popup_window.set(component.inherits_popup_window.get());
-        *r.exported_global_names.borrow_mut() = component.exported_global_names.borrow().clone();
-        *r.private_properties.borrow_mut() = component.private_properties.borrow().clone();
-        *r.root_element.borrow_mut() = root_element.take();
-        *r.child_insertion_point.borrow_mut() = child_insertion_point;
-        *r.popup_windows.borrow_mut() = popup_windows;
-
-        *r.root_constraints.borrow_mut() = root_constraints;
-
-        r
+        self.keep_alive.push((component.clone(), result.clone()));
+        result
     }
 
-    pub(crate) fn snapshot_element(
+    pub(crate) fn use_component(
+        &self,
+        component: &Rc<object_tree::Component>,
+    ) -> Weak<object_tree::Component> {
+        self.component_map
+            .get(&by_address::ByAddress(component.clone()))
+            .expect("Component (Weak!) must exist at this point.")
+            .clone()
+    }
+
+    pub(crate) fn create_element(
         &mut self,
         element: &object_tree::ElementRc,
     ) -> object_tree::ElementRc {
-        if let Some(r) = self.element_map.get(&by_address::ByAddress(element.clone())) {
-            return r.clone();
-        }
+        let enclosing_component = if let Some(ec) = element.borrow().enclosing_component.upgrade() {
+            self.use_component(&ec)
+        } else {
+            Weak::default()
+        };
 
-        let r = Rc::new(RefCell::new(object_tree::Element {
-            id: element.borrow().id.clone(),
-            ..Default::default()
-        }));
-        self.element_map.insert(by_address::ByAddress(element.clone()), r.clone());
+        let elem = element.borrow();
 
-        *r.borrow_mut() = self.snapshot_element_impl(element);
+        let r = Rc::new_cyclic(|weak| {
+            self.element_map.insert(by_address::ByAddress(element.clone()), weak.clone());
+
+            let children = elem.children.iter().map(|c| self.create_element(c)).collect();
+
+            RefCell::new(object_tree::Element {
+                id: elem.id.clone(),
+                enclosing_component,
+                children,
+                debug: elem.debug.clone(),
+                ..Default::default()
+            })
+        });
+
+        self.keep_alive_elements.push((element.clone(), r.clone()));
         r
     }
 
-    fn snapshot_element_impl(&mut self, element: &object_tree::ElementRc) -> object_tree::Element {
+    fn create_and_snapshot_element(
+        &mut self,
+        element: &object_tree::ElementRc,
+    ) -> object_tree::ElementRc {
+        let target = self.create_element(element);
+        self.snapshot_element(element, &mut target.borrow_mut());
+        target
+    }
+
+    pub(crate) fn use_element(&self, element: &object_tree::ElementRc) -> object_tree::ElementRc {
+        Weak::upgrade(
+            &self
+                .element_map
+                .get(&by_address::ByAddress(element.clone()))
+                .expect("Elements should have been known at this point")
+                .clone(),
+        )
+        .expect("Must be able to upgrade here")
+    }
+
+    fn snapshot_element(
+        &mut self,
+        element: &object_tree::ElementRc,
+        target_element: &mut object_tree::Element,
+    ) {
         let elem = element.borrow();
-        let children = elem.children.iter().map(|c| self.snapshot_element(c)).collect();
-        let base_type = self.snapshot_element_type(&elem.base_type);
-        let enclosing_component = if let Some(ec) = elem.enclosing_component.upgrade() {
-            Rc::downgrade(&self.snapshot_component(&ec))
-        } else {
-            std::rc::Weak::default()
-        };
-        let accessibility_props = object_tree::AccessibilityProps(
-            elem.accessibility_props.0.iter().map(|(k, v)| (k.clone(), v.snapshot(self))).collect(),
-        );
-        let geometry_props = elem.geometry_props.as_ref().map(|gp| object_tree::GeometryProps {
-            x: gp.x.snapshot(self),
-            y: gp.y.snapshot(self),
-            width: gp.width.snapshot(self),
-            height: gp.height.snapshot(self),
-        });
-        let states = elem
+
+        target_element.base_type = self.snapshot_element_type(&elem.base_type);
+
+        target_element.transitions = elem
+            .transitions
+            .iter()
+            .map(|t| object_tree::Transition {
+                is_out: t.is_out,
+                state_id: t.state_id.clone(),
+                property_animations: t
+                    .property_animations
+                    .iter()
+                    .map(|(nr, sl, el)| {
+                        (nr.snapshot(self), sl.clone(), self.create_and_snapshot_element(el))
+                    })
+                    .collect(),
+                node: t.node.clone(),
+            })
+            .collect();
+
+        target_element.bindings = elem
+            .bindings
+            .iter()
+            .map(|(k, v)| {
+                let bm = v.borrow();
+                let binding = self.snapshot_binding_expression(&bm);
+                (k.clone(), RefCell::new(binding))
+            })
+            .collect();
+        target_element.states = elem
             .states
             .iter()
             .map(|s| object_tree::State {
@@ -310,43 +435,32 @@ impl Snapshotter {
                     .collect(),
             })
             .collect();
-        let transitions = elem
-            .transitions
-            .iter()
-            .map(|t| object_tree::Transition {
-                is_out: t.is_out,
-                state_id: t.state_id.clone(),
-                property_animations: t
-                    .property_animations
-                    .iter()
-                    .map(|(nr, sl, el)| (nr.snapshot(self), sl.clone(), self.snapshot_element(el)))
-                    .collect(),
-                node: t.node.clone(),
-            })
-            .collect();
-        let repeated = elem.repeated.as_ref().map(|r| object_tree::RepeatedElementInfo {
-            model: self.snapshot_expression(&r.model),
-            model_data_id: r.model_data_id.clone(),
-            index_id: r.index_id.clone(),
-            is_conditional_element: r.is_conditional_element,
-            is_listview: r.is_listview.as_ref().map(|lv| object_tree::ListViewInfo {
-                viewport_y: lv.viewport_y.snapshot(self),
-                viewport_height: lv.viewport_height.snapshot(self),
-                viewport_width: lv.viewport_width.snapshot(self),
-                listview_height: lv.listview_height.snapshot(self),
-                listview_width: lv.listview_width.snapshot(self),
-            }),
-        });
-        let bindings = elem
-            .bindings
-            .iter()
-            .map(|(k, v)| {
-                let bm = v.borrow();
-                let binding = self.snapshot_binding_expression(&bm);
-                (k.clone(), RefCell::new(binding))
-            })
-            .collect();
-        let property_declarations = elem
+        target_element.repeated =
+            elem.repeated.as_ref().map(|r| object_tree::RepeatedElementInfo {
+                model: self.snapshot_expression(&r.model),
+                model_data_id: r.model_data_id.clone(),
+                index_id: r.index_id.clone(),
+                is_conditional_element: r.is_conditional_element,
+                is_listview: r.is_listview.as_ref().map(|lv| object_tree::ListViewInfo {
+                    viewport_y: lv.viewport_y.snapshot(self),
+                    viewport_height: lv.viewport_height.snapshot(self),
+                    viewport_width: lv.viewport_width.snapshot(self),
+                    listview_height: lv.listview_height.snapshot(self),
+                    listview_width: lv.listview_width.snapshot(self),
+                }),
+            });
+
+        target_element.accessibility_props = object_tree::AccessibilityProps(
+            elem.accessibility_props.0.iter().map(|(k, v)| (k.clone(), v.snapshot(self))).collect(),
+        );
+        target_element.geometry_props =
+            elem.geometry_props.as_ref().map(|gp| object_tree::GeometryProps {
+                x: gp.x.snapshot(self),
+                y: gp.y.snapshot(self),
+                width: gp.width.snapshot(self),
+                height: gp.height.snapshot(self),
+            });
+        target_element.property_declarations = elem
             .property_declarations
             .iter()
             .map(|(k, v)| {
@@ -361,37 +475,21 @@ impl Snapshotter {
                 (k.clone(), decl)
             })
             .collect();
-        let layout_info_prop =
+        target_element.layout_info_prop =
             elem.layout_info_prop.as_ref().map(|(n1, n2)| (n1.snapshot(self), n2.snapshot(self)));
-        let property_analysis = elem.property_analysis.borrow().clone();
+        target_element.property_analysis = RefCell::new(elem.property_analysis.borrow().clone());
 
-        object_tree::Element {
-            accessibility_props,
-            base_type,
-            bindings,
-            change_callbacks: elem.change_callbacks.clone(),
-            child_of_layout: elem.child_of_layout,
-            children,
-            debug: elem.debug.clone(),
-            default_fill_parent: elem.default_fill_parent,
-            enclosing_component,
-            geometry_props,
-            has_popup_child: elem.has_popup_child,
-            id: elem.id.clone(),
-            inline_depth: elem.inline_depth,
-            is_component_placeholder: elem.is_component_placeholder,
-            is_flickable_viewport: elem.is_flickable_viewport,
-            is_legacy_syntax: elem.is_legacy_syntax,
-            item_index: elem.item_index.clone(),
-            item_index_of_first_children: elem.item_index_of_first_children.clone(),
-            layout_info_prop,
-            named_references: elem.named_references.snapshot(self),
-            property_analysis: RefCell::new(property_analysis),
-            property_declarations,
-            repeated,
-            states,
-            transitions,
-        }
+        target_element.change_callbacks = elem.change_callbacks.clone();
+        target_element.child_of_layout = elem.child_of_layout;
+        target_element.default_fill_parent = elem.default_fill_parent;
+        target_element.has_popup_child = elem.has_popup_child;
+        target_element.inline_depth = elem.inline_depth;
+        target_element.is_component_placeholder = elem.is_component_placeholder;
+        target_element.is_flickable_viewport = elem.is_flickable_viewport;
+        target_element.is_legacy_syntax = elem.is_legacy_syntax;
+        target_element.item_index = elem.item_index.clone();
+        target_element.item_index_of_first_children = elem.item_index_of_first_children.clone();
+        target_element.named_references = elem.named_references.snapshot(self);
     }
 
     fn snapshot_binding_expression(
@@ -404,7 +502,9 @@ impl Snapshotter {
             priority: binding_expression.priority,
             animation: binding_expression.animation.as_ref().map(|pa| match pa {
                 object_tree::PropertyAnimation::Static(element) => {
-                    object_tree::PropertyAnimation::Static(self.snapshot_element(element))
+                    object_tree::PropertyAnimation::Static(
+                        self.create_and_snapshot_element(element),
+                    )
                 }
                 object_tree::PropertyAnimation::Transition { state_ref, animations } => {
                     object_tree::PropertyAnimation::Transition {
@@ -414,7 +514,7 @@ impl Snapshotter {
                             .map(|tpa| object_tree::TransitionPropertyAnimation {
                                 state_id: tpa.state_id,
                                 is_out: tpa.is_out,
-                                animation: self.snapshot_element(&tpa.animation),
+                                animation: self.create_and_snapshot_element(&tpa.animation),
                             })
                             .collect(),
                     }
@@ -442,7 +542,11 @@ impl Snapshotter {
         // Components need to get adapted, the rest is fine I think...
         match element_type {
             langtype::ElementType::Component(component) => {
-                langtype::ElementType::Component(self.snapshot_component(component))
+                // Some components that will get compiled out later...
+                langtype::ElementType::Component(
+                    Weak::upgrade(&self.use_component(component))
+                        .expect("I can unwrap at this point"),
+                )
             }
             _ => element_type.clone(),
         }
@@ -452,13 +556,20 @@ impl Snapshotter {
         &mut self,
         used_types: &object_tree::UsedSubTypes,
     ) -> object_tree::UsedSubTypes {
-        let globals =
-            used_types.globals.iter().map(|component| self.snapshot_component(component)).collect();
+        let globals = used_types
+            .globals
+            .iter()
+            .map(|component| {
+                Weak::upgrade(&self.use_component(component)).expect("Looking at a known component")
+            })
+            .collect();
         let structs_and_enums = used_types.structs_and_enums.clone();
         let sub_components = used_types
             .sub_components
             .iter()
-            .map(|component| self.snapshot_component(component))
+            .map(|component| {
+                Weak::upgrade(&self.use_component(component)).expect("Looking at a known component")
+            })
             .collect();
         object_tree::UsedSubTypes { globals, structs_and_enums, sub_components }
     }
@@ -468,11 +579,12 @@ impl Snapshotter {
         popup_window: &object_tree::PopupWindow,
     ) -> object_tree::PopupWindow {
         object_tree::PopupWindow {
-            component: self.snapshot_component(&popup_window.component),
+            component: Weak::upgrade(&self.use_component(&popup_window.component))
+                .expect("Looking at a known component"),
             x: popup_window.x.snapshot(self),
             y: popup_window.y.snapshot(self),
             close_on_click: popup_window.close_on_click,
-            parent_element: self.snapshot_element(&popup_window.parent_element),
+            parent_element: self.use_element(&popup_window.parent_element),
         }
     }
 
@@ -528,21 +640,21 @@ impl Snapshotter {
                 Expression::ElementReference(if let Some(el) = el.upgrade() {
                     Rc::downgrade(&el)
                 } else {
-                    std::rc::Weak::default()
+                    Weak::default()
                 })
             }
             Expression::RepeaterIndexReference { element } => Expression::RepeaterIndexReference {
                 element: if let Some(el) = element.upgrade() {
                     Rc::downgrade(&el)
                 } else {
-                    std::rc::Weak::default()
+                    Weak::default()
                 },
             },
             Expression::RepeaterModelReference { element } => Expression::RepeaterModelReference {
                 element: if let Some(el) = element.upgrade() {
                     Rc::downgrade(&el)
                 } else {
-                    std::rc::Weak::default()
+                    Weak::default()
                 },
             },
             Expression::StoreLocalVariable { name, value } => Expression::StoreLocalVariable {
@@ -810,7 +922,7 @@ impl TypeLoader {
                             }
                         }
                         ImportKind::ModuleReexport(export_module_syntax_node) => {
-                            let exports = reexports.get_or_insert_with(|| Exports::default());
+                            let exports = reexports.get_or_insert_with(Exports::default);
                             if let Some(star_reexport) = export_module_syntax_node
                                 .ExportModule()
                                 .and_then(|x| x.child_token(SyntaxKind::Star))

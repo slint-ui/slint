@@ -183,7 +183,7 @@ impl NamedReferenceInner {
 
     pub(crate) fn snapshot(&self, snapshotter: &mut crate::typeloader::Snapshotter) -> Self {
         let element = if let Some(el) = self.element.upgrade() {
-            Rc::downgrade(&snapshotter.snapshot_element(&el))
+            Rc::downgrade(&snapshotter.use_element(&el))
         } else {
             std::rc::Weak::default()
         };
