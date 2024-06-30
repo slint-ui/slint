@@ -73,10 +73,6 @@ pub(crate) enum ActiveOrInactiveEventLoop<'a> {
 }
 
 pub(crate) trait EventLoopInterface {
-    fn create_window(
-        &self,
-        window_attributes: winit::window::WindowAttributes,
-    ) -> Result<winit::window::Window, winit::error::OsError>;
     #[cfg(not(target_family = "wasm"))]
     fn display_handle(
         &self,
@@ -85,13 +81,6 @@ pub(crate) trait EventLoopInterface {
 }
 
 impl EventLoopInterface for NotRunningEventLoop {
-    fn create_window(
-        &self,
-        window_attributes: winit::window::WindowAttributes,
-    ) -> Result<winit::window::Window, winit::error::OsError> {
-        #[allow(deprecated)]
-        self.instance.create_window(window_attributes)
-    }
     #[cfg(not(target_family = "wasm"))]
     fn display_handle(
         &self,
@@ -105,12 +94,6 @@ impl EventLoopInterface for NotRunningEventLoop {
 }
 
 impl<'a> EventLoopInterface for RunningEventLoop<'a> {
-    fn create_window(
-        &self,
-        window_attributes: winit::window::WindowAttributes,
-    ) -> Result<winit::window::Window, winit::error::OsError> {
-        self.active_event_loop.create_window(window_attributes)
-    }
     #[cfg(not(target_family = "wasm"))]
     fn display_handle(
         &self,
