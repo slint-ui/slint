@@ -371,7 +371,7 @@ jobs:
               with:
                   app-path: slint
                   manifest-file-name: examples/printerdemo_mcu/zephyr/west.yaml
-                  sdk-version: 0.16.5-1
+                  sdk-version: 0.16.8
             - name: Export the Zephyr CMake package
               run: west zephyr-export
             - name: Build for ${{matrix.board}}
