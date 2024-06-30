@@ -212,15 +212,16 @@ impl Snapshotter {
         } else {
             std::rc::Weak::default()
         };
+
         let r = Rc::new(object_tree::Component {
             node: component.node.clone(),
             id: component.id.clone(),
             parent_element,
+            root_element: self.snapshot_element(&component.root_element),
             ..Default::default()
         });
         self.component_map.insert(by_address::ByAddress(component.clone()), r.clone());
 
-        let root_element = self.snapshot_element(&component.root_element);
         let optimized_elements = component
             .optimized_elements
             .borrow()
@@ -247,7 +248,6 @@ impl Snapshotter {
         r.inherits_popup_window.set(component.inherits_popup_window.get());
         *r.exported_global_names.borrow_mut() = component.exported_global_names.borrow().clone();
         *r.private_properties.borrow_mut() = component.private_properties.borrow().clone();
-        *r.root_element.borrow_mut() = root_element.take();
         *r.child_insertion_point.borrow_mut() = child_insertion_point;
         *r.popup_windows.borrow_mut() = popup_windows;
 
