@@ -17,7 +17,6 @@ pub struct WinitSoftwareRenderer {
     renderer: SoftwareRenderer,
     _context: softbuffer::Context<Rc<winit::window::Window>>,
     surface: RefCell<softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>>,
-    winit_window: Rc<winit::window::Window>,
 }
 
 #[repr(transparent)]
@@ -89,7 +88,6 @@ impl WinitSoftwareRenderer {
                 renderer: SoftwareRenderer::new(),
                 _context: context,
                 surface: RefCell::new(surface),
-                winit_window: winit_window.clone(),
             }),
             winit_window,
         ))
@@ -107,6 +105,8 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         };
 
         let mut surface = self.surface.borrow_mut();
+
+        let winit_window = surface.window().clone();
 
         surface
             .resize(width, height)
@@ -157,7 +157,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             })
         };
 
-        self.winit_window.pre_present_notify();
+        winit_window.pre_present_notify();
 
         let size = region.bounding_box_size();
         if let Some((w, h)) = Option::zip(NonZeroU32::new(size.width), NonZeroU32::new(size.height))
