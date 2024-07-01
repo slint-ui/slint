@@ -5,22 +5,16 @@
 
 #[cfg(test)]
 fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let mut compiler = slint_interpreter::ComponentCompiler::default();
-    let component = spin_on::spin_on(compiler.build_from_source(snippet.into(), path.into()));
+    let compiler = slint_interpreter::Compiler::default();
+    let result = spin_on::spin_on(compiler.build_from_source(snippet.into(), path.into()));
 
-    slint_interpreter::print_diagnostics(compiler.diagnostics());
+    let diagnostics = result.diagnostics().collect::<Vec<_>>();
+    slint_interpreter::print_diagnostics(&diagnostics);
 
-    for d in compiler.diagnostics() {
-        if d.level() == slint_interpreter::DiagnosticLevel::Error {
-            return Err(d.message().to_owned().into());
-        }
+    if result.has_error() {
+        return Err(format!("Error when loading {snippet:?} in {path:?}: {diagnostics:?}").into());
     }
-
-    if component.is_none() {
-        Err(String::from("Failure").into())
-    } else {
-        Ok(())
-    }
+    Ok(())
 }
 
 include!(env!("TEST_FUNCTIONS"));
