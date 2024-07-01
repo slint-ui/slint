@@ -17,8 +17,8 @@ pub fn check_public_api(
 ) {
     let last = doc.last_exported_component();
 
-    if config.generate_all_exported_windows {
-        doc.exports.retain(|export| {
+    match &config.components_to_generate {
+        crate::ComponentsToGenerate::AllExportedWindows => doc.exports.retain(|export| {
             // Warn about exported non-window (and remove them from the export unless it's the last for compatibility)
             if let Either::Left(c) = &export.1 {
                 if !c.is_global() && !super::ensure_window::inherits_window(c) {
@@ -32,16 +32,22 @@ pub fn check_public_api(
                 }
             }
             true
-        });
-    } else {
+        }),
         // Only keep the last component if there is one
-        doc.exports.retain(|export| {
+        crate::ComponentsToGenerate::LastComponent => doc.exports.retain(|export| {
             if let Either::Left(c) = &export.1 {
                 c.is_global() || last.as_ref().map_or(true, |last| Rc::ptr_eq(last, c))
             } else {
                 true
+            } }),
+        // Only keep the component with the given name
+        crate::ComponentsToGenerate::ComponentWithName(name) => doc.exports.retain(|export| {
+            if let Either::Left(c) = &export.1 {
+                c.is_global() || &c.id == name
+            } else {
+                true
             }
-        });
+        }),
     }
 
     for c in doc.exported_roots() {

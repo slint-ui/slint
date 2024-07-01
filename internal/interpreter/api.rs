@@ -503,12 +503,11 @@ pub struct ComponentCompiler {
 #[allow(deprecated)]
 impl Default for ComponentCompiler {
     fn default() -> Self {
-        Self {
-            config: i_slint_compiler::CompilerConfiguration::new(
-                i_slint_compiler::generator::OutputFormat::Interpreter,
-            ),
-            diagnostics: vec![],
-        }
+        let mut config = i_slint_compiler::CompilerConfiguration::new(
+            i_slint_compiler::generator::OutputFormat::Interpreter,
+        );
+        config.components_to_generate = i_slint_compiler::ComponentsToGenerate::LastComponent;
+        Self { config, diagnostics: vec![] }
     }
 }
 
@@ -517,18 +516,6 @@ impl ComponentCompiler {
     /// Returns a new ComponentCompiler.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Allow access to the underlying `CompilerConfiguration`
-    ///
-    /// This is an internal function without and ABI or API stability guarantees.
-    #[doc(hidden)]
-    #[cfg(feature = "internal")]
-    pub fn compiler_configuration(
-        &mut self,
-        _: i_slint_core::InternalToken,
-    ) -> &mut i_slint_compiler::CompilerConfiguration {
-        &mut self.config
     }
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
@@ -710,15 +697,26 @@ pub struct Compiler {
 
 impl Default for Compiler {
     fn default() -> Self {
-        let mut config = i_slint_compiler::CompilerConfiguration::new(
+        let config = i_slint_compiler::CompilerConfiguration::new(
             i_slint_compiler::generator::OutputFormat::Interpreter,
         );
-        config.generate_all_exported_windows = true;
         Self { config }
     }
 }
 
 impl Compiler {
+    /// Allow access to the underlying `CompilerConfiguration`
+    ///
+    /// This is an internal function without and ABI or API stability guarantees.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn compiler_configuration(
+        &mut self,
+        _: i_slint_core::InternalToken,
+    ) -> &mut i_slint_compiler::CompilerConfiguration {
+        &mut self.config
+    }
+
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.config.include_paths = include_paths;
