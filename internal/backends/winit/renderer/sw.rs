@@ -15,8 +15,9 @@ use super::WinitCompatibleRenderer;
 
 pub struct WinitSoftwareRenderer {
     renderer: SoftwareRenderer,
-    _context: softbuffer::Context<Rc<winit::window::Window>>,
-    surface: RefCell<softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>>,
+    _context: RefCell<Option<softbuffer::Context<Rc<winit::window::Window>>>>,
+    surface:
+        RefCell<Option<softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>>>,
 }
 
 #[repr(transparent)]
@@ -65,32 +66,12 @@ impl TargetPixel for SoftBufferPixel {
 }
 
 impl WinitSoftwareRenderer {
-    pub fn new(
-        window_attributes: winit::window::WindowAttributes,
-    ) -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError> {
-        let winit_window = crate::event_loop::with_window_target(|event_loop| {
-            event_loop.create_window(window_attributes).map_err(|winit_os_error| {
-                format!("Error creating native window for software rendering: {}", winit_os_error)
-                    .into()
-            })
-        })?;
-        let winit_window = Rc::new(winit_window);
-
-        let context = softbuffer::Context::new(winit_window.clone())
-            .map_err(|e| format!("Error creating softbuffer context: {e}"))?;
-
-        let surface = softbuffer::Surface::new(&context, winit_window.clone()).map_err(
-            |softbuffer_error| format!("Error creating softbuffer surface: {}", softbuffer_error),
-        )?;
-
-        Ok((
-            Box::new(Self {
-                renderer: SoftwareRenderer::new(),
-                _context: context,
-                surface: RefCell::new(surface),
-            }),
-            winit_window,
-        ))
+    pub fn new_suspended() -> Box<dyn WinitCompatibleRenderer> {
+        Box::new(Self {
+            renderer: SoftwareRenderer::new(),
+            _context: RefCell::new(None),
+            surface: RefCell::new(None),
+        })
     }
 }
 
@@ -104,7 +85,11 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             return Ok(());
         };
 
-        let mut surface = self.surface.borrow_mut();
+        let mut borrowed_surface = self.surface.borrow_mut();
+        let Some(surface) = borrowed_surface.as_mut() else {
+            // Nothing to render
+            return Ok(());
+        };
 
         let winit_window = surface.window().clone();
 
@@ -183,5 +168,40 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         // On X11, the buffer is completely cleared when the window is hidden
         // and the buffer age doesn't respect that, so clean the partial rendering cache
         self.renderer.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
+    }
+
+    fn resume(
+        &self,
+        window_attributes: winit::window::WindowAttributes,
+    ) -> Result<Rc<winit::window::Window>, PlatformError> {
+        let winit_window = crate::event_loop::with_window_target(|event_loop| {
+            event_loop.create_window(window_attributes).map_err(|winit_os_error| {
+                format!("Error creating native window for software rendering: {}", winit_os_error)
+                    .into()
+            })
+        })?;
+        let winit_window = Rc::new(winit_window);
+
+        let context = softbuffer::Context::new(winit_window.clone())
+            .map_err(|e| format!("Error creating softbuffer context: {e}"))?;
+
+        let surface = softbuffer::Surface::new(&context, winit_window.clone()).map_err(
+            |softbuffer_error| format!("Error creating softbuffer surface: {}", softbuffer_error),
+        )?;
+
+        *self._context.borrow_mut() = Some(context);
+        *self.surface.borrow_mut() = Some(surface);
+
+        Ok(winit_window)
+    }
+
+    fn suspend(&self) -> Result<(), PlatformError> {
+        drop(self.surface.borrow_mut().take());
+        drop(self._context.borrow_mut().take());
+        Ok(())
+    }
+
+    fn is_suspended(&self) -> bool {
+        self._context.borrow().is_none()
     }
 }
