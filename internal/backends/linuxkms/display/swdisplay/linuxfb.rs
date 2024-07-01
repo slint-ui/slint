@@ -12,7 +12,7 @@ pub struct LinuxFBDisplay {
     back_buffer: RefCell<Box<[u8]>>,
     width: u32,
     height: u32,
-    presenter: Rc<crate::display::TimerBasedAnimationDriver>,
+    presenter: Rc<crate::display::timeranimations::TimerBasedAnimationDriver>,
     first_frame: Cell<bool>,
 }
 
@@ -87,7 +87,7 @@ impl LinuxFBDisplay {
             back_buffer,
             width,
             height,
-            presenter: crate::display::TimerBasedAnimationDriver::new(),
+            presenter: crate::display::timeranimations::TimerBasedAnimationDriver::new(),
             first_frame: Cell::new(true),
         }))
     }
