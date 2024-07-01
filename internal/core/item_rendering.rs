@@ -173,6 +173,11 @@ impl<T: Clone> ItemCache<T> {
             sub.remove(&item_rc.index());
         }
     }
+
+    /// Returns true if there are no entries in the cache; false otherwise.
+    pub fn is_empty(&self) -> bool {
+        self.map.borrow().is_empty()
+    }
 }
 
 /// Return true if the item might be a clipping item
