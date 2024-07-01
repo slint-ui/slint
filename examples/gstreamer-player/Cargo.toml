@@ -16,13 +16,13 @@ name = "gstreamer-player"
 
 [dependencies]
 slint = { path = "../../api/rs/slint" }
-anyhow = { version = "1.0" }
 futures = { version = "0.3.28" }
 
 gst = {package = "gstreamer", version = "0.21.3"}
 gst-audio = {package = "gstreamer-audio", version = "0.21.3" }
 gst-video = {package = "gstreamer-video", version = "0.21.2" }
 gst-app = {package = "gstreamer-app", version = "0.21.2" }
+thiserror = "1.0.57"
 
 
 [build-dependencies]
