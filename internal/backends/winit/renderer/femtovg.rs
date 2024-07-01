@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::cell::Cell;
 use std::rc::Rc;
 
 use i_slint_core::platform::PlatformError;
@@ -17,12 +18,28 @@ mod glcontext;
 
 pub struct GlutinFemtoVGRenderer {
     renderer: FemtoVGRenderer,
+    suspended: Cell<bool>,
 }
 
 impl GlutinFemtoVGRenderer {
-    pub fn new(
+    pub fn new_suspended() -> Box<dyn WinitCompatibleRenderer> {
+        Box::new(Self { renderer: FemtoVGRenderer::new_suspended(), suspended: Cell::new(true) })
+    }
+}
+
+impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
+    fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
+        self.renderer.render()
+    }
+
+    fn as_core_renderer(&self) -> &dyn Renderer {
+        &self.renderer
+    }
+
+    fn resume(
+        &self,
         window_attributes: winit::window::WindowAttributes,
-    ) -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError> {
+    ) -> Result<Rc<winit::window::Window>, PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         let (winit_window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
             Ok(glcontext::OpenGLContext::new_context(window_attributes, event_loop.event_loop())?)
@@ -39,7 +56,7 @@ impl GlutinFemtoVGRenderer {
             })
         })?);
 
-        let renderer = FemtoVGRenderer::new(
+        self.renderer.resume(
             #[cfg(not(target_arch = "wasm32"))]
             opengl_context,
             #[cfg(target_arch = "wasm32")]
@@ -48,16 +65,16 @@ impl GlutinFemtoVGRenderer {
                 .ok_or_else(|| "FemtoVG Renderer: winit didn't return a canvas")?,
         )?;
 
-        Ok((Box::new(Self { renderer }), winit_window))
-    }
-}
+        self.suspended.set(false);
 
-impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
-    fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
-        self.renderer.render()
+        Ok(winit_window)
     }
 
-    fn as_core_renderer(&self) -> &dyn Renderer {
-        &self.renderer
+    fn suspend(&self) -> Result<(), PlatformError> {
+        self.renderer.suspend()
+    }
+
+    fn is_suspended(&self) -> bool {
+        self.suspended.get()
     }
 }

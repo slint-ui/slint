@@ -56,6 +56,7 @@ members = [
     'tests/driver/nodejs',
     'tests/driver/rust',
     'tests/screenshots',
+    'tests/manual/windowattributes',
     'tools/compiler',
     'tools/figma_import',
     'tools/lsp',

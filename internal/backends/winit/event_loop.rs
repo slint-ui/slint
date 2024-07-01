@@ -82,6 +82,9 @@ pub(crate) trait EventLoopInterface {
         &self,
     ) -> Result<winit::raw_window_handle::DisplayHandle<'_>, winit::raw_window_handle::HandleError>;
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_>;
+    fn is_wayland(&self) -> bool {
+        false
+    }
 }
 
 impl EventLoopInterface for NotRunningEventLoop {
@@ -102,6 +105,11 @@ impl EventLoopInterface for NotRunningEventLoop {
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_> {
         ActiveOrInactiveEventLoop::Inactive(&self.instance)
     }
+    #[cfg(all(unix, not(target_os = "macos"), feature = "wayland"))]
+    fn is_wayland(&self) -> bool {
+        use winit::platform::wayland::EventLoopExtWayland;
+        return self.instance.is_wayland();
+    }
 }
 
 impl<'a> EventLoopInterface for RunningEventLoop<'a> {
@@ -120,6 +128,11 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
     }
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_> {
         ActiveOrInactiveEventLoop::Active(self.active_event_loop)
+    }
+    #[cfg(all(unix, not(target_os = "macos"), feature = "wayland"))]
+    fn is_wayland(&self) -> bool {
+        use winit::platform::wayland::ActiveEventLoopExtWayland;
+        return self.active_event_loop.is_wayland();
     }
 }
 
@@ -253,7 +266,7 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
         ALL_WINDOWS.with(|ws| {
             for (_, window_weak) in ws.borrow().iter() {
                 if let Some(w) = window_weak.upgrade() {
-                    if let Err(e) = w.renderer.resumed(w.winit_window()) {
+                    if let Err(e) = w.ensure_window() {
                         self.loop_error = Some(e);
                     }
                 }
@@ -271,8 +284,12 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
             return;
         };
 
-        #[cfg(enable_accesskit)]
-        window.accesskit_adapter.borrow_mut().process_event(&window.winit_window(), &event);
+        if let Some(winit_window) = window.winit_window() {
+            #[cfg(enable_accesskit)]
+            window.accesskit_adapter.borrow_mut().process_event(&winit_window, &event);
+        } else {
+            return;
+        }
 
         let runtime_window = WindowInner::from_pub(window.window());
         match event {
@@ -366,7 +383,7 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
             }
             WindowEvent::CursorMoved { position, .. } => {
                 self.current_resize_direction = handle_cursor_move_for_resize(
-                    window.winit_window().as_ref(),
+                    &window.winit_window().unwrap(),
                     position,
                     self.current_resize_direction,
                     runtime_window
@@ -413,7 +430,7 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
                             && self.current_resize_direction.is_some()
                         {
                             handle_resize(
-                                window.winit_window().as_ref(),
+                                &window.winit_window().unwrap(),
                                 self.current_resize_direction,
                             );
                             return;

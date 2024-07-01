@@ -38,14 +38,18 @@ mod renderer {
         fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError>;
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
-
         // Got WindowEvent::Occluded
         fn occluded(&self, _: bool) {}
 
+        fn suspend(&self) -> Result<(), PlatformError>;
+
         // Got winit::Event::Resumed
-        fn resumed(&self, _winit_window: Rc<winit::window::Window>) -> Result<(), PlatformError> {
-            Ok(())
-        }
+        fn resume(
+            &self,
+            window_attributes: winit::window::WindowAttributes,
+        ) -> Result<Rc<winit::window::Window>, PlatformError>;
+
+        fn is_suspended(&self) -> bool;
     }
 
     #[cfg(feature = "renderer-femtovg")]
@@ -68,7 +72,8 @@ pub fn create_gl_window_with_canvas_id(
     canvas_id: &str,
 ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
     let attrs = WinitWindowAdapter::window_attributes(canvas_id)?;
-    let (renderer, window) = renderer::femtovg::GlutinFemtoVGRenderer::new(attrs)?;
+    let renderer = renderer::femtovg::GlutinFemtoVGRenderer::new_suspended();
+    let window = renderer.resume(attrs)?;
     let adapter = WinitWindowAdapter::new(renderer, window);
     Ok(adapter)
 }
@@ -85,16 +90,14 @@ cfg_if::cfg_if! {
     }
 }
 
-fn default_renderer_factory(
-    window_attributes: winit::window::WindowAttributes,
-) -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError> {
+fn default_renderer_factory() -> Box<dyn WinitCompatibleRenderer> {
     cfg_if::cfg_if! {
         if #[cfg(enable_skia_renderer)] {
-            renderer::skia::WinitSkiaRenderer::new(window_attributes)
+            renderer::skia::WinitSkiaRenderer::new_suspended()
         } else if #[cfg(feature = "renderer-femtovg")] {
-            renderer::femtovg::GlutinFemtoVGRenderer::new(window_attributes)
+            renderer::femtovg::GlutinFemtoVGRenderer::new_suspended()
         } else if #[cfg(feature = "renderer-software")] {
-            renderer::sw::WinitSoftwareRenderer::new(window_attributes)
+            renderer::sw::WinitSoftwareRenderer::new_suspended()
         } else {
             compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
         }
@@ -111,15 +114,16 @@ fn try_create_window_with_fallback_renderer(
             feature = "renderer-skia-opengl",
             feature = "renderer-skia-vulkan"
         ))]
-        renderer::skia::WinitSkiaRenderer::new,
+        renderer::skia::WinitSkiaRenderer::new_suspended,
         #[cfg(feature = "renderer-femtovg")]
-        renderer::femtovg::GlutinFemtoVGRenderer::new,
+        renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
         #[cfg(feature = "renderer-software")]
-        renderer::sw::WinitSoftwareRenderer::new,
+        renderer::sw::WinitSoftwareRenderer::new_suspended,
     ]
     .into_iter()
     .find_map(|renderer_factory| {
-        let (renderer, winit_window) = renderer_factory(attrs.clone()).ok()?;
+        let renderer = renderer_factory();
+        let winit_window = renderer.resume(attrs.clone()).ok()?;
         Some(WinitWindowAdapter::new(
             renderer,
             winit_window,
@@ -146,11 +150,7 @@ pub mod native_widgets {}
 /// slint::platform::set_platform(Box::new(Backend::new().unwrap()));
 /// ```
 pub struct Backend {
-    renderer_factory_fn:
-        fn(
-            window_builder: winit::window::WindowAttributes,
-        )
-            -> Result<(Box<dyn WinitCompatibleRenderer>, Rc<winit::window::Window>), PlatformError>,
+    renderer_factory_fn: fn() -> Box<dyn WinitCompatibleRenderer>,
     event_loop_state: std::cell::RefCell<Option<crate::event_loop::EventLoopState>>,
     proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
 
@@ -197,15 +197,15 @@ impl Backend {
 
         let renderer_factory_fn = match renderer_name {
             #[cfg(feature = "renderer-femtovg")]
-            Some("gl") | Some("femtovg") => renderer::femtovg::GlutinFemtoVGRenderer::new,
+            Some("gl") | Some("femtovg") => renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
             #[cfg(enable_skia_renderer)]
-            Some("skia") => renderer::skia::WinitSkiaRenderer::new,
+            Some("skia") => renderer::skia::WinitSkiaRenderer::new_suspended,
             #[cfg(enable_skia_renderer)]
-            Some("skia-opengl") => renderer::skia::WinitSkiaRenderer::new_opengl,
+            Some("skia-opengl") => renderer::skia::WinitSkiaRenderer::new_opengl_suspended,
             #[cfg(all(enable_skia_renderer, not(target_os = "android")))]
-            Some("skia-software") => renderer::skia::WinitSkiaRenderer::new_software,
+            Some("skia-software") => renderer::skia::WinitSkiaRenderer::new_software_suspended,
             #[cfg(feature = "renderer-software")]
-            Some("sw") | Some("software") => renderer::sw::WinitSoftwareRenderer::new,
+            Some("sw") | Some("software") => renderer::sw::WinitSoftwareRenderer::new_suspended,
             None => default_renderer_factory,
             Some(renderer_name) => {
                 eprintln!(
@@ -268,8 +268,11 @@ impl i_slint_core::platform::Platform for Backend {
             builder = hook(builder);
         }
 
-        let adapter = (self.renderer_factory_fn)(builder.clone())
-            .map(|(renderer, window)| {
+        let renderer = (self.renderer_factory_fn)();
+
+        let adapter = renderer
+            .resume(builder.clone())
+            .map(|window| {
                 WinitWindowAdapter::new(
                     renderer,
                     window,
@@ -380,28 +383,26 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
 
 impl WinitWindowAccessor for i_slint_core::api::Window {
     fn has_winit_window(&self) -> bool {
-        winit_window_rc_for_window(self).is_some()
+        i_slint_core::window::WindowInner::from_pub(self)
+            .window_adapter()
+            .internal(i_slint_core::InternalToken)
+            .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
+            .map_or(false, |adapter| adapter.winit_window().is_some())
     }
 
     fn with_winit_window<T>(
         &self,
         callback: impl FnOnce(&winit::window::Window) -> T,
     ) -> Option<T> {
-        winit_window_rc_for_window(self).as_ref().map(|w| callback(w))
+        i_slint_core::window::WindowInner::from_pub(self)
+            .window_adapter()
+            .internal(i_slint_core::InternalToken)
+            .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
+            .and_then(|adapter| adapter.winit_window().map(|w| callback(&w)))
     }
 }
 
 impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
-
-fn winit_window_rc_for_window(
-    window: &i_slint_core::api::Window,
-) -> Option<Rc<winit::window::Window>> {
-    i_slint_core::window::WindowInner::from_pub(window)
-        .window_adapter()
-        .internal(i_slint_core::InternalToken)
-        .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
-        .map(|adapter| adapter.winit_window())
-}
 
 #[cfg(test)]
 mod testui {
