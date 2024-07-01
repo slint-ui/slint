@@ -11,12 +11,14 @@ component Shared {
     in property <string> n;
     out property <S> out: {  val: G.global-property + " " + n };
     for xx in 2 : Rectangle {}
+    out property <bool> test: false;
 }
 
 // This component is both exported and Used
 export component Used inherits Window {
     in-out property <int> name;
     for xx in 4 : Rectangle { }
+    out property <bool> test: true;
 }
 
 export component FirstTest inherits Window {
@@ -29,15 +31,16 @@ export component FirstTest inherits Window {
 
     Used {}
 
-    // FIXME! as of now, only the last component's test property is evaluated by the test framework
-    out property <bool> test: false;
+    out property <bool> test: true;
 }
 
 export component Z inherits Window {
-    out property <bool> test: false;
+    out property <bool> test: true;
 }
 
-export component NotAWindow {}
+export component NotAWindow {
+    out property <bool> test: false;
+}
 
 
 
@@ -51,9 +54,6 @@ export component SecondTest inherits Window {
 
     out property <bool> test: out == "Hello Sim";
 }
-
-
-
 
 
 /*
