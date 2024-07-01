@@ -1,4 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+
 # Positioning and Layout of Elements
 
 All visual elements are shown in a window. The `x` and `y` properties store
@@ -64,11 +65,11 @@ configured with. For example, on a modern High-DPI display the device pixel rati
 so every logical pixel occupies 2 physical pixels. On an older screen the user
 interface scales without any adaptations.
 
-Additionally, the `width` and `height` properties can also be specified as a `%` percentage
+You can also specify the `width` and `height` properties as a `%` percentage
 unit, which applies relative to the parent element. For example a `width: 50%` means half
 of the parent's `width`.
 
-The default values for `x` and `y` properties are such that elements are centered within their
+The default values for `x` and `y` properties center elements within their
 parent.
 
 The default values for `width` and `height` depend on the type of element. Some elements are sized
@@ -81,19 +82,19 @@ don't have content and default to fill their parent element when they do not hav
 -   `Flickable`
 
 Layouts are also defaulting to fill the parent, regardless of their own preferred size.
-
+<!-- Without base? -->
 Other elements (including custom ones without base) default to using their preferred size.
 
 ### Preferred size
 
-The preferred size of elements can be specified with the `preferred-width` and `preferred-height` properties.
+You can specify the preferred size of elements with the `preferred-width` and `preferred-height` properties.
 
 When not explicitly set, the preferred size depends on the children, and is the preferred size of the
 child that has the bigger preferred size, whose `x` and `y` property are not set.
 The preferred size is therefore computed from the child to the parent, just like other constraints (maximum and minimum size), unless explicitly overwritten.
 
 A special case is to set the preferred size to be the size of the parent using `100%` as value.
-For example,this component will use the size of the parent by default:
+For example, this component uses the size of the parent by default:
 
 ```slint
 export component MyComponent {
@@ -146,7 +147,7 @@ All layout elements have the following properties in common:
 -   `padding`: This specifies the padding within the layout, the space between the elements and the border of the
     layout.
 
-For more fine grained control, the `padding` property can be split into properties for each side of the layout:
+For more fine grained control, you can split the `padding` property into properties for each side of the layout:
 
 -   `padding-left`
 -   `padding-right`
@@ -174,7 +175,7 @@ export component Example inherits Window {
 }
 ```
 
-The example below, on the other hand, specifies that the rectangles shall align
+The example below, on the other hand, specifies that the rectangles align
 to the start of the layout (the visual left). That results in no stretching but instead
 the rectangles retain their specified minimum width:
 
@@ -234,7 +235,7 @@ the minimum size of an inner layout, whatever is bigger.
 The elements are placed according to the alignment. The size of elements
 is bigger than the minimum size only if the `alignment` property of the layout is `LayoutAlignment.stretch` (the default)
 
-This example show the different alignment possibilities
+This example show the different alignment possibilities:
 
 ```slint
 export component Example inherits Window {
@@ -294,7 +295,7 @@ then the extra space is shared amongst element proportional to their stretch fac
 `horizontal-stretch` and `vertical-stretch` properties. The stretched size won't exceed the maximum size.
 The stretch factor is a floating point number. The elements that have a default content size usually defaults to 0
 while elements that default to the size of their parents defaults to 1.
-An element of a stretch factor of 0 will keep its minimum size, unless all the other elements also have a stretch
+An element of a stretch factor of 0 keep its minimum size, unless all the other elements also have a stretch
 factor of 0 or reached their maximum size.
 
 Examples:
@@ -333,7 +334,7 @@ export component Example inherits Window {
 
 ### `for`
 
-The VerticalLayout and Horizontal layout may also contain `for` or `if` expressions:
+The VerticalLayout and HorizontalLayout can also contain `for` or `if` expressions:
 
 ```slint
 export component Example inherits Window {
@@ -353,7 +354,7 @@ export component Example inherits Window {
 
 The GridLayout lays the element in a grid.
 Each element gains the properties `row`, `col`, `rowspan`, and `colspan`.
-One can either use a `Row` sub-element, or set the `row` property explicitly.
+You can either use a `Row` sub-element, or set the `row` property explicitly.
 These properties must be statically known at compile time, so it's impossible
 to use arithmetic or depend on properties. As of now, the use of `for` or `if`
 isn't allowed in a grid layout.
@@ -378,7 +379,7 @@ export component Foo inherits Window {
 }
 ```
 
-This example use the `col` and `row` property
+This example use the `col` and `row` property:
 
 ```slint
 export component Foo inherits Window {
