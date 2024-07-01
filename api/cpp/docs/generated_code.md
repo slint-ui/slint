@@ -26,6 +26,8 @@ These classes have the same name as the component will have the following public
   * `invoke_<callback_name>` function which takes the callback argument as parameter and call the callback.
   * `on_<callback_name>` function which takes a functor as an argument and sets the callback handler
      for this callback. the functor must accept the type parameter of the callback
+* For each public function declared in the root component, an `invoke_<function_name>` function which
+  takes the function arguments as parameters and calls the function.
 * A `global` function to access exported global singletons.
 
 The `create` function creates a new instance of the component, which is wrapped
@@ -48,10 +50,13 @@ Let's assume we've this code in our `.slint` file:
 ```slint,no-preview
 export component SampleComponent inherits Window {
     in-out property<int> counter;
+    // note that dashes will be replaced by underscores in the generated code
     in-out property<string> user_name;
     callback hello;
+    public function do-something(d: duration) -> bool { return true; } 
     // ... maybe more elements here
 }
+
 ```
 
 This generates a header with the following contents (edited for documentation purpose)
@@ -93,6 +98,9 @@ public:
     inline void invoke_hello () const;
     /// Sets the callback handler for the `hello` callback.
     template<typename Functor> inline void on_hello (Functor && callback_handler) const;
+
+    /// Call this function to call the `do-something` function.
+    inline bool invoke_do_something (std::int64_t d) const;
 
     /// Returns a reference to a global singleton that's exported.
     ///
