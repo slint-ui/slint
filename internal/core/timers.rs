@@ -182,7 +182,8 @@ impl Drop for Timer {
     fn drop(&mut self) {
         if let Some(id) = self.id() {
             let _ = CURRENT_TIMERS.try_with(|timers| {
-                timers.borrow_mut().remove_timer(id);
+                let callback = timers.borrow_mut().remove_timer(id);
+                drop(callback);
             });
         }
     }
@@ -381,13 +382,14 @@ impl TimerList {
         self.timers[new_active_timer.id].running = true;
     }
 
-    fn remove_timer(&mut self, id: usize) {
+    fn remove_timer(&mut self, id: usize) -> CallbackVariant {
         self.deactivate_timer(id);
         let t = &mut self.timers[id];
         if t.being_activated {
             t.removed = true;
+            CallbackVariant::Empty
         } else {
-            self.timers.remove(id);
+            self.timers.remove(id).callback
         }
     }
 
@@ -881,3 +883,47 @@ assert!(!timer.running());
  */
 #[cfg(doctest)]
 const _SINGLESHOT_START: () = ();
+
+/**
+ * Test that it's possible to start a new timer from within Drop of a timer's closure.
+ * This may happen when a timer's closure is dropped, that closure holds the last reference
+ * to a component, that component is destroyed, and the accesskit code schedules a reload_tree
+ * via a single shot.
+```rust
+i_slint_backend_testing::init_no_event_loop();
+use slint::{Timer, TimerMode};
+use std::{rc::Rc, cell::Cell, time::Duration};
+#[derive(Default)]
+struct CapturedInClosure {
+    last_fired: Option<Rc<Cell<bool>>>,
+}
+impl Drop for CapturedInClosure {
+    fn drop(&mut self) {
+        if let Some(last_fired) = self.last_fired.as_ref().cloned() {
+            Timer::single_shot(Duration::from_millis(100), move || last_fired.set(true));
+        }
+    }
+}
+
+let last_fired = Rc::new(Cell::new(false));
+
+let mut cap_in_clos = CapturedInClosure::default();
+
+let timer_to_stop = Timer::default();
+timer_to_stop.start(TimerMode::Repeated, Duration::from_millis(100), {
+    let last_fired = last_fired.clone();
+    move || {
+    cap_in_clos.last_fired = Some(last_fired.clone());
+}});
+
+assert_eq!(last_fired.get(), false);
+i_slint_core::tests::slint_mock_elapsed_time(110);
+assert_eq!(last_fired.get(), false);
+drop(timer_to_stop);
+
+i_slint_core::tests::slint_mock_elapsed_time(110);
+assert_eq!(last_fired.get(), true);
+```
+ */
+#[cfg(doctest)]
+const _TIMER_CLOSURE_DROP_STARTS_NEW_TIMER: () = ();
