@@ -7,14 +7,14 @@ import gc
 
 
 def test_callback_gc():
-    compiler = native.ComponentCompiler()
+    compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""
         export component Test {
             out property <string> test-value: "Ok";
             callback test-callback(string) -> string;
         }
-    """, "")
+    """, "").component("Test")
     assert compdef != None
 
     instance = compdef.create()

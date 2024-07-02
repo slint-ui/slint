@@ -20,12 +20,12 @@ use crate::errors::{
 use crate::value::PyValue;
 
 #[pyclass(unsendable)]
-pub struct ComponentCompiler {
-    compiler: slint_interpreter::ComponentCompiler,
+pub struct Compiler {
+    compiler: slint_interpreter::Compiler,
 }
 
 #[pymethods]
-impl ComponentCompiler {
+impl Compiler {
     #[new]
     fn py_new() -> PyResult<Self> {
         Ok(Self { compiler: Default::default() })
@@ -61,28 +61,19 @@ impl ComponentCompiler {
         self.compiler.set_library_paths(libraries)
     }
 
-    #[getter]
-    fn get_diagnostics(&self) -> Vec<PyDiagnostic> {
-        self.compiler.diagnostics().iter().map(|diag| PyDiagnostic(diag.clone())).collect()
-    }
-
     #[setter]
     fn set_translation_domain(&mut self, domain: String) {
         self.compiler.set_translation_domain(domain)
     }
 
-    fn build_from_path(&mut self, path: PathBuf) -> Option<ComponentDefinition> {
-        spin_on::spin_on(self.compiler.build_from_path(path))
-            .map(|definition| ComponentDefinition { definition })
+    fn build_from_path(&mut self, path: PathBuf) -> CompilationResult {
+        CompilationResult { result: spin_on::spin_on(self.compiler.build_from_path(path)) }
     }
 
-    fn build_from_source(
-        &mut self,
-        source_code: String,
-        path: PathBuf,
-    ) -> Option<ComponentDefinition> {
-        spin_on::spin_on(self.compiler.build_from_source(source_code, path))
-            .map(|definition| ComponentDefinition { definition })
+    fn build_from_source(&mut self, source_code: String, path: PathBuf) -> CompilationResult {
+        CompilationResult {
+            result: spin_on::spin_on(self.compiler.build_from_source(source_code, path)),
+        }
     }
 }
 
@@ -130,6 +121,28 @@ impl PyDiagnostic {
 pub enum PyDiagnosticLevel {
     Error,
     Warning,
+}
+
+#[pyclass(unsendable)]
+pub struct CompilationResult {
+    result: slint_interpreter::CompilationResult,
+}
+
+#[pymethods]
+impl CompilationResult {
+    #[getter]
+    fn component_names(&self) -> Vec<String> {
+        self.result.component_names().map(ToString::to_string).collect()
+    }
+
+    fn component(&self, name: &str) -> Option<ComponentDefinition> {
+        self.result.component(name).map(|definition| ComponentDefinition { definition })
+    }
+
+    #[getter]
+    fn get_diagnostics(&self) -> Vec<PyDiagnostic> {
+        self.result.diagnostics().map(|diag| PyDiagnostic(diag.clone())).collect()
+    }
 }
 
 #[pyclass(unsendable)]

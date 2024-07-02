@@ -188,7 +188,7 @@ def _build_class(compdef):
 
 
 def load_file(path, quiet=False, style=None, include_paths=None, library_paths=None, translation_domain=None):
-    compiler = native.ComponentCompiler()
+    compiler = native.Compiler()
 
     if style is not None:
         compiler.style = style
@@ -199,9 +199,9 @@ def load_file(path, quiet=False, style=None, include_paths=None, library_paths=N
     if translation_domain is not None:
         compiler.translation_domain = translation_domain
 
-    compdef = compiler.build_from_path(path)
+    result = compiler.build_from_path(path)
 
-    diagnostics = compiler.diagnostics
+    diagnostics = result.diagnostics
     if diagnostics:
         if not quiet:
             for diag in diagnostics:
@@ -213,10 +213,11 @@ def load_file(path, quiet=False, style=None, include_paths=None, library_paths=N
             if errors:
                 raise CompileError(f"Could not compile {path}", diagnostics)
 
-    wrapper_class = _build_class(compdef)
-
     module = types.SimpleNamespace()
-    setattr(module, compdef.name, wrapper_class)
+    for comp_name in result.component_names:
+        wrapper_class = _build_class(result.component(comp_name))
+
+        setattr(module, comp_name, wrapper_class)
 
     return module
 

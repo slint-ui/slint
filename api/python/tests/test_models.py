@@ -6,7 +6,7 @@ from slint import models as models
 
 
 def test_model_notify():
-    compiler = native.ComponentCompiler()
+    compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""
   export component App {
@@ -28,7 +28,7 @@ def test_model_notify():
     }
 
   }
-    """, "")
+    """, "").component("App")
     assert compdef != None
 
     instance = compdef.create()
@@ -52,13 +52,13 @@ def test_model_notify():
 
 
 def test_model_from_list():
-    compiler = native.ComponentCompiler()
+    compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""
   export component App {
     in-out property<[int]> data: [1, 2, 3, 4];
   }
-    """, "")
+    """, "").component("App")
     assert compdef != None
 
     instance = compdef.create()
@@ -97,13 +97,13 @@ def test_python_model_iterable():
 
 
 def test_rust_model_sequence():
-    compiler = native.ComponentCompiler()
+    compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""
   export component App {
     in-out property<[int]> data: [1, 2, 3, 4, 5];
   }
-    """, "")
+    """, "").component("App")
     assert compdef != None
 
     instance = compdef.create()
@@ -117,7 +117,7 @@ def test_rust_model_sequence():
 
 
 def test_model_writeback():
-    compiler = native.ComponentCompiler()
+    compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""
   export component App {
@@ -131,7 +131,7 @@ def test_model_writeback():
     }
 
   }
-    """, "")
+    """, "").component("App")
     assert compdef != None
 
     instance = compdef.create()

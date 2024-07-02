@@ -112,7 +112,7 @@ The exported component is exposed as a Python class. To access this class, you h
 options:
 
 1. Call `slint.load_file("app.slint")`. The returned object is a [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace),
-   that provides the `MainWindow` class:
+   that provides the `MainWindow` class as well as any other explicitly exported component that inherits `Window`:
    ```python
    import slint
    components = slint.load_file("app.slint")
@@ -128,7 +128,8 @@ options:
 
    Any attribute lookup in `slint.loader` is searched for in `sys.path`. If a directory with the name exists, it is returned as a loader object, and subsequent
    attribute lookups follow the same logic. If the name matches a file with the `.slint` extension, it is automatically loaded with `load_file` and the
-   [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace) is returned.
+   [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace) is returned, which contains classes for each exported component that
+   inherits `Window`.
 
 ### Accessing Properties
 

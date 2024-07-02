@@ -3,7 +3,7 @@
 
 mod image;
 mod interpreter;
-use interpreter::{ComponentCompiler, PyDiagnostic, PyDiagnosticLevel, PyValueType};
+use interpreter::{CompilationResult, Compiler, PyDiagnostic, PyDiagnosticLevel, PyValueType};
 mod brush;
 mod errors;
 mod models;
@@ -30,7 +30,8 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     })
     .map_err(|e| errors::PyPlatformError(e))?;
 
-    m.add_class::<ComponentCompiler>()?;
+    m.add_class::<Compiler>()?;
+    m.add_class::<CompilationResult>()?;
     m.add_class::<image::PyImage>()?;
     m.add_class::<PyValueType>()?;
     m.add_class::<PyDiagnosticLevel>()?;
