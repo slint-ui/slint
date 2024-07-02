@@ -20,11 +20,11 @@ jobs:
             CARGO_INCREMENTAL: false
         strategy:
             matrix:
-                os: [ubuntu-20.04, macOS-11, windows-2022]
+                os: [ubuntu-20.04, macOS-12, windows-2022]
                 include:
                     - os: ubuntu-20.04
                       package_suffix: linux
-                    - os: macOS-11
+                    - os: macOS-12
                       package_suffix: macos
                     - os: windows-2022
                       package_suffix: windows
