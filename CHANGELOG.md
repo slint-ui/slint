@@ -40,6 +40,7 @@ All notable changes to this project are documented in this file.
  - Added missing implementation of the `Error` for some of the errors
  - allow all clippy warnings in generated code
  - Add `slint::Image::image_buffer()` getter to obtain pixels for a `slint::Image` if available.
+ - Fix panic in `slint::Timer` when a new timer is started while stopping another.
 
 ### Node API
 
