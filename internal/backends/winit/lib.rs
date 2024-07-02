@@ -379,7 +379,7 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// [`winit::event::WindowEvent`]. The return value of the callback specifies whether Slint should handle this event.
     fn on_winit_window_event(
         &self,
-        callback: impl FnMut(&winit::event::WindowEvent) -> bool + Send + 'static
+        callback: impl FnMut(&winit::event::WindowEvent) -> bool + Send + 'static,
     );
 }
 
@@ -405,7 +405,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
 
     fn on_winit_window_event(
         &self,
-        mut callback: impl FnMut(&winit::event::WindowEvent) -> bool + Send + 'static
+        mut callback: impl FnMut(&winit::event::WindowEvent) -> bool + Send + 'static,
     ) {
         i_slint_core::window::WindowInner::from_pub(&self)
             .window_adapter()
