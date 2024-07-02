@@ -98,7 +98,7 @@ impl RenderingRotation {
     }
 }
 
-#[cfg(any(feature = "renderer-skia-vulkan", feature = "renderer-software"))]
+#[cfg(any(feature = "renderer-skia-vulkan", feature = "renderer-software", feature = "renderer-skia"))]
 pub(crate) mod timeranimations {
     use i_slint_core::platform::PlatformError;
     use std::cell::Cell;
