@@ -183,6 +183,7 @@ impl Drop for Timer {
         if let Some(id) = self.id() {
             let _ = CURRENT_TIMERS.try_with(|timers| {
                 let callback = timers.borrow_mut().remove_timer(id);
+                // drop the callback without having CURRENT_TIMERS borrowed
                 drop(callback);
             });
         }
