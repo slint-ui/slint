@@ -263,9 +263,10 @@ impl WinitWindowAdapter {
     /// Creates a new reference-counted instance.
     pub(crate) fn new(
         renderer: Box<dyn WinitCompatibleRenderer>,
-        winit_window: Rc<winit::window::Window>,
+        window_attributes: winit::window::WindowAttributes,
         #[cfg(enable_accesskit)] proxy: EventLoopProxy<SlintUserEvent>,
-    ) -> Rc<Self> {
+    ) -> Result<Rc<Self>, PlatformError> {
+        let winit_window = renderer.resume(window_attributes)?;
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
             self_weak: self_weak.clone(),
@@ -306,7 +307,7 @@ impl WinitWindowAdapter {
             .unwrap_or_else(|| winit_window.scale_factor() as f32);
         self_rc.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
 
-        self_rc
+        Ok(self_rc)
     }
 
     fn renderer(&self) -> &dyn WinitCompatibleRenderer {
