@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
  - Gettext translation: clear internal gettext cache when changing translations at runtime
  - Winit backend: Fixed setting the size with set_size before showing the window (#6489)
  - Winit backend: upgraded to winit 0.30, accesskit 0.22, glutin
+ - Winit backend: added winit window event filter
  - Qt backend: fix PopupWindow exiting the application with recent Qt6
  - LinuxKMS backend: software renderer support
  - Software renderer: added API to rotate the buffer by multiple of 90 degrees.
