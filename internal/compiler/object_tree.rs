@@ -248,9 +248,9 @@ impl Document {
         self.exports
             .iter()
             .filter_map(|e| Some((&e.0.name_ident, e.1.as_ref().left()?)))
+            .filter(|(_, c)| !c.is_global())
             .max_by_key(|(n, _)| n.text_range().end())
             .map(|(_, c)| c.clone())
-            .or_else(|| self.exported_roots().last())
     }
 
     /// visit all root and used component (including globals)

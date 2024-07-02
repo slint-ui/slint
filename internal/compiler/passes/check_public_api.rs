@@ -60,13 +60,26 @@ pub fn check_public_api(
             }
         }),
         // Only keep the component with the given name
-        ComponentsToGenerate::ComponentWithName(name) => doc.exports.retain(|export| {
-            if let Either::Left(c) = &export.1 {
-                c.is_global() || &c.id == name
-            } else {
-                true
+        ComponentsToGenerate::ComponentWithName(name) => {
+            doc.exports.retain(|export| {
+                if let Either::Left(c) = &export.1 {
+                    c.is_global() || &c.id == name
+                } else {
+                    true
+                }
+            });
+            if doc.last_exported_component().is_none() {
+                // We maybe requested to preview a non-exported component.
+                if let Ok(ElementType::Component(c)) = doc.local_registry.lookup_element(&name) {
+                    if let Some(name_ident) = c.node.clone() {
+                        doc.exports.add_reexports(
+                            [(ExportedName{ name: name.clone(), name_ident }, Either::Left(c))],
+                            diag,
+                        );
+                    }
+                }
             }
-        }),
+        },
     }
 
     for c in doc.exported_roots() {
