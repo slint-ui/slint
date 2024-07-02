@@ -35,9 +35,14 @@ jobs:
                     - os: windows-2022
                       rust_version: "beta"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
+                    - os: ubuntu-22.04
+                      rust_version: "nightly"
                 exclude:
                     - os: macos-12
                       rust_version: "1.73"
+                    # We already test 1.73 and nightly. Stable is in the middle and already covered by other jobs
+                    - os: ubuntu-22.04
+                      rust_version: "stable"
 
         runs-on: ${{ matrix.os }}
 
@@ -221,7 +226,13 @@ jobs:
             SLINT_EMIT_DEBUG_INFO: 1
         strategy:
             matrix:
-                os: [ubuntu-22.04, macos-12, windows-2022]
+                include:
+                    - os: macos-12
+                      rust_version: "1.73"
+                    - os: windows-2022
+                      rust_version: "nightly"
+                    - os: ubuntu-22.04
+                      rust_version: "stable"
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
