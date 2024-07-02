@@ -610,8 +610,8 @@ impl WindowAdapter for WinitWindowAdapter {
                 && !self.has_explicit_size.get()
                 && preferred_size.width > 0 as Coord
                 && preferred_size.height > 0 as Coord
+                // Don't set the preferred size as the user may have resized the window
                 && !recreating_window
-            // Don't set the preferred size as the user may have resized the window
             {
                 // use the Slint's window Scale factor to take in account the override
                 let size = preferred_size.to_physical::<u32>(scale_factor);
