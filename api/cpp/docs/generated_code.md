@@ -53,7 +53,7 @@ export component SampleComponent inherits Window {
     // note that dashes will be replaced by underscores in the generated code
     in-out property<string> user_name;
     callback hello;
-    public function do-something(d: duration) -> bool { return true; } 
+    public function do-something(x: int) -> bool { return x > 0; } 
     // ... maybe more elements here
 }
 
@@ -100,7 +100,7 @@ public:
     template<typename Functor> inline void on_hello (Functor && callback_handler) const;
 
     /// Call this function to call the `do-something` function.
-    inline bool invoke_do_something (std::int64_t d) const;
+    inline bool invoke_do_something (int x) const;
 
     /// Returns a reference to a global singleton that's exported.
     ///

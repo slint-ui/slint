@@ -32,7 +32,7 @@ pub mod generated_code {
     ///     // note that dashes will be replaced by underscores in the generated code
     ///     in-out property<string> user-name;
     ///     callback hello;
-    ///     public function do-something(d: duration) -> bool { return true; } 
+    ///     public function do-something(x: int) -> bool { return x > 0; }
     ///     // ... maybe more elements here
     /// }
     /// ```
@@ -84,7 +84,7 @@ pub mod generated_code {
         /// For each public function declared at the root of the component, a function to call
         /// that function is generated. This is the function that calls the `do-something` function
         /// declared in the `.slint` design markup.
-        pub fn invoke_do_something(&self, d: i64) -> bool {
+        pub fn invoke_do_something(&self, d: i32) -> bool {
             unimplemented!()
         }
     }
