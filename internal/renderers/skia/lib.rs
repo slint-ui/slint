@@ -209,6 +209,19 @@ impl SkiaRenderer {
         drop(surface);
     }
 
+    /// Suspends the renderer by freeing all graphics related resources as well as the underlying
+    /// rendering surface. Call [`Self::set_window_handle()`] to re-associate the renderer with a new
+    /// window surface for subsequent rendering.
+    pub fn suspend(&self) -> Result<(), PlatformError> {
+        self.image_cache.clear_all();
+        self.path_cache.clear_all();
+        // Destroy the old surface before allocating the new one, to work around
+        // the vivante drivers using zwp_linux_explicit_synchronization_v1 and
+        // trying to create a second synchronization object and that's not allowed.
+        self.clear_surface();
+        Ok(())
+    }
+
     /// Reset the surface to the window given the window handle
     pub fn set_window_handle(
         &self,
@@ -217,12 +230,8 @@ impl SkiaRenderer {
         size: PhysicalWindowSize,
         scale_factor: f32,
     ) -> Result<(), PlatformError> {
-        self.image_cache.clear_all();
-        self.path_cache.clear_all();
-        // Destroy the old surface before allocating the new one, to work around
-        // the vivante drivers using zwp_linux_explicit_synchronization_v1 and
-        // trying to create a second synchronization object and that's not allowed.
-        self.clear_surface();
+        // just in case
+        self.suspend()?;
         let surface = (self.surface_factory)(window_handle, display_handle, size)?;
         surface.set_scale_factor(scale_factor);
         self.set_surface(surface);

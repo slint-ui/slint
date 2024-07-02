@@ -341,6 +341,16 @@ impl core::fmt::Display for SetRenderingNotifierError {
 #[cfg(feature = "std")]
 impl std::error::Error for SetRenderingNotifierError {}
 
+#[cfg(feature = "raw-window-handle-06")]
+#[derive(Clone)]
+enum WindowHandleInner {
+    HandleByAdapter(alloc::rc::Rc<dyn WindowAdapter>),
+    HandleByRcRWH {
+        window_handle_provider: alloc::rc::Rc<dyn raw_window_handle_06::HasWindowHandle>,
+        display_handle_provider: alloc::rc::Rc<dyn raw_window_handle_06::HasDisplayHandle>,
+    },
+}
+
 /// This struct represents a persistent handle to a window and implements the
 /// [`raw_window_handle_06::HasWindowHandle`] and [`raw_window_handle_06::HasDisplayHandle`]
 /// traits for accessing exposing raw window and display handles.
@@ -348,7 +358,7 @@ impl std::error::Error for SetRenderingNotifierError {}
 #[cfg(feature = "raw-window-handle-06")]
 #[derive(Clone)]
 pub struct WindowHandle {
-    adapter: alloc::rc::Rc<dyn WindowAdapter>,
+    inner: WindowHandleInner,
 }
 
 #[cfg(feature = "raw-window-handle-06")]
@@ -356,7 +366,12 @@ impl raw_window_handle_06::HasWindowHandle for WindowHandle {
     fn window_handle<'a>(
         &'a self,
     ) -> Result<raw_window_handle_06::WindowHandle<'a>, raw_window_handle_06::HandleError> {
-        self.adapter.window_handle_06()
+        match &self.inner {
+            WindowHandleInner::HandleByAdapter(adapter) => adapter.window_handle_06(),
+            WindowHandleInner::HandleByRcRWH { window_handle_provider, .. } => {
+                window_handle_provider.window_handle()
+            }
+        }
     }
 }
 
@@ -365,7 +380,12 @@ impl raw_window_handle_06::HasDisplayHandle for WindowHandle {
     fn display_handle<'a>(
         &'a self,
     ) -> Result<raw_window_handle_06::DisplayHandle<'a>, raw_window_handle_06::HandleError> {
-        self.adapter.display_handle_06()
+        match &self.inner {
+            WindowHandleInner::HandleByAdapter(adapter) => adapter.display_handle_06(),
+            WindowHandleInner::HandleByRcRWH { display_handle_provider, .. } => {
+                display_handle_provider.display_handle()
+            }
+        }
     }
 }
 
@@ -621,7 +641,19 @@ impl Window {
     /// and display handles. This function is only accessible if you enable the `raw-window-handle-06` crate feature.
     #[cfg(feature = "raw-window-handle-06")]
     pub fn window_handle(&self) -> WindowHandle {
-        WindowHandle { adapter: self.0.window_adapter() }
+        let adapter = self.0.window_adapter();
+        if let Some((window_handle_provider, display_handle_provider)) =
+            adapter.window_handle_06_rc().ok().zip(adapter.display_handle_06_rc().ok())
+        {
+            WindowHandle {
+                inner: WindowHandleInner::HandleByRcRWH {
+                    window_handle_provider,
+                    display_handle_provider,
+                },
+            }
+        } else {
+            WindowHandle { inner: WindowHandleInner::HandleByAdapter(adapter) }
+        }
     }
 
     /// Returns an image buffer with the rendered contents.
