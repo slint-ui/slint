@@ -41,8 +41,8 @@ test('get/set style', (t) => {
 test('get/set build from source', (t) => {
   let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`export component App {}`, "");
-  t.not(definition, null);
-  t.is(definition!.name, "App");
+  t.not(definition.App, null);
+  t.is(definition.App!.name, "App");
 })
 
 test('constructor error ComponentDefinition and ComponentInstance', (t) => {
@@ -67,9 +67,9 @@ test('properties ComponentDefinition', (t) => {
     in-out property <string> string-property;
     in-out property <Struct> struct-property;
   }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let properties = definition!.properties;
+  let properties = definition.App!.properties;
   t.is(properties.length, 9);
 
   properties.sort((a, b) => {
@@ -114,9 +114,9 @@ test('callbacks ComponentDefinition', (t) => {
     callback first-callback();
     callback second-callback();
   }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let callbacks = definition!.callbacks;
+  let callbacks = definition.App!.callbacks;
   t.is(callbacks.length, 2);
 
   callbacks.sort();
@@ -144,11 +144,11 @@ test('globalProperties ComponentDefinition', (t) => {
   export component App {
   }`, "");
 
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  t.is(definition!.globalProperties("NonExistent"), null);
+  t.is(definition.App!.globalProperties("NonExistent"), null);
 
-  let properties = definition!.globalProperties("TestGlobal");
+  let properties = definition.App!.globalProperties("TestGlobal");
   t.not(properties, null);
 
   t.is(properties!.length, 9);
@@ -197,11 +197,11 @@ test('globalCallbacks ComponentDefinition', (t) => {
   }
   export component App {
   }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  t.is(definition!.globalCallbacks("NonExistent"), null);
+  t.is(definition.App!.globalCallbacks("NonExistent"), null);
 
-  let callbacks = definition!.globalCallbacks("TestGlobal");
+  let callbacks = definition.App!.globalCallbacks("TestGlobal");
   t.not(callbacks, null);
   t.is(callbacks!.length, 2);
 
@@ -213,9 +213,9 @@ test('globalCallbacks ComponentDefinition', (t) => {
 
 test('compiler diagnostics', (t) => {
   let compiler = new private_api.ComponentCompiler;
-  t.is(compiler.buildFromSource(`export component App {
+  t.deepEqual(compiler.buildFromSource(`export component App {
     garbage
-  }`, "testsource.slint"), null);
+  }`, "testsource.slint"), {});
 
   const diags = compiler.diagnostics;
   t.is(diags.length, 1);
@@ -234,9 +234,9 @@ test('non-existent properties and callbacks', (t) => {
 
   export component App {
   }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   const prop_err = t.throws(() => {

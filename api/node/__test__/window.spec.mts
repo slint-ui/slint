@@ -24,9 +24,9 @@ test('Window show / hide', (t) => {
         width: 300px;
         height: 300px;
     }`, "");
-    t.not(definition, null);
+    t.not(definition.App, null);
 
-    let instance = definition!.create();
+    let instance = definition.App!.create();
     t.not(instance, null);
 
     let window = instance!.window();

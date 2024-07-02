@@ -100,7 +100,22 @@ struct Shared {};
 struct NotAWindow {};
 ```
 
+```js
+let instance1 = new slint.FirstTest();
+instance1.G.global_property = "Hallo";
 
+let instance2 = new slint.SecondTest();
+let instance3 = new slint.SecondTest();
+instance3.G.global_property = "Bonjour";
+
+assert.equal(instance1.o, "Hallo Oli");
+assert.equal(instance2.out, "Hello Sim");
+assert.equal(instance3.out, "Bonjour Sim");
+
+assert.equal(typeof slint.Shared, "undefined");
+assert.equal(typeof slint.NotAWindow, "undefined");
+assert.equal(typeof slint.G, "undefined");
+```
 
 
 

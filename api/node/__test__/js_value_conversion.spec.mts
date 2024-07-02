@@ -14,9 +14,9 @@ const dirname = path.dirname(filename);
 test('get/set string properties', (t) => {
   let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`export component App { in-out property <string> name: "Initial"; }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   t.is(instance!.getProperty("name"), "Initial");
@@ -50,9 +50,9 @@ test('get/set number properties', (t) => {
     export component App {
         in-out property <float> age: 42;
     }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   t.is(instance!.getProperty("age"), 42);
@@ -84,9 +84,9 @@ test('get/set bool properties', (t) => {
 
   let compiler = new private_api.ComponentCompiler;
   let definition = compiler.buildFromSource(`export component App { in-out property <bool> ready: true; }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   t.is(instance!.getProperty("ready"), true);
@@ -130,9 +130,9 @@ test('set struct properties', (t) => {
     };
   }
   `, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   t.deepEqual(instance!.getProperty("player"), {
@@ -184,9 +184,9 @@ test('get/set image properties', async (t) => {
     in property <image> external-image;
     out property <bool> external-image-ok: self.external-image.width == 64 && self.external-image.height == 64;
   }`, filename);
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   let slintImage = instance!.getProperty("image");
@@ -245,9 +245,9 @@ test('get/set brush properties', (t) => {
     in-out property <color> ref-color;
   }
   `, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   let black = instance!.getProperty("black");
@@ -419,9 +419,9 @@ test('ArrayModel', (t) => {
     in-out property <[string]> string-model;
     in-out property <[Player]> struct-model;
   }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   t.deepEqual(Array.from(new ArrayModel([3, 2, 1])), [3, 2, 1]);
@@ -449,9 +449,9 @@ test("MapModel", (t) => {
     export component App {
       in-out property <[string]> model;
     }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   interface Name {
@@ -514,9 +514,9 @@ test('ArrayModel rowCount', (t) => {
     out property <int> model-length: model.length;
     in-out property <[int]> model;
   }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   let model = new ArrayModel([10, 9, 8]);
@@ -538,9 +538,9 @@ test('ArrayModel rowData/setRowData', (t) => {
       model[row]
     }
   }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   let model = new ArrayModel([10, 9, 8]);
@@ -576,9 +576,9 @@ test('Model notify', (t) => {
     }
 
   }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   let model = new ArrayModel([100, 0]);
@@ -600,9 +600,9 @@ test('model from array', (t) => {
     in-out property <[int]> int-array;
     in-out property <[string]> string-array;
   }`, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
 
   instance!.setProperty("int-array", [10, 9, 8]);
@@ -647,9 +647,9 @@ test('invoke callback', (t) => {
     }
   }
   `, "");
-  t.not(definition, null);
+  t.not(definition.App, null);
 
-  let instance = definition!.create();
+  let instance = definition.App!.create();
   t.not(instance, null);
   let speakTest;
 

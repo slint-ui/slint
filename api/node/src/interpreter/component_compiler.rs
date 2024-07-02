@@ -1,19 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-
 use super::JsComponentDefinition;
 use super::JsDiagnostic;
 use itertools::Itertools;
-use slint_interpreter::ComponentCompiler;
+use slint_interpreter::Compiler;
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 /// ComponentCompiler is the entry point to the Slint interpreter that can be used
 /// to load .slint files or compile them on-the-fly from a string.
 #[napi(js_name = "ComponentCompiler")]
 pub struct JsComponentCompiler {
-    internal: ComponentCompiler,
+    internal: Compiler,
+    diagnostics: Vec<slint_interpreter::Diagnostic>,
 }
 
 #[napi]
@@ -21,7 +21,7 @@ impl JsComponentCompiler {
     /// Returns a new ComponentCompiler.
     #[napi(constructor)]
     pub fn new() -> Self {
-        let mut compiler = ComponentCompiler::default();
+        let mut compiler = Compiler::default();
         let include_paths = match std::env::var_os("SLINT_INCLUDE_PATH") {
             Some(paths) => {
                 std::env::split_paths(&paths).filter(|path| !path.as_os_str().is_empty()).collect()
@@ -39,12 +39,12 @@ impl JsComponentCompiler {
                         .map(|(k, v)| (k.into(), v.into()))
                 })
                 .collect(),
-            None => std::collections::HashMap::new(),
+            None => HashMap::new(),
         };
 
         compiler.set_include_paths(include_paths);
         compiler.set_library_paths(library_paths);
-        Self { internal: compiler }
+        Self { internal: compiler, diagnostics: vec![] }
     }
 
     #[napi(setter)]
@@ -96,15 +96,17 @@ impl JsComponentCompiler {
 
     #[napi(getter)]
     pub fn diagnostics(&self) -> Vec<JsDiagnostic> {
-        self.internal.diagnostics().iter().map(|d| JsDiagnostic::from(d.clone())).collect()
+        self.diagnostics.iter().map(|d| JsDiagnostic::from(d.clone())).collect()
     }
 
     /// Compile a .slint file into a ComponentDefinition
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     #[napi]
-    pub fn build_from_path(&mut self, path: String) -> Option<JsComponentDefinition> {
-        spin_on::spin_on(self.internal.build_from_path(PathBuf::from(path))).map(|d| d.into())
+    pub fn build_from_path(&mut self, path: String) -> HashMap<String, JsComponentDefinition> {
+        let r = spin_on::spin_on(self.internal.build_from_path(PathBuf::from(path)));
+        self.diagnostics = r.diagnostics().collect();
+        r.component_names().filter_map(|n| Some((n.to_owned(), r.component(n)?.into()))).collect()
     }
 
     /// Compile some .slint code into a ComponentDefinition
@@ -113,8 +115,9 @@ impl JsComponentCompiler {
         &mut self,
         source_code: String,
         path: String,
-    ) -> Option<JsComponentDefinition> {
-        spin_on::spin_on(self.internal.build_from_source(source_code, PathBuf::from(path)))
-            .map(|d| d.into())
+    ) -> HashMap<String, JsComponentDefinition> {
+        let r = spin_on::spin_on(self.internal.build_from_source(source_code, PathBuf::from(path)));
+        self.diagnostics = r.diagnostics().collect();
+        r.component_names().filter_map(|n| Some((n.to_owned(), r.component(n)?.into()))).collect()
     }
 }
