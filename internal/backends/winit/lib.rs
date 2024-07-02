@@ -377,7 +377,10 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     ///
     /// The callback is invoked in the `winit` event loop whenever a window event is received with a reference to the
     /// [`winit::event::WindowEvent`]. The return value of the callback specifies whether Slint should handle this event.
-    fn on_winit_window_event(&self, callback: impl FnMut(&winit::event::WindowEvent) -> bool + Send + 'static);
+    fn on_winit_window_event(
+        &self,
+        callback: impl FnMut(&winit::event::WindowEvent) -> bool + Send + 'static
+    );
 }
 
 impl WinitWindowAccessor for i_slint_core::api::Window {
@@ -400,7 +403,10 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
             .and_then(|adapter| adapter.winit_window().map(|w| callback(&w)))
     }
 
-    fn on_winit_window_event(&self, mut callback: impl FnMut(&winit::event::WindowEvent) -> bool + Send + 'static) {
+    fn on_winit_window_event(
+        &self,
+        mut callback: impl FnMut(&winit::event::WindowEvent) -> bool + Send + 'static
+    ) {
         i_slint_core::window::WindowInner::from_pub(&self)
             .window_adapter()
             .internal(i_slint_core::InternalToken)
