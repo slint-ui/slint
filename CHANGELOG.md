@@ -8,17 +8,24 @@ All notable changes to this project are documented in this file.
 ### General
 
  - Skia: Fix quality of control rendering when using `cache-rendering-hint: true;`
- - Several compiler bugfixes (#5260, #5246, #5220, #5259, #5249)
+ - Skia: gradients dithering (PR #5482)
+ - Several compiler bugfixes (#5260, #5246, #5220, #5259, #5249, #5430)
  - Android: fix cursor handle being visible despite inut loses focus (#5233)
  - Android: fix keyboard poping up when application moved to foreground without input focus (#5235)
  - Gettext translation: clear internal gettext cache when changing translations at runtime
- - Interpreter: Track model lenght change when accessing a model out of bounds
- - Interpreter: added API to obtain list of functions
+ - Winit backend: Fixed setting the size with set_size before showing the window (#6489)
+ - Winit backend: upgraded to winit 0.30, accesskit 0.22, glutin
+ - Qt backend: fix PopupWindow exiting the application with recent Qt6
+ - LinuxKMS backend: software renderer support
+ - Software renderer: added API to rotate the buffer by multiple of 90 degrees.
 
 ### Slint Language
 
- - Emit a warning if PopupWindow is in a layout
  - Added `resize-border` to Window
+ - Support several exported component that inherits Window pr Dialog from the main .slint file
+ - Mark exported component that doesn't inherit from Window or Dialog as deprecated
+ - Add the `accessible-placeholder-text` property (PR #5464)
+ - Added `char-wrap` variant to the `TextWrap` enum (PR #5381)
 
 ### Widgets
 
@@ -34,6 +41,7 @@ All notable changes to this project are documented in this file.
 
  - Added `LIBRARY_PATHS` multi-value argument to `slint_target_sources` that takes a list of
    `name=path` items, to allow for the use of component libraries.
+ - Fixed compilation with Rust 1.81 (caused by extra spaces in `strignify!`)
 
 ### Rust API
 
@@ -41,6 +49,13 @@ All notable changes to this project are documented in this file.
  - allow all clippy warnings in generated code
  - Add `slint::Image::image_buffer()` getter to obtain pixels for a `slint::Image` if available.
  - Fix panic in `slint::Timer` when a new timer is started while stopping another.
+ - Added `slint::Window::grab_window()`
+
+### Interpreter
+ - Track model lenght change when accessing a model out of bounds
+ - added API to obtain list of functions
+ - Deprecated `slint_interpreter::ComponentCompiler` in favor of `slint_interpreter::Compiler` which
+   supports compiling multiple components.
 
 ### Node API
 
@@ -48,9 +63,11 @@ All notable changes to this project are documented in this file.
 
 ### LSP and tooling
 
- - Added suggestion for imported globals in expression auto-completion
- - Added ability to rename Component
+ - Added suggestion for imported globals in expression auto-completion.
+ - Added ability to rename components.
  - Design mode: only allow to move element within the same component.
+ - Design mode: Added the property editor pane.
+
 
 ## [1.6.0] - 2024-05-13
 
