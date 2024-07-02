@@ -14,7 +14,6 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 categories = ["gui", "development-tools", "no-std"]
-build = "build.rs"
 
 [lib]
 path = "lib.rs"
@@ -114,3 +113,6 @@ fontdb = { workspace = true, default-features = true }
 serde_json = { workspace = true }
 tiny-skia = "0.11.0"
 tokio = { version = "1.35", features = ["rt-multi-thread"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "cfg(cbindgen)", "cfg(slint_int_coord)"] }

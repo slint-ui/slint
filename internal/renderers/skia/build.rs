@@ -4,13 +4,6 @@
 use cfg_aliases::cfg_aliases;
 
 fn main() {
-    // Remove when cfg_aliases supports this
-    println!("cargo:rustc-check-cfg=cfg(skia_backend_opengl)");
-    println!("cargo:rustc-check-cfg=cfg(skia_backend_metal)");
-    println!("cargo:rustc-check-cfg=cfg(skia_backend_d3d)");
-    println!("cargo:rustc-check-cfg=cfg(skia_backend_vulkan)");
-    println!("cargo:rustc-check-cfg=cfg(skia_backend_software)");
-
     // Setup cfg aliases
     cfg_aliases! {
        skia_backend_opengl: { any(feature = "opengl", not(any(target_os = "macos", target_family = "windows", target_arch = "wasm32"))) },
