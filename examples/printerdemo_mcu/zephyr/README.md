@@ -69,7 +69,7 @@ Before you can run this example, make sure you have done the following:
    pip install -r ~/zephyrproject/zephyr/scripts/requirements.txt
    ```
 
-7. [Install the Zephyr SDK](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#install-the-zephyr-sdk) using version [v0.16.5-1](https://github.com/zephyrproject-rtos/sdk-ng/releases/tag/v0.16.5-1).
+7. [Install the Zephyr SDK](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#install-the-zephyr-sdk) using version [v0.16.8](https://github.com/zephyrproject-rtos/sdk-ng/releases/tag/v0.16.8).
 
 ## Build and Run the Example in the Simulator
 
