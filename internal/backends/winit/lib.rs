@@ -126,7 +126,8 @@ fn try_create_window_with_fallback_renderer(
             attrs.clone(),
             #[cfg(enable_accesskit)]
             _proxy.clone(),
-        ).ok()
+        )
+        .ok()
     })
 }
 
