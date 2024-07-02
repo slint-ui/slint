@@ -299,6 +299,15 @@ impl winit::application::ApplicationHandler<SlintUserEvent> for EventLoopState {
             return;
         }
 
+        if let Some(mut window_event_filter) = window.window_event_filter.take() {
+            let should_handle_event = window_event_filter(&event);
+            window.window_event_filter.set(Some(window_event_filter));
+
+            if !should_handle_event {
+                return;
+            }
+        }
+
         let runtime_window = WindowInner::from_pub(window.window());
         match event {
             WindowEvent::RedrawRequested => {

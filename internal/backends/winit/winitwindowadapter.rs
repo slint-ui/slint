@@ -256,6 +256,8 @@ pub struct WinitWindowAdapter {
     #[cfg(enable_accesskit)]
     pub accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
 
+    pub(crate) window_event_filter: Cell<Option<Box<dyn FnMut(&winit::event::WindowEvent) -> bool + Send>>>,
+
     winit_window_or_none: RefCell<WinitWindowOrNone>,
 }
 
@@ -293,6 +295,7 @@ impl WinitWindowAdapter {
                 proxy,
             )
             .into(),
+            window_event_filter: Cell::new(None)
         });
 
         debug_assert!(!self_rc.renderer.is_suspended());

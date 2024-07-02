@@ -373,6 +373,11 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// and returns `Some(T)`; otherwise `None`.
     fn with_winit_window<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T)
         -> Option<T>;
+    /// Registers a window event filter callback for this Slint window.
+    ///
+    /// The callback is invoked in the `winit` event loop whenever a window event is received with a reference to the
+    /// [`winit::event::WindowEvent`]. The return value of the callback specifies whether Slint should handle this event.
+    fn on_winit_window_event(&self, callback: impl FnMut(&winit::event::WindowEvent) -> bool + Send + 'static);
 }
 
 impl WinitWindowAccessor for i_slint_core::api::Window {
@@ -393,6 +398,16 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
             .internal(i_slint_core::InternalToken)
             .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
             .and_then(|adapter| adapter.winit_window().map(|w| callback(&w)))
+    }
+
+    fn on_winit_window_event(&self, mut callback: impl FnMut(&winit::event::WindowEvent) -> bool + Send + 'static) {
+        i_slint_core::window::WindowInner::from_pub(&self)
+            .window_adapter()
+            .internal(i_slint_core::InternalToken)
+            .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
+            .map(|adapter| {
+                adapter.window_event_filter.set(Some(Box::new(move |event| callback(event))));
+            });
     }
 }
 
