@@ -65,9 +65,9 @@ test.serial('quit event loop on last window closed with callback', async (t) => 
         width: 300px;
         height: 300px;
     }`, "");
-    t.not(definition, null);
+    t.not(definition.App, null);
 
-    let instance = definition!.create() as any;
+    let instance = definition.App!.create() as any;
     t.not(instance, null);
 
     instance.window().show();
