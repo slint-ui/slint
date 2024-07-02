@@ -25,6 +25,7 @@ use corelib::items::{ItemRc, ItemRef};
 
 #[cfg(enable_accesskit)]
 use crate::SlintUserEvent;
+use crate::WinitWindowEventResult;
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
 use corelib::lengths::LogicalLength;
@@ -257,7 +258,7 @@ pub struct WinitWindowAdapter {
     pub accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
 
     pub(crate) window_event_filter:
-        Cell<Option<Box<dyn FnMut(&winit::event::WindowEvent) -> bool + Send>>>,
+        Cell<Option<Box<dyn FnMut(&corelib::api::Window, &winit::event::WindowEvent) -> WinitWindowEventResult>>>,
 
     winit_window_or_none: RefCell<WinitWindowOrNone>,
 }
