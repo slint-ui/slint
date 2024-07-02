@@ -72,9 +72,8 @@ pub fn create_gl_window_with_canvas_id(
     canvas_id: &str,
 ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
     let attrs = WinitWindowAdapter::window_attributes(canvas_id)?;
-    let renderer = renderer::femtovg::GlutinFemtoVGRenderer::new_suspended();
-    let window = renderer.resume(attrs)?;
-    let adapter = WinitWindowAdapter::new(renderer, window);
+    let adapter =
+        WinitWindowAdapter::new(renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(), attrs)?;
     Ok(adapter)
 }
 
@@ -122,14 +121,13 @@ fn try_create_window_with_fallback_renderer(
     ]
     .into_iter()
     .find_map(|renderer_factory| {
-        let renderer = renderer_factory();
-        let winit_window = renderer.resume(attrs.clone()).ok()?;
-        Some(WinitWindowAdapter::new(
-            renderer,
-            winit_window,
+        WinitWindowAdapter::new(
+            renderer_factory(),
+            attrs.clone(),
             #[cfg(enable_accesskit)]
             _proxy.clone(),
-        ))
+        )
+        .ok()
     })
 }
 
@@ -268,22 +266,16 @@ impl i_slint_core::platform::Platform for Backend {
             builder = hook(builder);
         }
 
-        let renderer = (self.renderer_factory_fn)();
-
-        let adapter = renderer
-            .resume(builder.clone())
-            .map(|window| {
-                WinitWindowAdapter::new(
-                    renderer,
-                    window,
-                    #[cfg(enable_accesskit)]
-                    self.proxy.clone(),
-                )
-            })
-            .or_else(|e| {
-                try_create_window_with_fallback_renderer(builder, &self.proxy)
-                    .ok_or_else(|| format!("Winit backend failed to find a suitable renderer: {e}"))
-            })?;
+        let adapter = WinitWindowAdapter::new(
+            (self.renderer_factory_fn)(),
+            builder.clone(),
+            #[cfg(enable_accesskit)]
+            self.proxy.clone(),
+        )
+        .or_else(|e| {
+            try_create_window_with_fallback_renderer(builder, &self.proxy)
+                .ok_or_else(|| format!("Winit backend failed to find a suitable renderer: {e}"))
+        })?;
         Ok(adapter)
     }
 
