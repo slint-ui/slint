@@ -257,8 +257,16 @@ pub struct WinitWindowAdapter {
     #[cfg(enable_accesskit)]
     pub accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
 
-    pub(crate) window_event_filter:
-        Cell<Option<Box<dyn FnMut(&corelib::api::Window, &winit::event::WindowEvent) -> WinitWindowEventResult>>>,
+    pub(crate) window_event_filter: Cell<
+        Option<
+            Box<
+                dyn FnMut(
+                    &corelib::api::Window,
+                    &winit::event::WindowEvent
+                ) -> WinitWindowEventResult
+            >,
+        >,
+    >,
 
     winit_window_or_none: RefCell<WinitWindowOrNone>,
 }

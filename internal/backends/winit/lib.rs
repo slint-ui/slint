@@ -391,7 +391,8 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// If this window [is not backed by winit](WinitWindowAccessor::has_winit_window), this function is a no-op.
     fn on_winit_window_event(
         &self,
-        callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> WinitWindowEventResult + 'static,
+        callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> WinitWindowEventResult
+            + 'static,
     );
 }
 
@@ -417,14 +418,17 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
 
     fn on_winit_window_event(
         &self,
-        mut callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> WinitWindowEventResult + 'static,
+        mut callback: impl FnMut(&i_slint_core::api::Window, &winit::event::WindowEvent) -> WinitWindowEventResult
+            + 'static,
     ) {
         i_slint_core::window::WindowInner::from_pub(&self)
             .window_adapter()
             .internal(i_slint_core::InternalToken)
             .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
             .map(|adapter| {
-                adapter.window_event_filter.set(Some(Box::new(move |window, event| callback(window, event))));
+                adapter
+                    .window_event_filter
+                    .set(Some(Box::new(move |window, event| callback(window, event))));
             });
     }
 }
