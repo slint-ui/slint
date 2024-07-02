@@ -66,5 +66,6 @@ fn main() {
 #[cfg(not(feature = "enable"))]
 fn main() {
     println!("cargo:rustc-cfg=no_qt");
+    println!("cargo:rustc-check-cfg=cfg(no_qt)");
     return;
 }
