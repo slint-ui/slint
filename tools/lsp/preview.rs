@@ -789,13 +789,10 @@ fn finish_parsing(ok: bool) {
 
     if let Some(document_cache) = document_cache() {
         let mut components = Vec::new();
-        // `_SLINT_LivePreview` gets returned as `-SLINT-LivePreview`, which is unfortunately not a valid identifier.
-        // I do not want to store two constants, so map it over ;-/
-        let private_preview_component = SLINT_LIVE_PREVIEW_COMPONENT.replace('_', "-");
         component_catalog::builtin_components(&document_cache, &mut components);
         component_catalog::all_exported_components(
             &document_cache,
-            &mut |ci| !(ci.is_global || ci.name == private_preview_component),
+            &mut |ci| !ci.is_global,
             &mut components,
         );
         if let Some(previewed_url) = &previewed_url {
@@ -997,17 +994,23 @@ async fn parse_source(
     path: PathBuf,
     source_code: String,
     style: String,
+    component: Option<String>,
     file_loader_fallback: impl Fn(
             &Path,
         ) -> core::pin::Pin<
             Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
 ) -> (Vec<diagnostics::Diagnostic>, Option<ComponentDefinition>) {
-    let mut builder = slint_interpreter::ComponentCompiler::default();
+    let mut builder = slint_interpreter::Compiler::default();
 
+    let cc = builder.compiler_configuration(i_slint_core::InternalToken);
+    cc.components_to_generate = if let Some(name) = component {
+        i_slint_compiler::ComponentsToGenerate::ComponentWithName(name)
+    } else {
+        i_slint_compiler::ComponentsToGenerate::LastComponent
+    };
     #[cfg(target_arch = "wasm32")]
     {
-        let cc = builder.compiler_configuration(i_slint_core::InternalToken);
         cc.resource_url_mapper = resource_url_mapper();
     }
 
@@ -1018,42 +1021,31 @@ async fn parse_source(
     builder.set_library_paths(library_paths);
     builder.set_file_loader(file_loader_fallback);
 
-    let compiled = builder.build_from_source(source_code, path).await;
+    let result = builder.build_from_source(source_code, path).await;
 
-    (builder.diagnostics().clone(), compiled)
+    let compiled = result.component_names().next().and_then(|name| result.component(name));
+    (result.diagnostics().collect(), compiled)
 }
 
-pub const SLINT_LIVE_PREVIEW_COMPONENT: &str = "_SLINT_LivePreview";
-
 // Must be inside the thread running the slint event loop
-async fn reload_preview_impl(
-    preview_component: PreviewComponent,
-    style: String,
-    config: PreviewConfig,
-) {
-    let component = PreviewComponent { style: String::new(), ..preview_component };
-
+async fn reload_preview_impl(component: PreviewComponent, style: String, config: PreviewConfig) {
     start_parsing();
 
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
-    let source = {
-        let (_, from_cache) = get_url_from_cache(&component.url).unwrap_or_default();
-        if let Some(component_name) = &component.component {
-            format!(
-                "{from_cache}\nexport component {SLINT_LIVE_PREVIEW_COMPONENT} inherits {component_name} {{ /* {} */ }}\n",
-                common::NODE_IGNORE_COMMENT
-            )
-        } else {
-            from_cache
-        }
-    };
-
-    let (diagnostics, compiled) =
-        parse_source(config.include_paths, config.library_paths, path, source, style, |path| {
+    let (_, source) = get_url_from_cache(&component.url).unwrap_or_default();
+    let (diagnostics, compiled) = parse_source(
+        config.include_paths,
+        config.library_paths,
+        path,
+        source,
+        style,
+        component.component.clone(),
+        |path| {
             let path = path.to_owned();
             Box::pin(async move { get_path_from_cache(&path).map(|(_, c)| Result::Ok(c)) })
-        })
-        .await;
+        },
+    )
+    .await;
 
     notify_diagnostics(&diagnostics);
 
@@ -1463,6 +1455,7 @@ pub mod test {
             path,
             source_code.to_string(),
             style.to_string(),
+            None,
             move |path| {
                 let code = code.clone();
                 let path = path.to_owned();

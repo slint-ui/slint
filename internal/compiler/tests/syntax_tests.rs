@@ -15,6 +15,7 @@
 //! If there are two carets: ` ^^error{some_regexp}`  then it means two line above, and so on with more carets.
 //! `^warning{regexp}` is also supported.
 
+use i_slint_compiler::ComponentsToGenerate;
 use std::path::{Path, PathBuf};
 
 #[test]
@@ -192,8 +193,13 @@ fn process_file_source(
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
     compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".into());
-    compiler_config.generate_all_exported_windows =
-        source.contains("config:generate_all_exported_windows");
+    compiler_config.components_to_generate =
+        if source.contains("config:generate_all_exported_windows") {
+            ComponentsToGenerate::AllExportedWindows
+        } else {
+            // Otherwise we'd have lots of warnings about not inheriting Window
+            ComponentsToGenerate::LastComponent
+        };
     let compile_diagnostics = if !parse_diagnostics.has_error() {
         let (_, build_diags, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
             syntax_node.clone(),

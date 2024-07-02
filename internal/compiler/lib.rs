@@ -54,6 +54,22 @@ pub enum EmbedResourcesKind {
     EmbedTextures,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ComponentsToGenerate {
+    /// All exported Windows.
+    ///
+    /// When set, there will be a warning if an exported component is not a window.
+    AllExportedWindows,
+    /// The Last component (legacy for the viewer / interpreter)
+
+    /// Only the last exported component is generated, regardless if this is a Window or not,
+    /// (and it will be transformed in a Window)
+    LastComponent,
+
+    /// The component with the given name is generated
+    ComponentWithName(String),
+}
+
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 #[derive(Clone)]
 pub struct CompilerConfiguration {
@@ -104,11 +120,7 @@ pub struct CompilerConfiguration {
     /// Generate debug information for elements (ids, type names)
     pub debug_info: bool,
 
-    /// When this is true, the passes will generate components for all exported Windows
-    /// and will throw a warning if an exported component is not a window.
-    /// If this is false, only the last component is exported, regardless if this is a Window or not,
-    /// (and it will be transformed in a Window)
-    pub generate_all_exported_windows: bool,
+    pub components_to_generate: ComponentsToGenerate,
 }
 
 impl CompilerConfiguration {
@@ -157,9 +169,6 @@ impl CompilerConfiguration {
 
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
-        // The interpreter currently supports only generating the last component
-        let generate_all_exported_windows = output_format != OutputFormat::Interpreter;
-
         let cpp_namespace = match output_format {
             #[cfg(feature = "cpp")]
             OutputFormat::Cpp(config) => match config.namespace {
@@ -186,7 +195,7 @@ impl CompilerConfiguration {
             translation_domain: None,
             cpp_namespace,
             debug_info,
-            generate_all_exported_windows,
+            components_to_generate: ComponentsToGenerate::AllExportedWindows,
         }
     }
 }
