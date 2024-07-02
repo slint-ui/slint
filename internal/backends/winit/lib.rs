@@ -121,15 +121,12 @@ fn try_create_window_with_fallback_renderer(
     ]
     .into_iter()
     .find_map(|renderer_factory| {
-        Some(
-            WinitWindowAdapter::new(
-                renderer_factory(),
-                attrs.clone(),
-                #[cfg(enable_accesskit)]
-                _proxy.clone(),
-            )
-            .ok()?,
-        )
+        WinitWindowAdapter::new(
+            renderer_factory(),
+            attrs.clone(),
+            #[cfg(enable_accesskit)]
+            _proxy.clone(),
+        ).ok()
     })
 }
 
