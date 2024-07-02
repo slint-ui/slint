@@ -7,15 +7,15 @@ from slint.slint import ValueType
 
 
 def test_basic_compiler():
-    compiler = native.ComponentCompiler()
+    compiler = native.Compiler()
 
     assert compiler.include_paths == []
     compiler.include_paths = ["testing"]
     assert compiler.include_paths == ["testing"]
 
-    assert compiler.build_from_source("Garbage", "") == None
+    assert len(compiler.build_from_source("Garbage", "").component_names) == 0
 
-    compdef = compiler.build_from_source("""
+    result = compiler.build_from_source("""
         export global TestGlobal {
             in property <string> theglobalprop;
             callback globallogic();
@@ -36,6 +36,9 @@ def test_basic_compiler():
             public function ff() {}
         }
     """, "")
+    assert result.component_names == ["Test"]
+    compdef = result.component("Test")
+
     assert compdef != None
 
     assert compdef.name == "Test"
@@ -64,12 +67,12 @@ def test_basic_compiler():
 
 
 def test_compiler_build_from_path():
-    compiler = native.ComponentCompiler()
+    compiler = native.Compiler()
 
-    assert len(compiler.diagnostics) == 0
+    result = compiler.build_from_path("Nonexistent.slint")
+    assert len(result.component_names) == 0
 
-    assert compiler.build_from_path("Nonexistent.slint") == None
-    diags = compiler.diagnostics
+    diags = result.diagnostics
     assert len(diags) == 1
 
     assert diags[0].level == native.DiagnosticLevel.Error

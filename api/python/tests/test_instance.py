@@ -11,7 +11,7 @@ Brush = native.PyBrush
 
 
 def test_property_access():
-    compiler = native.ComponentCompiler()
+    compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""
         export global TestGlobal {
@@ -41,7 +41,7 @@ def test_property_access():
 
             callback test-callback();
         }
-    """, os.path.join(os.path.dirname(__file__), "main.slint"))
+    """, os.path.join(os.path.dirname(__file__), "main.slint")).component("Test")
     assert compdef != None
 
     instance = compdef.create()
@@ -121,7 +121,7 @@ def test_property_access():
 
 
 def test_callbacks():
-    compiler = native.ComponentCompiler()
+    compiler = native.Compiler()
 
     compdef = compiler.build_from_source("""
         export global TestGlobal {
@@ -138,7 +138,7 @@ def test_callbacks():
             }
             callback void-callback();
         }
-    """, "")
+    """, "").component("Test")
     assert compdef != None
 
     instance = compdef.create()

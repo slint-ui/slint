@@ -9,7 +9,7 @@ export global MyGlobal {
     }
 }
 
-export component App {
+export component App inherits Window {
     in-out property <string> hello: "World";
     callback say-hello(string) -> string;
     callback say_hello_again(string) -> string;
@@ -37,3 +37,5 @@ export component App {
         color: red;
     }
 }
+
+export component Diag inherits Window { }

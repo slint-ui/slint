@@ -12,8 +12,12 @@ def test_load_file(caplog):
 
     assert "The property 'color' has been deprecated. Please use 'background' instead" in caplog.text
 
-    assert list(module.__dict__.keys()) == ["App"]
+    assert len(list(module.__dict__.keys())) == 2
+    assert "App" in module.__dict__
+    assert "Diag" in module.__dict__
     instance = module.App()
+    del instance
+    instance = module.Diag()
     del instance
 
 
