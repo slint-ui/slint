@@ -26,7 +26,6 @@ are supported by their vendors at the time of a Slint version release.
 
 | Operating System  | Architecture    |
 | ----------------- | --------------- |
-| macOS 11 Big Sur  | x86-64, aarch64 |
 | macOS 12 Monterey | x86-64, aarch64 |
 | macOS 13 Ventura  | x86-64, aarch64 |
 | macOS 14 Sonoma   | x86-64, aarch64 |
