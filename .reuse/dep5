@@ -123,3 +123,7 @@ License: MIT
 Files: examples/energy-monitor/ui/assets/spyrosoft-logo.svg
 Copyright: Copyright © Spyrosoft Solutions GmbH <office@spyro-soft.com>
 License: CC-BY-4.0
+
+Files: examples/printerdemo_mcu/zephyr/VERSION
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
+License: MIT

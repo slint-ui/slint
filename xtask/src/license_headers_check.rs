@@ -413,6 +413,7 @@ lazy_static! {
         ("^editors/tree-sitter-slint/binding\\.gyp$", LicenseLocation::NoLicense), // liberal license
         ("^editors/tree-sitter-slint/test-to-corpus\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("^Cargo\\.lock$", LicenseLocation::NoLicense),
+        ("^examples/printerdemo_mcu/zephyr/VERSION$", LicenseLocation::NoLicense),
 
         // filename based matches:
         ("(^|/)CMakeLists\\.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
@@ -443,6 +444,7 @@ lazy_static! {
         ("\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.cmake$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.cmake.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("\\.conf$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.css$", LicenseLocation::NoLicense),
         ("\\.gitattributes$", LicenseLocation::NoLicense),
@@ -461,6 +463,7 @@ lazy_static! {
         ("\\.md$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
         ("\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.mts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.overlay$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.pdf$", LicenseLocation::NoLicense),
         ("\\.png$", LicenseLocation::NoLicense),
         ("\\.mo$", LicenseLocation::NoLicense),
