@@ -9,7 +9,7 @@ use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
 slint::slint! {
-    import { MainWindow } from "memory.slint";
+    export { MainWindow } from "memory.slint";
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]

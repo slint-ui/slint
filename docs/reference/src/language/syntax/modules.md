@@ -104,8 +104,11 @@ export component MyButton inherits Rectangle { /* ... */ }
 
 // Export lists
 component MySwitch inherits Rectangle { /* ... */ }
-export { MySwitch };
-export { MySwitch as Alias1, MyButton as Alias2 };
+export { MySwitch }
+export { MySwitch as Alias1, MyButton as Alias2 }
+
+// Re-export types from other module
+export { MyCheckBox, MyButton as OtherButton } from "other_module.slint";
 
 // Re-export all types from other module (only possible once per file)
 export * from "other_module.slint";
