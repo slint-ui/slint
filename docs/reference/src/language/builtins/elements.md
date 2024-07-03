@@ -738,6 +738,9 @@ and the text itself.
 -   **`stroke`** (_in_ _brush_): The brush used for the text outline (default value: `transparent`).
 -   **`stroke-width`** (_in_ _length_): The width of the text outline. If the width is zero, then a hairline stroke (1 physical pixel) will be rendered.
 -   **`stroke-style`** (_in_ _enum [`TextStrokeStyle`](enums.md#textstrokestyle)_): The style/alignment of the text outline (default value: `outside`).
+-   **`rotation-angle`** (_in_ _angle_), **`rotation-origin-x`** (_in_ _length_), **`rotation-origin-y`** (_in_ _length_):
+    Rotates the text by the given angle around the specified origin point. The default origin point is the center of the element.
+    When these properties are set, the `Text` can't have children.
 
 ### Example
 
