@@ -256,7 +256,7 @@ pub struct WinitWindowAdapter {
     #[cfg(enable_accesskit)]
     pub accesskit_adapter: RefCell<crate::accesskit::AccessKitAdapter>,
 
-    winit_window_or_none: RefCell<WinitWindowOrNone>, // Last field so that any previously provided window handles are still valid in the drop impl of the renderers, etc.
+    winit_window_or_none: RefCell<WinitWindowOrNone>,
 }
 
 impl WinitWindowAdapter {
