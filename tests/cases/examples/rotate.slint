@@ -55,4 +55,11 @@ TestCase := Window {
             source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
         }
     }
+
+    Text {
+        x: 150px;
+        y: 200px;
+        text: "Hello World";
+        rotation-angle: 360deg * animation-tick() / 3s;
+    }
 }
