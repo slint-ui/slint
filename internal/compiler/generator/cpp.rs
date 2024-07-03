@@ -1437,10 +1437,18 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "element_infos".into(),
             signature:
-                "([[maybe_unused]] slint::private_api::ItemTreeRef component, uint32_t index, slint::SharedString *result) -> bool"
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] slint::SharedString *result) -> bool"
                     .into(),
             is_static: true,
-            statements: Some(vec![format!("if (auto infos = reinterpret_cast<const {}*>(component.instance)->element_infos(index)) {{ *result = *infos; return true; }};", item_tree_class_name), "return false;".into()]),
+            statements: Some(if root.has_debug_info {
+                vec![
+                    format!("if (auto infos = reinterpret_cast<const {}*>(component.instance)->element_infos(index)) {{ *result = *infos; }};",
+                    item_tree_class_name),
+                    "return true;".into()
+                ]
+            } else {
+                vec!["return false;".into()]
+            }),
             ..Default::default()
         }),
     ));
