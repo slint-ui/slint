@@ -262,8 +262,8 @@ pub struct WinitWindowAdapter {
             Box<
                 dyn FnMut(
                     &corelib::api::Window,
-                    &winit::event::WindowEvent
-                ) -> WinitWindowEventResult
+                    &winit::event::WindowEvent,
+                ) -> WinitWindowEventResult,
             >,
         >,
     >,
