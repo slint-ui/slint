@@ -185,8 +185,12 @@ impl Backend {
     pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Result<Self, PlatformError> {
         // Initialize the winit event loop and propagate errors if for example `DISPLAY` or `WAYLAND_DISPLAY` isn't set.
 
-        let (proxy, clipboard) = crate::event_loop::with_not_running_event_loop(|nre| {
-            Ok((nre.instance.create_proxy(), Rc::downgrade(&nre.clipboard)))
+        let proxy =
+            crate::event_loop::with_not_running_event_loop(|nre| Ok(nre.instance.create_proxy()))?;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let clipboard = crate::event_loop::with_not_running_event_loop(|nre| {
+            Ok(Rc::downgrade(&nre.clipboard))
         })?;
 
         let renderer_factory_fn = match renderer_name {
