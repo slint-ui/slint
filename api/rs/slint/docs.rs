@@ -23,7 +23,7 @@ pub mod generated_code {
 
     /// This an example of the API that is generated for a component in `.slint` design markup. This may help you understand
     /// what functions you can call and how you can pass data in and out.
-    /// 
+    ///
     /// This is the source code:
     /// 
     /// ```slint,no-preview
