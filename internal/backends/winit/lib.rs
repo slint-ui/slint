@@ -10,7 +10,7 @@ use event_loop::CustomEvent;
 use i_slint_core::platform::EventLoopProxy;
 use i_slint_core::window::WindowAdapter;
 use renderer::WinitCompatibleRenderer;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod clipboard;
@@ -169,7 +169,7 @@ pub struct Backend {
         Option<Box<dyn Fn(winit::window::WindowAttributes) -> winit::window::WindowAttributes>>,
 
     #[cfg(not(target_arch = "wasm32"))]
-    clipboard: std::cell::RefCell<clipboard::ClipboardPair>,
+    clipboard: Weak<std::cell::RefCell<clipboard::ClipboardPair>>,
 }
 
 impl Backend {
@@ -184,15 +184,9 @@ impl Backend {
     /// If the renderer name is `None` or the name is not recognized, the default renderer is selected.
     pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Result<Self, PlatformError> {
         // Initialize the winit event loop and propagate errors if for example `DISPLAY` or `WAYLAND_DISPLAY` isn't set.
-        let proxy = crate::event_loop::with_window_target(|l| match l.event_loop() {
-            event_loop::ActiveOrInactiveEventLoop::Active(_) => unreachable!(
-                "Event loop can't be active when the winit backend is being constructed"
-            ),
-            event_loop::ActiveOrInactiveEventLoop::Inactive(l) => Ok(l.create_proxy()),
-        })?;
-        #[cfg(not(target_arch = "wasm32"))]
-        let clipboard = crate::event_loop::with_window_target(|l| {
-            Ok(clipboard::create_clipboard(&l.display_handle()?))
+
+        let (proxy, clipboard) = crate::event_loop::with_not_running_event_loop(|nre| {
+            Ok((nre.instance.create_proxy(), Rc::downgrade(&nre.clipboard)))
         })?;
 
         let renderer_factory_fn = match renderer_name {
@@ -339,7 +333,8 @@ impl i_slint_core::platform::Platform for Backend {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
-        let mut pair = self.clipboard.borrow_mut();
+        let Some(clipboard_pair) = self.clipboard.upgrade() else { return };
+        let mut pair = clipboard_pair.borrow_mut();
         if let Some(clipboard) = clipboard::select_clipboard(&mut pair, clipboard) {
             clipboard.set_contents(text.into()).ok();
         }
@@ -352,7 +347,8 @@ impl i_slint_core::platform::Platform for Backend {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        let mut pair = self.clipboard.borrow_mut();
+        let clipboard_pair = self.clipboard.upgrade()?;
+        let mut pair = clipboard_pair.borrow_mut();
         clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
     }
 }

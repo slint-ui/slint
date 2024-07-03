@@ -28,8 +28,10 @@ use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::event_loop::ControlFlow;
 use winit::window::ResizeDirection;
-struct NotRunningEventLoop {
-    instance: winit::event_loop::EventLoop<SlintUserEvent>,
+pub(crate) struct NotRunningEventLoop {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) clipboard: Rc<std::cell::RefCell<crate::clipboard::ClipboardPair>>,
+    pub(crate) instance: winit::event_loop::EventLoop<SlintUserEvent>,
     event_loop_proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
 }
 
@@ -59,7 +61,20 @@ impl NotRunningEventLoop {
         let instance =
             builder.build().map_err(|e| format!("Error initializing winit event loop: {e}"))?;
         let event_loop_proxy = instance.create_proxy();
-        Ok(Self { instance, event_loop_proxy })
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let clipboard = crate::clipboard::create_clipboard(
+            &instance
+                .display_handle()
+                .map_err(|display_err| PlatformError::OtherError(display_err.into()))?,
+        );
+
+        Ok(Self {
+            instance,
+            event_loop_proxy,
+            #[cfg(not(target_arch = "wasm32"))]
+            clipboard: Rc::new(clipboard.into()),
+        })
     }
 }
 
@@ -77,10 +92,6 @@ pub(crate) trait EventLoopInterface {
         &self,
         window_attributes: winit::window::WindowAttributes,
     ) -> Result<winit::window::Window, winit::error::OsError>;
-    #[cfg(not(target_family = "wasm"))]
-    fn display_handle(
-        &self,
-    ) -> Result<winit::raw_window_handle::DisplayHandle<'_>, winit::raw_window_handle::HandleError>;
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_>;
 }
 
@@ -91,13 +102,6 @@ impl EventLoopInterface for NotRunningEventLoop {
     ) -> Result<winit::window::Window, winit::error::OsError> {
         #[allow(deprecated)]
         self.instance.create_window(window_attributes)
-    }
-    #[cfg(not(target_family = "wasm"))]
-    fn display_handle(
-        &self,
-    ) -> Result<winit::raw_window_handle::DisplayHandle<'_>, winit::raw_window_handle::HandleError>
-    {
-        self.instance.display_handle()
     }
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_> {
         ActiveOrInactiveEventLoop::Inactive(&self.instance)
@@ -110,13 +114,6 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
         window_attributes: winit::window::WindowAttributes,
     ) -> Result<winit::window::Window, winit::error::OsError> {
         self.active_event_loop.create_window(window_attributes)
-    }
-    #[cfg(not(target_family = "wasm"))]
-    fn display_handle(
-        &self,
-    ) -> Result<winit::raw_window_handle::DisplayHandle<'_>, winit::raw_window_handle::HandleError>
-    {
-        self.active_event_loop.display_handle()
     }
     fn event_loop(&self) -> ActiveOrInactiveEventLoop<'_> {
         ActiveOrInactiveEventLoop::Active(self.active_event_loop)
@@ -192,6 +189,17 @@ pub(crate) fn with_window_target<T>(
             callback(loop_instance.borrow().as_ref().unwrap())
         })
     }
+}
+
+pub(crate) fn with_not_running_event_loop<T>(
+    callback: impl FnOnce(&NotRunningEventLoop) -> Result<T, Box<dyn std::error::Error + Send + Sync>>,
+) -> Result<T, Box<dyn std::error::Error + Send + Sync>> {
+    MAYBE_LOOP_INSTANCE.with(|loop_instance| {
+        if loop_instance.borrow().is_none() {
+            *loop_instance.borrow_mut() = Some(NotRunningEventLoop::new()?);
+        }
+        callback(loop_instance.borrow().as_ref().unwrap())
+    })
 }
 
 pub fn register_window(id: winit::window::WindowId, window: Rc<WinitWindowAdapter>) {
@@ -637,7 +645,11 @@ impl EventLoopState {
 
             // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
             // Winit does not support creating multiple instances of the event loop.
-            let nre = NotRunningEventLoop { instance: winit_loop, event_loop_proxy };
+            let nre = NotRunningEventLoop {
+                instance: winit_loop,
+                event_loop_proxy,
+                clipboard: not_running_loop_instance.clipboard,
+            };
             MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre));
 
             if let Some(error) = self.loop_error {
@@ -689,7 +701,11 @@ impl EventLoopState {
 
         // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
         // Winit does not support creating multiple instances of the event loop.
-        let nre = NotRunningEventLoop { instance: winit_loop, event_loop_proxy };
+        let nre = NotRunningEventLoop {
+            instance: winit_loop,
+            event_loop_proxy,
+            clipboard: not_running_loop_instance.clipboard,
+        };
         MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre));
 
         if let Some(error) = self.loop_error {
