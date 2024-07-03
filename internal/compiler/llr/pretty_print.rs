@@ -86,9 +86,12 @@ impl<'a> PrettyPrinter<'a> {
             self.indent()?;
             writeln!(self.writer, "{} := {} {{}};", ssc.name, ssc.ty.name)?;
         }
-        for i in &sc.items {
+        for (item, geom) in std::iter::zip(&sc.items, &sc.geometries) {
             self.indent()?;
-            writeln!(self.writer, "{} := {} {{}};", i.name, i.ty.class_name)?;
+            let geometry = geom.as_ref().map_or(String::new(), |geom| {
+                format!("geometry: {}", DisplayExpression(&geom.borrow(), &ctx))
+            });
+            writeln!(self.writer, "{} := {} {{ {geometry} }};", item.name, item.ty.class_name)?;
         }
         for (idx, r) in sc.repeated.iter().enumerate() {
             self.indent()?;
