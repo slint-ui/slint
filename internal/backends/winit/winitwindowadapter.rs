@@ -475,6 +475,7 @@ impl WinitWindowAdapter {
             }
             WinitWindowOrNone::None(attributes) => {
                 attributes.borrow_mut().inner_size = Some(size);
+                self.resize_event(size.to_physical(self.window().scale_factor() as _))?;
                 Ok(true)
             }
         }

@@ -108,7 +108,7 @@ unsafe impl OpenGLInterface for SuspendedRenderer {
         _: NonZeroU32,
         _: NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        Err(format!("resize called on suspended renderer").into())
+        Ok(())
     }
 
     fn get_proc_address(&self, _: &std::ffi::CStr) -> *const std::ffi::c_void {
