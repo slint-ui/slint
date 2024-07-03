@@ -3,8 +3,11 @@
 
 #![doc = include_str!("README.md")]
 
+use clap::Parser;
+use i_slint_compiler::ComponentsToGenerate;
 use i_slint_core::model::{Model, ModelRc};
 use i_slint_core::SharedVector;
+use itertools::Itertools;
 use slint_interpreter::{
     ComponentDefinition, ComponentHandle, ComponentInstance, SharedString, Value,
 };
@@ -13,9 +16,6 @@ use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
-
-use clap::Parser;
-use itertools::Itertools;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -37,6 +37,11 @@ struct Cli {
     /// The style name ('native' or 'fluent')
     #[arg(long, value_name = "style name", action)]
     style: Option<String>,
+
+    /// The name of the component to view. If unset, the last exported component of the file is used.
+    /// If the component name is not in the .slint file , nothing will be shown
+    #[arg(long, value_name = "component name", action)]
+    component: Option<String>,
 
     /// The rendering backend
     #[arg(long, value_name = "backend", action)]
@@ -97,14 +102,22 @@ fn main() -> Result<()> {
     };
 
     let fswatcher = if args.auto_reload { Some(start_fswatch_thread(args.clone())?) } else { None };
-    let mut compiler = init_compiler(&args, fswatcher);
-
-    let c = spin_on::spin_on(compiler.build_from_path(args.path));
-    slint_interpreter::print_diagnostics(compiler.diagnostics());
-
-    let c = match c {
-        Some(c) => c,
-        None => std::process::exit(-1),
+    let compiler = init_compiler(&args, fswatcher);
+    let r = spin_on::spin_on(compiler.build_from_path(&args.path));
+    slint_interpreter::print_diagnostics(&r.diagnostics().collect::<Vec<_>>());
+    if r.has_error() {
+        std::process::exit(-1);
+    }
+    let Some(c) = r.component_names().next().and_then(|n| r.component(n)) else {
+        match args.component {
+            Some(name) => {
+                eprintln!("Component '{name}' not found in file '{}'", args.path.display());
+            }
+            None => {
+                eprintln!("No component found in file '{}'", args.path.display());
+            }
+        }
+        std::process::exit(-1);
     };
 
     let component = c.create().unwrap();
@@ -166,8 +179,8 @@ fn main() -> Result<()> {
 fn init_compiler(
     args: &Cli,
     fswatcher: Option<Arc<Mutex<notify::RecommendedWatcher>>>,
-) -> slint_interpreter::ComponentCompiler {
-    let mut compiler = slint_interpreter::ComponentCompiler::default();
+) -> slint_interpreter::Compiler {
+    let mut compiler = slint_interpreter::Compiler::new();
     #[cfg(feature = "gettext")]
     if let Some(domain) = args.translation_domain.clone() {
         compiler.set_translation_domain(domain);
@@ -192,6 +205,13 @@ fn init_compiler(
             Box::pin(async { None })
         })
     }
+
+    compiler.compiler_configuration(i_slint_core::InternalToken).components_to_generate =
+        match &args.component {
+            Some(component) => ComponentsToGenerate::ComponentWithName(component.clone()),
+            None => ComponentsToGenerate::LastComponent,
+        };
+
     compiler
 }
 
@@ -275,11 +295,10 @@ fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatche
 }
 
 async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
-    let mut compiler = init_compiler(&args, Some(fswatcher));
-    let c = compiler.build_from_path(&args.path).await;
-    slint_interpreter::print_diagnostics(compiler.diagnostics());
-
-    if let Some(c) = c {
+    let compiler = init_compiler(&args, Some(fswatcher));
+    let r = compiler.build_from_path(&args.path).await;
+    slint_interpreter::print_diagnostics(&r.diagnostics().collect::<Vec<_>>());
+    if let Some(c) = r.component_names().next().and_then(|n| r.component(n)) {
         CURRENT_INSTANCE.with(|current| {
             let mut current = current.borrow_mut();
             if let Some(handle) = current.take() {
@@ -298,6 +317,11 @@ async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
             }
             eprintln!("Successful reload of {}", args.path.display());
         });
+    } else if !r.has_error() {
+        match &args.component {
+            Some(name) => println!("Component {name} not found"),
+            None => println!("No component found"),
+        }
     }
 
     PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);

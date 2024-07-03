@@ -493,8 +493,8 @@ impl FromIterator<(String, Value)> for Struct {
     }
 }
 
-/// ComponentCompiler is deprecated, use `Compiler` instead
-//#[deprecated(note = "Use Complier instead")]
+/// ComponentCompiler is deprecated, use [`Compiler`] instead
+// #[deprecated(note = "Use slint_interpreter::Complier instead")]
 pub struct ComponentCompiler {
     config: i_slint_compiler::CompilerConfiguration,
     diagnostics: Vec<Diagnostic>,
@@ -705,6 +705,11 @@ impl Default for Compiler {
 }
 
 impl Compiler {
+    /// Returns a new Compiler.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Allow access to the underlying `CompilerConfiguration`
     ///
     /// This is an internal function without and ABI or API stability guarantees.
